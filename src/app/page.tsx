@@ -35,7 +35,7 @@ export default function Home() {
         <Logo />
 
         <div className="text-center">
-          <h2 className="text-xl font-bold uppercase text-[#1A90C8]">
+          <h2 className="text-xl font-bold uppercase text-[#3588CC]">
             FORMATO DE RECIBOS Y DESPACHOS
           </h2>
           <p className="mt-2 text-sm text-gray-600">
