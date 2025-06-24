@@ -1,65 +1,83 @@
 "use client";
 
-import { useState } from "react";
-import type { LogEntry, Receipt, Dispatch } from "@/lib/types";
-import { useLocalStorage } from "@/hooks/use-local-storage";
-import { ReceiptForm } from "@/components/app/receipt-form";
-import { DispatchForm } from "@/components/app/dispatch-form";
-import { LogTable } from "@/components/app/log-table";
+import { useState } from 'react';
+import { Snowflake, FileText } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Label } from '@/components/ui/label';
+
+const Logo = () => (
+    <div className="flex flex-col items-center justify-center text-center">
+      <div className="flex items-center space-x-2">
+        <Snowflake className="h-20 w-20 text-cyan-500" />
+        <span className="text-7xl font-bold text-blue-800">frio</span>
+      </div>
+      <span className="text-4xl font-light text-cyan-500 tracking-widest -mt-2">alimentaria</span>
+      <span className="text-xs text-gray-500 mt-1">logística en alimentos congelados</span>
+    </div>
+  );
+
 
 export default function Home() {
-  const [logEntries, setLogEntries] = useLocalStorage<LogEntry[]>("logEntries", []);
-  const [isClient, setIsClient] = useState(false);
-  
-  useState(() => {
-    setIsClient(true);
-  });
+  const [operationType, setOperationType] = useState<string>();
+  const [productType, setProductType] = useState<string>();
 
-  const handleAddReceipt = (receipt: Omit<Receipt, 'id' | 'type'>) => {
-    const newReceipt: Receipt = {
-      ...receipt,
-      id: new Date().toISOString(),
-      type: 'receipt',
-    };
-    setLogEntries([...logEntries, newReceipt]);
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!operationType || !productType) return;
+    // Handle form submission
+    alert(`Generating format...\nOperation: ${operationType}\nProduct: ${productType}`);
   };
-
-  const handleAddDispatch = (dispatch: Omit<Dispatch, 'id' | 'type'>) => {
-    const newDispatch: Dispatch = {
-      ...dispatch,
-      id: new Date().toISOString(),
-      type: 'dispatch',
-    };
-    setLogEntries([...logEntries, newDispatch]);
-  };
-
-  if (!isClient) {
-    return null; // or a loading skeleton
-  }
 
   return (
-    <div className="flex flex-col min-h-screen">
-      <header className="bg-card border-b sticky top-0 z-10">
-        <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <h1 className="text-xl sm:text-2xl font-bold text-primary">
-              Recibos y Despachos
-            </h1>
-            <div className="flex items-center gap-2 sm:gap-4">
-              <ReceiptForm onAddReceipt={handleAddReceipt} allEntries={logEntries} />
-              <DispatchForm onAddDispatch={handleAddDispatch} allEntries={logEntries} />
-            </div>
-          </div>
+    <div className="flex min-h-screen w-full items-center justify-center bg-white p-4">
+      <div className="w-full max-w-xl space-y-8">
+        <Logo />
+
+        <div className="text-center">
+          <h2 className="text-xl font-bold uppercase text-blue-800">
+            FORMATO DE RECIBOS Y DESPACHOS
+          </h2>
+          <p className="mt-2 text-sm text-gray-600">
+            Seleccione las opciones para generar el formato correspondiente o consulte los formatos guardados.
+          </p>
         </div>
-      </header>
 
-      <main className="flex-grow container mx-auto p-4 sm:p-6 lg:p-8">
-        <LogTable data={logEntries} />
-      </main>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <fieldset>
+            <legend className="text-base font-semibold text-gray-900 mb-4">Tipo de Operación</legend>
+            <RadioGroup value={operationType} onValueChange={setOperationType} className="grid grid-cols-2 gap-4">
+                <Label htmlFor="recepcion" className={`flex cursor-pointer items-center space-x-3 rounded-md border bg-white p-4 transition-colors ${operationType === 'recepcion' ? 'border-primary ring-2 ring-primary' : 'border-gray-200'}`}>
+                    <RadioGroupItem value="recepcion" id="recepcion" />
+                    <span className="font-medium">Recepción</span>
+                </Label>
+                <Label htmlFor="despacho" className={`flex cursor-pointer items-center space-x-3 rounded-md border bg-white p-4 transition-colors ${operationType === 'despacho' ? 'border-primary ring-2 ring-primary' : 'border-gray-200'}`}>
+                    <RadioGroupItem value="despacho" id="despacho" />
+                    <span className="font-medium">Despacho</span>
+                </Label>
+            </RadioGroup>
+          </fieldset>
+          
+          <fieldset>
+            <legend className="text-base font-semibold text-gray-900 mb-4">Tipo de Producto</legend>
+            <RadioGroup value={productType} onValueChange={setProductType} className="grid grid-cols-2 gap-4">
+                <Label htmlFor="fijo" className={`flex cursor-pointer items-center space-x-3 rounded-md border bg-white p-4 transition-colors ${productType === 'fijo' ? 'border-primary ring-2 ring-primary' : 'border-gray-200'}`}>
+                    <RadioGroupItem value="fijo" id="fijo" />
+                    <span className="font-medium">Peso Fijo</span>
+                </Label>
+                <Label htmlFor="variable" className={`flex cursor-pointer items-center space-x-3 rounded-md border bg-white p-4 transition-colors ${productType === 'variable' ? 'border-primary ring-2 ring-primary' : 'border-gray-200'}`}>
+                    <RadioGroupItem value="variable" id="variable" />
+                    <span className="font-medium">Peso Variable</span>
+                </Label>
+            </RadioGroup>
+          </fieldset>
 
-      <footer className="text-center p-4 text-muted-foreground text-sm">
-        © {new Date().getFullYear()} Recibos y Despachos. All rights reserved.
-      </footer>
+          <Button type="submit" size="lg" className="w-full h-12 text-base bg-slate-500 hover:bg-slate-600" disabled={!operationType || !productType}>
+            <FileText className="mr-2 h-5 w-5" />
+            Generar Formato
+          </Button>
+        </form>
+      </div>
     </div>
   );
 }

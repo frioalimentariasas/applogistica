@@ -3,8 +3,8 @@ import './globals.css';
 import { Toaster } from "@/components/ui/toaster"
 
 export const metadata: Metadata = {
-  title: 'Recibos y Despachos',
-  description: 'Gestión de inventario de recibos y despachos',
+  title: 'Frio Alimentaria',
+  description: 'Logística en alimentos congelados',
 };
 
 export default function RootLayout({
@@ -20,10 +20,8 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet"></link>
       </head>
       <body className="font-body antialiased">
-        <div className="min-h-screen bg-background font-sans antialiased">
-          {children}
-          <Toaster />
-        </div>
+        {children}
+        <Toaster />
       </body>
     </html>
   );
