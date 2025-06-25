@@ -295,7 +295,9 @@ export default function VariableWeightReceptionFormComponent() {
 
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <Card>
-                <CardHeader><CardTitle>Información General</CardTitle></CardHeader>
+                <CardHeader>
+                    <CardTitle>Información General</CardTitle>
+                </CardHeader>
                 <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <FormField control={control} name="pedidoSislog" render={({ field }) => (
                         <FormItem><FormLabel>Pedido SISLOG</FormLabel><FormControl><Input placeholder="Máximo 10 dígitos" {...field} /></FormControl><FormMessage /></FormItem>
@@ -333,7 +335,7 @@ export default function VariableWeightReceptionFormComponent() {
               </Card>
               
               <Card>
-                  <CardHeader><CardTitle>Items de Recepción</CardTitle></CardHeader>
+                  <CardHeader><CardTitle>Detalle de la Recepción</CardTitle></CardHeader>
                   <CardContent className="space-y-4">
                       <div className="space-y-4">
                           {fields.map((field, index) => (
