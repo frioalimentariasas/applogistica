@@ -213,6 +213,12 @@ export default function VariableWeightReceptionFormComponent() {
   });
   
   const watchedItems = form.watch("items");
+  const watchedSummary = form.watch("summary");
+
+  const showSummary = useMemo(() => 
+    (watchedItems || []).some(item => item.descripcion && item.descripcion.trim() !== ''),
+    [watchedItems]
+  );
 
   useEffect(() => {
     const grouped = (watchedItems || []).reduce((acc, item) => {
@@ -241,8 +247,10 @@ export default function VariableWeightReceptionFormComponent() {
             temperatura: existingItem?.temperatura,
         };
     });
-
-    setSummaryItems(mergedSummary);
+    
+    if (JSON.stringify(form.getValues('summary')) !== JSON.stringify(mergedSummary)) {
+      setSummaryItems(mergedSummary);
+    }
   }, [watchedItems, setSummaryItems, form]);
 
 
@@ -322,6 +330,11 @@ export default function VariableWeightReceptionFormComponent() {
       } catch (error) {
         console.error('Error accessing camera:', error);
         setHasCameraPermission(false);
+        toast({
+            variant: 'destructive',
+            title: 'Acceso a la cámara denegado',
+            description: 'Por favor, habilite los permisos de la cámara en la configuración de su navegador para tomar fotos.',
+        });
       }
     };
 
@@ -334,7 +347,7 @@ export default function VariableWeightReceptionFormComponent() {
             videoRef.current.srcObject = null;
         }
     }
-  }, [isCameraOpen]);
+  }, [isCameraOpen, toast]);
 
   function onSubmit(data: z.infer<typeof formSchema>) {
     console.log({ ...data, attachments });
@@ -443,59 +456,61 @@ export default function VariableWeightReceptionFormComponent() {
                   </CardContent>
               </Card>
 
-              <Card>
-                <CardHeader>
-                    <CardTitle>Resumen Agrupado de Productos</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="rounded-md border">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead className="w-[150px]">Temperatura (°C)</TableHead>
-                                    <TableHead>Producto</TableHead>
-                                    <TableHead className="text-right">Total Peso (kg)</TableHead>
-                                    <TableHead className="text-right">Cantidad Total</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {summaryItems.length > 0 ? (
-                                    summaryItems.map((summaryItem, index) => (
-                                        <TableRow key={summaryItem.id}>
-                                            <TableCell>
-                                                <FormField
-                                                    control={control}
-                                                    name={`summary.${index}.temperatura`}
-                                                    render={({ field }) => (
-                                                        <FormItem>
-                                                            <FormControl>
-                                                                <Input type="number" placeholder="0" {...field} 
-                                                                    onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.valueAsNumber)} 
-                                                                    value={field.value === undefined || Number.isNaN(field.value) ? '' : field.value}
-                                                                />
-                                                            </FormControl>
-                                                            <FormMessage />
-                                                        </FormItem>
-                                                    )}
-                                                />
-                                            </TableCell>
-                                            <TableCell className="font-medium">{summaryItem.descripcion}</TableCell>
-                                            <TableCell className="text-right">{(summaryItem.totalPeso || 0).toFixed(2)}</TableCell>
-                                            <TableCell className="text-right">{summaryItem.totalCantidad || 0}</TableCell>
-                                        </TableRow>
-                                    ))
-                                ) : (
-                                    <TableRow>
-                                        <TableCell colSpan={4} className="h-24 text-center">
-                                            Agregue ítems para ver el resumen.
-                                        </TableCell>
-                                    </TableRow>
-                                )}
-                            </TableBody>
-                        </Table>
-                    </div>
-                </CardContent>
-              </Card>
+              {showSummary && (
+                <Card>
+                  <CardHeader>
+                      <CardTitle>Resumen Agrupado de Productos</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                      <div className="rounded-md border">
+                          <Table>
+                              <TableHeader>
+                                  <TableRow>
+                                      <TableHead className="w-[150px]">Temperatura (°C)</TableHead>
+                                      <TableHead>Producto</TableHead>
+                                      <TableHead className="text-right">Total Peso (kg)</TableHead>
+                                      <TableHead className="text-right">Cantidad Total</TableHead>
+                                  </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                  {watchedSummary && watchedSummary.length > 0 ? (
+                                      watchedSummary.map((summaryItem, index) => (
+                                          <TableRow key={summaryItems[index].id}>
+                                              <TableCell>
+                                                  <FormField
+                                                      control={control}
+                                                      name={`summary.${index}.temperatura`}
+                                                      render={({ field }) => (
+                                                          <FormItem>
+                                                              <FormControl>
+                                                                  <Input type="number" placeholder="0" {...field} 
+                                                                      onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.valueAsNumber)} 
+                                                                      value={field.value === undefined || Number.isNaN(field.value) ? '' : field.value}
+                                                                  />
+                                                              </FormControl>
+                                                              <FormMessage />
+                                                          </FormItem>
+                                                      )}
+                                                  />
+                                              </TableCell>
+                                              <TableCell className="font-medium">{summaryItem.descripcion}</TableCell>
+                                              <TableCell className="text-right">{(summaryItem.totalPeso || 0).toFixed(2)}</TableCell>
+                                              <TableCell className="text-right">{summaryItem.totalCantidad || 0}</TableCell>
+                                          </TableRow>
+                                      ))
+                                  ) : (
+                                      <TableRow>
+                                          <TableCell colSpan={4} className="h-24 text-center">
+                                              Agregue ítems para ver el resumen.
+                                          </TableCell>
+                                      </TableRow>
+                                  )}
+                              </TableBody>
+                          </Table>
+                      </div>
+                  </CardContent>
+                </Card>
+              )}
               
               <Card>
                   <CardHeader><CardTitle>Responsables y Observaciones</CardTitle></CardHeader>
@@ -603,5 +618,3 @@ export default function VariableWeightReceptionFormComponent() {
     </Form>
   );
 }
-
-    
