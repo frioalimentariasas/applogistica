@@ -1,9 +1,9 @@
 
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useForm, useFieldArray, Controller } from "react-hook-form";
+import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format } from "date-fns";
@@ -15,7 +15,6 @@ import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -38,7 +37,6 @@ import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
     ArrowLeft,
@@ -56,7 +54,6 @@ import {
     Edit2
 } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
-
 
 const itemSchema = z.object({
   paleta: z.coerce.number().int().min(0, "Debe ser un número no negativo."),
@@ -135,12 +132,42 @@ export default function VariableWeightReceptionFormComponent() {
     },
   });
 
-  const { control, setValue, watch, getValues } = form;
+  const { control, watch, setValue, getValues } = form;
 
   const { fields, append, remove } = useFieldArray({
     control,
     name: "items",
   });
+
+  // Rebuilt effect to handle automatic calculations robustly
+  useEffect(() => {
+    const subscription = watch((value, { name, type }) => {
+      if (type === 'change' && name && name.startsWith('items.')) {
+        const nameParts = name.split('.');
+        if (nameParts.length === 3) {
+          const index = parseInt(nameParts[1], 10);
+          const fieldName = nameParts[2];
+          const itemValues = getValues(`items.${index}`);
+          
+          if (['cantidadPorPaleta', 'taraCaja', 'pesoBruto', 'taraEstiba'].includes(fieldName)) {
+            const cantidad = Number(itemValues.cantidadPorPaleta) || 0;
+            const taraCaja = Number(itemValues.taraCaja) || 0;
+            const pesoBruto = Number(itemValues.pesoBruto) || 0;
+            const taraEstiba = Number(itemValues.taraEstiba) || 0;
+
+            const newTotalTaraCaja = cantidad * taraCaja;
+            const newPesoNeto = pesoBruto - taraEstiba - newTotalTaraCaja;
+
+            // Set new values without triggering re-validation loops
+            setValue(`items.${index}.totalTaraCaja`, parseFloat(newTotalTaraCaja.toFixed(2)), { shouldDirty: true });
+            setValue(`items.${index}.pesoNeto`, parseFloat(newPesoNeto.toFixed(2)), { shouldDirty: true });
+          }
+        }
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, [watch, setValue, getValues]);
+
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -364,7 +391,7 @@ export default function VariableWeightReceptionFormComponent() {
                                 </Button>
                             )}
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
                             <FormField control={form.control} name={`items.${index}.paleta`} render={({ field }) => (
                                 <FormItem><FormLabel>Paleta</FormLabel><FormControl><Input type="number" min="0" placeholder="0" {...field} /></FormControl><FormMessage /></FormItem>
                             )}/>
@@ -403,20 +430,20 @@ export default function VariableWeightReceptionFormComponent() {
                                 </FormItem>
                             )}/>
                             <FormField control={form.control} name={`items.${index}.lote`} render={({ field }) => (
-                                <FormItem><FormLabel>Lote</FormLabel><FormControl><Input placeholder="Lote (máx. 15 caracteres)" {...field} /></FormControl><FormMessage /></FormItem>
+                                <FormItem><FormLabel>Lote</FormLabel><FormControl><Input placeholder="Lote" {...field} /></FormControl><FormMessage /></FormItem>
                             )}/>
                             <FormField control={form.control} name={`items.${index}.presentacion`} render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Presentación</FormLabel>
                                     <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                    <FormControl><SelectTrigger><SelectValue placeholder="Seleccione presentación" /></SelectTrigger></FormControl>
+                                    <FormControl><SelectTrigger><SelectValue placeholder="Seleccione" /></SelectTrigger></FormControl>
                                     <SelectContent>{presentaciones.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent>
                                     </Select>
                                     <FormMessage />
                                 </FormItem>
                             )}/>
                             <FormField control={form.control} name={`items.${index}.cantidadPorPaleta`} render={({ field }) => (
-                                <FormItem><FormLabel>Cantidad Por Paleta</FormLabel><FormControl><Input type="number" min="0" placeholder="0" {...field} /></FormControl><FormMessage /></FormItem>
+                                <FormItem><FormLabel>Cant. por Paleta</FormLabel><FormControl><Input type="number" min="0" placeholder="0" {...field} /></FormControl><FormMessage /></FormItem>
                             )}/>
                             <FormField control={form.control} name={`items.${index}.pesoBruto`} render={({ field }) => (
                                 <FormItem><FormLabel>Peso Bruto (kg)</FormLabel><FormControl><Input type="number" min="0" placeholder="0" {...field} /></FormControl><FormMessage /></FormItem>
@@ -430,14 +457,14 @@ export default function VariableWeightReceptionFormComponent() {
                              <FormField control={form.control} name={`items.${index}.totalTaraCaja`} render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Total Tara Caja (kg)</FormLabel>
-                                    <FormControl><Input type="number" min="0" placeholder="0" {...field} /></FormControl>
+                                    <FormControl><Input type="number" disabled {...field} className="bg-gray-100" /></FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )}/>
                             <FormField control={form.control} name={`items.${index}.pesoNeto`} render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Peso Neto (kg)</FormLabel>
-                                    <FormControl><Input type="number" min="0" placeholder="0" {...field} /></FormControl>
+                                    <FormControl><Input type="number" disabled {...field} className="bg-gray-100" /></FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )}/>
@@ -548,13 +575,13 @@ export default function VariableWeightReceptionFormComponent() {
             </Card>
             
             <footer className="flex items-center justify-end gap-4 pt-4">
-                <Button type="submit">
-                    <Send className="mr-2 h-4 w-4"/>
-                    Guardar Formato y Enviar
-                </Button>
                 <Button type="button" variant="outline" onClick={() => form.reset()}>
                     <RotateCcw className="mr-2 h-4 w-4"/>
                     Limpiar Formato
+                </Button>
+                <Button type="submit">
+                    <Send className="mr-2 h-4 w-4"/>
+                    Guardar Formato y Enviar
                 </Button>
             </footer>
           </form>
@@ -582,3 +609,4 @@ export default function VariableWeightReceptionFormComponent() {
   );
 }
 
+    
