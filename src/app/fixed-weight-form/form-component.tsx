@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { useForm, useFieldArray, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -39,6 +39,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import {
+    ArrowLeft,
     CalendarIcon,
     Clock,
     Trash2,
@@ -96,6 +97,7 @@ const productosExistentes = [
 
 
 export default function FixedWeightFormComponent() {
+  const router = useRouter();
   const searchParams = useSearchParams();
   const operation = searchParams.get("operation") || "operación";
   const { toast } = useToast();
@@ -193,9 +195,22 @@ export default function FixedWeightFormComponent() {
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
       <div className="max-w-6xl mx-auto">
-        <header className="mb-8 text-center">
-            <h1 className="text-2xl font-bold text-primary">{title}</h1>
-            <p className="text-sm text-gray-500">Complete todos los campos requeridos para registrar la operación.</p>
+        <header className="mb-8">
+            <div className="relative flex items-center justify-center text-center">
+                 <Button 
+                    variant="ghost" 
+                    size="icon" 
+                    className="absolute left-0 top-1/2 -translate-y-1/2" 
+                    onClick={() => router.push('/')}
+                    aria-label="Volver a la página principal"
+                >
+                    <ArrowLeft className="h-6 w-6" />
+                </Button>
+                <div>
+                    <h1 className="text-2xl font-bold text-[#3588CC]">{title}</h1>
+                    <p className="text-sm text-gray-500">Complete todos los campos requeridos para registrar la operación.</p>
+                </div>
+            </div>
         </header>
 
         <Form {...form}>
