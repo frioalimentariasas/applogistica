@@ -35,12 +35,8 @@ export default function Home() {
     } else if (productType === 'variable') {
        if (operationType === 'despacho') {
          router.push(`/variable-weight-form?operation=${operationType}`);
-       } else {
-         toast({
-            title: "En desarrollo",
-            description: "El formato para Recepción de Peso Variable aún no está disponible.",
-            variant: "destructive"
-          });
+       } else if (operationType === 'recepcion') {
+         router.push(`/variable-weight-reception-form?operation=${operationType}`);
        }
     } else {
       toast({
