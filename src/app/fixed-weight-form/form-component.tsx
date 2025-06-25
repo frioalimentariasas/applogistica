@@ -486,7 +486,7 @@ export default function FixedWeightFormComponent() {
                     </div>
                     <div className="flex items-center gap-2">
                         <span className="font-medium text-sm">Totales Paletas/Cantidad</span>
-                        <Input className="w-28" disabled value={totalPaletas.toFixed(2)} />
+                        <Input className="w-28" disabled value={totalPaletas % 1 === 0 ? totalPaletas : totalPaletas.toFixed(2)} />
                     </div>
                 </div>
               </CardContent>
