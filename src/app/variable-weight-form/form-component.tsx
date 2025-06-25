@@ -9,6 +9,7 @@ import * as z from "zod";
 import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
+import Image from "next/image";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -38,6 +39,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
     ArrowLeft,
     CalendarIcon,
@@ -103,8 +105,11 @@ export default function VariableWeightFormComponent() {
   const searchParams = useSearchParams();
   const operation = searchParams.get("operation") || "operación";
   const { toast } = useToast();
-  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
+  
+  const [attachments, setAttachments] = useState<string[]>([]);
+  const [isCameraOpen, setIsCameraOpen] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -139,42 +144,96 @@ export default function VariableWeightFormComponent() {
     }
   }, [fields, append]);
   
-  // Camera permission logic
-  useEffect(() => {
-    const getCameraPermission = async () => {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        console.log("Camera API not available in this browser.");
-        setHasCameraPermission(false);
-        return;
-      }
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({video: true});
-        setHasCameraPermission(true);
-
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
+  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files) {
+        const files = Array.from(event.target.files);
+        const imageFiles = files.filter(file => file.type.startsWith('image/'));
+        if (imageFiles.length !== files.length) {
+            toast({
+                variant: "destructive",
+                title: "Archivos no válidos",
+                description: "Por favor, seleccione solo archivos de imagen.",
+            });
         }
-      } catch (error) {
-        console.error('Error accessing camera:', error);
-        setHasCameraPermission(false);
-        toast({
-          variant: 'destructive',
-          title: 'Acceso a la cámara denegado',
-          description: 'Por favor, habilite los permisos de la cámara en la configuración de su navegador.',
+        imageFiles.forEach(file => {
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setAttachments(prev => [...prev, reader.result as string]);
+            };
+            reader.readAsDataURL(file);
         });
-      }
-    };
-
-    getCameraPermission();
-
-    return () => {
-      // Cleanup: stop video stream when component unmounts
-      if (videoRef.current && videoRef.current.srcObject) {
-        const stream = videoRef.current.srcObject as MediaStream;
-        stream.getTracks().forEach(track => track.stop());
-      }
     }
-  }, [toast]);
+  };
+
+  const handleRemoveAttachment = (indexToRemove: number) => {
+      setAttachments(prev => prev.filter((_, index) => index !== indexToRemove));
+  };
+
+  const handleOpenCamera = async () => {
+      setIsCameraOpen(true);
+  };
+  
+  const handleCapture = () => {
+      if (videoRef.current && canvasRef.current) {
+          const video = videoRef.current;
+          const canvas = canvasRef.current;
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          const context = canvas.getContext('2d');
+          if (context) {
+              context.drawImage(video, 0, 0, canvas.width, canvas.height);
+              const dataUrl = canvas.toDataURL('image/jpeg');
+              setAttachments(prev => [...prev, dataUrl]);
+          }
+          handleCloseCamera();
+      }
+  };
+
+  const handleCloseCamera = () => {
+      if (videoRef.current && videoRef.current.srcObject) {
+          const stream = videoRef.current.srcObject as MediaStream;
+          stream.getTracks().forEach(track => track.stop());
+          videoRef.current.srcObject = null;
+      }
+      setIsCameraOpen(false);
+  };
+
+  useEffect(() => {
+    let stream: MediaStream;
+    const enableCamera = async () => {
+        if (isCameraOpen) {
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    if (videoRef.current) {
+                        videoRef.current.srcObject = stream;
+                    }
+                } catch (err) {
+                    console.error("Error accessing camera: ", err);
+                    toast({
+                        variant: 'destructive',
+                        title: 'Acceso a la cámara denegado',
+                        description: 'Por favor, habilite los permisos de la cámara en la configuración de su navegador.',
+                    });
+                    setIsCameraOpen(false);
+                }
+            } else {
+                toast({
+                    variant: 'destructive',
+                    title: 'Cámara no disponible',
+                    description: 'Su navegador no soporta el acceso a la cámara.',
+                });
+                setIsCameraOpen(false);
+            }
+        }
+    };
+    enableCamera();
+    return () => {
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+        }
+    }
+  }, [isCameraOpen, toast]);
 
 
   function onSubmit(data: z.infer<typeof formSchema>) {
@@ -443,37 +502,48 @@ export default function VariableWeightFormComponent() {
              {/* Attachments Card */}
              <Card>
                 <CardHeader><CardTitle>Anexos</CardTitle></CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div 
-                        className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-lg cursor-pointer hover:bg-gray-100"
-                        onClick={() => fileInputRef.current?.click()}
-                    >
-                        <UploadCloud className="w-10 h-10 text-gray-400 mb-2"/>
-                        <p className="text-sm text-gray-600 font-semibold">Subir archivos o arrastre y suelte</p>
-                        <p className="text-xs text-gray-500">Max. de imágenes 30 / Cada imagen se optimizará a 1MB</p>
-                        <Input type="file" ref={fileInputRef} className="hidden" multiple accept="image/*" />
+                <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div 
+                            className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-lg cursor-pointer hover:bg-gray-100"
+                            onClick={() => fileInputRef.current?.click()}
+                        >
+                            <UploadCloud className="w-10 h-10 text-gray-400 mb-2"/>
+                            <p className="text-sm text-gray-600 font-semibold">Subir archivos o arrastre y suelte</p>
+                            <p className="text-xs text-gray-500">Max. de imágenes 30 / Cada imagen se optimizará a 1MB</p>
+                            <Input type="file" ref={fileInputRef} className="hidden" multiple accept="image/*" onChange={handleFileChange} />
+                        </div>
+                        <div 
+                            className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-lg cursor-pointer hover:bg-gray-100"
+                            onClick={handleOpenCamera}
+                        >
+                            <Camera className="w-10 h-10 text-gray-400 mb-2"/>
+                            <p className="text-sm text-gray-600 font-semibold">Tomar Foto</p>
+                            <p className="text-xs text-gray-500">Usar la cámara del dispositivo</p>
+                        </div>
                     </div>
-                    <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-lg">
-                        {hasCameraPermission === true && <video ref={videoRef} className="w-full aspect-video rounded-md bg-black" autoPlay muted playsInline />}
-                        {hasCameraPermission === false && (
-                             <div className="flex flex-col items-center justify-center text-center">
-                                <Camera className="w-10 h-10 text-gray-400 mb-2"/>
-                                <p className="text-sm text-gray-600 font-semibold">Tomar Foto</p>
-                                <p className="text-xs text-gray-500">Usar la cámara del dispositivo</p>
-                             </div>
-                        )}
-                         {hasCameraPermission === null && (
-                             <div className="flex flex-col items-center justify-center text-center">
-                                <p>Solicitando permiso de cámara...</p>
-                             </div>
-                        )}
-                        {hasCameraPermission === false && (
-                             <Alert variant="destructive" className="mt-4">
-                                <AlertTitle>Acceso a Cámara Requerido</AlertTitle>
-                                <AlertDescription>Por favor, permita el acceso a la cámara para usar esta función.</AlertDescription>
-                            </Alert>
-                        )}
-                    </div>
+                    {attachments.length > 0 && (
+                        <div>
+                            <h4 className="text-sm font-medium mb-2">Archivos Adjuntos:</h4>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                                {attachments.map((src, index) => (
+                                    <div key={index} className="relative group aspect-square">
+                                        <Image src={src} alt={`Anexo ${index + 1}`} layout="fill" objectFit="cover" className="rounded-md" />
+                                        <Button
+                                            type="button"
+                                            variant="destructive"
+                                            size="icon"
+                                            className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            onClick={() => handleRemoveAttachment(index)}
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                            <span className="sr-only">Eliminar imagen</span>
+                                        </Button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
                 </CardContent>
             </Card>
             
@@ -490,6 +560,25 @@ export default function VariableWeightFormComponent() {
           </form>
         </Form>
       </div>
+
+      <Dialog open={isCameraOpen} onOpenChange={setIsCameraOpen}>
+          <DialogContent className="max-w-3xl">
+              <DialogHeader>
+                  <DialogTitle>Tomar Foto</DialogTitle>
+              </DialogHeader>
+              <div className="relative">
+                  <video ref={videoRef} className="w-full aspect-video rounded-md bg-black" autoPlay muted playsInline />
+                  <canvas ref={canvasRef} className="hidden"></canvas>
+              </div>
+              <DialogFooter>
+                  <Button variant="outline" onClick={handleCloseCamera}>Cancelar</Button>
+                  <Button onClick={handleCapture}>
+                      <Camera className="mr-2 h-4 w-4"/>
+                      Capturar y Adjuntar
+                  </Button>
+              </DialogFooter>
+          </DialogContent>
+      </Dialog>
     </div>
   );
 }
