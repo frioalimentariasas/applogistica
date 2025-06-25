@@ -90,7 +90,7 @@ const productosExistentes = [
     { value: 'PROD002', label: 'Pechuga de Pollo' },
     { value: 'PROD003', label: 'Carne de Res Molida' },
 ];
-const presentaciones = ["Caja", "Bolsa", "Paquete"];
+const presentaciones = ["Cajas", "Sacos", "Canastillas"];
 
 
 const ItemRow = ({ control, index, remove }: { control: any, index: number, remove: (index: number) => void }) => {
