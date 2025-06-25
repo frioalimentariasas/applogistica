@@ -81,7 +81,7 @@ const formSchema = z.object({
   productos: z.array(productSchema).min(1, "Debe agregar al menos un producto."),
   nombreConductor: z.string().min(1, "El nombre del conductor es obligatorio."),
   cedulaConductor: z.string().min(1, "La cédula del conductor es obligatoria."),
-  placa: z.string().min(1, "La placa es obligatoria."),
+  placa: z.string().min(1, "La placa es obligatoria.").regex(/^[A-Z]{3}[0-9]{3}$/, "Formato inválido. Deben ser 3 letras y 3 números (ej: ABC123)."),
   muelle: z.string().min(1, "Seleccione un muelle."),
   contenedor: z.string().optional(),
   setPoint: z.number({required_error: "El Set Point es requerido.", invalid_type_error: "El Set Point es requerido."}).min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99."),
@@ -506,7 +506,18 @@ export default function FixedWeightFormComponent() {
                         <FormItem><FormLabel>Cédula Conductor</FormLabel><FormControl><Input placeholder="Cédula del conductor" {...field} /></FormControl><FormMessage /></FormItem>
                     )}/>
                     <FormField control={form.control} name="placa" render={({ field }) => (
-                        <FormItem><FormLabel>Placa</FormLabel><FormControl><Input placeholder="Placa del vehículo" {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormItem>
+                            <FormLabel>Placa</FormLabel>
+                            <FormControl>
+                                <Input
+                                    placeholder="ABC123"
+                                    {...field}
+                                    onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                                    maxLength={6}
+                                />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
                     )}/>
                     <FormField control={form.control} name="muelle" render={({ field }) => (
                         <FormItem><FormLabel>Muelle</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un muelle" /></SelectTrigger></FormControl><SelectContent>{muelles.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
