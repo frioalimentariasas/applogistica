@@ -568,7 +568,7 @@ export default function FixedWeightFormComponent() {
                             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
                                 {attachments.map((src, index) => (
                                     <div key={index} className="relative group aspect-square">
-                                        <Image src={src} alt={`Anexo ${index + 1}`} layout="fill" objectFit="cover" className="rounded-md" />
+                                        <Image src={src} alt={`Anexo ${index + 1}`} fill className="rounded-md object-cover" />
                                         <Button
                                             type="button"
                                             variant="destructive"
