@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -28,23 +29,37 @@ export default function Home() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!operationType || !productType) return;
+    if (!operationType || !productType) {
+        toast({
+            title: "Selección incompleta",
+            description: "Por favor, seleccione un tipo de operación y un tipo de producto.",
+            variant: "destructive"
+        });
+        return;
+    }
 
     if (productType === 'fijo') {
       router.push(`/fixed-weight-form?operation=${operationType}`);
-    } else if (productType === 'variable') {
-       if (operationType === 'despacho') {
-         router.push(`/variable-weight-form?operation=${operationType}`);
-       } else if (operationType === 'recepcion') {
-         router.push(`/variable-weight-reception-form?operation=${operationType}`);
-       }
-    } else {
-      toast({
-        title: "En desarrollo",
-        description: "Este formato aún no está disponible.",
-        variant: "destructive"
-      })
+      return;
     }
+
+    if (productType === 'variable') {
+      if (operationType === 'despacho') {
+        router.push(`/variable-weight-form?operation=${operationType}`);
+        return;
+      }
+      if (operationType === 'recepcion') {
+        router.push(`/variable-weight-reception-form?operation=${operationType}`);
+        return;
+      }
+    }
+    
+    // Fallback for any unhandled combination
+    toast({
+      title: "En desarrollo",
+      description: "Este formato aún no está disponible.",
+      variant: "destructive"
+    });
   };
 
   return (

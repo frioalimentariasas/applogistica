@@ -135,15 +135,20 @@ export default function VariableWeightReceptionFormComponent() {
     },
   });
 
-  const { control, getValues, setValue, watch } = form;
+  const { control, setValue, watch } = form;
 
   const { fields, append, remove } = useFieldArray({
     control,
     name: "items",
   });
   
+  const items = watch("items");
+
   useEffect(() => {
     window.scrollTo(0, 0);
+  }, []);
+  
+  useEffect(() => {
     // Add one item field by default
     if (fields.length === 0) {
         append({ paleta: 0, descripcion: '', lote: '', presentacion: '', cantidadPorPaleta: 0, pesoBruto: 0, taraEstiba: 0, taraCaja: 0, totalTaraCaja: 0, pesoNeto: 0 });
@@ -154,36 +159,35 @@ export default function VariableWeightReceptionFormComponent() {
     const subscription = watch((value, { name, type }) => {
       if (name && name.startsWith('items.')) {
         const parts = name.split('.');
+        if (parts.length < 3) return; 
+
         const index = parseInt(parts[1], 10);
         const fieldName = parts[2];
         
         if (['cantidadPorPaleta', 'taraCaja', 'pesoBruto', 'taraEstiba'].includes(fieldName)) {
-            const currentItem = value.items?.[index];
+            const item = value.items?.[index];
 
-            if (currentItem) {
-                const cantidadPorPaleta = Number(currentItem.cantidadPorPaleta) || 0;
-                const taraCaja = Number(currentItem.taraCaja) || 0;
-                const pesoBruto = Number(currentItem.pesoBruto) || 0;
-                const taraEstiba = Number(currentItem.taraEstiba) || 0;
+            if (item) {
+                const cantidadPorPaleta = Number(item.cantidadPorPaleta) || 0;
+                const taraCaja = Number(item.taraCaja) || 0;
+                const pesoBruto = Number(item.pesoBruto) || 0;
+                const taraEstiba = Number(item.taraEstiba) || 0;
 
                 const calculatedTotalTaraCaja = cantidadPorPaleta * taraCaja;
                 const calculatedPesoNeto = pesoBruto - taraEstiba - calculatedTotalTaraCaja;
                 
-                const currentTotalTaraCaja = getValues(`items.${index}.totalTaraCaja`);
-                const currentPesoNeto = getValues(`items.${index}.pesoNeto`);
-
-                if (currentTotalTaraCaja !== calculatedTotalTaraCaja) {
-                    setValue(`items.${index}.totalTaraCaja`, calculatedTotalTaraCaja, { shouldValidate: false, shouldDirty: true });
+                if (item.totalTaraCaja !== calculatedTotalTaraCaja) {
+                    setValue(`items.${index}.totalTaraCaja`, calculatedTotalTaraCaja, { shouldValidate: true });
                 }
-                if (currentPesoNeto !== calculatedPesoNeto) {
-                    setValue(`items.${index}.pesoNeto`, calculatedPesoNeto, { shouldValidate: false, shouldDirty: true });
+                if (item.pesoNeto !== calculatedPesoNeto) {
+                    setValue(`items.${index}.pesoNeto`, calculatedPesoNeto, { shouldValidate: true });
                 }
             }
         }
       }
     });
     return () => subscription.unsubscribe();
-  }, [watch, getValues, setValue]);
+  }, [watch, setValue]);
   
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         if (event.target.files) {
