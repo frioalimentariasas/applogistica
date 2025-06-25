@@ -59,9 +59,9 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 const productSchema = z.object({
   codigo: z.string().optional(),
   descripcion: z.string().min(1, "La descripción es requerida."),
-  cajas: z.coerce.number().int().min(0, "Debe ser un número no negativo."),
-  paletas: z.coerce.number().int().min(0, "Debe ser un número no negativo."),
-  temperatura: z.coerce.number(),
+  cajas: z.number({required_error: "El No. de cajas es requerido.", invalid_type_error: "El No. de cajas es requerido."}).int().min(1, "El No. de Cajas debe ser mayor a 0."),
+  paletas: z.number({required_error: "El Total Paletas/Cantidad es requerido.", invalid_type_error: "El Total Paletas/Cantidad es requerido."}).int().min(1, "El Total Paletas/Cantidad debe ser mayor a 0."),
+  temperatura: z.number({ required_error: "La temperatura es requerida.", invalid_type_error: "La temperatura es requerida." }),
 });
 
 const formSchema = z.object({
@@ -128,7 +128,7 @@ export default function FixedWeightFormComponent() {
       precinto: "",
       documentoTransporte: "",
       facturaRemision: "",
-      productos: [{ codigo: '', descripcion: '', cajas: 0, paletas: 0, temperatura: 0 }],
+      productos: [{ codigo: '', descripcion: '', cajas: undefined as any, paletas: undefined as any, temperatura: undefined as any }],
       nombreConductor: "",
       cedulaConductor: "",
       placa: "",
@@ -439,21 +439,21 @@ export default function FixedWeightFormComponent() {
                                 <FormField control={form.control} name={`productos.${index}.cajas`} render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>No. de Cajas</FormLabel>
-                                        <FormControl><Input type="number" min="0" placeholder="0" {...field} /></FormControl>
+                                        <FormControl><Input type="number" min="1" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.valueAsNumber)} value={field.value === undefined || Number.isNaN(field.value) ? '' : field.value} /></FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}/>
                                 <FormField control={form.control} name={`productos.${index}.paletas`} render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Total Paletas/Cantidad</FormLabel>
-                                        <FormControl><Input type="number" min="0" placeholder="0" {...field} /></FormControl>
+                                        <FormControl><Input type="number" min="1" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.valueAsNumber)} value={field.value === undefined || Number.isNaN(field.value) ? '' : field.value} /></FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}/>
                                 <FormField control={form.control} name={`productos.${index}.temperatura`} render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Temperatura (°C)</FormLabel>
-                                        <FormControl><Input type="number" placeholder="0" {...field} /></FormControl>
+                                        <FormControl><Input type="number" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.valueAsNumber)} value={field.value === undefined || Number.isNaN(field.value) ? '' : field.value} /></FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}/>
@@ -461,7 +461,7 @@ export default function FixedWeightFormComponent() {
                         </div>
                     </div>
                 ))}
-                <Button type="button" variant="outline" onClick={() => append({ codigo: '', descripcion: '', cajas: 0, paletas: 0, temperatura: 0 }, { shouldFocus: false })}>
+                <Button type="button" variant="outline" onClick={() => append({ codigo: '', descripcion: '', cajas: undefined as any, paletas: undefined as any, temperatura: undefined as any }, { shouldFocus: false })}>
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Agregar Producto
                 </Button>
