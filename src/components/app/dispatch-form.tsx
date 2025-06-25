@@ -97,8 +97,8 @@ export function DispatchForm({ onAddDispatch, allEntries }: DispatchFormProps) {
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[480px]">
-        <DialogHeader>
-          <DialogTitle>Registrar Nuevo Despacho</DialogTitle>
+        <DialogHeader className="text-center">
+          <DialogTitle className="text-primary">Registrar Nuevo Despacho</DialogTitle>
           <DialogDescription>
             Complete los detalles para registrar un nuevo despacho de productos.
           </DialogDescription>

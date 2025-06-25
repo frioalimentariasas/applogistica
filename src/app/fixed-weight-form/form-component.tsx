@@ -193,8 +193,8 @@ export default function FixedWeightFormComponent() {
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
       <div className="max-w-6xl mx-auto">
-        <header className="mb-8">
-            <h1 className="text-2xl font-bold text-gray-800">{title}</h1>
+        <header className="mb-8 text-center">
+            <h1 className="text-2xl font-bold text-primary">{title}</h1>
             <p className="text-sm text-gray-500">Complete todos los campos requeridos para registrar la operación.</p>
         </header>
 

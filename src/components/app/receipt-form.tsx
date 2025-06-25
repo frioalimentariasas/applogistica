@@ -131,8 +131,8 @@ export function ReceiptForm({ onAddReceipt, allEntries }: ReceiptFormProps) {
         </Button>
       </DialogTrigger>
       <DialogContent className="sm:max-w-[480px]">
-        <DialogHeader>
-          <DialogTitle>Registrar Nuevo Recibo</DialogTitle>
+        <DialogHeader className="text-center">
+          <DialogTitle className="text-primary">Registrar Nuevo Recibo</DialogTitle>
           <DialogDescription>
             Rellene los datos para registrar la entrada de un nuevo producto.
           </DialogDescription>
