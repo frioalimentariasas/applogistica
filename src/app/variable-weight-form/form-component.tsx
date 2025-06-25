@@ -76,10 +76,10 @@ const formSchema = z.object({
   conductor: z.string().min(1, "El nombre del conductor es obligatorio."),
   placa: z.string().min(1, "La placa es obligatoria."),
   precinto: z.string().max(50, "Máximo 50 caracteres.").optional(),
-  setPoint: z.coerce.number(),
+  setPoint: z.number({required_error: "El Set Point es requerido.", invalid_type_error: "El Set Point es requerido."}).min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99."),
   items: z.array(itemSchema).min(1, "Debe agregar al menos un item."),
-  horaInicio: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
-  horaFin: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
+  horaInicio: z.string().min(1, "La hora de inicio es obligatoria.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
+  horaFin: z.string().min(1, "La hora de fin es obligatoria.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
   observaciones: z.string().max(250, "Máximo 250 caracteres.").optional(),
   coordinador: z.string().min(1, "Seleccione un coordinador."),
 });
@@ -120,7 +120,7 @@ export default function VariableWeightFormComponent() {
       conductor: "",
       placa: "",
       precinto: "",
-      setPoint: 0,
+      setPoint: undefined as any,
       items: [],
       horaInicio: "",
       horaFin: "",
@@ -332,7 +332,13 @@ export default function VariableWeightFormComponent() {
                     </FormItem>
                     )}/>
                     <FormField control={form.control} name="setPoint" render={({ field }) => (
-                        <FormItem><FormLabel>Set Point (°C)</FormLabel><FormControl><Input type="number" placeholder="0" {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormItem>
+                            <FormLabel>Set Point (°C)</FormLabel>
+                            <FormControl>
+                                <Input type="number" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.valueAsNumber)} value={field.value === undefined || Number.isNaN(field.value) ? '' : field.value} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
                     )}/>
                 </div>
               </CardContent>

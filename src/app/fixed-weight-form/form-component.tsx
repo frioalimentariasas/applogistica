@@ -61,7 +61,7 @@ const productSchema = z.object({
   descripcion: z.string().min(1, "La descripción es requerida."),
   cajas: z.number({required_error: "El No. de cajas es requerido.", invalid_type_error: "El No. de cajas es requerido."}).int().min(1, "El No. de Cajas debe ser mayor a 0."),
   paletas: z.number({required_error: "El Total Paletas/Cantidad es requerido.", invalid_type_error: "El Total Paletas/Cantidad es requerido."}).int().min(1, "El Total Paletas/Cantidad debe ser mayor a 0."),
-  temperatura: z.number({ required_error: "La temperatura es requerida.", invalid_type_error: "La temperatura es requerida." }),
+  temperatura: z.number({ required_error: "La temperatura es requerida.", invalid_type_error: "La temperatura es requerida." }).min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99."),
 });
 
 const formSchema = z.object({
@@ -84,7 +84,7 @@ const formSchema = z.object({
   placa: z.string().min(1, "La placa es obligatoria."),
   muelle: z.string().min(1, "Seleccione un muelle."),
   contenedor: z.string().optional(),
-  setPoint: z.coerce.number(),
+  setPoint: z.number({required_error: "El Set Point es requerido.", invalid_type_error: "El Set Point es requerido."}).min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99."),
   condicionesHigiene: z.enum(["limpio", "sucio"], { required_error: "Seleccione una condición." }),
   termoregistrador: z.enum(["si", "no"], { required_error: "Seleccione una opción." }),
   clienteRequiereTermoregistro: z.enum(["si", "no"], { required_error: "Seleccione una opción." }),
@@ -134,7 +134,7 @@ export default function FixedWeightFormComponent() {
       placa: "",
       muelle: "",
       contenedor: "",
-      setPoint: 0,
+      setPoint: undefined as any,
       observaciones: "",
       coordinador: "",
     },
@@ -461,7 +461,7 @@ export default function FixedWeightFormComponent() {
                         </div>
                     </div>
                 ))}
-                <Button type="button" variant="outline" onClick={() => append({ codigo: '', descripcion: '', cajas: undefined as any, paletas: undefined as any, temperatura: undefined as any }, { shouldFocus: false })}>
+                <Button type="button" variant="outline" onClick={() => append({ codigo: '', descripcion: '', cajas: undefined as any, paletas: undefined as any, temperatura: undefined as any })}>
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Agregar Producto
                 </Button>
@@ -501,7 +501,13 @@ export default function FixedWeightFormComponent() {
                         <FormItem><FormLabel>Contenedor</FormLabel><FormControl><Input placeholder="Número de contenedor" {...field} /></FormControl><FormMessage /></FormItem>
                     )}/>
                     <FormField control={form.control} name="setPoint" render={({ field }) => (
-                        <FormItem><FormLabel>Set Point (°C)</FormLabel><FormControl><Input type="number" placeholder="0" {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormItem>
+                            <FormLabel>Set Point (°C)</FormLabel>
+                            <FormControl>
+                                <Input type="number" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.valueAsNumber)} value={field.value === undefined || Number.isNaN(field.value) ? '' : field.value} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
                     )}/>
                     <FormField control={form.control} name="condicionesHigiene" render={({ field }) => (
                         <FormItem className="space-y-3"><FormLabel>Condiciones de Higiene</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex gap-4"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="limpio" id="limpio" /><Label htmlFor="limpio">Limpio</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="sucio" id="sucio" /><Label htmlFor="sucio">Sucio</Label></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>
