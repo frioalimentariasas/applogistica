@@ -139,7 +139,6 @@ export default function VariableWeightFormComponent() {
   }, []);
 
   useEffect(() => {
-    // Add one item field by default
     if (fields.length === 0) {
         append({ paleta: 0, descripcion: '', lote: '', presentacion: '', cantidadPorPaleta: 0, pesoNeto: 0 }, { shouldFocus: false });
     }
@@ -451,24 +450,18 @@ export default function VariableWeightFormComponent() {
                     <FormField control={form.control} name="horaInicio" render={({ field }) => (
                     <FormItem>
                         <FormLabel>Hora de Inicio</FormLabel>
-                        <div className="relative">
-                            <FormControl>
-                                <Input placeholder="HH:MM" {...field} />
-                            </FormControl>
-                            <Clock className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        </div>
+                        <FormControl>
+                            <Input type="time" placeholder="HH:MM" {...field} />
+                        </FormControl>
                         <FormMessage />
                     </FormItem>
                     )}/>
                     <FormField control={form.control} name="horaFin" render={({ field }) => (
                     <FormItem>
                         <FormLabel>Hora Fin</FormLabel>
-                        <div className="relative">
-                            <FormControl>
-                                <Input placeholder="HH:MM" {...field} />
-                            </FormControl>
-                            <Clock className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        </div>
+                        <FormControl>
+                            <Input type="time" placeholder="HH:MM" {...field} />
+                        </FormControl>
                         <FormMessage />
                     </FormItem>
                     )}/>

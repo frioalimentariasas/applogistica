@@ -151,7 +151,6 @@ export default function FixedWeightFormComponent() {
   }, []);
 
   useEffect(() => {
-    // Add one product field by default
     if (fields.length === 0) {
         append({ codigo: '', descripcion: '', cajas: 0, paletas: 0, temperatura: 0 }, { shouldFocus: false });
     }
@@ -327,24 +326,18 @@ export default function FixedWeightFormComponent() {
                     <FormField control={form.control} name="horaInicio" render={({ field }) => (
                     <FormItem>
                         <FormLabel>{operation === 'recepcion' ? 'Hora Inicio Descargue' : 'Hora de Inicio Cargue'}</FormLabel>
-                        <div className="relative">
-                            <FormControl>
-                                <Input placeholder="HH:MM" {...field} />
-                            </FormControl>
-                            <Clock className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        </div>
+                        <FormControl>
+                            <Input type="time" placeholder="HH:MM" {...field} />
+                        </FormControl>
                         <FormMessage />
                     </FormItem>
                     )}/>
                     <FormField control={form.control} name="horaFin" render={({ field }) => (
                     <FormItem>
                         <FormLabel>{operation === 'recepcion' ? 'Hora Fin Descargue' : 'Hora Fin Cargue'}</FormLabel>
-                        <div className="relative">
-                            <FormControl>
-                                <Input placeholder="HH:MM" {...field} />
-                            </FormControl>
-                            <Clock className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                        </div>
+                        <FormControl>
+                            <Input type="time" placeholder="HH:MM" {...field} />
+                        </FormControl>
                         <FormMessage />
                     </FormItem>
                     )}/>
