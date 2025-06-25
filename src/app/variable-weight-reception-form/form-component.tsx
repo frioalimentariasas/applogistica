@@ -132,41 +132,54 @@ export default function VariableWeightReceptionFormComponent() {
     },
   });
 
-  const { control, watch, setValue, getValues } = form;
+  const { control, watch, setValue } = form;
 
   const { fields, append, remove } = useFieldArray({
     control,
     name: "items",
   });
 
-  // Rebuilt effect to handle automatic calculations robustly
   useEffect(() => {
     const subscription = watch((value, { name, type }) => {
-      if (type === 'change' && name && name.startsWith('items.')) {
-        const nameParts = name.split('.');
-        if (nameParts.length === 3) {
-          const index = parseInt(nameParts[1], 10);
-          const fieldName = nameParts[2];
-          const itemValues = getValues(`items.${index}`);
-          
-          if (['cantidadPorPaleta', 'taraCaja', 'pesoBruto', 'taraEstiba'].includes(fieldName)) {
-            const cantidad = Number(itemValues.cantidadPorPaleta) || 0;
-            const taraCaja = Number(itemValues.taraCaja) || 0;
-            const pesoBruto = Number(itemValues.pesoBruto) || 0;
-            const taraEstiba = Number(itemValues.taraEstiba) || 0;
+      if (type !== 'change' || !name || !name.startsWith('items.')) {
+        return;
+      }
 
-            const newTotalTaraCaja = cantidad * taraCaja;
-            const newPesoNeto = pesoBruto - taraEstiba - newTotalTaraCaja;
+      const nameParts = name.split('.');
+      if (nameParts.length !== 3) {
+        return;
+      }
+      
+      const index = parseInt(nameParts[1], 10);
+      const fieldName = nameParts[2];
+      
+      const isTriggerField = ['cantidadPorPaleta', 'taraCaja', 'pesoBruto', 'taraEstiba'].includes(fieldName);
 
-            // Set new values without triggering re-validation loops
-            setValue(`items.${index}.totalTaraCaja`, parseFloat(newTotalTaraCaja.toFixed(2)), { shouldDirty: true });
-            setValue(`items.${index}.pesoNeto`, parseFloat(newPesoNeto.toFixed(2)), { shouldDirty: true });
-          }
+      if (isTriggerField) {
+        const currentItem = value.items?.[index];
+        if (!currentItem) return;
+
+        const cantidad = Number(currentItem.cantidadPorPaleta) || 0;
+        const taraCaja = Number(currentItem.taraCaja) || 0;
+        const pesoBruto = Number(currentItem.pesoBruto) || 0;
+        const taraEstiba = Number(currentItem.taraEstiba) || 0;
+
+        const newTotalTaraCaja = cantidad * taraCaja;
+        const newPesoNeto = pesoBruto - taraEstiba - newTotalTaraCaja;
+
+        const finalTotalTaraCaja = parseFloat(newTotalTaraCaja.toFixed(2));
+        const finalPesoNeto = parseFloat(newPesoNeto.toFixed(2));
+        
+        if (currentItem.totalTaraCaja !== finalTotalTaraCaja) {
+          setValue(`items.${index}.totalTaraCaja`, finalTotalTaraCaja, { shouldValidate: false, shouldDirty: true });
+        }
+        if (currentItem.pesoNeto !== finalPesoNeto) {
+          setValue(`items.${index}.pesoNeto`, finalPesoNeto, { shouldValidate: false, shouldDirty: true });
         }
       }
     });
     return () => subscription.unsubscribe();
-  }, [watch, setValue, getValues]);
+  }, [watch, setValue]);
 
 
   useEffect(() => {
@@ -608,5 +621,3 @@ export default function VariableWeightReceptionFormComponent() {
     </div>
   );
 }
-
-    
