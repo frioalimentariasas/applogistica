@@ -222,7 +222,6 @@ export default function VariableWeightReceptionFormComponent() {
         if (!item.descripcion?.trim()) return acc;
         const desc = item.descripcion.trim();
 
-        // Perform the calculation directly for the summary
         const cantidad = Number(item.cantidadPorPaleta) || 0;
         const taraCaja = Number(item.taraCaja) || 0;
         const taraEstiba = Number(item.taraEstiba) || 0;
@@ -246,20 +245,23 @@ export default function VariableWeightReceptionFormComponent() {
 
     const newSummaryData = Object.values(grouped);
     
-    const existingSummary = form.getValues('summary') || [];
-
     const mergedSummary = newSummaryData.map(newItem => {
-        const existingItem = existingSummary.find(oldItem => oldItem.descripcion === newItem.descripcion);
+        const existingItem = watchedSummary?.find(oldItem => oldItem.descripcion === newItem.descripcion);
         return {
             ...newItem,
             temperatura: existingItem?.temperatura,
         };
     });
     
-    if (JSON.stringify(form.getValues('summary')) !== JSON.stringify(mergedSummary)) {
+    // Create a stable, comparable string representation of the summary data, ignoring field IDs and order.
+    const createComparable = (arr: any[]) => JSON.stringify(
+        (arr || []).map(({ id, ...rest }) => rest).sort((a,b) => a.descripcion.localeCompare(b.descripcion))
+    );
+
+    if (createComparable(watchedSummary) !== createComparable(mergedSummary)) {
       setSummaryItems(mergedSummary);
     }
-  }, [watchedItems, setSummaryItems, form]);
+  }, [watchedItems, watchedSummary, setSummaryItems]);
 
 
   useEffect(() => {
