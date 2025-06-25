@@ -385,7 +385,7 @@ export default function FixedWeightFormComponent() {
                             )}
                         </div>
                         <div className="space-y-4">
-                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <FormField control={form.control} name={`productos.${index}.codigo`} render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Código</FormLabel>
@@ -394,7 +394,7 @@ export default function FixedWeightFormComponent() {
                                     </FormItem>
                                 )}/>
                                 <FormField control={form.control} name={`productos.${index}.descripcion`} render={({ field }) => (
-                                    <FormItem className="lg:col-span-2">
+                                    <FormItem className="md:col-span-2">
                                     <FormLabel>Descripción del Producto</FormLabel>
                                     <Popover>
                                         <PopoverTrigger asChild>
