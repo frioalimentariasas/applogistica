@@ -42,6 +42,7 @@ import {
     FileSignature,
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 
 const itemSchema = z.object({
@@ -55,8 +56,14 @@ const itemSchema = z.object({
     taraCaja: z.coerce.number({ required_error: "La tara caja es requerida.", invalid_type_error: "La tara caja es requerida." }).min(0, "Debe ser un número no negativo."),
     totalTaraCaja: z.coerce.number().optional(), 
     pesoNeto: z.coerce.number().optional(), 
-  });
+});
   
+const summaryItemSchema = z.object({
+  descripcion: z.string(),
+  temperatura: z.coerce.number({ required_error: "La temperatura es requerida.", invalid_type_error: "La temperatura es requerida." }),
+  totalPeso: z.number(),
+  totalCantidad: z.number(),
+});
 
 const formSchema = z.object({
     pedidoSislog: z.string()
@@ -65,19 +72,17 @@ const formSchema = z.object({
       .regex(/^[0-9]*$/, "El pedido solo puede contener números."),
     cliente: z.string().min(1, "Seleccione un cliente."),
     fecha: z.date({ required_error: "La fecha es obligatoria." }),
-    cedulaConductor: z.string()
-      .min(1, "La cédula del conductor es obligatoria.")
-      .max(10, "La cédula no puede exceder los 10 dígitos.")
-      .regex(/^[0-9]*$/, "La cédula solo puede contener números."),
     conductor: z.string()
-      .min(1, "El nombre del conductor es obligatorio.")
-      .max(10, "Máximo 10 caracteres."),
+      .min(1, "El nombre del conductor es obligatorio."),
+    cedulaConductor: z.string()
+      .min(1, "La cédula del conductor es obligatoria."),
     placa: z.string()
       .min(1, "La placa es obligatoria.")
       .regex(/^[A-Z]{3}[0-9]{3}$/, "Formato inválido. Deben ser 3 letras y 3 números (ej: ABC123)."),
-    precinto: z.string().min(1, "El precinto es obligatorio.").max(50, "Máximo 50 caracteres."),
+    precinto: z.string().min(1, "El precinto es obligatorio."),
     setPoint: z.number({required_error: "El Set Point es requerido.", invalid_type_error: "El Set Point es requerido."}).min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99."),
     items: z.array(itemSchema).min(1, "Debe agregar al menos un item."),
+    summary: z.array(summaryItemSchema).optional(),
     observaciones: z.string().max(250, "Máximo 250 caracteres.").optional(),
     coordinador: z.string().min(1, "Seleccione un coordinador."),
 });
@@ -85,11 +90,6 @@ const formSchema = z.object({
 // Mock Data
 const clientes = ["Cliente A", "Cliente B", "Cliente C"];
 const coordinadores = ["Cristian Acuña", "Sergio Padilla"];
-const productosExistentes = [
-    { value: 'PROD001', label: 'Pollo Entero Congelado' },
-    { value: 'PROD002', label: 'Pechuga de Pollo' },
-    { value: 'PROD003', label: 'Carne de Res Molida' },
-];
 const presentaciones = ["Cajas", "Sacos", "Canastillas"];
 
 
@@ -176,6 +176,7 @@ export default function VariableWeightReceptionFormComponent() {
   const { toast } = useToast();
 
   const [attachments, setAttachments] = useState<string[]>([]);
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -193,6 +194,7 @@ export default function VariableWeightReceptionFormComponent() {
       precinto: "",
       setPoint: undefined,
       items: [],
+      summary: [],
       observaciones: "",
       coordinador: "",
     },
@@ -205,6 +207,45 @@ export default function VariableWeightReceptionFormComponent() {
     name: "items",
   });
   
+  const { fields: summaryItems, replace: setSummaryItems } = useFieldArray({
+    control,
+    name: "summary"
+  });
+  
+  const watchedItems = form.watch("items");
+
+  useEffect(() => {
+    const grouped = (watchedItems || []).reduce((acc, item) => {
+        if (!item.descripcion?.trim()) return acc;
+        const desc = item.descripcion.trim();
+        if (!acc[desc]) {
+            acc[desc] = {
+                descripcion: desc,
+                totalPeso: 0,
+                totalCantidad: 0,
+            };
+        }
+        acc[desc].totalPeso += Number(item.pesoNeto) || 0;
+        acc[desc].totalCantidad += Number(item.cantidadPorPaleta) || 0;
+        return acc;
+    }, {} as Record<string, { descripcion: string; totalPeso: number; totalCantidad: number }>);
+
+    const newSummaryData = Object.values(grouped);
+    
+    const existingSummary = form.getValues('summary') || [];
+
+    const mergedSummary = newSummaryData.map(newItem => {
+        const existingItem = existingSummary.find(oldItem => oldItem.descripcion === newItem.descripcion);
+        return {
+            ...newItem,
+            temperatura: existingItem?.temperatura,
+        };
+    });
+
+    setSummaryItems(mergedSummary);
+  }, [watchedItems, setSummaryItems, form]);
+
+
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
@@ -269,41 +310,31 @@ export default function VariableWeightReceptionFormComponent() {
   };
   
   useEffect(() => {
-    let stream: MediaStream;
-    const enableCamera = async () => {
-        if (isCameraOpen) {
-            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-                try {
-                    stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                    if (videoRef.current) {
-                        videoRef.current.srcObject = stream;
-                    }
-                } catch (err) {
-                    console.error("Error accessing camera: ", err);
-                    toast({
-                        variant: 'destructive',
-                        title: 'Acceso a la cámara denegado',
-                        description: 'Por favor, habilite los permisos de la cámara en la configuración de su navegador.',
-                    });
-                    setIsCameraOpen(false);
-                }
-            } else {
-                toast({
-                    variant: 'destructive',
-                    title: 'Cámara no disponible',
-                    description: 'Su navegador no soporta el acceso a la cámara.',
-                });
-                setIsCameraOpen(false);
-            }
-        }
-    };
-    enableCamera();
-    return () => {
-        if (stream) {
+    const getCameraPermission = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({video: true});
+        setHasCameraPermission(true);
+        if (isCameraOpen && videoRef.current) {
+          videoRef.current.srcObject = stream;
+        } else {
             stream.getTracks().forEach(track => track.stop());
         }
+      } catch (error) {
+        console.error('Error accessing camera:', error);
+        setHasCameraPermission(false);
+      }
+    };
+
+    if(isCameraOpen){
+        getCameraPermission();
+    } else {
+         if (videoRef.current && videoRef.current.srcObject) {
+            const stream = videoRef.current.srcObject as MediaStream;
+            stream.getTracks().forEach(track => track.stop());
+            videoRef.current.srcObject = null;
+        }
     }
-  }, [isCameraOpen, toast]);
+  }, [isCameraOpen]);
 
   function onSubmit(data: z.infer<typeof formSchema>) {
     console.log({ ...data, attachments });
@@ -413,6 +444,60 @@ export default function VariableWeightReceptionFormComponent() {
               </Card>
 
               <Card>
+                <CardHeader>
+                    <CardTitle>Resumen Agrupado de Productos</CardTitle>
+                </CardHeader>
+                <CardContent>
+                    <div className="rounded-md border">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead className="w-[150px]">Temperatura (°C)</TableHead>
+                                    <TableHead>Producto</TableHead>
+                                    <TableHead className="text-right">Total Peso (kg)</TableHead>
+                                    <TableHead className="text-right">Cantidad Total</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {summaryItems.length > 0 ? (
+                                    summaryItems.map((summaryItem, index) => (
+                                        <TableRow key={summaryItem.id}>
+                                            <TableCell>
+                                                <FormField
+                                                    control={control}
+                                                    name={`summary.${index}.temperatura`}
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormControl>
+                                                                <Input type="number" placeholder="0" {...field} 
+                                                                    onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.valueAsNumber)} 
+                                                                    value={field.value === undefined || Number.isNaN(field.value) ? '' : field.value}
+                                                                />
+                                                            </FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            </TableCell>
+                                            <TableCell className="font-medium">{summaryItem.descripcion}</TableCell>
+                                            <TableCell className="text-right">{(summaryItem.totalPeso || 0).toFixed(2)}</TableCell>
+                                            <TableCell className="text-right">{summaryItem.totalCantidad || 0}</TableCell>
+                                        </TableRow>
+                                    ))
+                                ) : (
+                                    <TableRow>
+                                        <TableCell colSpan={4} className="h-24 text-center">
+                                            Agregue ítems para ver el resumen.
+                                        </TableCell>
+                                    </TableRow>
+                                )}
+                            </TableBody>
+                        </Table>
+                    </div>
+                </CardContent>
+              </Card>
+              
+              <Card>
                   <CardHeader><CardTitle>Responsables y Observaciones</CardTitle></CardHeader>
                   <CardContent className="space-y-4">
                       <FormField control={control} name="observaciones" render={({ field }) => (
@@ -424,7 +509,7 @@ export default function VariableWeightReceptionFormComponent() {
                   </CardContent>
               </Card>
 
-            <Card>
+              <Card>
                 <CardHeader><CardTitle>Anexos</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -446,6 +531,14 @@ export default function VariableWeightReceptionFormComponent() {
                             <p className="text-xs text-gray-500">Usar la cámara del dispositivo</p>
                         </div>
                     </div>
+                     { hasCameraPermission === false && (
+                        <Alert variant="destructive">
+                            <AlertTitle>Acceso a la cámara denegado</AlertTitle>
+                            <AlertDescription>
+                                Por favor, habilite los permisos de la cámara en la configuración de su navegador para tomar fotos.
+                            </AlertDescription>
+                        </Alert>
+                    )}
                     {attachments.length > 0 && (
                         <div>
                             <h4 className="text-sm font-medium mb-2">Archivos Adjuntos:</h4>
@@ -486,10 +579,20 @@ export default function VariableWeightReceptionFormComponent() {
               <div className="relative">
                   <video ref={videoRef} className="w-full aspect-video rounded-md bg-black" autoPlay muted playsInline />
                   <canvas ref={canvasRef} className="hidden"></canvas>
+                   { hasCameraPermission === false && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+                        <Alert variant="destructive" className="m-4">
+                            <AlertTitle>Cámara no disponible</AlertTitle>
+                            <AlertDescription>
+                                No se pudo acceder a la cámara. Por favor, verifique los permisos en su navegador.
+                            </AlertDescription>
+                        </Alert>
+                    </div>
+                  )}
               </div>
               <DialogFooter>
                   <Button variant="outline" onClick={handleCloseCamera}>Cancelar</Button>
-                  <Button onClick={handleCapture}>
+                  <Button onClick={handleCapture} disabled={!hasCameraPermission}>
                       <Camera className="mr-2 h-4 w-4"/>
                       Capturar y Adjuntar
                   </Button>
@@ -500,3 +603,5 @@ export default function VariableWeightReceptionFormComponent() {
     </Form>
   );
 }
+
+    
