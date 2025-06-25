@@ -67,8 +67,8 @@ const itemSchema = z.object({
   pesoBruto: z.coerce.number().min(0, "Debe ser un número no negativo."),
   taraEstiba: z.coerce.number().min(0, "Debe ser un número no negativo."),
   taraCaja: z.coerce.number().min(0, "Debe ser un número no negativo."),
-  totalTaraCaja: z.number().optional(),
-  pesoNeto: z.number().optional(),
+  totalTaraCaja: z.coerce.number().min(0, "Debe ser un número no negativo."),
+  pesoNeto: z.coerce.number().min(0, "Debe ser un número no negativo."),
 });
 
 const formSchema = z.object({
@@ -152,43 +152,6 @@ export default function VariableWeightReceptionFormComponent() {
     }
   }, [fields, append]);
   
-  useEffect(() => {
-    const subscription = watch((_value, { name }) => {
-      if (!name || !name.startsWith('items.')) {
-        return;
-      }
-
-      const parts = name.split('.');
-      if (parts.length < 3) {
-        return;
-      }
-
-      const index = parseInt(parts[1], 10);
-      const fieldName = parts[2];
-      
-      const isRelevantField = ['cantidadPorPaleta', 'taraCaja', 'pesoBruto', 'taraEstiba'].includes(fieldName);
-
-      if (isRelevantField) {
-        const item = getValues(`items.${index}`);
-        
-        const cantidadPorPaleta = Number(item.cantidadPorPaleta) || 0;
-        const taraCaja = Number(item.taraCaja) || 0;
-        const pesoBruto = Number(item.pesoBruto) || 0;
-        const taraEstiba = Number(item.taraEstiba) || 0;
-
-        const calculatedTotalTaraCaja = cantidadPorPaleta * taraCaja;
-        const calculatedPesoNeto = pesoBruto - taraEstiba - calculatedTotalTaraCaja;
-        
-        if (Number(item.totalTaraCaja).toFixed(2) !== calculatedTotalTaraCaja.toFixed(2)) {
-          setValue(`items.${index}.totalTaraCaja`, calculatedTotalTaraCaja, { shouldDirty: true });
-        }
-        if (Number(item.pesoNeto).toFixed(2) !== calculatedPesoNeto.toFixed(2)) {
-          setValue(`items.${index}.pesoNeto`, calculatedPesoNeto, { shouldDirty: true });
-        }
-      }
-    });
-    return () => subscription.unsubscribe();
-  }, [watch, setValue, getValues]);
   
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         if (event.target.files) {
@@ -467,14 +430,14 @@ export default function VariableWeightReceptionFormComponent() {
                              <FormField control={form.control} name={`items.${index}.totalTaraCaja`} render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Total Tara Caja (kg)</FormLabel>
-                                    <FormControl><Input type="text" disabled value={typeof field.value === 'number' ? field.value.toFixed(2).replace('.', ',') : '0,00'} /></FormControl>
+                                    <FormControl><Input type="number" min="0" placeholder="0" {...field} /></FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )}/>
                             <FormField control={form.control} name={`items.${index}.pesoNeto`} render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Peso Neto (kg)</FormLabel>
-                                    <FormControl><Input type="text" disabled value={typeof field.value === 'number' ? field.value.toFixed(2).replace('.', ',') : '0,00'} /></FormControl>
+                                    <FormControl><Input type="number" min="0" placeholder="0" {...field} /></FormControl>
                                     <FormMessage />
                                 </FormItem>
                             )}/>
@@ -618,3 +581,4 @@ export default function VariableWeightReceptionFormComponent() {
     </div>
   );
 }
+
