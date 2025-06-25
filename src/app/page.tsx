@@ -32,10 +32,20 @@ export default function Home() {
 
     if (productType === 'fijo') {
       router.push(`/fixed-weight-form?operation=${operationType}`);
+    } else if (productType === 'variable') {
+       if (operationType === 'despacho') {
+         router.push(`/variable-weight-form?operation=${operationType}`);
+       } else {
+         toast({
+            title: "En desarrollo",
+            description: "El formato para Recepción de Peso Variable aún no está disponible.",
+            variant: "destructive"
+          });
+       }
     } else {
       toast({
         title: "En desarrollo",
-        description: "El formato para peso variable aún no está disponible.",
+        description: "Este formato aún no está disponible.",
         variant: "destructive"
       })
     }
