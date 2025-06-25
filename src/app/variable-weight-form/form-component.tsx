@@ -66,29 +66,26 @@ const itemSchema = z.object({
 });
 
 const formSchema = z.object({
-  pedidoSislog: z.string()
-    .min(1, "El pedido SISLOG es obligatorio.")
-    .max(10, "El número de pedido no puede exceder los 10 dígitos.")
-    .regex(/^[0-9]*$/, "El pedido solo puede contener números."),
-  cliente: z.string().min(1, "Seleccione un cliente."),
-  fecha: z.date({ required_error: "La fecha es obligatoria." }),
-  cedulaConductor: z.string()
-    .min(1, "La cédula del conductor es obligatoria.")
-    .max(10, "La cédula no puede exceder los 10 dígitos.")
-    .regex(/^[0-9]*$/, "La cédula solo puede contener números."),
-  conductor: z.string()
-    .min(1, "El nombre del conductor es obligatorio.")
-    .max(10, "Máximo 10 caracteres."),
-  placa: z.string()
-    .min(1, "La placa es obligatoria.")
-    .regex(/^[A-Z]{3}[0-9]{3}$/, "Formato inválido. Deben ser 3 letras y 3 números (ej: ABC123)."),
-  precinto: z.string().min(1, "El precinto es obligatorio.").max(50, "Máximo 50 caracteres."),
-  setPoint: z.number({required_error: "El Set Point es requerido.", invalid_type_error: "El Set Point es requerido."}).min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99."),
-  items: z.array(itemSchema).min(1, "Debe agregar al menos un item."),
-  horaInicio: z.string().min(1, "La hora de inicio es obligatoria.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
-  horaFin: z.string().min(1, "La hora de fin es obligatoria.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
-  observaciones: z.string().max(250, "Máximo 250 caracteres.").optional(),
-  coordinador: z.string().min(1, "Seleccione un coordinador."),
+    pedidoSislog: z.string()
+      .min(1, "El pedido SISLOG es obligatorio.")
+      .max(10, "El número de pedido no puede exceder los 10 dígitos.")
+      .regex(/^[0-9]*$/, "El pedido solo puede contener números."),
+    cliente: z.string().min(1, "Seleccione un cliente."),
+    fecha: z.date({ required_error: "La fecha es obligatoria." }),
+    conductor: z.string()
+      .min(1, "El nombre del conductor es obligatorio."),
+    cedulaConductor: z.string()
+      .min(1, "La cédula del conductor es obligatoria."),
+    placa: z.string()
+      .min(1, "La placa es obligatoria.")
+      .regex(/^[A-Z]{3}[0-9]{3}$/, "Formato inválido. Deben ser 3 letras y 3 números (ej: ABC123)."),
+    precinto: z.string().min(1, "El precinto es obligatorio."),
+    setPoint: z.number({required_error: "El Set Point es requerido.", invalid_type_error: "El Set Point es requerido."}).min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99."),
+    items: z.array(itemSchema).min(1, "Debe agregar al menos un item."),
+    horaInicio: z.string().min(1, "La hora de inicio es obligatoria.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
+    horaFin: z.string().min(1, "La hora de fin es obligatoria.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
+    observaciones: z.string().max(250, "Máximo 250 caracteres.").optional(),
+    coordinador: z.string().min(1, "Seleccione un coordinador."),
 });
 
 
@@ -281,169 +278,73 @@ export default function VariableWeightFormComponent() {
               <CardHeader>
                 <CardTitle>Información General</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <FormField
-                    control={form.control}
-                    name="pedidoSislog"
-                    render={({ field }) => (
-                        <FormItem>
-                        <FormLabel>Pedido SISLOG</FormLabel>
-                        <FormControl>
-                            <Input
-                            placeholder="Máximo 10 dígitos"
-                            {...field}
-                            />
-                        </FormControl>
-                        <FormMessage />
-                        </FormItem>
-                    )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="cliente"
-                        render={({ field }) => (
-                        <FormItem>
+              <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <FormField control={form.control} name="pedidoSislog" render={({ field }) => (
+                          <FormItem className="md:col-span-3">
+                            <FormLabel>Pedido SISLOG</FormLabel>
+                            <FormControl><Input placeholder="Pedido SISLOG (máx. 10 dígitos)" {...field} /></FormControl>
+                            <FormMessage />
+                          </FormItem>
+                      )}/>
+                      <FormField control={form.control} name="cliente" render={({ field }) => (
+                          <FormItem>
                             <FormLabel>Cliente</FormLabel>
-                            <Select
-                            onValueChange={field.onChange}
-                            defaultValue={field.value}
-                            >
-                            <FormControl>
-                                <SelectTrigger>
-                                <SelectValue placeholder="Seleccionar cliente..." />
-                                </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                                {clientes.map((c) => (
-                                <SelectItem key={c} value={c}>
-                                    {c}
-                                </SelectItem>
-                                ))}
-                            </SelectContent>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar cliente..." /></SelectTrigger></FormControl>
+                              <SelectContent>{clientes.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
                             </Select>
                             <FormMessage />
-                        </FormItem>
-                        )}
-                    />
-                    <FormItem>
-                        <FormLabel>Operario Logístico</FormLabel>
-                        <FormControl>
-                        <Input disabled value="Cristian Jaramillo" />
-                        </FormControl>
-                    </FormItem>
-                    <FormField
-                        control={form.control}
-                        name="fecha"
-                        render={({ field }) => (
-                        <FormItem>
+                          </FormItem>
+                      )}/>
+                      <FormItem>
+                          <FormLabel>Operario Logístico</FormLabel>
+                          <FormControl><Input disabled value="Cristian Jaramillo" /></FormControl>
+                      </FormItem>
+                      <FormField control={form.control} name="fecha" render={({ field }) => (
+                          <FormItem>
                             <FormLabel>Fecha</FormLabel>
-                            <FormControl>
-                            <Input
-                                disabled
-                                value={
-                                field.value
-                                    ? format(field.value, "dd/MM/yyyy")
-                                    : ""
-                                }
-                            />
-                            </FormControl>
+                            <FormControl><Input disabled value={field.value ? format(field.value, "dd/MM/yyyy") : ""} /></FormControl>
                             <FormMessage />
-                        </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="cedulaConductor"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Cédula Conductor</FormLabel>
-                            <FormControl>
-                            <Input placeholder="Máximo 10 dígitos" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="conductor"
-                        render={({ field }) => (
-                        <FormItem>
+                          </FormItem>
+                      )}/>
+                      <FormField control={form.control} name="conductor" render={({ field }) => (
+                          <FormItem>
                             <FormLabel>Conductor</FormLabel>
-                            <FormControl>
-                            <Input placeholder="Máximo 10 caracteres" {...field} />
-                            </FormControl>
+                            <FormControl><Input placeholder="Nombre del conductor" {...field} /></FormControl>
                             <FormMessage />
-                        </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="placa"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Placa</FormLabel>
-                            <FormControl>
-                            <Input
-                                placeholder="ABC123"
-                                {...field}
-                                onChange={(e) => field.onChange(e.target.value.toUpperCase())}
-                                maxLength={6}
-                            />
-                            </FormControl>
+                          </FormItem>
+                      )}/>
+                      <FormField control={form.control} name="cedulaConductor" render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Cédula Conductor</FormLabel>
+                            <FormControl><Input placeholder="Número de cédula" {...field} /></FormControl>
                             <FormMessage />
-                        </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="precinto"
-                        render={({ field }) => (
-                        <FormItem>
+                          </FormItem>
+                      )}/>
+                      <FormField control={form.control} name="placa" render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Placa del vehículo</FormLabel>
+                            <FormControl><Input placeholder="ABC123" {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} maxLength={6} /></FormControl>
+                            <FormMessage />
+                          </FormItem>
+                      )}/>
+                      <FormField control={form.control} name="precinto" render={({ field }) => (
+                          <FormItem>
                             <FormLabel>Precinto</FormLabel>
-                            <FormControl>
-                            <Input
-                                placeholder="Precinto (máx. 50 caracteres)"
-                                {...field}
-                            />
-                            </FormControl>
+                            <FormControl><Input placeholder="Precinto" {...field} /></FormControl>
                             <FormMessage />
-                        </FormItem>
-                        )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="setPoint"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Set Point (°C)</FormLabel>
-                            <FormControl>
-                            <Input
-                                type="number"
-                                placeholder="0"
-                                {...field}
-                                onChange={(e) =>
-                                field.onChange(
-                                    e.target.value === ""
-                                    ? undefined
-                                    : e.target.valueAsNumber
-                                )
-                                }
-                                value={
-                                field.value === undefined ||
-                                Number.isNaN(field.value)
-                                    ? ""
-                                    : field.value
-                                }
-                            />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                        )}
-                    />
-                </div>
-              </CardContent>
+                          </FormItem>
+                      )}/>
+                      <FormField control={form.control} name="setPoint" render={({ field }) => (
+                          <FormItem>
+                              <FormLabel>Set Point (°C)</FormLabel>
+                              <FormControl><Input type="number" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.valueAsNumber)} value={field.value === undefined || Number.isNaN(field.value) ? '' : field.value} /></FormControl>
+                              <FormMessage />
+                          </FormItem>
+                      )}/>
+                  </div>
+                </CardContent>
             </Card>
 
             {/* Product Characteristics Card */}
