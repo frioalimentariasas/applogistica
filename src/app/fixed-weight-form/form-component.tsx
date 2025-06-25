@@ -75,8 +75,8 @@ const formSchema = z.object({
   precinto: z.string()
     .min(1, "El precinto es obligatorio.")
     .max(40, "Máximo 40 caracteres."),
-  documentoTransporte: z.string().optional(),
-  facturaRemision: z.string().optional(),
+  documentoTransporte: z.string().max(15, "Máximo 15 caracteres.").optional(),
+  facturaRemision: z.string().max(15, "Máximo 15 caracteres.").optional(),
   productos: z.array(productSchema).min(1, "Debe agregar al menos un producto."),
   nombreConductor: z.string().min(1, "El nombre del conductor es obligatorio."),
   cedulaConductor: z.string().min(1, "La cédula del conductor es obligatoria."),
@@ -353,7 +353,7 @@ export default function FixedWeightFormComponent() {
                     <FormField control={form.control} name="documentoTransporte" render={({ field }) => (
                     <FormItem>
                         <FormLabel>Documento de Transporte</FormLabel>
-                        <FormControl><Input placeholder="Documento de transporte" {...field} /></FormControl>
+                        <FormControl><Input placeholder="Máx 15 caracteres" {...field} /></FormControl>
                         <FormMessage />
                     </FormItem>
                     )}/>
@@ -363,8 +363,8 @@ export default function FixedWeightFormComponent() {
                     </FormItem>
                     <FormField control={form.control} name="facturaRemision" render={({ field }) => (
                     <FormItem>
-                        <FormLabel>Factura Remisión</FormLabel>
-                        <FormControl><Input placeholder="Factura o remisión" {...field} /></FormControl>
+                        <FormLabel>Factura/Remisión</FormLabel>
+                        <FormControl><Input placeholder="Máx 15 caracteres" {...field} /></FormControl>
                         <FormMessage />
                     </FormItem>
                     )}/>
