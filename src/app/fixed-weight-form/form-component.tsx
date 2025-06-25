@@ -60,7 +60,7 @@ const productSchema = z.object({
   codigo: z.string().optional(),
   descripcion: z.string().min(1, "La descripción es requerida."),
   cajas: z.number({required_error: "El No. de cajas es requerido.", invalid_type_error: "El No. de cajas es requerido."}).int().min(1, "El No. de Cajas debe ser mayor a 0."),
-  paletas: z.number({required_error: "El Total Paletas/Cantidad es requerido.", invalid_type_error: "El Total Paletas/Cantidad es requerido."}).int().min(1, "El Total Paletas/Cantidad debe ser mayor a 0."),
+  paletas: z.number({required_error: "El Total Paletas/Cantidad es requerido.", invalid_type_error: "El Total Paletas/Cantidad es requerido."}).positive("El Total Paletas/Cantidad debe ser un número positivo."),
   temperatura: z.number({ required_error: "La temperatura es requerida.", invalid_type_error: "La temperatura es requerida." }).min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99."),
 });
 
@@ -446,7 +446,7 @@ export default function FixedWeightFormComponent() {
                                 <FormField control={form.control} name={`productos.${index}.paletas`} render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Total Paletas/Cantidad</FormLabel>
-                                        <FormControl><Input type="number" min="1" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))} value={field.value === undefined || Number.isNaN(field.value) ? '' : field.value} /></FormControl>
+                                        <FormControl><Input type="number" step="0.01" min="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.valueAsNumber)} value={field.value === undefined || Number.isNaN(field.value) ? '' : field.value} /></FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}/>
@@ -475,7 +475,7 @@ export default function FixedWeightFormComponent() {
                     </div>
                     <div className="flex items-center gap-2">
                         <span className="font-medium text-sm">Totales Paletas/Cantidad</span>
-                        <Input className="w-28" disabled value={totalPaletas} />
+                        <Input className="w-28" disabled value={totalPaletas.toFixed(2)} />
                     </div>
                 </div>
               </CardContent>
