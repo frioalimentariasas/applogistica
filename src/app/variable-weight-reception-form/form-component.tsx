@@ -215,10 +215,7 @@ export default function VariableWeightReceptionFormComponent() {
   const watchedItems = form.watch("items");
   const watchedSummary = form.watch("summary");
 
-  const showSummary = useMemo(() => 
-    (watchedItems || []).some(item => item.descripcion && item.descripcion.trim() !== ''),
-    [watchedItems]
-  );
+  const showSummary = (watchedItems || []).some(item => item.descripcion && item.descripcion.trim() !== '');
 
   useEffect(() => {
     const grouped = (watchedItems || []).reduce((acc, item) => {
