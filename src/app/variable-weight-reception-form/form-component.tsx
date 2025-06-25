@@ -49,6 +49,7 @@ import {
     FileSignature,
 } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 
 const itemSchema = z.object({
@@ -339,39 +340,72 @@ export default function VariableWeightReceptionFormComponent() {
                 <CardHeader>
                     <CardTitle>Información General</CardTitle>
                 </CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <FormField control={control} name="pedidoSislog" render={({ field }) => (
-                        <FormItem><FormLabel>Pedido SISLOG</FormLabel><FormControl><Input placeholder="Máximo 10 dígitos" {...field} /></FormControl><FormMessage /></FormItem>
-                    )}/>
-                    <FormField control={control} name="cliente" render={({ field }) => (
-                        <FormItem><FormLabel>Cliente</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccionar cliente..." /></SelectTrigger></FormControl><SelectContent>{clientes.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
-                    )}/>
-                    <FormItem>
-                        <FormLabel>Operario Logístico</FormLabel>
-                        <FormControl><Input disabled value="Cristian Jaramillo" /></FormControl>
-                    </FormItem>
-                    <FormField control={control} name="fecha" render={({ field }) => (
-                        <FormItem><FormLabel>Fecha</FormLabel><FormControl><Input disabled value={field.value ? format(field.value, "dd/MM/yyyy") : ""} /></FormControl><FormMessage /></FormItem>
-                    )}/>
-                    <FormField control={control} name="cedulaConductor" render={({ field }) => (
-                        <FormItem><FormLabel>Cédula Conductor</FormLabel><FormControl><Input placeholder="Máximo 10 dígitos" {...field} /></FormControl><FormMessage /></FormItem>
-                    )}/>
-                    <FormField control={control} name="conductor" render={({ field }) => (
-                        <FormItem><FormLabel>Conductor</FormLabel><FormControl><Input placeholder="Máximo 10 caracteres" {...field} /></FormControl><FormMessage /></FormItem>
-                    )}/>
-                    <FormField control={control} name="placa" render={({ field }) => (
-                        <FormItem><FormLabel>Placa</FormLabel><FormControl><Input placeholder="ABC123" {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} maxLength={6} /></FormControl><FormMessage /></FormItem>
-                    )}/>
-                    <FormField control={control} name="precinto" render={({ field }) => (
-                        <FormItem><FormLabel>Precinto</FormLabel><FormControl><Input placeholder="Precinto (máx. 50 caracteres)" {...field} /></FormControl><FormMessage /></FormItem>
-                    )}/>
-                    <FormField control={control} name="setPoint" render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Set Point (°C)</FormLabel>
-                            <FormControl><Input type="number" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.valueAsNumber)} value={field.value === undefined || Number.isNaN(field.value) ? '' : field.value} /></FormControl>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <FormField control={control} name="pedidoSislog" render={({ field }) => (
+                          <FormItem className="md:col-span-3">
+                            <FormLabel>Pedido SISLOG</FormLabel>
+                            <FormControl><Input placeholder="Pedido SISLOG (máx. 10 dígitos)" {...field} /></FormControl>
                             <FormMessage />
-                        </FormItem>
-                    )}/>
+                          </FormItem>
+                      )}/>
+                      <FormField control={control} name="cliente" render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Cliente</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar cliente..." /></SelectTrigger></FormControl>
+                              <SelectContent>{clientes.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                      )}/>
+                      <FormItem>
+                          <FormLabel>Operario Logístico</FormLabel>
+                          <FormControl><Input disabled value="Cristian Jaramillo" /></FormControl>
+                      </FormItem>
+                      <FormField control={control} name="fecha" render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Fecha</FormLabel>
+                            <FormControl><Input disabled value={field.value ? format(field.value, "dd/MM/yyyy") : ""} /></FormControl>
+                            <FormMessage />
+                          </FormItem>
+                      )}/>
+                      <FormField control={control} name="cedulaConductor" render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Cédula Conductor</FormLabel>
+                            <FormControl><Input placeholder="Número de cédula" {...field} /></FormControl>
+                            <FormMessage />
+                          </FormItem>
+                      )}/>
+                      <FormField control={control} name="conductor" render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Conductor</FormLabel>
+                            <FormControl><Input placeholder="Nombre del conductor" {...field} /></FormControl>
+                            <FormMessage />
+                          </FormItem>
+                      )}/>
+                      <FormField control={control} name="placa" render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Placa</FormLabel>
+                            <FormControl><Input placeholder="Placa del vehículo" {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} maxLength={6} /></FormControl>
+                            <FormMessage />
+                          </FormItem>
+                      )}/>
+                      <FormField control={control} name="precinto" render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Precinto</FormLabel>
+                            <FormControl><Input placeholder="Precinto (máx. 50 caracteres)" {...field} /></FormControl>
+                            <FormMessage />
+                          </FormItem>
+                      )}/>
+                      <FormField control={control} name="setPoint" render={({ field }) => (
+                          <FormItem>
+                              <FormLabel>Set Point (°C)</FormLabel>
+                              <FormControl><Input type="number" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.valueAsNumber)} value={field.value === undefined || Number.isNaN(field.value) ? '' : field.value} /></FormControl>
+                              <FormMessage />
+                          </FormItem>
+                      )}/>
+                  </div>
                 </CardContent>
               </Card>
               
