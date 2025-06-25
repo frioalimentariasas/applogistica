@@ -28,11 +28,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -44,11 +39,8 @@ import {
     Camera,
     Send,
     RotateCcw,
-    ChevronsUpDown,
-    CheckIcon,
     FileSignature,
 } from "lucide-react";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 
@@ -135,13 +127,12 @@ const ItemRow = ({ control, index, remove }: { control: any, index: number, remo
                     <FormItem><FormLabel>Paleta</FormLabel><FormControl><Input type="number" min="0" placeholder="0" {...field} /></FormControl><FormMessage /></FormItem>
                 )}/>
                 <FormField control={control} name={`items.${index}.descripcion`} render={({ field }) => (
-                    <FormItem className="md:col-span-2"><FormLabel>Descripción del Producto</FormLabel>
-                        <Popover><PopoverTrigger asChild><FormControl>
-                            <Button variant="outline" role="combobox" className="w-full justify-between">{field.value ? productosExistentes.find(p => p.label === field.value)?.label : "Seleccionar o escribir descripción..."}<ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" /></Button>
-                        </FormControl></PopoverTrigger><PopoverContent className="w-[--radix-popover-trigger-width] p-0"><Command><CommandInput placeholder="Buscar producto..." /><CommandList><CommandEmpty>No hay resultados.</CommandEmpty><CommandGroup>
-                            {productosExistentes.map(p => (<CommandItem key={p.value} value={p.label} onSelect={() => setValue(`items.${index}.descripcion`, p.label)}><CheckIcon className={cn("mr-2 h-4 w-4", p.label === field.value ? "opacity-100" : "opacity-0")} />{p.label}</CommandItem>))}
-                        </CommandGroup></CommandList></Command></PopoverContent></Popover>
-                    <FormMessage />
+                    <FormItem className="md:col-span-2">
+                        <FormLabel>Descripción del Producto</FormLabel>
+                        <FormControl>
+                            <Input placeholder="Escriba la descripción del producto..." {...field} />
+                        </FormControl>
+                        <FormMessage />
                     </FormItem>
                 )}/>
             </div>
@@ -370,13 +361,6 @@ export default function VariableWeightReceptionFormComponent() {
                             <FormMessage />
                           </FormItem>
                       )}/>
-                      <FormField control={control} name="cedulaConductor" render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Cédula Conductor</FormLabel>
-                            <FormControl><Input placeholder="Número de cédula" {...field} /></FormControl>
-                            <FormMessage />
-                          </FormItem>
-                      )}/>
                       <FormField control={control} name="conductor" render={({ field }) => (
                           <FormItem>
                             <FormLabel>Conductor</FormLabel>
@@ -384,9 +368,16 @@ export default function VariableWeightReceptionFormComponent() {
                             <FormMessage />
                           </FormItem>
                       )}/>
+                      <FormField control={control} name="cedulaConductor" render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Cédula Conductor</FormLabel>
+                            <FormControl><Input placeholder="Número de cédula" {...field} /></FormControl>
+                            <FormMessage />
+                          </FormItem>
+                      )}/>
                       <FormField control={control} name="placa" render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Placa</FormLabel>
+                            <FormLabel>Placa del vehículo</FormLabel>
                             <FormControl><Input placeholder="ABC123" {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} maxLength={6} /></FormControl>
                             <FormMessage />
                           </FormItem>
