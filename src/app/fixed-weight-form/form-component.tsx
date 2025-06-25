@@ -70,8 +70,8 @@ const formSchema = z.object({
     .regex(/^[0-9]*$/, "El pedido solo puede contener números."),
   nombreCliente: z.string().min(1, "Seleccione un cliente."),
   fecha: z.date({ required_error: "La fecha es obligatoria." }),
-  horaInicio: z.string().min(1, "La hora de inicio es obligatoria.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
-  horaFin: z.string().min(1, "La hora de fin es obligatoria.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
+  horaInicio: z.string().min(1, "La hora de inicio es obligatoria."),
+  horaFin: z.string().min(1, "La hora de fin es obligatoria."),
   precinto: z.string()
     .min(1, "El precinto es obligatorio.")
     .max(40, "Máximo 40 caracteres."),
@@ -127,7 +127,7 @@ export default function FixedWeightFormComponent() {
       precinto: "",
       documentoTransporte: "",
       facturaRemision: "",
-      productos: [],
+      productos: [{ codigo: '', descripcion: '', cajas: 0, paletas: 0, temperatura: 0 }],
       nombreConductor: "",
       cedulaConductor: "",
       placa: "",
@@ -152,11 +152,6 @@ export default function FixedWeightFormComponent() {
     window.scrollTo(0, 0);
   }, []);
 
-  useEffect(() => {
-    if (fields.length === 0) {
-        append({ codigo: '', descripcion: '', cajas: 0, paletas: 0, temperatura: 0 }, { shouldFocus: false });
-    }
-  }, [fields, append]);
   
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
