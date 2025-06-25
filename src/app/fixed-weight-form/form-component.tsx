@@ -439,14 +439,14 @@ export default function FixedWeightFormComponent() {
                                 <FormField control={form.control} name={`productos.${index}.cajas`} render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>No. de Cajas</FormLabel>
-                                        <FormControl><Input type="number" min="1" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.valueAsNumber)} value={field.value === undefined || Number.isNaN(field.value) ? '' : field.value} /></FormControl>
+                                        <FormControl><Input type="number" min="1" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))} value={field.value === undefined || Number.isNaN(field.value) ? '' : field.value} /></FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}/>
                                 <FormField control={form.control} name={`productos.${index}.paletas`} render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Total Paletas/Cantidad</FormLabel>
-                                        <FormControl><Input type="number" min="1" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.valueAsNumber)} value={field.value === undefined || Number.isNaN(field.value) ? '' : field.value} /></FormControl>
+                                        <FormControl><Input type="number" min="1" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))} value={field.value === undefined || Number.isNaN(field.value) ? '' : field.value} /></FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}/>
