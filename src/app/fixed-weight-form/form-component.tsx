@@ -146,8 +146,8 @@ export default function FixedWeightFormComponent() {
   });
 
   const productos = form.watch("productos");
-  const totalCajas = useMemo(() => productos.reduce((acc, p) => acc + (p.cajas || 0), 0), [productos]);
-  const totalPaletas = useMemo(() => productos.reduce((acc, p) => acc + (p.paletas || 0), 0), [productos]);
+  const totalCajas = useMemo(() => productos.reduce((acc, p) => acc + (Number(p.cajas) || 0), 0), [productos]);
+  const totalPaletas = useMemo(() => productos.reduce((acc, p) => acc + (Number(p.paletas) || 0), 0), [productos]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
