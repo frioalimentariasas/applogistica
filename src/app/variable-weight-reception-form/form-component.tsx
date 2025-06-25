@@ -350,6 +350,18 @@ export default function VariableWeightReceptionFormComponent() {
               </Card>
 
               <Card>
+                  <CardHeader><CardTitle>Responsables y Observaciones</CardTitle></CardHeader>
+                  <CardContent className="space-y-4">
+                      <FormField control={control} name="observaciones" render={({ field }) => (
+                          <FormItem><FormLabel>Observaciones</FormLabel><FormControl><Textarea placeholder="Observaciones generales (opcional)" {...field} /></FormControl><FormMessage /></FormItem>
+                      )}/>
+                      <FormField control={control} name="coordinador" render={({ field }) => (
+                          <FormItem><FormLabel>Coordinador Responsable</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                      )}/>
+                  </CardContent>
+              </Card>
+
+              <Card>
                   <CardHeader><CardTitle>Anexos</CardTitle></CardHeader>
                   <CardContent className="space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -373,18 +385,6 @@ export default function VariableWeightReceptionFormComponent() {
                               </div>
                           </div>
                       )}
-                  </CardContent>
-              </Card>
-
-              <Card>
-                  <CardHeader><CardTitle>Responsables y Observaciones</CardTitle></CardHeader>
-                  <CardContent className="space-y-4">
-                      <FormField control={control} name="observaciones" render={({ field }) => (
-                          <FormItem><FormLabel>Observaciones</FormLabel><FormControl><Textarea placeholder="Observaciones generales (opcional)" {...field} /></FormControl><FormMessage /></FormItem>
-                      )}/>
-                      <FormField control={control} name="coordinador" render={({ field }) => (
-                          <FormItem><FormLabel>Coordinador Responsable</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
-                      )}/>
                   </CardContent>
               </Card>
 
