@@ -48,10 +48,6 @@ export default function Home() {
         router.push(`/variable-weight-form?operation=${operationType}`);
         return;
       }
-      if (operationType === 'recepcion') {
-        router.push(`/variable-weight-reception-form?operation=${operationType}`);
-        return;
-      }
     }
     
     // Fallback for any unhandled combination
