@@ -52,40 +52,41 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 
 
 const itemSchema = z.object({
-  paleta: z.coerce.number().int().min(0, "Requerido"),
-  descripcion: z.string().min(1, "Descripción requerida"),
-  lote: z.string().max(15, "Máx 15 caracteres").optional(),
-  presentacion: z.string().min(1, "Presentación requerida"),
-  cantidadPorPaleta: z.coerce.number().int().min(0, "Requerido"),
-  pesoBruto: z.coerce.number().min(0, "Requerido"),
-  taraEstiba: z.coerce.number().min(0, "Requerido"),
-  taraCaja: z.coerce.number().min(0, "Requerido"),
-  totalTaraCaja: z.coerce.number().optional(), 
-  pesoNeto: z.coerce.number().optional(), 
-});
+    paleta: z.coerce.number({ required_error: "La paleta es requerida.", invalid_type_error: "La paleta es requerida."}).int().min(0, "Debe ser un número no negativo."),
+    descripcion: z.string().min(1, "La descripción es requerida."),
+    lote: z.string().min(1, "El lote es requerido.").max(15, "Máx 15 caracteres"),
+    presentacion: z.string().min(1, "La presentación es requerida."),
+    cantidadPorPaleta: z.coerce.number({ required_error: "La cantidad es requerida.", invalid_type_error: "La cantidad es requerida." }).int().min(0, "Debe ser un número no negativo."),
+    pesoBruto: z.coerce.number({ required_error: "El peso bruto es requerido.", invalid_type_error: "El peso bruto es requerido." }).min(0, "Debe ser un número no negativo."),
+    taraEstiba: z.coerce.number({ required_error: "La tara estiba es requerida.", invalid_type_error: "La tara estiba es requerida." }).min(0, "Debe ser un número no negativo."),
+    taraCaja: z.coerce.number({ required_error: "La tara caja es requerida.", invalid_type_error: "La tara caja es requerida." }).min(0, "Debe ser un número no negativo."),
+    totalTaraCaja: z.coerce.number().optional(), 
+    pesoNeto: z.coerce.number().optional(), 
+  });
+  
 
 const formSchema = z.object({
-  pedidoSislog: z.string()
-    .min(1, "El pedido SISLOG es obligatorio.")
-    .max(10, "Máx 10 dígitos")
-    .regex(/^[0-9]*$/, "El pedido solo puede contener números."),
-  cliente: z.string().min(1, "Cliente requerido"),
-  fecha: z.date({ required_error: "Fecha requerida" }),
-  cedulaConductor: z.string()
-    .min(1, "La cédula del conductor es obligatoria.")
-    .max(10, "La cédula no puede exceder los 10 dígitos.")
-    .regex(/^[0-9]*$/, "La cédula solo puede contener números."),
-  conductor: z.string()
-    .min(1, "Nombre requerido")
-    .max(10, "Máximo 10 caracteres."),
-  placa: z.string()
-    .min(1, "Placa requerida")
-    .regex(/^[A-Z]{3}[0-9]{3}$/, "Formato inválido. Deben ser 3 letras y 3 números (ej: ABC123)."),
-  precinto: z.string().min(1, "El precinto es obligatorio.").max(50, "Máximo 50 caracteres."),
-  setPoint: z.number({required_error: "El Set Point es requerido.", invalid_type_error: "El Set Point es requerido."}).min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99."),
-  items: z.array(itemSchema).min(1, "Debe agregar al menos un item"),
-  observaciones: z.string().max(250, "Máx 250 caracteres").optional(),
-  coordinador: z.string().min(1, "Coordinador requerido"),
+    pedidoSislog: z.string()
+      .min(1, "El pedido SISLOG es obligatorio.")
+      .max(10, "El número de pedido no puede exceder los 10 dígitos.")
+      .regex(/^[0-9]*$/, "El pedido solo puede contener números."),
+    cliente: z.string().min(1, "Seleccione un cliente."),
+    fecha: z.date({ required_error: "La fecha es obligatoria." }),
+    cedulaConductor: z.string()
+      .min(1, "La cédula del conductor es obligatoria.")
+      .max(10, "La cédula no puede exceder los 10 dígitos.")
+      .regex(/^[0-9]*$/, "La cédula solo puede contener números."),
+    conductor: z.string()
+      .min(1, "El nombre del conductor es obligatorio.")
+      .max(10, "Máximo 10 caracteres."),
+    placa: z.string()
+      .min(1, "La placa es obligatoria.")
+      .regex(/^[A-Z]{3}[0-9]{3}$/, "Formato inválido. Deben ser 3 letras y 3 números (ej: ABC123)."),
+    precinto: z.string().min(1, "El precinto es obligatorio.").max(50, "Máximo 50 caracteres."),
+    setPoint: z.number({required_error: "El Set Point es requerido.", invalid_type_error: "El Set Point es requerido."}).min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99."),
+    items: z.array(itemSchema).min(1, "Debe agregar al menos un item."),
+    observaciones: z.string().max(250, "Máximo 250 caracteres.").optional(),
+    coordinador: z.string().min(1, "Seleccione un coordinador."),
 });
 
 // Mock Data
@@ -333,13 +334,13 @@ export default function VariableWeightReceptionFormComponent() {
                         <FormItem><FormLabel>Fecha</FormLabel><FormControl><Input disabled value={field.value ? format(field.value, "dd/MM/yyyy") : ""} /></FormControl><FormMessage /></FormItem>
                     )}/>
                     <FormField control={control} name="cedulaConductor" render={({ field }) => (
-                          <FormItem><FormLabel>Cédula Conductor</FormLabel><FormControl><Input placeholder="Máximo 10 dígitos" {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Cédula Conductor</FormLabel><FormControl><Input placeholder="Máximo 10 dígitos" {...field} /></FormControl><FormMessage /></FormItem>
                     )}/>
                     <FormField control={control} name="conductor" render={({ field }) => (
-                          <FormItem><FormLabel>Conductor</FormLabel><FormControl><Input placeholder="Máximo 10 caracteres" {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Conductor</FormLabel><FormControl><Input placeholder="Máximo 10 caracteres" {...field} /></FormControl><FormMessage /></FormItem>
                     )}/>
                     <FormField control={control} name="placa" render={({ field }) => (
-                          <FormItem><FormLabel>Placa</FormLabel><FormControl><Input placeholder="ABC123" {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} maxLength={6} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Placa</FormLabel><FormControl><Input placeholder="ABC123" {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} maxLength={6} /></FormControl><FormMessage /></FormItem>
                     )}/>
                     <FormField control={control} name="precinto" render={({ field }) => (
                         <FormItem><FormLabel>Precinto</FormLabel><FormControl><Input placeholder="Precinto (máx. 50 caracteres)" {...field} /></FormControl><FormMessage /></FormItem>
@@ -409,7 +410,7 @@ export default function VariableWeightReceptionFormComponent() {
                           <FormItem><FormLabel>Observaciones</FormLabel><FormControl><Textarea placeholder="Observaciones generales (opcional)" {...field} /></FormControl><FormMessage /></FormItem>
                       )}/>
                       <FormField control={control} name="coordinador" render={({ field }) => (
-                          <FormItem><FormLabel>Coordinador Responsable</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccionar coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                          <FormItem><FormLabel>Coordinador Responsable</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                       )}/>
                   </CardContent>
               </Card>
