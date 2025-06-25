@@ -138,6 +138,10 @@ export default function FixedWeightFormComponent() {
   const totalPaletas = useMemo(() => productos.reduce((acc, p) => acc + (p.paletas || 0), 0), [productos]);
 
   useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
+
+  useEffect(() => {
     // Add one product field by default
     if (fields.length === 0) {
         append({ codigo: '', descripcion: '', cajas: 0, paletas: 0, temperatura: 0 });
