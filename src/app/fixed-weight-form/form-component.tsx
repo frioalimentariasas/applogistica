@@ -34,7 +34,6 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
@@ -43,7 +42,6 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
     ArrowLeft,
-    CalendarIcon,
     Clock,
     Trash2,
     PlusCircle,
@@ -290,13 +288,15 @@ export default function FixedWeightFormComponent() {
                 <CardTitle>Información General</CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
-                <FormField control={form.control} name="pedidoSislog" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Pedido SISLOG</FormLabel>
-                    <FormControl><Input placeholder="Máximo 10 dígitos" {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}/>
+                <div className="space-y-4">
+                  <FormField control={form.control} name="pedidoSislog" render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Pedido SISLOG</FormLabel>
+                      <FormControl><Input placeholder="Máximo 10 dígitos" {...field} /></FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}/>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <FormField control={form.control} name="nombreCliente" render={({ field }) => (
                     <FormItem>
@@ -313,23 +313,16 @@ export default function FixedWeightFormComponent() {
                     </FormItem>
                     )}/>
                     <FormField control={form.control} name="fecha" render={({ field }) => (
-                    <FormItem className="flex flex-col pt-2">
+                      <FormItem>
                         <FormLabel>Fecha</FormLabel>
-                        <Popover>
-                        <PopoverTrigger asChild>
-                            <FormControl>
-                            <Button variant="outline" className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
-                                {field.value ? format(field.value, "dd/MM/yyyy") : <span>Seleccione una fecha</span>}
-                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                            </Button>
-                            </FormControl>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0" align="start">
-                            <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
-                        </PopoverContent>
-                        </Popover>
+                        <FormControl>
+                            <Input
+                                disabled
+                                value={field.value ? format(field.value, "dd/MM/yyyy") : ""}
+                            />
+                        </FormControl>
                         <FormMessage />
-                    </FormItem>
+                      </FormItem>
                     )}/>
                     <FormField control={form.control} name="horaInicio" render={({ field }) => (
                     <FormItem>

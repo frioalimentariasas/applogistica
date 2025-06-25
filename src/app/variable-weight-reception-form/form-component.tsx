@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useForm, useFieldArray, useWatch } from "react-hook-form";
+import { useForm, useFieldArray, useWatch, useFormContext } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format } from "date-fns";
@@ -19,6 +19,7 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormProvider
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import {
@@ -33,13 +34,11 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
-import { Calendar } from "@/components/ui/calendar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import {
     ArrowLeft,
-    CalendarIcon,
     Trash2,
     PlusCircle,
     UploadCloud,
@@ -52,6 +51,7 @@ import {
 } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 
+
 const itemSchema = z.object({
   paleta: z.coerce.number().int().min(0, "Requerido"),
   descripcion: z.string().min(1, "Descripción requerida"),
@@ -59,10 +59,9 @@ const itemSchema = z.object({
   cajas: z.coerce.number().int().min(0, "Requerido"),
   pesoBruto: z.coerce.number().min(0, "Requerido"),
   taraPorCaja: z.coerce.number().min(0, "Requerido"),
-  totalTaraCaja: z.number().optional(), // Now a normal number
-  pesoNeto: z.number().optional(), // Now a normal number
+  totalTaraCaja: z.coerce.number().optional(), 
+  pesoNeto: z.coerce.number().optional(), 
 });
-
 
 const formSchema = z.object({
   pedidoSislog: z.string().max(10, "Máx 10 dígitos").optional(),
@@ -84,31 +83,25 @@ const productosExistentes = [
     { value: 'PROD003', label: 'Carne de Res Molida' },
 ];
 
-const ItemRow = ({ control, index, remove, setValue }: { control: any, index: number, remove: (index: number) => void, setValue: any }) => {
+const ItemRow = ({ control, index, remove }: { control: any, index: number, remove: (index: number) => void }) => {
+    const { setValue } = useFormContext();
     const itemData = useWatch({
         control,
         name: `items.${index}`
     });
 
-    const { cajas, taraPorCaja, pesoBruto } = itemData;
-
-    const totalTaraKg = useMemo(() => {
-        const CajasNum = Number(cajas) || 0;
-        const taraPorCajaNum = Number(taraPorCaja) || 0;
-        const result = parseFloat(((CajasNum * taraPorCajaNum) / 1000).toFixed(2));
-        return isNaN(result) ? 0 : result;
-    }, [cajas, taraPorCaja]);
-
-    const pesoNeto = useMemo(() => {
-        const pesoBrutoNum = Number(pesoBruto) || 0;
-        const result = parseFloat((pesoBrutoNum - totalTaraKg).toFixed(2));
-        return isNaN(result) ? 0 : result;
-    }, [pesoBruto, totalTaraKg]);
-    
     useEffect(() => {
-        setValue(`items.${index}.totalTaraCaja`, totalTaraKg, { shouldValidate: false });
-        setValue(`items.${index}.pesoNeto`, pesoNeto, { shouldValidate: false });
-    }, [totalTaraKg, pesoNeto, index, setValue]);
+        const cajas = Number(itemData.cajas) || 0;
+        const taraPorCaja = Number(itemData.taraPorCaja) || 0;
+        const pesoBruto = Number(itemData.pesoBruto) || 0;
+        
+        const totalTaraKg = parseFloat(((cajas * taraPorCaja) / 1000).toFixed(2));
+        const pesoNeto = parseFloat((pesoBruto - totalTaraKg).toFixed(2));
+
+        setValue(`items.${index}.totalTaraCaja`, isNaN(totalTaraKg) ? 0 : totalTaraKg, { shouldValidate: true });
+        setValue(`items.${index}.pesoNeto`, isNaN(pesoNeto) ? 0 : pesoNeto, { shouldValidate: true });
+
+    }, [itemData.cajas, itemData.taraPorCaja, itemData.pesoBruto, index, setValue]);
 
 
     return (
@@ -143,8 +136,12 @@ const ItemRow = ({ control, index, remove, setValue }: { control: any, index: nu
                 <FormField control={control} name={`items.${index}.taraPorCaja`} render={({ field }) => (
                     <FormItem><FormLabel>Tara por Caja (gr)</FormLabel><FormControl><Input type="number" min="0" placeholder="0" {...field} /></FormControl><FormMessage /></FormItem>
                 )}/>
-                 <FormItem><FormLabel>Total Tara Caja (kg)</FormLabel><FormControl><Input disabled readOnly value={totalTaraKg} /></FormControl></FormItem>
-                 <FormItem><FormLabel>Peso Neto (kg)</FormLabel><FormControl><Input disabled readOnly value={pesoNeto} /></FormControl></FormItem>
+                <FormField control={control} name={`items.${index}.totalTaraCaja`} render={({ field }) => (
+                    <FormItem><FormLabel>Total Tara Caja (kg)</FormLabel><FormControl><Input disabled readOnly {...field} value={itemData.totalTaraCaja || 0} /></FormControl></FormItem>
+                )}/>
+                <FormField control={control} name={`items.${index}.pesoNeto`} render={({ field }) => (
+                    <FormItem><FormLabel>Peso Neto (kg)</FormLabel><FormControl><Input disabled readOnly {...field} value={itemData.pesoNeto || 0} /></FormControl></FormItem>
+                )}/>
             </div>
         </div>
     );
@@ -175,7 +172,7 @@ export default function VariableWeightReceptionFormComponent() {
     },
   });
 
-  const { control, setValue } = form;
+  const { control } = form;
 
   const { fields, append, remove } = useFieldArray({
     control,
@@ -184,7 +181,8 @@ export default function VariableWeightReceptionFormComponent() {
   
   const watchedItems = useWatch({
     control,
-    name: "items"
+    name: "items",
+    defaultValue: []
   });
   
   useEffect(() => {
@@ -199,15 +197,10 @@ export default function VariableWeightReceptionFormComponent() {
 
   const { totalCajas, totalPesoBruto, totalTara, totalPesoNeto } = useMemo(() => {
     return watchedItems.reduce((totals, item) => {
-        const cajas = Number(item.cajas) || 0;
-        const pesoBruto = Number(item.pesoBruto) || 0;
-        const totalTaraKg = Number(item.totalTaraCaja) || 0;
-        const pesoNeto = Number(item.pesoNeto) || 0;
-
-        totals.totalCajas += cajas;
-        totals.totalPesoBruto += pesoBruto;
-        totals.totalTara += totalTaraKg;
-        totals.totalPesoNeto += pesoNeto;
+        totals.totalCajas += Number(item.cajas) || 0;
+        totals.totalPesoBruto += Number(item.pesoBruto) || 0;
+        totals.totalTara += Number(item.totalTaraCaja) || 0;
+        totals.totalPesoNeto += Number(item.pesoNeto) || 0;
         return totals;
     }, { totalCajas: 0, totalPesoBruto: 0, totalTara: 0, totalPesoNeto: 0 });
   }, [watchedItems]);
@@ -247,9 +240,11 @@ export default function VariableWeightReceptionFormComponent() {
   };
   
   useEffect(() => {
+    let stream: MediaStream;
     if (isCameraOpen) {
       navigator.mediaDevices.getUserMedia({ video: true })
-        .then(stream => {
+        .then(s => {
+          stream = s;
           if (videoRef.current) videoRef.current.srcObject = stream;
         })
         .catch(err => {
@@ -258,9 +253,7 @@ export default function VariableWeightReceptionFormComponent() {
         });
     }
     return () => {
-        if (videoRef.current?.srcObject) {
-             (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
-        }
+        stream?.getTracks().forEach(track => track.stop());
     }
   }, [isCameraOpen, toast]);
 
@@ -270,131 +263,144 @@ export default function VariableWeightReceptionFormComponent() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
-      <div className="max-w-6xl mx-auto">
-        <header className="mb-8">
-          <div className="relative flex items-center justify-center text-center">
-            <Button variant="ghost" size="icon" className="absolute left-0" onClick={() => router.push('/')}>
-              <ArrowLeft className="h-6 w-6" />
-            </Button>
-            <div className="flex items-center gap-2">
-                <FileSignature className="h-8 w-8 text-[#3588CC]"/>
-                <h1 className="text-2xl font-bold text-[#3588CC]">Formato de Recepción - Peso Variable</h1>
+    <FormProvider {...form}>
+      <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
+        <div className="max-w-6xl mx-auto">
+          <header className="mb-8">
+            <div className="relative flex items-center justify-center text-center">
+              <Button variant="ghost" size="icon" className="absolute left-0" onClick={() => router.push('/')}>
+                <ArrowLeft className="h-6 w-6" />
+              </Button>
+              <div className="flex items-center gap-2">
+                  <FileSignature className="h-8 w-8 text-[#3588CC]"/>
+                  <h1 className="text-2xl font-bold text-[#3588CC]">Formato de Recepción - Peso Variable</h1>
+              </div>
             </div>
-          </div>
-        </header>
+          </header>
 
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <Card>
-                    <CardHeader><CardTitle>Información General</CardTitle></CardHeader>
-                    <CardContent className="space-y-6">
-                        <FormField control={control} name="pedidoSislog" render={({ field }) => (
-                            <FormItem><FormLabel>Pedido SISLOG</FormLabel><FormControl><Input placeholder="Opcional" {...field} /></FormControl><FormMessage /></FormItem>
-                        )}/>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            <FormField control={control} name="cliente" render={({ field }) => (
-                                <FormItem><FormLabel>Cliente</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccionar cliente..." /></SelectTrigger></FormControl><SelectContent>{clientes.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <Card>
+                      <CardHeader><CardTitle>Información General</CardTitle></CardHeader>
+                      <CardContent className="space-y-6">
+                          <div className="space-y-4">
+                            <FormField control={control} name="pedidoSislog" render={({ field }) => (
+                                <FormItem><FormLabel>Pedido SISLOG</FormLabel><FormControl><Input placeholder="Opcional" {...field} /></FormControl><FormMessage /></FormItem>
                             )}/>
-                            <FormField control={control} name="fecha" render={({ field }) => (
-                                <FormItem className="flex flex-col pt-2"><FormLabel>Fecha</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "dd/MM/yyyy") : <span>Seleccione fecha</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
-                            )}/>
-                            <FormItem><FormLabel>Operario Logístico</FormLabel><FormControl><Input disabled value="Cristian Jaramillo" /></FormControl></FormItem>
-                        </div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader><CardTitle>Información del Vehículo</CardTitle></CardHeader>
-                    <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <FormField control={control} name="conductor" render={({ field }) => (
-                            <FormItem><FormLabel>Nombre Conductor</FormLabel><FormControl><Input placeholder="Nombre completo" {...field} /></FormControl><FormMessage /></FormItem>
-                        )}/>
-                        <FormField control={control} name="placa" render={({ field }) => (
-                            <FormItem><FormLabel>Placa</FormLabel><FormControl><Input placeholder="Placa del vehículo" {...field} /></FormControl><FormMessage /></FormItem>
-                        )}/>
-                    </CardContent>
-                </Card>
-            </div>
-            
-            <Card>
-                <CardHeader><CardTitle>Items de Recepción</CardTitle></CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="space-y-4">
-                        {fields.map((field, index) => (
-                           <ItemRow key={field.id} control={control} index={index} remove={() => remove(index)} setValue={setValue} />
-                        ))}
-                    </div>
-                    <Button type="button" variant="outline" onClick={() => append({ paleta: 0, descripcion: "", lote: "", cajas: 0, pesoBruto: 0, taraPorCaja: 0 })}><PlusCircle className="mr-2 h-4 w-4" />Agregar Item</Button>
-                    <div className="mt-6 p-4 border rounded-lg bg-gray-100">
-                        <h4 className="font-bold text-lg mb-2">Totales Generales</h4>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                            <div><span className="font-semibold">Total Cajas:</span> {totalCajas}</div>
-                            <div><span className="font-semibold">Total Peso Bruto:</span> {totalPesoBruto.toFixed(2)} kg</div>
-                            <div><span className="font-semibold">Total Tara:</span> {totalTara.toFixed(2)} kg</div>
-                            <div><span className="font-semibold">Total Peso Neto:</span> {totalPesoNeto.toFixed(2)} kg</div>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
+                          </div>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              <FormField control={control} name="cliente" render={({ field }) => (
+                                  <FormItem><FormLabel>Cliente</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccionar cliente..." /></SelectTrigger></FormControl><SelectContent>{clientes.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                              )}/>
+                              <FormField control={control} name="fecha" render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Fecha</FormLabel>
+                                  <FormControl>
+                                    <Input
+                                        disabled
+                                        value={field.value ? format(field.value, "dd/MM/yyyy") : ""}
+                                    />
+                                  </FormControl>
+                                  <FormMessage />
+                                </FormItem>
+                              )}/>
+                              <FormItem><FormLabel>Operario Logístico</FormLabel><FormControl><Input disabled value="Cristian Jaramillo" /></FormControl></FormItem>
+                          </div>
+                      </CardContent>
+                  </Card>
+                  <Card>
+                      <CardHeader><CardTitle>Información del Vehículo</CardTitle></CardHeader>
+                      <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <FormField control={control} name="conductor" render={({ field }) => (
+                              <FormItem><FormLabel>Nombre Conductor</FormLabel><FormControl><Input placeholder="Nombre completo" {...field} /></FormControl><FormMessage /></FormItem>
+                          )}/>
+                          <FormField control={control} name="placa" render={({ field }) => (
+                              <FormItem><FormLabel>Placa</FormLabel><FormControl><Input placeholder="Placa del vehículo" {...field} /></FormControl><FormMessage /></FormItem>
+                          )}/>
+                      </CardContent>
+                  </Card>
+              </div>
+              
+              <Card>
+                  <CardHeader><CardTitle>Items de Recepción</CardTitle></CardHeader>
+                  <CardContent className="space-y-4">
+                      <div className="space-y-4">
+                          {fields.map((field, index) => (
+                             <ItemRow key={field.id} control={control} index={index} remove={() => remove(index)} />
+                          ))}
+                      </div>
+                      <Button type="button" variant="outline" onClick={() => append({ paleta: 0, descripcion: "", lote: "", cajas: 0, pesoBruto: 0, taraPorCaja: 0 })}><PlusCircle className="mr-2 h-4 w-4" />Agregar Item</Button>
+                      <div className="mt-6 p-4 border rounded-lg bg-gray-100">
+                          <h4 className="font-bold text-lg mb-2">Totales Generales</h4>
+                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                              <div><span className="font-semibold">Total Cajas:</span> {totalCajas}</div>
+                              <div><span className="font-semibold">Total Peso Bruto:</span> {totalPesoBruto.toFixed(2)} kg</div>
+                              <div><span className="font-semibold">Total Tara:</span> {totalTara.toFixed(2)} kg</div>
+                              <div><span className="font-semibold">Total Peso Neto:</span> {totalPesoNeto.toFixed(2)} kg</div>
+                          </div>
+                      </div>
+                  </CardContent>
+              </Card>
 
-            <Card>
-                <CardHeader><CardTitle>Anexos</CardTitle></CardHeader>
-                <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-lg cursor-pointer hover:bg-gray-100" onClick={() => fileInputRef.current?.click()}>
-                            <UploadCloud className="w-10 h-10 text-gray-400 mb-2"/><p className="text-sm font-semibold">Subir archivos</p><Input type="file" ref={fileInputRef} className="hidden" multiple accept="image/*" onChange={handleFileChange} />
-                        </div>
-                        <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-lg cursor-pointer hover:bg-gray-100" onClick={handleOpenCamera}>
-                            <Camera className="w-10 h-10 text-gray-400 mb-2"/><p className="text-sm font-semibold">Tomar Foto</p>
-                        </div>
-                    </div>
-                    {attachments.length > 0 && (
-                        <div>
-                            <h4 className="text-sm font-medium mb-2">Archivos Adjuntos:</h4>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                                {attachments.map((src, index) => (
-                                    <div key={index} className="relative group aspect-square">
-                                        <Image src={src} alt={`Anexo ${index + 1}`} fill className="rounded-md object-cover" />
-                                        <Button type="button" variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => setAttachments(prev => prev.filter((_, i) => i !== index))}><Trash2 className="h-4 w-4" /></Button>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
+              <Card>
+                  <CardHeader><CardTitle>Anexos</CardTitle></CardHeader>
+                  <CardContent className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-lg cursor-pointer hover:bg-gray-100" onClick={() => fileInputRef.current?.click()}>
+                              <UploadCloud className="w-10 h-10 text-gray-400 mb-2"/><p className="text-sm font-semibold">Subir archivos</p><Input type="file" ref={fileInputRef} className="hidden" multiple accept="image/*" onChange={handleFileChange} />
+                          </div>
+                          <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-lg cursor-pointer hover:bg-gray-100" onClick={handleOpenCamera}>
+                              <Camera className="w-10 h-10 text-gray-400 mb-2"/><p className="text-sm font-semibold">Tomar Foto</p>
+                          </div>
+                      </div>
+                      {attachments.length > 0 && (
+                          <div>
+                              <h4 className="text-sm font-medium mb-2">Archivos Adjuntos:</h4>
+                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                                  {attachments.map((src, index) => (
+                                      <div key={index} className="relative group aspect-square">
+                                          <Image src={src} alt={`Anexo ${index + 1}`} fill className="rounded-md object-cover" />
+                                          <Button type="button" variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => setAttachments(prev => prev.filter((_, i) => i !== index))}><Trash2 className="h-4 w-4" /></Button>
+                                      </div>
+                                  ))}
+                              </div>
+                          </div>
+                      )}
+                  </CardContent>
+              </Card>
 
-            <Card>
-                <CardHeader><CardTitle>Responsables y Observaciones</CardTitle></CardHeader>
-                <CardContent className="space-y-4">
-                    <FormField control={control} name="observaciones" render={({ field }) => (
-                        <FormItem><FormLabel>Observaciones</FormLabel><FormControl><Textarea placeholder="Observaciones generales (opcional)" {...field} /></FormControl><FormMessage /></FormItem>
-                    )}/>
-                    <FormField control={control} name="coordinador" render={({ field }) => (
-                        <FormItem><FormLabel>Coordinador Responsable</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccionar coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
-                    )}/>
-                </CardContent>
-            </Card>
+              <Card>
+                  <CardHeader><CardTitle>Responsables y Observaciones</CardTitle></CardHeader>
+                  <CardContent className="space-y-4">
+                      <FormField control={control} name="observaciones" render={({ field }) => (
+                          <FormItem><FormLabel>Observaciones</FormLabel><FormControl><Textarea placeholder="Observaciones generales (opcional)" {...field} /></FormControl><FormMessage /></FormItem>
+                      )}/>
+                      <FormField control={control} name="coordinador" render={({ field }) => (
+                          <FormItem><FormLabel>Coordinador Responsable</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccionar coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                      )}/>
+                  </CardContent>
+              </Card>
 
-            <footer className="flex items-center justify-end gap-4 pt-4">
-                <Button type="button" variant="outline" onClick={() => form.reset()}><RotateCcw className="mr-2 h-4 w-4"/>Limpiar</Button>
-                <Button type="submit"><Send className="mr-2 h-4 w-4"/>Guardar y Enviar</Button>
-            </footer>
-          </form>
-        </Form>
+              <footer className="flex items-center justify-end gap-4 pt-4">
+                  <Button type="button" variant="outline" onClick={() => form.reset()}><RotateCcw className="mr-2 h-4 w-4"/>Limpiar</Button>
+                  <Button type="submit"><Send className="mr-2 h-4 w-4"/>Guardar y Enviar</Button>
+              </footer>
+            </form>
+          </Form>
+        </div>
+
+        <Dialog open={isCameraOpen} onOpenChange={setIsCameraOpen}>
+            <DialogContent><DialogHeader><DialogTitle>Tomar Foto</DialogTitle></DialogHeader>
+                <video ref={videoRef} className="w-full aspect-video rounded-md bg-black" autoPlay playsInline />
+                <canvas ref={canvasRef} className="hidden" />
+                <DialogFooter>
+                    <Button variant="outline" onClick={handleCloseCamera}>Cancelar</Button>
+                    <Button onClick={handleCapture}><Camera className="mr-2 h-4 w-4"/>Capturar</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
       </div>
-
-      <Dialog open={isCameraOpen} onOpenChange={setIsCameraOpen}>
-          <DialogContent><DialogHeader><DialogTitle>Tomar Foto</DialogTitle></DialogHeader>
-              <video ref={videoRef} className="w-full aspect-video rounded-md bg-black" autoPlay playsInline />
-              <canvas ref={canvasRef} className="hidden" />
-              <DialogFooter>
-                  <Button variant="outline" onClick={handleCloseCamera}>Cancelar</Button>
-                  <Button onClick={handleCapture}><Camera className="mr-2 h-4 w-4"/>Capturar</Button>
-              </DialogFooter>
-          </DialogContent>
-      </Dialog>
-    </div>
+    </FormProvider>
   );
 }
