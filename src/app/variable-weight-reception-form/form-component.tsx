@@ -217,7 +217,7 @@ export default function VariableWeightReceptionFormComponent() {
 
   const showSummary = (watchedItems || []).some(item => item.descripcion && item.descripcion.trim() !== '');
 
-  useEffect(() => {
+  const calculatedSummary = useMemo(() => {
     const grouped = (watchedItems || []).reduce((acc, item) => {
         if (!item.descripcion?.trim()) return acc;
         const desc = item.descripcion.trim();
@@ -243,9 +243,15 @@ export default function VariableWeightReceptionFormComponent() {
         return acc;
     }, {} as Record<string, { descripcion: string; totalPeso: number; totalCantidad: number }>);
 
-    const newSummaryData = Object.values(grouped);
-    
-    const mergedSummary = newSummaryData.map(newItem => {
+    return Object.values(grouped);
+  }, [watchedItems]);
+
+  useEffect(() => {
+    const createComparable = (arr: any[]) => JSON.stringify(
+        (arr || []).map(({ id, ...rest }) => rest).sort((a,b) => a.descripcion.localeCompare(b.descripcion))
+    );
+
+    const mergedSummary = calculatedSummary.map(newItem => {
         const existingItem = watchedSummary?.find(oldItem => oldItem.descripcion === newItem.descripcion);
         return {
             ...newItem,
@@ -253,15 +259,10 @@ export default function VariableWeightReceptionFormComponent() {
         };
     });
     
-    // Create a stable, comparable string representation of the summary data, ignoring field IDs and order.
-    const createComparable = (arr: any[]) => JSON.stringify(
-        (arr || []).map(({ id, ...rest }) => rest).sort((a,b) => a.descripcion.localeCompare(b.descripcion))
-    );
-
     if (createComparable(watchedSummary) !== createComparable(mergedSummary)) {
       setSummaryItems(mergedSummary);
     }
-  }, [watchedItems, watchedSummary, setSummaryItems]);
+  }, [calculatedSummary, watchedSummary, setSummaryItems]);
 
 
   useEffect(() => {
@@ -483,9 +484,9 @@ export default function VariableWeightReceptionFormComponent() {
                                   </TableRow>
                               </TableHeader>
                               <TableBody>
-                                  {watchedSummary && watchedSummary.length > 0 ? (
-                                      watchedSummary.map((summaryItem, index) => (
-                                          <TableRow key={summaryItems[index].id}>
+                                  {summaryItems && summaryItems.length > 0 ? (
+                                      summaryItems.map((summaryItem, index) => (
+                                          <TableRow key={summaryItem.id}>
                                               <TableCell>
                                                   <FormField
                                                       control={control}
@@ -503,9 +504,9 @@ export default function VariableWeightReceptionFormComponent() {
                                                       )}
                                                   />
                                               </TableCell>
-                                              <TableCell className="font-medium">{summaryItem.descripcion}</TableCell>
-                                              <TableCell className="text-right">{(summaryItem.totalPeso || 0).toFixed(2)}</TableCell>
-                                              <TableCell className="text-right">{summaryItem.totalCantidad || 0}</TableCell>
+                                              <TableCell className="font-medium">{watchedSummary?.[index]?.descripcion}</TableCell>
+                                              <TableCell className="text-right">{(watchedSummary?.[index]?.totalPeso || 0).toFixed(2)}</TableCell>
+                                              <TableCell className="text-right">{watchedSummary?.[index]?.totalCantidad || 0}</TableCell>
                                           </TableRow>
                                       ))
                                   ) : (
