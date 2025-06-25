@@ -221,6 +221,15 @@ export default function VariableWeightReceptionFormComponent() {
     const grouped = (watchedItems || []).reduce((acc, item) => {
         if (!item.descripcion?.trim()) return acc;
         const desc = item.descripcion.trim();
+
+        // Perform the calculation directly for the summary
+        const cantidad = Number(item.cantidadPorPaleta) || 0;
+        const taraCaja = Number(item.taraCaja) || 0;
+        const taraEstiba = Number(item.taraEstiba) || 0;
+        const pesoBruto = Number(item.pesoBruto) || 0;
+        const totalTaraCajaCalc = cantidad * taraCaja;
+        const pesoNetoCalc = pesoBruto - taraEstiba - totalTaraCajaCalc;
+
         if (!acc[desc]) {
             acc[desc] = {
                 descripcion: desc,
@@ -228,8 +237,10 @@ export default function VariableWeightReceptionFormComponent() {
                 totalCantidad: 0,
             };
         }
-        acc[desc].totalPeso += Number(item.pesoNeto) || 0;
-        acc[desc].totalCantidad += Number(item.cantidadPorPaleta) || 0;
+
+        acc[desc].totalPeso += isNaN(pesoNetoCalc) ? 0 : pesoNetoCalc;
+        acc[desc].totalCantidad += cantidad;
+        
         return acc;
     }, {} as Record<string, { descripcion: string; totalPeso: number; totalCantidad: number }>);
 
