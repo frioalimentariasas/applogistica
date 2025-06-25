@@ -213,11 +213,8 @@ export default function VariableWeightReceptionFormComponent() {
   });
   
   const watchedItems = form.watch("items");
-  const watchedSummary = form.watch("summary");
 
-  const showSummary = (watchedItems || []).some(item => item.descripcion && item.descripcion.trim() !== '');
-
-  const calculatedSummary = useMemo(() => {
+  const calculatedSummaryForDisplay = useMemo(() => {
     const grouped = (watchedItems || []).reduce((acc, item) => {
         if (!item.descripcion?.trim()) return acc;
         const desc = item.descripcion.trim();
@@ -247,23 +244,24 @@ export default function VariableWeightReceptionFormComponent() {
   }, [watchedItems]);
 
   useEffect(() => {
-    const createComparable = (arr: any[]) => JSON.stringify(
-        (arr || []).map(({ id, ...rest }) => rest).sort((a,b) => a.descripcion.localeCompare(b.descripcion))
-    );
+      const currentSummaryInForm = form.getValues('summary') || [];
+      
+      const newSummaryState = calculatedSummaryForDisplay.map(newItem => {
+          const existingItem = currentSummaryInForm.find(oldItem => oldItem.descripcion === newItem.descripcion);
+          return {
+              ...newItem,
+              temperatura: existingItem?.temperatura,
+          };
+      });
 
-    const mergedSummary = calculatedSummary.map(newItem => {
-        const existingItem = watchedSummary?.find(oldItem => oldItem.descripcion === newItem.descripcion);
-        return {
-            ...newItem,
-            temperatura: existingItem?.temperatura,
-        };
-    });
-    
-    if (createComparable(watchedSummary) !== createComparable(mergedSummary)) {
-      setSummaryItems(mergedSummary);
-    }
-  }, [calculatedSummary, watchedSummary, setSummaryItems]);
+      const createComparable = (arr: any[]) => JSON.stringify((arr || []).map(i => i.descripcion).sort());
 
+      if (createComparable(currentSummaryInForm) !== createComparable(newSummaryState)) {
+        setSummaryItems(newSummaryState);
+      }
+  }, [calculatedSummaryForDisplay, form, setSummaryItems]);
+
+  const showSummary = (watchedItems || []).some(item => item.descripcion && item.descripcion.trim() !== '');
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -361,7 +359,16 @@ export default function VariableWeightReceptionFormComponent() {
   }, [isCameraOpen, toast]);
 
   function onSubmit(data: z.infer<typeof formSchema>) {
-    console.log({ ...data, attachments });
+    const finalSummary = calculatedSummaryForDisplay.map(summaryItem => {
+      const formItem = (data.summary || []).find(s => s.descripcion === summaryItem.descripcion);
+      return {
+          ...summaryItem,
+          temperatura: formItem?.temperatura as number,
+      }
+    });
+
+    const dataToSubmit = { ...data, summary: finalSummary, attachments };
+    console.log(dataToSubmit);
     toast({ title: "Formulario Guardado", description: "La recepción de peso variable ha sido guardada." });
   }
 
@@ -484,31 +491,37 @@ export default function VariableWeightReceptionFormComponent() {
                                   </TableRow>
                               </TableHeader>
                               <TableBody>
-                                  {summaryItems && summaryItems.length > 0 ? (
-                                      summaryItems.map((summaryItem, index) => (
-                                          <TableRow key={summaryItem.id}>
+                                  {calculatedSummaryForDisplay.length > 0 ? (
+                                      calculatedSummaryForDisplay.map((summaryItem) => {
+                                          const summaryIndex = summaryItems.findIndex(f => f.descripcion === summaryItem.descripcion);
+                                          return (
+                                          <TableRow key={summaryItem.descripcion}>
                                               <TableCell>
-                                                  <FormField
-                                                      control={control}
-                                                      name={`summary.${index}.temperatura`}
-                                                      render={({ field }) => (
-                                                          <FormItem>
-                                                              <FormControl>
-                                                                  <Input type="number" placeholder="0" {...field} 
-                                                                      onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.valueAsNumber)} 
-                                                                      value={field.value === undefined || Number.isNaN(field.value) ? '' : field.value}
-                                                                  />
-                                                              </FormControl>
-                                                              <FormMessage />
-                                                          </FormItem>
-                                                      )}
-                                                  />
+                                                  { summaryIndex > -1 ? (
+                                                      <FormField
+                                                          control={control}
+                                                          name={`summary.${summaryIndex}.temperatura`}
+                                                          render={({ field }) => (
+                                                              <FormItem>
+                                                                  <FormControl>
+                                                                      <Input type="number" placeholder="0" {...field} 
+                                                                          onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.valueAsNumber)} 
+                                                                          value={field.value === undefined || Number.isNaN(field.value) ? '' : field.value}
+                                                                      />
+                                                                  </FormControl>
+                                                                  <FormMessage />
+                                                              </FormItem>
+                                                          )}
+                                                      />
+                                                  ) : (
+                                                    <div className="h-10 w-full" />
+                                                  )}
                                               </TableCell>
-                                              <TableCell className="font-medium">{watchedSummary?.[index]?.descripcion}</TableCell>
-                                              <TableCell className="text-right">{(watchedSummary?.[index]?.totalPeso || 0).toFixed(2)}</TableCell>
-                                              <TableCell className="text-right">{watchedSummary?.[index]?.totalCantidad || 0}</TableCell>
+                                              <TableCell className="font-medium">{summaryItem.descripcion}</TableCell>
+                                              <TableCell className="text-right">{(summaryItem.totalPeso || 0).toFixed(2)}</TableCell>
+                                              <TableCell className="text-right">{summaryItem.totalCantidad || 0}</TableCell>
                                           </TableRow>
-                                      ))
+                                      )})
                                   ) : (
                                       <TableRow>
                                           <TableCell colSpan={4} className="h-24 text-center">
