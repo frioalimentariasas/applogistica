@@ -213,12 +213,6 @@ export default function VariableWeightReceptionFormComponent() {
     name: "items",
   });
   
-  const watchedItems = useWatch({
-    control,
-    name: "items",
-    defaultValue: []
-  });
-  
   useEffect(() => {
     window.scrollTo(0, 0);
   }, []);
@@ -228,18 +222,6 @@ export default function VariableWeightReceptionFormComponent() {
       append({ paleta: 0, descripcion: "", lote: "", presentacion: "", cantidadPorPaleta: 0, pesoBruto: 0, taraEstiba: 0, taraCaja: 0, totalTaraCaja: 0, pesoNeto: 0 }, { shouldFocus: false });
     }
   }, [fields, append]);
-
-  const { totalCantidad, totalPesoBruto, totalTara, totalPesoNeto } = useMemo(() => {
-    return watchedItems.reduce((totals, item) => {
-        totals.totalCantidad += Number(item.cantidadPorPaleta) || 0;
-        totals.totalPesoBruto += Number(item.pesoBruto) || 0;
-        const totalTaraCaja = Number(item.totalTaraCaja) || 0;
-        const taraEstiba = Number(item.taraEstiba) || 0;
-        totals.totalTara += taraEstiba + totalTaraCaja;
-        totals.totalPesoNeto += Number(item.pesoNeto) || 0;
-        return totals;
-    }, { totalCantidad: 0, totalPesoBruto: 0, totalTara: 0, totalPesoNeto: 0 });
-  }, [watchedItems]);
 
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -364,15 +346,6 @@ export default function VariableWeightReceptionFormComponent() {
                           ))}
                       </div>
                       <Button type="button" variant="outline" onClick={() => append({ paleta: 0, descripcion: "", lote: "", presentacion: "", cantidadPorPaleta: 0, pesoBruto: 0, taraEstiba: 0, taraCaja: 0, totalTaraCaja: 0, pesoNeto: 0 })}><PlusCircle className="mr-2 h-4 w-4" />Agregar Item</Button>
-                      <div className="mt-6 p-4 border rounded-lg bg-gray-100">
-                          <h4 className="font-bold text-lg mb-2">Totales Generales</h4>
-                          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                              <div><span className="font-semibold">Total Cantidad:</span> {totalCantidad}</div>
-                              <div><span className="font-semibold">Total Peso Bruto:</span> {totalPesoBruto.toFixed(2)} kg</div>
-                              <div><span className="font-semibold">Total Tara:</span> {totalTara.toFixed(2)} kg</div>
-                              <div><span className="font-semibold">Total Peso Neto:</span> {totalPesoNeto.toFixed(2)} kg</div>
-                          </div>
-                      </div>
                   </CardContent>
               </Card>
 
@@ -436,5 +409,3 @@ export default function VariableWeightReceptionFormComponent() {
     </Form>
   );
 }
-
-    
