@@ -141,6 +141,7 @@ export default function VariableWeightReceptionFormComponent() {
   });
 
   const items = form.watch('items');
+  const { getValues, setValue } = form;
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -160,18 +161,18 @@ export default function VariableWeightReceptionFormComponent() {
         const calculatedTotalTaraCaja = cantidadPorPaleta * taraCaja;
         const calculatedPesoNeto = pesoBruto - taraEstiba - calculatedTotalTaraCaja;
 
-        const currentTotalTaraCaja = form.getValues(`items.${index}.totalTaraCaja`);
-        const currentPesoNeto = form.getValues(`items.${index}.pesoNeto`);
+        const currentTotalTaraCaja = getValues(`items.${index}.totalTaraCaja`);
+        const currentPesoNeto = getValues(`items.${index}.pesoNeto`);
 
         if (currentTotalTaraCaja !== calculatedTotalTaraCaja) {
-            form.setValue(`items.${index}.totalTaraCaja`, calculatedTotalTaraCaja, { shouldValidate: false, shouldDirty: true });
+            setValue(`items.${index}.totalTaraCaja`, calculatedTotalTaraCaja, { shouldValidate: false, shouldDirty: true });
         }
 
         if (currentPesoNeto !== calculatedPesoNeto) {
-            form.setValue(`items.${index}.pesoNeto`, calculatedPesoNeto, { shouldValidate: false, shouldDirty: true });
+            setValue(`items.${index}.pesoNeto`, calculatedPesoNeto, { shouldValidate: false, shouldDirty: true });
         }
     });
-  }, [items, form]);
+  }, [items, getValues, setValue]);
   
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         if (event.target.files) {
