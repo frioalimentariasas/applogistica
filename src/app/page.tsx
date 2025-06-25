@@ -1,10 +1,12 @@
 "use client";
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Snowflake, FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
+import { useToast } from "@/hooks/use-toast";
 
 const Logo = () => (
     <div className="flex flex-col items-center justify-center text-center">
@@ -21,12 +23,22 @@ const Logo = () => (
 export default function Home() {
   const [operationType, setOperationType] = useState<string>();
   const [productType, setProductType] = useState<string>();
+  const router = useRouter();
+  const { toast } = useToast();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!operationType || !productType) return;
-    // Handle form submission
-    alert(`Generating format...\nOperation: ${operationType}\nProduct: ${productType}`);
+
+    if (productType === 'fijo') {
+      router.push(`/fixed-weight-form?operation=${operationType}`);
+    } else {
+      toast({
+        title: "En desarrollo",
+        description: "El formato para peso variable aún no está disponible.",
+        variant: "destructive"
+      })
+    }
   };
 
   return (
