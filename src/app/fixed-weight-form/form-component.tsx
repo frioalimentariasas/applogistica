@@ -495,7 +495,7 @@ export default function FixedWeightFormComponent() {
             {/* Vehicle Info Card */}
             <Card>
                 <CardHeader><CardTitle>Información del Vehículo</CardTitle></CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-4 gap-y-6">
+                <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-6">
                     <FormField control={form.control} name="nombreConductor" render={({ field }) => (
                         <FormItem><FormLabel>Nombre Conductor</FormLabel><FormControl><Input placeholder="Nombre del conductor" {...field} /></FormControl><FormMessage /></FormItem>
                     )}/>
@@ -530,7 +530,7 @@ export default function FixedWeightFormComponent() {
                         <FormItem className="space-y-3"><FormLabel>Cliente Requiere Termoregistro</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex gap-4"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="req-termo-si" /><Label htmlFor="req-termo-si">Sí</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="req-termo-no" /><Label htmlFor="req-termo-no">No</Label></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>
                     )}/>
                     <FormField control={form.control} name="observaciones" render={({ field }) => (
-                        <FormItem className="md:col-span-2 lg:col-span-3"><FormLabel>Observaciones</FormLabel><FormControl><Textarea placeholder="Observaciones Generales del Pedido (opcional, máx. 100 caracteres)" {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormItem className="md:col-span-3"><FormLabel>Observaciones</FormLabel><FormControl><Textarea placeholder="Observaciones Generales del Pedido (opcional, máx. 100 caracteres)" {...field} /></FormControl><FormMessage /></FormItem>
                     )}/>
                 </CardContent>
             </Card>
