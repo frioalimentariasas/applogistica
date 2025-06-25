@@ -65,7 +65,7 @@ const productSchema = z.object({
 });
 
 const formSchema = z.object({
-  pedidoSislog: z.string()
+    pedidoSislog: z.string()
     .min(1, "El pedido SISLOG es obligatorio.")
     .max(10, "El número de pedido no puede exceder los 10 dígitos.")
     .regex(/^[0-9]*$/, "El pedido solo puede contener números."),
@@ -76,8 +76,8 @@ const formSchema = z.object({
   precinto: z.string()
     .min(1, "El precinto es obligatorio.")
     .max(40, "Máximo 40 caracteres."),
-  documentoTransporte: z.string().max(15, "Máximo 15 caracteres.").optional(),
-  facturaRemision: z.string().max(15, "Máximo 15 caracteres.").optional(),
+    documentoTransporte: z.string().max(15, "Máximo 15 caracteres.").optional(),
+    facturaRemision: z.string().max(15, "Máximo 15 caracteres.").optional(),
   productos: z.array(productSchema).min(1, "Debe agregar al menos un producto."),
   nombreConductor: z.string().min(1, "El nombre del conductor es obligatorio."),
   cedulaConductor: z.string().min(1, "La cédula del conductor es obligatoria."),
@@ -378,80 +378,86 @@ export default function FixedWeightFormComponent() {
                     <div key={item.id} className="p-4 border rounded-md relative space-y-4">
                         <div className="flex justify-between items-center">
                             <h4 className="font-semibold">Producto #{index + 1}</h4>
+                            {fields.length > 1 && (
                             <Button type="button" variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" onClick={() => remove(index)}>
                                 <Trash2 className="h-4 w-4" />
                             </Button>
+                            )}
                         </div>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
-                            <FormField control={form.control} name={`productos.${index}.codigo`} render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Código</FormLabel>
-                                    <FormControl><Input placeholder="Código del producto" {...field} /></FormControl>
+                        <div className="space-y-4">
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                                <FormField control={form.control} name={`productos.${index}.codigo`} render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Código</FormLabel>
+                                        <FormControl><Input placeholder="Código del producto" {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}/>
+                                <FormField control={form.control} name={`productos.${index}.descripcion`} render={({ field }) => (
+                                    <FormItem className="lg:col-span-2">
+                                    <FormLabel>Descripción del Producto</FormLabel>
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                        <FormControl>
+                                            <Button variant="outline" role="combobox" className={cn("w-full justify-between", !field.value && "text-muted-foreground")}>
+                                            {field.value ? productosExistentes.find((p) => p.label === field.value)?.label : "Seleccionar o escribir descripción..."}
+                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                            </Button>
+                                        </FormControl>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                            <Command shouldFilter={false}>
+                                                <CommandInput placeholder="Buscar producto..." onValueChange={(search) => {
+                                                    // Handle search/filter if needed, for now just for typing
+                                                }} />
+                                                <CommandList>
+                                                    <CommandEmpty>No se encontraron productos.</CommandEmpty>
+                                                    <CommandGroup>
+                                                        {productosExistentes.map((p) => (
+                                                            <CommandItem
+                                                                key={p.value}
+                                                                value={p.label}
+                                                                onSelect={(currentValue) => {
+                                                                    form.setValue(`productos.${index}.descripcion`, currentValue === field.value ? "" : currentValue)
+                                                                    form.setValue(`productos.${index}.codigo`, p.value)
+                                                                }}
+                                                                >
+                                                                <CheckIcon className={cn("mr-2 h-4 w-4", p.label === field.value ? "opacity-100" : "opacity-0")} />
+                                                                {p.label}
+                                                            </CommandItem>
+                                                        ))}
+                                                    </CommandGroup>
+                                                </CommandList>
+                                            </Command>
+                                        </PopoverContent>
+                                    </Popover>
                                     <FormMessage />
-                                </FormItem>
-                            )}/>
-                            <FormField control={form.control} name={`productos.${index}.descripcion`} render={({ field }) => (
-                                <FormItem className="lg:col-span-2">
-                                <FormLabel>Descripción del Producto</FormLabel>
-                                 <Popover>
-                                    <PopoverTrigger asChild>
-                                    <FormControl>
-                                        <Button variant="outline" role="combobox" className={cn("w-full justify-between", !field.value && "text-muted-foreground")}>
-                                        {field.value ? productosExistentes.find((p) => p.label === field.value)?.label : "Seleccionar o escribir descripción..."}
-                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                        </Button>
-                                    </FormControl>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                                        <Command shouldFilter={false}>
-                                            <CommandInput placeholder="Buscar producto..." onValueChange={(search) => {
-                                                // Handle search/filter if needed, for now just for typing
-                                            }} />
-                                            <CommandList>
-                                                <CommandEmpty>No se encontraron productos.</CommandEmpty>
-                                                <CommandGroup>
-                                                    {productosExistentes.map((p) => (
-                                                        <CommandItem
-                                                            key={p.value}
-                                                            value={p.label}
-                                                            onSelect={(currentValue) => {
-                                                                form.setValue(`productos.${index}.descripcion`, currentValue === field.value ? "" : currentValue)
-                                                                form.setValue(`productos.${index}.codigo`, p.value)
-                                                            }}
-                                                            >
-                                                            <CheckIcon className={cn("mr-2 h-4 w-4", p.label === field.value ? "opacity-100" : "opacity-0")} />
-                                                            {p.label}
-                                                        </CommandItem>
-                                                    ))}
-                                                </CommandGroup>
-                                            </CommandList>
-                                        </Command>
-                                    </PopoverContent>
-                                </Popover>
-                                <FormMessage />
-                                </FormItem>
-                            )}/>
-                             <FormField control={form.control} name={`productos.${index}.cajas`} render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>No. de Cajas</FormLabel>
-                                    <FormControl><Input type="number" min="0" placeholder="0" {...field} /></FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}/>
-                            <FormField control={form.control} name={`productos.${index}.paletas`} render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Total Paletas/Cantidad</FormLabel>
-                                    <FormControl><Input type="number" min="0" placeholder="0" {...field} /></FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}/>
-                            <FormField control={form.control} name={`productos.${index}.temperatura`} render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Temperatura (°C)</FormLabel>
-                                    <FormControl><Input type="number" placeholder="0" {...field} /></FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}/>
+                                    </FormItem>
+                                )}/>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <FormField control={form.control} name={`productos.${index}.cajas`} render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>No. de Cajas</FormLabel>
+                                        <FormControl><Input type="number" min="0" placeholder="0" {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}/>
+                                <FormField control={form.control} name={`productos.${index}.paletas`} render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Total Paletas/Cantidad</FormLabel>
+                                        <FormControl><Input type="number" min="0" placeholder="0" {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}/>
+                                <FormField control={form.control} name={`productos.${index}.temperatura`} render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Temperatura (°C)</FormLabel>
+                                        <FormControl><Input type="number" placeholder="0" {...field} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}/>
+                            </div>
                         </div>
                     </div>
                 ))}
