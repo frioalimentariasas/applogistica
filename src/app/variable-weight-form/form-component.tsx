@@ -120,7 +120,7 @@ export default function VariableWeightFormComponent() {
       conductor: "",
       placa: "",
       precinto: "",
-      setPoint: undefined as any,
+      setPoint: undefined,
       items: [],
       horaInicio: "",
       horaFin: "",
@@ -261,8 +261,8 @@ export default function VariableWeightFormComponent() {
                     <ArrowLeft className="h-6 w-6" />
                 </Button>
                  <div className="flex items-center gap-2">
-                    <File className="h-8 w-8 text-[#3588CC]"/>
-                    <h1 className="text-2xl font-bold text-[#3588CC]">{title}</h1>
+                    <File className="h-8 w-8 text-primary"/>
+                    <h1 className="text-2xl font-bold text-primary">{title}</h1>
                 </div>
             </div>
         </header>

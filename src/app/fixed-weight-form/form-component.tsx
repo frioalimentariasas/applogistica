@@ -59,7 +59,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 const productSchema = z.object({
   codigo: z.string().optional(),
   descripcion: z.string().min(1, "La descripción es requerida."),
-  cajas: z.number({required_error: "El No. de cajas es requerido.", invalid_type_error: "El No. de cajas es requerido."}).int().min(1, "El No. de Cajas debe ser mayor a 0."),
+  cajas: z.number({required_error: "El No. de cajas es requerido.", invalid_type_error: "El No. de cajas es requerido."}).int().positive("El No. de Cajas debe ser mayor a 0."),
   paletas: z.number({required_error: "El Total Paletas/Cantidad es requerido.", invalid_type_error: "El Total Paletas/Cantidad es requerido."}).positive("El Total Paletas/Cantidad debe ser un número positivo."),
   temperatura: z.number({ required_error: "La temperatura es requerida.", invalid_type_error: "La temperatura es requerida." }).min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99."),
 });
@@ -128,13 +128,13 @@ export default function FixedWeightFormComponent() {
       precinto: "",
       documentoTransporte: "",
       facturaRemision: "",
-      productos: [{ codigo: '', descripcion: '', cajas: undefined as any, paletas: undefined as any, temperatura: undefined as any }],
+      productos: [{ codigo: '', descripcion: '', cajas: undefined, paletas: undefined, temperatura: undefined }],
       nombreConductor: "",
       cedulaConductor: "",
       placa: "",
       muelle: "",
       contenedor: "",
-      setPoint: undefined as any,
+      setPoint: undefined,
       observaciones: "",
       coordinador: "",
     },
@@ -282,7 +282,7 @@ export default function FixedWeightFormComponent() {
                     <ArrowLeft className="h-6 w-6" />
                 </Button>
                 <div>
-                    <h1 className="text-2xl font-bold text-[#3588CC]">{title}</h1>
+                    <h1 className="text-2xl font-bold text-primary">{title}</h1>
                     <p className="text-sm text-gray-500">Complete todos los campos requeridos para registrar la operación.</p>
                 </div>
             </div>
@@ -472,7 +472,7 @@ export default function FixedWeightFormComponent() {
                         </div>
                     </div>
                 ))}
-                <Button type="button" variant="outline" onClick={() => append({ codigo: '', descripcion: '', cajas: undefined as any, paletas: undefined as any, temperatura: undefined as any })}>
+                <Button type="button" variant="outline" onClick={() => append({ codigo: '', descripcion: '', cajas: undefined, paletas: undefined, temperatura: undefined })}>
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Agregar Producto
                 </Button>

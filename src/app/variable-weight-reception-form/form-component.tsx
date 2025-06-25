@@ -271,8 +271,8 @@ export default function VariableWeightReceptionFormComponent() {
                 <ArrowLeft className="h-6 w-6" />
               </Button>
               <div className="flex items-center gap-2">
-                  <FileSignature className="h-8 w-8 text-[#3588CC]"/>
-                  <h1 className="text-2xl font-bold text-[#3588CC]">Formato de Recepción - Peso Variable</h1>
+                  <FileSignature className="h-8 w-8 text-primary"/>
+                  <h1 className="text-2xl font-bold text-primary">Formato de Recepción - Peso Variable</h1>
               </div>
             </div>
           </header>
