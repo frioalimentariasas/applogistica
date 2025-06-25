@@ -176,7 +176,6 @@ export default function VariableWeightReceptionFormComponent() {
   const { toast } = useToast();
 
   const [attachments, setAttachments] = useState<string[]>([]);
-  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -212,11 +211,11 @@ export default function VariableWeightReceptionFormComponent() {
     name: "summary"
   });
   
-  const watchedItems = form.watch("items");
+  const watchedItems = useWatch({ control, name: "items" });
 
-  const calculatedSummaryForDisplay = useMemo(() => {
+  const calculatedSummaryForDisplay = (() => {
     const grouped = (watchedItems || []).reduce((acc, item) => {
-        if (!item.descripcion?.trim()) return acc;
+        if (!item?.descripcion?.trim()) return acc;
         const desc = item.descripcion.trim();
 
         const cantidad = Number(item.cantidadPorPaleta) || 0;
@@ -241,27 +240,26 @@ export default function VariableWeightReceptionFormComponent() {
     }, {} as Record<string, { descripcion: string; totalPeso: number; totalCantidad: number }>);
 
     return Object.values(grouped);
-  }, [watchedItems]);
+  })();
 
   useEffect(() => {
       const currentSummaryInForm = form.getValues('summary') || [];
-      
-      const newSummaryState = calculatedSummaryForDisplay.map(newItem => {
-          const existingItem = currentSummaryInForm.find(oldItem => oldItem.descripcion === newItem.descripcion);
-          return {
-              ...newItem,
-              temperatura: existingItem?.temperatura,
-          };
-      });
+      const currentDescriptions = JSON.stringify(currentSummaryInForm.map(i => i.descripcion).sort());
+      const newDescriptions = JSON.stringify(calculatedSummaryForDisplay.map(i => i.descripcion).sort());
 
-      const createComparable = (arr: any[]) => JSON.stringify((arr || []).map(i => i.descripcion).sort());
-
-      if (createComparable(currentSummaryInForm) !== createComparable(newSummaryState)) {
-        setSummaryItems(newSummaryState);
+      if (currentDescriptions !== newDescriptions) {
+        const newSummaryState = calculatedSummaryForDisplay.map(newItem => {
+            const existingItem = currentSummaryInForm.find(oldItem => oldItem.descripcion === newItem.descripcion);
+            return {
+                ...newItem,
+                temperatura: existingItem?.temperatura,
+            };
+        });
+        setSummaryItems(newSummaryState, { shouldFocus: false });
       }
   }, [calculatedSummaryForDisplay, form, setSummaryItems]);
 
-  const showSummary = (watchedItems || []).some(item => item.descripcion && item.descripcion.trim() !== '');
+  const showSummary = (watchedItems || []).some(item => item && item.descripcion && item.descripcion.trim() !== '');
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -299,61 +297,68 @@ export default function VariableWeightReceptionFormComponent() {
       setAttachments(prev => prev.filter((_, index) => index !== indexToRemove));
   };
 
-  const handleOpenCamera = () => setIsCameraOpen(true);
+  const handleOpenCamera = async () => {
+      setIsCameraOpen(true);
+  };
   
   const handleCapture = () => {
-    if (videoRef.current && canvasRef.current) {
-        const video = videoRef.current;
-        const canvas = canvasRef.current;
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const context = canvas.getContext('2d');
-        if (context) {
-            context.drawImage(video, 0, 0, canvas.width, canvas.height);
-            const dataUrl = canvas.toDataURL('image/jpeg');
-            setAttachments(prev => [...prev, dataUrl]);
-        }
-        handleCloseCamera();
-    }
+      if (videoRef.current && canvasRef.current) {
+          const video = videoRef.current;
+          const canvas = canvasRef.current;
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          const context = canvas.getContext('2d');
+          if (context) {
+              context.drawImage(video, 0, 0, canvas.width, canvas.height);
+              const dataUrl = canvas.toDataURL('image/jpeg');
+              setAttachments(prev => [...prev, dataUrl]);
+          }
+          handleCloseCamera();
+      }
   };
 
   const handleCloseCamera = () => {
-    if (videoRef.current && videoRef.current.srcObject) {
-        const stream = videoRef.current.srcObject as MediaStream;
-        stream.getTracks().forEach(track => track.stop());
-        videoRef.current.srcObject = null;
-    }
-    setIsCameraOpen(false);
-  };
-  
-  useEffect(() => {
-    const getCameraPermission = async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({video: true});
-        setHasCameraPermission(true);
-        if (isCameraOpen && videoRef.current) {
-          videoRef.current.srcObject = stream;
-        } else {
-            stream.getTracks().forEach(track => track.stop());
-        }
-      } catch (error) {
-        console.error('Error accessing camera:', error);
-        setHasCameraPermission(false);
-        toast({
-            variant: 'destructive',
-            title: 'Acceso a la cámara denegado',
-            description: 'Por favor, habilite los permisos de la cámara en la configuración de su navegador para tomar fotos.',
-        });
+      if (videoRef.current && videoRef.current.srcObject) {
+          const stream = videoRef.current.srcObject as MediaStream;
+          stream.getTracks().forEach(track => track.stop());
+          videoRef.current.srcObject = null;
       }
-    };
+      setIsCameraOpen(false);
+  };
 
-    if(isCameraOpen){
-        getCameraPermission();
-    } else {
-         if (videoRef.current && videoRef.current.srcObject) {
-            const stream = videoRef.current.srcObject as MediaStream;
+  useEffect(() => {
+    let stream: MediaStream;
+    const enableCamera = async () => {
+        if (isCameraOpen) {
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    if (videoRef.current) {
+                        videoRef.current.srcObject = stream;
+                    }
+                } catch (err) {
+                    console.error("Error accessing camera: ", err);
+                    toast({
+                        variant: 'destructive',
+                        title: 'Acceso a la cámara denegado',
+                        description: 'Por favor, habilite los permisos de la cámara en la configuración de su navegador.',
+                    });
+                    setIsCameraOpen(false);
+                }
+            } else {
+                toast({
+                    variant: 'destructive',
+                    title: 'Cámara no disponible',
+                    description: 'Su navegador no soporta el acceso a la cámara.',
+                });
+                setIsCameraOpen(false);
+            }
+        }
+    };
+    enableCamera();
+    return () => {
+        if (stream) {
             stream.getTracks().forEach(track => track.stop());
-            videoRef.current.srcObject = null;
         }
     }
   }, [isCameraOpen, toast]);
@@ -570,14 +575,6 @@ export default function VariableWeightReceptionFormComponent() {
                             <p className="text-xs text-gray-500">Usar la cámara del dispositivo</p>
                         </div>
                     </div>
-                     { hasCameraPermission === false && (
-                        <Alert variant="destructive">
-                            <AlertTitle>Acceso a la cámara denegado</AlertTitle>
-                            <AlertDescription>
-                                Por favor, habilite los permisos de la cámara en la configuración de su navegador para tomar fotos.
-                            </AlertDescription>
-                        </Alert>
-                    )}
                     {attachments.length > 0 && (
                         <div>
                             <h4 className="text-sm font-medium mb-2">Archivos Adjuntos:</h4>
@@ -601,7 +598,7 @@ export default function VariableWeightReceptionFormComponent() {
                         </div>
                     )}
                 </CardContent>
-            </Card>
+              </Card>
 
               <footer className="flex items-center justify-end gap-4 pt-4">
                   <Button type="button" variant="outline" onClick={() => form.reset()}><RotateCcw className="mr-2 h-4 w-4"/>Limpiar</Button>
@@ -618,20 +615,10 @@ export default function VariableWeightReceptionFormComponent() {
               <div className="relative">
                   <video ref={videoRef} className="w-full aspect-video rounded-md bg-black" autoPlay muted playsInline />
                   <canvas ref={canvasRef} className="hidden"></canvas>
-                   { hasCameraPermission === false && (
-                    <div className="absolute inset-0 flex items-center justify-center bg-black/50">
-                        <Alert variant="destructive" className="m-4">
-                            <AlertTitle>Cámara no disponible</AlertTitle>
-                            <AlertDescription>
-                                No se pudo acceder a la cámara. Por favor, verifique los permisos en su navegador.
-                            </AlertDescription>
-                        </Alert>
-                    </div>
-                  )}
               </div>
               <DialogFooter>
                   <Button variant="outline" onClick={handleCloseCamera}>Cancelar</Button>
-                  <Button onClick={handleCapture} disabled={!hasCameraPermission}>
+                  <Button onClick={handleCapture}>
                       <Camera className="mr-2 h-4 w-4"/>
                       Capturar y Adjuntar
                   </Button>
