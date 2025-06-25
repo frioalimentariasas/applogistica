@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { useToast } from "@/hooks/use-toast";
+import { FirebaseChecker } from '@/components/app/firebase-checker';
 
 const Logo = () => (
     <div className="flex flex-col items-center justify-center text-center">
@@ -110,6 +111,9 @@ export default function Home() {
             Generar Formato
           </Button>
         </form>
+        
+        <FirebaseChecker />
+
       </div>
     </div>
   );
