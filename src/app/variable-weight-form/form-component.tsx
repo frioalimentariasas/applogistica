@@ -82,7 +82,7 @@ const formSchema = z.object({
   placa: z.string()
     .min(1, "La placa es obligatoria.")
     .regex(/^[A-Z]{3}[0-9]{3}$/, "Formato inválido. Deben ser 3 letras y 3 números (ej: ABC123)."),
-  precinto: z.string().max(50, "Máximo 50 caracteres.").optional(),
+  precinto: z.string().min(1, "El precinto es obligatorio.").max(50, "Máximo 50 caracteres."),
   setPoint: z.number({required_error: "El Set Point es requerido.", invalid_type_error: "El Set Point es requerido."}).min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99."),
   items: z.array(itemSchema).min(1, "Debe agregar al menos un item."),
   horaInicio: z.string().min(1, "La hora de inicio es obligatoria.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
