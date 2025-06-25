@@ -139,7 +139,7 @@ export default function VariableWeightReceptionFormComponent() {
     control: form.control,
     name: "items",
   });
-
+  
   const items = form.watch('items');
   const { getValues, setValue } = form;
 
@@ -152,27 +152,40 @@ export default function VariableWeightReceptionFormComponent() {
   }, [fields, append]);
 
   useEffect(() => {
-    items.forEach((item, index) => {
-        const cantidadPorPaleta = Number(item.cantidadPorPaleta) || 0;
-        const taraCaja = Number(item.taraCaja) || 0;
-        const pesoBruto = Number(item.pesoBruto) || 0;
-        const taraEstiba = Number(item.taraEstiba) || 0;
+    const subscription = form.watch((value, { name, type }) => {
+      if (name && name.startsWith('items.')) {
+        const parts = name.split('.');
+        const index = parseInt(parts[1], 10);
+        const fieldName = parts[2];
         
-        const calculatedTotalTaraCaja = cantidadPorPaleta * taraCaja;
-        const calculatedPesoNeto = pesoBruto - taraEstiba - calculatedTotalTaraCaja;
+        if (['cantidadPorPaleta', 'taraCaja', 'pesoBruto', 'taraEstiba'].includes(fieldName)) {
+            const items = getValues('items');
+            const item = items[index];
 
-        const currentTotalTaraCaja = getValues(`items.${index}.totalTaraCaja`);
-        const currentPesoNeto = getValues(`items.${index}.pesoNeto`);
+            if (item) {
+                const cantidadPorPaleta = Number(item.cantidadPorPaleta) || 0;
+                const taraCaja = Number(item.taraCaja) || 0;
+                const pesoBruto = Number(item.pesoBruto) || 0;
+                const taraEstiba = Number(item.taraEstiba) || 0;
 
-        if (currentTotalTaraCaja !== calculatedTotalTaraCaja) {
-            setValue(`items.${index}.totalTaraCaja`, calculatedTotalTaraCaja, { shouldValidate: false, shouldDirty: true });
+                const calculatedTotalTaraCaja = cantidadPorPaleta * taraCaja;
+                const calculatedPesoNeto = pesoBruto - taraEstiba - calculatedTotalTaraCaja;
+                
+                const currentTotalTaraCaja = getValues(`items.${index}.totalTaraCaja`);
+                const currentPesoNeto = getValues(`items.${index}.pesoNeto`);
+
+                if (currentTotalTaraCaja !== calculatedTotalTaraCaja) {
+                    setValue(`items.${index}.totalTaraCaja`, calculatedTotalTaraCaja, { shouldValidate: false, shouldDirty: true });
+                }
+                if (currentPesoNeto !== calculatedPesoNeto) {
+                    setValue(`items.${index}.pesoNeto`, calculatedPesoNeto, { shouldValidate: false, shouldDirty: true });
+                }
+            }
         }
-
-        if (currentPesoNeto !== calculatedPesoNeto) {
-            setValue(`items.${index}.pesoNeto`, calculatedPesoNeto, { shouldValidate: false, shouldDirty: true });
-        }
+      }
     });
-  }, [items, getValues, setValue]);
+    return () => subscription.unsubscribe();
+  }, [form.watch, getValues, setValue]);
   
     const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
         if (event.target.files) {
@@ -200,7 +213,28 @@ export default function VariableWeightReceptionFormComponent() {
     };
 
     const handleOpenCamera = async () => {
-        setIsCameraOpen(true);
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                if (videoRef.current) {
+                    videoRef.current.srcObject = stream;
+                }
+                setIsCameraOpen(true);
+            } catch (err) {
+                console.error("Error accessing camera: ", err);
+                toast({
+                    variant: 'destructive',
+                    title: 'Acceso a la cámara denegado',
+                    description: 'Por favor, habilite los permisos de la cámara en la configuración de su navegador.',
+                });
+            }
+        } else {
+             toast({
+                variant: 'destructive',
+                title: 'Cámara no disponible',
+                description: 'Su navegador no soporta el acceso a la cámara.',
+            });
+        }
     };
     
     const handleCapture = () => {
@@ -227,43 +261,6 @@ export default function VariableWeightReceptionFormComponent() {
         }
         setIsCameraOpen(false);
     };
-
-    useEffect(() => {
-        let stream: MediaStream;
-        const enableCamera = async () => {
-            if (isCameraOpen) {
-                if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
-                    try {
-                        stream = await navigator.mediaDevices.getUserMedia({ video: true });
-                        if (videoRef.current) {
-                            videoRef.current.srcObject = stream;
-                        }
-                    } catch (err) {
-                        console.error("Error accessing camera: ", err);
-                        toast({
-                            variant: 'destructive',
-                            title: 'Acceso a la cámara denegado',
-                            description: 'Por favor, habilite los permisos de la cámara en la configuración de su navegador.',
-                        });
-                        setIsCameraOpen(false);
-                    }
-                } else {
-                    toast({
-                        variant: 'destructive',
-                        title: 'Cámara no disponible',
-                        description: 'Su navegador no soporta el acceso a la cámara.',
-                    });
-                    setIsCameraOpen(false);
-                }
-            }
-        };
-        enableCamera();
-        return () => {
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
-            }
-        }
-    }, [isCameraOpen, toast]);
 
 
   function onSubmit(data: z.infer<typeof formSchema>) {
@@ -602,3 +599,5 @@ export default function VariableWeightReceptionFormComponent() {
     </div>
   );
 }
+
+    
