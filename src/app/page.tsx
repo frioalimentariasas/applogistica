@@ -72,7 +72,7 @@ export default function Home() {
             </RadioGroup>
           </fieldset>
 
-          <Button type="submit" size="lg" className="w-full h-12 text-base bg-slate-500 hover:bg-slate-600" disabled={!operationType || !productType}>
+          <Button type="submit" size="lg" className="w-full h-12 text-base" disabled={!operationType || !productType}>
             <FileText className="mr-2 h-5 w-5" />
             Generar Formato
           </Button>
