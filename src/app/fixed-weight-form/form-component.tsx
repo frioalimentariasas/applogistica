@@ -65,14 +65,16 @@ const productSchema = z.object({
 
 const formSchema = z.object({
   pedidoSislog: z.string()
+    .min(1, "El pedido SISLOG es obligatorio.")
     .max(10, "El número de pedido no puede exceder los 10 dígitos.")
-    .regex(/^[0-9]*$/, "El pedido solo puede contener números.")
-    .optional(),
+    .regex(/^[0-9]*$/, "El pedido solo puede contener números."),
   nombreCliente: z.string().min(1, "Seleccione un cliente."),
   fecha: z.date({ required_error: "La fecha es obligatoria." }),
-  horaInicio: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
-  horaFin: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
-  precinto: z.string().max(50, "Máximo 50 caracteres.").optional(),
+  horaInicio: z.string().min(1, "La hora de inicio es obligatoria.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
+  horaFin: z.string().min(1, "La hora de fin es obligatoria.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
+  precinto: z.string()
+    .min(1, "El precinto es obligatorio.")
+    .max(40, "Máximo 40 caracteres."),
   documentoTransporte: z.string().optional(),
   facturaRemision: z.string().optional(),
   productos: z.array(productSchema).min(1, "Debe agregar al menos un producto."),
@@ -344,7 +346,7 @@ export default function FixedWeightFormComponent() {
                     <FormField control={form.control} name="precinto" render={({ field }) => (
                     <FormItem>
                         <FormLabel>Precinto/Sello de Seguridad</FormLabel>
-                        <FormControl><Input placeholder="Precinto/sello (máx. 50)" {...field} /></FormControl>
+                        <FormControl><Input placeholder="Precinto/sello (máx. 40)" {...field} /></FormControl>
                         <FormMessage />
                     </FormItem>
                     )}/>
@@ -458,7 +460,7 @@ export default function FixedWeightFormComponent() {
                     </div>
                 ))}
                 <div className="flex items-center justify-between">
-                    <Button type="button" variant="outline" onClick={() => append({ codigo: '', descripcion: '', cajas: 0, paletas: 0, temperatura: 0 })}>
+                    <Button type="button" variant="outline" onClick={() => append({ codigo: '', descripcion: '', cajas: 0, paletas: 0, temperatura: 0 }, { shouldFocus: false })}>
                         <PlusCircle className="mr-2 h-4 w-4" />
                         Agregar Producto
                     </Button>
