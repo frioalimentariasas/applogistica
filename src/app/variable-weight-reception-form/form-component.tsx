@@ -18,8 +18,7 @@ import {
   FormField,
   FormItem,
   FormLabel,
-  FormMessage,
-  FormProvider
+  FormMessage
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import {
@@ -263,7 +262,7 @@ export default function VariableWeightReceptionFormComponent() {
   }
 
   return (
-    <FormProvider {...form}>
+    <Form {...form}>
       <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
         <div className="max-w-6xl mx-auto">
           <header className="mb-8">
@@ -278,8 +277,7 @@ export default function VariableWeightReceptionFormComponent() {
             </div>
           </header>
 
-          <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   <Card>
                       <CardHeader><CardTitle>Información General</CardTitle></CardHeader>
@@ -387,7 +385,6 @@ export default function VariableWeightReceptionFormComponent() {
                   <Button type="submit"><Send className="mr-2 h-4 w-4"/>Guardar y Enviar</Button>
               </footer>
             </form>
-          </Form>
         </div>
 
         <Dialog open={isCameraOpen} onOpenChange={setIsCameraOpen}>
@@ -401,6 +398,8 @@ export default function VariableWeightReceptionFormComponent() {
             </DialogContent>
         </Dialog>
       </div>
-    </FormProvider>
+    </Form>
   );
 }
+
+    
