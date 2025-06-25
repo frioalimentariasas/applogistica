@@ -54,10 +54,12 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 const itemSchema = z.object({
   paleta: z.coerce.number().int().min(0, "Requerido"),
   descripcion: z.string().min(1, "Descripción requerida"),
-  lote: z.string().max(20, "Máx 20 caracteres").optional(),
-  cajas: z.coerce.number().int().min(0, "Requerido"),
+  lote: z.string().max(15, "Máx 15 caracteres").optional(),
+  presentacion: z.string().min(1, "Presentación requerida"),
+  cantidadPorPaleta: z.coerce.number().int().min(0, "Requerido"),
   pesoBruto: z.coerce.number().min(0, "Requerido"),
-  taraPorCaja: z.coerce.number().min(0, "Requerido"),
+  taraEstiba: z.coerce.number().min(0, "Requerido"),
+  taraCaja: z.coerce.number().min(0, "Requerido"),
   totalTaraCaja: z.coerce.number().optional(), 
   pesoNeto: z.coerce.number().optional(), 
 });
@@ -94,6 +96,8 @@ const productosExistentes = [
     { value: 'PROD002', label: 'Pechuga de Pollo' },
     { value: 'PROD003', label: 'Carne de Res Molida' },
 ];
+const presentaciones = ["Caja", "Bolsa", "Paquete"];
+
 
 const ItemRow = ({ control, index, remove }: { control: any, index: number, remove: (index: number) => void }) => {
     const { setValue } = useFormContext();
@@ -103,56 +107,70 @@ const ItemRow = ({ control, index, remove }: { control: any, index: number, remo
     });
 
     useEffect(() => {
-        const cajas = Number(itemData.cajas) || 0;
-        const taraPorCaja = Number(itemData.taraPorCaja) || 0;
+        const cantidad = Number(itemData.cantidadPorPaleta) || 0;
+        const taraCaja = Number(itemData.taraCaja) || 0;
+        const taraEstiba = Number(itemData.taraEstiba) || 0;
         const pesoBruto = Number(itemData.pesoBruto) || 0;
         
-        const totalTaraKg = parseFloat(((cajas * taraPorCaja) / 1000).toFixed(2));
-        const pesoNeto = parseFloat((pesoBruto - totalTaraKg).toFixed(2));
+        const totalTaraCajaCalc = cantidad * taraCaja;
+        const pesoNetoCalc = pesoBruto - taraEstiba - totalTaraCajaCalc;
 
-        setValue(`items.${index}.totalTaraCaja`, isNaN(totalTaraKg) ? 0 : totalTaraKg, { shouldValidate: true });
-        setValue(`items.${index}.pesoNeto`, isNaN(pesoNeto) ? 0 : pesoNeto, { shouldValidate: true });
+        setValue(`items.${index}.totalTaraCaja`, isNaN(totalTaraCajaCalc) ? 0 : totalTaraCajaCalc, { shouldValidate: true });
+        setValue(`items.${index}.pesoNeto`, isNaN(pesoNetoCalc) ? 0 : pesoNetoCalc, { shouldValidate: true });
 
-    }, [itemData.cajas, itemData.taraPorCaja, itemData.pesoBruto, index, setValue]);
+    }, [itemData.cantidadPorPaleta, itemData.taraCaja, itemData.taraEstiba, itemData.pesoBruto, index, setValue]);
 
 
     return (
-        <div className="p-4 border rounded-lg relative bg-white">
-            <div className="flex justify-between items-center mb-4">
-                <h4 className="font-semibold text-lg">Item #{index + 1}</h4>
+        <div className="p-4 border rounded-lg relative bg-white space-y-4">
+            <div className="flex justify-between items-center">
+                <h4 className="font-semibold text-lg">Ítem #{index + 1}</h4>
                 <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => remove(index)}><Trash2 className="h-4 w-4" /></Button>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <FormField control={control} name={`items.${index}.paleta`} render={({ field }) => (
-                    <FormItem><FormLabel>Paleta</FormLabel><FormControl><Input type="number" min="0" placeholder="No. Paleta" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Paleta</FormLabel><FormControl><Input type="number" min="0" placeholder="0" {...field} /></FormControl><FormMessage /></FormItem>
                 )}/>
                 <FormField control={control} name={`items.${index}.descripcion`} render={({ field }) => (
-                    <FormItem className="lg:col-span-3"><FormLabel>Descripción</FormLabel>
+                    <FormItem className="md:col-span-2"><FormLabel>Descripción del Producto</FormLabel>
                         <Popover><PopoverTrigger asChild><FormControl>
-                            <Button variant="outline" role="combobox" className="w-full justify-between">{field.value ? productosExistentes.find(p => p.label === field.value)?.label : "Seleccionar producto..."}<ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" /></Button>
+                            <Button variant="outline" role="combobox" className="w-full justify-between">{field.value ? productosExistentes.find(p => p.label === field.value)?.label : "Seleccionar o escribir descripción..."}<ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" /></Button>
                         </FormControl></PopoverTrigger><PopoverContent className="w-[--radix-popover-trigger-width] p-0"><Command><CommandInput placeholder="Buscar producto..." /><CommandList><CommandEmpty>No hay resultados.</CommandEmpty><CommandGroup>
                             {productosExistentes.map(p => (<CommandItem key={p.value} value={p.label} onSelect={() => setValue(`items.${index}.descripcion`, p.label)}><CheckIcon className={cn("mr-2 h-4 w-4", p.label === field.value ? "opacity-100" : "opacity-0")} />{p.label}</CommandItem>))}
                         </CommandGroup></CommandList></Command></PopoverContent></Popover>
                     <FormMessage />
                     </FormItem>
                 )}/>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <FormField control={control} name={`items.${index}.lote`} render={({ field }) => (
-                    <FormItem><FormLabel>Lote</FormLabel><FormControl><Input placeholder="Lote del producto" {...field} /></FormControl><FormMessage /></FormItem>
+                    <FormItem><FormLabel>Lote</FormLabel><FormControl><Input placeholder="Lote (máx. 15 caracteres)" {...field} /></FormControl><FormMessage /></FormItem>
                 )}/>
-                <FormField control={control} name={`items.${index}.cajas`} render={({ field }) => (
-                    <FormItem><FormLabel>Cajas</FormLabel><FormControl><Input type="number" min="0" placeholder="0" {...field} /></FormControl><FormMessage /></FormItem>
+                <FormField control={control} name={`items.${index}.presentacion`} render={({ field }) => (
+                    <FormItem><FormLabel>Presentación</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione presentación" /></SelectTrigger></FormControl><SelectContent>{presentaciones.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                 )}/>
+                 <FormField control={control} name={`items.${index}.cantidadPorPaleta`} render={({ field }) => (
+                    <FormItem><FormLabel>Cantidad Por Paleta</FormLabel><FormControl><Input type="number" min="0" placeholder="0" {...field} /></FormControl><FormMessage /></FormItem>
+                )}/>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
                 <FormField control={control} name={`items.${index}.pesoBruto`} render={({ field }) => (
                     <FormItem><FormLabel>Peso Bruto (kg)</FormLabel><FormControl><Input type="number" min="0" step="0.01" placeholder="0.00" {...field} /></FormControl><FormMessage /></FormItem>
                 )}/>
-                <FormField control={control} name={`items.${index}.taraPorCaja`} render={({ field }) => (
-                    <FormItem><FormLabel>Tara por Caja (gr)</FormLabel><FormControl><Input type="number" min="0" placeholder="0" {...field} /></FormControl><FormMessage /></FormItem>
+                 <FormField control={control} name={`items.${index}.taraEstiba`} render={({ field }) => (
+                    <FormItem><FormLabel>Tara Estiba (kg)</FormLabel><FormControl><Input type="number" min="0" step="0.01" placeholder="0.00" {...field} /></FormControl><FormMessage /></FormItem>
+                )}/>
+                <FormField control={control} name={`items.${index}.taraCaja`} render={({ field }) => (
+                    <FormItem><FormLabel>Tara Caja (kg)</FormLabel><FormControl><Input type="number" min="0" step="0.01" placeholder="0.00" {...field} /></FormControl><FormMessage /></FormItem>
                 )}/>
                 <FormField control={control} name={`items.${index}.totalTaraCaja`} render={({ field }) => (
-                    <FormItem><FormLabel>Total Tara Caja (kg)</FormLabel><FormControl><Input disabled readOnly {...field} value={itemData.totalTaraCaja || 0} /></FormControl></FormItem>
+                    <FormItem><FormLabel>Total Tara Caja (kg)</FormLabel><FormControl><Input disabled readOnly {...field} value={itemData.totalTaraCaja?.toFixed(2) || '0.00'} /></FormControl></FormItem>
                 )}/>
                 <FormField control={control} name={`items.${index}.pesoNeto`} render={({ field }) => (
-                    <FormItem><FormLabel>Peso Neto (kg)</FormLabel><FormControl><Input disabled readOnly {...field} value={itemData.pesoNeto || 0} /></FormControl></FormItem>
+                    <FormItem><FormLabel>Peso Neto (kg)</FormLabel><FormControl><Input disabled readOnly {...field} value={itemData.pesoNeto?.toFixed(2) || '0.00'} /></FormControl></FormItem>
                 )}/>
             </div>
         </div>
@@ -206,18 +224,20 @@ export default function VariableWeightReceptionFormComponent() {
 
   useEffect(() => {
     if (fields.length === 0) {
-      append({ paleta: 0, descripcion: "", lote: "", cajas: 0, pesoBruto: 0, taraPorCaja: 0, totalTaraCaja: 0, pesoNeto: 0 }, { shouldFocus: false });
+      append({ paleta: 0, descripcion: "", lote: "", presentacion: "", cantidadPorPaleta: 0, pesoBruto: 0, taraEstiba: 0, taraCaja: 0, totalTaraCaja: 0, pesoNeto: 0 }, { shouldFocus: false });
     }
   }, [fields, append]);
 
-  const { totalCajas, totalPesoBruto, totalTara, totalPesoNeto } = useMemo(() => {
+  const { totalCantidad, totalPesoBruto, totalTara, totalPesoNeto } = useMemo(() => {
     return watchedItems.reduce((totals, item) => {
-        totals.totalCajas += Number(item.cajas) || 0;
+        totals.totalCantidad += Number(item.cantidadPorPaleta) || 0;
         totals.totalPesoBruto += Number(item.pesoBruto) || 0;
-        totals.totalTara += Number(item.totalTaraCaja) || 0;
+        const totalTaraCaja = Number(item.totalTaraCaja) || 0;
+        const taraEstiba = Number(item.taraEstiba) || 0;
+        totals.totalTara += taraEstiba + totalTaraCaja;
         totals.totalPesoNeto += Number(item.pesoNeto) || 0;
         return totals;
-    }, { totalCajas: 0, totalPesoBruto: 0, totalTara: 0, totalPesoNeto: 0 });
+    }, { totalCantidad: 0, totalPesoBruto: 0, totalTara: 0, totalPesoNeto: 0 });
   }, [watchedItems]);
 
 
@@ -342,11 +362,11 @@ export default function VariableWeightReceptionFormComponent() {
                              <ItemRow key={field.id} control={control} index={index} remove={() => remove(index)} />
                           ))}
                       </div>
-                      <Button type="button" variant="outline" onClick={() => append({ paleta: 0, descripcion: "", lote: "", cajas: 0, pesoBruto: 0, taraPorCaja: 0 })}><PlusCircle className="mr-2 h-4 w-4" />Agregar Item</Button>
+                      <Button type="button" variant="outline" onClick={() => append({ paleta: 0, descripcion: "", lote: "", presentacion: "", cantidadPorPaleta: 0, pesoBruto: 0, taraEstiba: 0, taraCaja: 0, totalTaraCaja: 0, pesoNeto: 0 })}><PlusCircle className="mr-2 h-4 w-4" />Agregar Item</Button>
                       <div className="mt-6 p-4 border rounded-lg bg-gray-100">
                           <h4 className="font-bold text-lg mb-2">Totales Generales</h4>
                           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-                              <div><span className="font-semibold">Total Cajas:</span> {totalCajas}</div>
+                              <div><span className="font-semibold">Total Cantidad:</span> {totalCantidad}</div>
                               <div><span className="font-semibold">Total Peso Bruto:</span> {totalPesoBruto.toFixed(2)} kg</div>
                               <div><span className="font-semibold">Total Tara:</span> {totalTara.toFixed(2)} kg</div>
                               <div><span className="font-semibold">Total Peso Neto:</span> {totalPesoNeto.toFixed(2)} kg</div>
