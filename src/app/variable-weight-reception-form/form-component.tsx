@@ -75,7 +75,7 @@ const formSchema = z.object({
 
 // Mock Data
 const clientes = ["Cliente A", "Cliente B", "Cliente C"];
-const coordinadores = ["Coordinador 1", "Coordinador 2"];
+const coordinadores = ["Cristian Acuña", "Sergio Padilla"];
 const productosExistentes = [
     { value: 'PROD001', label: 'Pollo Entero Congelado' },
     { value: 'PROD002', label: 'Pechuga de Pollo' },
