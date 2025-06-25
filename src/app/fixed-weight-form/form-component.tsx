@@ -326,7 +326,7 @@ export default function FixedWeightFormComponent() {
                     )}/>
                     <FormField control={form.control} name="horaInicio" render={({ field }) => (
                     <FormItem>
-                        <FormLabel>Hora de Inicio Cargue</FormLabel>
+                        <FormLabel>{operation === 'recepcion' ? 'Hora Inicio Descargue' : 'Hora de Inicio Cargue'}</FormLabel>
                         <div className="relative">
                             <FormControl>
                                 <Input placeholder="HH:MM" {...field} />
@@ -338,7 +338,7 @@ export default function FixedWeightFormComponent() {
                     )}/>
                     <FormField control={form.control} name="horaFin" render={({ field }) => (
                     <FormItem>
-                        <FormLabel>Hora Fin Cargue</FormLabel>
+                        <FormLabel>{operation === 'recepcion' ? 'Hora Fin Descargue' : 'Hora Fin Cargue'}</FormLabel>
                         <div className="relative">
                             <FormControl>
                                 <Input placeholder="HH:MM" {...field} />
