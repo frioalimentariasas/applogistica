@@ -40,6 +40,7 @@ import {
     Send,
     RotateCcw,
     FileSignature,
+    Edit2,
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -83,6 +84,8 @@ const formSchema = z.object({
     setPoint: z.number({required_error: "El Set Point es requerido.", invalid_type_error: "El Set Point es requerido."}).min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99."),
     items: z.array(itemSchema).min(1, "Debe agregar al menos un item."),
     summary: z.array(summaryItemSchema).optional(),
+    horaInicio: z.string().min(1, "La hora de inicio es requerida.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
+    horaFin: z.string().min(1, "La hora de fin es requerida.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
     observaciones: z.string().max(250, "Máximo 250 caracteres.").optional(),
     coordinador: z.string().min(1, "Seleccione un coordinador."),
 });
@@ -109,7 +112,7 @@ const ItemRow = ({ control, index, remove }: { control: any, index: number, remo
         const totalTaraCajaCalc = cantidad * taraCaja;
         const pesoNetoCalc = pesoBruto - taraEstiba - totalTaraCajaCalc;
 
-        setValue(`items.${index}.totalTaraCaja`, isNaN(totalTaraCajaCalc) ? 0 : totalTaraCajaCalc, { shouldValidate: true });
+        setValue(`items.${index}.totalTaraCaja`, isNaN(totalTaraCajaCalc) ? 0 : totalTaraCajaCalc, { shouldValidate: false });
         setValue(`items.${index}.pesoNeto`, isNaN(pesoNetoCalc) ? 0 : pesoNetoCalc, { shouldValidate: true });
 
     }, [itemData.cantidadPorPaleta, itemData.taraCaja, itemData.taraEstiba, itemData.pesoBruto, index, setValue]);
@@ -194,6 +197,8 @@ export default function VariableWeightReceptionFormComponent() {
       setPoint: undefined,
       items: [],
       summary: [],
+      horaInicio: "",
+      horaFin: "",
       observaciones: "",
       coordinador: "",
     },
@@ -248,9 +253,9 @@ export default function VariableWeightReceptionFormComponent() {
           };
       });
       if (JSON.stringify(newSummaryState) !== JSON.stringify(currentSummaryInForm)) {
-        setSummaryItems(newSummaryState, { shouldFocus: false });
+        form.setValue('summary', newSummaryState, { shouldValidate: true });
       }
-  }, [calculatedSummaryForDisplay, form, setSummaryItems]);
+  }, [calculatedSummaryForDisplay, form]);
 
   const showSummary = (watchedItems || []).some(item => item && item.descripcion && item.descripcion.trim() !== '');
 
@@ -546,17 +551,52 @@ export default function VariableWeightReceptionFormComponent() {
                 </Card>
               )}
               
-              <Card>
-                  <CardHeader><CardTitle>Responsables y Observaciones</CardTitle></CardHeader>
-                  <CardContent className="space-y-4">
-                      <FormField control={control} name="observaciones" render={({ field }) => (
-                          <FormItem><FormLabel>Observaciones</FormLabel><FormControl><Textarea placeholder="Observaciones generales (opcional)" {...field} /></FormControl><FormMessage /></FormItem>
-                      )}/>
-                      <FormField control={control} name="coordinador" render={({ field }) => (
-                          <FormItem><FormLabel>Coordinador Responsable</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
-                      )}/>
-                  </CardContent>
-              </Card>
+             <Card>
+                <CardHeader>
+                    <CardTitle>Tiempo y Observaciones de la Operación</CardTitle>
+                </CardHeader>
+                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField control={control} name="horaInicio" render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Hora Inicio</FormLabel>
+                        <FormControl>
+                            <Input type="time" placeholder="HH:MM" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                    )}/>
+                    <FormField control={control} name="horaFin" render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Hora Fin</FormLabel>
+                        <FormControl>
+                            <Input type="time" placeholder="HH:MM" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                    )}/>
+                    <FormField control={control} name="observaciones" render={({ field }) => (
+                        <FormItem className="md:col-span-2 relative">
+                            <FormLabel>Observaciones</FormLabel>
+                            <FormControl><Textarea placeholder="Observaciones (opcional)" {...field} className="pr-10" /></FormControl>
+                            <Edit2 className="absolute right-3 bottom-3 h-4 w-4 text-muted-foreground" />
+                            <FormMessage />
+                        </FormItem>
+                    )}/>
+                </CardContent>
+            </Card>
+
+             <Card>
+                <CardHeader><CardTitle>Coordinador y Operario Responsables de la Operación</CardTitle></CardHeader>
+                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField control={control} name="coordinador" render={({ field }) => (
+                        <FormItem><FormLabel>Coordinador Responsable de la Operación</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                    )}/>
+                     <FormItem>
+                        <FormLabel>Operario Logístico Responsable</FormLabel>
+                        <FormControl><Input disabled value="Cristian Jaramillo" /></FormControl>
+                    </FormItem>
+                </CardContent>
+             </Card>
 
               <Card>
                 <CardHeader><CardTitle>Anexos</CardTitle></CardHeader>
