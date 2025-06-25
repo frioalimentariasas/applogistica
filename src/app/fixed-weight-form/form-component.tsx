@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
@@ -63,6 +64,10 @@ const productSchema = z.object({
 });
 
 const formSchema = z.object({
+  pedidoSislog: z.string()
+    .max(10, "El número de pedido no puede exceder los 10 dígitos.")
+    .regex(/^[0-9]*$/, "El pedido solo puede contener números.")
+    .optional(),
   nombreCliente: z.string().min(1, "Seleccione un cliente."),
   fecha: z.date({ required_error: "La fecha es obligatoria." }),
   horaInicio: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
@@ -109,6 +114,7 @@ export default function FixedWeightFormComponent() {
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
+      pedidoSislog: "",
       nombreCliente: "",
       fecha: new Date(),
       horaInicio: "",
@@ -225,6 +231,13 @@ export default function FixedWeightFormComponent() {
                 <CardTitle>Información General</CardTitle>
               </CardHeader>
               <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <FormField control={form.control} name="pedidoSislog" render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Pedido SISLOG</FormLabel>
+                    <FormControl><Input placeholder="Máximo 10 dígitos" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}/>
                 <FormField control={form.control} name="nombreCliente" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Nombre del Cliente</FormLabel>
