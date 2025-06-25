@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useForm, useFieldArray, Controller } from "react-hook-form";
+import { useForm, useFieldArray, Controller, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format } from "date-fns";
@@ -145,9 +145,20 @@ export default function FixedWeightFormComponent() {
     name: "productos",
   });
 
-  const productos = form.watch("productos");
-  const totalCajas = useMemo(() => productos.reduce((acc, p) => acc + (Number(p.cajas) || 0), 0), [productos]);
-  const totalPaletas = useMemo(() => productos.reduce((acc, p) => acc + (Number(p.paletas) || 0), 0), [productos]);
+  const productos = useWatch({
+    control: form.control,
+    name: 'productos',
+    defaultValue: [],
+  });
+
+  const totalCajas = useMemo(() => {
+    return (productos || []).reduce((acc, p) => acc + (Number(p.cajas) || 0), 0);
+  }, [productos]);
+
+  const totalPaletas = useMemo(() => {
+    return (productos || []).reduce((acc, p) => acc + (Number(p.paletas) || 0), 0);
+  }, [productos]);
+
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -446,7 +457,7 @@ export default function FixedWeightFormComponent() {
                                 <FormField control={form.control} name={`productos.${index}.paletas`} render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Total Paletas/Cantidad</FormLabel>
-                                        <FormControl><Input type="number" step="0.01" min="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.valueAsNumber)} value={field.value === undefined || Number.isNaN(field.value) ? '' : field.value} /></FormControl>
+                                        <FormControl><Input type="number" step="0.01" min="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : parseFloat(e.target.value))} value={field.value === undefined || Number.isNaN(field.value) ? '' : field.value} /></FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}/>
