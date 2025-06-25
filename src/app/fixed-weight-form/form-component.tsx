@@ -88,7 +88,7 @@ const formSchema = z.object({
   condicionesHigiene: z.enum(["limpio", "sucio"], { required_error: "Seleccione una condición." }),
   termoregistrador: z.enum(["si", "no"], { required_error: "Seleccione una opción." }),
   clienteRequiereTermoregistro: z.enum(["si", "no"], { required_error: "Seleccione una opción." }),
-  observaciones: z.string().max(100, "Máximo 100 caracteres.").optional(),
+  observaciones: z.string().max(150, "Máximo 150 caracteres.").optional(),
   coordinador: z.string().min(1, "Seleccione un coordinador."),
 });
 
@@ -530,7 +530,7 @@ export default function FixedWeightFormComponent() {
                         <FormItem className="space-y-3"><FormLabel>Cliente Requiere Termoregistro</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex gap-4"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="req-termo-si" /><Label htmlFor="req-termo-si">Sí</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="req-termo-no" /><Label htmlFor="req-termo-no">No</Label></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>
                     )}/>
                     <FormField control={form.control} name="observaciones" render={({ field }) => (
-                        <FormItem className="md:col-span-3"><FormLabel>Observaciones</FormLabel><FormControl><Textarea placeholder="Observaciones Generales del Pedido (opcional, máx. 100 caracteres)" {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormItem className="md:col-span-3"><FormLabel>Observaciones</FormLabel><FormControl><Textarea placeholder="Observaciones Generales del Pedido (opcional, máx. 150 caracteres)" {...field} /></FormControl><FormMessage /></FormItem>
                     )}/>
                 </CardContent>
             </Card>
