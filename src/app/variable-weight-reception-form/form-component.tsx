@@ -387,7 +387,7 @@ export default function VariableWeightReceptionFormComponent() {
                       <FormField control={control} name="placa" render={({ field }) => (
                           <FormItem>
                             <FormLabel>Placa</FormLabel>
-                            <FormControl><Input placeholder="Placa del vehículo" {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} maxLength={6} /></FormControl>
+                            <FormControl><Input placeholder="ABC123" {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} maxLength={6} /></FormControl>
                             <FormMessage />
                           </FormItem>
                       )}/>
@@ -433,7 +433,7 @@ export default function VariableWeightReceptionFormComponent() {
                   </CardContent>
               </Card>
 
-              <Card>
+            <Card>
                 <CardHeader><CardTitle>Anexos</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
