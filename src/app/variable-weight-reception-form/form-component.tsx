@@ -226,13 +226,27 @@ export default function VariableWeightReceptionFormComponent() {
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
-        const imageFiles = Array.from(event.target.files).filter(file => file.type.startsWith('image/'));
+        const files = Array.from(event.target.files);
+        const imageFiles = files.filter(file => file.type.startsWith('image/'));
+        if (imageFiles.length !== files.length) {
+            toast({
+                variant: "destructive",
+                title: "Archivos no válidos",
+                description: "Por favor, seleccione solo archivos de imagen.",
+            });
+        }
         imageFiles.forEach(file => {
             const reader = new FileReader();
-            reader.onloadend = () => setAttachments(prev => [...prev, reader.result as string]);
+            reader.onloadend = () => {
+                setAttachments(prev => [...prev, reader.result as string]);
+            };
             reader.readAsDataURL(file);
         });
     }
+  };
+
+  const handleRemoveAttachment = (indexToRemove: number) => {
+      setAttachments(prev => prev.filter((_, index) => index !== indexToRemove));
   };
 
   const handleOpenCamera = () => setIsCameraOpen(true);
@@ -243,35 +257,59 @@ export default function VariableWeightReceptionFormComponent() {
         const canvas = canvasRef.current;
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
-        canvas.getContext('2d')?.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL('image/jpeg');
-        setAttachments(prev => [...prev, dataUrl]);
+        const context = canvas.getContext('2d');
+        if (context) {
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const dataUrl = canvas.toDataURL('image/jpeg');
+            setAttachments(prev => [...prev, dataUrl]);
+        }
         handleCloseCamera();
     }
   };
 
   const handleCloseCamera = () => {
-    if (videoRef.current?.srcObject) {
-        (videoRef.current.srcObject as MediaStream).getTracks().forEach(track => track.stop());
+    if (videoRef.current && videoRef.current.srcObject) {
+        const stream = videoRef.current.srcObject as MediaStream;
+        stream.getTracks().forEach(track => track.stop());
+        videoRef.current.srcObject = null;
     }
     setIsCameraOpen(false);
   };
   
   useEffect(() => {
     let stream: MediaStream;
-    if (isCameraOpen) {
-      navigator.mediaDevices.getUserMedia({ video: true })
-        .then(s => {
-          stream = s;
-          if (videoRef.current) videoRef.current.srcObject = stream;
-        })
-        .catch(err => {
-          toast({ variant: 'destructive', title: 'Error de Cámara', description: 'No se pudo acceder a la cámara.' });
-          setIsCameraOpen(false);
-        });
-    }
+    const enableCamera = async () => {
+        if (isCameraOpen) {
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    if (videoRef.current) {
+                        videoRef.current.srcObject = stream;
+                    }
+                } catch (err) {
+                    console.error("Error accessing camera: ", err);
+                    toast({
+                        variant: 'destructive',
+                        title: 'Acceso a la cámara denegado',
+                        description: 'Por favor, habilite los permisos de la cámara en la configuración de su navegador.',
+                    });
+                    setIsCameraOpen(false);
+                }
+            } else {
+                toast({
+                    variant: 'destructive',
+                    title: 'Cámara no disponible',
+                    description: 'Su navegador no soporta el acceso a la cámara.',
+                });
+                setIsCameraOpen(false);
+            }
+        }
+    };
+    enableCamera();
     return () => {
-        stream?.getTracks().forEach(track => track.stop());
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+        }
     }
   }, [isCameraOpen, toast]);
 
@@ -362,31 +400,51 @@ export default function VariableWeightReceptionFormComponent() {
               </Card>
 
               <Card>
-                  <CardHeader><CardTitle>Anexos</CardTitle></CardHeader>
-                  <CardContent className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-lg cursor-pointer hover:bg-gray-100" onClick={() => fileInputRef.current?.click()}>
-                              <UploadCloud className="w-10 h-10 text-gray-400 mb-2"/><p className="text-sm font-semibold">Subir archivos</p><Input type="file" ref={fileInputRef} className="hidden" multiple accept="image/*" onChange={handleFileChange} />
-                          </div>
-                          <div className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-lg cursor-pointer hover:bg-gray-100" onClick={handleOpenCamera}>
-                              <Camera className="w-10 h-10 text-gray-400 mb-2"/><p className="text-sm font-semibold">Tomar Foto</p>
-                          </div>
-                      </div>
-                      {attachments.length > 0 && (
-                          <div>
-                              <h4 className="text-sm font-medium mb-2">Archivos Adjuntos:</h4>
-                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                                  {attachments.map((src, index) => (
-                                      <div key={index} className="relative group aspect-square">
-                                          <Image src={src} alt={`Anexo ${index + 1}`} fill className="rounded-md object-cover" />
-                                          <Button type="button" variant="destructive" size="icon" className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100" onClick={() => setAttachments(prev => prev.filter((_, i) => i !== index))}><Trash2 className="h-4 w-4" /></Button>
-                                      </div>
-                                  ))}
-                              </div>
-                          </div>
-                      )}
-                  </CardContent>
-              </Card>
+                <CardHeader><CardTitle>Anexos</CardTitle></CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div 
+                            className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-lg cursor-pointer hover:bg-gray-100"
+                            onClick={() => fileInputRef.current?.click()}
+                        >
+                            <UploadCloud className="w-10 h-10 text-gray-400 mb-2"/>
+                            <p className="text-sm text-gray-600 font-semibold">Subir archivos o arrastre y suelte</p>
+                            <p className="text-xs text-gray-500">Max. de imágenes 30 / Cada imagen se optimizará a 1MB</p>
+                            <Input type="file" ref={fileInputRef} className="hidden" multiple accept="image/*" onChange={handleFileChange} />
+                        </div>
+                        <div 
+                            className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-lg cursor-pointer hover:bg-gray-100"
+                            onClick={handleOpenCamera}
+                        >
+                            <Camera className="w-10 h-10 text-gray-400 mb-2"/>
+                            <p className="text-sm text-gray-600 font-semibold">Tomar Foto</p>
+                            <p className="text-xs text-gray-500">Usar la cámara del dispositivo</p>
+                        </div>
+                    </div>
+                    {attachments.length > 0 && (
+                        <div>
+                            <h4 className="text-sm font-medium mb-2">Archivos Adjuntos:</h4>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                                {attachments.map((src, index) => (
+                                    <div key={index} className="relative group aspect-square">
+                                        <Image src={src} alt={`Anexo ${index + 1}`} fill className="rounded-md object-cover" />
+                                        <Button
+                                            type="button"
+                                            variant="destructive"
+                                            size="icon"
+                                            className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                            onClick={() => handleRemoveAttachment(index)}
+                                        >
+                                            <Trash2 className="h-4 w-4" />
+                                            <span className="sr-only">Eliminar imagen</span>
+                                        </Button>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
 
               <footer className="flex items-center justify-end gap-4 pt-4">
                   <Button type="button" variant="outline" onClick={() => form.reset()}><RotateCcw className="mr-2 h-4 w-4"/>Limpiar</Button>
@@ -396,14 +454,22 @@ export default function VariableWeightReceptionFormComponent() {
         </div>
 
         <Dialog open={isCameraOpen} onOpenChange={setIsCameraOpen}>
-            <DialogContent><DialogHeader><DialogTitle>Tomar Foto</DialogTitle></DialogHeader>
-                <video ref={videoRef} className="w-full aspect-video rounded-md bg-black" autoPlay playsInline />
-                <canvas ref={canvasRef} className="hidden" />
-                <DialogFooter>
-                    <Button variant="outline" onClick={handleCloseCamera}>Cancelar</Button>
-                    <Button onClick={handleCapture}><Camera className="mr-2 h-4 w-4"/>Capturar</Button>
-                </DialogFooter>
-            </DialogContent>
+          <DialogContent className="max-w-3xl">
+              <DialogHeader>
+                  <DialogTitle>Tomar Foto</DialogTitle>
+              </DialogHeader>
+              <div className="relative">
+                  <video ref={videoRef} className="w-full aspect-video rounded-md bg-black" autoPlay muted playsInline />
+                  <canvas ref={canvasRef} className="hidden"></canvas>
+              </div>
+              <DialogFooter>
+                  <Button variant="outline" onClick={handleCloseCamera}>Cancelar</Button>
+                  <Button onClick={handleCapture}>
+                      <Camera className="mr-2 h-4 w-4"/>
+                      Capturar y Adjuntar
+                  </Button>
+              </DialogFooter>
+          </DialogContent>
         </Dialog>
       </div>
     </Form>
