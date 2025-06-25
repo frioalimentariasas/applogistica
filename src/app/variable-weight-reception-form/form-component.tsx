@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useForm, useFieldArray, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -59,9 +59,10 @@ const itemSchema = z.object({
   cajas: z.coerce.number().int().min(0, "Requerido"),
   pesoBruto: z.coerce.number().min(0, "Requerido"),
   taraPorCaja: z.coerce.number().min(0, "Requerido"),
-  totalTaraCaja: z.coerce.number().optional(),
-  pesoNeto: z.coerce.number().optional(),
+  totalTaraCaja: z.number().optional(), // Now a normal number
+  pesoNeto: z.number().optional(), // Now a normal number
 });
+
 
 const formSchema = z.object({
   pedidoSislog: z.string().max(10, "Máx 10 dígitos").optional(),
@@ -83,26 +84,32 @@ const productosExistentes = [
     { value: 'PROD003', label: 'Carne de Res Molida' },
 ];
 
-const ItemRow = ({ control, index, remove }: { control: any, index: number, remove: (index: number) => void }) => {
-    const item = useWatch({
+const ItemRow = ({ control, index, remove, setValue }: { control: any, index: number, remove: (index: number) => void, setValue: any }) => {
+    const itemData = useWatch({
         control,
         name: `items.${index}`
     });
 
+    const { cajas, taraPorCaja, pesoBruto } = itemData;
+
     const totalTaraKg = useMemo(() => {
-        const cajas = Number(item.cajas) || 0;
-        const taraPorCaja = Number(item.taraPorCaja) || 0;
-        return parseFloat(((cajas * taraPorCaja) / 1000).toFixed(2));
-    }, [item.cajas, item.taraPorCaja]);
+        const CajasNum = Number(cajas) || 0;
+        const taraPorCajaNum = Number(taraPorCaja) || 0;
+        const result = parseFloat(((CajasNum * taraPorCajaNum) / 1000).toFixed(2));
+        return isNaN(result) ? 0 : result;
+    }, [cajas, taraPorCaja]);
 
     const pesoNeto = useMemo(() => {
-        const pesoBruto = Number(item.pesoBruto) || 0;
-        return parseFloat((pesoBruto - totalTaraKg).toFixed(2));
-    }, [item.pesoBruto, totalTaraKg]);
+        const pesoBrutoNum = Number(pesoBruto) || 0;
+        const result = parseFloat((pesoBrutoNum - totalTaraKg).toFixed(2));
+        return isNaN(result) ? 0 : result;
+    }, [pesoBruto, totalTaraKg]);
     
-    // We are not using setValue from useForm here to avoid re-renders
-    item.totalTaraCaja = totalTaraKg;
-    item.pesoNeto = pesoNeto;
+    useEffect(() => {
+        setValue(`items.${index}.totalTaraCaja`, totalTaraKg, { shouldValidate: false });
+        setValue(`items.${index}.pesoNeto`, pesoNeto, { shouldValidate: false });
+    }, [totalTaraKg, pesoNeto, index, setValue]);
+
 
     return (
         <div className="p-4 border rounded-lg relative bg-white">
@@ -119,7 +126,7 @@ const ItemRow = ({ control, index, remove }: { control: any, index: number, remo
                         <Popover><PopoverTrigger asChild><FormControl>
                             <Button variant="outline" role="combobox" className="w-full justify-between">{field.value ? productosExistentes.find(p => p.label === field.value)?.label : "Seleccionar producto..."}<ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" /></Button>
                         </FormControl></PopoverTrigger><PopoverContent className="w-[--radix-popover-trigger-width] p-0"><Command><CommandInput placeholder="Buscar producto..." /><CommandList><CommandEmpty>No hay resultados.</CommandEmpty><CommandGroup>
-                            {productosExistentes.map(p => (<CommandItem key={p.value} value={p.label} onSelect={() => control.setValue(`items.${index}.descripcion`, p.label)}><CheckIcon className={cn("mr-2 h-4 w-4", p.label === field.value ? "opacity-100" : "opacity-0")} />{p.label}</CommandItem>))}
+                            {productosExistentes.map(p => (<CommandItem key={p.value} value={p.label} onSelect={() => setValue(`items.${index}.descripcion`, p.label)}><CheckIcon className={cn("mr-2 h-4 w-4", p.label === field.value ? "opacity-100" : "opacity-0")} />{p.label}</CommandItem>))}
                         </CommandGroup></CommandList></Command></PopoverContent></Popover>
                     <FormMessage />
                     </FormItem>
@@ -136,8 +143,8 @@ const ItemRow = ({ control, index, remove }: { control: any, index: number, remo
                 <FormField control={control} name={`items.${index}.taraPorCaja`} render={({ field }) => (
                     <FormItem><FormLabel>Tara por Caja (gr)</FormLabel><FormControl><Input type="number" min="0" placeholder="0" {...field} /></FormControl><FormMessage /></FormItem>
                 )}/>
-                 <FormItem><FormLabel>Total Tara Caja (kg)</FormLabel><FormControl><Input disabled value={totalTaraKg} /></FormControl></FormItem>
-                 <FormItem><FormLabel>Peso Neto (kg)</FormLabel><FormControl><Input disabled value={pesoNeto} /></FormControl></FormItem>
+                 <FormItem><FormLabel>Total Tara Caja (kg)</FormLabel><FormControl><Input disabled readOnly value={totalTaraKg} /></FormControl></FormItem>
+                 <FormItem><FormLabel>Peso Neto (kg)</FormLabel><FormControl><Input disabled readOnly value={pesoNeto} /></FormControl></FormItem>
             </div>
         </div>
     );
@@ -168,13 +175,15 @@ export default function VariableWeightReceptionFormComponent() {
     },
   });
 
+  const { control, setValue } = form;
+
   const { fields, append, remove } = useFieldArray({
-    control: form.control,
+    control,
     name: "items",
   });
   
   const watchedItems = useWatch({
-    control: form.control,
+    control,
     name: "items"
   });
   
@@ -192,9 +201,8 @@ export default function VariableWeightReceptionFormComponent() {
     return watchedItems.reduce((totals, item) => {
         const cajas = Number(item.cajas) || 0;
         const pesoBruto = Number(item.pesoBruto) || 0;
-        const taraPorCaja = Number(item.taraPorCaja) || 0;
-        const totalTaraKg = (cajas * taraPorCaja) / 1000;
-        const pesoNeto = pesoBruto - totalTaraKg;
+        const totalTaraKg = Number(item.totalTaraCaja) || 0;
+        const pesoNeto = Number(item.pesoNeto) || 0;
 
         totals.totalCajas += cajas;
         totals.totalPesoBruto += pesoBruto;
@@ -281,26 +289,28 @@ export default function VariableWeightReceptionFormComponent() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 <Card>
                     <CardHeader><CardTitle>Información General</CardTitle></CardHeader>
-                    <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <FormField control={form.control} name="pedidoSislog" render={({ field }) => (
+                    <CardContent className="space-y-6">
+                        <FormField control={control} name="pedidoSislog" render={({ field }) => (
                             <FormItem><FormLabel>Pedido SISLOG</FormLabel><FormControl><Input placeholder="Opcional" {...field} /></FormControl><FormMessage /></FormItem>
                         )}/>
-                        <FormField control={form.control} name="cliente" render={({ field }) => (
-                            <FormItem><FormLabel>Cliente</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccionar cliente..." /></SelectTrigger></FormControl><SelectContent>{clientes.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
-                        )}/>
-                        <FormField control={form.control} name="fecha" render={({ field }) => (
-                            <FormItem className="flex flex-col pt-2"><FormLabel>Fecha</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "dd/MM/yyyy") : <span>Seleccione fecha</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
-                        )}/>
-                        <FormItem><FormLabel>Operario Logístico</FormLabel><FormControl><Input disabled value="Cristian Jaramillo" /></FormControl></FormItem>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <FormField control={control} name="cliente" render={({ field }) => (
+                                <FormItem><FormLabel>Cliente</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccionar cliente..." /></SelectTrigger></FormControl><SelectContent>{clientes.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                            )}/>
+                            <FormField control={control} name="fecha" render={({ field }) => (
+                                <FormItem className="flex flex-col pt-2"><FormLabel>Fecha</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant="outline" className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>{field.value ? format(field.value, "dd/MM/yyyy") : <span>Seleccione fecha</span>}<CalendarIcon className="ml-auto h-4 w-4 opacity-50" /></Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem>
+                            )}/>
+                            <FormItem><FormLabel>Operario Logístico</FormLabel><FormControl><Input disabled value="Cristian Jaramillo" /></FormControl></FormItem>
+                        </div>
                     </CardContent>
                 </Card>
                 <Card>
                     <CardHeader><CardTitle>Información del Vehículo</CardTitle></CardHeader>
                     <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <FormField control={form.control} name="conductor" render={({ field }) => (
+                        <FormField control={control} name="conductor" render={({ field }) => (
                             <FormItem><FormLabel>Nombre Conductor</FormLabel><FormControl><Input placeholder="Nombre completo" {...field} /></FormControl><FormMessage /></FormItem>
                         )}/>
-                        <FormField control={form.control} name="placa" render={({ field }) => (
+                        <FormField control={control} name="placa" render={({ field }) => (
                             <FormItem><FormLabel>Placa</FormLabel><FormControl><Input placeholder="Placa del vehículo" {...field} /></FormControl><FormMessage /></FormItem>
                         )}/>
                     </CardContent>
@@ -312,7 +322,7 @@ export default function VariableWeightReceptionFormComponent() {
                 <CardContent className="space-y-4">
                     <div className="space-y-4">
                         {fields.map((field, index) => (
-                           <ItemRow key={field.id} control={form.control} index={index} remove={() => remove(index)} />
+                           <ItemRow key={field.id} control={control} index={index} remove={() => remove(index)} setValue={setValue} />
                         ))}
                     </div>
                     <Button type="button" variant="outline" onClick={() => append({ paleta: 0, descripcion: "", lote: "", cajas: 0, pesoBruto: 0, taraPorCaja: 0 })}><PlusCircle className="mr-2 h-4 w-4" />Agregar Item</Button>
@@ -358,10 +368,10 @@ export default function VariableWeightReceptionFormComponent() {
             <Card>
                 <CardHeader><CardTitle>Responsables y Observaciones</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
-                    <FormField control={form.control} name="observaciones" render={({ field }) => (
+                    <FormField control={control} name="observaciones" render={({ field }) => (
                         <FormItem><FormLabel>Observaciones</FormLabel><FormControl><Textarea placeholder="Observaciones generales (opcional)" {...field} /></FormControl><FormMessage /></FormItem>
                     )}/>
-                    <FormField control={form.control} name="coordinador" render={({ field }) => (
+                    <FormField control={control} name="coordinador" render={({ field }) => (
                         <FormItem><FormLabel>Coordinador Responsable</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccionar coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                     )}/>
                 </CardContent>

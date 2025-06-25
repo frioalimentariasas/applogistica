@@ -289,7 +289,7 @@ export default function FixedWeightFormComponent() {
               <CardHeader>
                 <CardTitle>Información General</CardTitle>
               </CardHeader>
-              <CardContent className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <CardContent className="space-y-6">
                 <FormField control={form.control} name="pedidoSislog" render={({ field }) => (
                   <FormItem>
                     <FormLabel>Pedido SISLOG</FormLabel>
@@ -297,88 +297,90 @@ export default function FixedWeightFormComponent() {
                     <FormMessage />
                   </FormItem>
                 )}/>
-                <FormField control={form.control} name="nombreCliente" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Nombre del Cliente</FormLabel>
-                    <Select onValueChange={field.onChange} defaultValue={field.value}>
-                      <FormControl>
-                        <SelectTrigger><SelectValue placeholder="Seleccionar cliente..." /></SelectTrigger>
-                      </FormControl>
-                      <SelectContent>
-                        {clientes.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                      </SelectContent>
-                    </Select>
-                    <FormMessage />
-                  </FormItem>
-                )}/>
-                <FormField control={form.control} name="fecha" render={({ field }) => (
-                  <FormItem className="flex flex-col pt-2">
-                    <FormLabel>Fecha</FormLabel>
-                    <Popover>
-                      <PopoverTrigger asChild>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <FormField control={form.control} name="nombreCliente" render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Nombre del Cliente</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
-                          <Button variant="outline" className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
-                            {field.value ? format(field.value, "dd/MM/yyyy") : <span>Seleccione una fecha</span>}
-                            <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                          </Button>
+                            <SelectTrigger><SelectValue placeholder="Seleccionar cliente..." /></SelectTrigger>
                         </FormControl>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
-                      </PopoverContent>
-                    </Popover>
-                    <FormMessage />
-                  </FormItem>
-                )}/>
-                <FormField control={form.control} name="horaInicio" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Hora de Inicio Cargue</FormLabel>
-                    <div className="relative">
-                        <FormControl>
-                            <Input placeholder="HH:MM" {...field} />
-                        </FormControl>
-                        <Clock className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    </div>
-                    <FormMessage />
-                  </FormItem>
-                )}/>
-                 <FormField control={form.control} name="horaFin" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Hora Fin Cargue</FormLabel>
-                    <div className="relative">
-                        <FormControl>
-                            <Input placeholder="HH:MM" {...field} />
-                        </FormControl>
-                        <Clock className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                    </div>
-                    <FormMessage />
-                  </FormItem>
-                )}/>
-                <FormField control={form.control} name="precinto" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Precinto/Sello de Seguridad</FormLabel>
-                    <FormControl><Input placeholder="Precinto/sello (máx. 50)" {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}/>
-                <FormField control={form.control} name="documentoTransporte" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Documento de Transporte</FormLabel>
-                    <FormControl><Input placeholder="Documento de transporte" {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}/>
-                <FormItem>
-                    <FormLabel>Operario Logístico</FormLabel>
-                    <FormControl><Input disabled value="Cristian Jaramillo" /></FormControl>
-                </FormItem>
-                <FormField control={form.control} name="facturaRemision" render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>Factura Remisión</FormLabel>
-                    <FormControl><Input placeholder="Factura o remisión" {...field} /></FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}/>
+                        <SelectContent>
+                            {clientes.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                        </SelectContent>
+                        </Select>
+                        <FormMessage />
+                    </FormItem>
+                    )}/>
+                    <FormField control={form.control} name="fecha" render={({ field }) => (
+                    <FormItem className="flex flex-col pt-2">
+                        <FormLabel>Fecha</FormLabel>
+                        <Popover>
+                        <PopoverTrigger asChild>
+                            <FormControl>
+                            <Button variant="outline" className={cn("pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
+                                {field.value ? format(field.value, "dd/MM/yyyy") : <span>Seleccione una fecha</span>}
+                                <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                            </Button>
+                            </FormControl>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                            <Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus />
+                        </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                    </FormItem>
+                    )}/>
+                    <FormField control={form.control} name="horaInicio" render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Hora de Inicio Cargue</FormLabel>
+                        <div className="relative">
+                            <FormControl>
+                                <Input placeholder="HH:MM" {...field} />
+                            </FormControl>
+                            <Clock className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        </div>
+                        <FormMessage />
+                    </FormItem>
+                    )}/>
+                    <FormField control={form.control} name="horaFin" render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Hora Fin Cargue</FormLabel>
+                        <div className="relative">
+                            <FormControl>
+                                <Input placeholder="HH:MM" {...field} />
+                            </FormControl>
+                            <Clock className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                        </div>
+                        <FormMessage />
+                    </FormItem>
+                    )}/>
+                    <FormField control={form.control} name="precinto" render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Precinto/Sello de Seguridad</FormLabel>
+                        <FormControl><Input placeholder="Precinto/sello (máx. 50)" {...field} /></FormControl>
+                        <FormMessage />
+                    </FormItem>
+                    )}/>
+                    <FormField control={form.control} name="documentoTransporte" render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Documento de Transporte</FormLabel>
+                        <FormControl><Input placeholder="Documento de transporte" {...field} /></FormControl>
+                        <FormMessage />
+                    </FormItem>
+                    )}/>
+                    <FormItem>
+                        <FormLabel>Operario Logístico</FormLabel>
+                        <FormControl><Input disabled value="Cristian Jaramillo" /></FormControl>
+                    </FormItem>
+                    <FormField control={form.control} name="facturaRemision" render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Factura Remisión</FormLabel>
+                        <FormControl><Input placeholder="Factura o remisión" {...field} /></FormControl>
+                        <FormMessage />
+                    </FormItem>
+                    )}/>
+                </div>
               </CardContent>
             </Card>
 
