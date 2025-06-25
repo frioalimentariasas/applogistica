@@ -40,6 +40,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Separator } from "@/components/ui/separator";
 import {
     ArrowLeft,
     Clock,
@@ -454,20 +455,21 @@ export default function FixedWeightFormComponent() {
                         </div>
                     </div>
                 ))}
-                <div className="flex items-center justify-between">
-                    <Button type="button" variant="outline" onClick={() => append({ codigo: '', descripcion: '', cajas: 0, paletas: 0, temperatura: 0 }, { shouldFocus: false })}>
-                        <PlusCircle className="mr-2 h-4 w-4" />
-                        Agregar Producto
-                    </Button>
-                    <div className="flex gap-4">
-                        <div className="flex items-center gap-2">
-                            <span className="font-medium text-sm">Totales Cajas:</span>
-                            <Input className="w-24" disabled value={totalCajas} />
-                        </div>
-                        <div className="flex items-center gap-2">
-                             <span className="font-medium text-sm">Totales Paletas:</span>
-                            <Input className="w-24" disabled value={totalPaletas} />
-                        </div>
+                <Button type="button" variant="outline" onClick={() => append({ codigo: '', descripcion: '', cajas: 0, paletas: 0, temperatura: 0 }, { shouldFocus: false })}>
+                    <PlusCircle className="mr-2 h-4 w-4" />
+                    Agregar Producto
+                </Button>
+
+                <Separator className="my-4" />
+
+                <div className="flex justify-end gap-6">
+                    <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm">Totales Cajas</span>
+                        <Input className="w-28" disabled value={totalCajas} />
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm">Totales Paletas/Cantidad</span>
+                        <Input className="w-28" disabled value={totalPaletas} />
                     </div>
                 </div>
               </CardContent>
