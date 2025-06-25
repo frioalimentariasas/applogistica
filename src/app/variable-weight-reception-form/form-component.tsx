@@ -213,17 +213,13 @@ export default function VariableWeightReceptionFormComponent() {
   
   const watchedItems = useWatch({ control, name: "items" });
 
-  const calculatedSummaryForDisplay = (() => {
+  const calculatedSummaryForDisplay = useMemo(() => {
     const grouped = (watchedItems || []).reduce((acc, item) => {
         if (!item?.descripcion?.trim()) return acc;
         const desc = item.descripcion.trim();
 
         const cantidad = Number(item.cantidadPorPaleta) || 0;
-        const taraCaja = Number(item.taraCaja) || 0;
-        const taraEstiba = Number(item.taraEstiba) || 0;
-        const pesoBruto = Number(item.pesoBruto) || 0;
-        const totalTaraCajaCalc = cantidad * taraCaja;
-        const pesoNetoCalc = pesoBruto - taraEstiba - totalTaraCajaCalc;
+        const pesoNeto = Number(item.pesoNeto) || 0;
 
         if (!acc[desc]) {
             acc[desc] = {
@@ -233,28 +229,25 @@ export default function VariableWeightReceptionFormComponent() {
             };
         }
 
-        acc[desc].totalPeso += isNaN(pesoNetoCalc) ? 0 : pesoNetoCalc;
+        acc[desc].totalPeso += isNaN(pesoNeto) ? 0 : pesoNeto;
         acc[desc].totalCantidad += cantidad;
         
         return acc;
     }, {} as Record<string, { descripcion: string; totalPeso: number; totalCantidad: number }>);
 
     return Object.values(grouped);
-  })();
+  }, [watchedItems]);
 
   useEffect(() => {
       const currentSummaryInForm = form.getValues('summary') || [];
-      const currentDescriptions = JSON.stringify(currentSummaryInForm.map(i => i.descripcion).sort());
-      const newDescriptions = JSON.stringify(calculatedSummaryForDisplay.map(i => i.descripcion).sort());
-
-      if (currentDescriptions !== newDescriptions) {
-        const newSummaryState = calculatedSummaryForDisplay.map(newItem => {
-            const existingItem = currentSummaryInForm.find(oldItem => oldItem.descripcion === newItem.descripcion);
-            return {
-                ...newItem,
-                temperatura: existingItem?.temperatura,
-            };
-        });
+      const newSummaryState = calculatedSummaryForDisplay.map(newItem => {
+          const existingItem = currentSummaryInForm.find(oldItem => oldItem.descripcion === newItem.descripcion);
+          return {
+              ...newItem,
+              temperatura: existingItem?.temperatura,
+          };
+      });
+      if (JSON.stringify(newSummaryState) !== JSON.stringify(currentSummaryInForm)) {
         setSummaryItems(newSummaryState, { shouldFocus: false });
       }
   }, [calculatedSummaryForDisplay, form, setSummaryItems]);
@@ -522,9 +515,21 @@ export default function VariableWeightReceptionFormComponent() {
                                                     <div className="h-10 w-full" />
                                                   )}
                                               </TableCell>
-                                              <TableCell className="font-medium">{summaryItem.descripcion}</TableCell>
-                                              <TableCell className="text-right">{(summaryItem.totalPeso || 0).toFixed(2)}</TableCell>
-                                              <TableCell className="text-right">{summaryItem.totalCantidad || 0}</TableCell>
+                                              <TableCell className="font-medium">
+                                                <div className="bg-muted/50 p-2 rounded-md flex items-center h-10">
+                                                  {summaryItem.descripcion}
+                                                </div>
+                                              </TableCell>
+                                              <TableCell className="text-right">
+                                                <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
+                                                  {(summaryItem.totalPeso || 0).toFixed(2)}
+                                                </div>
+                                              </TableCell>
+                                              <TableCell className="text-right">
+                                                <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
+                                                  {summaryItem.totalCantidad || 0}
+                                                </div>
+                                              </TableCell>
                                           </TableRow>
                                       )})
                                   ) : (
