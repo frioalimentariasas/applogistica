@@ -275,71 +275,165 @@ export default function VariableWeightFormComponent() {
                 <CardTitle>Datos de Cabecera</CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="space-y-4">
-                  <FormField control={form.control} name="pedidoSislog" render={({ field }) => (
+                <FormField
+                  control={form.control}
+                  name="pedidoSislog"
+                  render={({ field }) => (
                     <FormItem>
                       <FormLabel>Pedido SISLOG</FormLabel>
-                      <FormControl><Input placeholder="Pedido SISLOG (máx. 10 digitos)" {...field} /></FormControl>
+                      <FormControl>
+                        <Input
+                          placeholder="Pedido SISLOG (máx. 10 digitos)"
+                          {...field}
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
-                  )}/>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    <FormField control={form.control} name="cliente" render={({ field }) => (
-                    <FormItem>
+                  )}
+                />
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="cliente"
+                    render={({ field }) => (
+                      <FormItem>
                         <FormLabel>Cliente</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                            <SelectTrigger><SelectValue placeholder="Seleccionar cliente..." /></SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                            {clientes.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                        </SelectContent>
+                        <Select
+                          onValueChange={field.onChange}
+                          defaultValue={field.value}
+                        >
+                          <FormControl>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Seleccionar cliente..." />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent>
+                            {clientes.map((c) => (
+                              <SelectItem key={c} value={c}>
+                                {c}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
                         </Select>
                         <FormMessage />
-                    </FormItem>
-                    )}/>
-                    <FormItem>
-                        <FormLabel>Operario Logístico</FormLabel>
-                        <FormControl><Input disabled value="Cristian Jaramillo" /></FormControl>
-                    </FormItem>
-                    <FormField control={form.control} name="fecha" render={({ field }) => (
+                      </FormItem>
+                    )}
+                  />
+                  <FormItem>
+                    <FormLabel>Operario Logístico</FormLabel>
+                    <FormControl>
+                      <Input disabled value="Cristian Jaramillo" />
+                    </FormControl>
+                  </FormItem>
+                  <FormField
+                    control={form.control}
+                    name="fecha"
+                    render={({ field }) => (
                       <FormItem>
                         <FormLabel>Fecha</FormLabel>
                         <FormControl>
-                            <Input
-                                disabled
-                                value={field.value ? format(field.value, "dd/MM/yyyy") : ""}
-                            />
+                          <Input
+                            disabled
+                            value={
+                              field.value
+                                ? format(field.value, "dd/MM/yyyy")
+                                : ""
+                            }
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
-                    )}/>
-                    <FormField control={form.control} name="cedulaConductor" render={({ field }) => (
-                        <FormItem><FormLabel>Cédula Conductor</FormLabel><FormControl><Input placeholder="Número de cédula" {...field} /></FormControl><FormMessage /></FormItem>
-                    )}/>
-                    <FormField control={form.control} name="conductor" render={({ field }) => (
-                        <FormItem><FormLabel>Conductor</FormLabel><FormControl><Input placeholder="Nombre del conductor" {...field} /></FormControl><FormMessage /></FormItem>
-                    )}/>
-                    <FormField control={form.control} name="placa" render={({ field }) => (
-                        <FormItem><FormLabel>Placa</FormLabel><FormControl><Input placeholder="Placa del vehículo" {...field} /></FormControl><FormMessage /></FormItem>
-                    )}/>
-                    <FormField control={form.control} name="precinto" render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Precinto</FormLabel>
-                        <FormControl><Input placeholder="Precinto (máx. 50 caracteres)" {...field} /></FormControl>
+                    )}
+                  />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="cedulaConductor"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Cédula Conductor</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Número de cédula" {...field} />
+                        </FormControl>
                         <FormMessage />
-                    </FormItem>
-                    )}/>
-                    <FormField control={form.control} name="setPoint" render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Set Point (°C)</FormLabel>
-                            <FormControl>
-                                <Input type="number" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.valueAsNumber)} value={field.value === undefined || Number.isNaN(field.value) ? '' : field.value} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )}/>
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="conductor"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Conductor</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Nombre del conductor" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="placa"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Placa</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Placa del vehículo" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="precinto"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Precinto</FormLabel>
+                        <FormControl>
+                          <Input
+                            placeholder="Precinto (máx. 50 caracteres)"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="setPoint"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Set Point (°C)</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            placeholder="0"
+                            {...field}
+                            onChange={(e) =>
+                              field.onChange(
+                                e.target.value === ""
+                                  ? undefined
+                                  : e.target.valueAsNumber
+                              )
+                            }
+                            value={
+                              field.value === undefined ||
+                              Number.isNaN(field.value)
+                                ? ""
+                                : field.value
+                            }
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </div>
               </CardContent>
             </Card>

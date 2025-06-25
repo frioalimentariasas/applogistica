@@ -66,8 +66,11 @@ const formSchema = z.object({
   pedidoSislog: z.string().max(10, "Máx 10 dígitos").optional(),
   cliente: z.string().min(1, "Cliente requerido"),
   fecha: z.date({ required_error: "Fecha requerida" }),
+  cedulaConductor: z.string().min(1, "La cédula del conductor es obligatoria."),
   conductor: z.string().min(1, "Nombre requerido"),
   placa: z.string().min(1, "Placa requerida"),
+  precinto: z.string().max(50, "Máximo 50 caracteres.").optional(),
+  setPoint: z.number({required_error: "El Set Point es requerido.", invalid_type_error: "El Set Point es requerido."}).min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99."),
   items: z.array(itemSchema).min(1, "Debe agregar al menos un item"),
   observaciones: z.string().max(250, "Máx 250 caracteres").optional(),
   coordinador: z.string().min(1, "Coordinador requerido"),
@@ -163,8 +166,11 @@ export default function VariableWeightReceptionFormComponent() {
       pedidoSislog: "",
       cliente: "",
       fecha: new Date(),
+      cedulaConductor: "",
       conductor: "",
       placa: "",
+      precinto: "",
+      setPoint: undefined,
       items: [],
       observaciones: "",
       coordinador: "",
@@ -278,47 +284,49 @@ export default function VariableWeightReceptionFormComponent() {
           </header>
 
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  <Card>
-                      <CardHeader><CardTitle>Información General</CardTitle></CardHeader>
-                      <CardContent className="space-y-6">
-                          <div className="space-y-4">
-                            <FormField control={control} name="pedidoSislog" render={({ field }) => (
-                                <FormItem><FormLabel>Pedido SISLOG</FormLabel><FormControl><Input placeholder="Opcional" {...field} /></FormControl><FormMessage /></FormItem>
-                            )}/>
-                          </div>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                              <FormField control={control} name="cliente" render={({ field }) => (
-                                  <FormItem><FormLabel>Cliente</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccionar cliente..." /></SelectTrigger></FormControl><SelectContent>{clientes.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
-                              )}/>
-                              <FormField control={control} name="fecha" render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Fecha</FormLabel>
-                                  <FormControl>
-                                    <Input
-                                        disabled
-                                        value={field.value ? format(field.value, "dd/MM/yyyy") : ""}
-                                    />
-                                  </FormControl>
-                                  <FormMessage />
-                                </FormItem>
-                              )}/>
-                              <FormItem><FormLabel>Operario Logístico</FormLabel><FormControl><Input disabled value="Cristian Jaramillo" /></FormControl></FormItem>
-                          </div>
-                      </CardContent>
-                  </Card>
-                  <Card>
-                      <CardHeader><CardTitle>Información del Vehículo</CardTitle></CardHeader>
-                      <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <FormField control={control} name="conductor" render={({ field }) => (
-                              <FormItem><FormLabel>Nombre Conductor</FormLabel><FormControl><Input placeholder="Nombre completo" {...field} /></FormControl><FormMessage /></FormItem>
-                          )}/>
-                          <FormField control={control} name="placa" render={({ field }) => (
+              <Card>
+                <CardHeader><CardTitle>Información General</CardTitle></CardHeader>
+                <CardContent className="space-y-6">
+                    <FormField control={control} name="pedidoSislog" render={({ field }) => (
+                        <FormItem><FormLabel>Pedido SISLOG</FormLabel><FormControl><Input placeholder="Pedido SISLOG (máx. 10 dígitos)" {...field} /></FormControl><FormMessage /></FormItem>
+                    )}/>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <FormField control={control} name="cliente" render={({ field }) => (
+                            <FormItem><FormLabel>Cliente</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccionar cliente..." /></SelectTrigger></FormControl><SelectContent>{clientes.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                        )}/>
+                        <FormItem>
+                            <FormLabel>Operario Logístico</FormLabel>
+                            <FormControl><Input disabled value="Cristian Jaramillo" /></FormControl>
+                        </FormItem>
+                        <FormField control={control} name="fecha" render={({ field }) => (
+                            <FormItem><FormLabel>Fecha</FormLabel><FormControl><Input disabled value={field.value ? format(field.value, "dd/MM/yyyy") : ""} /></FormControl><FormMessage /></FormItem>
+                        )}/>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <FormField control={control} name="cedulaConductor" render={({ field }) => (
+                              <FormItem><FormLabel>Cédula Conductor</FormLabel><FormControl><Input placeholder="Número de cédula" {...field} /></FormControl><FormMessage /></FormItem>
+                        )}/>
+                        <FormField control={control} name="conductor" render={({ field }) => (
+                              <FormItem><FormLabel>Conductor</FormLabel><FormControl><Input placeholder="Nombre del conductor" {...field} /></FormControl><FormMessage /></FormItem>
+                        )}/>
+                        <FormField control={control} name="placa" render={({ field }) => (
                               <FormItem><FormLabel>Placa</FormLabel><FormControl><Input placeholder="Placa del vehículo" {...field} /></FormControl><FormMessage /></FormItem>
-                          )}/>
-                      </CardContent>
-                  </Card>
-              </div>
+                        )}/>
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <FormField control={control} name="precinto" render={({ field }) => (
+                            <FormItem><FormLabel>Precinto</FormLabel><FormControl><Input placeholder="Precinto (máx. 50 caracteres)" {...field} /></FormControl><FormMessage /></FormItem>
+                        )}/>
+                        <FormField control={control} name="setPoint" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Set Point (°C)</FormLabel>
+                                <FormControl><Input type="number" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.valueAsNumber)} value={field.value === undefined || Number.isNaN(field.value) ? '' : field.value} /></FormControl>
+                                <FormMessage />
+                            </FormItem>
+                        )}/>
+                    </div>
+                </CardContent>
+              </Card>
               
               <Card>
                   <CardHeader><CardTitle>Items de Recepción</CardTitle></CardHeader>
