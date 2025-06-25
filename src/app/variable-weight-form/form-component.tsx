@@ -332,7 +332,7 @@ export default function VariableWeightFormComponent() {
                       <FormField control={form.control} name="precinto" render={({ field }) => (
                           <FormItem>
                             <FormLabel>Precinto</FormLabel>
-                            <FormControl><Input placeholder="Precinto" {...field} /></FormControl>
+                            <FormControl><Input placeholder="Precinto (máx. 50 caracteres)" {...field} /></FormControl>
                             <FormMessage />
                           </FormItem>
                       )}/>
@@ -350,7 +350,7 @@ export default function VariableWeightFormComponent() {
             {/* Product Characteristics Card */}
             <Card>
               <CardHeader>
-                <CardTitle>Características del Producto</CardTitle>
+                <CardTitle>Detalle del Despacho</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 {fields.map((item, index) => (
@@ -582,3 +582,5 @@ export default function VariableWeightFormComponent() {
     </div>
   );
 }
+
+    
