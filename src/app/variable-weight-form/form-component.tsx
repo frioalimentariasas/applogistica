@@ -138,9 +138,12 @@ export default function VariableWeightFormComponent() {
 
   useEffect(() => {
     window.scrollTo(0, 0);
+  }, []);
+
+  useEffect(() => {
     // Add one item field by default
     if (fields.length === 0) {
-        append({ paleta: 0, descripcion: '', lote: '', presentacion: '', cantidadPorPaleta: 0, pesoNeto: 0 });
+        append({ paleta: 0, descripcion: '', lote: '', presentacion: '', cantidadPorPaleta: 0, pesoNeto: 0 }, { shouldFocus: false });
     }
   }, [fields, append]);
   

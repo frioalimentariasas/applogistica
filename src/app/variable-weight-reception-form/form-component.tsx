@@ -1,9 +1,9 @@
 
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useForm, useFieldArray } from "react-hook-form";
+import { useForm, useFieldArray, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format } from "date-fns";
@@ -83,6 +83,67 @@ const productosExistentes = [
     { value: 'PROD003', label: 'Carne de Res Molida' },
 ];
 
+const ItemRow = ({ control, index, remove }: { control: any, index: number, remove: (index: number) => void }) => {
+    const item = useWatch({
+        control,
+        name: `items.${index}`
+    });
+
+    const totalTaraKg = useMemo(() => {
+        const cajas = Number(item.cajas) || 0;
+        const taraPorCaja = Number(item.taraPorCaja) || 0;
+        return parseFloat(((cajas * taraPorCaja) / 1000).toFixed(2));
+    }, [item.cajas, item.taraPorCaja]);
+
+    const pesoNeto = useMemo(() => {
+        const pesoBruto = Number(item.pesoBruto) || 0;
+        return parseFloat((pesoBruto - totalTaraKg).toFixed(2));
+    }, [item.pesoBruto, totalTaraKg]);
+    
+    // We are not using setValue from useForm here to avoid re-renders
+    item.totalTaraCaja = totalTaraKg;
+    item.pesoNeto = pesoNeto;
+
+    return (
+        <div className="p-4 border rounded-lg relative bg-white">
+            <div className="flex justify-between items-center mb-4">
+                <h4 className="font-semibold text-lg">Item #{index + 1}</h4>
+                <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => remove(index)}><Trash2 className="h-4 w-4" /></Button>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <FormField control={control} name={`items.${index}.paleta`} render={({ field }) => (
+                    <FormItem><FormLabel>Paleta</FormLabel><FormControl><Input type="number" min="0" placeholder="No. Paleta" {...field} /></FormControl><FormMessage /></FormItem>
+                )}/>
+                <FormField control={control} name={`items.${index}.descripcion`} render={({ field }) => (
+                    <FormItem className="lg:col-span-3"><FormLabel>Descripción</FormLabel>
+                        <Popover><PopoverTrigger asChild><FormControl>
+                            <Button variant="outline" role="combobox" className="w-full justify-between">{field.value ? productosExistentes.find(p => p.label === field.value)?.label : "Seleccionar producto..."}<ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" /></Button>
+                        </FormControl></PopoverTrigger><PopoverContent className="w-[--radix-popover-trigger-width] p-0"><Command><CommandInput placeholder="Buscar producto..." /><CommandList><CommandEmpty>No hay resultados.</CommandEmpty><CommandGroup>
+                            {productosExistentes.map(p => (<CommandItem key={p.value} value={p.label} onSelect={() => control.setValue(`items.${index}.descripcion`, p.label)}><CheckIcon className={cn("mr-2 h-4 w-4", p.label === field.value ? "opacity-100" : "opacity-0")} />{p.label}</CommandItem>))}
+                        </CommandGroup></CommandList></Command></PopoverContent></Popover>
+                    <FormMessage />
+                    </FormItem>
+                )}/>
+                <FormField control={control} name={`items.${index}.lote`} render={({ field }) => (
+                    <FormItem><FormLabel>Lote</FormLabel><FormControl><Input placeholder="Lote del producto" {...field} /></FormControl><FormMessage /></FormItem>
+                )}/>
+                <FormField control={control} name={`items.${index}.cajas`} render={({ field }) => (
+                    <FormItem><FormLabel>Cajas</FormLabel><FormControl><Input type="number" min="0" placeholder="0" {...field} /></FormControl><FormMessage /></FormItem>
+                )}/>
+                <FormField control={control} name={`items.${index}.pesoBruto`} render={({ field }) => (
+                    <FormItem><FormLabel>Peso Bruto (kg)</FormLabel><FormControl><Input type="number" min="0" step="0.01" placeholder="0.00" {...field} /></FormControl><FormMessage /></FormItem>
+                )}/>
+                <FormField control={control} name={`items.${index}.taraPorCaja`} render={({ field }) => (
+                    <FormItem><FormLabel>Tara por Caja (gr)</FormLabel><FormControl><Input type="number" min="0" placeholder="0" {...field} /></FormControl><FormMessage /></FormItem>
+                )}/>
+                 <FormItem><FormLabel>Total Tara Caja (kg)</FormLabel><FormControl><Input disabled value={totalTaraKg} /></FormControl></FormItem>
+                 <FormItem><FormLabel>Peso Neto (kg)</FormLabel><FormControl><Input disabled value={pesoNeto} /></FormControl></FormItem>
+            </div>
+        </div>
+    );
+};
+
+
 export default function VariableWeightReceptionFormComponent() {
   const router = useRouter();
   const { toast } = useToast();
@@ -112,46 +173,36 @@ export default function VariableWeightReceptionFormComponent() {
     name: "items",
   });
   
-  const items = form.watch("items");
-
-  // Stable calculation logic inside useEffect
-  useEffect(() => {
-    items.forEach((item, index) => {
-      const cajas = Number(item.cajas) || 0;
-      const pesoBruto = Number(item.pesoBruto) || 0;
-      const taraPorCaja = Number(item.taraPorCaja) || 0;
-
-      const totalTaraKg = (cajas * taraPorCaja) / 1000;
-      const pesoNeto = pesoBruto - totalTaraKg;
-
-      const currentTotalTara = form.getValues(`items.${index}.totalTaraCaja`);
-      const currentPesoNeto = form.getValues(`items.${index}.pesoNeto`);
-
-      if (currentTotalTara !== totalTaraKg) {
-        form.setValue(`items.${index}.totalTaraCaja`, parseFloat(totalTaraKg.toFixed(2)), { shouldValidate: true });
-      }
-      if (currentPesoNeto !== pesoNeto) {
-        form.setValue(`items.${index}.pesoNeto`, parseFloat(pesoNeto.toFixed(2)), { shouldValidate: true });
-      }
-    });
-  }, [items, form]);
+  const watchedItems = useWatch({
+    control: form.control,
+    name: "items"
+  });
   
-  // Totals calculation using useMemo for efficiency
-  const { totalCajas, totalPesoBruto, totalTara, totalPesoNeto } = useMemo(() => {
-    return items.reduce((totals, item) => {
-        totals.totalCajas += Number(item.cajas) || 0;
-        totals.totalPesoBruto += Number(item.pesoBruto) || 0;
-        totals.totalTara += Number(item.totalTaraCaja) || 0;
-        totals.totalPesoNeto += Number(item.pesoNeto) || 0;
-        return totals;
-    }, { totalCajas: 0, totalPesoBruto: 0, totalTara: 0, totalPesoNeto: 0 });
-  }, [items]);
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, []);
 
   useEffect(() => {
     if (fields.length === 0) {
-      append({ paleta: 0, descripcion: "", lote: "", cajas: 0, pesoBruto: 0, taraPorCaja: 0, totalTaraCaja: 0, pesoNeto: 0 });
+      append({ paleta: 0, descripcion: "", lote: "", cajas: 0, pesoBruto: 0, taraPorCaja: 0, totalTaraCaja: 0, pesoNeto: 0 }, { shouldFocus: false });
     }
-  }, [fields.length, append]);
+  }, [fields, append]);
+
+  const { totalCajas, totalPesoBruto, totalTara, totalPesoNeto } = useMemo(() => {
+    return watchedItems.reduce((totals, item) => {
+        const cajas = Number(item.cajas) || 0;
+        const pesoBruto = Number(item.pesoBruto) || 0;
+        const taraPorCaja = Number(item.taraPorCaja) || 0;
+        const totalTaraKg = (cajas * taraPorCaja) / 1000;
+        const pesoNeto = pesoBruto - totalTaraKg;
+
+        totals.totalCajas += cajas;
+        totals.totalPesoBruto += pesoBruto;
+        totals.totalTara += totalTaraKg;
+        totals.totalPesoNeto += pesoNeto;
+        return totals;
+    }, { totalCajas: 0, totalPesoBruto: 0, totalTara: 0, totalPesoNeto: 0 });
+  }, [watchedItems]);
 
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -260,46 +311,8 @@ export default function VariableWeightReceptionFormComponent() {
                 <CardHeader><CardTitle>Items de Recepción</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
                     <div className="space-y-4">
-                        {fields.map((item, index) => (
-                            <div key={item.id} className="p-4 border rounded-lg relative bg-white">
-                                <div className="flex justify-between items-center mb-4">
-                                    <h4 className="font-semibold text-lg">Item #{index + 1}</h4>
-                                    {fields.length > 1 && <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => remove(index)}><Trash2 className="h-4 w-4" /></Button>}
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                                    <FormField control={form.control} name={`items.${index}.paleta`} render={({ field }) => (
-                                        <FormItem><FormLabel>Paleta</FormLabel><FormControl><Input type="number" min="0" placeholder="No. Paleta" {...field} /></FormControl><FormMessage /></FormItem>
-                                    )}/>
-                                    <FormField control={form.control} name={`items.${index}.descripcion`} render={({ field }) => (
-                                        <FormItem className="lg:col-span-3"><FormLabel>Descripción</FormLabel>
-                                            <Popover><PopoverTrigger asChild><FormControl>
-                                                <Button variant="outline" role="combobox" className="w-full justify-between">{field.value ? productosExistentes.find(p => p.label === field.value)?.label : "Seleccionar producto..."}<ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" /></Button>
-                                            </FormControl></PopoverTrigger><PopoverContent className="w-[--radix-popover-trigger-width] p-0"><Command><CommandInput placeholder="Buscar producto..." /><CommandList><CommandEmpty>No hay resultados.</CommandEmpty><CommandGroup>
-                                                {productosExistentes.map(p => (<CommandItem key={p.value} value={p.label} onSelect={() => form.setValue(`items.${index}.descripcion`, p.label)}><CheckIcon className={cn("mr-2 h-4 w-4", p.label === field.value ? "opacity-100" : "opacity-0")} />{p.label}</CommandItem>))}
-                                            </CommandGroup></CommandList></Command></PopoverContent></Popover>
-                                        <FormMessage />
-                                        </FormItem>
-                                    )}/>
-                                    <FormField control={form.control} name={`items.${index}.lote`} render={({ field }) => (
-                                        <FormItem><FormLabel>Lote</FormLabel><FormControl><Input placeholder="Lote del producto" {...field} /></FormControl><FormMessage /></FormItem>
-                                    )}/>
-                                    <FormField control={form.control} name={`items.${index}.cajas`} render={({ field }) => (
-                                        <FormItem><FormLabel>Cajas</FormLabel><FormControl><Input type="number" min="0" placeholder="0" {...field} /></FormControl><FormMessage /></FormItem>
-                                    )}/>
-                                    <FormField control={form.control} name={`items.${index}.pesoBruto`} render={({ field }) => (
-                                        <FormItem><FormLabel>Peso Bruto (kg)</FormLabel><FormControl><Input type="number" min="0" step="0.01" placeholder="0.00" {...field} /></FormControl><FormMessage /></FormItem>
-                                    )}/>
-                                    <FormField control={form.control} name={`items.${index}.taraPorCaja`} render={({ field }) => (
-                                        <FormItem><FormLabel>Tara por Caja (gr)</FormLabel><FormControl><Input type="number" min="0" placeholder="0" {...field} /></FormControl><FormMessage /></FormItem>
-                                    )}/>
-                                    <FormField control={form.control} name={`items.${index}.totalTaraCaja`} render={({ field }) => (
-                                        <FormItem><FormLabel>Total Tara Caja (kg)</FormLabel><FormControl><Input disabled {...field} /></FormControl><FormMessage /></FormItem>
-                                    )}/>
-                                    <FormField control={form.control} name={`items.${index}.pesoNeto`} render={({ field }) => (
-                                        <FormItem><FormLabel>Peso Neto (kg)</FormLabel><FormControl><Input disabled {...field} /></FormControl><FormMessage /></FormItem>
-                                    )}/>
-                                </div>
-                            </div>
+                        {fields.map((field, index) => (
+                           <ItemRow key={field.id} control={form.control} index={index} remove={() => remove(index)} />
                         ))}
                     </div>
                     <Button type="button" variant="outline" onClick={() => append({ paleta: 0, descripcion: "", lote: "", cajas: 0, pesoBruto: 0, taraPorCaja: 0 })}><PlusCircle className="mr-2 h-4 w-4" />Agregar Item</Button>

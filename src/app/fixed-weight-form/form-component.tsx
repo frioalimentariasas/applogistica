@@ -155,7 +155,7 @@ export default function FixedWeightFormComponent() {
   useEffect(() => {
     // Add one product field by default
     if (fields.length === 0) {
-        append({ codigo: '', descripcion: '', cajas: 0, paletas: 0, temperatura: 0 });
+        append({ codigo: '', descripcion: '', cajas: 0, paletas: 0, temperatura: 0 }, { shouldFocus: false });
     }
   }, [fields, append]);
   
