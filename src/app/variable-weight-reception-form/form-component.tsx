@@ -32,7 +32,7 @@ import {
 } from "@/components/ui/select";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import {
     ArrowLeft,
     Trash2,
@@ -54,6 +54,7 @@ import {
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 
 const itemSchema = z.object({
@@ -189,12 +190,19 @@ export default function VariableWeightReceptionFormComponent() {
   const { displayName } = useAuth();
 
   const [clientes, setClientes] = useState<string[]>([]);
-  const [isClientPopoverOpen, setClientPopoverOpen] = useState(false);
+  const [isClientDialogOpen, setClientDialogOpen] = useState(false);
+  const [clientSearch, setClientSearch] = useState("");
   const [attachments, setAttachments] = useState<string[]>([]);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const filteredClients = useMemo(() => {
+    if (!clientSearch) return clientes;
+    return clientes.filter(c => c.toLowerCase().includes(clientSearch.toLowerCase()));
+  }, [clientSearch, clientes]);
+
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -431,55 +439,48 @@ export default function VariableWeightReceptionFormComponent() {
                         render={({ field }) => (
                             <FormItem className="flex flex-col">
                                 <FormLabel>Cliente</FormLabel>
-                                <Popover open={isClientPopoverOpen} onOpenChange={setClientPopoverOpen}>
-                                  <PopoverTrigger asChild>
-                                    <FormControl>
-                                      <Button
-                                        variant="outline"
-                                        role="combobox"
-                                        aria-expanded={isClientPopoverOpen}
-                                        className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
-                                      >
-                                        {field.value
-                                          ? clientes.find(
-                                              (cliente) => cliente === field.value
-                                            )
-                                          : "Seleccione un cliente..."}
-                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                      </Button>
-                                    </FormControl>
-                                  </PopoverTrigger>
-                                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                                    <Command>
-                                      <CommandInput placeholder="Buscar cliente..." />
-                                      <CommandList>
-                                        <CommandEmpty>No se encontraron clientes.</CommandEmpty>
-                                        <CommandGroup>
-                                          {clientes.map((cliente) => (
-                                            <CommandItem
-                                              value={cliente}
-                                              key={cliente}
-                                              onSelect={() => {
-                                                field.onChange(cliente);
-                                                setClientPopoverOpen(false);
-                                              }}
-                                            >
-                                              <Check
-                                                className={cn(
-                                                  "mr-2 h-4 w-4",
-                                                  cliente === field.value
-                                                    ? "opacity-100"
-                                                    : "opacity-0"
-                                                )}
-                                              />
-                                              {cliente}
-                                            </CommandItem>
-                                          ))}
-                                        </CommandGroup>
-                                      </CommandList>
-                                    </Command>
-                                  </PopoverContent>
-                                </Popover>
+                                <Dialog open={isClientDialogOpen} onOpenChange={setClientDialogOpen}>
+                                    <DialogTrigger asChild>
+                                        <FormControl>
+                                            <Button variant="outline" className="w-full justify-between text-left font-normal">
+                                                {field.value || "Seleccione un cliente..."}
+                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                            </Button>
+                                        </FormControl>
+                                    </DialogTrigger>
+                                    <DialogContent className="sm:max-w-[425px]">
+                                        <DialogHeader>
+                                            <DialogTitle>Seleccionar Cliente</DialogTitle>
+                                        </DialogHeader>
+                                        <div className="p-4">
+                                            <Input
+                                                placeholder="Buscar cliente..."
+                                                value={clientSearch}
+                                                onChange={(e) => setClientSearch(e.target.value)}
+                                                className="mb-4"
+                                            />
+                                            <ScrollArea className="h-72">
+                                                <div className="space-y-1">
+                                                    {filteredClients.map((cliente) => (
+                                                        <Button
+                                                            key={cliente}
+                                                            variant="ghost"
+                                                            className="w-full justify-start"
+                                                            onClick={() => {
+                                                                field.onChange(cliente);
+                                                                setClientDialogOpen(false);
+                                                                setClientSearch("");
+                                                            }}
+                                                        >
+                                                            {cliente}
+                                                        </Button>
+                                                    ))}
+                                                    {filteredClients.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron clientes.</p>}
+                                                </div>
+                                            </ScrollArea>
+                                        </div>
+                                    </DialogContent>
+                                </Dialog>
                                 <FormMessage />
                             </FormItem>
                         )}
@@ -743,3 +744,5 @@ export default function VariableWeightReceptionFormComponent() {
     </Form>
   );
 }
+
+    
