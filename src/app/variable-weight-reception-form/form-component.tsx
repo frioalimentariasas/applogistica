@@ -260,7 +260,7 @@ export default function VariableWeightReceptionFormComponent() {
       placa: "",
       precinto: "",
       setPoint: NaN,
-      items: [],
+      items: [{ paleta: 0, descripcion: "", lote: "", presentacion: "", cantidadPorPaleta: 0, pesoBruto: 0, taraEstiba: 0, taraCaja: 0, totalTaraCaja: 0, pesoNeto: 0 }],
       summary: [],
       horaInicio: "",
       horaFin: "",
@@ -332,13 +332,6 @@ export default function VariableWeightReceptionFormComponent() {
     fetchClients();
     window.scrollTo(0, 0);
   }, []);
-
-  useEffect(() => {
-    if (fields.length === 0) {
-      append({ paleta: 0, descripcion: "", lote: "", presentacion: "", cantidadPorPaleta: 0, pesoBruto: 0, taraEstiba: 0, taraCaja: 0, totalTaraCaja: 0, pesoNeto: 0 }, { shouldFocus: false });
-    }
-  }, [fields, append]);
-
 
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {

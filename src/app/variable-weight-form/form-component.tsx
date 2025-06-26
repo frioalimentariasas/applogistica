@@ -142,7 +142,7 @@ export default function VariableWeightFormComponent() {
       placa: "",
       precinto: "",
       setPoint: NaN,
-      items: [],
+      items: [{ paleta: 0, descripcion: '', lote: '', presentacion: '', cantidadPorPaleta: 0, pesoNeto: 0 }],
       horaInicio: "",
       horaFin: "",
       observaciones: "",
@@ -163,12 +163,6 @@ export default function VariableWeightFormComponent() {
     fetchClients();
     window.scrollTo(0, 0);
   }, []);
-
-  useEffect(() => {
-    if (fields.length === 0) {
-        append({ paleta: 0, descripcion: '', lote: '', presentacion: '', cantidadPorPaleta: 0, pesoNeto: 0 }, { shouldFocus: false });
-    }
-  }, [fields, append]);
   
   const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
@@ -316,8 +310,8 @@ export default function VariableWeightFormComponent() {
                           control={form.control}
                           name="cliente"
                           render={({ field }) => (
-                            <FormItem className="flex flex-col">
-                              <FormLabel>Cliente</FormLabel>
+                              <FormItem className="flex flex-col">
+                                <FormLabel>Cliente</FormLabel>
                                 <Dialog open={isClientDialogOpen} onOpenChange={setClientDialogOpen}>
                                     <DialogTrigger asChild>
                                         <FormControl>
@@ -486,7 +480,7 @@ export default function VariableWeightFormComponent() {
                                                             variant="ghost"
                                                             className="w-full justify-start h-auto text-wrap"
                                                             onClick={() => {
-                                                                form.setValue(`items.${index}.descripcion`, p.label);
+                                                                field.onChange(p.label);
                                                                 setProductDialogIndex(null);
                                                                 setProductSearch("");
                                                             }}
