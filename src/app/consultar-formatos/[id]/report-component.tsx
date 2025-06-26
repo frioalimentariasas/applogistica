@@ -66,7 +66,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
         const { formType } = submission;
         if (formType.startsWith('fixed-weight-')) return 'Reporte de ' + (formType.includes('recepcion') ? 'Recepción' : 'Despacho') + ' - Peso Fijo';
         if (formType.startsWith('variable-weight-')) {
-            if (formType.includes('recepcion')) return 'Reporte de Recepción - Peso Variable';
+            if (formType.includes('recepcion') || formType.includes('reception')) return 'Reporte de Recepción - Peso Variable';
             return 'Reporte de Despacho - Peso Variable';
         }
         return 'Reporte de Formulario';
@@ -88,7 +88,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 callback: function (doc) {
                     const { formType, formData, createdAt } = submission;
                     let typeName = 'Formato';
-                    if (formType.includes('recepcion')) typeName = 'Recepcion';
+                    if (formType.includes('recepcion') || formType.includes('reception')) typeName = 'Recepcion';
                     if (formType.includes('despacho')) typeName = 'Despacho';
 
                     let productType = 'PesoFijo';
@@ -109,8 +109,10 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     useCORS: true,
                     logging: false,
                 },
-                width: reportElement.offsetWidth,
-                windowWidth: reportElement.scrollWidth,
+                // Force the width to match the PDF page width minus margins
+                // A4 width (595pt) - left margin (20pt) - right margin (20pt) = 555pt
+                width: 555,
+                windowWidth: 555,
             });
     
         } catch (error) {
@@ -172,7 +174,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 <div className="bg-white shadow-lg">
                     {/* The ref is now on the outer container for jspdf.html() */}
                     <div ref={reportRef}> 
-                        <div className="p-2 sm:p-4 md:p-6">
+                        <div className="p-4">
                             <ReportLayout title={getReportTitle()}>
                             {renderReportContent()}
                             </ReportLayout>
