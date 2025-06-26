@@ -341,7 +341,10 @@ export default function FixedWeightFormComponent() {
                       render={({ field }) => (
                         <FormItem className="flex flex-col">
                           <FormLabel>Nombre del Cliente</FormLabel>
-                            <Dialog open={isClientDialogOpen} onOpenChange={setClientDialogOpen}>
+                            <Dialog open={isClientDialogOpen} onOpenChange={(isOpen) => {
+                                if (!isOpen) setClientSearch('');
+                                setClientDialogOpen(isOpen);
+                            }}>
                                 <DialogTrigger asChild>
                                     <FormControl>
                                         <Button variant="outline" role="combobox" className="w-full justify-between text-left font-normal">
@@ -489,10 +492,15 @@ export default function FixedWeightFormComponent() {
                                 <FormField control={form.control} name={`productos.${index}.descripcion`} render={({ field }) => (
                                     <FormItem className="md:col-span-2">
                                     <FormLabel>Descripción del Producto</FormLabel>
-                                        <Dialog open={productDialogIndex === index} onOpenChange={(isOpen) => setProductDialogIndex(isOpen ? index : null)}>
+                                        <Dialog open={productDialogIndex === index} onOpenChange={(isOpen) => {
+                                            if (!isOpen) {
+                                                setProductSearch('');
+                                            }
+                                            setProductDialogIndex(isOpen ? index : null)
+                                        }}>
                                             <DialogTrigger asChild>
                                                 <FormControl>
-                                                    <Button variant="outline" role="combobox" className={cn("w-full justify-between", !field.value && "text-muted-foreground")}>
+                                                    <Button variant="outline" role="combobox" className={cn("w-full justify-between text-left font-normal", !field.value && "text-muted-foreground")}>
                                                         {field.value ? field.value : "Seleccionar producto..."}
                                                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                                     </Button>
@@ -502,33 +510,41 @@ export default function FixedWeightFormComponent() {
                                                 <DialogHeader>
                                                     <DialogTitle>Seleccionar Producto</DialogTitle>
                                                 </DialogHeader>
-                                                <Input
-                                                    placeholder="Buscar producto..."
-                                                    value={productSearch}
-                                                    onChange={(e) => setProductSearch(e.target.value)}
-                                                    className="mb-4"
-                                                />
-                                                <ScrollArea className="h-72">
-                                                    <div className="space-y-1">
-                                                        {isLoadingArticulos && <p className="text-center text-sm text-muted-foreground">Cargando...</p>}
-                                                        {!isLoadingArticulos && filteredArticulos.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron productos.</p>}
-                                                        {filteredArticulos.map((p, i) => (
-                                                            <Button
-                                                                key={`${p.value}-${i}`}
-                                                                variant="ghost"
-                                                                className="w-full justify-start h-auto text-wrap"
-                                                                onClick={() => {
-                                                                    form.setValue(`productos.${index}.descripcion`, p.label)
-                                                                    form.setValue(`productos.${index}.codigo`, p.value)
-                                                                    setProductDialogIndex(null);
-                                                                    setProductSearch("");
-                                                                }}
-                                                            >
-                                                                {p.label}
-                                                            </Button>
-                                                        ))}
+                                                {!form.getValues('nombreCliente') ? (
+                                                    <div className="p-4 text-center text-muted-foreground">
+                                                        Debe escoger primero un cliente.
                                                     </div>
-                                                </ScrollArea>
+                                                ) : (
+                                                    <>
+                                                        <Input
+                                                            placeholder="Buscar producto..."
+                                                            value={productSearch}
+                                                            onChange={(e) => setProductSearch(e.target.value)}
+                                                            className="mb-4"
+                                                        />
+                                                        <ScrollArea className="h-72">
+                                                            <div className="space-y-1">
+                                                                {isLoadingArticulos && <p className="text-center text-sm text-muted-foreground">Cargando...</p>}
+                                                                {!isLoadingArticulos && filteredArticulos.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron productos.</p>}
+                                                                {filteredArticulos.map((p, i) => (
+                                                                    <Button
+                                                                        key={`${p.value}-${i}`}
+                                                                        variant="ghost"
+                                                                        className="w-full justify-start h-auto text-wrap"
+                                                                        onClick={() => {
+                                                                            form.setValue(`productos.${index}.descripcion`, p.label)
+                                                                            form.setValue(`productos.${index}.codigo`, p.value)
+                                                                            setProductDialogIndex(null);
+                                                                            setProductSearch("");
+                                                                        }}
+                                                                    >
+                                                                        {p.label}
+                                                                    </Button>
+                                                                ))}
+                                                            </div>
+                                                        </ScrollArea>
+                                                    </>
+                                                )}
                                             </DialogContent>
                                         </Dialog>
                                     <FormMessage />

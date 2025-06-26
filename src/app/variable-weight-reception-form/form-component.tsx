@@ -102,7 +102,7 @@ const presentaciones = ["Cajas", "Sacos", "Canastillas"];
 
 
 const ItemRow = ({ control, index, remove, articulos, isLoadingArticulos }: { control: any, index: number, remove: (index: number) => void, articulos: { value: string, label: string }[], isLoadingArticulos: boolean }) => {
-    const { setValue } = useFormContext();
+    const { setValue, getValues } = useFormContext();
     const itemData = useWatch({
         control,
         name: `items.${index}`
@@ -145,10 +145,15 @@ const ItemRow = ({ control, index, remove, articulos, isLoadingArticulos }: { co
                 <FormField control={control} name={`items.${index}.descripcion`} render={({ field }) => (
                     <FormItem className="md:col-span-2">
                         <FormLabel>Descripción del Producto</FormLabel>
-                        <Dialog open={openDialog} onOpenChange={setOpenDialog}>
+                        <Dialog open={openDialog} onOpenChange={(isOpen) => {
+                            if (!isOpen) {
+                                setProductSearch('');
+                            }
+                            setOpenDialog(isOpen);
+                        }}>
                             <DialogTrigger asChild>
                                 <FormControl>
-                                    <Button variant="outline" role="combobox" className={cn("w-full justify-between", !field.value && "text-muted-foreground")}>
+                                    <Button variant="outline" role="combobox" className={cn("w-full justify-between text-left font-normal", !field.value && "text-muted-foreground")}>
                                         {field.value || "Seleccionar producto..."}
                                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                     </Button>
@@ -158,32 +163,40 @@ const ItemRow = ({ control, index, remove, articulos, isLoadingArticulos }: { co
                                 <DialogHeader>
                                     <DialogTitle>Seleccionar Producto</DialogTitle>
                                 </DialogHeader>
-                                <Input
-                                    placeholder="Buscar producto..."
-                                    value={productSearch}
-                                    onChange={(e) => setProductSearch(e.target.value)}
-                                    className="mb-4"
-                                />
-                                <ScrollArea className="h-72">
-                                    <div className="space-y-1">
-                                        {isLoadingArticulos && <p className="text-center text-sm text-muted-foreground">Cargando...</p>}
-                                        {!isLoadingArticulos && filteredArticulos.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron productos.</p>}
-                                        {filteredArticulos.map((p, i) => (
-                                            <Button
-                                                key={`${p.value}-${i}`}
-                                                variant="ghost"
-                                                className="w-full justify-start h-auto text-wrap"
-                                                onClick={() => {
-                                                    field.onChange(p.label);
-                                                    setOpenDialog(false);
-                                                    setProductSearch("");
-                                                }}
-                                            >
-                                                {p.label}
-                                            </Button>
-                                        ))}
+                                {!getValues('cliente') ? (
+                                    <div className="p-4 text-center text-muted-foreground">
+                                        Debe escoger primero un cliente.
                                     </div>
-                                </ScrollArea>
+                                ) : (
+                                    <>
+                                        <Input
+                                            placeholder="Buscar producto..."
+                                            value={productSearch}
+                                            onChange={(e) => setProductSearch(e.target.value)}
+                                            className="mb-4"
+                                        />
+                                        <ScrollArea className="h-72">
+                                            <div className="space-y-1">
+                                                {isLoadingArticulos && <p className="text-center text-sm text-muted-foreground">Cargando...</p>}
+                                                {!isLoadingArticulos && filteredArticulos.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron productos.</p>}
+                                                {filteredArticulos.map((p, i) => (
+                                                    <Button
+                                                        key={`${p.value}-${i}`}
+                                                        variant="ghost"
+                                                        className="w-full justify-start h-auto text-wrap"
+                                                        onClick={() => {
+                                                            field.onChange(p.label);
+                                                            setOpenDialog(false);
+                                                            setProductSearch("");
+                                                        }}
+                                                    >
+                                                        {p.label}
+                                                    </Button>
+                                                ))}
+                                            </div>
+                                        </ScrollArea>
+                                    </>
+                                )}
                             </DialogContent>
                         </Dialog>
                         <FormMessage />
@@ -495,7 +508,10 @@ export default function VariableWeightReceptionFormComponent() {
                         render={({ field }) => (
                             <FormItem className="flex flex-col">
                                 <FormLabel>Cliente</FormLabel>
-                                <Dialog open={isClientDialogOpen} onOpenChange={setClientDialogOpen}>
+                                <Dialog open={isClientDialogOpen} onOpenChange={(isOpen) => {
+                                    if (!isOpen) setClientSearch('');
+                                    setClientDialogOpen(isOpen);
+                                }}>
                                     <DialogTrigger asChild>
                                         <FormControl>
                                             <Button variant="outline" role="combobox" className="w-full justify-between text-left font-normal">
