@@ -3,7 +3,7 @@ import Image from 'next/image';
 import { format } from 'date-fns';
 
 const ReportSection = ({ title, children, className }: { title: string, children: React.ReactNode, className?: string }) => (
-    <div className="mb-3 break-inside-avoid">
+    <div className="mb-3" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
         <div className={`rounded-lg border border-gray-400 ${className}`}>
             <h2 className="rounded-t-md bg-gray-200 px-3 py-1 text-sm font-bold text-gray-800 border-b border-gray-400">{title}</h2>
             <div className="p-3">{children}</div>
@@ -128,7 +128,7 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                 <ReportSection title="Anexos: Registros Fotográficos">
                      <div className="grid grid-cols-2 gap-4 pt-2">
                         {attachments.map((img, index) => (
-                            <div key={index} className="text-center break-inside-avoid">
+                            <div key={index} className="text-center" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
                                 <div className="relative w-full h-48 border border-gray-300 rounded-md overflow-hidden">
                                      <Image src={img} alt={`Anexo ${index + 1}`} layout="fill" objectFit="contain" />
                                 </div>
