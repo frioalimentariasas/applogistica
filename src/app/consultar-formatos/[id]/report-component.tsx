@@ -15,7 +15,6 @@ import { ReportLayout } from '@/components/app/reports/ReportLayout';
 import { FixedWeightReport } from '@/components/app/reports/FixedWeightReport';
 import { VariableWeightDispatchReport } from '@/components/app/reports/VariableWeightDispatchReport';
 import { VariableWeightReceptionReport } from '@/components/app/reports/VariableWeightReceptionReport';
-import { getImageAsBase64 } from '@/app/actions/image-proxy';
 
 // html2canvas is used by jspdf internally, so it's a good idea to have it.
 import html2canvas from 'html2canvas';
@@ -24,6 +23,26 @@ import html2canvas from 'html2canvas';
 interface ReportComponentProps {
     submission: SubmissionResult;
 }
+
+// New client-side image fetching function
+const getImageAsBase64Client = async (url: string): Promise<string> => {
+    // Using a proxy is not necessary if the images are publicly accessible or on the same domain.
+    // Firebase storage URLs with tokens are public.
+    const response = await fetch(url);
+    if (!response.ok) {
+        throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+    }
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = reject;
+        reader.onload = () => {
+            resolve(reader.result as string);
+        };
+        reader.readAsDataURL(blob);
+    });
+};
+
 
 export default function ReportComponent({ submission }: ReportComponentProps) {
     const reportRef = useRef<HTMLDivElement>(null);
@@ -45,12 +64,12 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
         const fetchAllImages = async () => {
             setAreImagesLoading(true);
             try {
-                // Fetch attachments
-                const attachmentPromises = submission.attachmentUrls.map(url => getImageAsBase64(url));
+                // Fetch attachments using the client-side function
+                const attachmentPromises = submission.attachmentUrls.map(url => getImageAsBase64Client(url));
                 
-                // Fetch logo
+                // Fetch logo using the client-side function
                 const logoUrl = new URL('/images/company-logo.png', window.location.origin).href;
-                const logoPromise = getImageAsBase64(logoUrl);
+                const logoPromise = getImageAsBase64Client(logoUrl);
 
                 const [logoData, ...attachmentData] = await Promise.all([logoPromise, ...attachmentPromises]);
                 

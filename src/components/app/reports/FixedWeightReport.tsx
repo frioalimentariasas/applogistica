@@ -23,10 +23,10 @@ const ReportSection = ({ title, children }: { title: string, children: React.Rea
 );
 
 const ReportField = ({ label, value }: { label: string, value: any }) => (
-    <div style={{ fontSize: '11px', lineHeight: '1.4' }}>
+    <>
       <span style={{ fontWeight: 'bold' }}>{label}: </span>
       <span>{value || 'N/A'}</span>
-    </div>
+    </>
 );
 
 interface FixedWeightReportProps {
@@ -42,25 +42,27 @@ export function FixedWeightReport({ formData, userDisplayName, attachments, form
     const isReception = formType.includes('recepcion');
     const operationTerm = isReception ? 'Descargue' : 'Cargue';
 
+    const fieldCellStyle: React.CSSProperties = { padding: '2px', fontSize: '11px', lineHeight: '1.4', verticalAlign: 'top' };
+
     return (
         <>
             <ReportSection title="Información General">
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <tbody>
                         <tr>
-                            <td style={{ width: '33.33%', padding: '2px' }}><ReportField label="Pedido SISLOG" value={formData.pedidoSislog} /></td>
-                            <td style={{ width: '33.33%', padding: '2px' }}><ReportField label="Nombre Cliente" value={formData.nombreCliente} /></td>
-                            <td style={{ width: '33.33%', padding: '2px' }}><ReportField label="Factura/Remisión" value={formData.facturaRemision} /></td>
+                            <td style={{...fieldCellStyle, width: '33.33%'}}><ReportField label="Pedido SISLOG" value={formData.pedidoSislog} /></td>
+                            <td style={{...fieldCellStyle, width: '33.33%'}}><ReportField label="Nombre Cliente" value={formData.nombreCliente} /></td>
+                            <td style={{...fieldCellStyle, width: '33.33%'}}><ReportField label="Factura/Remisión" value={formData.facturaRemision} /></td>
                         </tr>
                         <tr>
-                            <td style={{ padding: '2px' }}><ReportField label="Fecha" value={formData.fecha ? format(new Date(formData.fecha), "dd/MM/yyyy") : 'N/A'} /></td>
-                            <td style={{ padding: '2px' }}><ReportField label={`Hora Inicio ${operationTerm}`} value={formData.horaInicio} /></td>
-                            <td style={{ padding: '2px' }}><ReportField label={`Hora Fin ${operationTerm}`} value={formData.horaFin} /></td>
+                            <td style={fieldCellStyle}><ReportField label="Fecha" value={formData.fecha ? format(new Date(formData.fecha), "dd/MM/yyyy") : 'N/A'} /></td>
+                            <td style={fieldCellStyle}><ReportField label={`Hora Inicio ${operationTerm}`} value={formData.horaInicio} /></td>
+                            <td style={fieldCellStyle}><ReportField label={`Hora Fin ${operationTerm}`} value={formData.horaFin} /></td>
                         </tr>
                         <tr>
-                            <td style={{ padding: '2px' }}><ReportField label="Precinto/Sello" value={formData.precinto} /></td>
-                            <td style={{ padding: '2px' }}><ReportField label="Documento de Transporte" value={formData.documentoTransporte} /></td>
-                            <td style={{ padding: '2px' }}></td>
+                            <td style={fieldCellStyle}><ReportField label="Precinto/Sello" value={formData.precinto} /></td>
+                            <td style={fieldCellStyle}><ReportField label="Documento de Transporte" value={formData.documentoTransporte} /></td>
+                            <td style={fieldCellStyle}></td>
                         </tr>
                     </tbody>
                 </table>
@@ -101,19 +103,19 @@ export function FixedWeightReport({ formData, userDisplayName, attachments, form
                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <tbody>
                         <tr>
-                           <td style={{ width: '33.33%', padding: '2px' }}><ReportField label="Nombre Conductor" value={formData.nombreConductor} /></td>
-                           <td style={{ width: '33.33%', padding: '2px' }}><ReportField label="Cédula" value={formData.cedulaConductor} /></td>
-                           <td style={{ width: '33.33%', padding: '2px' }}><ReportField label="Placa" value={formData.placa} /></td>
+                           <td style={{...fieldCellStyle, width: '33.33%'}}><ReportField label="Nombre Conductor" value={formData.nombreConductor} /></td>
+                           <td style={{...fieldCellStyle, width: '33.33%'}}><ReportField label="Cédula" value={formData.cedulaConductor} /></td>
+                           <td style={{...fieldCellStyle, width: '33.33%'}}><ReportField label="Placa" value={formData.placa} /></td>
                         </tr>
                         <tr>
-                            <td style={{ padding: '2px' }}><ReportField label="Muelle" value={formData.muelle} /></td>
-                            <td style={{ padding: '2px' }}><ReportField label="Contenedor" value={formData.contenedor} /></td>
-                            <td style={{ padding: '2px' }}><ReportField label="Set Point (°C)" value={formData.setPoint} /></td>
+                            <td style={fieldCellStyle}><ReportField label="Muelle" value={formData.muelle} /></td>
+                            <td style={fieldCellStyle}><ReportField label="Contenedor" value={formData.contenedor} /></td>
+                            <td style={fieldCellStyle}><ReportField label="Set Point (°C)" value={formData.setPoint} /></td>
                         </tr>
                          <tr>
-                            <td style={{ padding: '2px' }}><ReportField label="Cond. Higiene" value={formData.condicionesHigiene} /></td>
-                            <td style={{ padding: '2px' }}><ReportField label="Termoregistrador" value={formData.termoregistrador} /></td>
-                            <td style={{ padding: '2px' }}><ReportField label="Cliente Requiere Termoregistro" value={formData.clienteRequiereTermoregistro} /></td>
+                            <td style={fieldCellStyle}><ReportField label="Cond. Higiene" value={formData.condicionesHigiene} /></td>
+                            <td style={fieldCellStyle}><ReportField label="Termoregistrador" value={formData.termoregistrador} /></td>
+                            <td style={fieldCellStyle}><ReportField label="Cliente Requiere Termoregistro" value={formData.clienteRequiereTermoregistro} /></td>
                         </tr>
                     </tbody>
                 </table>
@@ -129,8 +131,8 @@ export function FixedWeightReport({ formData, userDisplayName, attachments, form
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                      <tbody>
                         <tr>
-                            <td style={{ width: '50%', padding: '2px' }}><ReportField label="Coordinador Responsable" value={formData.coordinador} /></td>
-                            <td style={{ width: '50%', padding: '2px' }}><ReportField label="Operario Logístico Responsable" value={userDisplayName} /></td>
+                            <td style={{...fieldCellStyle, width: '50%'}}><ReportField label="Coordinador Responsable" value={formData.coordinador} /></td>
+                            <td style={{...fieldCellStyle, width: '50%'}}><ReportField label="Operario Logístico Responsable" value={userDisplayName} /></td>
                         </tr>
                     </tbody>
                 </table>
@@ -139,18 +141,20 @@ export function FixedWeightReport({ formData, userDisplayName, attachments, form
             {attachments.length > 0 && (
                 <ReportSection title="Anexos: Registros Fotográficos">
                     <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                         <tbody>
-                            <tr>
-                                {attachments.slice(0, 2).map((img, index) => (
-                                    <td key={index} style={{ width: '50%', padding: '8px', verticalAlign: 'top', textAlign: 'center' }}>
-                                        <div style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}>
-                                            <img src={img} alt={`Anexo ${index + 1}`} style={{ maxWidth: '100%', border: '1px solid #ccc', borderRadius: '4px', objectFit: 'contain' }} />
-                                            <p style={{ fontSize: '10px', marginTop: '4px', marginBlock: 0 }}>Registro Fotográfico {index + 1}</p>
-                                        </div>
-                                    </td>
-                                ))}
-                            </tr>
-                            {/* Add more rows if needed */}
+                        <tbody>
+                            {Array.from({ length: Math.ceil(attachments.length / 2) }).map((_, rowIndex) => (
+                                <tr key={rowIndex}>
+                                    {attachments.slice(rowIndex * 2, rowIndex * 2 + 2).map((img, colIndex) => (
+                                        <td key={colIndex} style={{ width: '50%', padding: '8px', verticalAlign: 'top', textAlign: 'center' }}>
+                                            <div style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}>
+                                                <img src={img} alt={`Anexo ${rowIndex * 2 + colIndex + 1}`} style={{ maxWidth: '100%', border: '1px solid #ccc', borderRadius: '4px', objectFit: 'contain' }} />
+                                                <p style={{ fontSize: '10px', marginTop: '4px', marginBlock: 0 }}>Registro Fotográfico {rowIndex * 2 + colIndex + 1}</p>
+                                            </div>
+                                        </td>
+                                    ))}
+                                    {attachments.slice(rowIndex * 2, rowIndex * 2 + 2).length === 1 && <td style={{ width: '50%' }}></td>}
+                                </tr>
+                            ))}
                         </tbody>
                     </table>
                 </ReportSection>
