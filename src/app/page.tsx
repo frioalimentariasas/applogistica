@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { FileText, LogOut, Users2, Box } from 'lucide-react';
+import { FileText, LogOut, Users2, Box, ScrollText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
@@ -168,15 +168,22 @@ export default function Home() {
             </div>
         </div>
         
-        <Button variant="secondary" size="lg" className="w-full h-12 text-base" onClick={() => router.push('/upload-articulos')}>
-            <Box className="mr-2 h-5 w-5" />
-            Cargar Artículos (Excel)
-        </Button>
+        <div className="space-y-4">
+            <Button variant="secondary" size="lg" className="w-full h-12 text-base" onClick={() => router.push('/consultar-formatos')}>
+                <ScrollText className="mr-2 h-5 w-5" />
+                Consultar Formatos Guardados
+            </Button>
 
-        <Button variant="secondary" size="lg" className="w-full h-12 text-base mt-4" onClick={() => router.push('/upload-clientes')}>
-            <Users2 className="mr-2 h-5 w-5" />
-            Cargar Clientes (Excel)
-        </Button>
+            <Button variant="secondary" size="lg" className="w-full h-12 text-base" onClick={() => router.push('/upload-articulos')}>
+                <Box className="mr-2 h-5 w-5" />
+                Cargar Artículos (Excel)
+            </Button>
+
+            <Button variant="secondary" size="lg" className="w-full h-12 text-base" onClick={() => router.push('/upload-clientes')}>
+                <Users2 className="mr-2 h-5 w-5" />
+                Cargar Clientes (Excel)
+            </Button>
+        </div>
 
         <div className="pt-4">
             <FirebaseChecker />
