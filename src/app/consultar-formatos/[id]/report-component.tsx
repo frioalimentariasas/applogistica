@@ -115,7 +115,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
     
             const addHeader = (title: string) => {
                 const logoWidth = 150;
-                const logoHeight = 55;
+                const logoHeight = 60;
                 if (logoBase64) {
                     try {
                         doc.addImage(logoBase64, 'PNG', margin, margin, logoWidth, logoHeight); 
