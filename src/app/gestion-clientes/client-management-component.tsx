@@ -7,59 +7,124 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
-import { addClient } from './actions';
+import { addClient, updateClient, deleteClient } from './actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Loader2, Users2, UserPlus } from 'lucide-react';
+import { ArrowLeft, Loader2, Users2, UserPlus, Edit, Trash2 } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import type { ClientInfo } from '@/app/actions/clients';
 
-const clientSchema = z.object({
+// Schemas for forms
+const addClientSchema = z.object({
   razonSocial: z.string().min(3, { message: 'El nombre debe tener al menos 3 caracteres.' }),
 });
+type AddClientFormValues = z.infer<typeof addClientSchema>;
 
-type ClientFormValues = z.infer<typeof clientSchema>;
+const editClientSchema = z.object({
+    razonSocial: z.string().min(3, { message: 'El nombre debe tener al menos 3 caracteres.' }),
+});
+type EditClientFormValues = z.infer<typeof editClientSchema>;
 
 interface ClientManagementComponentProps {
-  initialClients: string[];
+  initialClients: ClientInfo[];
 }
 
 export default function ClientManagementComponent({ initialClients }: ClientManagementComponentProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [clients, setClients] = useState(initialClients);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
-  const form = useForm<ClientFormValues>({
-    resolver: zodResolver(clientSchema),
-    defaultValues: {
-      razonSocial: '',
-    },
+  // Add state
+  const [isSubmittingAdd, setIsSubmittingAdd] = useState(false);
+  
+  // Edit state
+  const [clientToEdit, setClientToEdit] = useState<ClientInfo | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
+  
+  // Delete state
+  const [clientToDelete, setClientToDelete] = useState<ClientInfo | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  // Forms
+  const addForm = useForm<AddClientFormValues>({
+    resolver: zodResolver(addClientSchema),
+    defaultValues: { razonSocial: '' },
   });
 
-  const onSubmit: SubmitHandler<ClientFormValues> = async (data) => {
-    setIsSubmitting(true);
+  const editForm = useForm<EditClientFormValues>({
+    resolver: zodResolver(editClientSchema),
+  });
+
+  // Handlers
+  const onAddSubmit: SubmitHandler<AddClientFormValues> = async (data) => {
+    setIsSubmittingAdd(true);
     const result = await addClient(data.razonSocial);
-    if (result.success) {
+    if (result.success && result.newClient) {
       toast({ title: 'Éxito', description: result.message });
-      setClients(prev => [...prev, data.razonSocial].sort((a, b) => a.localeCompare(b)));
-      form.reset();
+      setClients(prev => [...prev, result.newClient!].sort((a, b) => a.razonSocial.localeCompare(b.razonSocial)));
+      addForm.reset();
     } else {
       toast({ variant: 'destructive', title: 'Error', description: result.message });
     }
-    setIsSubmitting(false);
+    setIsSubmittingAdd(false);
+  };
+
+  const onEditSubmit: SubmitHandler<EditClientFormValues> = async (data) => {
+    if (!clientToEdit) return;
+    setIsEditing(true);
+    const result = await updateClient(clientToEdit.id, data.razonSocial);
+    if (result.success) {
+      toast({ title: 'Éxito', description: result.message });
+      setClients(prev => prev.map(c => c.id === clientToEdit.id ? { ...c, razonSocial: data.razonSocial } : c).sort((a, b) => a.razonSocial.localeCompare(b.razonSocial)));
+      setClientToEdit(null);
+    } else {
+      toast({ variant: 'destructive', title: 'Error', description: result.message });
+    }
+    setIsEditing(false);
+  };
+  
+  const handleDeleteConfirm = async () => {
+    if (!clientToDelete) return;
+    setIsDeleting(true);
+    const result = await deleteClient(clientToDelete.id);
+    if (result.success) {
+      toast({ title: 'Éxito', description: result.message });
+      setClients(prev => prev.filter(c => c.id !== clientToDelete.id));
+    } else {
+      toast({ variant: 'destructive', title: 'Error', description: result.message });
+    }
+    setClientToDelete(null);
+    setIsDeleting(false);
+  };
+
+  const openEditDialog = (client: ClientInfo) => {
+    setClientToEdit(client);
+    editForm.reset({ razonSocial: client.razonSocial });
   };
 
   const filteredClients = clients.filter(client => 
-    client.toLowerCase().includes(searchTerm.toLowerCase())
+    client.razonSocial.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
       <div className="max-w-4xl mx-auto">
+        {/* Header */}
         <header className="mb-8">
           <div className="relative flex items-center justify-center text-center">
             <Button variant="ghost" size="icon" className="absolute left-0 top-1/2 -translate-y-1/2" onClick={() => router.push('/')}>
@@ -76,16 +141,17 @@ export default function ClientManagementComponent({ initialClients }: ClientMana
         </header>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+          {/* Add Client Card */}
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2"><UserPlus />Agregar Nuevo Cliente</CardTitle>
               <CardDescription>Ingrese la razón social para crear un nuevo cliente.</CardDescription>
             </CardHeader>
             <CardContent>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+              <Form {...addForm}>
+                <form onSubmit={addForm.handleSubmit(onAddSubmit)} className="space-y-4">
                   <FormField
-                    control={form.control}
+                    control={addForm.control}
                     name="razonSocial"
                     render={({ field }) => (
                       <FormItem>
@@ -97,8 +163,8 @@ export default function ClientManagementComponent({ initialClients }: ClientMana
                       </FormItem>
                     )}
                   />
-                  <Button type="submit" disabled={isSubmitting} className="w-full">
-                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserPlus className="mr-2 h-4 w-4" />}
+                  <Button type="submit" disabled={isSubmittingAdd} className="w-full">
+                    {isSubmittingAdd ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserPlus className="mr-2 h-4 w-4" />}
                     Agregar Cliente
                   </Button>
                 </form>
@@ -106,6 +172,7 @@ export default function ClientManagementComponent({ initialClients }: ClientMana
             </CardContent>
           </Card>
           
+          {/* Client List Card */}
           <Card>
             <CardHeader>
               <CardTitle>Listado de Clientes</CardTitle>
@@ -123,18 +190,29 @@ export default function ClientManagementComponent({ initialClients }: ClientMana
                   <TableHeader>
                     <TableRow>
                       <TableHead>Razón Social</TableHead>
+                      <TableHead className="text-right">Acciones</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {filteredClients.length > 0 ? (
-                      filteredClients.map((client, index) => (
-                        <TableRow key={index}>
-                          <TableCell>{client}</TableCell>
+                      filteredClients.map((client) => (
+                        <TableRow key={client.id}>
+                          <TableCell>{client.razonSocial}</TableCell>
+                          <TableCell className="text-right">
+                                <div className="flex items-center justify-end gap-2">
+                                    <Button variant="ghost" size="icon" title="Editar" onClick={() => openEditDialog(client)}>
+                                        <Edit className="h-4 w-4 text-blue-600" />
+                                    </Button>
+                                    <Button variant="ghost" size="icon" title="Eliminar" onClick={() => setClientToDelete(client)}>
+                                        <Trash2 className="h-4 w-4 text-destructive" />
+                                    </Button>
+                                </div>
+                            </TableCell>
                         </TableRow>
                       ))
                     ) : (
                       <TableRow>
-                        <TableCell className="text-center text-muted-foreground">
+                        <TableCell colSpan={2} className="h-24 text-center text-muted-foreground">
                           {clients.length === 0 ? "No hay clientes registrados." : "No se encontraron clientes."}
                         </TableCell>
                       </TableRow>
@@ -146,6 +224,66 @@ export default function ClientManagementComponent({ initialClients }: ClientMana
           </Card>
         </div>
       </div>
+      
+      {/* Edit Dialog */}
+      <Dialog open={!!clientToEdit} onOpenChange={(isOpen) => !isOpen && setClientToEdit(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Editar Cliente</DialogTitle>
+            <DialogDescription>
+              Modifique la razón social del cliente. Esto actualizará también los artículos asociados.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4 pt-4">
+              <FormField
+                control={editForm.control}
+                name="razonSocial"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Razón Social</FormLabel>
+                    <FormControl><Input placeholder="Colocar nombre Propietario SISLOG" {...field} /></FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button type="button" variant="outline" onClick={() => setClientToEdit(null)}>Cancelar</Button>
+                <Button type="submit" disabled={isEditing}>
+                  {isEditing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Guardar Cambios
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+      
+      {/* Delete Alert Dialog */}
+       <AlertDialog open={!!clientToDelete} onOpenChange={(open) => !open && setClientToDelete(null)}>
+          <AlertDialogContent>
+              <AlertDialogHeader>
+              <AlertDialogTitle>¿Está seguro?</AlertDialogTitle>
+              <AlertDialogDescription>
+                  Esta acción no se puede deshacer. Se eliminará permanentemente el cliente:
+                  <div className="mt-2 p-2 bg-muted rounded-md">
+                    <strong>{clientToDelete?.razonSocial}</strong>
+                  </div>
+              </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setClientToDelete(null)}>Cancelar</AlertDialogCancel>
+              <AlertDialogAction 
+                  onClick={handleDeleteConfirm} 
+                  disabled={isDeleting}
+                  className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+              >
+                  {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Eliminar
+              </AlertDialogAction>
+              </AlertDialogFooter>
+          </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

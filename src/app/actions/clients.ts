@@ -2,7 +2,12 @@
 
 import { firestore } from '@/lib/firebase-admin';
 
-export async function getClients(): Promise<string[]> {
+export interface ClientInfo {
+    id: string;
+    razonSocial: string;
+}
+
+export async function getClients(): Promise<ClientInfo[]> {
     if (!firestore) {
         console.error('Firebase Admin not initialized. Cannot fetch clients.');
         return [];
@@ -13,7 +18,10 @@ export async function getClients(): Promise<string[]> {
         if (clientesSnapshot.empty) {
             return [];
         }
-        const clients = clientesSnapshot.docs.map(doc => doc.data().razonSocial as string);
+        const clients = clientesSnapshot.docs.map(doc => ({
+            id: doc.id,
+            razonSocial: doc.data().razonSocial as string
+        }));
         return clients;
     } catch (error) {
         console.error('Error fetching clients from Firestore:', error);
