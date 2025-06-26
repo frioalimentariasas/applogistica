@@ -11,6 +11,7 @@ export interface ArticuloData {
 
 // Define the structure returned by the action
 export interface ArticuloInfo {
+    id: string; // Document ID from Firestore
     codigoProducto: string;
     denominacionArticulo: string;
 }
@@ -35,6 +36,7 @@ export async function getArticulosByClient(clientName: string): Promise<Articulo
         const articulos = articulosSnapshot.docs.map(doc => {
             const data = doc.data() as ArticuloData;
             return {
+                id: doc.id,
                 codigoProducto: data.codigoProducto,
                 denominacionArticulo: data.denominacionArticulo,
             };

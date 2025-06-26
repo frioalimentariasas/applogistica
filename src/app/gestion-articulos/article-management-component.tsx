@@ -195,7 +195,7 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
                         </TableRow>
                       ) : articles.length > 0 ? (
                         articles.map((article) => (
-                          <TableRow key={article.codigoProducto}>
+                          <TableRow key={article.id}>
                             <TableCell className="font-mono">{article.codigoProducto}</TableCell>
                             <TableCell>{article.denominacionArticulo}</TableCell>
                           </TableRow>
