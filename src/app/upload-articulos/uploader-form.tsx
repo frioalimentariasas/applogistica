@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -101,14 +102,14 @@ export default function UploaderForm() {
                 <Alert className="mb-6 border-blue-500 bg-blue-50 text-blue-800 [&>svg]:text-blue-600">
                     <AlertTitle className="text-blue-700">¡Atención!</AlertTitle>
                     <AlertDescription>
-                        El archivo Excel debe tener exactamente las siguientes columnas: <strong>Razón Social</strong>, <strong>Codigo Producto</strong>, y <strong>Denominación articulo</strong>. La carga reemplazará todos los datos existentes en la colección.
+                        El archivo Excel debe tener exactamente las siguientes columnas: <strong>Razón Social</strong>, <strong>Codigo Producto</strong>, y <strong>Denominación articulo</strong>. La carga reemplazará todos los datos existentes en la colección "articulos" de su base de datos.
                     </AlertDescription>
                 </Alert>
 
                 <Card>
                     <CardHeader>
                         <CardTitle>Seleccionar Archivo</CardTitle>
-                        <CardDescription>Elija el archivo Excel que desea importar. El sistema lo procesará y cargará los datos a la colección "articulos".</CardDescription>
+                        <CardDescription>Elija el archivo Excel que desea importar. El sistema lo procesará y cargará los datos a la colección "articulos" en su base de datos de Firestore.</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <form id="upload-form" action={handleFormAction} className="space-y-6">
