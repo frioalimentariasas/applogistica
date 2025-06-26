@@ -276,6 +276,24 @@ export default function VariableWeightReceptionFormComponent() {
     name: "items",
   });
   
+  const handleAddItem = () => {
+    const items = form.getValues('items');
+    const lastItem = items.length > 0 ? items[items.length - 1] : null;
+
+    append({
+        paleta: 0,
+        descripcion: lastItem?.descripcion || '',
+        lote: lastItem?.lote || '',
+        presentacion: lastItem?.presentacion || '',
+        cantidadPorPaleta: 0,
+        pesoBruto: 0,
+        taraEstiba: 0,
+        taraCaja: 0,
+        totalTaraCaja: 0,
+        pesoNeto: 0,
+    });
+  };
+
   const { fields: summaryItems, replace: setSummaryItems } = useFieldArray({
     control,
     name: "summary"
@@ -509,7 +527,7 @@ export default function VariableWeightReceptionFormComponent() {
                                                                 setClientDialogOpen(false);
                                                                 setClientSearch('');
                                                                 
-                                                                form.setValue('items', [{ paleta: 0, descripcion: '', lote: '', presentacion: '', cantidadPorPaleta: 0, pesoBruto: 0, taraEstiba: 0, taraCaja: 0, totalTaraCaja: 0, pesoNeto: 0 }]);
+                                                                form.setValue('items', [{ paleta: 0, descripcion: "", lote: "", presentacion: "", cantidadPorPaleta: 0, pesoBruto: 0, taraEstiba: 0, taraCaja: 0, totalTaraCaja: 0, pesoNeto: 0 }]);
                                                                 setArticulos([]);
                                                                 setIsLoadingArticulos(true);
                                                                 try {
@@ -596,7 +614,7 @@ export default function VariableWeightReceptionFormComponent() {
                              <ItemRow key={field.id} control={control} index={index} remove={() => remove(index)} articulos={articulos} isLoadingArticulos={isLoadingArticulos} />
                           ))}
                       </div>
-                      <Button type="button" variant="outline" onClick={() => append({ paleta: 0, descripcion: "", lote: "", presentacion: "", cantidadPorPaleta: 0, pesoBruto: 0, taraEstiba: 0, taraCaja: 0, totalTaraCaja: 0, pesoNeto: 0 })}><PlusCircle className="mr-2 h-4 w-4" />Agregar Item</Button>
+                      <Button type="button" variant="outline" onClick={handleAddItem}><PlusCircle className="mr-2 h-4 w-4" />Agregar Item</Button>
                   </CardContent>
               </Card>
 
@@ -797,3 +815,5 @@ export default function VariableWeightReceptionFormComponent() {
     </Form>
   );
 }
+
+    

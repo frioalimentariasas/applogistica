@@ -155,6 +155,20 @@ export default function VariableWeightFormComponent() {
     name: "items",
   });
 
+  const handleAddItem = () => {
+    const items = form.getValues('items');
+    const lastItem = items.length > 0 ? items[items.length - 1] : null;
+
+    append({
+        paleta: 0,
+        descripcion: lastItem?.descripcion || '',
+        lote: lastItem?.lote || '',
+        presentacion: lastItem?.presentacion || '',
+        cantidadPorPaleta: 0,
+        pesoNeto: 0
+    });
+  };
+
   useEffect(() => {
     const fetchClients = async () => {
         const clientList = await getClients();
@@ -538,7 +552,7 @@ export default function VariableWeightFormComponent() {
                         </div>
                     </div>
                 ))}
-                <Button type="button" variant="outline" onClick={() => append({ paleta: 0, descripcion: '', lote: '', presentacion: '', cantidadPorPaleta: 0, pesoNeto: 0 })}>
+                <Button type="button" variant="outline" onClick={handleAddItem}>
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Agregar Item
                 </Button>
@@ -677,3 +691,5 @@ export default function VariableWeightFormComponent() {
     </div>
   );
 }
+
+    
