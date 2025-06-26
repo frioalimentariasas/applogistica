@@ -56,6 +56,7 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { RestoreDialog } from "@/components/app/restore-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 
 const itemSchema = z.object({
@@ -130,6 +131,7 @@ export default function VariableWeightReceptionFormComponent() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isDeleteAllAlertOpen, setDeleteAllAlertOpen] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingForm, setIsLoadingForm] = useState(!!submissionId);
@@ -342,6 +344,11 @@ export default function VariableWeightReceptionFormComponent() {
 
   const handleRemoveAttachment = (indexToRemove: number) => {
       setAttachments(prev => prev.filter((_, index) => index !== indexToRemove));
+  };
+  
+  const handleRemoveAllAttachments = () => {
+    setAttachments([]);
+    setDeleteAllAlertOpen(false);
   };
 
   const handleOpenCamera = async () => {
@@ -893,7 +900,31 @@ export default function VariableWeightReceptionFormComponent() {
                       </div>
                       {attachments.length > 0 && (
                           <div>
-                              <h4 className="text-sm font-medium mb-2">Archivos Adjuntos:</h4>
+                            <div className="flex justify-between items-center mb-2">
+                                <h4 className="text-sm font-medium">Archivos Adjuntos:</h4>
+                                <AlertDialog open={isDeleteAllAlertOpen} onOpenChange={setDeleteAllAlertOpen}>
+                                    <AlertDialogTrigger asChild>
+                                        <Button type="button" variant="outline" size="sm" className="text-destructive hover:text-destructive border-destructive/50 hover:bg-destructive/10">
+                                            <Trash2 className="mr-2 h-3 w-3" />
+                                            Eliminar Todos
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>¿Está seguro de eliminar todos los anexos?</AlertDialogTitle>
+                                            <AlertDialogDescription>
+                                                Esta acción no se puede deshacer. Se eliminarán permanentemente todos los archivos adjuntos.
+                                            </AlertDialogDescription>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                            <AlertDialogAction onClick={handleRemoveAllAttachments} className="bg-destructive hover:bg-destructive/90">
+                                                Eliminar Todos
+                                            </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            </div>
                               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
                                   {attachments.map((src, index) => (
                                       <div key={index} className="relative group aspect-square">
@@ -902,7 +933,7 @@ export default function VariableWeightReceptionFormComponent() {
                                               type="button"
                                               variant="destructive"
                                               size="icon"
-                                              className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
+                                              className="absolute top-1 right-1 h-6 w-6"
                                               onClick={() => handleRemoveAttachment(index)}
                                           >
                                               <Trash2 className="h-4 w-4" />
