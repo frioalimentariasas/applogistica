@@ -3,7 +3,7 @@ import Image from 'next/image';
 import { format } from 'date-fns';
 
 const ReportSection = ({ title, children, className }: { title: string, children: React.ReactNode, className?: string }) => (
-    <div className="mb-3" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+    <div className="mb-3" style={{ breakInside: 'avoid-page' }}>
         <div className={`rounded-lg border border-gray-400 ${className}`}>
             <h2 className="rounded-t-md bg-gray-200 px-3 py-1 text-sm font-bold text-gray-800 border-b border-gray-400">{title}</h2>
             <div className="p-3">{children}</div>
@@ -27,6 +27,7 @@ interface VariableWeightReceptionReportProps {
 export function VariableWeightReceptionReport({ formData, userDisplayName, attachments }: VariableWeightReceptionReportProps) {
     const totalPeso = formData.summary?.reduce((acc: any, p: any) => acc + (p.totalPeso || 0), 0) || 0;
     const totalCantidad = formData.summary?.reduce((acc: any, p: any) => acc + (p.totalCantidad || 0), 0) || 0;
+    const operationTerm = 'Descargue';
 
     return (
         <>
@@ -35,16 +36,13 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                     <ReportField label="Pedido SISLOG" value={formData.pedidoSislog} />
                     <ReportField label="Cliente" value={formData.cliente} />
                     <ReportField label="Fecha" value={formData.fecha ? format(new Date(formData.fecha), "dd/MM/yyyy") : 'N/A'} />
-
                     <ReportField label="Conductor" value={formData.conductor} />
                     <ReportField label="Cédula" value={formData.cedulaConductor} />
                     <ReportField label="Placa" value={formData.placa} />
-                    
                     <ReportField label="Precinto" value={formData.precinto} />
                     <ReportField label="Set Point (°C)" value={formData.setPoint} />
-                    <ReportField label="Hora Inicio Descargue" value={formData.horaInicio} />
-
-                    <ReportField label="Hora Fin Descargue" value={formData.horaFin} />
+                    <ReportField label={`Hora Inicio ${operationTerm}`} value={formData.horaInicio} />
+                    <ReportField label={`Hora Fin ${operationTerm}`} value={formData.horaFin} />
                 </div>
             </ReportSection>
 
@@ -128,7 +126,7 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                 <ReportSection title="Anexos: Registros Fotográficos">
                      <div className="grid grid-cols-2 gap-4 pt-2">
                         {attachments.map((img, index) => (
-                            <div key={index} className="text-center" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+                            <div key={index} className="text-center" style={{ breakInside: 'avoid' }}>
                                 <div className="relative w-full h-48 border border-gray-300 rounded-md overflow-hidden">
                                      <Image src={img} alt={`Anexo ${index + 1}`} layout="fill" objectFit="contain" />
                                 </div>

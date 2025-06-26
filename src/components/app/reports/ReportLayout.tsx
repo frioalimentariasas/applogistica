@@ -11,7 +11,7 @@ export function ReportLayout({ title, children }: ReportLayoutProps) {
     return (
         <div className="font-sans text-gray-800 relative bg-white">
             <header className="text-center">
-                <div className="flex justify-center items-center py-2">
+                <div className="h-[75px] flex justify-center items-center py-2">
                     <Image
                         src="/images/company-logo.png"
                         alt="Logotipo de Frio Alimentaria"
