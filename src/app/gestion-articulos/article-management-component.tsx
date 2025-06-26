@@ -215,7 +215,7 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Descripción del Artículo</FormLabel>
-                          <FormControl><Input placeholder="Colocar Nombre Completo Propietario SISLOG" {...field} /></FormControl>
+                          <FormControl><Input placeholder="Colocar Descripción de Artículo SISLOG" {...field} /></FormControl>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -328,7 +328,7 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>Descripción del Artículo</FormLabel>
-                    <FormControl><Input placeholder="Colocar Nombre Completo Propietario SISLOG" {...field} /></FormControl>
+                    <FormControl><Input placeholder="Colocar Descripción de Artículo SISLOG" {...field} /></FormControl>
                     <FormMessage />
                   </FormItem>
                 )}
