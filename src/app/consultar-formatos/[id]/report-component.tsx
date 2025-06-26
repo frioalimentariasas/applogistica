@@ -4,7 +4,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import jspdf from 'jspdf';
-import html2canvas from 'html2canvas';
 import { format, parseISO } from 'date-fns';
 
 import type { SubmissionResult } from '@/app/actions/consultar-formatos';
@@ -17,6 +16,11 @@ import { FixedWeightReport } from '@/components/app/reports/FixedWeightReport';
 import { VariableWeightDispatchReport } from '@/components/app/reports/VariableWeightDispatchReport';
 import { VariableWeightReceptionReport } from '@/components/app/reports/VariableWeightReceptionReport';
 import { getImageAsBase64 } from '@/app/actions/image-proxy';
+
+// html2canvas is used by jspdf internally, so it's a good idea to have it.
+import html2canvas from 'html2canvas';
+window.html2canvas = html2canvas;
+
 
 interface ReportComponentProps {
     submission: SubmissionResult;
@@ -62,62 +66,46 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
     };
 
     const handleDownload = async () => {
-        if (!reportRef.current) return;
+        const reportElement = reportRef.current;
+        if (!reportElement) return;
         setIsDownloading(true);
-
+    
         try {
-            const canvas = await html2canvas(reportRef.current, {
-                scale: 2, // Higher scale for better quality
-                useCORS: true,
-                logging: false,
-                windowWidth: reportRef.current.scrollWidth,
-                windowHeight: reportRef.current.scrollHeight,
-            });
-
-            const imgData = canvas.toDataURL('image/png');
             const pdf = new jspdf({
                 orientation: 'portrait',
                 unit: 'pt',
                 format: 'a4',
             });
+    
+            await pdf.html(reportElement, {
+                callback: function (doc) {
+                    const { formType, formData, createdAt } = submission;
+                    let typeName = 'Formato';
+                    if (formType.includes('recepcion')) typeName = 'Recepcion';
+                    if (formType.includes('despacho')) typeName = 'Despacho';
 
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = pdf.internal.pageSize.getHeight();
-            const canvasWidth = canvas.width;
-            const canvasHeight = canvas.height;
-            
-            const ratio = canvasWidth / canvasHeight;
-            const newImgWidth = pdfWidth;
-            const newImgHeight = newImgWidth / ratio;
-            
-            let yPosition = 0;
-            let heightLeft = newImgHeight;
-            
-            pdf.addImage(imgData, 'PNG', 0, yPosition, newImgWidth, newImgHeight);
-            heightLeft -= pdfHeight;
+                    let productType = 'PesoFijo';
+                    if (formType.includes('variable-weight')) productType = 'PesoVariable';
 
-            while (heightLeft > 0) {
-                yPosition -= pdfHeight;
-                pdf.addPage();
-                pdf.addImage(imgData, 'PNG', 0, yPosition, newImgWidth, newImgHeight);
-                heightLeft -= pdfHeight;
-            }
+                    const date = parseISO(createdAt);
+                    const formattedDate = format(date, 'yyyy-MM-dd');
+                    const formattedTime = format(date, 'HH-mm-ss');
 
-            const { formType, formData, createdAt } = submission;
-            let typeName = 'Formato';
-            if(formType.includes('recepcion')) typeName = 'Recepcion';
-            if(formType.includes('despacho')) typeName = 'Despacho';
-
-            let productType = 'PesoFijo';
-             if(formType.includes('variable-weight')) productType = 'PesoVariable';
-
-            const date = parseISO(createdAt);
-            const formattedDate = format(date, 'yyyy-MM-dd');
-            const formattedTime = format(date, 'HH-mm-ss');
-
-            const fileName = `${typeName}_${productType}_${formData.pedidoSislog}_${formattedDate}_${formattedTime}.pdf`;
-            
-            pdf.save(fileName);
+                    const fileName = `${typeName}_${productType}_${formData.pedidoSislog}_${formattedDate}_${formattedTime}.pdf`;
+                    
+                    doc.save(fileName);
+                },
+                margin: [40, 20, 40, 20], // top, right, bottom, left
+                autoPaging: 'slice',
+                html2canvas: {
+                    scale: 2,
+                    useCORS: true,
+                    logging: false,
+                },
+                width: reportElement.offsetWidth,
+                windowWidth: reportElement.scrollWidth,
+            });
+    
         } catch (error) {
             console.error("Error generating PDF:", error);
         } finally {
@@ -129,7 +117,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
         const props = { 
             formData: submission.formData, 
             userDisplayName: submission.userDisplayName, 
-            attachments: base64Images 
+            attachments: base64Images,
         };
 
         switch (submission.formType) {
@@ -175,10 +163,13 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 )}
 
                 <div className="bg-white shadow-lg">
-                    <div ref={reportRef} className="p-2 sm:p-4 md:p-6">
-                        <ReportLayout title={getReportTitle()}>
-                           {renderReportContent()}
-                        </ReportLayout>
+                    {/* The ref is now on the outer container for jspdf.html() */}
+                    <div ref={reportRef}> 
+                        <div className="p-2 sm:p-4 md:p-6">
+                            <ReportLayout title={getReportTitle()}>
+                            {renderReportContent()}
+                            </ReportLayout>
+                        </div>
                     </div>
                 </div>
             </div>
