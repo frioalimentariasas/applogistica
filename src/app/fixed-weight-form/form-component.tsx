@@ -334,24 +334,19 @@ export default function FixedWeightFormComponent() {
                     </FormItem>
                   )}/>
                 </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField
                       control={form.control}
                       name="nombreCliente"
                       render={({ field }) => (
                         <FormItem className="flex flex-col">
                           <FormLabel>Nombre del Cliente</FormLabel>
-                            <Dialog open={isClientDialogOpen} onOpenChange={(isOpen) => {
-                                if (!isOpen) setClientSearch('');
-                                setClientDialogOpen(isOpen);
-                            }}>
+                            <Dialog open={isClientDialogOpen} onOpenChange={setClientDialogOpen}>
                                 <DialogTrigger asChild>
-                                    <FormControl>
-                                        <Button variant="outline" role="combobox" className="w-full justify-between text-left font-normal">
-                                            {field.value || "Seleccione un cliente..."}
-                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                        </Button>
-                                    </FormControl>
+                                    <Button variant="outline" className="w-full justify-between text-left font-normal">
+                                        {field.value || "Seleccione un cliente..."}
+                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    </Button>
                                 </DialogTrigger>
                                 <DialogContent className="sm:max-w-[425px]">
                                     <DialogHeader>
@@ -492,19 +487,12 @@ export default function FixedWeightFormComponent() {
                                 <FormField control={form.control} name={`productos.${index}.descripcion`} render={({ field }) => (
                                     <FormItem className="md:col-span-2">
                                     <FormLabel>Descripción del Producto</FormLabel>
-                                        <Dialog open={productDialogIndex === index} onOpenChange={(isOpen) => {
-                                            if (!isOpen) {
-                                                setProductSearch('');
-                                            }
-                                            setProductDialogIndex(isOpen ? index : null)
-                                        }}>
+                                        <Dialog open={productDialogIndex === index} onOpenChange={(isOpen) => setProductDialogIndex(isOpen ? index : null)}>
                                             <DialogTrigger asChild>
-                                                <FormControl>
-                                                    <Button variant="outline" role="combobox" className={cn("w-full justify-between text-left font-normal", !field.value && "text-muted-foreground")}>
-                                                        {field.value ? field.value : "Seleccionar producto..."}
-                                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                                    </Button>
-                                                </FormControl>
+                                                <Button variant="outline" className="w-full justify-between text-left font-normal">
+                                                    {field.value || "Seleccionar producto..."}
+                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                </Button>
                                             </DialogTrigger>
                                             <DialogContent>
                                                 <DialogHeader>
