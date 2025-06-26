@@ -1,15 +1,19 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { FileText } from 'lucide-react';
+import { FileText, LogOut } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { useToast } from "@/hooks/use-toast";
 import { FirebaseChecker } from '@/components/app/firebase-checker';
+import { useAuth } from '@/hooks/use-auth';
+import { auth } from '@/lib/firebase';
+import { signOut } from 'firebase/auth';
+
 
 const Logo = () => (
     <div className="flex flex-col items-center justify-center text-center">
@@ -29,6 +33,24 @@ export default function Home() {
   const [productType, setProductType] = useState<string>();
   const router = useRouter();
   const { toast } = useToast();
+  const { user, loading } = useAuth();
+
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push('/login');
+    }
+  }, [user, loading, router]);
+  
+  const handleLogout = async () => {
+    if (auth) {
+      await signOut(auth);
+      toast({
+        title: 'Sesión cerrada',
+        description: 'Has cerrado sesión correctamente.',
+      });
+      router.push('/login');
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -57,7 +79,6 @@ export default function Home() {
       }
     }
     
-    // Fallback for any unhandled combination
     toast({
       title: "En desarrollo",
       description: "Este formato aún no está disponible.",
@@ -65,9 +86,27 @@ export default function Home() {
     });
   };
 
+  if (loading || !user) {
+    return (
+      <div className="flex min-h-screen w-full items-center justify-center bg-white">
+        <p>Cargando...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen w-full items-center justify-center bg-white p-4">
-      <div className="w-full max-w-xl space-y-8">
+      <div className="w-full max-w-xl space-y-8 relative">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={handleLogout}
+          className="absolute top-0 right-0"
+        >
+          <LogOut className="mr-2 h-4 w-4" />
+          Cerrar Sesión
+        </Button>
+
         <Logo />
 
         <div className="text-center">
