@@ -334,6 +334,7 @@ export default function FixedWeightFormComponent() {
                                 <Button
                                   variant="outline"
                                   role="combobox"
+                                  aria-expanded={isClientPopoverOpen}
                                   className={cn(
                                     "w-full justify-between",
                                     !field.value && "text-muted-foreground"
@@ -354,8 +355,8 @@ export default function FixedWeightFormComponent() {
                                       <CommandItem
                                         value={cliente}
                                         key={cliente}
-                                        onSelect={() => {
-                                          field.onChange(cliente);
+                                        onSelect={(currentValue) => {
+                                          field.onChange(currentValue === field.value ? "" : currentValue);
                                           setClientPopoverOpen(false);
                                         }}
                                       >
