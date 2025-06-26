@@ -1,19 +1,23 @@
 import Image from 'next/image';
 import { format } from 'date-fns';
 
-const ReportSection = ({ title, children, className }: { title: string, children: React.ReactNode, className?: string }) => (
-    <div className={`mb-3 ${className}`} style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-        <div className={`rounded-lg border border-gray-400`}>
-            <h2 className="rounded-t-md bg-gray-200 px-3 py-1 text-sm font-bold text-gray-800 border-b border-gray-400">{title}</h2>
-            <div className="p-3">{children}</div>
+const ReportSection = ({ title, children }: { title: string, children: React.ReactNode }) => (
+    <div style={{ breakInside: 'avoid', pageBreakInside: 'avoid', marginBottom: '12px' }}>
+        <div style={{ border: '1px solid #aaa', borderRadius: '8px', overflow: 'hidden' }}>
+            <h2 style={{ backgroundColor: '#e2e8f0', padding: '4px 12px', fontSize: '12px', fontWeight: 'bold', color: '#1a202c', borderBottom: '1px solid #aaa', margin: 0 }}>
+                {title}
+            </h2>
+            <div style={{ padding: '12px' }}>
+                {children}
+            </div>
         </div>
     </div>
 );
   
 const ReportField = ({ label, value }: { label: string, value: any }) => (
-    <div className="text-xs">
-      <span className="font-bold text-gray-700">{label}:</span>
-      <span className="text-gray-900 ml-2">{value || 'N/A'}</span>
+    <div style={{ fontSize: '11px', lineHeight: '1.4' }}>
+      <span style={{ fontWeight: 'bold' }}>{label}: </span>
+      <span>{value || 'N/A'}</span>
     </div>
 );
 
@@ -31,47 +35,59 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
     return (
         <>
             <ReportSection title="Datos de la Recepción">
-                <div className="grid grid-cols-3 gap-x-4 gap-y-1">
-                    <ReportField label="Pedido SISLOG" value={formData.pedidoSislog} />
-                    <ReportField label="Cliente" value={formData.cliente} />
-                    <ReportField label="Fecha" value={formData.fecha ? format(new Date(formData.fecha), "dd/MM/yyyy") : 'N/A'} />
-                    <ReportField label="Conductor" value={formData.conductor} />
-                    <ReportField label="Cédula" value={formData.cedulaConductor} />
-                    <ReportField label="Placa" value={formData.placa} />
-                    <ReportField label="Precinto" value={formData.precinto} />
-                    <ReportField label="Set Point (°C)" value={formData.setPoint} />
-                    <ReportField label={`Hora Inicio ${operationTerm}`} value={formData.horaInicio} />
-                    <ReportField label={`Hora Fin ${operationTerm}`} value={formData.horaFin} />
-                </div>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <tbody>
+                        <tr>
+                            <td style={{ width: '33%', padding: '2px' }}><ReportField label="Pedido SISLOG" value={formData.pedidoSislog} /></td>
+                            <td style={{ width: '33%', padding: '2px' }}><ReportField label="Cliente" value={formData.cliente} /></td>
+                            <td style={{ width: '33%', padding: '2px' }}><ReportField label="Fecha" value={formData.fecha ? format(new Date(formData.fecha), "dd/MM/yyyy") : 'N/A'} /></td>
+                        </tr>
+                        <tr>
+                           <td style={{ padding: '2px' }}><ReportField label="Conductor" value={formData.conductor} /></td>
+                           <td style={{ padding: '2px' }}><ReportField label="Cédula" value={formData.cedulaConductor} /></td>
+                           <td style={{ padding: '2px' }}><ReportField label="Placa" value={formData.placa} /></td>
+                        </tr>
+                         <tr>
+                            <td style={{ padding: '2px' }}><ReportField label="Precinto" value={formData.precinto} /></td>
+                            <td style={{ padding: '2px' }}><ReportField label="Set Point (°C)" value={formData.setPoint} /></td>
+                            <td style={{ padding: '2px' }}></td>
+                        </tr>
+                         <tr>
+                            <td style={{ padding: '2px' }}><ReportField label={`Hora Inicio ${operationTerm}`} value={formData.horaInicio} /></td>
+                            <td style={{ padding: '2px' }}><ReportField label={`Hora Fin ${operationTerm}`} value={formData.horaFin} /></td>
+                             <td style={{ padding: '2px' }}></td>
+                        </tr>
+                    </tbody>
+                </table>
             </ReportSection>
 
             <ReportSection title="Detalle de la Recepción">
-                <table className="w-full text-xs border-collapse">
+                 <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse' }}>
                     <thead>
-                        <tr className="border-b border-gray-400">
-                            <th className="text-left p-1 font-bold">Paleta</th>
-                            <th className="text-left p-1 font-bold">Descripción</th>
-                            <th className="text-left p-1 font-bold">Lote</th>
-                            <th className="text-right p-1 font-bold">Cant.</th>
-                            <th className="text-right p-1 font-bold">Peso Bruto</th>
-                            <th className="text-right p-1 font-bold">Tara Estiba</th>
-                            <th className="text-right p-1 font-bold">Tara Caja</th>
-                            <th className="text-right p-1 font-bold">Total Tara</th>
-                            <th className="text-right p-1 font-bold">Peso Neto</th>
+                        <tr style={{ borderBottom: '1px solid #aaa' }}>
+                            <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Paleta</th>
+                            <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Descripción</th>
+                            <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Lote</th>
+                            <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Cant.</th>
+                            <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Peso Bruto</th>
+                            <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Tara Estiba</th>
+                            <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Tara Caja</th>
+                            <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Tara</th>
+                            <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Peso Neto</th>
                         </tr>
                     </thead>
                     <tbody>
                         {formData.items.map((p: any, i: number) => (
-                            <tr key={i} className="border-b border-gray-300">
-                                <td className="p-1">{p.paleta}</td>
-                                <td className="p-1">{p.descripcion}</td>
-                                <td className="p-1">{p.lote}</td>
-                                <td className="text-right p-1">{p.cantidadPorPaleta}</td>
-                                <td className="text-right p-1">{p.pesoBruto?.toFixed(2)}</td>
-                                <td className="text-right p-1">{p.taraEstiba?.toFixed(2)}</td>
-                                <td className="text-right p-1">{p.taraCaja?.toFixed(2)}</td>
-                                <td className="text-right p-1">{p.totalTaraCaja?.toFixed(2)}</td>
-                                <td className="text-right p-1">{p.pesoNeto?.toFixed(2)}</td>
+                            <tr key={i} style={{ borderBottom: '1px solid #ddd' }}>
+                                <td style={{ padding: '4px' }}>{p.paleta}</td>
+                                <td style={{ padding: '4px' }}>{p.descripcion}</td>
+                                <td style={{ padding: '4px' }}>{p.lote}</td>
+                                <td style={{ textAlign: 'right', padding: '4px' }}>{p.cantidadPorPaleta}</td>
+                                <td style={{ textAlign: 'right', padding: '4px' }}>{p.pesoBruto?.toFixed(2)}</td>
+                                <td style={{ textAlign: 'right', padding: '4px' }}>{p.taraEstiba?.toFixed(2)}</td>
+                                <td style={{ textAlign: 'right', padding: '4px' }}>{p.taraCaja?.toFixed(2)}</td>
+                                <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalTaraCaja?.toFixed(2)}</td>
+                                <td style={{ textAlign: 'right', padding: '4px' }}>{p.pesoNeto?.toFixed(2)}</td>
                             </tr>
                         ))}
                     </tbody>
@@ -80,28 +96,28 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
 
              {formData.summary && formData.summary.length > 0 && (
                 <ReportSection title="Resumen de Productos">
-                    <table className="w-full text-xs border-collapse">
+                    <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse' }}>
                         <thead>
-                            <tr className="border-b border-gray-400">
-                                <th className="text-left p-1 font-bold">Descripción</th>
-                                <th className="text-right p-1 font-bold">Temp(°C)</th>
-                                <th className="text-right p-1 font-bold">Total Cantidad</th>
-                                <th className="text-right p-1 font-bold">Total Peso (kg)</th>
+                            <tr style={{ borderBottom: '1px solid #aaa' }}>
+                                <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Descripción</th>
+                                <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Temp(°C)</th>
+                                <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Cantidad</th>
+                                <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Peso (kg)</th>
                             </tr>
                         </thead>
                         <tbody>
                             {formData.summary.map((p: any, i: number) => (
-                                <tr key={i} className="border-b border-gray-300">
-                                    <td className="p-1">{p.descripcion}</td>
-                                    <td className="text-right p-1">{p.temperatura}</td>
-                                    <td className="text-right p-1">{p.totalCantidad}</td>
-                                    <td className="text-right p-1">{p.totalPeso?.toFixed(2)}</td>
+                                <tr key={i} style={{ borderBottom: '1px solid #ddd' }}>
+                                    <td style={{ padding: '4px' }}>{p.descripcion}</td>
+                                    <td style={{ textAlign: 'right', padding: '4px' }}>{p.temperatura}</td>
+                                    <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalCantidad}</td>
+                                    <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPeso?.toFixed(2)}</td>
                                 </tr>
                             ))}
-                            <tr className="font-bold bg-gray-100">
-                                <td className="p-1 text-right" colSpan={2}>TOTALES:</td>
-                                <td className="text-right p-1">{totalCantidad}</td>
-                                <td className="text-right p-1">{totalPeso.toFixed(2)}</td>
+                            <tr style={{ fontWeight: 'bold', backgroundColor: '#f1f5f9' }}>
+                                <td style={{ padding: '4px', textAlign: 'right' }} colSpan={2}>TOTALES:</td>
+                                <td style={{ textAlign: 'right', padding: '4px' }}>{totalCantidad}</td>
+                                <td style={{ textAlign: 'right', padding: '4px' }}>{totalPeso.toFixed(2)}</td>
                             </tr>
                         </tbody>
                     </table>
@@ -110,26 +126,30 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
 
             {formData.observaciones && (
                 <ReportSection title="Observaciones">
-                    <p className="text-xs">{formData.observaciones}</p>
+                    <p style={{ fontSize: '11px' }}>{formData.observaciones}</p>
                 </ReportSection>
             )}
 
             <ReportSection title="Coordinador y Operario Responsables de la Operación">
-                <div className="grid grid-cols-1 gap-y-1">
-                    <ReportField label="Coordinador Responsable" value={formData.coordinador} />
-                    <ReportField label="Operario Logístico Responsable" value={userDisplayName} />
-                </div>
+                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                     <tbody>
+                        <tr>
+                            <td style={{ width: '50%', padding: '2px' }}><ReportField label="Coordinador Responsable" value={formData.coordinador} /></td>
+                            <td style={{ width: '50%', padding: '2px' }}><ReportField label="Operario Logístico Responsable" value={userDisplayName} /></td>
+                        </tr>
+                    </tbody>
+                </table>
             </ReportSection>
             
             {attachments.length > 0 && (
                 <ReportSection title="Anexos: Registros Fotográficos">
-                     <div className="grid grid-cols-2 gap-4 pt-2">
+                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', paddingTop: '8px' }}>
                         {attachments.map((img, index) => (
-                            <div key={index} className="text-center" style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-                                <div className="relative w-full h-48 border border-gray-300 rounded-md overflow-hidden">
-                                     <Image src={img} alt={`Anexo ${index + 1}`} layout="fill" objectFit="contain" />
+                            <div key={index} style={{ textAlign: 'center', breakInside: 'avoid', pageBreakInside: 'avoid' }}>
+                                <div style={{ border: '1px solid #ccc', borderRadius: '4px', overflow: 'hidden', height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                                     <img src={img} alt={`Anexo ${index + 1}`} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
                                 </div>
-                                <p className="text-xs mt-1">Registro Fotográfico {index + 1}</p>
+                                <p style={{ fontSize: '10px', marginTop: '4px' }}>Registro Fotográfico {index + 1}</p>
                             </div>
                         ))}
                     </div>

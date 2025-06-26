@@ -8,23 +8,20 @@ interface ReportLayoutProps {
 
 export function ReportLayout({ title, children }: ReportLayoutProps) {
     return (
-        <div className="font-sans text-gray-800 bg-white">
-            <header className="mb-4 text-center" style={{ breakInside: 'avoid' }}>
-                <div style={{ width: '220px', height: 'auto', margin: '0 auto', paddingBottom: '10px' }}>
-                    <Image
-                        src="/images/company-logo.png"
-                        alt="Logotipo de Frio Alimentaria"
-                        width={220}
-                        height={60}
-                        priority
-                        style={{ objectFit: 'contain' }}
-                    />
-                </div>
-                <div className="w-full border-b-2 border-gray-400 pb-2">
-                    <h1 className="text-xl font-bold text-blue-700">{title}</h1>
-                    <p className="text-xs text-gray-500 mt-1">FRIO ALIMENTARIA SAS NIT 900736914-0</p>
-                </div>
-            </header>
+        <div style={{ fontFamily: 'Arial, sans-serif', color: '#333', backgroundColor: '#fff', padding: '0' }}>
+            {/* Using a container with a fixed height helps PDF generators render the image correctly */}
+            <div style={{ height: '80px', textAlign: 'center', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+                <img
+                    src="/images/company-logo.png"
+                    alt="Logotipo de Frio Alimentaria"
+                    style={{ maxHeight: '60px', width: 'auto', margin: '0 auto', display: 'block' }}
+                />
+            </div>
+            
+            <div style={{ textAlign: 'center', pageBreakInside: 'avoid', breakInside: 'avoid', borderBottom: '2px solid #ccc', paddingBottom: '8px', marginBottom: '16px' }}>
+                <h1 style={{ fontSize: '18px', fontWeight: 'bold', color: '#005a9e', margin: '0 0 4px 0' }}>{title}</h1>
+                <p style={{ fontSize: '10px', color: '#555', margin: '0' }}>FRIO ALIMENTARIA SAS NIT 900736914-0</p>
+            </div>
 
             <main>
                 {children}
