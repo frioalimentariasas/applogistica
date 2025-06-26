@@ -51,7 +51,7 @@ import {
     Send,
     RotateCcw,
     ChevronsUpDown,
-    CheckIcon,
+    Check,
     FileText,
     Edit2
 } from "lucide-react";
@@ -331,12 +331,12 @@ export default function VariableWeightFormComponent() {
                                           <CommandItem
                                             value={cliente}
                                             key={cliente}
-                                            onSelect={(value) => {
-                                              field.onChange(value);
+                                            onSelect={() => {
+                                              form.setValue("cliente", cliente);
                                               setClientPopoverOpen(false);
                                             }}
                                           >
-                                            <CheckIcon
+                                            <Check
                                               className={cn(
                                                 "mr-2 h-4 w-4",
                                                 cliente === field.value
@@ -453,7 +453,7 @@ export default function VariableWeightFormComponent() {
                                                             <CommandItem key={p.value} value={p.label} onSelect={(currentValue) => {
                                                                 form.setValue(`items.${index}.descripcion`, currentValue === field.value ? "" : currentValue)
                                                             }}>
-                                                                <CheckIcon className={cn("mr-2 h-4 w-4", p.label === field.value ? "opacity-100" : "opacity-0")} />
+                                                                <Check className={cn("mr-2 h-4 w-4", p.label === field.value ? "opacity-100" : "opacity-0")} />
                                                                 {p.label}
                                                             </CommandItem>
                                                         ))}

@@ -53,7 +53,7 @@ import {
     Send,
     RotateCcw,
     ChevronsUpDown,
-    CheckIcon,
+    Check,
     FileText
 } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -354,12 +354,12 @@ export default function FixedWeightFormComponent() {
                                       <CommandItem
                                         value={cliente}
                                         key={cliente}
-                                        onSelect={(value) => {
-                                          field.onChange(value);
+                                        onSelect={() => {
+                                          form.setValue("nombreCliente", cliente);
                                           setClientPopoverOpen(false);
                                         }}
                                       >
-                                        <CheckIcon
+                                        <Check
                                           className={cn(
                                             "mr-2 h-4 w-4",
                                             cliente === field.value
@@ -492,7 +492,7 @@ export default function FixedWeightFormComponent() {
                                                                     form.setValue(`productos.${index}.codigo`, p.value)
                                                                 }}
                                                                 >
-                                                                <CheckIcon className={cn("mr-2 h-4 w-4", p.label === field.value ? "opacity-100" : "opacity-0")} />
+                                                                <Check className={cn("mr-2 h-4 w-4", p.label === field.value ? "opacity-100" : "opacity-0")} />
                                                                 {p.label}
                                                             </CommandItem>
                                                         ))}

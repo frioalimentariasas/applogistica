@@ -57,7 +57,7 @@ import {
     FileText,
     Edit2,
     ChevronsUpDown,
-    CheckIcon,
+    Check,
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -464,12 +464,12 @@ export default function VariableWeightReceptionFormComponent() {
                                         <CommandItem
                                             value={cliente}
                                             key={cliente}
-                                            onSelect={(value) => {
-                                              field.onChange(value);
-                                              setClientPopoverOpen(false);
+                                            onSelect={() => {
+                                                form.setValue("cliente", cliente);
+                                                setClientPopoverOpen(false);
                                             }}
                                         >
-                                            <CheckIcon
+                                            <Check
                                             className={cn(
                                                 "mr-2 h-4 w-4",
                                                 cliente === field.value
