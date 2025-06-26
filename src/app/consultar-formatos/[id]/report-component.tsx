@@ -6,6 +6,7 @@ import Link from 'next/link';
 import jspdf from 'jspdf';
 import { format, parseISO } from 'date-fns';
 
+import { getImageAsBase64 } from '@/app/actions/image-proxy';
 import type { SubmissionResult } from '@/app/actions/consultar-formatos';
 import { Button } from '@/components/ui/button';
 import { Loader2, Download, ArrowLeft, Image as ImageIcon } from 'lucide-react';
@@ -24,10 +25,8 @@ interface ReportComponentProps {
     submission: SubmissionResult;
 }
 
-// New client-side image fetching function
+// Client-side image fetching function for same-origin resources like the logo
 const getImageAsBase64Client = async (url: string): Promise<string> => {
-    // Using a proxy is not necessary if the images are publicly accessible or on the same domain.
-    // Firebase storage URLs with tokens are public.
     const response = await fetch(url);
     if (!response.ok) {
         throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
@@ -64,10 +63,10 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
         const fetchAllImages = async () => {
             setAreImagesLoading(true);
             try {
-                // Fetch attachments using the client-side function
-                const attachmentPromises = submission.attachmentUrls.map(url => getImageAsBase64Client(url));
+                // Use the server-side proxy for Firebase Storage URLs to avoid CORS issues
+                const attachmentPromises = submission.attachmentUrls.map(url => getImageAsBase64(url));
                 
-                // Fetch logo using the client-side function
+                // Use a client-side fetch for the same-origin logo
                 const logoUrl = new URL('/images/company-logo.png', window.location.origin).href;
                 const logoPromise = getImageAsBase64Client(logoUrl);
 
@@ -153,8 +152,9 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
 
         switch (submission.formType) {
             case 'fixed-weight-recepcion':
-            case 'fixed-weight-despacho':
                 return <FixedWeightReport {...props} formType={submission.formType} />;
+            case 'fixed-weight-despacho':
+                 return <FixedWeightReport {...props} formType={submission.formType} />;
             case 'variable-weight-despacho':
                 return <VariableWeightDispatchReport {...props} />;
             case 'variable-weight-reception':
