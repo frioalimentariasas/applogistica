@@ -1,7 +1,7 @@
 
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -104,24 +104,30 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
             let yPos = 0;
     
             const addHeader = (title: string) => {
+                const logoWidth = 150;
+                const logoHeight = 43;
                 if (logoBase64) {
                     try {
-                        doc.addImage(logoBase64, 'PNG', margin, margin, 150, 43); 
+                        doc.addImage(logoBase64, 'PNG', margin, margin, logoWidth, logoHeight); 
                     } catch (e) {
                         console.error("Error adding logo to PDF:", e);
                     }
                 }
+                
+                const titleX = margin + logoWidth + 10;
+                const availableWidth = pageWidth - titleX - margin;
+            
                 doc.setFontSize(16);
                 doc.setFont('helvetica', 'bold');
                 doc.setTextColor('#005a9e');
-                doc.text(title, pageWidth / 2, margin + 25, { align: 'center' });
+                doc.text(title, titleX + availableWidth / 2, margin + 20, { align: 'center', maxWidth: availableWidth });
                 
                 doc.setFontSize(9);
                 doc.setFont('helvetica', 'normal');
                 doc.setTextColor('#555');
-                doc.text('FRIO ALIMENTARIA SAS NIT 900736914-0', pageWidth / 2, margin + 40, { align: 'center' });
-    
-                yPos = margin + 60;
+                doc.text('FRIO ALIMENTARIA SAS NIT 900736914-0', titleX + availableWidth / 2, margin + 35, { align: 'center', maxWidth: availableWidth });
+                
+                yPos = margin + logoHeight + 10;
             };
     
             const addFooter = () => {
@@ -135,16 +141,15 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
             };
     
             const didDrawPage = (data: { pageNumber: number; doc: jsPDF; }) => {
-                if (data.pageNumber > 1) {
-                    yPos = margin;
-                }
+                yPos = margin; // Reset yPos for new page
                 addHeader(getReportTitle());
-                // Set the cursor Y position for the autoTable to start after the header
-                data.doc.setPage(data.pageNumber);
-                (data.doc as any).autoTable.previous.finalY = yPos;
+                // This is a bit of a hack to ensure the table starts after our manual header
+                if ((doc as any).autoTable.previous) {
+                   (doc as any).autoTable.previous.finalY = yPos;
+                }
             };
-    
-            addHeader(getReportTitle());
+            
+            addHeader(getReportTitle()); // Add header to the first page
     
             const { formType, formData, userDisplayName } = submission;
     
@@ -154,7 +159,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
     
                 autoTable(doc, {
                     startY: yPos,
-                    head: [[{ content: 'Información General', styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold' } }]],
+                    head: [[{ content: 'Información General', colSpan: 3, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]],
                     body: [
                         [`Pedido SISLOG: ${formData.pedidoSislog || 'N/A'}`, `Nombre Cliente: ${formData.nombreCliente || 'N/A'}`, `Factura/Remisión: ${formData.facturaRemision || 'N/A'}`],
                         [`Fecha: ${formData.fecha ? format(new Date(formData.fecha), "dd/MM/yyyy") : 'N/A'}`, `Hora Inicio ${operationTerm}: ${formData.horaInicio || 'N/A'}`, `Hora Fin ${operationTerm}: ${formData.horaFin || 'N/A'}`],
@@ -171,7 +176,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
     
                 autoTable(doc, {
                     startY: yPos,
-                    head: [[{ content: 'Características del Producto', styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold' } }]],
+                    head: [[{ content: 'Características del Producto', colSpan: 5, styles: { halign: 'center', fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold' } }]],
                     body: [], theme: 'grid'
                 });
                 autoTable(doc, {
@@ -186,7 +191,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
     
                 autoTable(doc, {
                     startY: yPos,
-                    head: [[{ content: 'Información del Vehículo', styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold' } }]],
+                    head: [[{ content: 'Información del Vehículo', colSpan: 3, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]],
                     body: [
                         [`Nombre Conductor: ${formData.nombreConductor || 'N/A'}`, `Cédula: ${formData.cedulaConductor || 'N/A'}`, `Placa: ${formData.placa || 'N/A'}`],
                         [`Muelle: ${formData.muelle || 'N/A'}`, `Contenedor: ${formData.contenedor || 'N/A'}`, `Set Point (°C): ${formData.setPoint || 'N/A'}`],
@@ -196,18 +201,18 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 yPos = (doc as any).autoTable.previous.finalY + 15;
     
                 if (formData.observaciones) {
-                    autoTable(doc, { startY: yPos, head: [[{ content: 'Observaciones', styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold' } }]], body: [[formData.observaciones]], theme: 'grid', styles: { fontSize: 8, cellPadding: 4 } });
+                    autoTable(doc, { startY: yPos, head: [[{ content: 'Observaciones', styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]], body: [[formData.observaciones]], theme: 'grid', styles: { fontSize: 8, cellPadding: 4 } });
                     yPos = (doc as any).autoTable.previous.finalY + 15;
                 }
     
-                autoTable(doc, { startY: yPos, head: [[{ content: 'Responsables', styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold' } }]], body: [[`Coordinador: ${formData.coordinador || 'N/A'}`, `Operario: ${userDisplayName || 'N/A'}`]], theme: 'grid', styles: { fontSize: 8, cellPadding: 4 } });
+                autoTable(doc, { startY: yPos, head: [[{ content: 'Responsables', colSpan: 2, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]], body: [[`Coordinador: ${formData.coordinador || 'N/A'}`, `Operario: ${userDisplayName || 'N/A'}`]], theme: 'grid', styles: { fontSize: 8, cellPadding: 4 } });
                 yPos = (doc as any).autoTable.previous.finalY + 15;
     
             } else if (formType.startsWith('variable-weight-')) {
-                 const isReception = formType.includes('recepcion');
+                 const isReception = formType.includes('recepcion') || formType.includes('reception');
                  const operationTerm = isReception ? 'Descargue' : 'Cargue';
                  
-                autoTable(doc, { startY: yPos, head: [[{ content: `Datos de ${isReception ? 'Recepción' : 'Despacho'}`, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold' } }]],
+                autoTable(doc, { startY: yPos, head: [[{ content: `Datos de ${isReception ? 'Recepción' : 'Despacho'}`, colSpan: 3, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]],
                     body: [
                         [`Pedido SISLOG: ${formData.pedidoSislog || 'N/A'}`, `Cliente: ${formData.cliente || 'N/A'}`, `Fecha: ${formData.fecha ? format(new Date(formData.fecha), "dd/MM/yyyy") : 'N/A'}`],
                         [`Conductor: ${formData.conductor || 'N/A'}`, `Cédula: ${formData.cedulaConductor || 'N/A'}`, `Placa: ${formData.placa || 'N/A'}`],
@@ -225,7 +230,8 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     ? formData.items.map((p: any) => [ p.paleta, p.descripcion, p.lote, p.cantidadPorPaleta, p.pesoBruto?.toFixed(2), p.taraEstiba?.toFixed(2), p.taraCaja?.toFixed(2), p.totalTaraCaja?.toFixed(2), p.pesoNeto?.toFixed(2) ])
                     : formData.items.map((p: any) => [ p.paleta, p.descripcion, p.lote, p.presentacion, p.cantidadPorPaleta, p.pesoNeto?.toFixed(2) ]);
                 
-                autoTable(doc, { startY: yPos, head: [[{ content: `Detalle de ${isReception ? 'Recepción' : 'Despacho'}`, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold' } }]], body: [], theme: 'grid' });
+                const detailColSpan = isReception ? 9 : 6;
+                autoTable(doc, { startY: yPos, head: [[{ content: `Detalle de ${isReception ? 'Recepción' : 'Despacho'}`, colSpan: detailColSpan, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]], body: [], theme: 'grid' });
                 autoTable(doc, { startY: (doc as any).autoTable.previous.finalY, head: detailHead, body: detailBody, theme: 'striped', headStyles: { fillColor: '#f8fafc', textColor: '#334155', fontStyle: 'bold' }, styles: { fontSize: 7, cellPadding: 3 } });
                 yPos = (doc as any).autoTable.previous.finalY + 15;
                 
@@ -235,24 +241,29 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     const totalPeso = formData.summary.reduce((acc: any, p: any) => acc + (p.totalPeso || 0), 0);
                     const totalCantidad = formData.summary.reduce((acc: any, p: any) => acc + (p.totalCantidad || 0), 0);
 
-                    autoTable(doc, { startY: yPos, head: [[{ content: 'Resumen de Productos', styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold' } }]], body: [], theme: 'grid' });
+                    autoTable(doc, { startY: yPos, head: [[{ content: 'Resumen de Productos', colSpan: 4, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]], body: [], theme: 'grid' });
                     autoTable(doc, { startY: (doc as any).autoTable.previous.finalY, head: summaryHead, body: summaryBody, foot: [[{ content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }, totalCantidad, totalPeso.toFixed(2)]],
                         theme: 'striped', headStyles: { fillColor: '#f8fafc', textColor: '#334155', fontStyle: 'bold' }, footStyles: { fillColor: '#f1f5f9', fontStyle: 'bold' }, styles: { fontSize: 8, cellPadding: 4 } });
                     yPos = (doc as any).autoTable.previous.finalY + 15;
                 }
 
                  if (formData.observaciones) {
-                    autoTable(doc, { startY: yPos, head: [[{ content: 'Observaciones', styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold' } }]], body: [[formData.observaciones]], theme: 'grid', styles: { fontSize: 8, cellPadding: 4 } });
+                    autoTable(doc, { startY: yPos, head: [[{ content: 'Observaciones', styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]], body: [[formData.observaciones]], theme: 'grid', styles: { fontSize: 8, cellPadding: 4 } });
                     yPos = (doc as any).autoTable.previous.finalY + 15;
                 }
     
-                autoTable(doc, { startY: yPos, head: [[{ content: 'Responsables', styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold' } }]], body: [[`Coordinador: ${formData.coordinador || 'N/A'}`, `Operario: ${userDisplayName || 'N/A'}`]], theme: 'grid', styles: { fontSize: 8, cellPadding: 4 } });
+                autoTable(doc, { startY: yPos, head: [[{ content: 'Responsables', colSpan: 2, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]], body: [[`Coordinador: ${formData.coordinador || 'N/A'}`, `Operario: ${userDisplayName || 'N/A'}`]], theme: 'grid', styles: { fontSize: 8, cellPadding: 4 } });
                 yPos = (doc as any).autoTable.previous.finalY + 15;
             }
     
              if (base64Images.length > 0) {
-                autoTable(doc, { startY: yPos, head: [[{ content: 'Anexos: Registros Fotográficos', styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold' } }]], body: [], theme: 'grid' });
-                yPos = (doc as any).autoTable.previous.finalY + 5;
+                // Check if a new page is needed before adding the attachments section
+                if (yPos > pageHeight - margin - 100) { // 100 is an arbitrary value for attachment space
+                    doc.addPage();
+                    yPos = margin;
+                }
+                autoTable(doc, { startY: yPos, head: [[{ content: 'Anexos: Registros Fotográficos', styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]], body: [], theme: 'grid' });
+                yPos = (doc as any).autoTable.previous.finalY + 10;
 
                 let xPos = margin;
                 for (let i = 0; i < base64Images.length; i++) {
@@ -262,8 +273,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
 
                     if (yPos + imgHeight + 20 > pageHeight - margin) {
                         doc.addPage();
-                        addHeader(getReportTitle());
-                        yPos = (doc as any).autoTable.previous.finalY;
+                        yPos = margin;
                         xPos = margin;
                     }
                     try {
@@ -295,7 +305,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
             const date = parseISO(createdAt);
             const formattedDate = format(date, 'yyyy-MM-dd');
             const formattedTime = format(date, 'HH-mm-ss');
-            const fileName = `${typeName}_${productType}_${formData.pedidoSislog}_${formattedDate}_${formattedTime}.pdf`;
+            const fileName = `${typeName}_${productType}_${formData.pedidoSislog || 'ID'}_${formattedDate}_${formattedTime}.pdf`;
             
             doc.save(fileName);
     
