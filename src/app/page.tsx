@@ -3,7 +3,8 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Snowflake, FileText } from 'lucide-react';
+import Image from 'next/image';
+import { FileText } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
@@ -12,12 +13,13 @@ import { FirebaseChecker } from '@/components/app/firebase-checker';
 
 const Logo = () => (
     <div className="flex flex-col items-center justify-center text-center">
-      <div className="flex items-center space-x-2">
-        <Snowflake className="h-20 w-20 text-cyan-500" />
-        <span className="text-7xl font-bold text-blue-800">frio</span>
-      </div>
-      <span className="text-4xl font-light text-cyan-500 tracking-widest -mt-2">alimentaria</span>
-      <span className="text-xs text-gray-500 mt-1">logística en alimentos congelados</span>
+      <Image
+        src="/image/company-logo.png"
+        alt="Frio Alimentaria Logo"
+        width={350}
+        height={100}
+        priority
+      />
     </div>
   );
 
