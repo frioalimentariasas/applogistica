@@ -52,14 +52,14 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
     try {
         let query: admin.firestore.Query = firestore.collection('submissions');
 
-        // Firestore limitation: We can't use range filters (<, <=, >, >=) on a field if we have
-        // inequality filters on other fields. We also can't do OR queries across different fields.
-        
+        // Apply Firestore query filters for the most selective fields first
         if (criteria.pedidoSislog) {
             query = query.where('formData.pedidoSislog', '==', criteria.pedidoSislog.trim());
         }
 
-        if (criteria.fechaCreacion) {
+        // If no pedidoSislog, we can use the date for the query.
+        // This avoids needing a composite index.
+        if (!criteria.pedidoSislog && criteria.fechaCreacion) {
             const startDate = new Date(criteria.fechaCreacion);
             startDate.setUTCHours(0, 0, 0, 0);
             const endDate = new Date(criteria.fechaCreacion);
@@ -69,7 +69,7 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
                          .where('createdAt', '<=', endDate.toISOString());
         }
 
-        const snapshot = await query.orderBy('createdAt', 'desc').get();
+        const snapshot = await query.get();
 
         let results = snapshot.docs.map(doc => {
             const data = doc.data();
@@ -81,7 +81,15 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
             } as SubmissionResult;
         });
 
-        // Filter by client name in memory because field name varies ('cliente' vs 'nombreCliente')
+        // Filter the remaining criteria in memory
+        
+        // If we queried by pedidoSislog, we still need to filter by date if provided
+        if (criteria.pedidoSislog && criteria.fechaCreacion) {
+             const searchDate = criteria.fechaCreacion;
+             results = results.filter(sub => sub.createdAt.startsWith(searchDate));
+        }
+
+        // Filter by client name
         if (criteria.nombreCliente) {
             const searchClient = criteria.nombreCliente.toLowerCase().trim();
             results = results.filter(sub => {
@@ -90,11 +98,14 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
             });
         }
         
+        // Finally, sort results by date descending in memory
+        results.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        
         return results;
     } catch (error) {
         console.error('Error searching submissions:', error);
         if (error instanceof Error && error.message.includes('requires an index')) {
-            throw new Error('La consulta requiere un índice compuesto en Firestore. Por favor, cree el índice desde la consola de Firebase. El enlace para crearlo debería estar en los logs del servidor.');
+            throw new Error('La consulta requiere un índice en Firestore. Por favor, cree el índice desde la consola de Firebase. El enlace para crearlo debería estar en los logs del servidor.');
         }
         throw new Error('No se pudieron buscar los formularios.');
     }
