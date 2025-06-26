@@ -59,8 +59,6 @@ export default function LoginForm() {
       });
       router.push('/');
     } catch (error: any) {
-      console.error(error);
-      
       let errorMessage = 'Ocurrió un error inesperado durante el inicio de sesión.';
 
       switch (error.code) {
