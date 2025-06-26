@@ -39,7 +39,7 @@ import {
     Camera,
     Send,
     RotateCcw,
-    FileSignature,
+    FileText,
     Edit2,
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
@@ -385,7 +385,7 @@ export default function VariableWeightReceptionFormComponent() {
                 <ArrowLeft className="h-6 w-6" />
               </Button>
               <div className="flex items-center gap-2">
-                  <FileSignature className="h-8 w-8 text-primary"/>
+                  <FileText className="h-8 w-8 text-primary"/>
                   <h1 className="text-2xl font-bold text-primary">Formato de Recepción - Peso Variable</h1>
               </div>
             </div>

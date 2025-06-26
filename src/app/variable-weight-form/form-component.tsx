@@ -50,7 +50,7 @@ import {
     RotateCcw,
     ChevronsUpDown,
     CheckIcon,
-    File,
+    FileText,
     Edit2
 } from "lucide-react";
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
@@ -265,7 +265,7 @@ export default function VariableWeightFormComponent() {
                     <ArrowLeft className="h-6 w-6" />
                 </Button>
                  <div className="flex items-center gap-2">
-                    <File className="h-8 w-8 text-primary"/>
+                    <FileText className="h-8 w-8 text-primary"/>
                     <h1 className="text-2xl font-bold text-primary">{title}</h1>
                 </div>
             </div>
