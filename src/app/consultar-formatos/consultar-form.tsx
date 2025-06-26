@@ -47,10 +47,17 @@ export default function ConsultarFormatosComponent() {
     const [searched, setSearched] = useState(false);
     const [submissionToDelete, setSubmissionToDelete] = useState<SubmissionResult | null>(null);
 
+    const operarioEmails = [
+        'frioal.operario1@gmail.com',
+        'frioal.operario2@gmail.com',
+        'frioal.operario3@gmail.com',
+        'frioal.operario4@gmail.com'
+    ];
     const viewerEmails = [
         'facturacion@frioalimentaria.com.co',
         'procesos@frioalimentaria.com.co'
     ];
+    const isOperario = user && operarioEmails.includes(user.email || '');
     const isViewer = user && viewerEmails.includes(user.email || '');
 
     const handleSearch = async () => {
@@ -273,14 +280,28 @@ export default function ConsultarFormatosComponent() {
                                                 <TableCell>{sub.userDisplayName}</TableCell>
                                                 <TableCell className="text-right">
                                                     <div className="flex items-center justify-end gap-2">
-                                                        <Button asChild variant="ghost" size="icon" title="Ver Detalle">
-                                                            <Link href={`/consultar-formatos/${sub.id}`}>
-                                                                <Eye className="h-4 w-4" />
-                                                                <span className="sr-only">Ver detalles</span>
-                                                            </Link>
-                                                        </Button>
-                                                        {!isViewer && (
+                                                        {isOperario ? (
+                                                            <Button asChild variant="ghost" size="icon" title="Editar">
+                                                                <Link href={getEditUrl(sub)}>
+                                                                    <Edit className="h-4 w-4 text-blue-600" />
+                                                                    <span className="sr-only">Editar</span>
+                                                                </Link>
+                                                            </Button>
+                                                        ) : isViewer ? (
+                                                            <Button asChild variant="ghost" size="icon" title="Ver Detalle">
+                                                                <Link href={`/consultar-formatos/${sub.id}`}>
+                                                                    <Eye className="h-4 w-4" />
+                                                                    <span className="sr-only">Ver detalles</span>
+                                                                </Link>
+                                                            </Button>
+                                                        ) : (
                                                             <>
+                                                                <Button asChild variant="ghost" size="icon" title="Ver Detalle">
+                                                                    <Link href={`/consultar-formatos/${sub.id}`}>
+                                                                        <Eye className="h-4 w-4" />
+                                                                        <span className="sr-only">Ver detalles</span>
+                                                                    </Link>
+                                                                </Button>
                                                                 <Button asChild variant="ghost" size="icon" title="Editar">
                                                                     <Link href={getEditUrl(sub)}>
                                                                         <Edit className="h-4 w-4 text-blue-600" />
