@@ -111,6 +111,7 @@ export default function VariableWeightFormComponent() {
   const { displayName } = useAuth();
   
   const [clientes, setClientes] = useState<string[]>([]);
+  const [isClientPopoverOpen, setClientPopoverOpen] = useState(false);
   const [attachments, setAttachments] = useState<string[]>([]);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -304,7 +305,7 @@ export default function VariableWeightFormComponent() {
                           render={({ field }) => (
                             <FormItem className="flex flex-col">
                               <FormLabel>Cliente</FormLabel>
-                              <Popover>
+                              <Popover open={isClientPopoverOpen} onOpenChange={setClientPopoverOpen}>
                                 <PopoverTrigger asChild>
                                   <FormControl>
                                     <Button
@@ -330,8 +331,9 @@ export default function VariableWeightFormComponent() {
                                           <CommandItem
                                             value={cliente}
                                             key={cliente}
-                                            onSelect={() => {
-                                              form.setValue("cliente", cliente);
+                                            onSelect={(currentValue) => {
+                                                form.setValue("cliente", currentValue === field.value ? "" : currentValue);
+                                                setClientPopoverOpen(false);
                                             }}
                                           >
                                             <CheckIcon
