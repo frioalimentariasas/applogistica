@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useForm, FieldValues } from 'react-hook-form';
 import { useAuth } from './use-auth';
 import * as idb from '@/lib/idb';
@@ -20,8 +20,8 @@ export function useFormPersistence<T extends FieldValues>(
     const [isRestoreDialogOpen, setRestoreDialogOpen] = useState(false);
     
     // This flag tracks the whole initial loading/restoring cycle.
-    // Saving is disabled until this is explicitly set to false.
-    const isLoadingDraft = useRef(true); 
+    // Using state instead of ref to trigger effects when it changes.
+    const [isDraftLoading, setDraftLoading] = useState(true);
 
     const getStorageKey = useCallback(() => {
         if (!user) return null;
@@ -31,24 +31,24 @@ export function useFormPersistence<T extends FieldValues>(
     // Save form data to localStorage on change
     useEffect(() => {
         const storageKey = getStorageKey();
-        if (!storageKey || typeof window === 'undefined' || isLoadingDraft.current) return;
+        if (!storageKey || typeof window === 'undefined' || isDraftLoading) return;
 
         const subscription = watch((value) => {
             localStorage.setItem(storageKey, JSON.stringify(value));
         });
         return () => subscription.unsubscribe();
-    }, [watch, getStorageKey]);
+    }, [watch, getStorageKey, isDraftLoading]);
 
     // Save attachments to IndexedDB on change
     useEffect(() => {
         const storageKey = getStorageKey();
-        if (!storageKey || isLoadingDraft.current) return;
+        if (!storageKey || isDraftLoading) return;
 
         const attachmentsKey = `${storageKey}-attachments`;
         idb.set(attachmentsKey, attachments).catch(err => {
             console.error("Failed to save attachments to IndexedDB", err);
         });
-    }, [attachments, getStorageKey]);
+    }, [attachments, getStorageKey, isDraftLoading]);
 
     // Check for saved data on mount
     useEffect(() => {
@@ -62,11 +62,10 @@ export function useFormPersistence<T extends FieldValues>(
             
             if (savedData || (savedAttachments && savedAttachments.length > 0)) {
                 // If there's a draft, wait for user action (restore/discard)
-                // isLoadingDraft remains true
                 setRestoreDialogOpen(true);
             } else {
                 // No draft, we can enable saving.
-                isLoadingDraft.current = false;
+                setDraftLoading(false);
             }
         };
 
@@ -105,7 +104,7 @@ export function useFormPersistence<T extends FieldValues>(
         } finally {
             setRestoreDialogOpen(false);
             // Now that restore is complete, enable saving for subsequent changes.
-            isLoadingDraft.current = false; 
+            setDraftLoading(false); 
         }
     }, [getStorageKey, reset, setAttachments, toast]);
 
@@ -126,7 +125,7 @@ export function useFormPersistence<T extends FieldValues>(
         } finally {
             setRestoreDialogOpen(false);
             // Discarding is complete, enable saving for the new blank form.
-            isLoadingDraft.current = false;
+            setDraftLoading(false);
         }
     }, [getStorageKey, reset, defaultValues, setAttachments, toast]);
     
