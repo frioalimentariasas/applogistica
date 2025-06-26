@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useForm, useFieldArray, Controller, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -13,6 +13,10 @@ import Image from "next/image";
 import { useAuth } from "@/hooks/use-auth";
 import { getClients } from "@/app/actions/clients";
 import { getArticulosByClient, ArticuloInfo } from "@/app/actions/articulos";
+import { useFormPersistence } from "@/hooks/use-form-persistence";
+import { saveForm } from "@/app/actions/save-form";
+import { storage } from "@/lib/firebase";
+import { ref, uploadString, getDownloadURL } from "firebase/storage";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -32,21 +36,14 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import {
     ArrowLeft,
-    Clock,
     Trash2,
     PlusCircle,
     UploadCloud,
@@ -54,11 +51,11 @@ import {
     Send,
     RotateCcw,
     ChevronsUpDown,
-    Check,
-    FileText
+    FileText,
+    Loader2
 } from "lucide-react";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { RestoreDialog } from "@/components/app/restore-dialog";
 
 
 const productSchema = z.object({
@@ -107,7 +104,7 @@ export default function FixedWeightFormComponent() {
   const searchParams = useSearchParams();
   const operation = searchParams.get("operation") || "operación";
   const { toast } = useToast();
-  const { displayName } = useAuth();
+  const { user, displayName } = useAuth();
   
   const [clientes, setClientes] = useState<string[]>([]);
   const [isClientDialogOpen, setClientDialogOpen] = useState(false);
@@ -123,6 +120,8 @@ export default function FixedWeightFormComponent() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const filteredClients = useMemo(() => {
     if (!clientSearch) return clientes;
@@ -179,6 +178,9 @@ export default function FixedWeightFormComponent() {
   const totalPaletas = useMemo(() => {
     return (productos || []).reduce((acc, p) => acc + (Number(p.paletas) || 0), 0);
   }, [productos]);
+
+  const formIdentifier = `fixed-weight-${operation}`;
+  const { isRestoreDialogOpen, onRestore, onDiscard, onOpenChange, clearDraft } = useFormPersistence(formIdentifier, form, attachments, setAttachments);
 
 
   useEffect(() => {
@@ -283,18 +285,60 @@ export default function FixedWeightFormComponent() {
   }, [isCameraOpen, toast]);
 
 
-  function onSubmit(data: z.infer<typeof formSchema>) {
-    console.log(data);
-    toast({
-      title: "Formulario Guardado",
-      description: `El formato de ${operation} ha sido guardado y enviado correctamente.`,
-    });
+  async function onSubmit(data: z.infer<typeof formSchema>) {
+    if (!user || !storage) {
+        toast({ variant: "destructive", title: "Error", description: "Debe iniciar sesión para guardar el formulario." });
+        return;
+    }
+    setIsSubmitting(true);
+    try {
+        const attachmentUrls: string[] = [];
+        for (const attachment of attachments) {
+            const fileName = `submission-${Date.now()}-${Math.random().toString(36).substring(2)}.jpg`;
+            const storageRef = ref(storage, `attachments/${user.uid}/${fileName}`);
+            const base64String = attachment.split(',')[1];
+            const snapshot = await uploadString(storageRef, base64String, 'base64', {
+                contentType: 'image/jpeg'
+            });
+            const downloadURL = await getDownloadURL(snapshot.ref);
+            attachmentUrls.push(downloadURL);
+        }
+
+        const result = await saveForm({
+            userId: user.uid,
+            userDisplayName: displayName || 'N/A',
+            formType: `fixed-weight-${operation}`,
+            formData: data,
+            attachmentUrls: attachmentUrls,
+            createdAt: new Date().toISOString(),
+        });
+
+        if (result.success) {
+            toast({ title: "Formulario Guardado", description: "El formato ha sido guardado y enviado correctamente." });
+            await clearDraft();
+            router.push('/');
+        } else {
+            throw new Error(result.message);
+        }
+    } catch (error) {
+        console.error("Submission error:", error);
+        const errorMessage = error instanceof Error ? error.message : "No se pudo guardar el formulario.";
+        toast({ variant: "destructive", title: "Error al Enviar", description: errorMessage });
+    } finally {
+        setIsSubmitting(false);
+    }
   }
 
   const title = `Formato de ${operation.charAt(0).toUpperCase() + operation.slice(1)} - Peso Fijo`;
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
+      <RestoreDialog
+        open={isRestoreDialogOpen}
+        onOpenChange={onOpenChange}
+        onRestore={onRestore}
+        onDiscard={onDiscard}
+      />
       <div className="max-w-6xl mx-auto">
         <header className="mb-8">
             <div className="relative flex items-center justify-center text-center">
@@ -706,9 +750,9 @@ export default function FixedWeightFormComponent() {
                     <RotateCcw className="mr-2 h-4 w-4"/>
                     Limpiar Formato
                 </Button>
-                <Button type="submit">
-                    <Send className="mr-2 h-4 w-4"/>
-                    Guardar Formato y Enviar
+                <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4"/>}
+                    {isSubmitting ? 'Guardando...' : 'Guardar Formato y Enviar'}
                 </Button>
             </footer>
           </form>

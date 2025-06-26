@@ -13,6 +13,10 @@ import Image from "next/image";
 import { useAuth } from "@/hooks/use-auth";
 import { getClients } from "@/app/actions/clients";
 import { getArticulosByClient, ArticuloInfo } from "@/app/actions/articulos";
+import { useFormPersistence } from "@/hooks/use-form-persistence";
+import { saveForm } from "@/app/actions/save-form";
+import { storage } from "@/lib/firebase";
+import { ref, uploadString, getDownloadURL } from "firebase/storage";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -46,10 +50,12 @@ import {
     RotateCcw,
     ChevronsUpDown,
     FileText,
-    Edit2
+    Edit2,
+    Loader2
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { RestoreDialog } from "@/components/app/restore-dialog";
 
 
 const itemSchema = z.object({
@@ -103,7 +109,7 @@ export default function VariableWeightFormComponent() {
   const searchParams = useSearchParams();
   const operation = searchParams.get("operation") || "operación";
   const { toast } = useToast();
-  const { displayName } = useAuth();
+  const { user, displayName } = useAuth();
   
   const [clientes, setClientes] = useState<string[]>([]);
   const [isClientDialogOpen, setClientDialogOpen] = useState(false);
@@ -119,6 +125,8 @@ export default function VariableWeightFormComponent() {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const filteredClients = useMemo(() => {
     if (!clientSearch) return clientes;
@@ -187,6 +195,9 @@ export default function VariableWeightFormComponent() {
 
     return Object.values(grouped);
   }, [watchedItems]);
+
+  const formIdentifier = `variable-weight-${operation}`;
+  const { isRestoreDialogOpen, onRestore, onDiscard, onOpenChange, clearDraft } = useFormPersistence(formIdentifier, form, attachments, setAttachments);
 
   useEffect(() => {
       const currentSummaryInForm = form.getValues('summary') || [];
@@ -320,27 +331,68 @@ export default function VariableWeightFormComponent() {
   }, [isCameraOpen, toast]);
 
 
-  function onSubmit(data: z.infer<typeof formSchema>) {
-    const finalSummary = calculatedSummaryForDisplay.map(summaryItem => {
-        const formItem = (data.summary || []).find(s => s.descripcion === summaryItem.descripcion);
-        return {
-            ...summaryItem,
-            temperatura: formItem?.temperatura as number,
-        }
-      });
+  async function onSubmit(data: z.infer<typeof formSchema>) {
+    if (!user || !storage) {
+        toast({ variant: "destructive", title: "Error", description: "Debe iniciar sesión para guardar el formulario." });
+        return;
+    }
+    setIsSubmitting(true);
+    try {
+        const finalSummary = calculatedSummaryForDisplay.map(summaryItem => {
+            const formItem = (data.summary || []).find(s => s.descripcion === summaryItem.descripcion);
+            return {
+                ...summaryItem,
+                temperatura: formItem?.temperatura as number,
+            }
+        });
   
-      const dataToSubmit = { ...data, summary: finalSummary, attachments };
-      console.log(dataToSubmit);
-    toast({
-      title: "Formulario Guardado",
-      description: `El formato de ${operation} de peso variable ha sido guardado y enviado correctamente.`,
-    });
+        const dataWithFinalSummary = { ...data, summary: finalSummary };
+
+        const attachmentUrls: string[] = [];
+        for (const attachment of attachments) {
+            const fileName = `submission-${Date.now()}-${Math.random().toString(36).substring(2)}.jpg`;
+            const storageRef = ref(storage, `attachments/${user.uid}/${fileName}`);
+            const base64String = attachment.split(',')[1];
+            const snapshot = await uploadString(storageRef, base64String, 'base64', { contentType: 'image/jpeg' });
+            const downloadURL = await getDownloadURL(snapshot.ref);
+            attachmentUrls.push(downloadURL);
+        }
+
+        const result = await saveForm({
+            userId: user.uid,
+            userDisplayName: displayName || 'N/A',
+            formType: `variable-weight-${operation}`,
+            formData: dataWithFinalSummary,
+            attachmentUrls: attachmentUrls,
+            createdAt: new Date().toISOString(),
+        });
+
+        if (result.success) {
+            toast({ title: "Formulario Guardado", description: `El formato de ${operation} ha sido guardado y enviado correctamente.` });
+            await clearDraft();
+            router.push('/');
+        } else {
+            throw new Error(result.message);
+        }
+    } catch (error) {
+        console.error("Submission error:", error);
+        const errorMessage = error instanceof Error ? error.message : "No se pudo guardar el formulario.";
+        toast({ variant: "destructive", title: "Error al Enviar", description: errorMessage });
+    } finally {
+        setIsSubmitting(false);
+    }
   }
 
   const title = `Formato de ${operation.charAt(0).toUpperCase() + operation.slice(1)} - Peso Variable`;
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
+      <RestoreDialog
+        open={isRestoreDialogOpen}
+        onOpenChange={onOpenChange}
+        onRestore={onRestore}
+        onDiscard={onDiscard}
+      />
       <div className="max-w-6xl mx-auto">
         <header className="mb-8">
             <div className="relative flex items-center justify-center text-center">
@@ -794,13 +846,13 @@ export default function VariableWeightFormComponent() {
             </Card>
             
             <footer className="flex items-center justify-end gap-4 pt-4">
-                <Button type="submit">
-                    <Send className="mr-2 h-4 w-4"/>
-                    Guardar Formato y Enviar
-                </Button>
                 <Button type="button" variant="outline" onClick={() => form.reset()}>
                     <RotateCcw className="mr-2 h-4 w-4"/>
                     Limpiar Formato
+                </Button>
+                 <Button type="submit" disabled={isSubmitting}>
+                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4"/>}
+                    {isSubmitting ? 'Guardando...' : 'Guardar Formato y Enviar'}
                 </Button>
             </footer>
           </form>
