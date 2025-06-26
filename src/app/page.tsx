@@ -175,14 +175,13 @@ export default function Home() {
             </Button>
             
             <div className="grid grid-cols-2 gap-4">
-                <Button variant="secondary" size="lg" className="w-full h-12 text-base" onClick={() => router.push('/gestion-clientes')}>
-                    <Users2 className="mr-2 h-5 w-5" />
-                    Gestión de Clientes
-                </Button>
-
                 <Button variant="secondary" size="lg" className="w-full h-12 text-base" onClick={() => router.push('/gestion-articulos')}>
                     <Box className="mr-2 h-5 w-5" />
                     Gestión de Artículos
+                </Button>
+                <Button variant="secondary" size="lg" className="w-full h-12 text-base" onClick={() => router.push('/gestion-clientes')}>
+                    <Users2 className="mr-2 h-5 w-5" />
+                    Gestión de Clientes
                 </Button>
             </div>
 
