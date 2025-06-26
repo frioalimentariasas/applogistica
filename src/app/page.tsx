@@ -15,9 +15,9 @@ const Logo = () => (
     <div className="flex flex-col items-center justify-center text-center">
       <Image
         src="/image/company-logo.png"
-        alt="Frio Alimentaria Logo"
-        width={350}
-        height={100}
+        alt="Logotipo de Frio Alimentaria"
+        width={300}
+        height={86}
         priority
       />
     </div>
