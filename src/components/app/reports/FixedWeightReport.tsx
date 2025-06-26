@@ -22,12 +22,13 @@ interface FixedWeightReportProps {
     formData: any;
     userDisplayName: string;
     attachments: string[];
+    formType: string;
 }
 
-export function FixedWeightReport({ formData, userDisplayName, attachments }: FixedWeightReportProps) {
+export function FixedWeightReport({ formData, userDisplayName, attachments, formType }: FixedWeightReportProps) {
     const totalCajas = formData.productos.reduce((acc: any, p: any) => acc + (Number(p.cajas) || 0), 0);
     const totalPaletas = formData.productos.reduce((acc: any, p: any) => acc + (Number(p.paletas) || 0), 0);
-    const isReception = formData.formType?.includes('recepcion') || submission.formType.includes('recepcion');
+    const isReception = formType.includes('recepcion');
     const operationTerm = isReception ? 'Descargue' : 'Cargue';
 
     return (
