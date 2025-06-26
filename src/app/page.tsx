@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -33,6 +34,16 @@ export default function Home() {
   const router = useRouter();
   const { toast } = useToast();
   const { user, loading, displayName } = useAuth();
+
+  // Define the list of emails for the "operario" role
+  const operarioEmails = [
+    'frioal.operario1@gmail.com',
+    'frioal.operario2@gmail.com',
+    'frioal.operario3@gmail.com',
+    'frioal.operario4@gmail.com'
+  ];
+
+  const isOperario = user && operarioEmails.includes(user.email || '');
 
   useEffect(() => {
     if (!loading && !user) {
@@ -173,28 +184,32 @@ export default function Home() {
                 Consultar Formatos Guardados
             </Button>
             
-            <div className="grid grid-cols-2 gap-4">
-                <Button size="lg" className="w-full h-12 text-base bg-[#3588CC] text-white hover:bg-[#3588CC]/90" onClick={() => router.push('/gestion-articulos')}>
-                    <Box className="mr-2 h-5 w-5" />
-                    Gestión de Artículos
-                </Button>
-                <Button size="lg" className="w-full h-12 text-base bg-[#3588CC] text-white hover:bg-[#3588CC]/90" onClick={() => router.push('/gestion-clientes')}>
-                    <Users2 className="mr-2 h-5 w-5" />
-                    Gestión de Clientes
-                </Button>
-            </div>
+            {!isOperario && (
+              <>
+                <div className="grid grid-cols-2 gap-4">
+                    <Button size="lg" className="w-full h-12 text-base bg-[#3588CC] text-white hover:bg-[#3588CC]/90" onClick={() => router.push('/gestion-articulos')}>
+                        <Box className="mr-2 h-5 w-5" />
+                        Gestión de Artículos
+                    </Button>
+                    <Button size="lg" className="w-full h-12 text-base bg-[#3588CC] text-white hover:bg-[#3588CC]/90" onClick={() => router.push('/gestion-clientes')}>
+                        <Users2 className="mr-2 h-5 w-5" />
+                        Gestión de Clientes
+                    </Button>
+                </div>
 
-            <div className="grid grid-cols-2 gap-4">
-                <Button size="lg" className="w-full h-12 text-base bg-[#3588CC] text-white hover:bg-[#3588CC]/90" onClick={() => router.push('/upload-articulos')}>
-                    <Box className="mr-2 h-5 w-5" />
-                    Cargar Artículos (Excel)
-                </Button>
+                <div className="grid grid-cols-2 gap-4">
+                    <Button size="lg" className="w-full h-12 text-base bg-[#3588CC] text-white hover:bg-[#3588CC]/90" onClick={() => router.push('/upload-articulos')}>
+                        <Box className="mr-2 h-5 w-5" />
+                        Cargar Artículos (Excel)
+                    </Button>
 
-                <Button size="lg" className="w-full h-12 text-base bg-[#3588CC] text-white hover:bg-[#3588CC]/90" onClick={() => router.push('/upload-clientes')}>
-                    <Users2 className="mr-2 h-5 w-5" />
-                    Cargar Clientes (Excel)
-                </Button>
-            </div>
+                    <Button size="lg" className="w-full h-12 text-base bg-[#3588CC] text-white hover:bg-[#3588CC]/90" onClick={() => router.push('/upload-clientes')}>
+                        <Users2 className="mr-2 h-5 w-5" />
+                        Cargar Clientes (Excel)
+                    </Button>
+                </div>
+              </>
+            )}
         </div>
 
         <div className="pt-4">

@@ -9,12 +9,22 @@ export interface SearchCriteria {
   pedidoSislog?: string;
   nombreCliente?: string;
   fechaCreacion?: string; // YYYY-MM-DD
+  requestingUser?: {
+    id: string;
+    email: string;
+  }
 }
 
 export interface SubmissionResult extends FormSubmissionData {
   id: string;
 }
 
+const operarioEmails = [
+    'frioal.operario1@gmail.com',
+    'frioal.operario2@gmail.com',
+    'frioal.operario3@gmail.com',
+    'frioal.operario4@gmail.com'
+];
 
 // This helper will recursively convert any Firestore Timestamps in an object to ISO strings.
 const serializeTimestamps = (data: any): any => {
@@ -51,6 +61,13 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
 
     try {
         let query: admin.firestore.Query = firestore.collection('submissions');
+
+        const isOperario = criteria.requestingUser && operarioEmails.includes(criteria.requestingUser.email);
+        
+        // If the user is an operario, they can only see their own submissions.
+        if (isOperario) {
+            query = query.where('userId', '==', criteria.requestingUser!.id);
+        }
 
         const noFilters = !criteria.pedidoSislog && !criteria.nombreCliente && !criteria.fechaCreacion;
 

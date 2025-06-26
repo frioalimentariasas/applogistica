@@ -9,6 +9,7 @@ import { es } from 'date-fns/locale';
 
 import { searchSubmissions, SubmissionResult, SearchCriteria, deleteSubmission } from '@/app/actions/consultar-formatos';
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/use-auth';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -28,12 +29,12 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-  AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 
 export default function ConsultarFormatosComponent() {
     const router = useRouter();
     const { toast } = useToast();
+    const { user } = useAuth();
     
     const [criteria, setCriteria] = useState<SearchCriteria>({
         pedidoSislog: '',
@@ -51,9 +52,10 @@ export default function ConsultarFormatosComponent() {
         setIsLoading(true);
         setSearched(true);
         try {
-            const finalCriteria = {
+            const finalCriteria: SearchCriteria = {
                 ...criteria,
-                fechaCreacion: date ? date.toISOString().split('T')[0] : undefined
+                fechaCreacion: date ? date.toISOString().split('T')[0] : undefined,
+                requestingUser: user ? { id: user.uid, email: user.email || '' } : undefined,
             };
 
             const isDefaultSearch = !finalCriteria.pedidoSislog && !finalCriteria.nombreCliente && !finalCriteria.fechaCreacion;
