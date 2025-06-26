@@ -102,7 +102,7 @@ export default function UploaderForm() {
                 <Alert className="mb-6 border-blue-500 bg-blue-50 text-blue-800 [&>svg]:text-blue-600">
                     <AlertTitle className="text-blue-700">¡Atención!</AlertTitle>
                     <AlertDescription>
-                        El archivo Excel debe tener exactamente las siguientes columnas: <strong>Razón Social</strong>, <strong>Codigo Producto</strong>, y <strong>Denominación articulo</strong>. La carga reemplazará todos los datos existentes en la colección "articulos" de su base de datos.
+                        El archivo Excel debe tener exactamente las siguientes columnas: <strong>Razón Social</strong>, <strong>Codigo Producto</strong>, y <strong>Denominación articulo</strong>. La carga agregará los nuevos registros a los datos ya existentes en la colección "articulos".
                     </AlertDescription>
                 </Alert>
 

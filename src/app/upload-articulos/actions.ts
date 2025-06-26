@@ -41,16 +41,6 @@ export async function uploadArticulos(formData: FormData): Promise<{ success: bo
     }
 
     const articulosCollection = firestore.collection('articulos');
-    
-    // Delete all existing documents in the collection
-    const snapshot = await articulosCollection.get();
-    if (!snapshot.empty) {
-        const deleteBatch = firestore.batch();
-        snapshot.docs.forEach(doc => {
-            deleteBatch.delete(doc.ref);
-        });
-        await deleteBatch.commit();
-    }
 
     // Create a new batch for writing
     const writeBatch = firestore.batch();
@@ -68,7 +58,7 @@ export async function uploadArticulos(formData: FormData): Promise<{ success: bo
 
     await writeBatch.commit();
 
-    return { success: true, message: `Se eliminaron los datos anteriores y se cargaron ${data.length} nuevos artículos.`, count: data.length };
+    return { success: true, message: `Se agregaron ${data.length} nuevos artículos correctamente.`, count: data.length };
   } catch (error) {
     console.error('Error al procesar el archivo:', error);
     if (error instanceof Error) {
