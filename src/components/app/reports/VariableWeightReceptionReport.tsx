@@ -1,9 +1,8 @@
-
 import Image from 'next/image';
 import { format } from 'date-fns';
 
 const ReportSection = ({ title, children, className }: { title: string, children: React.ReactNode, className?: string }) => (
-    <div className="mb-3" style={{ breakInside: 'avoid-page' }}>
+    <div className="mb-3" style={{ breakInside: 'avoid' }}>
         <div className={`rounded-lg border border-gray-400 ${className}`}>
             <h2 className="rounded-t-md bg-gray-200 px-3 py-1 text-sm font-bold text-gray-800 border-b border-gray-400">{title}</h2>
             <div className="p-3">{children}</div>
