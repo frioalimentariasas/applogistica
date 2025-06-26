@@ -91,7 +91,7 @@ export default function ClientManagementComponent({ initialClients }: ClientMana
                       <FormItem>
                         <FormLabel>Razón Social</FormLabel>
                         <FormControl>
-                          <Input placeholder="Nombre completo del cliente" {...field} />
+                          <Input placeholder="Colocar nombre Propietario SISLOG" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
