@@ -464,9 +464,9 @@ export default function VariableWeightReceptionFormComponent() {
                                         <CommandItem
                                             value={cliente}
                                             key={cliente}
-                                            onSelect={() => {
-                                                form.setValue("cliente", cliente);
-                                                setClientPopoverOpen(false);
+                                            onSelect={(currentValue) => {
+                                              field.onChange(currentValue === field.value ? "" : currentValue);
+                                              setClientPopoverOpen(false);
                                             }}
                                         >
                                             <Check
