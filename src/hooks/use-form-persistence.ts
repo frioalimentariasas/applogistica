@@ -11,14 +11,19 @@ export function useFormPersistence<T extends FieldValues>(
     formIdentifier: string, 
     form: ReturnType<typeof useForm<T>>,
     attachments: string[], 
-    setAttachments: (attachments: string[]) => void
+    setAttachments: (attachments: string[] | ((prev: string[]) => string[])) => void
 ) {
     const { user } = useAuth();
     const { watch, reset, formState: { defaultValues } } = form;
     const { toast } = useToast();
 
     const [isRestoreDialogOpen, setRestoreDialogOpen] = useState(false);
-    const isProgrammaticReset = useRef(false);
+    
+    // This flag prevents saving during programmatic state changes (restore/discard)
+    const isProgrammaticChange = useRef(false);
+    // This flag prevents overwriting saved attachments on the initial render
+    const isInitialAttachmentSave = useRef(true);
+
 
     const getStorageKey = useCallback(() => {
         if (!user) return null;
@@ -31,8 +36,7 @@ export function useFormPersistence<T extends FieldValues>(
         if (!storageKey || typeof window === 'undefined') return;
 
         const subscription = watch((value) => {
-            if (isProgrammaticReset.current) {
-                isProgrammaticReset.current = false;
+            if (isProgrammaticChange.current) {
                 return;
             }
             localStorage.setItem(storageKey, JSON.stringify(value));
@@ -44,6 +48,15 @@ export function useFormPersistence<T extends FieldValues>(
     useEffect(() => {
         const storageKey = getStorageKey();
         if (!storageKey) return;
+        
+        // Prevent overwriting attachments on the first render before the user can restore
+        if (isInitialAttachmentSave.current) {
+            isInitialAttachmentSave.current = false;
+            return;
+        }
+
+        if (isProgrammaticChange.current) return;
+
         const attachmentsKey = `${storageKey}-attachments`;
         idb.set(attachmentsKey, attachments).catch(err => {
             console.error("Failed to save attachments to IndexedDB", err);
@@ -67,43 +80,63 @@ export function useFormPersistence<T extends FieldValues>(
         const storageKey = getStorageKey();
         if (!storageKey) return;
 
-        const savedData = localStorage.getItem(storageKey);
-        const attachmentsKey = `${storageKey}-attachments`;
+        isProgrammaticChange.current = true;
+        setRestoreDialogOpen(false);
 
         try {
-            if (savedData) {
-                const parsedData = JSON.parse(savedData);
-                if (parsedData.fecha) {
-                    parsedData.fecha = new Date(parsedData.fecha);
-                }
-                reset(parsedData);
-            }
+            const attachmentsKey = `${storageKey}-attachments`;
+            const savedData = localStorage.getItem(storageKey);
             const savedAttachments = await idb.get<string[]>(attachmentsKey);
+
             if (savedAttachments) {
                 setAttachments(savedAttachments);
             }
-            toast({ title: "Datos Restaurados" });
+
+            if (savedData) {
+                const parsedData = JSON.parse(savedData);
+                // Ensure date objects are correctly parsed from ISO strings
+                Object.keys(parsedData).forEach(key => {
+                    const value = parsedData[key];
+                    if (typeof value === 'string' && value.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)) {
+                         parsedData[key] = new Date(value);
+                    }
+                });
+                reset(parsedData);
+            }
+            
+            toast({ title: "Datos Restaurados", description: "Tu borrador ha sido cargado." });
         } catch (e) {
             console.error("Failed to restore draft", e);
             toast({ variant: 'destructive', title: "Error", description: "No se pudo restaurar el borrador." });
+        } finally {
+            // Allow saving again after a short delay to let all state updates settle
+            setTimeout(() => { isProgrammaticChange.current = false; }, 200);
         }
-        setRestoreDialogOpen(false);
     }, [getStorageKey, reset, setAttachments, toast]);
 
     const discardDraft = useCallback(async () => {
         const storageKey = getStorageKey();
         if (!storageKey) return;
-
-        const attachmentsKey = `${storageKey}-attachments`;
-        localStorage.removeItem(storageKey);
-        await idb.del(attachmentsKey);
         
-        isProgrammaticReset.current = true;
-        reset(defaultValues); 
-        setAttachments([]);
+        isProgrammaticChange.current = true;
         setRestoreDialogOpen(false);
-    }, [getStorageKey, reset, defaultValues, setAttachments]);
 
+        try {
+            const attachmentsKey = `${storageKey}-attachments`;
+            localStorage.removeItem(storageKey);
+            await idb.del(attachmentsKey);
+            
+            reset(defaultValues as T); 
+            setAttachments([]);
+            toast({ title: "Borrador Descartado" });
+        } catch (e) {
+            console.error("Failed to discard draft", e);
+        } finally {
+            // Allow saving again after a short delay
+            setTimeout(() => { isProgrammaticChange.current = false; }, 200);
+        }
+    }, [getStorageKey, reset, defaultValues, setAttachments, toast]);
+    
     const clearDraft = useCallback(async () => {
         const storageKey = getStorageKey();
         if (!storageKey) return;
