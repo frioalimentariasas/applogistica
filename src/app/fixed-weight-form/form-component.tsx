@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 import { useAuth } from "@/hooks/use-auth";
-import { getClients } from "@/app/actions/clients";
+import { getClients, type ClientInfo } from "@/app/actions/clients";
 import { getArticulosByClient, ArticuloInfo } from "@/app/actions/articulos";
 import { useFormPersistence } from "@/hooks/use-form-persistence";
 import { saveForm } from "@/app/actions/save-form";
@@ -111,7 +111,7 @@ export default function FixedWeightFormComponent() {
   const { toast } = useToast();
   const { user, displayName } = useAuth();
   
-  const [clientes, setClientes] = useState<string[]>([]);
+  const [clientes, setClientes] = useState<ClientInfo[]>([]);
   const [isClientDialogOpen, setClientDialogOpen] = useState(false);
   const [clientSearch, setClientSearch] = useState("");
   
@@ -133,7 +133,7 @@ export default function FixedWeightFormComponent() {
 
   const filteredClients = useMemo(() => {
     if (!clientSearch) return clientes;
-    return clientes.filter(c => c.toLowerCase().includes(clientSearch.toLowerCase()));
+    return clientes.filter(c => c.razonSocial.toLowerCase().includes(clientSearch.toLowerCase()));
   }, [clientSearch, clientes]);
   
   const filteredArticulos = useMemo(() => {
@@ -523,11 +523,11 @@ export default function FixedWeightFormComponent() {
                                             <div className="space-y-1">
                                                 {filteredClients.map((cliente) => (
                                                     <Button
-                                                        key={cliente}
+                                                        key={cliente.id}
                                                         variant="ghost"
                                                         className="w-full justify-start"
                                                         onClick={async () => {
-                                                            field.onChange(cliente);
+                                                            field.onChange(cliente.razonSocial);
                                                             setClientDialogOpen(false);
                                                             setClientSearch('');
                                                             
@@ -535,7 +535,7 @@ export default function FixedWeightFormComponent() {
                                                             setArticulos([]);
                                                             setIsLoadingArticulos(true);
                                                             try {
-                                                                const fetchedArticulos = await getArticulosByClient(cliente);
+                                                                const fetchedArticulos = await getArticulosByClient(cliente.razonSocial);
                                                                 setArticulos(fetchedArticulos.map(a => ({
                                                                     value: a.codigoProducto,
                                                                     label: a.denominacionArticulo
@@ -547,7 +547,7 @@ export default function FixedWeightFormComponent() {
                                                             }
                                                         }}
                                                     >
-                                                        {cliente}
+                                                        {cliente.razonSocial}
                                                     </Button>
                                                 ))}
                                                 {filteredClients.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron clientes.</p>}
