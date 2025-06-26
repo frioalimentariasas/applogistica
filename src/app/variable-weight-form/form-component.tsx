@@ -103,7 +103,7 @@ const formSchema = z.object({
 
 // Mock data
 const coordinadores = ["Cristian Acuña", "Sergio Padilla"];
-const presentaciones = ["Caja", "Bolsa", "Paquete"];
+const presentaciones = ["Cajas", "Sacos", "Canastillas"];
 
 
 export default function VariableWeightFormComponent() {
