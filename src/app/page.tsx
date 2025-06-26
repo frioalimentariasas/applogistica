@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { FileText, LogOut } from 'lucide-react';
+import { FileText, LogOut, UploadCloud } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
@@ -159,7 +159,23 @@ export default function Home() {
           </Button>
         </form>
         
-        <FirebaseChecker />
+        <div className="relative my-4">
+            <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-white px-2 text-muted-foreground">Otras Acciones</span>
+            </div>
+        </div>
+        
+        <Button variant="secondary" size="lg" className="w-full h-12 text-base" onClick={() => router.push('/upload-articulos')}>
+            <UploadCloud className="mr-2 h-5 w-5" />
+            Cargar Artículos (Excel)
+        </Button>
+
+        <div className="pt-4">
+            <FirebaseChecker />
+        </div>
 
       </div>
     </div>
