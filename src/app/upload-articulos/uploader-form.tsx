@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { ArrowLeft, Loader2, UploadCloud, FileUp } from 'lucide-react';
+import { ArrowLeft, Loader2, FileUp, Box } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 function SubmitButton() {
@@ -91,7 +91,7 @@ export default function UploaderForm() {
                         </Button>
                         <div>
                             <div className="flex items-center justify-center gap-2">
-                                <UploadCloud className="h-8 w-8 text-primary" />
+                                <Box className="h-8 w-8 text-primary" />
                                 <h1 className="text-2xl font-bold text-primary">Cargar Artículos desde Excel</h1>
                             </div>
                              <p className="text-sm text-gray-500">Cargue un archivo .xlsx o .xls con los datos de los artículos.</p>

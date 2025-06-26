@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { FileText, LogOut, UploadCloud, Users2 } from 'lucide-react';
+import { FileText, LogOut, Users2, Box } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
@@ -169,7 +169,7 @@ export default function Home() {
         </div>
         
         <Button variant="secondary" size="lg" className="w-full h-12 text-base" onClick={() => router.push('/upload-articulos')}>
-            <UploadCloud className="mr-2 h-5 w-5" />
+            <Box className="mr-2 h-5 w-5" />
             Cargar Artículos (Excel)
         </Button>
 
