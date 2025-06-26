@@ -766,8 +766,8 @@ export default function VariableWeightReceptionFormComponent() {
                                     <FormField control={form.control} name={`items.${index}.taraCaja`} render={({ field }) => (
                                         <FormItem><FormLabel>Tara Caja (kg)</FormLabel><FormControl><Input type="number" min="0" step="0.01" placeholder="0.00" {...field} onChange={e => { field.onChange(e.target.valueAsNumber); form.trigger(`items.${index}`) }} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl><FormMessage /></FormItem>
                                     )}/>
-                                    <FormItem><FormLabel>Total Tara Caja (kg)</FormLabel><FormControl><Input disabled readOnly value={!isNaN(totalTaraCaja) ? totalTaraCaja.toFixed(2) : '0.00'} /></FormControl></FormItem>
-                                    <FormItem><FormLabel>Peso Neto (kg)</FormLabel><FormControl><Input disabled readOnly value={!isNaN(pesoNeto) ? pesoNeto.toFixed(2) : '0.00'} /></FormControl></FormItem>
+                                    <FormItem><FormLabel>Total Tara Caja (kg)</FormLabel><FormControl><Input disabled readOnly value={totalTaraCaja != null && !isNaN(totalTaraCaja) ? totalTaraCaja.toFixed(2) : '0.00'} /></FormControl></FormItem>
+                                    <FormItem><FormLabel>Peso Neto (kg)</FormLabel><FormControl><Input disabled readOnly value={pesoNeto != null && !isNaN(pesoNeto) ? pesoNeto.toFixed(2) : '0.00'} /></FormControl></FormItem>
                                 </div>
                             </div>
                         )})}
@@ -1000,5 +1000,3 @@ export default function VariableWeightReceptionFormComponent() {
       </div>
   );
 }
-
-    
