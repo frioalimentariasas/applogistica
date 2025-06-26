@@ -114,7 +114,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     }
                 }
                 
-                const titleX = margin + logoWidth + 10;
+                const titleX = margin + logoWidth + 20;
                 const availableWidth = pageWidth - titleX - margin;
             
                 doc.setFontSize(16);
@@ -127,7 +127,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 doc.setTextColor('#555');
                 doc.text('FRIO ALIMENTARIA SAS NIT 900736914-0', titleX + availableWidth / 2, margin + 35, { align: 'center', maxWidth: availableWidth });
                 
-                yPos = margin + logoHeight + 10;
+                yPos = margin + logoHeight + 20;
             };
     
             const addFooter = () => {
@@ -163,7 +163,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     body: [
                         [`Pedido SISLOG: ${formData.pedidoSislog || 'N/A'}`, `Nombre Cliente: ${formData.nombreCliente || 'N/A'}`, `Factura/Remisión: ${formData.facturaRemision || 'N/A'}`],
                         [`Fecha: ${formData.fecha ? format(new Date(formData.fecha), "dd/MM/yyyy") : 'N/A'}`, `Hora Inicio ${operationTerm}: ${formData.horaInicio || 'N/A'}`, `Hora Fin ${operationTerm}: ${formData.horaFin || 'N/A'}`],
-                        [`Precinto/Sello: ${formData.precinto || 'N/A'}`, `Documento de Transporte: ${formData.documentoTransporte || 'N/A'}`, '']
+                        [`Precinto/Sello: ${formData.precinto || 'N/A'}`, `Documento de Transporte: ${formData.documentoTransporte || 'N/A'}`, `Operario: ${userDisplayName || 'N/A'}`]
                     ],
                     theme: 'grid', styles: { fontSize: 8, cellPadding: 4 },
                 });
@@ -184,7 +184,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     head: productHead, body: productBody,
                     foot: [[{ content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }, totalCajas, totalPaletas.toFixed(2), '']],
                     theme: 'striped', headStyles: { fillColor: '#f8fafc', textColor: '#334155', fontStyle: 'bold' },
-                    footStyles: { fillColor: '#f1f5f9', fontStyle: 'bold' },
+                    footStyles: { fillColor: '#f1f5f9', fontStyle: 'bold', textColor: '#1a202c' },
                     styles: { fontSize: 8, cellPadding: 4 }
                 });
                 yPos = (doc as any).autoTable.previous.finalY + 15;
@@ -216,7 +216,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     body: [
                         [`Pedido SISLOG: ${formData.pedidoSislog || 'N/A'}`, `Cliente: ${formData.cliente || 'N/A'}`, `Fecha: ${formData.fecha ? format(new Date(formData.fecha), "dd/MM/yyyy") : 'N/A'}`],
                         [`Conductor: ${formData.conductor || 'N/A'}`, `Cédula: ${formData.cedulaConductor || 'N/A'}`, `Placa: ${formData.placa || 'N/A'}`],
-                        [`Precinto: ${formData.precinto || 'N/A'}`, `Set Point (°C): ${formData.setPoint || 'N/A'}`, ''],
+                        [`Precinto: ${formData.precinto || 'N/A'}`, `Set Point (°C): ${formData.setPoint || 'N/A'}`, `Operario: ${userDisplayName || 'N/A'}`],
                         [`Hora Inicio ${operationTerm}: ${formData.horaInicio || 'N/A'}`, `Hora Fin ${operationTerm}: ${formData.horaFin || 'N/A'}`, '']
                     ], theme: 'grid', styles: { fontSize: 8, cellPadding: 4 }
                 });
@@ -243,7 +243,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
 
                     autoTable(doc, { startY: yPos, head: [[{ content: 'Resumen de Productos', colSpan: 4, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]], body: [], theme: 'grid' });
                     autoTable(doc, { startY: (doc as any).autoTable.previous.finalY, head: summaryHead, body: summaryBody, foot: [[{ content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }, totalCantidad, totalPeso.toFixed(2)]],
-                        theme: 'striped', headStyles: { fillColor: '#f8fafc', textColor: '#334155', fontStyle: 'bold' }, footStyles: { fillColor: '#f1f5f9', fontStyle: 'bold' }, styles: { fontSize: 8, cellPadding: 4 } });
+                        theme: 'striped', headStyles: { fillColor: '#f8fafc', textColor: '#334155', fontStyle: 'bold' }, footStyles: { fillColor: '#f1f5f9', fontStyle: 'bold', textColor: '#1a202c' }, styles: { fontSize: 8, cellPadding: 4 } });
                     yPos = (doc as any).autoTable.previous.finalY + 15;
                 }
 
