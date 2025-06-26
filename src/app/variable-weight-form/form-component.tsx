@@ -111,7 +111,6 @@ export default function VariableWeightFormComponent() {
   const { displayName } = useAuth();
   
   const [clientes, setClientes] = useState<string[]>([]);
-  const [isClientPopoverOpen, setClientPopoverOpen] = useState(false);
   const [attachments, setAttachments] = useState<string[]>([]);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -303,56 +302,22 @@ export default function VariableWeightFormComponent() {
                           control={form.control}
                           name="cliente"
                           render={({ field }) => (
-                            <FormItem className="flex flex-col">
+                            <FormItem>
                               <FormLabel>Cliente</FormLabel>
-                              <Popover open={isClientPopoverOpen} onOpenChange={setClientPopoverOpen}>
-                                <PopoverTrigger asChild>
-                                  <FormControl>
-                                    <Button
-                                      variant="outline"
-                                      role="combobox"
-                                      aria-expanded={isClientPopoverOpen}
-                                      className={cn(
-                                        "w-full justify-between",
-                                        !field.value && "text-muted-foreground"
-                                      )}
-                                    >
-                                      {field.value || "Seleccionar cliente..."}
-                                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                    </Button>
-                                  </FormControl>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                                  <Command>
-                                    <CommandInput placeholder="Buscar cliente..." />
-                                    <CommandList>
-                                      <CommandEmpty>Ningún cliente encontrado.</CommandEmpty>
-                                      <CommandGroup>
+                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                    <FormControl>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Seleccione un cliente" />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
                                         {clientes.map((cliente) => (
-                                          <CommandItem
-                                            value={cliente}
-                                            key={cliente}
-                                            onSelect={(currentValue) => {
-                                              field.onChange(currentValue === field.value ? "" : currentValue);
-                                              setClientPopoverOpen(false);
-                                            }}
-                                          >
-                                            <Check
-                                              className={cn(
-                                                "mr-2 h-4 w-4",
-                                                cliente === field.value
-                                                  ? "opacity-100"
-                                                  : "opacity-0"
-                                              )}
-                                            />
+                                            <SelectItem key={cliente} value={cliente}>
                                             {cliente}
-                                          </CommandItem>
+                                            </SelectItem>
                                         ))}
-                                      </CommandGroup>
-                                    </CommandList>
-                                  </Command>
-                                </PopoverContent>
-                              </Popover>
+                                    </SelectContent>
+                                </Select>
                               <FormMessage />
                             </FormItem>
                           )}
