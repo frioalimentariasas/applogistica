@@ -50,15 +50,6 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
     const [base64Images, setBase64Images] = useState<string[]>([]);
     const [logoBase64, setLogoBase64] = useState<string | null>(null);
 
-
-    useEffect(() => {
-        // This assignment must be done on the client side, after the component has mounted.
-        // It ensures `window` is available.
-        if (typeof window !== 'undefined') {
-            (window as any).html2canvas = html2canvas;
-        }
-    }, []);
-
     useEffect(() => {
         const fetchAllImages = async () => {
             setAreImagesLoading(true);

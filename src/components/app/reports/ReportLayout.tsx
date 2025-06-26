@@ -7,31 +7,41 @@ interface ReportLayoutProps {
 
 export function ReportLayout({ title, children, logoBase64 }: ReportLayoutProps) {
     return (
+        // The main container for the entire report page
         <div style={{ fontFamily: 'Arial, sans-serif', color: '#333', backgroundColor: '#fff', padding: '0' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
-                <tbody>
-                    <tr>
-                        <td style={{ height: '80px', textAlign: 'center', verticalAlign: 'middle' }}>
-                            {logoBase64 ? (
-                                <img
-                                    src={logoBase64}
-                                    alt="Logotipo de Frio Alimentaria"
-                                    style={{ maxHeight: '60px', width: 'auto' }}
-                                />
-                            ) : (
-                                <div style={{ height: '60px', width: 'auto' }}></div> // Placeholder to keep layout stable
-                            )}
-                        </td>
-                    </tr>
-                    <tr>
-                        <td style={{ textAlign: 'center', borderBottom: '2px solid #ccc', paddingBottom: '8px', marginBottom: '16px' }}>
-                            <h1 style={{ fontSize: '18px', fontWeight: 'bold', color: '#005a9e', margin: '0 0 4px 0' }}>{title}</h1>
-                            <p style={{ fontSize: '10px', color: '#555', margin: '0' }}>FRIO ALIMENTARIA SAS NIT 900736914-0</p>
-                        </td>
-                    </tr>
-                </tbody>
-            </table>
+            
+            {/* Header Section: Wrapped in a div to enforce page break rules */}
+            <div style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                    <tbody>
+                        {/* Row for the Logo */}
+                        <tr>
+                            <td style={{ textAlign: 'center', paddingBottom: '10px' }}>
+                                {logoBase64 ? (
+                                    <img
+                                        src={logoBase64}
+                                        alt="Logotipo de Frio Alimentaria"
+                                        style={{ height: '60px', width: 'auto' }}
+                                    />
+                                ) : (
+                                    // Placeholder to maintain layout if logo is missing
+                                    <div style={{ height: '60px' }}></div> 
+                                )}
+                            </td>
+                        </tr>
 
+                        {/* Row for the Title and Subtitle */}
+                        <tr>
+                            <td style={{ textAlign: 'center', borderBottom: '2px solid #ccc', paddingBottom: '8px' }}>
+                                <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#005a9e', margin: '0 0 4px 0' }}>{title}</div>
+                                <div style={{ fontSize: '10px', color: '#555', margin: '0' }}>FRIO ALIMENTARIA SAS NIT 900736914-0</div>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            {/* Main Content section */}
             <main style={{ paddingTop: '16px' }}>
                 {children}
             </main>

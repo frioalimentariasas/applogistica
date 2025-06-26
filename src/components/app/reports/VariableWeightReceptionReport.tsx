@@ -2,8 +2,8 @@
 import { format } from 'date-fns';
 
 const ReportSection = ({ title, children }: { title: string, children: React.ReactNode }) => (
-    <div style={{ breakInside: 'avoid', pageBreakInside: 'avoid', marginBottom: '12px' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #aaa', borderRadius: '8px' }}>
+    <div style={{ marginBottom: '12px' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #aaa', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
             <thead>
                 <tr>
                     <th style={{ backgroundColor: '#e2e8f0', padding: '4px 12px', fontSize: '12px', fontWeight: 'bold', color: '#1a202c', borderBottom: '1px solid #aaa', textAlign: 'left' }}>
