@@ -28,6 +28,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import type { ClientInfo } from '@/app/actions/clients';
 
 
 const articleSchema = z.object({
@@ -45,7 +46,7 @@ type EditArticleFormValues = z.infer<typeof editArticleSchema>;
 
 
 interface ArticleManagementComponentProps {
-  clients: string[];
+  clients: ClientInfo[];
 }
 
 export default function ArticleManagementComponent({ clients }: ArticleManagementComponentProps) {
@@ -190,7 +191,7 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
                             </FormControl>
                             <SelectContent>
                               {clients.map(client => (
-                                <SelectItem key={client} value={client}>{client}</SelectItem>
+                                <SelectItem key={client.id} value={client.razonSocial}>{client.razonSocial}</SelectItem>
                               ))}
                             </SelectContent>
                           </Select>
@@ -244,7 +245,7 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
                         </SelectTrigger>
                         <SelectContent>
                             {clients.map(client => (
-                            <SelectItem key={client} value={client}>{client}</SelectItem>
+                            <SelectItem key={client.id} value={client.razonSocial}>{client.razonSocial}</SelectItem>
                             ))}
                         </SelectContent>
                     </Select>
