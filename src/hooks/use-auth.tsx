@@ -13,6 +13,7 @@ const userDisplayNameMap: Record<string, string> = {
   'logistica@frioalimentaria.com.co': 'Flor Simanca',
   'facturacion@frioalimentaria.com.co': 'Daniela Díaz',
   'procesos@frioalimentaria.com.co': 'Suri Lambraño',
+  'sistemas@frioalimentaria.com.co': 'Cristian Jaramillo',
 };
 
 type AuthContextType = {
