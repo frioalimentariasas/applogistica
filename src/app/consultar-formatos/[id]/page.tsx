@@ -9,11 +9,13 @@ import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 
 export default async function ReportPage({ params }: { params: { id: string } }) {
-  if (!params.id) {
+  const { id } = params;
+  
+  if (!id) {
     notFound();
   }
   
-  const submission = await getSubmissionById(params.id);
+  const submission = await getSubmissionById(id);
 
   if (!submission) {
     return (
