@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 import { useAuth } from "@/hooks/use-auth";
+import { getClients } from "@/app/actions/clients";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -96,7 +97,6 @@ const formSchema = z.object({
 
 
 // Mock data for selects
-const clientes = ["Cliente A", "Cliente B", "Cliente C"];
 const muelles = ["Muelle 1", "Muelle 2", "Muelle 3", "Muelle 4", "Muelle 5", "Muelle 6"];
 const coordinadores = ["Cristian Acuña", "Sergio Padilla"];
 const productosExistentes = [
@@ -113,6 +113,7 @@ export default function FixedWeightFormComponent() {
   const { toast } = useToast();
   const { displayName } = useAuth();
   
+  const [clientes, setClientes] = useState<string[]>([]);
   const [attachments, setAttachments] = useState<string[]>([]);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -167,6 +168,11 @@ export default function FixedWeightFormComponent() {
 
 
   useEffect(() => {
+    const fetchClients = async () => {
+      const clientList = await getClients();
+      setClientes(clientList);
+    };
+    fetchClients();
     window.scrollTo(0, 0);
   }, []);
 
@@ -315,20 +321,62 @@ export default function FixedWeightFormComponent() {
                   )}/>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <FormField control={form.control} name="nombreCliente" render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Nombre del Cliente</FormLabel>
-                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                            <SelectTrigger><SelectValue placeholder="Seleccionar cliente..." /></SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                            {clientes.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}
-                        </SelectContent>
-                        </Select>
-                        <FormMessage />
-                    </FormItem>
-                    )}/>
+                    <FormField
+                      control={form.control}
+                      name="nombreCliente"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-col">
+                          <FormLabel>Nombre del Cliente</FormLabel>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <FormControl>
+                                <Button
+                                  variant="outline"
+                                  role="combobox"
+                                  className={cn(
+                                    "w-full justify-between",
+                                    !field.value && "text-muted-foreground"
+                                  )}
+                                >
+                                  {field.value || "Seleccionar cliente..."}
+                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                              </FormControl>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                              <Command>
+                                <CommandInput placeholder="Buscar cliente..." />
+                                <CommandList>
+                                  <CommandEmpty>Ningún cliente encontrado.</CommandEmpty>
+                                  <CommandGroup>
+                                    {clientes.map((cliente) => (
+                                      <CommandItem
+                                        value={cliente}
+                                        key={cliente}
+                                        onSelect={() => {
+                                          form.setValue("nombreCliente", cliente);
+                                        }}
+                                      >
+                                        <CheckIcon
+                                          className={cn(
+                                            "mr-2 h-4 w-4",
+                                            cliente === field.value
+                                              ? "opacity-100"
+                                              : "opacity-0"
+                                          )}
+                                        />
+                                        {cliente}
+                                      </CommandItem>
+                                    ))}
+                                  </CommandGroup>
+                                </CommandList>
+                              </Command>
+                            </PopoverContent>
+                          </Popover>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                     <FormField control={form.control} name="fecha" render={({ field }) => (
                       <FormItem>
                         <FormLabel>Fecha</FormLabel>

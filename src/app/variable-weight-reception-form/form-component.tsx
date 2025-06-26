@@ -11,6 +11,7 @@ import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 import { useAuth } from "@/hooks/use-auth";
+import { getClients } from "@/app/actions/clients";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -29,6 +30,19 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -42,6 +56,8 @@ import {
     RotateCcw,
     FileText,
     Edit2,
+    ChevronsUpDown,
+    CheckIcon,
 } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -92,7 +108,6 @@ const formSchema = z.object({
 });
 
 // Mock Data
-const clientes = ["Cliente A", "Cliente B", "Cliente C"];
 const coordinadores = ["Cristian Acuña", "Sergio Padilla"];
 const presentaciones = ["Cajas", "Sacos", "Canastillas"];
 
@@ -180,6 +195,7 @@ export default function VariableWeightReceptionFormComponent() {
   const { toast } = useToast();
   const { displayName } = useAuth();
 
+  const [clientes, setClientes] = useState<string[]>([]);
   const [attachments, setAttachments] = useState<string[]>([]);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -262,6 +278,11 @@ export default function VariableWeightReceptionFormComponent() {
   const showSummary = (watchedItems || []).some(item => item && item.descripcion && item.descripcion.trim() !== '');
 
   useEffect(() => {
+    const fetchClients = async () => {
+        const clientList = await getClients();
+        setClientes(clientList);
+    };
+    fetchClients();
     window.scrollTo(0, 0);
   }, []);
 
@@ -410,16 +431,62 @@ export default function VariableWeightReceptionFormComponent() {
                             <FormMessage />
                           </FormItem>
                       )}/>
-                      <FormField control={control} name="cliente" render={({ field }) => (
-                          <FormItem>
+                      <FormField
+                        control={control}
+                        name="cliente"
+                        render={({ field }) => (
+                            <FormItem className="flex flex-col">
                             <FormLabel>Cliente</FormLabel>
-                            <Select onValueChange={field.onChange} defaultValue={field.value}>
-                              <FormControl><SelectTrigger><SelectValue placeholder="Seleccionar cliente..." /></SelectTrigger></FormControl>
-                              <SelectContent>{clientes.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent>
-                            </Select>
+                            <Popover>
+                                <PopoverTrigger asChild>
+                                <FormControl>
+                                    <Button
+                                    variant="outline"
+                                    role="combobox"
+                                    className={cn(
+                                        "w-full justify-between",
+                                        !field.value && "text-muted-foreground"
+                                    )}
+                                    >
+                                    {field.value || "Seleccionar cliente..."}
+                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    </Button>
+                                </FormControl>
+                                </PopoverTrigger>
+                                <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                <Command>
+                                    <CommandInput placeholder="Buscar cliente..." />
+                                    <CommandList>
+                                    <CommandEmpty>Ningún cliente encontrado.</CommandEmpty>
+                                    <CommandGroup>
+                                        {clientes.map((cliente) => (
+                                        <CommandItem
+                                            value={cliente}
+                                            key={cliente}
+                                            onSelect={() => {
+                                            form.setValue("cliente", cliente);
+                                            }}
+                                        >
+                                            <CheckIcon
+                                            className={cn(
+                                                "mr-2 h-4 w-4",
+                                                cliente === field.value
+                                                ? "opacity-100"
+                                                : "opacity-0"
+                                            )}
+                                            />
+                                            {cliente}
+                                        </CommandItem>
+                                        ))}
+                                    </CommandGroup>
+                                    </CommandList>
+                                </Command>
+                                </PopoverContent>
+                            </Popover>
                             <FormMessage />
-                          </FormItem>
-                      )}/>
+                            </FormItem>
+                        )}
+                        />
                       <FormItem>
                           <FormLabel>Operario Logístico</FormLabel>
                           <FormControl><Input disabled value={displayName || ''} /></FormControl>
