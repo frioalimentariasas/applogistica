@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 
-import { searchSubmissions, SubmissionResult, SearchCriteria } from '@/app/actions/consultar-formatos';
+import { searchSubmissions, SubmissionResult, SearchCriteria, deleteSubmission } from '@/app/actions/consultar-formatos';
 import { useToast } from '@/hooks/use-toast';
 
 import { Button } from '@/components/ui/button';
@@ -17,8 +17,19 @@ import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, Search, XCircle, Loader2, FileSearch, Eye } from 'lucide-react';
+import { ArrowLeft, Search, XCircle, Loader2, FileSearch, Eye, Edit, Trash2 } from 'lucide-react';
 import { CalendarIcon } from 'lucide-react';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 export default function ConsultarFormatosComponent() {
     const router = useRouter();
@@ -32,7 +43,9 @@ export default function ConsultarFormatosComponent() {
     const [date, setDate] = useState<Date | undefined>(undefined);
     const [results, setResults] = useState<SubmissionResult[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
     const [searched, setSearched] = useState(false);
+    const [submissionToDelete, setSubmissionToDelete] = useState<SubmissionResult | null>(null);
 
     const handleSearch = async () => {
         setIsLoading(true);
@@ -75,6 +88,26 @@ export default function ConsultarFormatosComponent() {
         setResults([]);
         setSearched(false);
     };
+
+    const handleConfirmDelete = async () => {
+        if (!submissionToDelete) return;
+        setIsDeleting(true);
+        try {
+            const result = await deleteSubmission(submissionToDelete.id);
+            if (result.success) {
+                toast({ title: 'Éxito', description: result.message });
+                setResults(prev => prev.filter(r => r.id !== submissionToDelete.id));
+            } else {
+                throw new Error(result.message);
+            }
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "Ocurrió un error desconocido.";
+            toast({ variant: 'destructive', title: 'Error al eliminar', description: errorMessage });
+        } finally {
+            setIsDeleting(false);
+            setSubmissionToDelete(null);
+        }
+    };
     
     const getFormTypeName = (formType: string) => {
         if (formType.startsWith('fixed-weight-')) return 'Peso Fijo';
@@ -86,6 +119,23 @@ export default function ConsultarFormatosComponent() {
         if (formType.includes('recepcion')) return 'Recepción';
         if (formType.includes('despacho')) return 'Despacho';
         return 'N/A';
+    };
+
+    const getEditUrl = (submission: SubmissionResult) => {
+        const { id, formType } = submission;
+        const operation = formType.includes('recepcion') ? 'recepcion' : 'despacho';
+        
+        if (formType.startsWith('fixed-weight-')) {
+            return `/fixed-weight-form?operation=${operation}&id=${id}`;
+        }
+        if (formType.startsWith('variable-weight-reception')) {
+            return `/variable-weight-reception-form?operation=${operation}&id=${id}`;
+        }
+        if (formType.startsWith('variable-weight-despacho')) {
+            return `/variable-weight-form?operation=${operation}&id=${id}`;
+        }
+        
+        return `/consultar-formatos`;
     };
 
     return (
@@ -209,12 +259,24 @@ export default function ConsultarFormatosComponent() {
                                                 <TableCell>{sub.formData.nombreCliente || sub.formData.cliente}</TableCell>
                                                 <TableCell>{sub.userDisplayName}</TableCell>
                                                 <TableCell className="text-right">
-                                                    <Button asChild variant="ghost" size="icon">
-                                                        <Link href={`/consultar-formatos/${sub.id}`}>
-                                                            <Eye className="h-4 w-4" />
-                                                            <span className="sr-only">Ver detalles</span>
-                                                        </Link>
-                                                    </Button>
+                                                    <div className="flex items-center justify-end gap-2">
+                                                        <Button asChild variant="ghost" size="icon" title="Ver Detalle">
+                                                            <Link href={`/consultar-formatos/${sub.id}`}>
+                                                                <Eye className="h-4 w-4" />
+                                                                <span className="sr-only">Ver detalles</span>
+                                                            </Link>
+                                                        </Button>
+                                                        <Button asChild variant="ghost" size="icon" title="Editar">
+                                                            <Link href={getEditUrl(sub)}>
+                                                                <Edit className="h-4 w-4 text-blue-600" />
+                                                                <span className="sr-only">Editar</span>
+                                                            </Link>
+                                                        </Button>
+                                                        <Button variant="ghost" size="icon" title="Eliminar" onClick={() => setSubmissionToDelete(sub)}>
+                                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                                            <span className="sr-only">Eliminar</span>
+                                                        </Button>
+                                                    </div>
                                                 </TableCell>
                                             </TableRow>
                                         ))
@@ -231,6 +293,28 @@ export default function ConsultarFormatosComponent() {
                     </CardContent>
                 </Card>
             </div>
+            
+            <AlertDialog open={!!submissionToDelete} onOpenChange={(open) => !open && setSubmissionToDelete(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                    <AlertDialogTitle>¿Está seguro que desea eliminar este formato?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        Esta acción no se puede deshacer. Se eliminará permanentemente el registro del formulario y todos los archivos adjuntos asociados.
+                    </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                    <AlertDialogCancel onClick={() => setSubmissionToDelete(null)}>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction 
+                        onClick={handleConfirmDelete} 
+                        disabled={isDeleting}
+                        className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                    >
+                        {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                        Eliminar
+                    </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }

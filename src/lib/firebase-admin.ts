@@ -13,6 +13,8 @@ if (!admin.apps.length) {
 
         admin.initializeApp({
           credential: admin.credential.cert(serviceAccount),
+          // Add storage bucket for admin operations
+          storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET
         });
     }
   } catch (error) {
@@ -21,5 +23,8 @@ if (!admin.apps.length) {
 }
 
 const firestore = admin.apps.length ? admin.firestore() : null;
+// Get storage instance
+const storage = admin.apps.length ? admin.storage() : null;
 
-export { firestore };
+
+export { firestore, storage };

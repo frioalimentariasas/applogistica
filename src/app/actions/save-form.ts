@@ -10,9 +10,13 @@ export interface FormSubmissionData {
   formData: any; // The whole form data object
   attachmentUrls: string[];
   createdAt: string;
+  updatedAt?: string; // New field for updates
 }
 
-export async function saveForm(data: FormSubmissionData): Promise<{ success: boolean; message: string; formId?: string }> {
+export async function saveForm(
+    data: Omit<FormSubmissionData, 'createdAt' | 'updatedAt'> & { createdAt?: string },
+    formIdToUpdate?: string
+): Promise<{ success: boolean; message: string; formId?: string }> {
   if (!firestore) {
     return { 
       success: false, 
@@ -21,14 +25,26 @@ export async function saveForm(data: FormSubmissionData): Promise<{ success: boo
   }
 
   try {
-    const submissionData = {
-        ...data,
-        createdAt: new Date().toISOString(),
-    };
+    if (formIdToUpdate) {
+        // This is an update
+        const submissionData = {
+            ...data,
+            updatedAt: new Date().toISOString(),
+        };
+        const docRef = firestore.collection('submissions').doc(formIdToUpdate);
+        await docRef.set(submissionData, { merge: true });
+        return { success: true, message: 'Formulario actualizado con éxito.', formId: formIdToUpdate };
 
-    const docRef = await firestore.collection('submissions').add(submissionData);
+    } else {
+        // This is a new submission
+        const submissionData = {
+            ...data,
+            createdAt: new Date().toISOString(),
+        };
+        const docRef = await firestore.collection('submissions').add(submissionData);
+        return { success: true, message: 'Formulario guardado con éxito.', formId: docRef.id };
+    }
 
-    return { success: true, message: 'Formulario guardado con éxito.', formId: docRef.id };
   } catch (error) {
     console.error('Error al guardar el formulario en Firestore:', error);
     if (error instanceof Error) {

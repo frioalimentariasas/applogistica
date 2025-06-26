@@ -18,6 +18,7 @@ import { saveForm } from "@/app/actions/save-form";
 import { storage } from "@/lib/firebase";
 import { ref, uploadString, getDownloadURL } from "firebase/storage";
 import { optimizeImage } from "@/lib/image-optimizer";
+import { getSubmissionById, SubmissionResult } from "@/app/actions/consultar-formatos";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -110,6 +111,8 @@ export default function VariableWeightReceptionFormComponent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const operation = searchParams.get("operation") || "operación";
+  const submissionId = searchParams.get("id");
+
   const { toast } = useToast();
   const { user, displayName } = useAuth();
 
@@ -129,6 +132,8 @@ export default function VariableWeightReceptionFormComponent() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingForm, setIsLoadingForm] = useState(!!submissionId);
+  const [originalSubmission, setOriginalSubmission] = useState<SubmissionResult | null>(null);
 
   const filteredClients = useMemo(() => {
     if (!clientSearch) return clientes;
@@ -151,7 +156,7 @@ export default function VariableWeightReceptionFormComponent() {
       placa: "",
       precinto: "",
       setPoint: NaN,
-      items: [{ paleta: NaN, descripcion: "", lote: "", presentacion: "", cantidadPorPaleta: NaN, pesoBruto: NaN, taraEstiba: NaN, taraCaja: NaN, totalTaraCaja: NaN, pesoNeto: NaN }],
+      items: [],
       summary: [],
       horaInicio: "",
       horaFin: "",
@@ -173,7 +178,7 @@ export default function VariableWeightReceptionFormComponent() {
   });
 
   const formIdentifier = `variable-weight-${operation}`;
-  const { isRestoreDialogOpen, onRestore, onDiscard, onOpenChange, clearDraft } = useFormPersistence(formIdentifier, form, attachments, setAttachments);
+  const { isRestoreDialogOpen, onRestore, onDiscard, onOpenChange, clearDraft } = useFormPersistence(formIdentifier, form, attachments, setAttachments, !!submissionId);
 
 
   const calculatedSummaryForDisplay = useMemo(() => {
@@ -241,8 +246,51 @@ export default function VariableWeightReceptionFormComponent() {
         setClientes(clientList);
     };
     fetchClients();
+    if (!submissionId) {
+        form.reset({ ...form.getValues(), items: [{ paleta: NaN, descripcion: "", lote: "", presentacion: "", cantidadPorPaleta: NaN, pesoBruto: NaN, taraEstiba: NaN, taraCaja: NaN, totalTaraCaja: NaN, pesoNeto: NaN }]});
+    }
     window.scrollTo(0, 0);
-  }, []);
+  }, [submissionId, form]);
+
+  useEffect(() => {
+    const loadSubmissionData = async () => {
+      if (!submissionId) {
+        setIsLoadingForm(false);
+        return;
+      }
+      setIsLoadingForm(true);
+      try {
+        const submission = await getSubmissionById(submissionId);
+        if (submission) {
+          setOriginalSubmission(submission);
+          const formData = submission.formData;
+          // Convert date string back to Date object for the form
+          if (formData.fecha && typeof formData.fecha === 'string') {
+            formData.fecha = new Date(formData.fecha);
+          }
+          form.reset(formData);
+          // Set attachments, which are URLs in this case
+          setAttachments(submission.attachmentUrls);
+
+          // Pre-load articulos for the client
+          if (formData.cliente) {
+            setIsLoadingArticulos(true);
+            const fetchedArticulos = await getArticulosByClient(formData.cliente);
+            setArticulos(fetchedArticulos.map(a => ({ value: a.codigoProducto, label: a.denominacionArticulo })));
+            setIsLoadingArticulos(false);
+          }
+        } else {
+          toast({ variant: 'destructive', title: 'Error', description: 'No se encontró el formulario para editar.' });
+          router.push('/consultar-formatos');
+        }
+      } catch (error) {
+        toast({ variant: 'destructive', title: 'Error', description: 'No se pudo cargar el formulario.' });
+      } finally {
+        setIsLoadingForm(false);
+      }
+    };
+    loadSubmissionData();
+  }, [submissionId, form, router, toast, setAttachments]);
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
@@ -400,28 +448,37 @@ export default function VariableWeightReceptionFormComponent() {
         });
         const dataWithFinalSummary = { ...data, summary: finalSummary };
 
-        const attachmentUrls: string[] = [];
-        for (const attachment of attachments) {
-            const fileName = `submission-${Date.now()}-${Math.random().toString(36).substring(2)}.jpg`;
-            const storageRef = ref(storage, `attachments/${user.uid}/${fileName}`);
-            const base64String = attachment.split(',')[1];
-            const snapshot = await uploadString(storageRef, base64String, 'base64', { contentType: 'image/jpeg' });
-            const downloadURL = await getDownloadURL(snapshot.ref);
-            attachmentUrls.push(downloadURL);
-        }
+        const newAttachmentsBase64 = attachments.filter(a => a.startsWith('data:image'));
+        const existingAttachmentUrls = attachments.filter(a => a.startsWith('http'));
 
-        const result = await saveForm({
+        const uploadedUrls = await Promise.all(
+            newAttachmentsBase64.map(async (base64) => {
+                const fileName = `submission-${Date.now()}-${Math.random().toString(36).substring(2)}.jpg`;
+                const storageRef = ref(storage, `attachments/${user.uid}/${fileName}`);
+                const base64String = base64.split(',')[1];
+                const snapshot = await uploadString(storageRef, base64String, 'base64', { contentType: 'image/jpeg' });
+                return getDownloadURL(snapshot.ref);
+            })
+        );
+        
+        const finalAttachmentUrls = [...existingAttachmentUrls, ...uploadedUrls];
+
+        const submissionData = {
             userId: user.uid,
             userDisplayName: displayName || 'N/A',
             formType: `variable-weight-${operation}`,
             formData: dataWithFinalSummary,
-            attachmentUrls: attachmentUrls,
-            createdAt: new Date().toISOString(),
-        });
+            attachmentUrls: finalAttachmentUrls,
+            createdAt: originalSubmission?.createdAt,
+        };
+
+        const result = await saveForm(submissionData, submissionId ?? undefined);
 
         if (result.success) {
-            toast({ title: "Formulario Guardado", description: "La recepción de peso variable ha sido guardada." });
-            await clearDraft();
+            toast({ title: "Formulario Guardado", description: `La recepción de peso variable ha sido ${submissionId ? 'actualizada' : 'guardada'}.` });
+            if (!submissionId) { // Only clear draft for new forms
+                await clearDraft();
+            }
             router.push('/');
         } else {
             throw new Error(result.message);
@@ -433,6 +490,17 @@ export default function VariableWeightReceptionFormComponent() {
     } finally {
         setIsSubmitting(false);
     }
+  }
+  
+  const title = `${submissionId ? 'Editando' : 'Formato de'} Recepción - Peso Variable`;
+
+  if (isLoadingForm) {
+      return (
+          <div className="flex min-h-screen w-full items-center justify-center">
+              <Loader2 className="h-12 w-12 animate-spin text-primary" />
+              <p className="ml-4 text-lg">Cargando formulario...</p>
+          </div>
+      );
   }
 
   return (
@@ -446,13 +514,13 @@ export default function VariableWeightReceptionFormComponent() {
         <div className="max-w-6xl mx-auto">
           <header className="mb-8">
             <div className="relative flex items-center justify-center text-center">
-              <Button variant="ghost" size="icon" className="absolute left-0 top-1/2 -translate-y-1/2" onClick={() => router.push('/')}>
+              <Button variant="ghost" size="icon" className="absolute left-0 top-1/2 -translate-y-1/2" onClick={() => router.push(submissionId ? '/consultar-formatos' : '/')}>
                 <ArrowLeft className="h-6 w-6" />
               </Button>
               <div>
                 <div className="flex items-center justify-center gap-2">
                     <FileText className="h-8 w-8 text-primary"/>
-                    <h1 className="text-2xl font-bold text-primary">Formato de Recepción - Peso Variable</h1>
+                    <h1 className="text-2xl font-bold text-primary">{title}</h1>
                 </div>
                 <p className="text-sm text-gray-500">Complete todos los campos requeridos para registrar la operación.</p>
               </div>

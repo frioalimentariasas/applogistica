@@ -11,7 +11,8 @@ export function useFormPersistence<T extends FieldValues>(
     formIdentifier: string, 
     form: ReturnType<typeof useForm<T>>,
     attachments: string[], 
-    setAttachments: (attachments: string[] | ((prev: string[]) => string[])) => void
+    setAttachments: (attachments: string[] | ((prev: string[]) => string[])) => void,
+    isEditMode = false // New parameter to disable this hook when editing
 ) {
     const { user } = useAuth();
     const { watch, reset, formState: { defaultValues } } = form;
@@ -31,27 +32,32 @@ export function useFormPersistence<T extends FieldValues>(
     // Save form data to localStorage on change
     useEffect(() => {
         const storageKey = getStorageKey();
-        if (!storageKey || typeof window === 'undefined' || !draftCheckComplete) return;
+        if (isEditMode || !storageKey || typeof window === 'undefined' || !draftCheckComplete) return;
 
         const subscription = watch((value) => {
             localStorage.setItem(storageKey, JSON.stringify(value));
         });
         return () => subscription.unsubscribe();
-    }, [watch, getStorageKey, draftCheckComplete]);
+    }, [watch, getStorageKey, draftCheckComplete, isEditMode]);
 
     // Save attachments to IndexedDB on change
     useEffect(() => {
         const storageKey = getStorageKey();
-        if (!storageKey || !draftCheckComplete) return;
+        if (isEditMode || !storageKey || !draftCheckComplete) return;
 
         const attachmentsKey = `${storageKey}-attachments`;
         idb.set(attachmentsKey, attachments).catch(err => {
             console.error("Failed to save attachments to IndexedDB", err);
         });
-    }, [attachments, getStorageKey, draftCheckComplete]);
+    }, [attachments, getStorageKey, draftCheckComplete, isEditMode]);
 
     // Check for saved data on mount
     useEffect(() => {
+        if (isEditMode) {
+            setDraftCheckComplete(true);
+            return;
+        }
+
         const storageKey = getStorageKey();
         if (!storageKey || typeof window === 'undefined') {
             setDraftCheckComplete(true); // Default to complete if no key
@@ -74,7 +80,7 @@ export function useFormPersistence<T extends FieldValues>(
 
         checkData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [getStorageKey]);
+    }, [getStorageKey, isEditMode]);
 
     const restoreDraft = useCallback(async () => {
         const storageKey = getStorageKey();

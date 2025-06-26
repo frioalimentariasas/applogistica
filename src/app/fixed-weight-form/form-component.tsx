@@ -18,6 +18,8 @@ import { saveForm } from "@/app/actions/save-form";
 import { storage } from "@/lib/firebase";
 import { ref, uploadString, getDownloadURL } from "firebase/storage";
 import { optimizeImage } from "@/lib/image-optimizer";
+import { getSubmissionById, SubmissionResult } from "@/app/actions/consultar-formatos";
+import { getImageAsBase64 } from "@/app/actions/image-proxy";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -104,6 +106,8 @@ export default function FixedWeightFormComponent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const operation = searchParams.get("operation") || "operación";
+  const submissionId = searchParams.get("id");
+
   const { toast } = useToast();
   const { user, displayName } = useAuth();
   
@@ -123,6 +127,9 @@ export default function FixedWeightFormComponent() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingForm, setIsLoadingForm] = useState(!!submissionId);
+  const [originalSubmission, setOriginalSubmission] = useState<SubmissionResult | null>(null);
+
 
   const filteredClients = useMemo(() => {
     if (!clientSearch) return clientes;
@@ -146,7 +153,7 @@ export default function FixedWeightFormComponent() {
       precinto: "",
       documentoTransporte: "",
       facturaRemision: "",
-      productos: [{ codigo: '', descripcion: '', cajas: NaN, paletas: NaN, temperatura: NaN }],
+      productos: [],
       nombreConductor: "",
       cedulaConductor: "",
       placa: "",
@@ -181,7 +188,7 @@ export default function FixedWeightFormComponent() {
   }, [productos]);
 
   const formIdentifier = `fixed-weight-${operation}`;
-  const { isRestoreDialogOpen, onRestore, onDiscard, onOpenChange, clearDraft } = useFormPersistence(formIdentifier, form, attachments, setAttachments);
+  const { isRestoreDialogOpen, onRestore, onDiscard, onOpenChange, clearDraft } = useFormPersistence(formIdentifier, form, attachments, setAttachments, !!submissionId);
 
 
   useEffect(() => {
@@ -190,8 +197,51 @@ export default function FixedWeightFormComponent() {
       setClientes(clientList);
     };
     fetchClients();
+    if (!submissionId) {
+        form.reset({ ...form.getValues(), productos: [{ codigo: '', descripcion: '', cajas: NaN, paletas: NaN, temperatura: NaN }]});
+    }
     window.scrollTo(0, 0);
-  }, []);
+  }, [submissionId, form]);
+
+  useEffect(() => {
+    const loadSubmissionData = async () => {
+      if (!submissionId) {
+        setIsLoadingForm(false);
+        return;
+      }
+      setIsLoadingForm(true);
+      try {
+        const submission = await getSubmissionById(submissionId);
+        if (submission) {
+          setOriginalSubmission(submission);
+          const formData = submission.formData;
+          // Convert date string back to Date object for the form
+          if (formData.fecha && typeof formData.fecha === 'string') {
+            formData.fecha = new Date(formData.fecha);
+          }
+          form.reset(formData);
+          // Set attachments, which are URLs in this case
+          setAttachments(submission.attachmentUrls);
+
+          // Pre-load articulos for the client
+          if (formData.nombreCliente) {
+            setIsLoadingArticulos(true);
+            const fetchedArticulos = await getArticulosByClient(formData.nombreCliente);
+            setArticulos(fetchedArticulos.map(a => ({ value: a.codigoProducto, label: a.denominacionArticulo })));
+            setIsLoadingArticulos(false);
+          }
+        } else {
+          toast({ variant: 'destructive', title: 'Error', description: 'No se encontró el formulario para editar.' });
+          router.push('/consultar-formatos');
+        }
+      } catch (error) {
+        toast({ variant: 'destructive', title: 'Error', description: 'No se pudo cargar el formulario.' });
+      } finally {
+        setIsLoadingForm(false);
+      }
+    };
+    loadSubmissionData();
+  }, [submissionId, form, router, toast, setAttachments]);
 
   
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -342,30 +392,37 @@ export default function FixedWeightFormComponent() {
     }
     setIsSubmitting(true);
     try {
-        const attachmentUrls: string[] = [];
-        for (const attachment of attachments) {
-            const fileName = `submission-${Date.now()}-${Math.random().toString(36).substring(2)}.jpg`;
-            const storageRef = ref(storage, `attachments/${user.uid}/${fileName}`);
-            const base64String = attachment.split(',')[1];
-            const snapshot = await uploadString(storageRef, base64String, 'base64', {
-                contentType: 'image/jpeg'
-            });
-            const downloadURL = await getDownloadURL(snapshot.ref);
-            attachmentUrls.push(downloadURL);
-        }
+        const newAttachmentsBase64 = attachments.filter(a => a.startsWith('data:image'));
+        const existingAttachmentUrls = attachments.filter(a => a.startsWith('http'));
 
-        const result = await saveForm({
+        const uploadedUrls = await Promise.all(
+            newAttachmentsBase64.map(async (base64) => {
+                const fileName = `submission-${Date.now()}-${Math.random().toString(36).substring(2)}.jpg`;
+                const storageRef = ref(storage, `attachments/${user.uid}/${fileName}`);
+                const base64String = base64.split(',')[1];
+                const snapshot = await uploadString(storageRef, base64String, 'base64', { contentType: 'image/jpeg' });
+                return getDownloadURL(snapshot.ref);
+            })
+        );
+        
+        const finalAttachmentUrls = [...existingAttachmentUrls, ...uploadedUrls];
+
+        const submissionData = {
             userId: user.uid,
             userDisplayName: displayName || 'N/A',
             formType: `fixed-weight-${operation}`,
             formData: data,
-            attachmentUrls: attachmentUrls,
-            createdAt: new Date().toISOString(),
-        });
+            attachmentUrls: finalAttachmentUrls,
+            createdAt: originalSubmission?.createdAt, // Pass original createdAt for updates
+        };
+        
+        const result = await saveForm(submissionData, submissionId ?? undefined);
 
         if (result.success) {
-            toast({ title: "Formulario Guardado", description: "El formato ha sido guardado y enviado correctamente." });
-            await clearDraft();
+            toast({ title: "Formulario Guardado", description: `El formato ha sido ${submissionId ? 'actualizado' : 'guardado'} correctamente.` });
+            if (!submissionId) { // Only clear draft for new forms
+                await clearDraft();
+            }
             router.push('/');
         } else {
             throw new Error(result.message);
@@ -379,7 +436,16 @@ export default function FixedWeightFormComponent() {
     }
   }
 
-  const title = `Formato de ${operation.charAt(0).toUpperCase() + operation.slice(1)} - Peso Fijo`;
+  const title = `${submissionId ? 'Editando' : 'Formato de'} ${operation.charAt(0).toUpperCase() + operation.slice(1)} - Peso Fijo`;
+
+  if (isLoadingForm) {
+      return (
+          <div className="flex min-h-screen w-full items-center justify-center">
+              <Loader2 className="h-12 w-12 animate-spin text-primary" />
+              <p className="ml-4 text-lg">Cargando formulario...</p>
+          </div>
+      );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
@@ -396,8 +462,8 @@ export default function FixedWeightFormComponent() {
                     variant="ghost" 
                     size="icon" 
                     className="absolute left-0 top-1/2 -translate-y-1/2" 
-                    onClick={() => router.push('/')}
-                    aria-label="Volver a la página principal"
+                    onClick={() => router.push(submissionId ? '/consultar-formatos' : '/')}
+                    aria-label="Volver"
                 >
                     <ArrowLeft className="h-6 w-6" />
                 </Button>

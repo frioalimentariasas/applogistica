@@ -2,7 +2,7 @@
 'use server';
 
 import admin from 'firebase-admin';
-import { firestore } from '@/lib/firebase-admin';
+import { firestore, storage } from '@/lib/firebase-admin';
 import type { FormSubmissionData } from './save-form';
 
 export interface SearchCriteria {
@@ -136,5 +136,73 @@ export async function getSubmissionById(id: string): Promise<SubmissionResult | 
     } catch (error) {
         console.error(`Error fetching submission with ID ${id}:`, error);
         return null;
+    }
+}
+
+export async function deleteSubmission(submissionId: string): Promise<{ success: boolean; message: string }> {
+    if (!firestore || !storage) {
+        console.error('Firebase Admin not initialized.');
+        return { success: false, message: 'El servidor no está configurado correctamente.' };
+    }
+
+    try {
+        const docRef = firestore.collection('submissions').doc(submissionId);
+        const doc = await docRef.get();
+
+        if (!doc.exists) {
+            // If document is already gone, consider it a success.
+            return { success: true, message: 'El formulario ya ha sido eliminado.' };
+        }
+
+        const submissionData = doc.data();
+        const attachmentUrls: string[] = submissionData?.attachmentUrls || [];
+
+        // Delete attachments from Storage
+        if (attachmentUrls.length > 0) {
+            const deletePromises = attachmentUrls.map(url => {
+                try {
+                    // Extract file path from the download URL
+                    // Example: https://firebasestorage.googleapis.com/v0/b/your-bucket.appspot.com/o/attachments%2F...
+                    // The path is the part after /o/ and before ?alt=media
+                    const decodedUrl = decodeURIComponent(url);
+                    const pathStartIndex = decodedUrl.indexOf('/o/') + 3;
+                    if (pathStartIndex === 2) { // URL format is not as expected
+                        console.warn(`Invalid storage URL format, cannot delete: ${url}`);
+                        return Promise.resolve();
+                    }
+                    
+                    const pathEndIndex = decodedUrl.indexOf('?');
+                    const filePath = pathEndIndex === -1 
+                        ? decodedUrl.substring(pathStartIndex)
+                        : decodedUrl.substring(pathStartIndex, pathEndIndex);
+
+                    if (filePath) {
+                        return storage.bucket().file(filePath).delete().catch(err => {
+                            // Log error if a single file fails but don't stop the process
+                            // This can happen if the file was already deleted manually (e.g. error code 404)
+                            if (err.code !== 404) {
+                                console.error(`Failed to delete file ${filePath}:`, err.message);
+                            }
+                        });
+                    }
+                } catch(e) {
+                    console.error(`Could not process URL ${url} for deletion:`, e);
+                }
+                return Promise.resolve(); // Return resolved promise for invalid URLs
+            });
+    
+            await Promise.all(deletePromises);
+        }
+
+        // Delete submission from Firestore
+        await docRef.delete();
+
+        return { success: true, message: 'Formulario eliminado correctamente.' };
+    } catch (error) {
+        console.error(`Error deleting submission ${submissionId}:`, error);
+        if (error instanceof Error) {
+            return { success: false, message: `Error del servidor: ${error.message}` };
+        }
+        return { success: false, message: 'No se pudo eliminar el formulario.' };
     }
 }
