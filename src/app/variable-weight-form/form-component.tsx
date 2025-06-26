@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useForm, useFieldArray, Controller } from "react-hook-form";
+import { useForm, useFieldArray, Controller, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format } from "date-fns";
@@ -32,19 +32,12 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import {
     ArrowLeft,
-    Clock,
     Trash2,
     PlusCircle,
     UploadCloud,
@@ -52,12 +45,11 @@ import {
     Send,
     RotateCcw,
     ChevronsUpDown,
-    Check,
     FileText,
     Edit2
 } from "lucide-react";
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
 
 const itemSchema = z.object({
@@ -68,6 +60,13 @@ const itemSchema = z.object({
   cantidadPorPaleta: z.coerce.number().int().min(0, "Debe ser un número no negativo."),
   pesoNeto: z.coerce.number().min(0, "Debe ser un número no negativo."),
 });
+
+const summaryItemSchema = z.object({
+    descripcion: z.string(),
+    temperatura: z.coerce.number({ required_error: "La temperatura es requerida.", invalid_type_error: "La temperatura es requerida." }),
+    totalPeso: z.number(),
+    totalCantidad: z.number(),
+  });
 
 const formSchema = z.object({
     pedidoSislog: z.string()
@@ -86,6 +85,7 @@ const formSchema = z.object({
     precinto: z.string().min(1, "El precinto es obligatorio."),
     setPoint: z.number({required_error: "El Set Point es requerido.", invalid_type_error: "El Set Point es requerido."}).min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99."),
     items: z.array(itemSchema).min(1, "Debe agregar al menos un item."),
+    summary: z.array(summaryItemSchema).optional(),
     horaInicio: z.string().min(1, "La hora de inicio es obligatoria.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
     horaFin: z.string().min(1, "La hora de fin es obligatoria.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
     observaciones: z.string().max(250, "Máximo 250 caracteres.").optional(),
@@ -143,6 +143,7 @@ export default function VariableWeightFormComponent() {
       precinto: "",
       setPoint: NaN,
       items: [{ paleta: 0, descripcion: '', lote: '', presentacion: '', cantidadPorPaleta: 0, pesoNeto: 0 }],
+      summary: [],
       horaInicio: "",
       horaFin: "",
       observaciones: "",
@@ -154,6 +155,55 @@ export default function VariableWeightFormComponent() {
     control: form.control,
     name: "items",
   });
+
+  const { fields: summaryFields } = useFieldArray({
+    control: form.control,
+    name: "summary"
+  });
+
+  const watchedItems = useWatch({ control: form.control, name: "items" });
+  
+  const calculatedSummaryForDisplay = useMemo(() => {
+    const grouped = (watchedItems || []).reduce((acc, item) => {
+        if (!item?.descripcion?.trim()) return acc;
+        const desc = item.descripcion.trim();
+
+        const cantidad = Number(item.cantidadPorPaleta) || 0;
+        const pesoNeto = Number(item.pesoNeto) || 0;
+
+        if (!acc[desc]) {
+            acc[desc] = {
+                descripcion: desc,
+                totalPeso: 0,
+                totalCantidad: 0,
+            };
+        }
+
+        acc[desc].totalPeso += isNaN(pesoNeto) ? 0 : pesoNeto;
+        acc[desc].totalCantidad += cantidad;
+        
+        return acc;
+    }, {} as Record<string, { descripcion: string; totalPeso: number; totalCantidad: number }>);
+
+    return Object.values(grouped);
+  }, [watchedItems]);
+
+  useEffect(() => {
+      const currentSummaryInForm = form.getValues('summary') || [];
+      const newSummaryState = calculatedSummaryForDisplay.map(newItem => {
+          const existingItem = currentSummaryInForm.find(oldItem => oldItem.descripcion === newItem.descripcion);
+          return {
+              ...newItem,
+              temperatura: existingItem?.temperatura,
+          };
+      });
+      if (JSON.stringify(newSummaryState) !== JSON.stringify(currentSummaryInForm)) {
+        form.setValue('summary', newSummaryState, { shouldValidate: true });
+      }
+  }, [calculatedSummaryForDisplay, form]);
+
+  const showSummary = (watchedItems || []).some(item => item && item.descripcion && item.descripcion.trim() !== '');
+
 
   const handleAddItem = () => {
     const items = form.getValues('items');
@@ -271,7 +321,16 @@ export default function VariableWeightFormComponent() {
 
 
   function onSubmit(data: z.infer<typeof formSchema>) {
-    console.log(data);
+    const finalSummary = calculatedSummaryForDisplay.map(summaryItem => {
+        const formItem = (data.summary || []).find(s => s.descripcion === summaryItem.descripcion);
+        return {
+            ...summaryItem,
+            temperatura: formItem?.temperatura as number,
+        }
+      });
+  
+      const dataToSubmit = { ...data, summary: finalSummary, attachments };
+      console.log(dataToSubmit);
     toast({
       title: "Formulario Guardado",
       description: `El formato de ${operation} de peso variable ha sido guardado y enviado correctamente.`,
@@ -326,17 +385,12 @@ export default function VariableWeightFormComponent() {
                           render={({ field }) => (
                               <FormItem className="flex flex-col">
                                 <FormLabel>Cliente</FormLabel>
-                                <Dialog open={isClientDialogOpen} onOpenChange={(isOpen) => {
-                                    if (!isOpen) setClientSearch('');
-                                    setClientDialogOpen(isOpen);
-                                }}>
+                                <Dialog open={isClientDialogOpen} onOpenChange={setClientDialogOpen}>
                                     <DialogTrigger asChild>
-                                        <FormControl>
-                                            <Button variant="outline" role="combobox" className="w-full justify-between text-left font-normal">
-                                                {field.value || "Seleccione un cliente..."}
-                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                            </Button>
-                                        </FormControl>
+                                        <Button variant="outline" className="w-full justify-between text-left font-normal">
+                                            {field.value || "Seleccione un cliente..."}
+                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                        </Button>
                                     </DialogTrigger>
                                     <DialogContent className="sm:max-w-[425px]">
                                         <DialogHeader>
@@ -357,7 +411,7 @@ export default function VariableWeightFormComponent() {
                                                             variant="ghost"
                                                             className="w-full justify-start"
                                                             onClick={async () => {
-                                                                field.onChange(cliente);
+                                                                form.setValue('cliente', cliente);
                                                                 setClientDialogOpen(false);
                                                                 setClientSearch('');
                                                                 
@@ -468,60 +522,53 @@ export default function VariableWeightFormComponent() {
                                 <FormField control={form.control} name={`items.${index}.descripcion`} render={({ field }) => (
                                     <FormItem className="md:col-span-2">
                                     <FormLabel>Descripción del Producto</FormLabel>
-                                     <Dialog open={productDialogIndex === index} onOpenChange={(isOpen) => {
-                                        if (!isOpen) {
-                                            setProductSearch('');
-                                        }
-                                        setProductDialogIndex(isOpen ? index : null);
-                                    }}>
-                                        <DialogTrigger asChild>
-                                            <FormControl>
-                                                <Button variant="outline" role="combobox" className={cn("w-full justify-between text-left font-normal", !field.value && "text-muted-foreground")}>
-                                                {field.value ? field.value : "Seleccionar producto..."}
-                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                        <Dialog open={productDialogIndex === index} onOpenChange={(isOpen) => setProductDialogIndex(isOpen ? index : null)}>
+                                            <DialogTrigger asChild>
+                                                <Button variant="outline" className="w-full justify-between text-left font-normal">
+                                                    {field.value || "Seleccionar producto..."}
+                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                                 </Button>
-                                            </FormControl>
-                                        </DialogTrigger>
-                                        <DialogContent>
-                                            <DialogHeader>
-                                                <DialogTitle>Seleccionar Producto</DialogTitle>
-                                            </DialogHeader>
-                                            {!form.getValues('cliente') ? (
-                                                <div className="p-4 text-center text-muted-foreground">
-                                                    Debe escoger primero un cliente.
-                                                </div>
-                                            ) : (
-                                                <>
-                                                    <Input
-                                                        placeholder="Buscar producto..."
-                                                        value={productSearch}
-                                                        onChange={(e) => setProductSearch(e.target.value)}
-                                                        className="mb-4"
-                                                    />
-                                                    <ScrollArea className="h-72">
-                                                        <div className="space-y-1">
-                                                            {isLoadingArticulos && <p className="text-center text-sm text-muted-foreground">Cargando...</p>}
-                                                            {!isLoadingArticulos && filteredArticulos.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron productos.</p>}
-                                                            {filteredArticulos.map((p, i) => (
-                                                                <Button
-                                                                    key={`${p.value}-${i}`}
-                                                                    variant="ghost"
-                                                                    className="w-full justify-start h-auto text-wrap"
-                                                                    onClick={() => {
-                                                                        field.onChange(p.label);
-                                                                        setProductDialogIndex(null);
-                                                                        setProductSearch("");
-                                                                    }}
-                                                                >
-                                                                    {p.label}
-                                                                </Button>
-                                                            ))}
-                                                        </div>
-                                                    </ScrollArea>
-                                                </>
-                                            )}
-                                        </DialogContent>
-                                    </Dialog>
+                                            </DialogTrigger>
+                                            <DialogContent>
+                                                <DialogHeader>
+                                                    <DialogTitle>Seleccionar Producto</DialogTitle>
+                                                </DialogHeader>
+                                                {!form.getValues('cliente') ? (
+                                                    <div className="p-4 text-center text-muted-foreground">
+                                                        Debe escoger primero un cliente.
+                                                    </div>
+                                                ) : (
+                                                    <>
+                                                        <Input
+                                                            placeholder="Buscar producto..."
+                                                            value={productSearch}
+                                                            onChange={(e) => setProductSearch(e.target.value)}
+                                                            className="mb-4"
+                                                        />
+                                                        <ScrollArea className="h-72">
+                                                            <div className="space-y-1">
+                                                                {isLoadingArticulos && <p className="text-center text-sm text-muted-foreground">Cargando...</p>}
+                                                                {!isLoadingArticulos && filteredArticulos.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron productos.</p>}
+                                                                {filteredArticulos.map((p, i) => (
+                                                                    <Button
+                                                                        key={`${p.value}-${i}`}
+                                                                        variant="ghost"
+                                                                        className="w-full justify-start h-auto text-wrap"
+                                                                        onClick={() => {
+                                                                            field.onChange(p.label);
+                                                                            setProductDialogIndex(null);
+                                                                            setProductSearch("");
+                                                                        }}
+                                                                    >
+                                                                        {p.label}
+                                                                    </Button>
+                                                                ))}
+                                                            </div>
+                                                        </ScrollArea>
+                                                    </>
+                                                )}
+                                            </DialogContent>
+                                        </Dialog>
                                     <FormMessage />
                                     </FormItem>
                                 )}/>
@@ -574,6 +621,80 @@ export default function VariableWeightFormComponent() {
                 </Button>
               </CardContent>
             </Card>
+
+            {showSummary && (
+                <Card>
+                  <CardHeader>
+                      <CardTitle>Resumen Agrupado de Productos</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                      <div className="rounded-md border">
+                          <Table>
+                              <TableHeader>
+                                  <TableRow>
+                                      <TableHead className="w-[150px]">Temperatura (°C)</TableHead>
+                                      <TableHead>Producto</TableHead>
+                                      <TableHead className="text-right">Total Peso (kg)</TableHead>
+                                      <TableHead className="text-right">Cantidad Total</TableHead>
+                                  </TableRow>
+                              </TableHeader>
+                              <TableBody>
+                                  {calculatedSummaryForDisplay.length > 0 ? (
+                                      calculatedSummaryForDisplay.map((summaryItem) => {
+                                          const summaryIndex = summaryFields.findIndex(f => f.descripcion === summaryItem.descripcion);
+                                          return (
+                                          <TableRow key={summaryItem.descripcion}>
+                                              <TableCell>
+                                                  { summaryIndex > -1 ? (
+                                                      <FormField
+                                                          control={form.control}
+                                                          name={`summary.${summaryIndex}.temperatura`}
+                                                          render={({ field }) => (
+                                                              <FormItem>
+                                                                  <FormControl>
+                                                                      <Input type="number" placeholder="0" {...field} 
+                                                                          onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.valueAsNumber)} 
+                                                                          value={field.value === undefined || Number.isNaN(field.value) ? '' : field.value}
+                                                                      />
+                                                                  </FormControl>
+                                                                  <FormMessage />
+                                                              </FormItem>
+                                                          )}
+                                                      />
+                                                  ) : (
+                                                    <div className="h-10 w-full" />
+                                                  )}
+                                              </TableCell>
+                                              <TableCell className="font-medium">
+                                                <div className="bg-muted/50 p-2 rounded-md flex items-center h-10">
+                                                  {summaryItem.descripcion}
+                                                </div>
+                                              </TableCell>
+                                              <TableCell className="text-right">
+                                                <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
+                                                  {(summaryItem.totalPeso || 0).toFixed(2)}
+                                                </div>
+                                              </TableCell>
+                                              <TableCell className="text-right">
+                                                <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
+                                                  {summaryItem.totalCantidad || 0}
+                                                </div>
+                                              </TableCell>
+                                          </TableRow>
+                                      )})
+                                  ) : (
+                                      <TableRow>
+                                          <TableCell colSpan={4} className="h-24 text-center">
+                                              Agregue ítems para ver el resumen.
+                                          </TableCell>
+                                      </TableRow>
+                                  )}
+                              </TableBody>
+                          </Table>
+                      </div>
+                  </CardContent>
+                </Card>
+              )}
 
             {/* Time and Observations Card */}
             <Card>
@@ -707,5 +828,3 @@ export default function VariableWeightFormComponent() {
     </div>
   );
 }
-
-    
