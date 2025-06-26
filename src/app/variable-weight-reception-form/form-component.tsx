@@ -102,7 +102,7 @@ const formSchema = z.object({
     items: z.array(itemSchema).min(1, "Debe agregar al menos un item."),
     summary: z.array(summaryItemSchema).optional(),
     horaInicio: z.string().min(1, "La hora de inicio es requerida.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
-    horaFin: z.string().min(1, "La hora de fin es requerida.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
+    horaFin: z.string().min(1, "La hora de fin es obligatoria.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
     observaciones: z.string().max(250, "Máximo 250 caracteres.").optional(),
     coordinador: z.string().min(1, "Seleccione un coordinador."),
 });
@@ -464,8 +464,8 @@ export default function VariableWeightReceptionFormComponent() {
                                         <CommandItem
                                             value={cliente}
                                             key={cliente}
-                                            onSelect={(currentValue) => {
-                                                form.setValue("cliente", currentValue === field.value ? "" : currentValue);
+                                            onSelect={(value) => {
+                                                form.setValue("cliente", value);
                                                 setClientPopoverOpen(false);
                                             }}
                                         >
