@@ -174,15 +174,17 @@ export default function Home() {
                 Consultar Formatos Guardados
             </Button>
 
-            <Button variant="secondary" size="lg" className="w-full h-12 text-base" onClick={() => router.push('/upload-articulos')}>
-                <Box className="mr-2 h-5 w-5" />
-                Cargar Artículos (Excel)
-            </Button>
+            <div className="grid grid-cols-2 gap-4">
+                <Button variant="secondary" size="lg" className="w-full h-12 text-base" onClick={() => router.push('/upload-articulos')}>
+                    <Box className="mr-2 h-5 w-5" />
+                    Cargar Artículos (Excel)
+                </Button>
 
-            <Button variant="secondary" size="lg" className="w-full h-12 text-base" onClick={() => router.push('/upload-clientes')}>
-                <Users2 className="mr-2 h-5 w-5" />
-                Cargar Clientes (Excel)
-            </Button>
+                <Button variant="secondary" size="lg" className="w-full h-12 text-base" onClick={() => router.push('/upload-clientes')}>
+                    <Users2 className="mr-2 h-5 w-5" />
+                    Cargar Clientes (Excel)
+                </Button>
+            </div>
         </div>
 
         <div className="pt-4">
