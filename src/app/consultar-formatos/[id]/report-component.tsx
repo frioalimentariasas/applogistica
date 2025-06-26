@@ -44,6 +44,16 @@ const getImageAsBase64Client = async (url: string): Promise<string> => {
     }
 };
 
+const formatTime12Hour = (time24: string | undefined): string => {
+    if (!time24 || !time24.includes(':')) return 'N/A';
+    const [hours, minutes] = time24.split(':');
+    let h = parseInt(hours, 10);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12;
+    h = h ? h : 12; // the hour '0' should be '12'
+    return `${h}:${minutes} ${ampm}`;
+};
+
 
 export default function ReportComponent({ submission }: ReportComponentProps) {
     const [isDownloading, setIsDownloading] = useState(false);
@@ -162,7 +172,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     head: [[{ content: 'Información General', colSpan: 6, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]],
                     body: [
                         ['Pedido SISLOG:', formData.pedidoSislog || 'N/A', 'Nombre Cliente:', formData.nombreCliente || 'N/A', 'Factura/Remisión:', formData.facturaRemision || 'N/A'],
-                        ['Fecha:', formData.fecha ? format(new Date(formData.fecha), "dd/MM/yyyy") : 'N/A', `Hora Inicio ${operationTerm}:`, formData.horaInicio || 'N/A', `Hora Fin ${operationTerm}:`, formData.horaFin || 'N/A'],
+                        ['Fecha:', formData.fecha ? format(new Date(formData.fecha), "dd/MM/yyyy") : 'N/A', `Hora Inicio ${operationTerm}:`, formatTime12Hour(formData.horaInicio), `Hora Fin ${operationTerm}:`, formatTime12Hour(formData.horaFin)],
                         ['Precinto/Sello:', formData.precinto || 'N/A', 'Documento de Transporte:', formData.documentoTransporte || 'N/A', 'Operario:', userDisplayName || 'N/A']
                     ],
                     theme: 'grid', styles: { fontSize: 8, cellPadding: 4 },
@@ -228,7 +238,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         ['Pedido SISLOG:', formData.pedidoSislog || 'N/A', 'Cliente:', formData.cliente || 'N/A', 'Fecha:', formData.fecha ? format(new Date(formData.fecha), "dd/MM/yyyy") : 'N/A'],
                         ['Conductor:', formData.conductor || 'N/A', 'Cédula:', formData.cedulaConductor || 'N/A', 'Placa:', formData.placa || 'N/A'],
                         ['Precinto:', formData.precinto || 'N/A', 'Set Point (°C):', formData.setPoint || 'N/A', 'Operario:', userDisplayName || 'N/A'],
-                        [`Hora Inicio ${operationTerm}:`, formData.horaInicio || 'N/A', `Hora Fin ${operationTerm}:`, formData.horaFin || 'N/A', '', '']
+                        [`Hora Inicio ${operationTerm}:`, formatTime12Hour(formData.horaInicio), `Hora Fin ${operationTerm}:`, formatTime12Hour(formData.horaFin), '', '']
                     ], theme: 'grid', styles: { fontSize: 8, cellPadding: 4 },
                     columnStyles: {
                         0: { fontStyle: 'bold' },

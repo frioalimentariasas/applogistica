@@ -1,6 +1,16 @@
 
 import { format } from 'date-fns';
 
+const formatTime12Hour = (time24: string | undefined): string => {
+    if (!time24 || !time24.includes(':')) return 'N/A';
+    const [hours, minutes] = time24.split(':');
+    let h = parseInt(hours, 10);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12;
+    h = h ? h : 12; // the hour '0' should be '12'
+    return `${h}:${minutes} ${ampm}`;
+};
+
 const ReportSection = ({ title, children }: { title: string, children: React.ReactNode }) => (
     <div style={{ marginBottom: '12px' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #aaa', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
@@ -56,8 +66,8 @@ export function FixedWeightReport({ formData, userDisplayName, attachments, form
                         </tr>
                         <tr>
                             <td style={fieldCellStyle}><ReportField label="Fecha" value={formData.fecha ? format(new Date(formData.fecha), "dd/MM/yyyy") : 'N/A'} /></td>
-                            <td style={fieldCellStyle}><ReportField label={`Hora Inicio ${operationTerm}`} value={formData.horaInicio} /></td>
-                            <td style={fieldCellStyle}><ReportField label={`Hora Fin ${operationTerm}`} value={formData.horaFin} /></td>
+                            <td style={fieldCellStyle}><ReportField label={`Hora Inicio ${operationTerm}`} value={formatTime12Hour(formData.horaInicio)} /></td>
+                            <td style={fieldCellStyle}><ReportField label={`Hora Fin ${operationTerm}`} value={formatTime12Hour(formData.horaFin)} /></td>
                         </tr>
                         <tr>
                             <td style={fieldCellStyle}><ReportField label="Precinto/Sello" value={formData.precinto} /></td>
