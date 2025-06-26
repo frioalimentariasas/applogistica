@@ -5,22 +5,21 @@ if (!admin.apps.length) {
   try {
     // Ensure the environment variable is set
     if (!process.env.FIREBASE_SERVICE_ACCOUNT_KEY) {
-      throw new Error('FIREBASE_SERVICE_ACCOUNT_KEY environment variable is not set.');
+      console.error('Firebase Admin initialization skipped: FIREBASE_SERVICE_ACCOUNT_KEY is not set.');
+    } else {
+        const serviceAccount = JSON.parse(
+          process.env.FIREBASE_SERVICE_ACCOUNT_KEY as string
+        );
+
+        admin.initializeApp({
+          credential: admin.credential.cert(serviceAccount),
+        });
     }
-    
-    const serviceAccount = JSON.parse(
-      process.env.FIREBASE_SERVICE_ACCOUNT_KEY as string
-    );
-
-    admin.initializeApp({
-      credential: admin.credential.cert(serviceAccount),
-    });
-
   } catch (error) {
     console.error('Firebase Admin initialization error:', error);
   }
 }
 
-const firestore = admin.firestore();
+const firestore = admin.apps.length ? admin.firestore() : null;
 
 export { firestore };

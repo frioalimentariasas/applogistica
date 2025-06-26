@@ -16,6 +16,13 @@ export async function uploadArticulos(formData: FormData): Promise<{ success: bo
     return { success: false, message: 'No se encontró el archivo.' };
   }
 
+  if (!firestore) {
+    return { 
+      success: false, 
+      message: 'Error de configuración del servidor: Firebase Admin no está inicializado. Verifique la variable de entorno FIREBASE_SERVICE_ACCOUNT_KEY.' 
+    };
+  }
+
   try {
     const buffer = await file.arrayBuffer();
     const workbook = xlsx.read(buffer, { type: 'buffer' });
