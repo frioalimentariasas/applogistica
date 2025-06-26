@@ -75,7 +75,6 @@ export default function ConsultarFormatosComponent() {
                 });
             }
         } catch (error) {
-            console.error(error);
             const errorMessage = error instanceof Error ? error.message : "Ocurrió un error desconocido.";
             toast({
                 variant: 'destructive',

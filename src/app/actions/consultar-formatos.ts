@@ -61,18 +61,24 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
 
     try {
         let query: admin.firestore.Query = firestore.collection('submissions');
-
         const isOperario = criteria.requestingUser && operarioEmails.includes(criteria.requestingUser.email);
         
-        // If the user is an operario, they can only see their own submissions.
+        // Apply Firestore query filters for the most selective fields first
+        // User is the most selective filter for operarios
         if (isOperario) {
             query = query.where('userId', '==', criteria.requestingUser!.id);
         }
 
+        // pedidoSislog is also highly selective
+        if (criteria.pedidoSislog) {
+            query = query.where('formData.pedidoSislog', '==', criteria.pedidoSislog.trim());
+        }
+        
         const noFilters = !criteria.pedidoSislog && !criteria.nombreCliente && !criteria.fechaCreacion;
 
-        // Default to last 7 days if no filters are provided
-        if (noFilters) {
+        // For non-operarios with no filters, we must limit the query to avoid reading the whole collection.
+        // We query the last 7 days. This is safe as createdAt will have a single-field index.
+        if (!isOperario && noFilters) {
             const endDate = new Date();
             const startDate = new Date();
             startDate.setDate(endDate.getDate() - 7);
@@ -80,25 +86,9 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
             
             query = query.where('createdAt', '>=', startDate.toISOString())
                          .where('createdAt', '<=', endDate.toISOString());
-        } else {
-            // Apply Firestore query filters for the most selective fields first
-            if (criteria.pedidoSislog) {
-                query = query.where('formData.pedidoSislog', '==', criteria.pedidoSislog.trim());
-            }
-
-            // If no pedidoSislog, we can use the date for the query.
-            // This avoids needing a composite index.
-            if (!criteria.pedidoSislog && criteria.fechaCreacion) {
-                const startDate = new Date(criteria.fechaCreacion);
-                startDate.setUTCHours(0, 0, 0, 0);
-                const endDate = new Date(criteria.fechaCreacion);
-                endDate.setUTCHours(23, 59, 59, 999);
-                
-                query = query.where('createdAt', '>=', startDate.toISOString())
-                             .where('createdAt', '<=', endDate.toISOString());
-            }
         }
 
+        // Execute the more basic query
         const snapshot = await query.get();
 
         let results = snapshot.docs.map(doc => {
@@ -111,14 +101,26 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
             } as SubmissionResult;
         });
 
-        // Filter the remaining criteria in memory
-        
-        // If we queried by pedidoSislog, we still need to filter by date if provided
-        if (criteria.pedidoSislog && criteria.fechaCreacion) {
-             const searchDate = criteria.fechaCreacion;
+        // Now, apply the rest of the filters in memory
+
+        // Filter by date if it was provided
+        if (criteria.fechaCreacion) {
+             const searchDate = criteria.fechaCreacion; // YYYY-MM-DD
              results = results.filter(sub => sub.createdAt.startsWith(searchDate));
         }
 
+        // For operarios with no filters, apply the 7-day filter now
+        if (isOperario && noFilters) {
+            const endDate = new Date();
+            const startDate = new Date();
+            startDate.setDate(endDate.getDate() - 7);
+            
+            results = results.filter(sub => {
+                const subDate = new Date(sub.createdAt);
+                return subDate >= startDate && subDate <= endDate;
+            });
+        }
+        
         // Filter by client name
         if (criteria.nombreCliente) {
             const searchClient = criteria.nombreCliente.toLowerCase().trim();
@@ -134,8 +136,10 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
         return results;
     } catch (error) {
         console.error('Error searching submissions:', error);
+        // This catch block is now a fallback for unexpected errors, 
+        // as the index requirement should be less frequent.
         if (error instanceof Error && error.message.includes('requires an index')) {
-            throw new Error('La consulta requiere un índice en Firestore. Por favor, cree el índice desde la consola de Firebase. El enlace para crearlo debería estar en los logs del servidor.');
+            throw new Error('La consulta requiere un índice compuesto en Firestore que no se encontró. Por favor, revise los registros del servidor para crear el índice necesario.');
         }
         throw new Error('No se pudieron buscar los formularios.');
     }
