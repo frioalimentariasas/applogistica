@@ -19,11 +19,9 @@ export function useFormPersistence<T extends FieldValues>(
 
     const [isRestoreDialogOpen, setRestoreDialogOpen] = useState(false);
     
-    // This flag prevents saving during programmatic state changes (restore/discard)
-    const isProgrammaticChange = useRef(false);
-    // This flag prevents overwriting saved attachments on the initial render
-    const isInitialAttachmentSave = useRef(true);
-
+    // This flag tracks the whole initial loading/restoring cycle.
+    // Saving is disabled until this is explicitly set to false.
+    const isLoadingDraft = useRef(true); 
 
     const getStorageKey = useCallback(() => {
         if (!user) return null;
@@ -33,12 +31,9 @@ export function useFormPersistence<T extends FieldValues>(
     // Save form data to localStorage on change
     useEffect(() => {
         const storageKey = getStorageKey();
-        if (!storageKey || typeof window === 'undefined') return;
+        if (!storageKey || typeof window === 'undefined' || isLoadingDraft.current) return;
 
         const subscription = watch((value) => {
-            if (isProgrammaticChange.current) {
-                return;
-            }
             localStorage.setItem(storageKey, JSON.stringify(value));
         });
         return () => subscription.unsubscribe();
@@ -47,15 +42,7 @@ export function useFormPersistence<T extends FieldValues>(
     // Save attachments to IndexedDB on change
     useEffect(() => {
         const storageKey = getStorageKey();
-        if (!storageKey) return;
-        
-        // Prevent overwriting attachments on the first render before the user can restore
-        if (isInitialAttachmentSave.current) {
-            isInitialAttachmentSave.current = false;
-            return;
-        }
-
-        if (isProgrammaticChange.current) return;
+        if (!storageKey || isLoadingDraft.current) return;
 
         const attachmentsKey = `${storageKey}-attachments`;
         idb.set(attachmentsKey, attachments).catch(err => {
@@ -68,20 +55,28 @@ export function useFormPersistence<T extends FieldValues>(
         const storageKey = getStorageKey();
         if (!storageKey || typeof window === 'undefined') return;
 
-        const savedData = localStorage.getItem(storageKey);
-        if (savedData) {
-            // A short delay to allow the form to fully initialize before showing the dialog
-            setTimeout(() => setRestoreDialogOpen(true), 100);
-        }
+        const checkData = async () => {
+            const savedData = localStorage.getItem(storageKey);
+            const attachmentsKey = `${storageKey}-attachments`;
+            const savedAttachments = await idb.get<string[]>(attachmentsKey);
+            
+            if (savedData || (savedAttachments && savedAttachments.length > 0)) {
+                // If there's a draft, wait for user action (restore/discard)
+                // isLoadingDraft remains true
+                setRestoreDialogOpen(true);
+            } else {
+                // No draft, we can enable saving.
+                isLoadingDraft.current = false;
+            }
+        };
+
+        checkData();
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [getStorageKey]);
 
     const restoreDraft = useCallback(async () => {
         const storageKey = getStorageKey();
         if (!storageKey) return;
-
-        isProgrammaticChange.current = true;
-        setRestoreDialogOpen(false);
 
         try {
             const attachmentsKey = `${storageKey}-attachments`;
@@ -94,7 +89,6 @@ export function useFormPersistence<T extends FieldValues>(
 
             if (savedData) {
                 const parsedData = JSON.parse(savedData);
-                // Ensure date objects are correctly parsed from ISO strings
                 Object.keys(parsedData).forEach(key => {
                     const value = parsedData[key];
                     if (typeof value === 'string' && value.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)) {
@@ -109,8 +103,9 @@ export function useFormPersistence<T extends FieldValues>(
             console.error("Failed to restore draft", e);
             toast({ variant: 'destructive', title: "Error", description: "No se pudo restaurar el borrador." });
         } finally {
-            // Allow saving again after a short delay to let all state updates settle
-            setTimeout(() => { isProgrammaticChange.current = false; }, 200);
+            setRestoreDialogOpen(false);
+            // Now that restore is complete, enable saving for subsequent changes.
+            isLoadingDraft.current = false; 
         }
     }, [getStorageKey, reset, setAttachments, toast]);
 
@@ -118,9 +113,6 @@ export function useFormPersistence<T extends FieldValues>(
         const storageKey = getStorageKey();
         if (!storageKey) return;
         
-        isProgrammaticChange.current = true;
-        setRestoreDialogOpen(false);
-
         try {
             const attachmentsKey = `${storageKey}-attachments`;
             localStorage.removeItem(storageKey);
@@ -132,8 +124,9 @@ export function useFormPersistence<T extends FieldValues>(
         } catch (e) {
             console.error("Failed to discard draft", e);
         } finally {
-            // Allow saving again after a short delay
-            setTimeout(() => { isProgrammaticChange.current = false; }, 200);
+            setRestoreDialogOpen(false);
+            // Discarding is complete, enable saving for the new blank form.
+            isLoadingDraft.current = false;
         }
     }, [getStorageKey, reset, defaultValues, setAttachments, toast]);
     
