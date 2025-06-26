@@ -19,7 +19,6 @@ import { getImageAsBase64 } from '@/app/actions/image-proxy';
 
 // html2canvas is used by jspdf internally, so it's a good idea to have it.
 import html2canvas from 'html2canvas';
-window.html2canvas = html2canvas;
 
 
 interface ReportComponentProps {
@@ -32,6 +31,14 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
     const [isDownloading, setIsDownloading] = useState(false);
     const [isLoadingImages, setIsLoadingImages] = useState(true);
     const [base64Images, setBase64Images] = useState<string[]>([]);
+
+    useEffect(() => {
+        // This assignment must be done on the client side, after the component has mounted.
+        // It ensures `window` is available.
+        if (typeof window !== 'undefined') {
+            (window as any).html2canvas = html2canvas;
+        }
+    }, []);
 
     useEffect(() => {
         if (!submission.attachmentUrls || submission.attachmentUrls.length === 0) {
