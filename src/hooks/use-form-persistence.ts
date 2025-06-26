@@ -19,9 +19,9 @@ export function useFormPersistence<T extends FieldValues>(
 
     const [isRestoreDialogOpen, setRestoreDialogOpen] = useState(false);
     
-    // This flag tracks the whole initial loading/restoring cycle.
-    // Using state instead of ref to trigger effects when it changes.
-    const [isDraftLoading, setDraftLoading] = useState(true);
+    // This state controls whether the watch effects are active.
+    // It's set to true only after the initial draft check is complete.
+    const [draftCheckComplete, setDraftCheckComplete] = useState(false);
 
     const getStorageKey = useCallback(() => {
         if (!user) return null;
@@ -31,29 +31,32 @@ export function useFormPersistence<T extends FieldValues>(
     // Save form data to localStorage on change
     useEffect(() => {
         const storageKey = getStorageKey();
-        if (!storageKey || typeof window === 'undefined' || isDraftLoading) return;
+        if (!storageKey || typeof window === 'undefined' || !draftCheckComplete) return;
 
         const subscription = watch((value) => {
             localStorage.setItem(storageKey, JSON.stringify(value));
         });
         return () => subscription.unsubscribe();
-    }, [watch, getStorageKey, isDraftLoading]);
+    }, [watch, getStorageKey, draftCheckComplete]);
 
     // Save attachments to IndexedDB on change
     useEffect(() => {
         const storageKey = getStorageKey();
-        if (!storageKey || isDraftLoading) return;
+        if (!storageKey || !draftCheckComplete) return;
 
         const attachmentsKey = `${storageKey}-attachments`;
         idb.set(attachmentsKey, attachments).catch(err => {
             console.error("Failed to save attachments to IndexedDB", err);
         });
-    }, [attachments, getStorageKey, isDraftLoading]);
+    }, [attachments, getStorageKey, draftCheckComplete]);
 
     // Check for saved data on mount
     useEffect(() => {
         const storageKey = getStorageKey();
-        if (!storageKey || typeof window === 'undefined') return;
+        if (!storageKey || typeof window === 'undefined') {
+            setDraftCheckComplete(true); // Default to complete if no key
+            return;
+        }
 
         const checkData = async () => {
             const savedData = localStorage.getItem(storageKey);
@@ -61,11 +64,11 @@ export function useFormPersistence<T extends FieldValues>(
             const savedAttachments = await idb.get<string[]>(attachmentsKey);
             
             if (savedData || (savedAttachments && savedAttachments.length > 0)) {
-                // If there's a draft, wait for user action (restore/discard)
+                // If there's a draft, prompt user. The watchers remain disabled.
                 setRestoreDialogOpen(true);
             } else {
-                // No draft, we can enable saving.
-                setDraftLoading(false);
+                // No draft, we can enable watchers.
+                setDraftCheckComplete(true);
             }
         };
 
@@ -88,6 +91,7 @@ export function useFormPersistence<T extends FieldValues>(
 
             if (savedData) {
                 const parsedData = JSON.parse(savedData);
+                // Ensure date strings are converted back to Date objects
                 Object.keys(parsedData).forEach(key => {
                     const value = parsedData[key];
                     if (typeof value === 'string' && value.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)) {
@@ -104,28 +108,38 @@ export function useFormPersistence<T extends FieldValues>(
         } finally {
             setRestoreDialogOpen(false);
             // Now that restore is complete, enable saving for subsequent changes.
-            setDraftLoading(false); 
+            setDraftCheckComplete(true); 
         }
     }, [getStorageKey, reset, setAttachments, toast]);
 
     const discardDraft = useCallback(async () => {
+        // Immediately stop saving to prevent the reset state from being persisted.
+        setDraftCheckComplete(false);
+        setRestoreDialogOpen(false);
+
         const storageKey = getStorageKey();
-        if (!storageKey) return;
-        
+        if (!storageKey) {
+            // If there's no key, just re-enable saving and exit.
+            setDraftCheckComplete(true);
+            return;
+        }
+
         try {
             const attachmentsKey = `${storageKey}-attachments`;
             localStorage.removeItem(storageKey);
             await idb.del(attachmentsKey);
-            
-            reset(defaultValues as T); 
+
+            // Reset the form to its default state. This will not be saved yet.
+            reset(defaultValues as T);
             setAttachments([]);
             toast({ title: "Borrador Descartado" });
         } catch (e) {
             console.error("Failed to discard draft", e);
+            toast({ variant: "destructive", title: "Error", description: "No se pudo descartar el borrador." });
         } finally {
-            setRestoreDialogOpen(false);
-            // Discarding is complete, enable saving for the new blank form.
-            setDraftLoading(false);
+            // Re-enable saving after a short delay. This gives React time to process
+            // the reset without the watcher immediately saving the default state.
+            setTimeout(() => setDraftCheckComplete(true), 50);
         }
     }, [getStorageKey, reset, defaultValues, setAttachments, toast]);
     
