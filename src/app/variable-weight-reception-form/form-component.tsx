@@ -194,7 +194,7 @@ export default function VariableWeightReceptionFormComponent() {
       conductor: "",
       placa: "",
       precinto: "",
-      setPoint: undefined,
+      setPoint: NaN,
       items: [],
       summary: [],
       horaInicio: "",
@@ -381,12 +381,15 @@ export default function VariableWeightReceptionFormComponent() {
         <div className="max-w-6xl mx-auto">
           <header className="mb-8">
             <div className="relative flex items-center justify-center text-center">
-              <Button variant="ghost" size="icon" className="absolute left-0" onClick={() => router.push('/')}>
+              <Button variant="ghost" size="icon" className="absolute left-0 top-1/2 -translate-y-1/2" onClick={() => router.push('/')}>
                 <ArrowLeft className="h-6 w-6" />
               </Button>
-              <div className="flex items-center gap-2">
-                  <FileText className="h-8 w-8 text-primary"/>
-                  <h1 className="text-2xl font-bold text-primary">Formato de Recepción - Peso Variable</h1>
+              <div>
+                <div className="flex items-center justify-center gap-2">
+                    <FileText className="h-8 w-8 text-primary"/>
+                    <h1 className="text-2xl font-bold text-primary">Formato de Recepción - Peso Variable</h1>
+                </div>
+                <p className="text-sm text-gray-500">Complete todos los campos requeridos para registrar la operación.</p>
               </div>
             </div>
           </header>

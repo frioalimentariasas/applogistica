@@ -124,7 +124,7 @@ export default function VariableWeightFormComponent() {
       conductor: "",
       placa: "",
       precinto: "",
-      setPoint: undefined,
+      setPoint: NaN,
       items: [],
       horaInicio: "",
       horaFin: "",
@@ -264,9 +264,12 @@ export default function VariableWeightFormComponent() {
                 >
                     <ArrowLeft className="h-6 w-6" />
                 </Button>
-                 <div className="flex items-center gap-2">
-                    <FileText className="h-8 w-8 text-primary"/>
-                    <h1 className="text-2xl font-bold text-primary">{title}</h1>
+                <div>
+                    <div className="flex items-center justify-center gap-2">
+                        <FileText className="h-8 w-8 text-primary"/>
+                        <h1 className="text-2xl font-bold text-primary">{title}</h1>
+                    </div>
+                    <p className="text-sm text-gray-500">Complete todos los campos requeridos para registrar la operación.</p>
                 </div>
             </div>
         </header>
