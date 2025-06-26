@@ -174,6 +174,27 @@ export default function VariableWeightReceptionFormComponent() {
   
   const watchedItems = useWatch({ control: form.control, name: "items" });
   
+  useEffect(() => {
+    if (!watchedItems) return;
+
+    watchedItems.forEach((item, index) => {
+        const cantidadPorPaleta = Number(item.cantidadPorPaleta) || 0;
+        const taraCaja = Number(item.taraCaja) || 0;
+        const pesoBruto = Number(item.pesoBruto) || 0;
+        const taraEstiba = Number(item.taraEstiba) || 0;
+
+        const calculatedTotalTaraCaja = cantidadPorPaleta * taraCaja;
+        const calculatedPesoNeto = pesoBruto - taraEstiba - calculatedTotalTaraCaja;
+      
+        if (item.totalTaraCaja !== calculatedTotalTaraCaja) {
+            form.setValue(`items.${index}.totalTaraCaja`, calculatedTotalTaraCaja, { shouldValidate: false });
+        }
+        if (item.pesoNeto !== calculatedPesoNeto) {
+            form.setValue(`items.${index}.pesoNeto`, calculatedPesoNeto, { shouldValidate: false });
+        }
+    });
+  }, [watchedItems, form]);
+
   const { fields: summaryFields } = useFieldArray({
     control: form.control,
     name: "summary"
@@ -979,3 +1000,5 @@ export default function VariableWeightReceptionFormComponent() {
       </div>
   );
 }
+
+    
