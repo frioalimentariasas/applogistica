@@ -16,32 +16,11 @@ import { ReportLayout } from '@/components/app/reports/ReportLayout';
 import { FixedWeightReport } from '@/components/app/reports/FixedWeightReport';
 import { VariableWeightDispatchReport } from '@/components/app/reports/VariableWeightDispatchReport';
 import { VariableWeightReceptionReport } from '@/components/app/reports/VariableWeightReceptionReport';
+import { getImageAsBase64 } from '@/app/actions/image-proxy';
 
 interface ReportComponentProps {
     submission: SubmissionResult;
 }
-
-// Helper to fetch image as base64
-async function imageUrlToBase64(url: string): Promise<string> {
-    try {
-        const response = await fetch(url);
-        if (!response.ok) {
-            throw new Error(`Failed to fetch image: ${response.statusText}`);
-        }
-        const blob = await response.blob();
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onloadend = () => resolve(reader.result as string);
-            reader.onerror = reject;
-            reader.readAsDataURL(blob);
-        });
-    } catch (error) {
-        console.error('Error converting image to base64:', error);
-        // Return a placeholder or handle the error as needed
-        return 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'; // transparent 1x1 pixel
-    }
-}
-
 
 export default function ReportComponent({ submission }: ReportComponentProps) {
     const router = useRouter();
@@ -59,7 +38,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
         const fetchImages = async () => {
             setIsLoadingImages(true);
             try {
-                const promises = submission.attachmentUrls.map(url => imageUrlToBase64(url));
+                const promises = submission.attachmentUrls.map(url => getImageAsBase64(url));
                 const images = await Promise.all(promises);
                 setBase64Images(images);
             } catch (error) {
@@ -201,4 +180,3 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
         </div>
     );
 }
-
