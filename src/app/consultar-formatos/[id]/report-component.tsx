@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import jspdf from 'jspdf';
 import { format, parseISO } from 'date-fns';
 
@@ -26,7 +26,6 @@ interface ReportComponentProps {
 }
 
 export default function ReportComponent({ submission }: ReportComponentProps) {
-    const router = useRouter();
     const reportRef = useRef<HTMLDivElement>(null);
     const [isDownloading, setIsDownloading] = useState(false);
     const [isLoadingImages, setIsLoadingImages] = useState(true);
@@ -146,9 +145,11 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
         <div className="bg-gray-100 min-h-screen p-4 sm:p-8">
             <div className="max-w-4xl mx-auto">
                 <header className="flex justify-between items-center mb-6">
-                    <Button variant="outline" onClick={() => router.back()}>
-                        <ArrowLeft className="mr-2" />
-                        Volver
+                    <Button asChild variant="outline">
+                        <Link href="/consultar-formatos">
+                            <ArrowLeft className="mr-2" />
+                            Volver
+                        </Link>
                     </Button>
                     <h1 className="text-lg font-semibold text-gray-700">{getReportTitle()}</h1>
                     <Button onClick={handleDownload} disabled={isDownloading || isLoadingImages}>
@@ -184,4 +185,3 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
             </div>
         </div>
     );
-}
