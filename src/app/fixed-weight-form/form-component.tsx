@@ -115,7 +115,8 @@ export default function FixedWeightFormComponent() {
   
   const [articulos, setArticulos] = useState<{ value: string; label: string }[]>([]);
   const [isLoadingArticulos, setIsLoadingArticulos] = useState(false);
-  const [openProductPopover, setOpenProductPopover] = useState<number | null>(null);
+  const [productDialogIndex, setProductDialogIndex] = useState<number | null>(null);
+  const [productSearch, setProductSearch] = useState("");
 
   const [attachments, setAttachments] = useState<string[]>([]);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
@@ -127,6 +128,11 @@ export default function FixedWeightFormComponent() {
     if (!clientSearch) return clientes;
     return clientes.filter(c => c.toLowerCase().includes(clientSearch.toLowerCase()));
   }, [clientSearch, clientes]);
+  
+  const filteredArticulos = useMemo(() => {
+    if (!productSearch) return articulos;
+    return articulos.filter(a => a.label.toLowerCase().includes(productSearch.toLowerCase()));
+  }, [productSearch, articulos]);
 
 
   const form = useForm<z.infer<typeof formSchema>>({
@@ -483,41 +489,48 @@ export default function FixedWeightFormComponent() {
                                 <FormField control={form.control} name={`productos.${index}.descripcion`} render={({ field }) => (
                                     <FormItem className="md:col-span-2">
                                     <FormLabel>Descripción del Producto</FormLabel>
-                                    <Popover open={openProductPopover === index} onOpenChange={(isOpen) => setOpenProductPopover(isOpen ? index : null)}>
-                                        <PopoverTrigger asChild>
-                                        <FormControl>
-                                            <Button variant="outline" role="combobox" className={cn("w-full justify-between", !field.value && "text-muted-foreground")}>
-                                            {field.value ? field.value : "Seleccionar producto..."}
-                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                            </Button>
-                                        </FormControl>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                                            <Command>
-                                                <CommandInput placeholder="Buscar producto..." />
-                                                <CommandList>
-                                                    {isLoadingArticulos && <div className="p-4 text-center text-sm">Cargando...</div>}
-                                                    <CommandEmpty>No se encontraron productos para este cliente.</CommandEmpty>
-                                                    <CommandGroup>
-                                                        {articulos.map((p) => (
-                                                            <CommandItem
+                                        <Dialog open={productDialogIndex === index} onOpenChange={(isOpen) => setProductDialogIndex(isOpen ? index : null)}>
+                                            <DialogTrigger asChild>
+                                                <FormControl>
+                                                    <Button variant="outline" role="combobox" className={cn("w-full justify-between", !field.value && "text-muted-foreground")}>
+                                                        {field.value ? field.value : "Seleccionar producto..."}
+                                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                    </Button>
+                                                </FormControl>
+                                            </DialogTrigger>
+                                            <DialogContent>
+                                                <DialogHeader>
+                                                    <DialogTitle>Seleccionar Producto</DialogTitle>
+                                                </DialogHeader>
+                                                <Input
+                                                    placeholder="Buscar producto..."
+                                                    value={productSearch}
+                                                    onChange={(e) => setProductSearch(e.target.value)}
+                                                    className="mb-4"
+                                                />
+                                                <ScrollArea className="h-72">
+                                                    <div className="space-y-1">
+                                                        {isLoadingArticulos && <p className="text-center text-sm text-muted-foreground">Cargando...</p>}
+                                                        {!isLoadingArticulos && filteredArticulos.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron productos.</p>}
+                                                        {filteredArticulos.map((p) => (
+                                                            <Button
                                                                 key={p.value}
-                                                                value={p.label}
-                                                                onSelect={() => {
+                                                                variant="ghost"
+                                                                className="w-full justify-start h-auto text-wrap"
+                                                                onClick={() => {
                                                                     form.setValue(`productos.${index}.descripcion`, p.label)
                                                                     form.setValue(`productos.${index}.codigo`, p.value)
-                                                                    setOpenProductPopover(null);
+                                                                    setProductDialogIndex(null);
+                                                                    setProductSearch("");
                                                                 }}
-                                                                >
-                                                                <Check className={cn("mr-2 h-4 w-4", p.label === field.value ? "opacity-100" : "opacity-0")} />
+                                                            >
                                                                 {p.label}
-                                                            </CommandItem>
+                                                            </Button>
                                                         ))}
-                                                    </CommandGroup>
-                                                </CommandList>
-                                            </Command>
-                                        </PopoverContent>
-                                    </Popover>
+                                                    </div>
+                                                </ScrollArea>
+                                            </DialogContent>
+                                        </Dialog>
                                     <FormMessage />
                                     </FormItem>
                                 )}/>
@@ -719,5 +732,3 @@ export default function FixedWeightFormComponent() {
     </div>
   );
 }
-
-    
