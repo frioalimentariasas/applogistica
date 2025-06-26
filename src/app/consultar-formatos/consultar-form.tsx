@@ -2,6 +2,7 @@
 "use client";
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -208,9 +209,11 @@ export default function ConsultarFormatosComponent() {
                                                 <TableCell>{sub.formData.nombreCliente || sub.formData.cliente}</TableCell>
                                                 <TableCell>{sub.userDisplayName}</TableCell>
                                                 <TableCell className="text-right">
-                                                    <Button variant="ghost" size="icon" onClick={() => toast({ title: "Próximamente", description: "La vista detallada estará disponible pronto." })}>
-                                                        <Eye className="h-4 w-4" />
-                                                        <span className="sr-only">Ver detalles</span>
+                                                    <Button asChild variant="ghost" size="icon">
+                                                        <Link href={`/consultar-formatos/${sub.id}`}>
+                                                            <Eye className="h-4 w-4" />
+                                                            <span className="sr-only">Ver detalles</span>
+                                                        </Link>
                                                     </Button>
                                                 </TableCell>
                                             </TableRow>

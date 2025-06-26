@@ -99,3 +99,31 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
         throw new Error('No se pudieron buscar los formularios.');
     }
 }
+
+export async function getSubmissionById(id: string): Promise<SubmissionResult | null> {
+    if (!firestore) {
+        console.error('Firebase Admin not initialized.');
+        return null;
+    }
+
+    try {
+        const doc = await firestore.collection('submissions').doc(id).get();
+
+        if (!doc.exists) {
+            return null;
+        }
+
+        const data = doc.data();
+        if (!data) return null;
+
+        const serializedData = serializeTimestamps(data);
+
+        return {
+            id: doc.id,
+            ...serializedData,
+        } as SubmissionResult;
+    } catch (error) {
+        console.error(`Error fetching submission with ID ${id}:`, error);
+        return null;
+    }
+}
