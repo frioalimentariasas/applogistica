@@ -115,7 +115,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
     
             const addHeader = (title: string) => {
                 const logoWidth = 150;
-                const logoHeight = 60;
+                const logoHeight = 60; // Adjusted for better aspect ratio
                 if (logoBase64) {
                     try {
                         doc.addImage(logoBase64, 'PNG', margin, margin, logoWidth, logoHeight); 
@@ -133,8 +133,8 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 doc.text(title, titleX + availableWidth / 2, margin + 20, { align: 'center', maxWidth: availableWidth });
                 
                 doc.setFontSize(9);
-                doc.setFont('helvetica', 'normal');
-                doc.setTextColor('#555');
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor('#3588CC');
                 doc.text('FRIO ALIMENTARIA SAS NIT 900736914-0', titleX + availableWidth / 2, margin + 35, { align: 'center', maxWidth: availableWidth });
                 
                 yPos = margin + logoHeight + 20;
@@ -150,16 +150,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 }
             };
     
-            const didDrawPage = (data: { pageNumber: number; doc: jsPDF; }) => {
-                yPos = margin; // Reset yPos for new page
-                addHeader(getReportTitle());
-                // This is a bit of a hack to ensure the table starts after our manual header
-                if ((doc as any).autoTable.previous) {
-                   (doc as any).autoTable.previous.finalY = yPos;
-                }
-            };
-            
-            addHeader(getReportTitle()); // Add header to the first page
+            addHeader(getReportTitle());
     
             const { formType, formData, userDisplayName } = submission;
     
