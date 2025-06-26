@@ -60,10 +60,30 @@ export default function LoginForm() {
       router.push('/');
     } catch (error: any) {
       console.error(error);
+      
+      let errorMessage = 'Ocurrió un error inesperado durante el inicio de sesión.';
+
+      switch (error.code) {
+        case 'auth/user-not-found':
+        case 'auth/wrong-password':
+        case 'auth/invalid-credential':
+          errorMessage = 'Correo electrónico o contraseña incorrectos. Por favor, inténtalo de nuevo.';
+          break;
+        case 'auth/user-disabled':
+          errorMessage = 'Esta cuenta de usuario ha sido deshabilitada.';
+          break;
+        case 'auth/too-many-requests':
+            errorMessage = 'El acceso a esta cuenta ha sido temporalmente deshabilitado debido a muchos intentos fallidos. Por favor, intente de nuevo más tarde.';
+            break;
+        default:
+          // Keep the generic unexpected error message
+          break;
+      }
+      
       toast({
         variant: 'destructive',
         title: 'Error de autenticación',
-        description: 'Correo electrónico o contraseña incorrectos. Por favor, inténtalo de nuevo.',
+        description: errorMessage,
       });
     } finally {
         setIsLoading(false);
