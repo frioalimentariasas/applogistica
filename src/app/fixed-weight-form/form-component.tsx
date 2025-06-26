@@ -354,8 +354,8 @@ export default function FixedWeightFormComponent() {
                                       <CommandItem
                                         value={cliente}
                                         key={cliente}
-                                        onSelect={(currentValue) => {
-                                          field.onChange(currentValue === field.value ? "" : currentValue);
+                                        onSelect={() => {
+                                          field.onChange(cliente);
                                           setClientPopoverOpen(false);
                                         }}
                                       >
