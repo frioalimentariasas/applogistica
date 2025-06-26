@@ -27,19 +27,20 @@ interface FixedWeightReportProps {
 export function FixedWeightReport({ formData, userDisplayName, attachments }: FixedWeightReportProps) {
     const totalCajas = formData.productos.reduce((acc: any, p: any) => acc + (Number(p.cajas) || 0), 0);
     const totalPaletas = formData.productos.reduce((acc: any, p: any) => acc + (Number(p.paletas) || 0), 0);
-    const operation = formData.formType?.includes('recepcion') ? 'Recepción' : 'Despacho';
+    const isReception = formData.formType?.includes('recepcion');
+    const operationTerm = isReception ? 'Descargue' : 'Cargue';
 
     return (
         <>
             <ReportSection title="Información General">
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                <div className="grid grid-cols-3 gap-x-4 gap-y-1">
                     <ReportField label="Pedido SISLOG" value={formData.pedidoSislog} />
                     <ReportField label="Nombre Cliente" value={formData.nombreCliente} />
-                    <ReportField label="Fecha" value={formData.fecha ? format(new Date(formData.fecha), "dd/MM/yyyy") : 'N/A'} />
-                    <ReportField label={operation === 'Recepción' ? 'Hora Inicio Descargue' : 'Hora de Inicio Cargue'} value={formData.horaInicio} />
-                    <ReportField label="Precinto/Sello" value={formData.precinto} />
-                    <ReportField label={operation === 'Recepción' ? 'Hora Fin Descargue' : 'Hora Fin Cargue'} value={formData.horaFin} />
                     <ReportField label="Factura/Remisión" value={formData.facturaRemision} />
+                    <ReportField label="Fecha" value={formData.fecha ? format(new Date(formData.fecha), "dd/MM/yyyy") : 'N/A'} />
+                    <ReportField label={`Hora Inicio ${operationTerm}`} value={formData.horaInicio} />
+                    <ReportField label={`Hora Fin ${operationTerm}`} value={formData.horaFin} />
+                    <ReportField label="Precinto/Sello" value={formData.precinto} />
                     <ReportField label="Documento de Transporte" value={formData.documentoTransporte} />
                 </div>
             </ReportSection>
@@ -76,7 +77,7 @@ export function FixedWeightReport({ formData, userDisplayName, attachments }: Fi
             </ReportSection>
 
             <ReportSection title="Información del Vehículo">
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                 <div className="grid grid-cols-3 gap-x-4 gap-y-1">
                     <ReportField label="Nombre Conductor" value={formData.nombreConductor} />
                     <ReportField label="Cédula" value={formData.cedulaConductor} />
                     <ReportField label="Placa" value={formData.placa} />

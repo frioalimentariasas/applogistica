@@ -8,14 +8,10 @@ interface ReportLayoutProps {
 }
 
 export function ReportLayout({ title, children }: ReportLayoutProps) {
-    const parts = title.split(' - ');
-    const mainTitle = parts[0] || 'Reporte';
-    const subTitle = parts[1] || '';
-
     return (
         <div className="font-sans text-gray-800 relative bg-white">
             <header className="text-center mb-4 border-b-2 border-gray-400 pb-2">
-                <div className="flex justify-center items-center h-16">
+                <div className="flex justify-center items-center py-2">
                     <Image
                         src="/images/company-logo.png"
                         alt="Logotipo de Frio Alimentaria"
@@ -25,8 +21,7 @@ export function ReportLayout({ title, children }: ReportLayoutProps) {
                         style={{ objectFit: 'contain' }}
                     />
                 </div>
-                <h1 className="text-xl font-bold text-blue-700 mt-2">{mainTitle}</h1>
-                {subTitle && <h2 className="text-lg font-semibold text-blue-600">{subTitle}</h2>}
+                <h1 className="text-xl font-bold text-blue-700">{title}</h1>
                 <p className="text-xs text-gray-500 mt-1">FRIO ALIMENTARIA SAS NIT 900736914-0</p>
             </header>
             

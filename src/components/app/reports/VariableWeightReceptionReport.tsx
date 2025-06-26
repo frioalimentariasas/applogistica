@@ -31,17 +31,20 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
     return (
         <>
             <ReportSection title="Datos de la Recepción">
-                <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                <div className="grid grid-cols-3 gap-x-4 gap-y-1">
                     <ReportField label="Pedido SISLOG" value={formData.pedidoSislog} />
                     <ReportField label="Cliente" value={formData.cliente} />
                     <ReportField label="Fecha" value={formData.fecha ? format(new Date(formData.fecha), "dd/MM/yyyy") : 'N/A'} />
+
                     <ReportField label="Conductor" value={formData.conductor} />
                     <ReportField label="Cédula" value={formData.cedulaConductor} />
                     <ReportField label="Placa" value={formData.placa} />
+                    
                     <ReportField label="Precinto" value={formData.precinto} />
                     <ReportField label="Set Point (°C)" value={formData.setPoint} />
-                    <ReportField label="Hora de Inicio" value={formData.horaInicio} />
-                    <ReportField label="Hora Fin" value={formData.horaFin} />
+                    <ReportField label="Hora Inicio Descargue" value={formData.horaInicio} />
+
+                    <ReportField label="Hora Fin Descargue" value={formData.horaFin} />
                 </div>
             </ReportSection>
 
