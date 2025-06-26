@@ -51,13 +51,14 @@ export function FirebaseChecker() {
         <Terminal className="h-4 w-4" />
         <AlertTitle>Error de Configuración de Firebase</AlertTitle>
         <AlertDescription>
-          Ocurrió un error al intentar conectar con Firebase. Revisa la consola para más detalles y asegúrate de que las variables de entorno son correctas.
+          Ocurrió un error desconocido al intentar conectar con Firebase. Revisa la consola para más detalles y asegúrate de que las variables de entorno son correctas.
         </AlertDescription>
       </Alert>
     );
   }
 
   if (status === "success" && projectId) {
+    /*
     return (
       <Alert variant="default" className="border-green-500 bg-green-50 text-green-800 [&>svg]:text-green-600">
          <CheckCircle2 className="h-4 w-4" />
@@ -67,6 +68,8 @@ export function FirebaseChecker() {
         </AlertDescription>
       </Alert>
     );
+    */
+    return null;
   }
 
   return (
