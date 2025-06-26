@@ -496,7 +496,7 @@ export default function FixedWeightFormComponent() {
                   <FormField control={form.control} name="pedidoSislog" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Pedido SISLOG</FormLabel>
-                      <FormControl><Input placeholder="Máximo 10 dígitos" {...field} /></FormControl>
+                      <FormControl><Input placeholder="Máximo 10 dígitos" {...field} inputMode="numeric" pattern="[0-9]*" /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}/>

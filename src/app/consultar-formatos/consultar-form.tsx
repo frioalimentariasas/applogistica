@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -196,6 +197,8 @@ export default function ConsultarFormatosComponent() {
                                     placeholder="Número de pedido"
                                     value={criteria.pedidoSislog}
                                     onChange={(e) => setCriteria({...criteria, pedidoSislog: e.target.value})}
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
                                 />
                             </div>
                             <div className="space-y-2">

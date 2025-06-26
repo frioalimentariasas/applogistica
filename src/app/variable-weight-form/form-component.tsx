@@ -551,7 +551,7 @@ export default function VariableWeightFormComponent() {
                       <FormField control={form.control} name="pedidoSislog" render={({ field }) => (
                           <FormItem className="md:col-span-3">
                             <FormLabel>Pedido SISLOG</FormLabel>
-                            <FormControl><Input placeholder="Pedido SISLOG (máx. 10 dígitos)" {...field} /></FormControl>
+                            <FormControl><Input placeholder="Pedido SISLOG (máx. 10 dígitos)" {...field} inputMode="numeric" pattern="[0-9]*" /></FormControl>
                             <FormMessage />
                           </FormItem>
                       )}/>
