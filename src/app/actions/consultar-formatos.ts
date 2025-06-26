@@ -52,21 +52,34 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
     try {
         let query: admin.firestore.Query = firestore.collection('submissions');
 
-        // Apply Firestore query filters for the most selective fields first
-        if (criteria.pedidoSislog) {
-            query = query.where('formData.pedidoSislog', '==', criteria.pedidoSislog.trim());
-        }
+        const noFilters = !criteria.pedidoSislog && !criteria.nombreCliente && !criteria.fechaCreacion;
 
-        // If no pedidoSislog, we can use the date for the query.
-        // This avoids needing a composite index.
-        if (!criteria.pedidoSislog && criteria.fechaCreacion) {
-            const startDate = new Date(criteria.fechaCreacion);
+        // Default to last 7 days if no filters are provided
+        if (noFilters) {
+            const endDate = new Date();
+            const startDate = new Date();
+            startDate.setDate(endDate.getDate() - 7);
             startDate.setUTCHours(0, 0, 0, 0);
-            const endDate = new Date(criteria.fechaCreacion);
-            endDate.setUTCHours(23, 59, 59, 999);
             
             query = query.where('createdAt', '>=', startDate.toISOString())
                          .where('createdAt', '<=', endDate.toISOString());
+        } else {
+            // Apply Firestore query filters for the most selective fields first
+            if (criteria.pedidoSislog) {
+                query = query.where('formData.pedidoSislog', '==', criteria.pedidoSislog.trim());
+            }
+
+            // If no pedidoSislog, we can use the date for the query.
+            // This avoids needing a composite index.
+            if (!criteria.pedidoSislog && criteria.fechaCreacion) {
+                const startDate = new Date(criteria.fechaCreacion);
+                startDate.setUTCHours(0, 0, 0, 0);
+                const endDate = new Date(criteria.fechaCreacion);
+                endDate.setUTCHours(23, 59, 59, 999);
+                
+                query = query.where('createdAt', '>=', startDate.toISOString())
+                             .where('createdAt', '<=', endDate.toISOString());
+            }
         }
 
         const snapshot = await query.get();

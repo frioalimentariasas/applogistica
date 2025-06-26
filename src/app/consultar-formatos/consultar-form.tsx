@@ -56,10 +56,17 @@ export default function ConsultarFormatosComponent() {
                 fechaCreacion: date ? date.toISOString().split('T')[0] : undefined
             };
 
+            const isDefaultSearch = !finalCriteria.pedidoSislog && !finalCriteria.nombreCliente && !finalCriteria.fechaCreacion;
+
             const searchResults = await searchSubmissions(finalCriteria);
             setResults(searchResults);
 
-            if(searchResults.length === 0) {
+            if (isDefaultSearch) {
+                 toast({
+                    title: "Mostrando resultados de la última semana",
+                    description: "Para ver más información, utilice los filtros disponibles.",
+                });
+            } else if (searchResults.length === 0) {
                 toast({
                     title: "Sin resultados",
                     description: "No se encontraron formatos con los criterios de búsqueda proporcionados.",
