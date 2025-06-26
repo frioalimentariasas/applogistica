@@ -114,7 +114,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
             let yPos = 0;
     
             const addHeader = (title: string) => {
-                const logoWidth = 120;
+                const logoWidth = 100;
                 const logoHeight = 35; 
                 if (logoBase64) {
                     try {
