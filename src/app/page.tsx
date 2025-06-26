@@ -33,7 +33,7 @@ export default function Home() {
   const [productType, setProductType] = useState<string>();
   const router = useRouter();
   const { toast } = useToast();
-  const { user, loading } = useAuth();
+  const { user, loading, displayName } = useAuth();
 
   useEffect(() => {
     if (!loading && !user) {
@@ -108,6 +108,12 @@ export default function Home() {
         </Button>
 
         <Logo />
+        
+        {displayName && (
+            <div className="text-center">
+                <p className="text-lg text-gray-800">Bienvenido, <span className="font-semibold">{displayName}</span></p>
+            </div>
+        )}
 
         <div className="text-center">
           <h2 className="text-xl font-bold uppercase text-[#3588CC]">

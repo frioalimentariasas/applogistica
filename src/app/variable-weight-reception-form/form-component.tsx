@@ -10,6 +10,7 @@ import { format } from "date-fns";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
+import { useAuth } from "@/hooks/use-auth";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -177,6 +178,7 @@ const ItemRow = ({ control, index, remove }: { control: any, index: number, remo
 export default function VariableWeightReceptionFormComponent() {
   const router = useRouter();
   const { toast } = useToast();
+  const { displayName } = useAuth();
 
   const [attachments, setAttachments] = useState<string[]>([]);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
@@ -420,7 +422,7 @@ export default function VariableWeightReceptionFormComponent() {
                       )}/>
                       <FormItem>
                           <FormLabel>Operario Logístico</FormLabel>
-                          <FormControl><Input disabled value="Cristian Jaramillo" /></FormControl>
+                          <FormControl><Input disabled value={displayName || ''} /></FormControl>
                       </FormItem>
                       <FormField control={control} name="fecha" render={({ field }) => (
                           <FormItem>
@@ -596,7 +598,7 @@ export default function VariableWeightReceptionFormComponent() {
                     )}/>
                      <FormItem>
                         <FormLabel>Operario Logístico Responsable</FormLabel>
-                        <FormControl><Input disabled value="Cristian Jaramillo" /></FormControl>
+                        <FormControl><Input disabled value={displayName || ''} /></FormControl>
                     </FormItem>
                 </CardContent>
              </Card>
