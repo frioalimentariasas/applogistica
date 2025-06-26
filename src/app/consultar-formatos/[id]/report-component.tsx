@@ -105,7 +105,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
     
             const addHeader = (title: string) => {
                 const logoWidth = 150;
-                const logoHeight = 43;
+                const logoHeight = 43.2; // Corrected aspect ratio (original was 43)
                 if (logoBase64) {
                     try {
                         doc.addImage(logoBase64, 'PNG', margin, margin, logoWidth, logoHeight); 
