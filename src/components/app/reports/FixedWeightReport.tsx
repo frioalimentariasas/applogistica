@@ -3,7 +3,7 @@ import Image from 'next/image';
 import { format } from 'date-fns';
 
 const ReportSection = ({ title, children, className }: { title: string, children: React.ReactNode, className?: string }) => (
-    <div className={`mb-3 break-inside-avoid`}>
+    <div className="mb-3 break-inside-avoid">
       <div className={`rounded-lg border border-gray-400 ${className}`}>
         <h2 className="rounded-t-md bg-gray-200 px-3 py-1 text-sm font-bold text-gray-800 border-b border-gray-400">{title}</h2>
         <div className="p-3">{children}</div>
@@ -12,9 +12,9 @@ const ReportSection = ({ title, children, className }: { title: string, children
 );
   
 const ReportField = ({ label, value }: { label: string, value: any }) => (
-    <div className="mb-2">
-      <p className="text-xs font-bold text-gray-600">{label}</p>
-      <p className="text-xs text-gray-900">{value || 'N/A'}</p>
+    <div className="text-xs">
+      <span className="font-bold text-gray-700">{label}:</span>
+      <span className="text-gray-900 ml-2">{value || 'N/A'}</span>
     </div>
 );
 
@@ -31,8 +31,8 @@ export function FixedWeightReport({ formData, userDisplayName, attachments }: Fi
 
     return (
         <>
-            <ReportSection title="Datos del Cliente">
-                <div className="grid grid-cols-2 gap-x-4">
+            <ReportSection title="Información General">
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1">
                     <ReportField label="Pedido SISLOG" value={formData.pedidoSislog} />
                     <ReportField label="Nombre Cliente" value={formData.nombreCliente} />
                     <ReportField label="Fecha" value={formData.fecha ? format(new Date(formData.fecha), "dd/MM/yyyy") : 'N/A'} />
@@ -76,7 +76,7 @@ export function FixedWeightReport({ formData, userDisplayName, attachments }: Fi
             </ReportSection>
 
             <ReportSection title="Información del Vehículo">
-                <div className="grid grid-cols-3 gap-x-4">
+                <div className="grid grid-cols-2 gap-x-4 gap-y-1">
                     <ReportField label="Nombre Conductor" value={formData.nombreConductor} />
                     <ReportField label="Cédula" value={formData.cedulaConductor} />
                     <ReportField label="Placa" value={formData.placa} />
@@ -96,7 +96,7 @@ export function FixedWeightReport({ formData, userDisplayName, attachments }: Fi
             )}
 
             <ReportSection title="Coordinador y Operario Responsables de la Operación">
-                <div className="grid grid-cols-2 gap-x-4">
+                <div className="grid grid-cols-1 gap-y-1">
                     <ReportField label="Coordinador Responsable" value={formData.coordinador} />
                     <ReportField label="Operario Logístico Responsable" value={userDisplayName} />
                 </div>
@@ -104,9 +104,9 @@ export function FixedWeightReport({ formData, userDisplayName, attachments }: Fi
             
             {attachments.length > 0 && (
                 <ReportSection title="Anexos: Registros Fotográficos">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2 gap-4 pt-2">
                         {attachments.map((img, index) => (
-                            <div key={index} className="text-center">
+                            <div key={index} className="text-center break-inside-avoid">
                                 <div className="relative w-full h-48 border border-gray-300 rounded-md overflow-hidden">
                                      <Image src={img} alt={`Anexo ${index + 1}`} layout="fill" objectFit="contain" />
                                 </div>

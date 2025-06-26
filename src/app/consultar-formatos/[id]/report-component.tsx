@@ -70,6 +70,8 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 scale: 2, // Higher scale for better quality
                 useCORS: true,
                 logging: false,
+                windowWidth: reportRef.current.scrollWidth,
+                windowHeight: reportRef.current.scrollHeight,
             });
 
             const imgData = canvas.toDataURL('image/png');
@@ -83,20 +85,21 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
             const pdfHeight = pdf.internal.pageSize.getHeight();
             const canvasWidth = canvas.width;
             const canvasHeight = canvas.height;
+            
             const ratio = canvasWidth / canvasHeight;
             const newImgWidth = pdfWidth;
             const newImgHeight = newImgWidth / ratio;
             
-            let position = 0;
+            let yPosition = 0;
             let heightLeft = newImgHeight;
             
-            pdf.addImage(imgData, 'PNG', 0, position, newImgWidth, newImgHeight);
+            pdf.addImage(imgData, 'PNG', 0, yPosition, newImgWidth, newImgHeight);
             heightLeft -= pdfHeight;
 
             while (heightLeft > 0) {
-                position = heightLeft - newImgHeight;
+                yPosition -= pdfHeight;
                 pdf.addPage();
-                pdf.addImage(imgData, 'PNG', 0, position, newImgWidth, newImgHeight);
+                pdf.addImage(imgData, 'PNG', 0, yPosition, newImgWidth, newImgHeight);
                 heightLeft -= pdfHeight;
             }
 
@@ -171,10 +174,12 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     </Alert>
                 )}
 
-                <div ref={reportRef} className="bg-white p-2 sm:p-4 md:p-6 shadow-lg">
-                    <ReportLayout title={getReportTitle()}>
-                       {renderReportContent()}
-                    </ReportLayout>
+                <div className="bg-white shadow-lg">
+                    <div ref={reportRef} className="p-2 sm:p-4 md:p-6">
+                        <ReportLayout title={getReportTitle()}>
+                           {renderReportContent()}
+                        </ReportLayout>
+                    </div>
                 </div>
             </div>
         </div>
