@@ -334,12 +334,11 @@ export default function FixedWeightFormComponent() {
                                 <Button
                                   variant="outline"
                                   role="combobox"
+                                  aria-expanded={isClientPopoverOpen}
                                   className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
                                 >
                                   {field.value
-                                    ? clientes.find(
-                                        (cliente) => cliente === field.value
-                                      )
+                                    ? clientes.find((cliente) => cliente === field.value)
                                     : "Seleccione un cliente..."}
                                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                 </Button>
@@ -356,7 +355,7 @@ export default function FixedWeightFormComponent() {
                                         value={cliente}
                                         key={cliente}
                                         onSelect={() => {
-                                          form.setValue("nombreCliente", cliente);
+                                          field.onChange(cliente);
                                           setClientPopoverOpen(false);
                                         }}
                                       >

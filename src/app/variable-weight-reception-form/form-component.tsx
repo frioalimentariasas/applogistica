@@ -437,6 +437,7 @@ export default function VariableWeightReceptionFormComponent() {
                                       <Button
                                         variant="outline"
                                         role="combobox"
+                                        aria-expanded={isClientPopoverOpen}
                                         className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
                                       >
                                         {field.value
@@ -459,7 +460,7 @@ export default function VariableWeightReceptionFormComponent() {
                                               value={cliente}
                                               key={cliente}
                                               onSelect={() => {
-                                                form.setValue("cliente", cliente);
+                                                field.onChange(cliente);
                                                 setClientPopoverOpen(false);
                                               }}
                                             >
