@@ -10,11 +10,16 @@ export interface FormSubmissionData {
   formData: any; // The whole form data object
   attachmentUrls: string[];
   createdAt: string;
-  updatedAt?: string; // New field for updates
+  updatedAt?: string; // Tracks when the form was last updated
+  lastUpdatedBy?: { // Tracks who made the last update
+    userId: string;
+    userDisplayName: string;
+  };
 }
 
 export async function saveForm(
-    data: Omit<FormSubmissionData, 'createdAt' | 'updatedAt'> & { createdAt?: string },
+    // The `data` object contains the CURRENT user's info
+    data: Omit<FormSubmissionData, 'createdAt' | 'updatedAt' | 'lastUpdatedBy'> & { createdAt?: string },
     formIdToUpdate?: string
 ): Promise<{ success: boolean; message: string; formId?: string }> {
   if (!firestore) {
@@ -26,17 +31,27 @@ export async function saveForm(
 
   try {
     if (formIdToUpdate) {
-        // This is an update
-        const submissionData = {
-            ...data,
+        // This is an update. We must not change the original creator (userId, userDisplayName) or createdAt.
+        // We will update the form data, attachments, and add an 'updatedAt' timestamp.
+        const { userId, userDisplayName, createdAt, ...restOfData } = data;
+
+        const updatePayload = {
+            ...restOfData,
             updatedAt: new Date().toISOString(),
+            lastUpdatedBy: {
+                userId: userId, // This is the current user making the edit
+                userDisplayName: userDisplayName
+            }
         };
+        
         const docRef = firestore.collection('submissions').doc(formIdToUpdate);
-        await docRef.set(submissionData, { merge: true });
+        // Using `update` ensures we only modify the fields in the payload,
+        // leaving the original `userId`, `userDisplayName`, and `createdAt` untouched.
+        await docRef.update(updatePayload);
         return { success: true, message: 'Formulario actualizado con éxito.', formId: formIdToUpdate };
 
     } else {
-        // This is a new submission
+        // This is a new submission. We save all the initial data.
         const submissionData = {
             ...data,
             createdAt: new Date().toISOString(),
