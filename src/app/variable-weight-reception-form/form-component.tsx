@@ -168,9 +168,9 @@ const ItemRow = ({ control, index, remove, articulos, isLoadingArticulos }: { co
                                     <div className="space-y-1">
                                         {isLoadingArticulos && <p className="text-center text-sm text-muted-foreground">Cargando...</p>}
                                         {!isLoadingArticulos && filteredArticulos.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron productos.</p>}
-                                        {filteredArticulos.map((p) => (
+                                        {filteredArticulos.map((p, i) => (
                                             <Button
-                                                key={p.value}
+                                                key={`${p.value}-${i}`}
                                                 variant="ghost"
                                                 className="w-full justify-start h-auto text-wrap"
                                                 onClick={() => {
