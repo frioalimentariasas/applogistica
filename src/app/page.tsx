@@ -14,7 +14,7 @@ import { FirebaseChecker } from '@/components/app/firebase-checker';
 const Logo = () => (
     <div className="flex flex-col items-center justify-center text-center">
       <Image
-        src="/image/company-logo.png"
+        src="/images/company-logo.png"
         alt="Logotipo de Frio Alimentaria"
         width={300}
         height={86}
