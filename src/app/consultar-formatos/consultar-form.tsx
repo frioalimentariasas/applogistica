@@ -136,7 +136,7 @@ export default function ConsultarFormatosComponent() {
         if (formType.startsWith('fixed-weight-')) {
             return `/fixed-weight-form?operation=${operation}&id=${id}`;
         }
-        if (formType.startsWith('variable-weight-reception')) {
+        if (formType.startsWith('variable-weight-recepcion')) {
             return `/variable-weight-reception-form?operation=${operation}&id=${id}`;
         }
         if (formType.startsWith('variable-weight-despacho')) {

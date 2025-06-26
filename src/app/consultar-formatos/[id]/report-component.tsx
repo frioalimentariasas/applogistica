@@ -434,7 +434,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                  return <FixedWeightReport {...props} formType={submission.formType} />;
             case 'variable-weight-despacho':
                 return <VariableWeightDispatchReport {...props} />;
-            case 'variable-weight-reception':
+            case 'variable-weight-recepcion':
                 return <VariableWeightReceptionReport {...props} />;
             default:
                 return <div className="p-4">Tipo de formato no reconocido.</div>;
