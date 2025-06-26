@@ -7,8 +7,6 @@ import * as xlsx from 'xlsx';
 // Define the structure of a client based on the Excel columns
 interface Cliente {
   'Razón Social': string;
-  'NIT': string;
-  'Ciudad': string;
 }
 
 export async function uploadClientes(formData: FormData): Promise<{ success: boolean; message: string; count?: number }> {
@@ -37,29 +35,35 @@ export async function uploadClientes(formData: FormData): Promise<{ success: boo
     
     // Validate first row to ensure correct columns
     const firstRow = data[0];
-    if (!('Razón Social' in firstRow && 'NIT' in firstRow && 'Ciudad' in firstRow)) {
-        return { success: false, message: 'Las columnas del archivo Excel no coinciden con el formato esperado (Razón Social, NIT, Ciudad).' };
+    if (!('Razón Social' in firstRow)) {
+        return { success: false, message: 'La columna del archivo Excel debe ser "Razón Social".' };
     }
 
     const clientesCollection = firestore.collection('clientes');
 
     // Create a new batch for writing
     const writeBatch = firestore.batch();
+    const addedClients: string[] = [];
+
     data.forEach((row) => {
       // Basic validation to skip empty rows
-      if (row['Razón Social'] && row['NIT'] && row['Ciudad']) {
+      if (row['Razón Social'] && String(row['Razón Social']).trim()) {
+        const razonSocial = String(row['Razón Social']).trim();
         const docRef = clientesCollection.doc(); // Firestore will auto-generate an ID
         writeBatch.set(docRef, {
-          razonSocial: row['Razón Social'],
-          nit: row['NIT'],
-          ciudad: row['Ciudad'],
+          razonSocial: razonSocial,
         });
+        addedClients.push(razonSocial);
       }
     });
 
+    if (addedClients.length === 0) {
+      return { success: false, message: 'No se encontraron clientes válidos para agregar en el archivo.' };
+    }
+
     await writeBatch.commit();
 
-    return { success: true, message: `Se agregaron ${data.length} nuevos clientes correctamente.`, count: data.length };
+    return { success: true, message: `Se agregaron ${addedClients.length} nuevos clientes correctamente.`, count: addedClients.length };
   } catch (error) {
     console.error('Error al procesar el archivo:', error);
     if (error instanceof Error) {
