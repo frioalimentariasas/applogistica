@@ -846,7 +846,7 @@ export default function VariableWeightFormComponent() {
             </Card>
             
             <footer className="flex items-center justify-end gap-4 pt-4">
-                <Button type="button" variant="outline" onClick={() => form.reset()}>
+                <Button type="button" variant="outline" onClick={onDiscard}>
                     <RotateCcw className="mr-2 h-4 w-4"/>
                     Limpiar Formato
                 </Button>

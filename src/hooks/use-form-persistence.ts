@@ -1,6 +1,7 @@
+
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useForm, FieldValues } from 'react-hook-form';
 import { useAuth } from './use-auth';
 import * as idb from '@/lib/idb';
@@ -17,6 +18,7 @@ export function useFormPersistence<T extends FieldValues>(
     const { toast } = useToast();
 
     const [isRestoreDialogOpen, setRestoreDialogOpen] = useState(false);
+    const isProgrammaticReset = useRef(false);
 
     const getStorageKey = useCallback(() => {
         if (!user) return null;
@@ -29,6 +31,10 @@ export function useFormPersistence<T extends FieldValues>(
         if (!storageKey || typeof window === 'undefined') return;
 
         const subscription = watch((value) => {
+            if (isProgrammaticReset.current) {
+                isProgrammaticReset.current = false;
+                return;
+            }
             localStorage.setItem(storageKey, JSON.stringify(value));
         });
         return () => subscription.unsubscribe();
@@ -92,7 +98,7 @@ export function useFormPersistence<T extends FieldValues>(
         localStorage.removeItem(storageKey);
         await idb.del(attachmentsKey);
         
-        // Resetting form to its default values
+        isProgrammaticReset.current = true;
         reset(defaultValues); 
         setAttachments([]);
         setRestoreDialogOpen(false);

@@ -94,7 +94,7 @@ const formSchema = z.object({
     setPoint: z.number({required_error: "El Set Point es requerido.", invalid_type_error: "El Set Point es requerido."}).min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99."),
     items: z.array(itemSchema).min(1, "Debe agregar al menos un item."),
     summary: z.array(summaryItemSchema).optional(),
-    horaInicio: z.string().min(1, "La hora de inicio es requerida.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
+    horaInicio: z.string().min(1, "La hora de inicio es obligatoria.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
     horaFin: z.string().min(1, "La hora de fin es obligatoria.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
     observaciones: z.string().max(250, "Máximo 250 caracteres.").optional(),
     coordinador: z.string().min(1, "Seleccione un coordinador."),
@@ -799,7 +799,7 @@ export default function VariableWeightReceptionFormComponent() {
                 </Card>
 
                 <footer className="flex items-center justify-end gap-4 pt-4">
-                    <Button type="button" variant="outline" onClick={() => form.reset()}><RotateCcw className="mr-2 h-4 w-4"/>Limpiar</Button>
+                    <Button type="button" variant="outline" onClick={onDiscard}><RotateCcw className="mr-2 h-4 w-4"/>Limpiar</Button>
                     <Button type="submit" disabled={isSubmitting}>
                         {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4"/>}
                         {isSubmitting ? 'Guardando...' : 'Guardar y Enviar'}
