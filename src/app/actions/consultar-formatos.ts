@@ -1,6 +1,7 @@
 
 'use server';
 
+import admin from 'firebase-admin';
 import { firestore } from '@/lib/firebase-admin';
 import type { FormSubmissionData } from './save-form';
 
@@ -13,6 +14,34 @@ export interface SearchCriteria {
 export interface SubmissionResult extends FormSubmissionData {
   id: string;
 }
+
+
+// This helper will recursively convert any Firestore Timestamps in an object to ISO strings.
+const serializeTimestamps = (data: any): any => {
+    if (data === null || data === undefined || typeof data !== 'object') {
+        return data;
+    }
+
+    // Handle Firestore Timestamp
+    if (data instanceof admin.firestore.Timestamp) {
+        return data.toDate().toISOString();
+    }
+
+    // Handle array
+    if (Array.isArray(data)) {
+        return data.map(item => serializeTimestamps(item));
+    }
+    
+    // Handle object
+    const newObj: { [key: string]: any } = {};
+    for (const key in data) {
+        if (Object.prototype.hasOwnProperty.call(data, key)) {
+            newObj[key] = serializeTimestamps(data[key]);
+        }
+    }
+    return newObj;
+};
+
 
 export async function searchSubmissions(criteria: SearchCriteria): Promise<SubmissionResult[]> {
     if (!firestore) {
@@ -42,10 +71,15 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
 
         const snapshot = await query.orderBy('createdAt', 'desc').get();
 
-        let results = snapshot.docs.map(doc => ({
-            id: doc.id,
-            ...(doc.data() as FormSubmissionData),
-        }));
+        let results = snapshot.docs.map(doc => {
+            const data = doc.data();
+            const serializedData = serializeTimestamps(data);
+            
+            return {
+                id: doc.id,
+                ...serializedData,
+            } as SubmissionResult;
+        });
 
         // Filter by client name in memory because field name varies ('cliente' vs 'nombreCliente')
         if (criteria.nombreCliente) {
