@@ -29,7 +29,8 @@ export function useFormPersistence<T extends FieldValues>(
         return `${formIdentifier}-${user.uid}`;
     }, [formIdentifier, user]);
 
-    // Save form data to localStorage on change
+    // Save form data (text, numbers, etc.) to localStorage on change.
+    // localStorage is used for small, simple data.
     useEffect(() => {
         const storageKey = getStorageKey();
         if (isEditMode || !storageKey || typeof window === 'undefined' || !draftCheckComplete) return;
@@ -40,7 +41,8 @@ export function useFormPersistence<T extends FieldValues>(
         return () => subscription.unsubscribe();
     }, [watch, getStorageKey, draftCheckComplete, isEditMode]);
 
-    // Save attachments to IndexedDB on change
+    // Save attachments (base64 image strings) to IndexedDB on change.
+    // IndexedDB is used for large data to avoid hitting localStorage limits (especially on mobile).
     useEffect(() => {
         const storageKey = getStorageKey();
         if (isEditMode || !storageKey || !draftCheckComplete) return;
@@ -65,6 +67,7 @@ export function useFormPersistence<T extends FieldValues>(
         }
 
         const checkData = async () => {
+            // Check for data in both localStorage (form fields) and IndexedDB (attachments).
             const savedData = localStorage.getItem(storageKey);
             const attachmentsKey = `${storageKey}-attachments`;
             const savedAttachments = await idb.get<string[]>(attachmentsKey);
@@ -87,14 +90,15 @@ export function useFormPersistence<T extends FieldValues>(
         if (!storageKey) return;
 
         try {
+            // Restore attachments from IndexedDB
             const attachmentsKey = `${storageKey}-attachments`;
-            const savedData = localStorage.getItem(storageKey);
             const savedAttachments = await idb.get<string[]>(attachmentsKey);
-
             if (savedAttachments) {
                 setAttachments(savedAttachments);
             }
 
+            // Restore form fields from localStorage
+            const savedData = localStorage.getItem(storageKey);
             if (savedData) {
                 const parsedData = JSON.parse(savedData);
                 // Ensure date strings are converted back to Date objects
@@ -131,6 +135,7 @@ export function useFormPersistence<T extends FieldValues>(
         }
 
         try {
+            // Clear data from both localStorage and IndexedDB
             const attachmentsKey = `${storageKey}-attachments`;
             localStorage.removeItem(storageKey);
             await idb.del(attachmentsKey);
@@ -149,6 +154,7 @@ export function useFormPersistence<T extends FieldValues>(
         }
     }, [getStorageKey, reset, defaultValues, setAttachments, toast]);
     
+    // Clear draft from both storage systems
     const clearDraft = useCallback(async () => {
         const storageKey = getStorageKey();
         if (!storageKey) return;
