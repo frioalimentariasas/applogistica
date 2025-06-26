@@ -35,15 +35,20 @@ export default function Home() {
   const { toast } = useToast();
   const { user, loading, displayName } = useAuth();
 
-  // Define the list of emails for the "operario" role
+  // Define roles based on email
   const operarioEmails = [
     'frioal.operario1@gmail.com',
     'frioal.operario2@gmail.com',
     'frioal.operario3@gmail.com',
     'frioal.operario4@gmail.com'
   ];
+  const viewerEmails = [
+      'facturacion@frioalimentaria.com.co',
+      'procesos@frioalimentaria.com.co'
+  ];
 
   const isOperario = user && operarioEmails.includes(user.email || '');
+  const isViewer = user && viewerEmails.includes(user.email || '');
 
   useEffect(() => {
     if (!loading && !user) {
@@ -127,56 +132,62 @@ export default function Home() {
 
         <div className="text-center">
           <h2 className="text-xl font-bold uppercase text-[#3588CC]">
-            FORMATO DE RECIBOS Y DESPACHOS
+             {isViewer ? 'CONSULTA DE FORMATOS' : 'FORMATO DE RECIBOS Y DESPACHOS'}
           </h2>
           <p className="mt-2 text-sm text-gray-600">
-            Seleccione las opciones para generar el formato correspondiente o consulte los formatos guardados.
+            {isViewer
+              ? 'Seleccione el botón para consultar los formatos guardados.'
+              : 'Seleccione las opciones para generar el formato correspondiente o consulte los formatos guardados.'}
           </p>
         </div>
-
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <fieldset>
-            <legend className="text-base font-semibold text-gray-900 mb-4">Tipo de Operación</legend>
-            <RadioGroup value={operationType} onValueChange={setOperationType} className="grid grid-cols-2 gap-4">
-                <Label htmlFor="recepcion" className={`flex cursor-pointer items-center space-x-3 rounded-md border bg-white p-4 transition-colors ${operationType === 'recepcion' ? 'border-primary ring-2 ring-primary' : 'border-gray-200'}`}>
-                    <RadioGroupItem value="recepcion" id="recepcion" />
-                    <span className="font-medium">Recepción</span>
-                </Label>
-                <Label htmlFor="despacho" className={`flex cursor-pointer items-center space-x-3 rounded-md border bg-white p-4 transition-colors ${operationType === 'despacho' ? 'border-primary ring-2 ring-primary' : 'border-gray-200'}`}>
-                    <RadioGroupItem value="despacho" id="despacho" />
-                    <span className="font-medium">Despacho</span>
-                </Label>
-            </RadioGroup>
-          </fieldset>
-          
-          <fieldset>
-            <legend className="text-base font-semibold text-gray-900 mb-4">Tipo de Producto</legend>
-            <RadioGroup value={productType} onValueChange={setProductType} className="grid grid-cols-2 gap-4">
-                <Label htmlFor="fijo" className={`flex cursor-pointer items-center space-x-3 rounded-md border bg-white p-4 transition-colors ${productType === 'fijo' ? 'border-primary ring-2 ring-primary' : 'border-gray-200'}`}>
-                    <RadioGroupItem value="fijo" id="fijo" />
-                    <span className="font-medium">Peso Fijo</span>
-                </Label>
-                <Label htmlFor="variable" className={`flex cursor-pointer items-center space-x-3 rounded-md border bg-white p-4 transition-colors ${productType === 'variable' ? 'border-primary ring-2 ring-primary' : 'border-gray-200'}`}>
-                    <RadioGroupItem value="variable" id="variable" />
-                    <span className="font-medium">Peso Variable</span>
-                </Label>
-            </RadioGroup>
-          </fieldset>
-
-          <Button type="submit" size="lg" className="w-full h-12 text-base" disabled={!operationType || !productType}>
-            <FileText className="mr-2 h-5 w-5" />
-            Generar Formato
-          </Button>
-        </form>
         
-        <div className="relative my-4">
-            <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-white px-2 text-muted-foreground">Otras Acciones</span>
-            </div>
-        </div>
+        {!isViewer && (
+            <>
+                <form onSubmit={handleSubmit} className="space-y-6">
+                    <fieldset>
+                        <legend className="text-base font-semibold text-gray-900 mb-4">Tipo de Operación</legend>
+                        <RadioGroup value={operationType} onValueChange={setOperationType} className="grid grid-cols-2 gap-4">
+                            <Label htmlFor="recepcion" className={`flex cursor-pointer items-center space-x-3 rounded-md border bg-white p-4 transition-colors ${operationType === 'recepcion' ? 'border-primary ring-2 ring-primary' : 'border-gray-200'}`}>
+                                <RadioGroupItem value="recepcion" id="recepcion" />
+                                <span className="font-medium">Recepción</span>
+                            </Label>
+                            <Label htmlFor="despacho" className={`flex cursor-pointer items-center space-x-3 rounded-md border bg-white p-4 transition-colors ${operationType === 'despacho' ? 'border-primary ring-2 ring-primary' : 'border-gray-200'}`}>
+                                <RadioGroupItem value="despacho" id="despacho" />
+                                <span className="font-medium">Despacho</span>
+                            </Label>
+                        </RadioGroup>
+                    </fieldset>
+                    
+                    <fieldset>
+                        <legend className="text-base font-semibold text-gray-900 mb-4">Tipo de Producto</legend>
+                        <RadioGroup value={productType} onValueChange={setProductType} className="grid grid-cols-2 gap-4">
+                            <Label htmlFor="fijo" className={`flex cursor-pointer items-center space-x-3 rounded-md border bg-white p-4 transition-colors ${productType === 'fijo' ? 'border-primary ring-2 ring-primary' : 'border-gray-200'}`}>
+                                <RadioGroupItem value="fijo" id="fijo" />
+                                <span className="font-medium">Peso Fijo</span>
+                            </Label>
+                            <Label htmlFor="variable" className={`flex cursor-pointer items-center space-x-3 rounded-md border bg-white p-4 transition-colors ${productType === 'variable' ? 'border-primary ring-2 ring-primary' : 'border-gray-200'}`}>
+                                <RadioGroupItem value="variable" id="variable" />
+                                <span className="font-medium">Peso Variable</span>
+                            </Label>
+                        </RadioGroup>
+                    </fieldset>
+
+                    <Button type="submit" size="lg" className="w-full h-12 text-base" disabled={!operationType || !productType}>
+                        <FileText className="mr-2 h-5 w-5" />
+                        Generar Formato
+                    </Button>
+                </form>
+                
+                <div className="relative my-4">
+                    <div className="absolute inset-0 flex items-center">
+                        <span className="w-full border-t" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                        <span className="bg-white px-2 text-muted-foreground">Otras Acciones</span>
+                    </div>
+                </div>
+            </>
+        )}
         
         <div className="space-y-4">
             <Button size="lg" className="w-full h-12 text-base bg-[#3588CC] text-white hover:bg-[#3588CC]/90" onClick={() => router.push('/consultar-formatos')}>
@@ -184,7 +195,7 @@ export default function Home() {
                 Consultar Formatos Guardados
             </Button>
             
-            {!isOperario && (
+            {!isOperario && !isViewer && (
               <>
                 <div className="grid grid-cols-2 gap-4">
                     <Button size="lg" className="w-full h-12 text-base bg-[#3588CC] text-white hover:bg-[#3588CC]/90" onClick={() => router.push('/gestion-articulos')}>

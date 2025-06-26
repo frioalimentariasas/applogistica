@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from 'react';
@@ -47,6 +46,12 @@ export default function ConsultarFormatosComponent() {
     const [isDeleting, setIsDeleting] = useState(false);
     const [searched, setSearched] = useState(false);
     const [submissionToDelete, setSubmissionToDelete] = useState<SubmissionResult | null>(null);
+
+    const viewerEmails = [
+        'facturacion@frioalimentaria.com.co',
+        'procesos@frioalimentaria.com.co'
+    ];
+    const isViewer = user && viewerEmails.includes(user.email || '');
 
     const handleSearch = async () => {
         setIsLoading(true);
@@ -124,14 +129,14 @@ export default function ConsultarFormatosComponent() {
     };
     
     const getOperationTypeName = (formType: string) => {
-        if (formType.includes('recepcion')) return 'Recepción';
+        if (formType.includes('recepcion') || formType.includes('reception')) return 'Recepción';
         if (formType.includes('despacho')) return 'Despacho';
         return 'N/A';
     };
 
     const getEditUrl = (submission: SubmissionResult) => {
         const { id, formType } = submission;
-        const operation = formType.includes('recepcion') ? 'recepcion' : 'despacho';
+        const operation = formType.includes('recepcion') || formType.includes('reception') ? 'recepcion' : 'despacho';
         
         if (formType.startsWith('fixed-weight-')) {
             return `/fixed-weight-form?operation=${operation}&id=${id}`;
@@ -274,16 +279,20 @@ export default function ConsultarFormatosComponent() {
                                                                 <span className="sr-only">Ver detalles</span>
                                                             </Link>
                                                         </Button>
-                                                        <Button asChild variant="ghost" size="icon" title="Editar">
-                                                            <Link href={getEditUrl(sub)}>
-                                                                <Edit className="h-4 w-4 text-blue-600" />
-                                                                <span className="sr-only">Editar</span>
-                                                            </Link>
-                                                        </Button>
-                                                        <Button variant="ghost" size="icon" title="Eliminar" onClick={() => setSubmissionToDelete(sub)}>
-                                                            <Trash2 className="h-4 w-4 text-destructive" />
-                                                            <span className="sr-only">Eliminar</span>
-                                                        </Button>
+                                                        {!isViewer && (
+                                                            <>
+                                                                <Button asChild variant="ghost" size="icon" title="Editar">
+                                                                    <Link href={getEditUrl(sub)}>
+                                                                        <Edit className="h-4 w-4 text-blue-600" />
+                                                                        <span className="sr-only">Editar</span>
+                                                                    </Link>
+                                                                </Button>
+                                                                <Button variant="ghost" size="icon" title="Eliminar" onClick={() => setSubmissionToDelete(sub)}>
+                                                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                                                    <span className="sr-only">Eliminar</span>
+                                                                </Button>
+                                                            </>
+                                                        )}
                                                     </div>
                                                 </TableCell>
                                             </TableRow>
