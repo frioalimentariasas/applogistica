@@ -17,6 +17,7 @@ import { useFormPersistence } from "@/hooks/use-form-persistence";
 import { saveForm } from "@/app/actions/save-form";
 import { storage } from "@/lib/firebase";
 import { ref, uploadString, getDownloadURL } from "firebase/storage";
+import { optimizeImage } from "@/lib/image-optimizer";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -239,10 +240,11 @@ export default function VariableWeightFormComponent() {
     window.scrollTo(0, 0);
   }, []);
   
-  const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
         const files = Array.from(event.target.files);
         const imageFiles = files.filter(file => file.type.startsWith('image/'));
+        
         if (imageFiles.length !== files.length) {
             toast({
                 variant: "destructive",
@@ -250,13 +252,39 @@ export default function VariableWeightFormComponent() {
                 description: "Por favor, seleccione solo archivos de imagen.",
             });
         }
-        imageFiles.forEach(file => {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-                setAttachments(prev => [...prev, reader.result as string]);
-            };
-            reader.readAsDataURL(file);
+        
+        if (imageFiles.length === 0) return;
+
+        const processingToast = toast({
+            title: "Optimizando imágenes...",
+            description: `Procesando ${imageFiles.length} imagen(es). Por favor espere.`,
         });
+
+        try {
+            const optimizedImages = await Promise.all(imageFiles.map(file => {
+                return new Promise<string>((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        optimizeImage(reader.result as string)
+                            .then(resolve)
+                            .catch(reject);
+                    };
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
+            }));
+            
+            setAttachments(prev => [...prev, ...optimizedImages]);
+        } catch (error) {
+            console.error("Image optimization error:", error);
+            toast({
+                variant: "destructive",
+                title: "Error de optimización",
+                description: "No se pudo optimizar una o más imágenes.",
+            });
+        } finally {
+            processingToast.dismiss();
+        }
     }
   };
 
@@ -268,20 +296,42 @@ export default function VariableWeightFormComponent() {
       setIsCameraOpen(true);
   };
   
-  const handleCapture = () => {
-      if (videoRef.current && canvasRef.current) {
-          const video = videoRef.current;
-          const canvas = canvasRef.current;
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
-          const context = canvas.getContext('2d');
-          if (context) {
-              context.drawImage(video, 0, 0, canvas.width, canvas.height);
-              const dataUrl = canvas.toDataURL('image/jpeg');
-              setAttachments(prev => [...prev, dataUrl]);
-          }
+  const handleCapture = async () => {
+    if (videoRef.current && canvasRef.current) {
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const context = canvas.getContext('2d');
+        if (context) {
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const dataUrl = canvas.toDataURL('image/jpeg');
+            
+            handleCloseCamera(); // Close camera UI immediately
+
+            const processingToast = toast({
+              title: "Optimizando imagen...",
+              description: "Por favor espere un momento.",
+            });
+          
+            try {
+                const optimizedImage = await optimizeImage(dataUrl);
+                setAttachments(prev => [...prev, optimizedImage]);
+            } catch (error) {
+                 console.error("Image optimization error:", error);
+                 toast({
+                    variant: "destructive",
+                    title: "Error de optimización",
+                    description: "No se pudo optimizar la imagen capturada.",
+                 });
+            } finally {
+                processingToast.dismiss();
+            }
+        } else {
+          // Make sure camera is closed even if context is not available
           handleCloseCamera();
-      }
+        }
+    }
   };
 
   const handleCloseCamera = () => {
