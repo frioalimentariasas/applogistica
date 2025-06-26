@@ -1,16 +1,24 @@
-import Image from 'next/image';
+
 import { format } from 'date-fns';
 
 const ReportSection = ({ title, children }: { title: string, children: React.ReactNode }) => (
     <div style={{ breakInside: 'avoid', pageBreakInside: 'avoid', marginBottom: '12px' }}>
-        <div style={{ border: '1px solid #aaa', borderRadius: '8px', overflow: 'hidden' }}>
-            <h2 style={{ backgroundColor: '#e2e8f0', padding: '4px 12px', fontSize: '12px', fontWeight: 'bold', color: '#1a202c', borderBottom: '1px solid #aaa', margin: 0 }}>
-                {title}
-            </h2>
-            <div style={{ padding: '12px' }}>
-                {children}
-            </div>
-        </div>
+        <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #aaa', borderRadius: '8px' }}>
+            <thead>
+                <tr>
+                    <th style={{ backgroundColor: '#e2e8f0', padding: '4px 12px', fontSize: '12px', fontWeight: 'bold', color: '#1a202c', borderBottom: '1px solid #aaa', textAlign: 'left' }}>
+                        {title}
+                    </th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td style={{ padding: '12px' }}>
+                        {children}
+                    </td>
+                </tr>
+            </tbody>
+        </table>
     </div>
 );
   
@@ -38,9 +46,9 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <tbody>
                         <tr>
-                            <td style={{ width: '33%', padding: '2px' }}><ReportField label="Pedido SISLOG" value={formData.pedidoSislog} /></td>
-                            <td style={{ width: '33%', padding: '2px' }}><ReportField label="Cliente" value={formData.cliente} /></td>
-                            <td style={{ width: '33%', padding: '2px' }}><ReportField label="Fecha" value={formData.fecha ? format(new Date(formData.fecha), "dd/MM/yyyy") : 'N/A'} /></td>
+                            <td style={{ width: '33.33%', padding: '2px' }}><ReportField label="Pedido SISLOG" value={formData.pedidoSislog} /></td>
+                            <td style={{ width: '33.33%', padding: '2px' }}><ReportField label="Cliente" value={formData.cliente} /></td>
+                            <td style={{ width: '33.33%', padding: '2px' }}><ReportField label="Fecha" value={formData.fecha ? format(new Date(formData.fecha), "dd/MM/yyyy") : 'N/A'} /></td>
                         </tr>
                         <tr>
                            <td style={{ padding: '2px' }}><ReportField label="Conductor" value={formData.conductor} /></td>
@@ -120,7 +128,7 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
 
             {formData.observaciones && (
                 <ReportSection title="Observaciones">
-                    <p style={{ fontSize: '11px' }}>{formData.observaciones}</p>
+                    <p style={{ fontSize: '11px', margin: 0 }}>{formData.observaciones}</p>
                 </ReportSection>
             )}
 
@@ -137,16 +145,21 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
             
             {attachments.length > 0 && (
                 <ReportSection title="Anexos: Registros Fotográficos">
-                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', paddingTop: '8px' }}>
-                        {attachments.map((img, index) => (
-                            <div key={index} style={{ textAlign: 'center', breakInside: 'avoid', pageBreakInside: 'avoid' }}>
-                                <div style={{ border: '1px solid #ccc', borderRadius: '4px', overflow: 'hidden', height: '200px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                                     <img src={img} alt={`Anexo ${index + 1}`} style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
-                                </div>
-                                <p style={{ fontSize: '10px', marginTop: '4px' }}>Registro Fotográfico {index + 1}</p>
-                            </div>
-                        ))}
-                    </div>
+                    <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                         <tbody>
+                            <tr>
+                                {attachments.slice(0, 2).map((img, index) => (
+                                    <td key={index} style={{ width: '50%', padding: '8px', verticalAlign: 'top', textAlign: 'center' }}>
+                                        <div style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}>
+                                            <img src={img} alt={`Anexo ${index + 1}`} style={{ maxWidth: '100%', border: '1px solid #ccc', borderRadius: '4px', objectFit: 'contain' }} />
+                                            <p style={{ fontSize: '10px', marginTop: '4px', marginBlock: 0 }}>Registro Fotográfico {index + 1}</p>
+                                        </div>
+                                    </td>
+                                ))}
+                            </tr>
+                            {/* Add more rows if needed */}
+                        </tbody>
+                    </table>
                 </ReportSection>
             )}
         </>

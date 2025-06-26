@@ -28,8 +28,10 @@ interface ReportComponentProps {
 export default function ReportComponent({ submission }: ReportComponentProps) {
     const reportRef = useRef<HTMLDivElement>(null);
     const [isDownloading, setIsDownloading] = useState(false);
-    const [isLoadingImages, setIsLoadingImages] = useState(true);
+    const [areImagesLoading, setAreImagesLoading] = useState(true);
     const [base64Images, setBase64Images] = useState<string[]>([]);
+    const [logoBase64, setLogoBase64] = useState<string | null>(null);
+
 
     useEffect(() => {
         // This assignment must be done on the client side, after the component has mounted.
@@ -40,25 +42,29 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
     }, []);
 
     useEffect(() => {
-        if (!submission.attachmentUrls || submission.attachmentUrls.length === 0) {
-            setIsLoadingImages(false);
-            return;
-        }
-
-        const fetchImages = async () => {
-            setIsLoadingImages(true);
+        const fetchAllImages = async () => {
+            setAreImagesLoading(true);
             try {
-                const promises = submission.attachmentUrls.map(url => getImageAsBase64(url));
-                const images = await Promise.all(promises);
-                setBase64Images(images);
+                // Fetch attachments
+                const attachmentPromises = submission.attachmentUrls.map(url => getImageAsBase64(url));
+                
+                // Fetch logo
+                const logoUrl = new URL('/images/company-logo.png', window.location.origin).href;
+                const logoPromise = getImageAsBase64(logoUrl);
+
+                const [logoData, ...attachmentData] = await Promise.all([logoPromise, ...attachmentPromises]);
+                
+                setLogoBase64(logoData);
+                setBase64Images(attachmentData);
+
             } catch (error) {
-                console.error("Error fetching one or more images:", error);
+                console.error("Error fetching one or more images for PDF:", error);
             } finally {
-                setIsLoadingImages(false);
+                setAreImagesLoading(false);
             }
         };
 
-        fetchImages();
+        fetchAllImages();
     }, [submission.attachmentUrls]);
 
     const getReportTitle = () => {
@@ -108,8 +114,6 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     useCORS: true,
                     logging: false,
                 },
-                // Force the width to match the PDF page width minus margins
-                // A4 width (595pt) - left margin (20pt) - right margin (20pt) = 555pt
                 width: 555,
                 windowWidth: 555,
             });
@@ -152,36 +156,35 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         </Link>
                     </Button>
                     <h1 className="text-lg font-semibold text-gray-700">{getReportTitle()}</h1>
-                    <Button onClick={handleDownload} disabled={isDownloading || isLoadingImages}>
+                    <Button onClick={handleDownload} disabled={isDownloading || areImagesLoading}>
                         {isDownloading ? (
                             <Loader2 className="mr-2 animate-spin" />
                         ) : (
                             <Download className="mr-2" />
                         )}
-                        {isDownloading ? 'Descargando...' : 'Descargar PDF'}
+                        {isDownloading ? 'Descargando...' : areImagesLoading ? 'Cargando Imágenes...' : 'Descargar PDF'}
                     </Button>
                 </header>
 
-                {isLoadingImages && (
+                {areImagesLoading && (
                     <Alert>
                         <ImageIcon className="h-4 w-4" />
                         <AlertTitle>Cargando Imágenes</AlertTitle>
                         <AlertDescription>
-                            Por favor espere mientras se cargan las imágenes del anexo.
+                            Por favor espere mientras se preparan las imágenes para el reporte.
                         </AlertDescription>
                     </Alert>
                 )}
 
                 <div className="bg-white shadow-lg">
-                    {/* The ref is now on the outer container for jspdf.html() */}
+                    {/* The reportRef is on the div that wraps the ReportLayout */}
                     <div ref={reportRef}> 
-                        <div className="p-4">
-                            <ReportLayout title={getReportTitle()}>
+                        <ReportLayout title={getReportTitle()} logoBase64={logoBase64}>
                             {renderReportContent()}
-                            </ReportLayout>
-                        </div>
+                        </ReportLayout>
                     </div>
                 </div>
             </div>
         </div>
     );
+}
