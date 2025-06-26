@@ -20,6 +20,6 @@ if (!admin.apps.length) {
   }
 }
 
-const firestore = admin.apps.length ? admin.firestore() : null;
+const firestore = admin.apps.length ? admin.firestore('frioalimentaria') : null;
 
 export { firestore };
