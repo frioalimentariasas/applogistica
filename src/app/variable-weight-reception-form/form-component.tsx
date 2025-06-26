@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useForm, useFieldArray, useWatch, useFormContext } from "react-hook-form";
+import { useForm, useFieldArray, useWatch, useFormContext, Controller, useController } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format } from "date-fns";
@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 import { useAuth } from "@/hooks/use-auth";
 import { getClients } from "@/app/actions/clients";
+import { getArticulosByClient, ArticuloInfo } from "@/app/actions/articulos";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -106,12 +107,14 @@ const coordinadores = ["Cristian Acuña", "Sergio Padilla"];
 const presentaciones = ["Cajas", "Sacos", "Canastillas"];
 
 
-const ItemRow = ({ control, index, remove }: { control: any, index: number, remove: (index: number) => void }) => {
+const ItemRow = ({ control, index, remove, articulos, isLoadingArticulos }: { control: any, index: number, remove: (index: number) => void, articulos: { value: string, label: string }[], isLoadingArticulos: boolean }) => {
     const { setValue } = useFormContext();
     const itemData = useWatch({
         control,
         name: `items.${index}`
     });
+
+    const [open, setOpen] = useState(false);
 
     useEffect(() => {
         const cantidad = Number(itemData.cantidadPorPaleta) || 0;
@@ -142,9 +145,40 @@ const ItemRow = ({ control, index, remove }: { control: any, index: number, remo
                 <FormField control={control} name={`items.${index}.descripcion`} render={({ field }) => (
                     <FormItem className="md:col-span-2">
                         <FormLabel>Descripción del Producto</FormLabel>
-                        <FormControl>
-                            <Input placeholder="Escriba la descripción del producto..." {...field} />
-                        </FormControl>
+                        <Popover open={open} onOpenChange={setOpen}>
+                            <PopoverTrigger asChild>
+                                <FormControl>
+                                    <Button variant="outline" role="combobox" className={cn("w-full justify-between", !field.value && "text-muted-foreground")}>
+                                        {field.value || "Seleccionar producto..."}
+                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    </Button>
+                                </FormControl>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                <Command>
+                                    <CommandInput placeholder="Buscar producto..." />
+                                    <CommandList>
+                                        {isLoadingArticulos && <div className="p-4 text-center text-sm">Cargando...</div>}
+                                        <CommandEmpty>No se encontraron productos para este cliente.</CommandEmpty>
+                                        <CommandGroup>
+                                            {articulos.map((p) => (
+                                                <CommandItem
+                                                    key={p.value}
+                                                    value={p.label}
+                                                    onSelect={() => {
+                                                        field.onChange(p.label);
+                                                        setOpen(false);
+                                                    }}
+                                                >
+                                                    <Check className={cn("mr-2 h-4 w-4", p.label === field.value ? "opacity-100" : "opacity-0")} />
+                                                    {p.label}
+                                                </CommandItem>
+                                            ))}
+                                        </CommandGroup>
+                                    </CommandList>
+                                </Command>
+                            </PopoverContent>
+                        </Popover>
                         <FormMessage />
                     </FormItem>
                 )}/>
@@ -192,6 +226,10 @@ export default function VariableWeightReceptionFormComponent() {
   const [clientes, setClientes] = useState<string[]>([]);
   const [isClientDialogOpen, setClientDialogOpen] = useState(false);
   const [clientSearch, setClientSearch] = useState("");
+
+  const [articulos, setArticulos] = useState<{ value: string; label: string }[]>([]);
+  const [isLoadingArticulos, setIsLoadingArticulos] = useState(false);
+
   const [attachments, setAttachments] = useState<string[]>([]);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -442,7 +480,7 @@ export default function VariableWeightReceptionFormComponent() {
                                 <Dialog open={isClientDialogOpen} onOpenChange={setClientDialogOpen}>
                                     <DialogTrigger asChild>
                                         <FormControl>
-                                            <Button variant="outline" className="w-full justify-between text-left font-normal">
+                                            <Button variant="outline" role="combobox" className="w-full justify-between text-left font-normal">
                                                 {field.value || "Seleccione un cliente..."}
                                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                             </Button>
@@ -466,10 +504,25 @@ export default function VariableWeightReceptionFormComponent() {
                                                             key={cliente}
                                                             variant="ghost"
                                                             className="w-full justify-start"
-                                                            onClick={() => {
+                                                            onClick={async () => {
                                                                 field.onChange(cliente);
                                                                 setClientDialogOpen(false);
-                                                                setClientSearch("");
+                                                                setClientSearch('');
+                                                                
+                                                                form.setValue('items', [{ paleta: 0, descripcion: '', lote: '', presentacion: '', cantidadPorPaleta: 0, pesoBruto: 0, taraEstiba: 0, taraCaja: 0, totalTaraCaja: 0, pesoNeto: 0 }]);
+                                                                setArticulos([]);
+                                                                setIsLoadingArticulos(true);
+                                                                try {
+                                                                    const fetchedArticulos = await getArticulosByClient(cliente);
+                                                                    setArticulos(fetchedArticulos.map(a => ({
+                                                                        value: a.codigoProducto,
+                                                                        label: a.denominacionArticulo
+                                                                    })));
+                                                                } catch (error) {
+                                                                    toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los productos." });
+                                                                } finally {
+                                                                    setIsLoadingArticulos(false);
+                                                                }
                                                             }}
                                                         >
                                                             {cliente}
@@ -540,7 +593,7 @@ export default function VariableWeightReceptionFormComponent() {
                   <CardContent className="space-y-4">
                       <div className="space-y-4">
                           {fields.map((field, index) => (
-                             <ItemRow key={field.id} control={control} index={index} remove={() => remove(index)} />
+                             <ItemRow key={field.id} control={control} index={index} remove={() => remove(index)} articulos={articulos} isLoadingArticulos={isLoadingArticulos} />
                           ))}
                       </div>
                       <Button type="button" variant="outline" onClick={() => append({ paleta: 0, descripcion: "", lote: "", presentacion: "", cantidadPorPaleta: 0, pesoBruto: 0, taraEstiba: 0, taraCaja: 0, totalTaraCaja: 0, pesoNeto: 0 })}><PlusCircle className="mr-2 h-4 w-4" />Agregar Item</Button>

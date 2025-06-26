@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 import { useAuth } from "@/hooks/use-auth";
 import { getClients } from "@/app/actions/clients";
+import { getArticulosByClient, ArticuloInfo } from "@/app/actions/articulos";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -100,12 +101,6 @@ const formSchema = z.object({
 // Mock data for selects
 const muelles = ["Muelle 1", "Muelle 2", "Muelle 3", "Muelle 4", "Muelle 5", "Muelle 6"];
 const coordinadores = ["Cristian Acuña", "Sergio Padilla"];
-const productosExistentes = [
-    { value: 'PROD001', label: 'Pollo Entero Congelado' },
-    { value: 'PROD002', label: 'Pechuga de Pollo' },
-    { value: 'PROD003', label: 'Carne de Res Molida' },
-]
-
 
 export default function FixedWeightFormComponent() {
   const router = useRouter();
@@ -117,6 +112,11 @@ export default function FixedWeightFormComponent() {
   const [clientes, setClientes] = useState<string[]>([]);
   const [isClientDialogOpen, setClientDialogOpen] = useState(false);
   const [clientSearch, setClientSearch] = useState("");
+  
+  const [articulos, setArticulos] = useState<{ value: string; label: string }[]>([]);
+  const [isLoadingArticulos, setIsLoadingArticulos] = useState(false);
+  const [openProductPopover, setOpenProductPopover] = useState<number | null>(null);
+
   const [attachments, setAttachments] = useState<string[]>([]);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -335,48 +335,63 @@ export default function FixedWeightFormComponent() {
                       render={({ field }) => (
                         <FormItem className="flex flex-col">
                           <FormLabel>Nombre del Cliente</FormLabel>
-                          <Dialog open={isClientDialogOpen} onOpenChange={setClientDialogOpen}>
-                            <DialogTrigger asChild>
-                                <FormControl>
-                                    <Button variant="outline" className="w-full justify-between text-left font-normal">
-                                        {field.value || "Seleccione un cliente..."}
-                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                    </Button>
-                                </FormControl>
-                            </DialogTrigger>
-                            <DialogContent className="sm:max-w-[425px]">
-                                <DialogHeader>
-                                    <DialogTitle>Seleccionar Cliente</DialogTitle>
-                                </DialogHeader>
-                                <div className="p-4">
-                                    <Input
-                                        placeholder="Buscar cliente..."
-                                        value={clientSearch}
-                                        onChange={(e) => setClientSearch(e.target.value)}
-                                        className="mb-4"
-                                    />
-                                    <ScrollArea className="h-72">
-                                        <div className="space-y-1">
-                                            {filteredClients.map((cliente) => (
-                                                <Button
-                                                    key={cliente}
-                                                    variant="ghost"
-                                                    className="w-full justify-start"
-                                                    onClick={() => {
-                                                        field.onChange(cliente);
-                                                        setClientDialogOpen(false);
-                                                        setClientSearch("");
-                                                    }}
-                                                >
-                                                    {cliente}
-                                                </Button>
-                                            ))}
-                                            {filteredClients.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron clientes.</p>}
-                                        </div>
-                                    </ScrollArea>
-                                </div>
-                            </DialogContent>
-                          </Dialog>
+                            <Dialog open={isClientDialogOpen} onOpenChange={setClientDialogOpen}>
+                                <DialogTrigger asChild>
+                                    <FormControl>
+                                        <Button variant="outline" role="combobox" className="w-full justify-between text-left font-normal">
+                                            {field.value || "Seleccione un cliente..."}
+                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                        </Button>
+                                    </FormControl>
+                                </DialogTrigger>
+                                <DialogContent className="sm:max-w-[425px]">
+                                    <DialogHeader>
+                                        <DialogTitle>Seleccionar Cliente</DialogTitle>
+                                    </DialogHeader>
+                                    <div className="p-4">
+                                        <Input
+                                            placeholder="Buscar cliente..."
+                                            value={clientSearch}
+                                            onChange={(e) => setClientSearch(e.target.value)}
+                                            className="mb-4"
+                                        />
+                                        <ScrollArea className="h-72">
+                                            <div className="space-y-1">
+                                                {filteredClients.map((cliente) => (
+                                                    <Button
+                                                        key={cliente}
+                                                        variant="ghost"
+                                                        className="w-full justify-start"
+                                                        onClick={async () => {
+                                                            field.onChange(cliente);
+                                                            setClientDialogOpen(false);
+                                                            setClientSearch('');
+                                                            
+                                                            form.setValue('productos', [{ codigo: '', descripcion: '', cajas: NaN, paletas: NaN, temperatura: NaN }]);
+                                                            setArticulos([]);
+                                                            setIsLoadingArticulos(true);
+                                                            try {
+                                                                const fetchedArticulos = await getArticulosByClient(cliente);
+                                                                setArticulos(fetchedArticulos.map(a => ({
+                                                                    value: a.codigoProducto,
+                                                                    label: a.denominacionArticulo
+                                                                })));
+                                                            } catch (error) {
+                                                                toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los productos." });
+                                                            } finally {
+                                                                setIsLoadingArticulos(false);
+                                                            }
+                                                        }}
+                                                    >
+                                                        {cliente}
+                                                    </Button>
+                                                ))}
+                                                {filteredClients.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron clientes.</p>}
+                                            </div>
+                                        </ScrollArea>
+                                    </div>
+                                </DialogContent>
+                            </Dialog>
                           <FormMessage />
                         </FormItem>
                       )}
@@ -461,37 +476,37 @@ export default function FixedWeightFormComponent() {
                                 <FormField control={form.control} name={`productos.${index}.codigo`} render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Código</FormLabel>
-                                        <FormControl><Input placeholder="Código del producto" {...field} /></FormControl>
+                                        <FormControl><Input placeholder="Código del producto" {...field} readOnly /></FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}/>
                                 <FormField control={form.control} name={`productos.${index}.descripcion`} render={({ field }) => (
                                     <FormItem className="md:col-span-2">
                                     <FormLabel>Descripción del Producto</FormLabel>
-                                    <Popover>
+                                    <Popover open={openProductPopover === index} onOpenChange={(isOpen) => setOpenProductPopover(isOpen ? index : null)}>
                                         <PopoverTrigger asChild>
                                         <FormControl>
                                             <Button variant="outline" role="combobox" className={cn("w-full justify-between", !field.value && "text-muted-foreground")}>
-                                            {field.value ? productosExistentes.find((p) => p.label === field.value)?.label : "Seleccionar o escribir descripción..."}
+                                            {field.value ? field.value : "Seleccionar producto..."}
                                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                             </Button>
                                         </FormControl>
                                         </PopoverTrigger>
                                         <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                                            <Command shouldFilter={false}>
-                                                <CommandInput placeholder="Buscar producto..." onValueChange={(search) => {
-                                                    // Handle search/filter if needed, for now just for typing
-                                                }} />
+                                            <Command>
+                                                <CommandInput placeholder="Buscar producto..." />
                                                 <CommandList>
-                                                    <CommandEmpty>No se encontraron productos.</CommandEmpty>
+                                                    {isLoadingArticulos && <div className="p-4 text-center text-sm">Cargando...</div>}
+                                                    <CommandEmpty>No se encontraron productos para este cliente.</CommandEmpty>
                                                     <CommandGroup>
-                                                        {productosExistentes.map((p) => (
+                                                        {articulos.map((p) => (
                                                             <CommandItem
                                                                 key={p.value}
                                                                 value={p.label}
-                                                                onSelect={(currentValue) => {
-                                                                    form.setValue(`productos.${index}.descripcion`, currentValue === field.value ? "" : currentValue)
+                                                                onSelect={() => {
+                                                                    form.setValue(`productos.${index}.descripcion`, p.label)
                                                                     form.setValue(`productos.${index}.codigo`, p.value)
+                                                                    setOpenProductPopover(null);
                                                                 }}
                                                                 >
                                                                 <Check className={cn("mr-2 h-4 w-4", p.label === field.value ? "opacity-100" : "opacity-0")} />
