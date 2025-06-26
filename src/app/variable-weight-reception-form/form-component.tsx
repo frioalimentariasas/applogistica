@@ -43,7 +43,15 @@ import {
     RotateCcw,
     FileText,
     Edit2,
+    ChevronsUpDown,
+    Check,
 } from "lucide-react";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 
@@ -181,6 +189,7 @@ export default function VariableWeightReceptionFormComponent() {
   const { displayName } = useAuth();
 
   const [clientes, setClientes] = useState<string[]>([]);
+  const [isClientPopoverOpen, setClientPopoverOpen] = useState(false);
   const [attachments, setAttachments] = useState<string[]>([]);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -420,22 +429,56 @@ export default function VariableWeightReceptionFormComponent() {
                         control={control}
                         name="cliente"
                         render={({ field }) => (
-                            <FormItem>
+                            <FormItem className="flex flex-col">
                                 <FormLabel>Cliente</FormLabel>
-                                <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                <Popover open={isClientPopoverOpen} onOpenChange={setClientPopoverOpen}>
+                                  <PopoverTrigger asChild>
                                     <FormControl>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Seleccione un cliente" />
-                                    </SelectTrigger>
+                                      <Button
+                                        variant="outline"
+                                        role="combobox"
+                                        className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
+                                      >
+                                        {field.value
+                                          ? clientes.find(
+                                              (cliente) => cliente === field.value
+                                            )
+                                          : "Seleccione un cliente..."}
+                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                      </Button>
                                     </FormControl>
-                                    <SelectContent>
-                                    {clientes.map((cliente) => (
-                                        <SelectItem key={cliente} value={cliente}>
-                                        {cliente}
-                                        </SelectItem>
-                                    ))}
-                                    </SelectContent>
-                                </Select>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                    <Command>
+                                      <CommandInput placeholder="Buscar cliente..." />
+                                      <CommandList>
+                                        <CommandEmpty>No se encontraron clientes.</CommandEmpty>
+                                        <CommandGroup>
+                                          {clientes.map((cliente) => (
+                                            <CommandItem
+                                              value={cliente}
+                                              key={cliente}
+                                              onSelect={() => {
+                                                form.setValue("cliente", cliente);
+                                                setClientPopoverOpen(false);
+                                              }}
+                                            >
+                                              <Check
+                                                className={cn(
+                                                  "mr-2 h-4 w-4",
+                                                  cliente === field.value
+                                                    ? "opacity-100"
+                                                    : "opacity-0"
+                                                )}
+                                              />
+                                              {cliente}
+                                            </CommandItem>
+                                          ))}
+                                        </CommandGroup>
+                                      </CommandList>
+                                    </Command>
+                                  </PopoverContent>
+                                </Popover>
                                 <FormMessage />
                             </FormItem>
                         )}
