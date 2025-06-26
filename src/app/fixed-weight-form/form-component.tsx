@@ -587,21 +587,21 @@ export default function FixedWeightFormComponent() {
                                 <FormField control={form.control} name={`productos.${index}.cajas`} render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>No. de Cajas</FormLabel>
-                                        <FormControl><Input type="number" min="1" placeholder="0" {...field} onChange={e => field.onChange(e.target.valueAsNumber)} value={Number.isNaN(field.value) ? '' : field.value} /></FormControl>
+                                        <FormControl><Input type="number" min="1" placeholder="0" {...field} onChange={e => field.onChange(e.target.valueAsNumber)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}/>
                                 <FormField control={form.control} name={`productos.${index}.paletas`} render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Total Paletas/Cantidad</FormLabel>
-                                        <FormControl><Input type="number" step="0.01" min="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.valueAsNumber)} value={Number.isNaN(field.value) ? '' : field.value} /></FormControl>
+                                        <FormControl><Input type="number" step="0.01" min="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.valueAsNumber)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}/>
                                 <FormField control={form.control} name={`productos.${index}.temperatura`} render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Temperatura (°C)</FormLabel>
-                                        <FormControl><Input type="number" placeholder="0" {...field} onChange={e => field.onChange(e.target.valueAsNumber)} value={Number.isNaN(field.value) ? '' : field.value} /></FormControl>
+                                        <FormControl><Input type="number" placeholder="0" {...field} onChange={e => field.onChange(e.target.valueAsNumber)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}/>
@@ -663,7 +663,7 @@ export default function FixedWeightFormComponent() {
                         <FormItem>
                             <FormLabel>Set Point (°C)</FormLabel>
                             <FormControl>
-                                <Input type="number" placeholder="0" {...field} onChange={e => field.onChange(e.target.valueAsNumber)} value={Number.isNaN(field.value) ? '' : field.value} />
+                                <Input type="number" placeholder="0" {...field} onChange={e => field.onChange(e.target.valueAsNumber)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} />
                             </FormControl>
                             <FormMessage />
                         </FormItem>
