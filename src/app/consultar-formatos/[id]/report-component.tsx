@@ -171,6 +171,12 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     doc.text(`Página ${i} de ${pageCount}`, pageWidth - margin, pageHeight - 20, { align: 'right' });
                 }
             };
+
+            const applyLabelStyles = (data: any, colCount: number) => {
+                if (data.row.section === 'body' && data.column.index % (colCount/3) === 0) {
+                     data.cell.styles.fontStyle = 'bold';
+                }
+            };
     
             addHeader(getReportTitle());
     
@@ -185,32 +191,38 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     head: [[{ content: 'Información General', colSpan: 6, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]],
                     body: [
                         [
-                            { content: 'Pedido SISLOG:', styles: { fontStyle: 'bold' } },
+                            'Pedido SISLOG:',
                             formData.pedidoSislog || 'N/A',
-                            { content: 'Nombre Cliente:', styles: { fontStyle: 'bold' } },
+                            'Nombre Cliente:',
                             formData.nombreCliente || 'N/A',
-                            { content: 'Factura/Remisión:', styles: { fontStyle: 'bold' } },
+                            'Factura/Remisión:',
                             formData.facturaRemision || 'N/A'
                         ],
                         [
-                            { content: 'Fecha:', styles: { fontStyle: 'bold' } },
+                            'Fecha:',
                             formData.fecha ? format(new Date(formData.fecha), "dd/MM/yyyy") : 'N/A',
-                            { content: `Hora Inicio ${operationTerm}:`, styles: { fontStyle: 'bold' } },
+                            `Hora Inicio ${operationTerm}:`,
                             formatTime12Hour(formData.horaInicio),
-                            { content: `Hora Fin ${operationTerm}:`, styles: { fontStyle: 'bold' } },
+                            `Hora Fin ${operationTerm}:`,
                             formatTime12Hour(formData.horaFin)
                         ],
                         [
-                            { content: 'Precinto/Sello:', styles: { fontStyle: 'bold' } },
+                            'Precinto/Sello:',
                             formData.precinto || 'N/A',
-                            { content: 'Documento de Transporte:', styles: { fontStyle: 'bold' } },
+                            'Doc. Transp.:',
                             formData.documentoTransporte || 'N/A',
-                            { content: 'Operario:', styles: { fontStyle: 'bold' } },
+                            'Operario:',
                             userDisplayName || 'N/A'
                         ]
                     ],
                     theme: 'grid', 
-                    styles: { fontSize: 8, cellPadding: 4 },
+                    styles: { fontSize: 8, cellPadding: 4, valign: 'middle' },
+                    columnStyles: {
+                        0: { cellWidth: 'auto' },
+                        2: { cellWidth: 'auto' },
+                        4: { cellWidth: 'auto' },
+                    },
+                    didParseCell: (data) => applyLabelStyles(data, 6),
                 });
                 yPos = (doc as any).autoTable.previous.finalY + 15;
     
@@ -239,32 +251,38 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     head: [[{ content: 'Información del Vehículo', colSpan: 6, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]],
                     body: [
                          [
-                            { content: 'Nombre Conductor:', styles: { fontStyle: 'bold' } },
+                            'Nombre Conductor:',
                             formData.nombreConductor || 'N/A',
-                            { content: 'Cédula:', styles: { fontStyle: 'bold' } },
+                            'Cédula:',
                             formData.cedulaConductor || 'N/A',
-                            { content: 'Placa:', styles: { fontStyle: 'bold' } },
+                            'Placa:',
                             formData.placa || 'N/A'
                         ],
                         [
-                            { content: 'Muelle:', styles: { fontStyle: 'bold' } },
+                            'Muelle:',
                             formData.muelle || 'N/A',
-                            { content: 'Contenedor:', styles: { fontStyle: 'bold' } },
+                            'Contenedor:',
                             formData.contenedor || 'N/A',
-                            { content: 'Set Point (°C):', styles: { fontStyle: 'bold' } },
+                            'Set Point (°C):',
                             formData.setPoint || 'N/A'
                         ],
                         [
-                            { content: 'Cond. Higiene:', styles: { fontStyle: 'bold' } },
+                            'Cond. Higiene:',
                             formData.condicionesHigiene || 'N/A',
-                            { content: 'Termoregistrador:', styles: { fontStyle: 'bold' } },
+                            'Termoregistrador:',
                             formData.termoregistrador || 'N/A',
-                            { content: 'Cliente Requiere Termoregistro:', styles: { fontStyle: 'bold' } },
+                            'Cliente Req. Termo.:',
                             formData.clienteRequiereTermoregistro || 'N/A'
                         ]
                     ], 
                     theme: 'grid', 
-                    styles: { fontSize: 8, cellPadding: 4 },
+                    styles: { fontSize: 8, cellPadding: 4, valign: 'middle' },
+                    columnStyles: {
+                        0: { cellWidth: 'auto' },
+                        2: { cellWidth: 'auto' },
+                        4: { cellWidth: 'auto' },
+                    },
+                    didParseCell: (data) => applyLabelStyles(data, 6),
                 });
                 yPos = (doc as any).autoTable.previous.finalY + 15;
     
@@ -278,14 +296,19 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     head: [[{ content: 'Responsables', colSpan: 4, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]], 
                     body: [
                         [
-                            { content: 'Coordinador:', styles: { fontStyle: 'bold' } },
+                            'Coordinador:',
                             formData.coordinador || 'N/A',
-                            { content: 'Operario:', styles: { fontStyle: 'bold' } },
+                            'Operario:',
                             userDisplayName || 'N/A'
                         ]
                     ], 
                     theme: 'grid', 
-                    styles: { fontSize: 8, cellPadding: 4 },
+                    styles: { fontSize: 8, cellPadding: 4, valign: 'middle' },
+                    columnStyles: {
+                        0: { cellWidth: 'auto' },
+                        2: { cellWidth: 'auto' },
+                    },
+                    didParseCell: (data) => applyLabelStyles(data, 4),
                 });
                 yPos = (doc as any).autoTable.previous.finalY + 15;
     
@@ -298,39 +321,45 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     head: [[{ content: `Datos de ${isReception ? 'Recepción' : 'Despacho'}`, colSpan: 6, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]],
                     body: [
                         [
-                            { content: 'Pedido SISLOG:', styles: { fontStyle: 'bold' } },
+                            'Pedido SISLOG:',
                             formData.pedidoSislog || 'N/A',
-                            { content: 'Cliente:', styles: { fontStyle: 'bold' } },
+                            'Cliente:',
                             formData.cliente || 'N/A',
-                            { content: 'Fecha:', styles: { fontStyle: 'bold' } },
+                            'Fecha:',
                             formData.fecha ? format(new Date(formData.fecha), "dd/MM/yyyy") : 'N/A'
                         ],
                         [
-                            { content: 'Conductor:', styles: { fontStyle: 'bold' } },
+                            'Conductor:',
                             formData.conductor || 'N/A',
-                            { content: 'Cédula:', styles: { fontStyle: 'bold' } },
+                            'Cédula:',
                             formData.cedulaConductor || 'N/A',
-                            { content: 'Placa:', styles: { fontStyle: 'bold' } },
+                            'Placa:',
                             formData.placa || 'N/A'
                         ],
                         [
-                            { content: 'Precinto:', styles: { fontStyle: 'bold' } },
+                            'Precinto:',
                             formData.precinto || 'N/A',
-                            { content: 'Set Point (°C):', styles: { fontStyle: 'bold' } },
+                            'Set Point (°C):',
                             formData.setPoint || 'N/A',
-                            { content: 'Operario:', styles: { fontStyle: 'bold' } },
+                            'Operario:',
                             userDisplayName || 'N/A'
                         ],
                         [
-                            { content: `Hora Inicio ${operationTerm}:`, styles: { fontStyle: 'bold' } },
+                            `Hora Inicio ${operationTerm}:`,
                             formatTime12Hour(formData.horaInicio),
-                            { content: `Hora Fin ${operationTerm}:`, styles: { fontStyle: 'bold' } },
+                            `Hora Fin ${operationTerm}:`,
                             formatTime12Hour(formData.horaFin),
                             '', ''
                         ]
                     ], 
                     theme: 'grid', 
-                    styles: { fontSize: 8, cellPadding: 4 },
+                    styles: { fontSize: 8, cellPadding: 4, valign: 'middle' },
+                    columnStyles: {
+                        0: { cellWidth: 'auto' },
+                        2: { cellWidth: 'auto' },
+                        4: { cellWidth: 'auto' },
+                    },
+                    didParseCell: (data) => applyLabelStyles(data, 6),
                 });
                 yPos = (doc as any).autoTable.previous.finalY + 15;
                 
@@ -369,14 +398,19 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     head: [[{ content: 'Responsables', colSpan: 4, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]],
                     body: [
                         [
-                            { content: 'Coordinador:', styles: { fontStyle: 'bold' } },
+                            'Coordinador:',
                             formData.coordinador || 'N/A',
-                            { content: 'Operario:', styles: { fontStyle: 'bold' } },
+                            'Operario:',
                             userDisplayName || 'N/A'
                         ]
                     ], 
                     theme: 'grid', 
-                    styles: { fontSize: 8, cellPadding: 4 },
+                    styles: { fontSize: 8, cellPadding: 4, valign: 'middle' },
+                    columnStyles: {
+                        0: { cellWidth: 'auto' },
+                        2: { cellWidth: 'auto' },
+                    },
+                    didParseCell: (data) => applyLabelStyles(data, 4),
                 });
                 yPos = (doc as any).autoTable.previous.finalY + 15;
             }

@@ -155,7 +155,7 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                      <tbody>
                         <tr>
                             <td style={{...fieldCellStyle, width: '50%'}}><ReportField label="Coordinador Responsable" value={formData.coordinador} /></td>
-                            <td style={{...fieldCellStyle, width: '50%'}}><ReportField label="Operario Logístico Responsable" value={userDisplayName} /></td>
+                            <td style={{...fieldCellStyle, width: '50%'}}><ReportField label="Operario Responsable" value={userDisplayName} /></td>
                         </tr>
                     </tbody>
                 </table>

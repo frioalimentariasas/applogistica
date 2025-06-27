@@ -71,7 +71,7 @@ export function FixedWeightReport({ formData, userDisplayName, attachments, form
                         </tr>
                         <tr>
                             <td style={fieldCellStyle}><ReportField label="Precinto/Sello" value={formData.precinto} /></td>
-                            <td style={fieldCellStyle}><ReportField label="Documento de Transporte" value={formData.documentoTransporte} /></td>
+                            <td style={fieldCellStyle}><ReportField label="Doc. Transp." value={formData.documentoTransporte} /></td>
                             <td style={fieldCellStyle}></td>
                         </tr>
                     </tbody>
@@ -125,7 +125,7 @@ export function FixedWeightReport({ formData, userDisplayName, attachments, form
                          <tr>
                             <td style={fieldCellStyle}><ReportField label="Cond. Higiene" value={formData.condicionesHigiene} /></td>
                             <td style={fieldCellStyle}><ReportField label="Termoregistrador" value={formData.termoregistrador} /></td>
-                            <td style={fieldCellStyle}><ReportField label="Cliente Requiere Termoregistro" value={formData.clienteRequiereTermoregistro} /></td>
+                            <td style={fieldCellStyle}><ReportField label="Cliente Req. Termo." value={formData.clienteRequiereTermoregistro} /></td>
                         </tr>
                     </tbody>
                 </table>
@@ -142,7 +142,7 @@ export function FixedWeightReport({ formData, userDisplayName, attachments, form
                      <tbody>
                         <tr>
                             <td style={{...fieldCellStyle, width: '50%'}}><ReportField label="Coordinador Responsable" value={formData.coordinador} /></td>
-                            <td style={{...fieldCellStyle, width: '50%'}}><ReportField label="Operario Logístico Responsable" value={userDisplayName} /></td>
+                            <td style={{...fieldCellStyle, width: '50%'}}><ReportField label="Operario Responsable" value={userDisplayName} /></td>
                         </tr>
                     </tbody>
                 </table>
