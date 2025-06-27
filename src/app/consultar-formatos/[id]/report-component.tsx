@@ -170,13 +170,31 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 
                 yPos = margin + logoHeight + 20;
             };
+
+            const addWatermark = () => {
+                if (!logoBase64) return;
+                
+                const watermarkImgWidth = pageWidth * 0.7; // Watermark covers 70% of page width
+                const watermarkAspectRatio = 3.5; // Approximate aspect ratio of the logo (width / height)
+                const watermarkImgHeight = watermarkImgWidth / watermarkAspectRatio;
+                const watermarkX = (pageWidth - watermarkImgWidth) / 2;
+                const watermarkY = (pageHeight - watermarkImgHeight) / 2;
+
+                // Set transparency
+                (doc as any).setGState(new (doc as any).GState({opacity: 0.1})); 
+                // Add the image
+                doc.addImage(logoBase64, 'PNG', watermarkX, watermarkY, watermarkImgWidth, watermarkImgHeight, 'watermark', 'FAST');
+                // Reset transparency
+                (doc as any).setGState(new (doc as any).GState({opacity: 1}));
+            }
     
             const addFooter = () => {
                 const pageCount = (doc as any).internal.getNumberOfPages();
-                doc.setFontSize(8);
-                doc.setTextColor(150);
                 for (let i = 1; i <= pageCount; i++) {
                     doc.setPage(i);
+                    addWatermark(); // Add watermark to each page
+                    doc.setFontSize(8);
+                    doc.setTextColor(150);
                     doc.text(`Página ${i} de ${pageCount}`, pageWidth - margin, pageHeight - 20, { align: 'right' });
                 }
             };
