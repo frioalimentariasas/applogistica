@@ -350,29 +350,51 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                  const isReception = formType.includes('recepcion') || formType.includes('reception');
                  const operationTerm = isReception ? 'Descargue' : 'Cargue';
                  
-                 const generalDataBody = [
-                    [ {content: 'Pedido SISLOG:', styles: {fontStyle: 'bold'}}, formData.pedidoSislog || 'N/A' ],
-                    [ {content: 'Cliente:', styles: {fontStyle: 'bold'}}, formData.cliente || 'N/A' ],
-                    [ {content: 'Fecha:', styles: {fontStyle: 'bold'}}, formData.fecha ? format(new Date(formData.fecha), "dd/MM/yyyy") : 'N/A' ],
-                    [ {content: 'Conductor:', styles: {fontStyle: 'bold'}}, formData.conductor || 'N/A' ],
-                    [ {content: 'Cédula:', styles: {fontStyle: 'bold'}}, formData.cedulaConductor || 'N/A' ],
-                    [ {content: 'Placa:', styles: {fontStyle: 'bold'}}, formData.placa || 'N/A' ],
-                    [ {content: 'Precinto:', styles: {fontStyle: 'bold'}}, formData.precinto || 'N/A' ],
-                    [ {content: 'Set Point (°C):', styles: {fontStyle: 'bold'}}, formData.setPoint || 'N/A' ],
-                    [ {content: 'Operario:', styles: {fontStyle: 'bold'}}, userDisplayName || 'N/A' ],
-                    [ {content: `Hora Inicio ${operationTerm}:`, styles: {fontStyle: 'bold'}}, formatTime12Hour(formData.horaInicio) ],
-                    [ {content: `Hora Fin ${operationTerm}:`, styles: {fontStyle: 'bold'}}, formatTime12Hour(formData.horaFin) ],
+                 const generalDataBodyMultiCol = [
+                    [
+                        {content: 'Pedido SISLOG:', styles: {fontStyle: 'bold'}},
+                        formData.pedidoSislog || 'N/A',
+                        {content: 'Cliente:', styles: {fontStyle: 'bold'}},
+                        formData.cliente || 'N/A',
+                        {content: 'Fecha:', styles: {fontStyle: 'bold'}},
+                        formData.fecha ? format(new Date(formData.fecha), "dd/MM/yyyy") : 'N/A',
+                    ],
+                    [
+                        {content: 'Conductor:', styles: {fontStyle: 'bold'}},
+                        formData.conductor || 'N/A',
+                        {content: 'Cédula:', styles: {fontStyle: 'bold'}},
+                        formData.cedulaConductor || 'N/A',
+                        {content: 'Placa:', styles: {fontStyle: 'bold'}},
+                        formData.placa || 'N/A',
+                    ],
+                    [
+                        {content: 'Precinto:', styles: {fontStyle: 'bold'}},
+                        formData.precinto || 'N/A',
+                        {content: 'Set Point (°C):', styles: {fontStyle: 'bold'}},
+                        formData.setPoint || 'N/A',
+                        {content: 'Operario:', styles: {fontStyle: 'bold'}},
+                        userDisplayName || 'N/A',
+                    ],
+                    [
+                        {content: `Hora Inicio ${operationTerm}:`, styles: {fontStyle: 'bold'}},
+                        formatTime12Hour(formData.horaInicio),
+                        {content: `Hora Fin ${operationTerm}:`, styles: {fontStyle: 'bold'}},
+                        formatTime12Hour(formData.horaFin),
+                        {content: '', styles: {}}, // Empty cell for alignment
+                        '',
+                    ]
                 ];
 
-                autoTable(doc, { 
-                    startY: yPos, 
-                    head: [[{ content: `Datos de ${isReception ? 'Recepción' : 'Despacho'}`, colSpan: 2, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]],
-                    body: generalDataBody,
-                    theme: 'grid', 
+                autoTable(doc, {
+                    startY: yPos,
+                    head: [[{ content: `Datos de ${isReception ? 'Recepción' : 'Despacho'}`, colSpan: 6, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]],
+                    body: generalDataBodyMultiCol,
+                    theme: 'grid',
                     styles: { fontSize: 8, cellPadding: 4, valign: 'middle' },
                     columnStyles: {
-                        0: { cellWidth: 120 }, // Label column
-                        1: { cellWidth: '*' },   // Value column
+                        0: { cellWidth: 'auto' }, 1: { cellWidth: '*' },
+                        2: { cellWidth: 'auto' }, 3: { cellWidth: '*' },
+                        4: { cellWidth: 'auto' }, 5: { cellWidth: '*' },
                     },
                 });
                 yPos = (doc as any).autoTable.previous.finalY + 15;
