@@ -6,6 +6,9 @@ import { AuthProvider } from '@/hooks/use-auth';
 export const metadata: Metadata = {
   title: 'Frio Alimentaria',
   description: 'Logística en alimentos congelados',
+  icons: {
+    icon: '/icon.png',
+  },
 };
 
 export default function RootLayout({
