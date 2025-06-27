@@ -21,9 +21,9 @@ export function RestoreDialog({ open, onOpenChange, onRestore, onDiscard }: Rest
     <AlertDialog open={open} onOpenChange={onOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
-          <AlertDialogTitle>Restaurar Formulario Incompleto</AlertDialogTitle>
+          <AlertDialogTitle>Restaurar Formato Incompleto</AlertDialogTitle>
           <AlertDialogDescription>
-            Hemos encontrado datos de un formulario que estaba siendo diligenciado. ¿Desea restaurar estos datos o empezar de nuevo? Descartar eliminará los datos en progreso. Los archivos adjuntos también se restaurarán.
+            Hemos encontrado datos de un formato que estaba siendo diligenciado. ¿Desea restaurar estos datos o empezar de nuevo? Descartar eliminará los datos en progreso. Los archivos adjuntos también se restaurarán.
           </AlertDialogDescription>
         </AlertDialogHeader>
         <AlertDialogFooter>
