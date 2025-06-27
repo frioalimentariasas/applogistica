@@ -23,6 +23,23 @@ interface ReportComponentProps {
     submission: SubmissionResult;
 }
 
+interface ImageWithDimensions {
+    src: string;
+    width: number;
+    height: number;
+}
+
+const getImageWithDimensions = (src: string): Promise<ImageWithDimensions> => {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+            resolve({ src, width: img.width, height: img.height });
+        };
+        img.onerror = reject;
+        img.src = src;
+    });
+};
+
 const getImageAsBase64Client = async (url: string): Promise<string> => {
     try {
         const response = await fetch(url);
@@ -58,7 +75,7 @@ const formatTime12Hour = (time24: string | undefined): string => {
 export default function ReportComponent({ submission }: ReportComponentProps) {
     const [isDownloading, setIsDownloading] = useState(false);
     const [areImagesLoading, setAreImagesLoading] = useState(true);
-    const [base64Images, setBase64Images] = useState<string[]>([]);
+    const [base64Images, setBase64Images] = useState<ImageWithDimensions[]>([]);
     const [logoBase64, setLogoBase64] = useState<string | null>(null);
 
     useEffect(() => {
@@ -72,10 +89,16 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 const logoUrl = new URL('/images/company-logo.png', window.location.origin).href;
                 const logoPromise = getImageAsBase64Client(logoUrl);
 
-                const [logoData, ...attachmentData] = await Promise.all([logoPromise, ...attachmentPromises]);
+                const [logoData, ...attachmentDataURIs] = await Promise.all([logoPromise, ...attachmentPromises]);
                 
                 setLogoBase64(logoData);
-                setBase64Images(attachmentData.filter(img => img && !img.startsWith('data:image/gif')));
+
+                const validAttachmentURIs = attachmentDataURIs.filter(img => img && !img.startsWith('data:image/gif'));
+                
+                const imageDimensionPromises = validAttachmentURIs.map(getImageWithDimensions);
+                const imagesWithDimensions = await Promise.all(imageDimensionPromises);
+
+                setBase64Images(imagesWithDimensions);
 
             } catch (error) {
                 console.error("Error fetching one or more images for PDF:", error);
@@ -372,7 +395,8 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 for (let i = 0; i < base64Images.length; i++) {
                     const imgData = base64Images[i];
                     const imgWidth = (pageWidth - margin * 3) / 2;
-                    const imgHeight = 150; 
+                    const aspectRatio = imgData.height / imgData.width;
+                    const imgHeight = imgWidth * aspectRatio;
 
                     if (yPos + imgHeight + 20 > pageHeight - margin) {
                         doc.addPage();
@@ -380,7 +404,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         xPos = margin;
                     }
                     try {
-                       doc.addImage(imgData, 'JPEG', xPos, yPos, imgWidth, imgHeight);
+                       doc.addImage(imgData.src, 'JPEG', xPos, yPos, imgWidth, imgHeight);
                        doc.setFontSize(8);
                        doc.text(`Registro Fotográfico ${i + 1}`, xPos + imgWidth / 2, yPos + imgHeight + 10, { align: 'center' });
                     } catch(e) {
@@ -424,7 +448,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
         const props = { 
             formData: submission.formData, 
             userDisplayName: submission.userDisplayName, 
-            attachments: base64Images,
+            attachments: base64Images.map(img => img.src),
         };
 
         switch (submission.formType) {
