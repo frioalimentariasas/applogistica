@@ -188,7 +188,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 const watermarkY = (pageHeight - watermarkImgHeight) / 2;
 
                 // Set transparency
-                (doc as any).setGState(new (doc as any).GState({opacity: 0.1})); 
+                (doc as any).setGState(new (doc as any).GState({opacity: 0.05})); 
                 // Add the image
                 doc.addImage(logoBase64, 'PNG', watermarkX, watermarkY, watermarkImgWidth, watermarkImgHeight, 'watermark', 'FAST');
                 // Reset transparency
