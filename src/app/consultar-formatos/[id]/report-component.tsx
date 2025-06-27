@@ -134,6 +134,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
             const pageWidth = doc.internal.pageSize.getWidth();
             const margin = 40;
             let yPos = 0;
+            let attachmentsStartPage = -1; // To track where attachments start
 
             const formatPaletas = (num: any): string => {
                 const number = Number(num);
@@ -192,7 +193,10 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 const pageCount = (doc as any).internal.getNumberOfPages();
                 for (let i = 1; i <= pageCount; i++) {
                     doc.setPage(i);
-                    addWatermark(); // Add watermark to each page
+                    // Conditionally add watermark. Do not add on attachment pages.
+                    if (attachmentsStartPage === -1 || i < attachmentsStartPage) {
+                        addWatermark();
+                    }
                     doc.setFontSize(8);
                     doc.setTextColor(150);
                     doc.text(`Página ${i} de ${pageCount}`, pageWidth - margin, pageHeight - 20, { align: 'right' });
@@ -452,6 +456,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
     
              if (base64Images.length > 0) {
                 doc.addPage();
+                attachmentsStartPage = (doc as any).internal.getNumberOfPages();
                 yPos = margin;
 
                 autoTable(doc, { startY: yPos, head: [[{ content: 'Anexos: Registros Fotográficos', styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]], body: [], theme: 'grid' });
