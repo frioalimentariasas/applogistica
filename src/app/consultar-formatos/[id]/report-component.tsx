@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -76,6 +77,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
     const [areImagesLoading, setAreImagesLoading] = useState(true);
     const [base64Images, setBase64Images] = useState<ImageWithDimensions[]>([]);
     const [logoBase64, setLogoBase64] = useState<string | null>(null);
+    const [logoDimensions, setLogoDimensions] = useState<{ width: number, height: number } | null>(null);
 
     useEffect(() => {
         const fetchAllImages = async () => {
@@ -90,6 +92,10 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
 
                 const [logoData, ...attachmentDataURIs] = await Promise.all([logoPromise, ...attachmentPromises]);
                 
+                if (logoData) {
+                    const dims = await getImageWithDimensions(logoData);
+                    setLogoDimensions({ width: dims.width, height: dims.height });
+                }
                 setLogoBase64(logoData);
 
                 const validAttachmentURIs = attachmentDataURIs.filter(img => img && !img.startsWith('data:image/gif'));
@@ -173,10 +179,10 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
             };
 
             const addWatermark = () => {
-                if (!logoBase64) return;
+                if (!logoBase64 || !logoDimensions) return;
                 
-                const watermarkImgWidth = pageWidth * 0.7; // Watermark covers 70% of page width
-                const watermarkAspectRatio = 3.5; // Approximate aspect ratio of the logo (width / height)
+                const watermarkImgWidth = pageWidth * 0.6; // Watermark covers 60% of page width
+                const watermarkAspectRatio = logoDimensions.width / logoDimensions.height; // Use real aspect ratio
                 const watermarkImgHeight = watermarkImgWidth / watermarkAspectRatio;
                 const watermarkX = (pageWidth - watermarkImgWidth) / 2;
                 const watermarkY = (pageHeight - watermarkImgHeight) / 2;
