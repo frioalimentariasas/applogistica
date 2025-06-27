@@ -99,7 +99,6 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
-// Store original default values outside the component
 const originalDefaultValues: FormValues = {
   pedidoSislog: "",
   nombreCliente: "",
@@ -132,7 +131,6 @@ const MAX_ATTACHMENTS = 30;
 const MAX_TOTAL_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 
 function getByteSizeFromBase64(base64: string): number {
-    // This is an approximation
     return base64.length * (3 / 4) - (base64.endsWith('==') ? 2 : base64.endsWith('=') ? 1 : 0);
 }
 

@@ -122,34 +122,24 @@ export function useFormPersistence<T extends FieldValues>(
     }, [getStorageKey, reset, setAttachments, toast]);
 
     const discardDraft = useCallback(async () => {
-        // Immediately stop saving to prevent the reset state from being persisted.
-        setDraftCheckComplete(false);
-        setRestoreDialogOpen(false);
-
         const storageKey = getStorageKey();
-        if (!storageKey) {
-            // If there's no key, just re-enable saving and exit.
-            setDraftCheckComplete(true);
-            return;
-        }
+        if (!storageKey) return;
 
         try {
-            // Clear data from both localStorage and IndexedDB
             const attachmentsKey = `${storageKey}-attachments`;
             localStorage.removeItem(storageKey);
             await idb.del(attachmentsKey);
-
-            // Reset the form to its original default state. This will not be saved yet.
+            
             reset(originalDefaultValues);
             setAttachments([]);
+
             toast({ title: "Borrador Descartado" });
         } catch (e) {
             console.error("Failed to discard draft", e);
             toast({ variant: "destructive", title: "Error", description: "No se pudo descartar el borrador." });
         } finally {
-            // Re-enable saving after a short delay. This gives React time to process
-            // the reset without the watcher immediately saving the default state.
-            setTimeout(() => setDraftCheckComplete(true), 50);
+            setRestoreDialogOpen(false);
+            setDraftCheckComplete(true);
         }
     }, [getStorageKey, reset, originalDefaultValues, setAttachments, toast]);
     
