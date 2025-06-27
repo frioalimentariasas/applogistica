@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -15,7 +16,6 @@ import { ArrowLeft, Loader2, Box, PlusCircle, Edit, Trash2, ChevronsUpDown } fro
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import {
   AlertDialog,
@@ -62,9 +62,13 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
   const [articleToDelete, setArticleToDelete] = useState<ArticuloInfo | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // State for client dialog
+  // State for add form client dialog
   const [isClientDialogOpen, setClientDialogOpen] = useState(false);
   const [clientSearch, setClientSearch] = useState('');
+  
+  // State for consult client dialog
+  const [isConsultClientDialogOpen, setConsultClientDialogOpen] = useState(false);
+  const [consultClientSearch, setConsultClientSearch] = useState('');
 
   const addForm = useForm<ArticleFormValues>({
     resolver: zodResolver(articleSchema),
@@ -87,6 +91,11 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
     if (!clientSearch) return clients;
     return clients.filter(c => c.razonSocial.toLowerCase().includes(clientSearch.toLowerCase()));
   }, [clientSearch, clients]);
+  
+  const filteredConsultClients = useMemo(() => {
+    if (!consultClientSearch) return clients;
+    return clients.filter(c => c.razonSocial.toLowerCase().includes(consultClientSearch.toLowerCase()));
+  }, [consultClientSearch, clients]);
 
 
   const onAddSubmit: SubmitHandler<ArticleFormValues> = async (data) => {
@@ -274,17 +283,47 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
                 <CardDescription>Seleccione un cliente para ver sus artículos asociados.</CardDescription>
               </CardHeader>
               <CardContent>
-                <div className="flex gap-4 mb-4">
-                    <Select onValueChange={handleClientSelect} value={selectedClient}>
-                        <SelectTrigger className="w-full">
-                            <SelectValue placeholder="Seleccione un cliente para consultar..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                            {clients.map(client => (
-                            <SelectItem key={client.id} value={client.razonSocial}>{client.razonSocial}</SelectItem>
-                            ))}
-                        </SelectContent>
-                    </Select>
+                <div className="mb-4">
+                    <Dialog open={isConsultClientDialogOpen} onOpenChange={setConsultClientDialogOpen}>
+                        <DialogTrigger asChild>
+                            <Button variant="outline" className="w-full justify-between text-left font-normal">
+                                {selectedClient || "Seleccione un cliente para consultar..."}
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-[425px]">
+                            <DialogHeader>
+                                <DialogTitle>Seleccionar Cliente</DialogTitle>
+                            </DialogHeader>
+                            <div className="p-4">
+                                <Input
+                                    placeholder="Buscar cliente..."
+                                    value={consultClientSearch}
+                                    onChange={(e) => setConsultClientSearch(e.target.value)}
+                                    className="mb-4"
+                                />
+                                <ScrollArea className="h-72">
+                                    <div className="space-y-1">
+                                        {filteredConsultClients.map((client) => (
+                                            <Button
+                                                key={client.id}
+                                                variant="ghost"
+                                                className="w-full justify-start"
+                                                onClick={() => {
+                                                    handleClientSelect(client.razonSocial);
+                                                    setConsultClientDialogOpen(false);
+                                                    setConsultClientSearch('');
+                                                }}
+                                            >
+                                                {client.razonSocial}
+                                            </Button>
+                                        ))}
+                                        {filteredConsultClients.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron clientes.</p>}
+                                    </div>
+                                </ScrollArea>
+                            </div>
+                        </DialogContent>
+                    </Dialog>
                 </div>
 
                 <ScrollArea className="h-96">
