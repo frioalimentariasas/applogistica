@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from 'react';
@@ -223,7 +222,7 @@ export default function ConsultarFormatosComponent() {
                                 <FileSearch className="h-8 w-8 text-primary" />
                                 <h1 className="text-2xl font-bold text-primary">Consultar Formatos Guardados</h1>
                             </div>
-                             <p className="text-sm text-gray-500">Busque y visualice los formularios que han sido enviados.</p>
+                             <p className="text-sm text-gray-500">Busque y visualice los formatos que han sido enviados.</p>
                         </div>
                     </div>
                 </header>
