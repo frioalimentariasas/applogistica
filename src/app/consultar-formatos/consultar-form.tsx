@@ -76,12 +76,12 @@ export default function ConsultarFormatosComponent() {
             const searchResults = await searchSubmissions(finalCriteria);
             setResults(searchResults);
 
-            if (isDefaultSearch) {
+            if (isDefaultSearch && searchResults.length > 0) {
                  toast({
                     title: "Mostrando resultados de la última semana",
                     description: "Para ver más información, utilice los filtros disponibles.",
                 });
-            } else if (searchResults.length === 0) {
+            } else if (searchResults.length === 0 && !isDefaultSearch) {
                 toast({
                     title: "Sin resultados",
                     description: "No se encontraron formatos con los criterios de búsqueda proporcionados.",
