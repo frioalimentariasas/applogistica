@@ -87,7 +87,7 @@ const formSchema = z.object({
     conductor: z.string()
       .min(1, "El nombre del conductor es obligatorio."),
     cedulaConductor: z.string()
-      .min(1, "La cédula del conductor es obligatoria."),
+      .min(1, "La cédula del conductor es obligatoria.").regex(/^[0-9]*$/, "La cédula solo puede contener números."),
     placa: z.string()
       .min(1, "La placa es obligatoria.")
       .regex(/^[A-Z]{3}[0-9]{3}$/, "Formato inválido. Deben ser 3 letras y 3 números (ej: ABC123)."),
@@ -140,6 +140,7 @@ export default function VariableWeightFormComponent() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [isDeleteAllAlertOpen, setDeleteAllAlertOpen] = useState(false);
+  const [isDiscardAlertOpen, setDiscardAlertOpen] = useState(false);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingForm, setIsLoadingForm] = useState(!!submissionId);
@@ -1064,7 +1065,7 @@ export default function VariableWeightFormComponent() {
             </Card>
             
             <footer className="flex items-center justify-end gap-4 pt-4">
-                <Button type="button" variant="outline" onClick={onDiscard}>
+                <Button type="button" variant="outline" onClick={() => setDiscardAlertOpen(true)}>
                     <RotateCcw className="mr-2 h-4 w-4"/>
                     Limpiar Formato
                 </Button>
@@ -1095,6 +1096,21 @@ export default function VariableWeightFormComponent() {
               </DialogFooter>
           </DialogContent>
       </Dialog>
+      
+      <AlertDialog open={isDiscardAlertOpen} onOpenChange={setDiscardAlertOpen}>
+          <AlertDialogContent>
+              <AlertDialogHeader>
+                  <AlertDialogTitle>¿Está seguro que desea limpiar el formato?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                      Esta acción no se puede deshacer. Se eliminará toda la información que ha ingresado en el formulario.
+                  </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction onClick={onDiscard} className="bg-destructive hover:bg-destructive/90">Limpiar Formato</AlertDialogAction>
+              </AlertDialogFooter>
+          </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
