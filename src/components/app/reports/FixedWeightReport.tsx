@@ -125,7 +125,7 @@ export function FixedWeightReport({ formData, userDisplayName, attachments, form
                          <tr>
                             <td style={fieldCellStyle}><ReportField label="Cond. Higiene" value={formData.condicionesHigiene} /></td>
                             <td style={fieldCellStyle}><ReportField label="Termoregistrador" value={formData.termoregistrador} /></td>
-                            <td style={fieldCellStyle}><ReportField label="Cliente Req. Termo." value={formData.clienteRequiereTermoregistro} /></td>
+                            <td style={fieldCellStyle}><ReportField label="Cliente Requiere Termoregistro" value={formData.clienteRequiereTermoregistro} /></td>
                         </tr>
                     </tbody>
                 </table>

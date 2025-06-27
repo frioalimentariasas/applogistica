@@ -271,7 +271,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             formData.condicionesHigiene || 'N/A',
                             'Termoregistrador:',
                             formData.termoregistrador || 'N/A',
-                            'Cliente Req. Termo.:',
+                            'Cliente Requiere Termoregistro:',
                             formData.clienteRequiereTermoregistro || 'N/A'
                         ]
                     ], 
