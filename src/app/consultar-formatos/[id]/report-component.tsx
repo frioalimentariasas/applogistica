@@ -376,9 +376,9 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         userDisplayName || 'N/A',
                     ],
                     [
-                        {content: `Hora Inicio ${operationTerm}:`, styles: {fontStyle: 'bold'}},
+                        {content: isReception ? `H. Inicio ${operationTerm}` : `Hora Inicio ${operationTerm}`, styles: {fontStyle: 'bold'}},
                         formatTime12Hour(formData.horaInicio),
-                        {content: `Hora Fin ${operationTerm}:`, styles: {fontStyle: 'bold'}},
+                        {content: isReception ? `H. Fin ${operationTerm}` : `Hora Fin ${operationTerm}`, styles: {fontStyle: 'bold'}},
                         formatTime12Hour(formData.horaFin),
                         {content: '', styles: {}}, // Empty cell for alignment
                         '',
