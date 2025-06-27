@@ -132,7 +132,7 @@ export default function Home() {
 
         <div className="text-center">
           <h2 className="text-xl font-bold uppercase text-[#3588CC]">
-             {isViewer ? 'CONSULTA DE FORMATOS' : 'FORMATO DE RECIBOS Y DESPACHOS'}
+             {isViewer ? 'CONSULTA DE FORMATOS' : 'Control de Operaciones Logísticas'}
           </h2>
           <p className="mt-2 text-sm text-gray-600">
             {isViewer
