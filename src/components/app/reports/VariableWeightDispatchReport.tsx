@@ -96,7 +96,7 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                     <tbody>
                         {formData.items.map((p: any, i: number) => (
                             <tr key={i} style={{ borderBottom: '1px solid #ddd' }}>
-                                <td style={{ padding: '4px' }}>{p.paleta}</td>
+                                <td style={{ padding: '4px' }}>{p.paleta === 0 ? '' : p.paleta}</td>
                                 <td style={{ padding: '4px' }}>{p.descripcion}</td>
                                 <td style={{ padding: '4px' }}>{p.lote}</td>
                                 <td style={{ padding: '4px' }}>{p.presentacion}</td>

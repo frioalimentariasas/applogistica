@@ -62,12 +62,21 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 
 
 const itemSchema = z.object({
-  paleta: z.coerce.number().int().min(0, "Debe ser un número no negativo."),
+  paleta: z.coerce.number({
+    required_error: "La Paleta es requerida.",
+    invalid_type_error: "La Paleta es requerida.",
+  }).int().min(0, "Debe ser un número no negativo."),
   descripcion: z.string().min(1, "La descripción es requerida."),
   lote: z.string().max(15, "Máximo 15 caracteres").optional(),
   presentacion: z.string().min(1, "Seleccione una presentación."),
-  cantidadPorPaleta: z.coerce.number().int().min(0, "Debe ser un número no negativo."),
-  pesoNeto: z.coerce.number().min(0, "Debe ser un número no negativo."),
+  cantidadPorPaleta: z.coerce.number({
+    required_error: "La cantidad es requerida.",
+    invalid_type_error: "La cantidad es requerida."
+  }).int().min(0, "Debe ser un número no negativo."),
+  pesoNeto: z.coerce.number({
+    required_error: "El peso neto es requerido.",
+    invalid_type_error: "El peso neto es requerido."
+  }).min(0, "Debe ser un número no negativo."),
 });
 
 const summaryItemSchema = z.object({

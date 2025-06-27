@@ -374,7 +374,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
 
                 const detailBody = isReception
                     ? formData.items.map((p: any) => [ p.paleta, p.descripcion, p.lote, p.cantidadPorPaleta, p.pesoBruto?.toFixed(2), p.taraEstiba?.toFixed(2), p.taraCaja?.toFixed(2), p.totalTaraCaja?.toFixed(2), p.pesoNeto?.toFixed(2) ])
-                    : formData.items.map((p: any) => [ p.paleta, p.descripcion, p.lote, p.presentacion, p.cantidadPorPaleta, p.pesoNeto?.toFixed(2) ]);
+                    : formData.items.map((p: any) => [ p.paleta === 0 ? '' : p.paleta, p.descripcion, p.lote, p.presentacion, p.cantidadPorPaleta, p.pesoNeto?.toFixed(2) ]);
                 
                 const detailColSpan = isReception ? 9 : 6;
                 autoTable(doc, { startY: yPos, head: [[{ content: `Detalle de ${isReception ? 'Recepción' : 'Despacho'}`, colSpan: detailColSpan, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]], body: [], theme: 'grid' });
