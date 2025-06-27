@@ -661,7 +661,7 @@ export default function VariableWeightReceptionFormComponent() {
                         <FormField control={form.control} name="cedulaConductor" render={({ field }) => (
                             <FormItem>
                               <FormLabel>Cédula Conductor</FormLabel>
-                              <FormControl><Input placeholder="Número de cédula" {...field} /></FormControl>
+                              <FormControl><Input placeholder="Número de cédula" {...field} inputMode="numeric" pattern="[0-9]*" /></FormControl>
                               <FormMessage />
                             </FormItem>
                         )}/>

@@ -760,7 +760,7 @@ export default function FixedWeightFormComponent() {
                         <FormItem><FormLabel>Nombre Conductor</FormLabel><FormControl><Input placeholder="Nombre del conductor" {...field} /></FormControl><FormMessage /></FormItem>
                     )}/>
                     <FormField control={form.control} name="cedulaConductor" render={({ field }) => (
-                        <FormItem><FormLabel>Cédula Conductor</FormLabel><FormControl><Input placeholder="Cédula del conductor" {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Cédula Conductor</FormLabel><FormControl><Input placeholder="Cédula del conductor" {...field} inputMode="numeric" pattern="[0-9]*" /></FormControl><FormMessage /></FormItem>
                     )}/>
                     <FormField control={form.control} name="placa" render={({ field }) => (
                         <FormItem>
