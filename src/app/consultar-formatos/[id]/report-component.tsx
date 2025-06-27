@@ -293,7 +293,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
     
                 autoTable(doc, { 
                     startY: yPos, 
-                    head: [[{ content: 'Responsables', colSpan: 4, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]], 
+                    head: [[{ content: 'Responsables de la Operación', colSpan: 4, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]], 
                     body: [
                         [
                             'Coordinador:',
@@ -395,7 +395,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
     
                 autoTable(doc, { 
                     startY: yPos, 
-                    head: [[{ content: 'Responsables', colSpan: 4, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]],
+                    head: [[{ content: 'Responsables de la Operación', colSpan: 4, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]],
                     body: [
                         [
                             'Coordinador:',
