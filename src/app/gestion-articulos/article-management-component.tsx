@@ -1,7 +1,6 @@
-
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -12,12 +11,12 @@ import { getArticulosByClient, ArticuloInfo } from '@/app/actions/articulos';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Loader2, Box, PlusCircle, Edit, Trash2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Box, PlusCircle, Edit, Trash2, ChevronsUpDown } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -63,6 +62,10 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
   const [articleToDelete, setArticleToDelete] = useState<ArticuloInfo | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
+  // State for client dialog
+  const [isClientDialogOpen, setClientDialogOpen] = useState(false);
+  const [clientSearch, setClientSearch] = useState('');
+
   const addForm = useForm<ArticleFormValues>({
     resolver: zodResolver(articleSchema),
     defaultValues: {
@@ -79,6 +82,11 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
       denominacionArticulo: '',
     },
   });
+
+  const filteredClients = useMemo(() => {
+    if (!clientSearch) return clients;
+    return clients.filter(c => c.razonSocial.toLowerCase().includes(clientSearch.toLowerCase()));
+  }, [clientSearch, clients]);
 
 
   const onAddSubmit: SubmitHandler<ArticleFormValues> = async (data) => {
@@ -181,20 +189,48 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
                       control={addForm.control}
                       name="razonSocial"
                       render={({ field }) => (
-                        <FormItem>
+                        <FormItem className="flex flex-col">
                           <FormLabel>Cliente</FormLabel>
-                          <Select onValueChange={field.onChange} defaultValue={field.value}>
-                            <FormControl>
-                              <SelectTrigger>
-                                <SelectValue placeholder="Seleccione un cliente" />
-                              </SelectTrigger>
-                            </FormControl>
-                            <SelectContent>
-                              {clients.map(client => (
-                                <SelectItem key={client.id} value={client.razonSocial}>{client.razonSocial}</SelectItem>
-                              ))}
-                            </SelectContent>
-                          </Select>
+                            <Dialog open={isClientDialogOpen} onOpenChange={setClientDialogOpen}>
+                                <DialogTrigger asChild>
+                                    <Button variant="outline" className="w-full justify-between text-left font-normal">
+                                        {field.value || "Seleccione un cliente..."}
+                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    </Button>
+                                </DialogTrigger>
+                                <DialogContent className="sm:max-w-[425px]">
+                                    <DialogHeader>
+                                        <DialogTitle>Seleccionar Cliente</DialogTitle>
+                                    </DialogHeader>
+                                    <div className="p-4">
+                                        <Input
+                                            placeholder="Buscar cliente..."
+                                            value={clientSearch}
+                                            onChange={(e) => setClientSearch(e.target.value)}
+                                            className="mb-4"
+                                        />
+                                        <ScrollArea className="h-72">
+                                            <div className="space-y-1">
+                                                {filteredClients.map((client) => (
+                                                    <Button
+                                                        key={client.id}
+                                                        variant="ghost"
+                                                        className="w-full justify-start"
+                                                        onClick={() => {
+                                                            field.onChange(client.razonSocial);
+                                                            setClientDialogOpen(false);
+                                                            setClientSearch('');
+                                                        }}
+                                                    >
+                                                        {client.razonSocial}
+                                                    </Button>
+                                                ))}
+                                                {filteredClients.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron clientes.</p>}
+                                            </div>
+                                        </ScrollArea>
+                                    </div>
+                                </DialogContent>
+                            </Dialog>
                           <FormMessage />
                         </FormItem>
                       )}
