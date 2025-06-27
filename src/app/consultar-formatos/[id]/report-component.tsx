@@ -368,15 +368,28 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 });
                 yPos = (doc as any).autoTable.previous.finalY + 15;
                 
-                const detailHead = isReception 
-                    ? [['Paleta', 'Descripción', 'Lote', 'Cant.', 'Peso Bruto', 'Tara Estiba', 'Tara Caja', 'Total Tara', 'Peso Neto']] 
-                    : [['Paleta', 'Descripción', 'Lote', 'Presentación', 'Cant.', 'Peso Neto (kg)']];
+                let detailHead: any[][];
+                let detailBody: any[][];
+                let detailColSpan: number;
 
-                const detailBody = isReception
-                    ? formData.items.map((p: any) => [ p.paleta, p.descripcion, p.lote, p.cantidadPorPaleta, p.pesoBruto?.toFixed(2), p.taraEstiba?.toFixed(2), p.taraCaja?.toFixed(2), p.totalTaraCaja?.toFixed(2), p.pesoNeto?.toFixed(2) ])
-                    : formData.items.map((p: any) => [ p.paleta === 0 ? '' : p.paleta, p.descripcion, p.lote, p.presentacion, p.cantidadPorPaleta, p.pesoNeto?.toFixed(2) ]);
+                if (isReception) {
+                    detailHead = [['Paleta', 'Descripción', 'Lote', 'Cant.', 'Peso Bruto', 'Tara Estiba', 'Tara Caja', 'Total Tara', 'Peso Neto']];
+                    detailBody = formData.items.map((p: any) => [ p.paleta, p.descripcion, p.lote, p.cantidadPorPaleta, p.pesoBruto?.toFixed(2), p.taraEstiba?.toFixed(2), p.taraCaja?.toFixed(2), p.totalTaraCaja?.toFixed(2), p.pesoNeto?.toFixed(2) ]);
+                    detailColSpan = 9;
+                } else { // This is dispatch
+                    const hasNonZeroPaleta = formData.items.some((p: any) => p.paleta && Number(p.paleta) !== 0);
+
+                    if (hasNonZeroPaleta) {
+                        detailHead = [['Paleta', 'Descripción', 'Lote', 'Presentación', 'Cant.', 'Peso Neto (kg)']];
+                        detailBody = formData.items.map((p: any) => [ p.paleta && Number(p.paleta) !== 0 ? p.paleta : '', p.descripcion, p.lote, p.presentacion, p.cantidadPorPaleta, p.pesoNeto?.toFixed(2) ]);
+                        detailColSpan = 6;
+                    } else {
+                        detailHead = [['Descripción', 'Lote', 'Presentación', 'Cant.', 'Peso Neto (kg)']];
+                        detailBody = formData.items.map((p: any) => [ p.descripcion, p.lote, p.presentacion, p.cantidadPorPaleta, p.pesoNeto?.toFixed(2) ]);
+                        detailColSpan = 5;
+                    }
+                }
                 
-                const detailColSpan = isReception ? 9 : 6;
                 autoTable(doc, { startY: yPos, head: [[{ content: `Detalle de ${isReception ? 'Recepción' : 'Despacho'}`, colSpan: detailColSpan, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]], body: [], theme: 'grid' });
                 autoTable(doc, { startY: (doc as any).autoTable.previous.finalY, head: detailHead, body: detailBody, theme: 'striped', headStyles: { fillColor: '#f8fafc', textColor: '#334155', fontStyle: 'bold' }, styles: { fontSize: 7, cellPadding: 3 } });
                 yPos = (doc as any).autoTable.previous.finalY + 15;

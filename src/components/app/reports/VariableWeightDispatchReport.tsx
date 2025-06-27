@@ -49,6 +49,7 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
     const totalPeso = formData.summary?.reduce((acc: any, p: any) => acc + (p.totalPeso || 0), 0) || 0;
     const totalCantidad = formData.summary?.reduce((acc: any, p: any) => acc + (p.totalCantidad || 0), 0) || 0;
     const operationTerm = 'Cargue';
+    const hasNonZeroPaleta = formData.items.some((p: any) => p.paleta && Number(p.paleta) !== 0);
 
     const fieldCellStyle: React.CSSProperties = { padding: '2px', fontSize: '11px', lineHeight: '1.4', verticalAlign: 'top' };
 
@@ -85,7 +86,7 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                 <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse' }}>
                     <thead>
                         <tr style={{ borderBottom: '1px solid #aaa' }}>
-                            <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Paleta</th>
+                            {hasNonZeroPaleta && <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Paleta</th>}
                             <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Descripción</th>
                             <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Lote</th>
                             <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Presentación</th>
@@ -96,7 +97,7 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                     <tbody>
                         {formData.items.map((p: any, i: number) => (
                             <tr key={i} style={{ borderBottom: '1px solid #ddd' }}>
-                                <td style={{ padding: '4px' }}>{p.paleta === 0 ? '' : p.paleta}</td>
+                                {hasNonZeroPaleta && <td style={{ padding: '4px' }}>{p.paleta && Number(p.paleta) !== 0 ? p.paleta : ''}</td>}
                                 <td style={{ padding: '4px' }}>{p.descripcion}</td>
                                 <td style={{ padding: '4px' }}>{p.lote}</td>
                                 <td style={{ padding: '4px' }}>{p.presentacion}</td>
