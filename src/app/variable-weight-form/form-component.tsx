@@ -101,6 +101,24 @@ const formSchema = z.object({
     coordinador: z.string().min(1, "Seleccione un coordinador."),
 });
 
+type FormValues = z.infer<typeof formSchema>;
+
+const originalDefaultValues: FormValues = {
+  pedidoSislog: "",
+  cliente: "",
+  fecha: new Date(),
+  cedulaConductor: "",
+  conductor: "",
+  placa: "",
+  precinto: "",
+  setPoint: NaN,
+  items: [],
+  summary: [],
+  horaInicio: "",
+  horaFin: "",
+  observaciones: "",
+  coordinador: "",
+};
 
 // Mock data
 const coordinadores = ["Cristian Acuña", "Sergio Padilla"];
@@ -158,24 +176,9 @@ export default function VariableWeightFormComponent() {
   }, [productSearch, articulos]);
 
 
-  const form = useForm<z.infer<typeof formSchema>>({
+  const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      pedidoSislog: "",
-      cliente: "",
-      fecha: new Date(),
-      cedulaConductor: "",
-      conductor: "",
-      placa: "",
-      precinto: "",
-      setPoint: NaN,
-      items: [],
-      summary: [],
-      horaInicio: "",
-      horaFin: "",
-      observaciones: "",
-      coordinador: "",
-    },
+    defaultValues: originalDefaultValues,
   });
 
   const { fields, append, remove } = useFieldArray({
@@ -216,7 +219,7 @@ export default function VariableWeightFormComponent() {
   }, [watchedItems]);
 
   const formIdentifier = `variable-weight-${operation}`;
-  const { isRestoreDialogOpen, onRestore, onDiscard, onOpenChange, clearDraft } = useFormPersistence(formIdentifier, form, attachments, setAttachments, !!submissionId);
+  const { isRestoreDialogOpen, onRestore, onDiscard, onOpenChange, clearDraft } = useFormPersistence(formIdentifier, form, originalDefaultValues, attachments, setAttachments, !!submissionId);
 
   useEffect(() => {
       const currentSummaryInForm = form.getValues('summary') || [];
@@ -508,7 +511,7 @@ export default function VariableWeightFormComponent() {
   }, [isCameraOpen, toast]);
 
 
-  async function onSubmit(data: z.infer<typeof formSchema>) {
+  async function onSubmit(data: FormValues) {
     if (!user || !storage) {
         toast({ variant: "destructive", title: "Error", description: "Debe iniciar sesión para guardar el formulario." });
         return;
@@ -1102,7 +1105,7 @@ export default function VariableWeightFormComponent() {
               <AlertDialogHeader>
                   <AlertDialogTitle>¿Está seguro que desea limpiar el formato?</AlertDialogTitle>
                   <AlertDialogDescription>
-                      Esta acción no se puede deshacer. Se eliminará toda la información que ha ingresado en el formulario.
+                      Esta acción no se puede deshacer. Se eliminará toda la información que ha ingresado en el formato.
                   </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>

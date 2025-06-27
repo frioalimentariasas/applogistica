@@ -10,18 +10,17 @@ import { useToast } from './use-toast';
 export function useFormPersistence<T extends FieldValues>(
     formIdentifier: string, 
     form: ReturnType<typeof useForm<T>>,
+    originalDefaultValues: T,
     attachments: string[], 
     setAttachments: (attachments: string[] | ((prev: string[]) => string[])) => void,
-    isEditMode = false // New parameter to disable this hook when editing
+    isEditMode = false
 ) {
     const { user } = useAuth();
-    const { watch, reset, formState: { defaultValues } } = form;
+    const { watch, reset } = form;
     const { toast } = useToast();
 
     const [isRestoreDialogOpen, setRestoreDialogOpen] = useState(false);
     
-    // This state controls whether the watch effects are active.
-    // It's set to true only after the initial draft check is complete.
     const [draftCheckComplete, setDraftCheckComplete] = useState(false);
 
     const getStorageKey = useCallback(() => {
@@ -140,8 +139,8 @@ export function useFormPersistence<T extends FieldValues>(
             localStorage.removeItem(storageKey);
             await idb.del(attachmentsKey);
 
-            // Reset the form to its default state. This will not be saved yet.
-            reset(defaultValues as T);
+            // Reset the form to its original default state. This will not be saved yet.
+            reset(originalDefaultValues);
             setAttachments([]);
             toast({ title: "Borrador Descartado" });
         } catch (e) {
@@ -152,7 +151,7 @@ export function useFormPersistence<T extends FieldValues>(
             // the reset without the watcher immediately saving the default state.
             setTimeout(() => setDraftCheckComplete(true), 50);
         }
-    }, [getStorageKey, reset, defaultValues, setAttachments, toast]);
+    }, [getStorageKey, reset, originalDefaultValues, setAttachments, toast]);
     
     // Clear draft from both storage systems
     const clearDraft = useCallback(async () => {

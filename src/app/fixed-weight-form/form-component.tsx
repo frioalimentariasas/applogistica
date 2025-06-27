@@ -97,6 +97,31 @@ const formSchema = z.object({
   coordinador: z.string().min(1, "Seleccione un coordinador."),
 });
 
+type FormValues = z.infer<typeof formSchema>;
+
+// Store original default values outside the component
+const originalDefaultValues: FormValues = {
+  pedidoSislog: "",
+  nombreCliente: "",
+  fecha: new Date(),
+  horaInicio: "",
+  horaFin: "",
+  precinto: "",
+  documentoTransporte: "",
+  facturaRemision: "",
+  productos: [],
+  nombreConductor: "",
+  cedulaConductor: "",
+  placa: "",
+  muelle: "",
+  contenedor: "",
+  setPoint: NaN,
+  condicionesHigiene: undefined,
+  termoregistrador: undefined,
+  clienteRequiereTermoregistro: undefined,
+  observaciones: "",
+  coordinador: "",
+};
 
 // Mock data for selects
 const muelles = ["Muelle 1", "Muelle 2", "Muelle 3", "Muelle 4", "Muelle 5", "Muelle 6"];
@@ -154,30 +179,9 @@ export default function FixedWeightFormComponent() {
   }, [productSearch, articulos]);
 
 
-  const form = useForm<z.infer<typeof formSchema>>({
+  const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: {
-      pedidoSislog: "",
-      nombreCliente: "",
-      fecha: new Date(),
-      horaInicio: "",
-      horaFin: "",
-      precinto: "",
-      documentoTransporte: "",
-      facturaRemision: "",
-      productos: [],
-      nombreConductor: "",
-      cedulaConductor: "",
-      placa: "",
-      muelle: "",
-      contenedor: "",
-      setPoint: NaN,
-      condicionesHigiene: undefined,
-      termoregistrador: undefined,
-      clienteRequiereTermoregistro: undefined,
-      observaciones: "",
-      coordinador: "",
-    },
+    defaultValues: originalDefaultValues,
   });
 
   const { fields, append, remove } = useFieldArray({
@@ -200,7 +204,7 @@ export default function FixedWeightFormComponent() {
   }, [productos]);
 
   const formIdentifier = `fixed-weight-${operation}`;
-  const { isRestoreDialogOpen, onRestore, onDiscard, onOpenChange, clearDraft } = useFormPersistence(formIdentifier, form, attachments, setAttachments, !!submissionId);
+  const { isRestoreDialogOpen, onRestore, onDiscard, onOpenChange, clearDraft } = useFormPersistence(formIdentifier, form, originalDefaultValues, attachments, setAttachments, !!submissionId);
 
 
   useEffect(() => {
@@ -463,7 +467,7 @@ export default function FixedWeightFormComponent() {
   }, [isCameraOpen, toast]);
 
 
-  async function onSubmit(data: z.infer<typeof formSchema>) {
+  async function onSubmit(data: FormValues) {
     if (!user || !storage) {
         toast({ variant: "destructive", title: "Error", description: "Debe iniciar sesión para guardar el formato." });
         return;
@@ -1016,7 +1020,7 @@ export default function FixedWeightFormComponent() {
               <AlertDialogHeader>
                   <AlertDialogTitle>¿Está seguro que desea limpiar el formato?</AlertDialogTitle>
                   <AlertDialogDescription>
-                      Esta acción no se puede deshacer. Se eliminará toda la información que ha ingresado en el formulario.
+                      Esta acción no se puede deshacer. Se eliminará toda la información que ha ingresado en el formato.
                   </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>
