@@ -19,7 +19,6 @@ import { storage } from "@/lib/firebase";
 import { ref, uploadString, getDownloadURL } from "firebase/storage";
 import { optimizeImage } from "@/lib/image-optimizer";
 import { getSubmissionById, SubmissionResult } from "@/app/actions/consultar-formatos";
-import { getImageAsBase64 } from "@/app/actions/image-proxy";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -102,6 +101,16 @@ const formSchema = z.object({
 // Mock data for selects
 const muelles = ["Muelle 1", "Muelle 2", "Muelle 3", "Muelle 4", "Muelle 5", "Muelle 6"];
 const coordinadores = ["Cristian Acuña", "Sergio Padilla"];
+
+// Attachment Constants
+const MAX_ATTACHMENTS = 30;
+const MAX_TOTAL_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
+
+function getByteSizeFromBase64(base64: string): number {
+    // This is an approximation
+    return base64.length * (3 / 4) - (base64.endsWith('==') ? 2 : base64.endsWith('=') ? 1 : 0);
+}
+
 
 export default function FixedWeightFormComponent() {
   const router = useRouter();
@@ -251,6 +260,8 @@ export default function FixedWeightFormComponent() {
         const files = Array.from(event.target.files);
         const imageFiles = files.filter(file => file.type.startsWith('image/'));
         
+        if (imageFiles.length === 0) return;
+
         if (imageFiles.length !== files.length) {
             toast({
                 variant: "destructive",
@@ -259,7 +270,14 @@ export default function FixedWeightFormComponent() {
             });
         }
         
-        if (imageFiles.length === 0) return;
+        if (attachments.length + imageFiles.length > MAX_ATTACHMENTS) {
+            toast({
+                variant: "destructive",
+                title: "Límite de archivos excedido",
+                description: `No puede adjuntar más de ${MAX_ATTACHMENTS} archivos.`,
+            });
+            return;
+        }
 
         const processingToast = toast({
             title: "Optimizando imágenes...",
@@ -280,6 +298,20 @@ export default function FixedWeightFormComponent() {
                 });
             }));
             
+            const newImagesSize = optimizedImages.reduce((sum, base64) => sum + getByteSizeFromBase64(base64.split(',')[1]), 0);
+            const existingImagesSize = attachments
+                .filter(a => a.startsWith('data:image'))
+                .reduce((sum, base64) => sum + getByteSizeFromBase64(base64.split(',')[1]), 0);
+
+            if (existingImagesSize + newImagesSize > MAX_TOTAL_SIZE_BYTES) {
+                 toast({
+                    variant: "destructive",
+                    title: "Límite de tamaño excedido",
+                    description: `El tamaño total de los adjuntos no puede superar los ${MAX_TOTAL_SIZE_BYTES / 1024 / 1024} MB.`,
+                });
+                return;
+            }
+            
             setAttachments(prev => [...prev, ...optimizedImages]);
         } catch (error) {
             console.error("Image optimization error:", error);
@@ -290,6 +322,9 @@ export default function FixedWeightFormComponent() {
             });
         } finally {
             processingToast.dismiss();
+            if (fileInputRef.current) {
+                fileInputRef.current.value = "";
+            }
         }
     }
   };
@@ -308,6 +343,16 @@ export default function FixedWeightFormComponent() {
   };
   
   const handleCapture = async () => {
+    if (attachments.length >= MAX_ATTACHMENTS) {
+        toast({
+            variant: "destructive",
+            title: "Límite de archivos excedido",
+            description: `No puede adjuntar más de ${MAX_ATTACHMENTS} archivos.`,
+        });
+        handleCloseCamera();
+        return;
+    }
+
     if (videoRef.current && canvasRef.current) {
         const video = videoRef.current;
         const canvas = canvasRef.current;
@@ -327,6 +372,21 @@ export default function FixedWeightFormComponent() {
           
             try {
                 const optimizedImage = await optimizeImage(dataUrl);
+
+                const newImageSize = getByteSizeFromBase64(optimizedImage.split(',')[1]);
+                const existingImagesSize = attachments
+                    .filter(a => a.startsWith('data:image'))
+                    .reduce((sum, base64) => sum + getByteSizeFromBase64(base64.split(',')[1]), 0);
+
+                if (existingImagesSize + newImageSize > MAX_TOTAL_SIZE_BYTES) {
+                    toast({
+                        variant: "destructive",
+                        title: "Límite de tamaño excedido",
+                        description: `El tamaño total de los adjuntos no puede superar los ${MAX_TOTAL_SIZE_BYTES / 1024 / 1024} MB.`,
+                    });
+                    return;
+                }
+
                 setAttachments(prev => [...prev, optimizedImage]);
             } catch (error) {
                  console.error("Image optimization error:", error);
@@ -359,19 +419,29 @@ export default function FixedWeightFormComponent() {
     const enableCamera = async () => {
         if (isCameraOpen) {
             if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                const rearCameraConstraints = { video: { facingMode: { exact: "environment" } } };
+                const anyCameraConstraints = { video: true };
                 try {
-                    stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                    stream = await navigator.mediaDevices.getUserMedia(rearCameraConstraints);
                     if (videoRef.current) {
                         videoRef.current.srcObject = stream;
                     }
                 } catch (err) {
-                    console.error("Error accessing camera: ", err);
-                    toast({
-                        variant: 'destructive',
-                        title: 'Acceso a la cámara denegado',
-                        description: 'Por favor, habilite los permisos de la cámara en la configuración de su navegador.',
-                    });
-                    setIsCameraOpen(false);
+                    console.warn("Rear camera not available, trying any camera.", err);
+                    try {
+                       stream = await navigator.mediaDevices.getUserMedia(anyCameraConstraints);
+                        if (videoRef.current) {
+                            videoRef.current.srcObject = stream;
+                        }
+                    } catch (finalErr) {
+                         console.error("Error accessing camera: ", finalErr);
+                        toast({
+                            variant: 'destructive',
+                            title: 'Acceso a la cámara denegado',
+                            description: 'Por favor, habilite los permisos de la cámara en la configuración de su navegador.',
+                        });
+                        setIsCameraOpen(false);
+                    }
                 }
             } else {
                 toast({
@@ -831,7 +901,7 @@ export default function FixedWeightFormComponent() {
                         >
                             <UploadCloud className="w-10 h-10 text-gray-400 mb-2"/>
                             <p className="text-sm text-gray-600 font-semibold">Subir archivos o arrastre y suelte</p>
-                            <p className="text-xs text-gray-500">Max. de imágenes 30 / Cada imagen se optimizará a 1MB</p>
+                            <p className="text-xs text-gray-500">Max. de 30 imágenes / 10MB Total</p>
                             <Input type="file" ref={fileInputRef} className="hidden" multiple accept="image/*" onChange={handleFileChange} />
                         </div>
                         <div 
@@ -846,7 +916,7 @@ export default function FixedWeightFormComponent() {
                     {attachments.length > 0 && (
                         <div>
                             <div className="flex justify-between items-center mb-2">
-                                <h4 className="text-sm font-medium">Archivos Adjuntos:</h4>
+                                <h4 className="text-sm font-medium">Archivos Adjuntos ({attachments.length}/{MAX_ATTACHMENTS}):</h4>
                                 <AlertDialog open={isDeleteAllAlertOpen} onOpenChange={setDeleteAllAlertOpen}>
                                     <AlertDialogTrigger asChild>
                                         <Button type="button" variant="outline" size="sm" className="text-destructive hover:text-destructive border-destructive/50 hover:bg-destructive/10">
