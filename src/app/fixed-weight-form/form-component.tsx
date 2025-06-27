@@ -465,7 +465,7 @@ export default function FixedWeightFormComponent() {
 
   async function onSubmit(data: z.infer<typeof formSchema>) {
     if (!user || !storage) {
-        toast({ variant: "destructive", title: "Error", description: "Debe iniciar sesión para guardar el formulario." });
+        toast({ variant: "destructive", title: "Error", description: "Debe iniciar sesión para guardar el formato." });
         return;
     }
     setIsSubmitting(true);
@@ -497,7 +497,7 @@ export default function FixedWeightFormComponent() {
         const result = await saveForm(submissionData, submissionId ?? undefined);
 
         if (result.success) {
-            toast({ title: "Formulario Guardado", description: `El formato ha sido ${submissionId ? 'actualizado' : 'guardado'} correctamente.` });
+            toast({ title: "Formato Guardado", description: `El formato ha sido ${submissionId ? 'actualizado' : 'guardado'} correctamente.` });
             if (!submissionId) { // Only clear draft for new forms
                 await clearDraft();
             }
@@ -677,7 +677,7 @@ export default function FixedWeightFormComponent() {
                     )}/>
                     <FormField control={form.control} name="documentoTransporte" render={({ field }) => (
                     <FormItem>
-                        <FormLabel>Documento de Transporte</FormLabel>
+                        <FormLabel>Doc. Transp.</FormLabel>
                         <FormControl><Input placeholder="Máx 15 caracteres" {...field} /></FormControl>
                         <FormMessage />
                     </FormItem>
@@ -718,7 +718,22 @@ export default function FixedWeightFormComponent() {
                                 <FormField control={form.control} name={`productos.${index}.codigo`} render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Código</FormLabel>
-                                        <FormControl><Input placeholder="Código del producto" {...field} readOnly /></FormControl>
+                                        <FormControl>
+                                            <Input 
+                                                placeholder="Código del producto" 
+                                                {...field}
+                                                onChange={(e) => {
+                                                    field.onChange(e); // Update RHF state
+                                                    const code = e.target.value;
+                                                    const articulo = articulos.find(a => a.value === code);
+                                                    if (articulo) {
+                                                        form.setValue(`productos.${index}.descripcion`, articulo.label, { shouldValidate: true });
+                                                    } else {
+                                                        form.setValue(`productos.${index}.descripcion`, '', { shouldValidate: true });
+                                                    }
+                                                }}
+                                            />
+                                        </FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}/>
@@ -758,8 +773,8 @@ export default function FixedWeightFormComponent() {
                                                                         variant="ghost"
                                                                         className="w-full justify-start h-auto text-wrap"
                                                                         onClick={() => {
-                                                                            form.setValue(`productos.${index}.descripcion`, p.label)
-                                                                            form.setValue(`productos.${index}.codigo`, p.value)
+                                                                            form.setValue(`productos.${index}.descripcion`, p.label);
+                                                                            form.setValue(`productos.${index}.codigo`, p.value);
                                                                             setProductDialogIndex(null);
                                                                             setProductSearch("");
                                                                         }}
