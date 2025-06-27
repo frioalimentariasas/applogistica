@@ -39,6 +39,15 @@ const ReportField = ({ label, value }: { label: string, value: any }) => (
     </>
 );
 
+const formatPaletas = (num: any): string => {
+    const number = Number(num);
+    if (num === null || num === undefined || isNaN(number)) return '0.00';
+    if (number % 1 === 0) {
+        return number.toString();
+    }
+    return number.toFixed(2);
+};
+
 interface FixedWeightReportProps {
     formData: any;
     userDisplayName: string;
@@ -95,14 +104,14 @@ export function FixedWeightReport({ formData, userDisplayName, attachments, form
                                 <td style={{ padding: '4px' }}>{p.codigo}</td>
                                 <td style={{ padding: '4px' }}>{p.descripcion}</td>
                                 <td style={{ textAlign: 'right', padding: '4px' }}>{p.cajas}</td>
-                                <td style={{ textAlign: 'right', padding: '4px' }}>{p.paletas?.toFixed(2)}</td>
+                                <td style={{ textAlign: 'right', padding: '4px' }}>{formatPaletas(p.paletas)}</td>
                                 <td style={{ textAlign: 'right', padding: '4px' }}>{p.temperatura}</td>
                             </tr>
                         ))}
                          <tr style={{ fontWeight: 'bold', backgroundColor: '#f1f5f9' }}>
                             <td style={{ padding: '4px', textAlign: 'right' }} colSpan={2}>TOTALES:</td>
                             <td style={{ textAlign: 'right', padding: '4px' }}>{totalCajas}</td>
-                            <td style={{ textAlign: 'right', padding: '4px' }}>{totalPaletas.toFixed(2)}</td>
+                            <td style={{ textAlign: 'right', padding: '4px' }}>{formatPaletas(totalPaletas)}</td>
                             <td style={{ padding: '4px' }}></td>
                         </tr>
                     </tbody>
@@ -137,7 +146,7 @@ export function FixedWeightReport({ formData, userDisplayName, attachments, form
                 </ReportSection>
             )}
 
-            <ReportSection title="Coordinador y Operario Responsables de la Operación">
+            <ReportSection title="Responsables de la Operación">
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                      <tbody>
                         <tr>
