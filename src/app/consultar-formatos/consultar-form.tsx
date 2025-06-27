@@ -18,8 +18,9 @@ import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, Search, XCircle, Loader2, FileSearch, Eye, Edit, Trash2 } from 'lucide-react';
-import { CalendarIcon } from 'lucide-react';
+import { Skeleton } from '@/components/ui/skeleton';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import { ArrowLeft, Search, XCircle, Loader2, FileSearch, Eye, Edit, Trash2, CalendarIcon, FolderSearch } from 'lucide-react';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -30,6 +31,50 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+
+
+const ResultsSkeleton = () => (
+  <>
+    {Array.from({ length: 5 }).map((_, index) => (
+      <TableRow key={index}>
+        <TableCell><Skeleton className="h-5 w-[120px] rounded-md" /></TableCell>
+        <TableCell><Skeleton className="h-5 w-[100px] rounded-md" /></TableCell>
+        <TableCell><Skeleton className="h-5 w-[80px] rounded-md" /></TableCell>
+        <TableCell><Skeleton className="h-5 w-[100px] rounded-md" /></TableCell>
+        <TableCell><Skeleton className="h-5 w-[150px] rounded-md" /></TableCell>
+        <TableCell><Skeleton className="h-5 w-[120px] rounded-md" /></TableCell>
+        <TableCell className="text-right">
+          <div className="flex justify-end gap-2">
+            <Skeleton className="h-8 w-8 rounded-md" />
+            <Skeleton className="h-8 w-8 rounded-md" />
+            <Skeleton className="h-8 w-8 rounded-md" />
+          </div>
+        </TableCell>
+      </TableRow>
+    ))}
+  </>
+);
+
+const EmptyState = ({ searched }: { searched: boolean }) => (
+    <TableRow>
+        <TableCell colSpan={7} className="py-20 text-center">
+            <div className="flex flex-col items-center gap-4">
+                <div className="rounded-full bg-primary/10 p-4">
+                    <FolderSearch className="h-12 w-12 text-primary" />
+                </div>
+                <h3 className="text-xl font-semibold">
+                    {searched ? "No se encontraron resultados" : "Realice una búsqueda"}
+                </h3>
+                <p className="text-muted-foreground">
+                    {searched
+                        ? "Intente con diferentes filtros para encontrar lo que busca."
+                        : "Utilice los filtros de arriba para buscar entre los formatos guardados."}
+                </p>
+            </div>
+        </TableCell>
+    </TableRow>
+);
+
 
 export default function ConsultarFormatosComponent() {
     const router = useRouter();
@@ -150,10 +195,10 @@ export default function ConsultarFormatosComponent() {
             return `/fixed-weight-form?operation=${operation}&id=${id}`;
         }
         if (formType.startsWith('variable-weight-recepcion')) {
-            return `/variable-weight-reception-form?operation=${operation}&id=${id}`;
+            return `/variable-weight-reception-form?operation=recepcion&id=${id}`;
         }
         if (formType.startsWith('variable-weight-despacho')) {
-            return `/variable-weight-form?operation=${operation}&id=${id}`;
+            return `/variable-weight-form?operation=despacho&id=${id}`;
         }
         
         return `/consultar-formatos`;
@@ -248,7 +293,10 @@ export default function ConsultarFormatosComponent() {
 
                 <Card>
                     <CardHeader>
-                        <CardTitle>Resultados</CardTitle>
+                        <CardTitle>Resultados de la Búsqueda</CardTitle>
+                        <CardDescription>
+                             {isLoading ? "Cargando resultados..." : `Se encontraron ${results.length} formatos.`}
+                        </CardDescription>
                     </CardHeader>
                     <CardContent>
                         <div className="rounded-md border">
@@ -266,12 +314,7 @@ export default function ConsultarFormatosComponent() {
                                 </TableHeader>
                                 <TableBody>
                                     {isLoading ? (
-                                        <TableRow>
-                                            <TableCell colSpan={7} className="h-24 text-center">
-                                                <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
-                                                <p className="text-muted-foreground">Buscando...</p>
-                                            </TableCell>
-                                        </TableRow>
+                                        <ResultsSkeleton />
                                     ) : results.length > 0 ? (
                                         results.map((sub) => (
                                             <TableRow key={sub.id}>
@@ -282,51 +325,74 @@ export default function ConsultarFormatosComponent() {
                                                 <TableCell>{sub.formData.nombreCliente || sub.formData.cliente}</TableCell>
                                                 <TableCell>{sub.userDisplayName}</TableCell>
                                                 <TableCell className="text-right">
-                                                    <div className="flex items-center justify-end gap-2">
-                                                        {isOperario ? (
-                                                            <Button asChild variant="ghost" size="icon" title="Editar">
-                                                                <Link href={getEditUrl(sub)}>
-                                                                    <Edit className="h-4 w-4 text-blue-600" />
-                                                                    <span className="sr-only">Editar</span>
-                                                                </Link>
-                                                            </Button>
-                                                        ) : isViewer ? (
-                                                            <Button asChild variant="ghost" size="icon" title="Ver Detalle">
-                                                                <Link href={`/consultar-formatos/${sub.id}`}>
-                                                                    <Eye className="h-4 w-4" />
-                                                                    <span className="sr-only">Ver detalles</span>
-                                                                </Link>
-                                                            </Button>
-                                                        ) : (
-                                                            <>
-                                                                <Button asChild variant="ghost" size="icon" title="Ver Detalle">
-                                                                    <Link href={`/consultar-formatos/${sub.id}`}>
-                                                                        <Eye className="h-4 w-4" />
-                                                                        <span className="sr-only">Ver detalles</span>
-                                                                    </Link>
-                                                                </Button>
-                                                                <Button asChild variant="ghost" size="icon" title="Editar">
-                                                                    <Link href={getEditUrl(sub)}>
-                                                                        <Edit className="h-4 w-4 text-blue-600" />
-                                                                        <span className="sr-only">Editar</span>
-                                                                    </Link>
-                                                                </Button>
-                                                                <Button variant="ghost" size="icon" title="Eliminar" onClick={() => setSubmissionToDelete(sub)}>
-                                                                    <Trash2 className="h-4 w-4 text-destructive" />
-                                                                    <span className="sr-only">Eliminar</span>
-                                                                </Button>
-                                                            </>
-                                                        )}
-                                                    </div>
+                                                    <TooltipProvider delayDuration={100}>
+                                                        <div className="flex items-center justify-end gap-1">
+                                                            {isOperario ? (
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                        <Button asChild variant="ghost" size="icon">
+                                                                            <Link href={getEditUrl(sub)}>
+                                                                                <Edit className="h-4 w-4 text-blue-600" />
+                                                                                <span className="sr-only">Editar</span>
+                                                                            </Link>
+                                                                        </Button>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent><p>Editar Formulario</p></TooltipContent>
+                                                                </Tooltip>
+                                                            ) : isViewer ? (
+                                                                <Tooltip>
+                                                                    <TooltipTrigger asChild>
+                                                                        <Button asChild variant="ghost" size="icon">
+                                                                            <Link href={`/consultar-formatos/${sub.id}`}>
+                                                                                <Eye className="h-4 w-4" />
+                                                                                <span className="sr-only">Ver detalles</span>
+                                                                            </Link>
+                                                                        </Button>
+                                                                    </TooltipTrigger>
+                                                                    <TooltipContent><p>Ver Detalle</p></TooltipContent>
+                                                                </Tooltip>
+                                                            ) : (
+                                                                <>
+                                                                    <Tooltip>
+                                                                        <TooltipTrigger asChild>
+                                                                            <Button asChild variant="ghost" size="icon">
+                                                                                <Link href={`/consultar-formatos/${sub.id}`}>
+                                                                                    <Eye className="h-4 w-4" />
+                                                                                    <span className="sr-only">Ver detalles</span>
+                                                                                </Link>
+                                                                            </Button>
+                                                                        </TooltipTrigger>
+                                                                        <TooltipContent><p>Ver Detalle</p></TooltipContent>
+                                                                    </Tooltip>
+                                                                    <Tooltip>
+                                                                        <TooltipTrigger asChild>
+                                                                            <Button asChild variant="ghost" size="icon">
+                                                                                <Link href={getEditUrl(sub)}>
+                                                                                    <Edit className="h-4 w-4 text-blue-600" />
+                                                                                    <span className="sr-only">Editar</span>
+                                                                                </Link>
+                                                                            </Button>
+                                                                        </TooltipTrigger>
+                                                                        <TooltipContent><p>Editar Formulario</p></TooltipContent>
+                                                                    </Tooltip>
+                                                                    <Tooltip>
+                                                                        <TooltipTrigger asChild>
+                                                                            <Button variant="ghost" size="icon" onClick={() => setSubmissionToDelete(sub)}>
+                                                                                <Trash2 className="h-4 w-4 text-destructive" />
+                                                                                <span className="sr-only">Eliminar</span>
+                                                                            </Button>
+                                                                        </TooltipTrigger>
+                                                                        <TooltipContent><p>Eliminar Formulario</p></TooltipContent>
+                                                                    </Tooltip>
+                                                                </>
+                                                            )}
+                                                        </div>
+                                                    </TooltipProvider>
                                                 </TableCell>
                                             </TableRow>
                                         ))
                                     ) : (
-                                        <TableRow>
-                                            <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
-                                                {searched ? "No se encontraron resultados." : "Ingrese criterios de búsqueda y presione Buscar."}
-                                            </TableCell>
-                                        </TableRow>
+                                        <EmptyState searched={searched} />
                                     )}
                                 </TableBody>
                             </Table>
