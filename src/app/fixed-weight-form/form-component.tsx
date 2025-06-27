@@ -64,9 +64,9 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 const productSchema = z.object({
   codigo: z.string().optional(),
   descripcion: z.string().min(1, "La descripción es requerida."),
-  cajas: z.number({required_error: "El No. de cajas es requerido.", invalid_type_error: "El No. de cajas es requerido."}).int().positive("El No. de Cajas debe ser mayor a 0."),
-  paletas: z.number({required_error: "El Total Paletas/Cantidad es requerido.", invalid_type_error: "El Total Paletas/Cantidad es requerido."}).positive("El Total Paletas/Cantidad debe ser un número positivo."),
-  temperatura: z.number({ required_error: "La temperatura es requerida.", invalid_type_error: "La temperatura es requerida." }).min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99."),
+  cajas: z.coerce.number({required_error: "El No. de cajas es requerido.", invalid_type_error: "El No. de cajas es requerido."}).int().positive("El No. de Cajas debe ser mayor a 0."),
+  paletas: z.coerce.number({required_error: "El Total Paletas/Cantidad es requerido.", invalid_type_error: "El Total Paletas/Cantidad es requerido."}).positive("El Total Paletas/Cantidad debe ser un número positivo."),
+  temperatura: z.coerce.number({ required_error: "La temperatura es requerida.", invalid_type_error: "La temperatura es requerida." }).min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99."),
 });
 
 const formSchema = z.object({
@@ -89,7 +89,7 @@ const formSchema = z.object({
   placa: z.string().min(1, "La placa es obligatoria.").regex(/^[A-Z]{3}[0-9]{3}$/, "Formato inválido. Deben ser 3 letras y 3 números (ej: ABC123)."),
   muelle: z.string().min(1, "Seleccione un muelle."),
   contenedor: z.string().optional(),
-  setPoint: z.number({required_error: "El Set Point es requerido.", invalid_type_error: "El Set Point es requerido."}).min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99."),
+  setPoint: z.coerce.number({required_error: "El Set Point es requerido.", invalid_type_error: "El Set Point es requerido."}).min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99."),
   condicionesHigiene: z.enum(["limpio", "sucio"], { required_error: "Seleccione una condición." }),
   termoregistrador: z.enum(["si", "no"], { required_error: "Seleccione una opción." }),
   clienteRequiereTermoregistro: z.enum(["si", "no"], { required_error: "Seleccione una opción." }),
@@ -184,7 +184,7 @@ export default function FixedWeightFormComponent() {
     defaultValues: originalDefaultValues,
   });
 
-  const { fields, append, remove } = useFieldArray({
+  const { fields, append, remove, update } = useFieldArray({
     control: form.control,
     name: "productos",
   });
@@ -214,7 +214,7 @@ export default function FixedWeightFormComponent() {
     };
     fetchClients();
     if (!submissionId) {
-        form.reset({ ...form.getValues(), productos: [{ codigo: '', descripcion: '', cajas: NaN, paletas: NaN, temperatura: NaN }]});
+        form.reset({ ...originalDefaultValues, productos: [{ codigo: '', descripcion: '', cajas: NaN, paletas: NaN, temperatura: NaN }]});
     }
     window.scrollTo(0, 0);
   }, [submissionId, form]);
@@ -727,14 +727,14 @@ export default function FixedWeightFormComponent() {
                                                 placeholder="Código del producto" 
                                                 {...field}
                                                 onChange={(e) => {
-                                                    field.onChange(e); // Update RHF state
                                                     const code = e.target.value;
+                                                    const currentProduct = form.getValues(`productos.${index}`);
                                                     const articulo = articulos.find(a => a.value === code);
-                                                    if (articulo) {
-                                                        form.setValue(`productos.${index}.descripcion`, articulo.label, { shouldValidate: true });
-                                                    } else {
-                                                        form.setValue(`productos.${index}.descripcion`, '', { shouldValidate: true });
-                                                    }
+                                                    update(index, {
+                                                      ...currentProduct,
+                                                      codigo: code,
+                                                      descripcion: articulo ? articulo.label : currentProduct.descripcion
+                                                    });
                                                 }}
                                             />
                                         </FormControl>
@@ -777,8 +777,12 @@ export default function FixedWeightFormComponent() {
                                                                         variant="ghost"
                                                                         className="w-full justify-start h-auto text-wrap"
                                                                         onClick={() => {
-                                                                            form.setValue(`productos.${index}.descripcion`, p.label);
-                                                                            form.setValue(`productos.${index}.codigo`, p.value);
+                                                                            const currentProduct = form.getValues(`productos.${index}`);
+                                                                            update(index, {
+                                                                                ...currentProduct,
+                                                                                descripcion: p.label,
+                                                                                codigo: p.value
+                                                                            });
                                                                             setProductDialogIndex(null);
                                                                             setProductSearch("");
                                                                         }}
@@ -800,21 +804,21 @@ export default function FixedWeightFormComponent() {
                                 <FormField control={form.control} name={`productos.${index}.cajas`} render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>No. de Cajas</FormLabel>
-                                        <FormControl><Input type="number" min="1" placeholder="0" {...field} onChange={e => field.onChange(e.target.valueAsNumber)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl>
+                                        <FormControl><Input type="text" inputMode="numeric" min="1" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}/>
                                 <FormField control={form.control} name={`productos.${index}.paletas`} render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Total Paletas/Cantidad</FormLabel>
-                                        <FormControl><Input type="number" step="0.01" min="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.valueAsNumber)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl>
+                                        <FormControl><Input type="text" inputMode="decimal" step="0.01" min="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}/>
                                 <FormField control={form.control} name={`productos.${index}.temperatura`} render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Temperatura (°C)</FormLabel>
-                                        <FormControl><Input type="number" placeholder="0" {...field} onChange={e => field.onChange(e.target.valueAsNumber)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl>
+                                        <FormControl><Input type="text" inputMode="decimal" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}/>
@@ -876,7 +880,7 @@ export default function FixedWeightFormComponent() {
                         <FormItem>
                             <FormLabel>Set Point (°C)</FormLabel>
                             <FormControl>
-                                <Input type="number" placeholder="0" {...field} onChange={e => field.onChange(e.target.valueAsNumber)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} />
+                                <Input type="text" inputMode="decimal" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} />
                             </FormControl>
                             <FormMessage />
                         </FormItem>
