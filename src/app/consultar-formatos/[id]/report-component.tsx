@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -383,11 +382,10 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
             }
     
              if (base64Images.length > 0) {
-                // Check if a new page is needed before adding the attachments section
-                if (yPos > pageHeight - margin - 100) { // 100 is an arbitrary value for attachment space
-                    doc.addPage();
-                    yPos = margin;
-                }
+                // Always start attachments on a new page
+                doc.addPage();
+                yPos = margin;
+
                 autoTable(doc, { startY: yPos, head: [[{ content: 'Anexos: Registros Fotográficos', styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]], body: [], theme: 'grid' });
                 yPos = (doc as any).autoTable.previous.finalY + 10;
 
