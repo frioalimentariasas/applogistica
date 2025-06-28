@@ -53,6 +53,9 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
     const operationTerm = 'Cargue';
 
     const fieldCellStyle: React.CSSProperties = { padding: '2px', fontSize: '11px', lineHeight: '1.4', verticalAlign: 'top' };
+    
+    // Determine if the "Paleta" column should be shown. It's hidden if any item is a summary item (paleta === 0).
+    const showPaletaColumn = !formData.items.some((p: any) => Number(p.paleta) === 0);
 
     return (
         <>
@@ -87,7 +90,7 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                 <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse' }}>
                     <thead>
                         <tr style={{ borderBottom: '1px solid #aaa' }}>
-                            <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Paleta</th>
+                            {showPaletaColumn && <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Paleta</th>}
                             <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Descripción</th>
                             <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Lote</th>
                             <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Presentación</th>
@@ -96,29 +99,23 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                         </tr>
                     </thead>
                     <tbody>
-                        {formData.items.map((p: any, i: number) => (
-                            <tr key={i} style={{ borderBottom: '1px solid #ddd' }}>
-                                {Number(p.paleta) === 0 ? (
-                                    <>
-                                        <td style={{ padding: '4px' }}>N/A</td>
-                                        <td style={{ padding: '4px' }}>{`${p.descripcion} (${p.totalPaletas || 'N/A'} paletas)`}</td>
-                                        <td style={{ padding: '4px' }}>{p.lote}</td>
-                                        <td style={{ padding: '4px' }}>{p.presentacion}</td>
-                                        <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalCantidad}</td>
-                                        <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPesoNeto?.toFixed(2)}</td>
-                                    </>
-                                ) : (
-                                    <>
-                                        <td style={{ padding: '4px' }}>{p.paleta}</td>
-                                        <td style={{ padding: '4px' }}>{p.descripcion}</td>
-                                        <td style={{ padding: '4px' }}>{p.lote}</td>
-                                        <td style={{ padding: '4px' }}>{p.presentacion}</td>
-                                        <td style={{ textAlign: 'right', padding: '4px' }}>{p.cantidadPorPaleta}</td>
-                                        <td style={{ textAlign: 'right', padding: '4px' }}>{p.pesoNeto?.toFixed(2)}</td>
-                                    </>
-                                )}
-                            </tr>
-                        ))}
+                        {formData.items.map((p: any, i: number) => {
+                             const isSummaryRow = Number(p.paleta) === 0;
+                             const descripcion = isSummaryRow ? `${p.descripcion} (${p.totalPaletas || 'N/A'} paletas)` : p.descripcion;
+                             const cantidad = isSummaryRow ? p.totalCantidad : p.cantidadPorPaleta;
+                             const pesoNeto = isSummaryRow ? p.totalPesoNeto : p.pesoNeto;
+ 
+                             return (
+                                 <tr key={i} style={{ borderBottom: '1px solid #ddd' }}>
+                                     {showPaletaColumn && <td style={{ padding: '4px' }}>{p.paleta}</td>}
+                                     <td style={{ padding: '4px' }}>{descripcion}</td>
+                                     <td style={{ padding: '4px' }}>{p.lote}</td>
+                                     <td style={{ padding: '4px' }}>{p.presentacion}</td>
+                                     <td style={{ textAlign: 'right', padding: '4px' }}>{cantidad}</td>
+                                     <td style={{ textAlign: 'right', padding: '4px' }}>{pesoNeto?.toFixed(2)}</td>
+                                 </tr>
+                             )
+                        })}
                     </tbody>
                 </table>
             </ReportSection>

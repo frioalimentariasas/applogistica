@@ -416,28 +416,30 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     detailBody = formData.items.map((p: any) => [ p.paleta, p.descripcion, p.lote, p.cantidadPorPaleta, p.pesoBruto?.toFixed(2), p.taraEstiba?.toFixed(2), p.taraCaja?.toFixed(2), p.totalTaraCaja?.toFixed(2), p.pesoNeto?.toFixed(2) ]);
                     detailColSpan = 9;
                 } else { // This is dispatch
-                     detailHead = [['Paleta', 'Descripción', 'Lote', 'Presentación', 'Cant.', 'Peso Neto (kg)']];
-                     detailBody = formData.items.map((p: any) => {
-                        if (Number(p.paleta) === 0) {
-                            return [
-                                'N/A', 
-                                `${p.descripcion} (${p.totalPaletas || 'N/A'} paletas)`, 
-                                p.lote, 
-                                p.presentacion, 
-                                p.totalCantidad, 
-                                p.totalPesoNeto?.toFixed(2)
-                            ];
+                    const showPaletaColumnInPdf = !formData.items.some((p: any) => Number(p.paleta) === 0);
+                    
+                    detailHead = [[]];
+                    if (showPaletaColumnInPdf) detailHead[0].push('Paleta');
+                    detailHead[0].push('Descripción', 'Lote', 'Presentación', 'Cant.', 'Peso Neto (kg)');
+
+                    detailBody = formData.items.map((p: any) => {
+                        const isSummaryRow = Number(p.paleta) === 0;
+                        const rowData = [];
+                        
+                        if (showPaletaColumnInPdf) {
+                            rowData.push(p.paleta);
                         }
-                        return [
-                            p.paleta, 
-                            p.descripcion, 
-                            p.lote, 
-                            p.presentacion, 
-                            p.cantidadPorPaleta, 
-                            p.pesoNeto?.toFixed(2)
-                        ];
-                     });
-                     detailColSpan = 6;
+
+                        rowData.push(
+                            isSummaryRow ? `${p.descripcion} (${p.totalPaletas || 'N/A'} paletas)` : p.descripcion,
+                            p.lote,
+                            p.presentacion,
+                            isSummaryRow ? p.totalCantidad : p.cantidadPorPaleta,
+                            isSummaryRow ? p.totalPesoNeto?.toFixed(2) : p.pesoNeto?.toFixed(2)
+                        );
+                        return rowData;
+                    });
+                    detailColSpan = detailHead[0].length;
                 }
                 
                  const detailTableConfig = {
