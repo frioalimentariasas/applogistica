@@ -62,64 +62,64 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 
 
 const itemSchema = z.object({
-  paleta: z.preprocess(
-    (val) => (val === "" ? undefined : val),
-    z.coerce.number({
-        required_error: "La paleta es requerida.",
-        invalid_type_error: "La paleta debe ser un número.",
-    }).int({ message: "La paleta debe ser un número entero." }).min(0, "Debe ser un número no negativo.")
-  ),
-  descripcion: z.string().min(1, "La descripción es requerida."),
-  lote: z.string().max(15, "Máximo 15 caracteres").optional(),
-  presentacion: z.string().min(1, "Seleccione una presentación."),
-  // Conditional fields
-  cantidadPorPaleta: z.preprocess(
-      (val) => (val === "" ? undefined : val),
-      z.coerce.number({ invalid_type_error: "La cantidad debe ser un número." })
-        .int({ message: "La cantidad debe ser un número entero." }).min(0, "Debe ser un número no negativo.").optional()
-  ),
-  pesoNeto: z.preprocess(
-      (val) => (val === "" ? undefined : val),
-      z.coerce.number({ invalid_type_error: "El peso neto debe ser un número." })
-        .min(0, "Debe ser un número no negativo.").optional()
-  ),
-  totalCantidad: z.preprocess(
-      (val) => (val === "" ? undefined : val),
-      z.coerce.number({ invalid_type_error: "El total de cantidad debe ser un número." })
-        .int({ message: "El total de cantidad debe ser un número entero." }).min(0, "Debe ser un número no negativo.").optional()
-  ),
-  totalPaletas: z.preprocess(
-      (val) => (val === "" ? undefined : val),
-      z.coerce.number({ invalid_type_error: "El total de paletas debe ser un número." })
-        .int({ message: "El total de paletas debe ser un número entero." })
-        .min(0, "Debe ser un número no negativo.").optional()
-  ),
-  totalPesoNeto: z.preprocess(
-      (val) => (val === "" ? undefined : val),
-      z.coerce.number({ invalid_type_error: "El total de peso neto debe ser un número." })
-        .min(0, "Debe ser un número no negativo.").optional()
-  ),
-}).superRefine((data, ctx) => {
-    // This is where we check for required fields based on the value of 'paleta'
-    if (data.paleta !== undefined && data.paleta > 0) {
-        if (data.cantidadPorPaleta === undefined) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La cantidad por paleta es requerida.", path: ["cantidadPorPaleta"] });
-        }
-        if (data.pesoNeto === undefined) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El peso neto es requerido.", path: ["pesoNeto"] });
-        }
-    } else if (data.paleta === 0) {
-        if (data.totalCantidad === undefined) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El total de cantidad es requerido.", path: ["totalCantidad"] });
-        }
-        if (data.totalPaletas === undefined) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El total de paletas es requerido.", path: ["totalPaletas"] });
-        }
-        if (data.totalPesoNeto === undefined) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El total de peso neto es requerido.", path: ["totalPesoNeto"] });
-        }
-    }
-});
+    paleta: z.preprocess(
+      (val) => (val === "" || (typeof val === 'number' && Number.isNaN(val)) ? undefined : val),
+      z.coerce.number({
+          required_error: "La paleta es requerida.",
+          invalid_type_error: "La paleta debe ser un número.",
+      }).int({ message: "La paleta debe ser un número entero." }).min(0, "Debe ser un número no negativo.")
+    ),
+    descripcion: z.string().min(1, "La descripción es requerida."),
+    lote: z.string().max(15, "Máximo 15 caracteres").optional(),
+    presentacion: z.string().min(1, "Seleccione una presentación."),
+    // Conditional fields
+    cantidadPorPaleta: z.preprocess(
+        (val) => (val === "" || (typeof val === 'number' && Number.isNaN(val)) ? undefined : val),
+        z.coerce.number({ invalid_type_error: "La cantidad debe ser un número." })
+          .int({ message: "La cantidad debe ser un número entero." }).min(0, "Debe ser un número no negativo.").optional()
+    ),
+    pesoNeto: z.preprocess(
+        (val) => (val === "" || (typeof val === 'number' && Number.isNaN(val)) ? undefined : val),
+        z.coerce.number({ invalid_type_error: "El peso neto debe ser un número." })
+          .min(0, "Debe ser un número no negativo.").optional()
+    ),
+    totalCantidad: z.preprocess(
+        (val) => (val === "" || (typeof val === 'number' && Number.isNaN(val)) ? undefined : val),
+        z.coerce.number({ invalid_type_error: "El total de cantidad debe ser un número." })
+          .int({ message: "El total de cantidad debe ser un número entero." }).min(0, "Debe ser un número no negativo.").optional()
+    ),
+    totalPaletas: z.preprocess(
+        (val) => (val === "" || (typeof val === 'number' && Number.isNaN(val)) ? undefined : val),
+        z.coerce.number({ invalid_type_error: "El total de paletas debe ser un número." })
+          .int({ message: "El total de paletas debe ser un número entero." })
+          .min(0, "Debe ser un número no negativo.").optional()
+    ),
+    totalPesoNeto: z.preprocess(
+        (val) => (val === "" || (typeof val === 'number' && Number.isNaN(val)) ? undefined : val),
+        z.coerce.number({ invalid_type_error: "El total de peso neto debe ser un número." })
+          .min(0, "Debe ser un número no negativo.").optional()
+    ),
+  }).superRefine((data, ctx) => {
+      // This is where we check for required fields based on the value of 'paleta'
+      if (data.paleta !== undefined && data.paleta > 0) {
+          if (data.cantidadPorPaleta === undefined) {
+              ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La cantidad es requerida.", path: ["cantidadPorPaleta"] });
+          }
+          if (data.pesoNeto === undefined) {
+              ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El peso neto es requerido.", path: ["pesoNeto"] });
+          }
+      } else if (data.paleta === 0) {
+          if (data.totalCantidad === undefined) {
+              ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El total de cantidad es requerido.", path: ["totalCantidad"] });
+          }
+          if (data.totalPaletas === undefined) {
+              ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El total de paletas es requerido.", path: ["totalPaletas"] });
+          }
+          if (data.totalPesoNeto === undefined) {
+              ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El total de peso neto es requerido.", path: ["totalPesoNeto"] });
+          }
+      }
+  });
 
 const summaryItemSchema = z.object({
     descripcion: z.string(),
@@ -245,6 +245,10 @@ export default function VariableWeightFormComponent() {
 
   const watchedItems = useWatch({ control: form.control, name: "items" });
   
+  const showTotalPaletasInSummary = useMemo(() => {
+    return (watchedItems || []).some(item => item && Number(item.paleta) === 0);
+  }, [watchedItems]);
+
   const calculatedSummaryForDisplay = useMemo(() => {
     const grouped = (watchedItems || []).reduce((acc, item) => {
         if (!item?.descripcion?.trim()) return acc;
@@ -921,10 +925,10 @@ export default function VariableWeightFormComponent() {
                                 {isSummaryRow ? (
                                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                         <FormField control={form.control} name={`items.${index}.totalCantidad`} render={({ field }) => (
-                                            <FormItem><FormLabel>Total Cantidad</FormLabel><FormControl><Input type="text" inputMode="numeric" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl><FormMessage /></FormItem>
+                                            <FormItem><FormLabel>Total Cantidad</FormLabel><FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl><FormMessage /></FormItem>
                                         )}/>
                                         <FormField control={form.control} name={`items.${index}.totalPaletas`} render={({ field }) => (
-                                            <FormItem><FormLabel>Total Paletas</FormLabel><FormControl><Input type="text" inputMode="numeric" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl><FormMessage /></FormItem>
+                                            <FormItem><FormLabel>Total Paletas</FormLabel><FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl><FormMessage /></FormItem>
                                         )}/>
                                         <FormField control={form.control} name={`items.${index}.totalPesoNeto`} render={({ field }) => (
                                             <FormItem><FormLabel>Total Peso Neto (kg)</FormLabel><FormControl><Input type="text" inputMode="decimal" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl><FormMessage /></FormItem>
@@ -965,7 +969,7 @@ export default function VariableWeightFormComponent() {
                                       <TableHead className="w-[150px]">Temperatura (°C)</TableHead>
                                       <TableHead>Producto</TableHead>
                                       <TableHead className="text-right">Total Cantidad</TableHead>
-                                      <TableHead className="text-right">Total Paletas</TableHead>
+                                      {showTotalPaletasInSummary && <TableHead className="text-right">Total Paletas</TableHead>}
                                       <TableHead className="text-right">Total Peso (kg)</TableHead>
                                   </TableRow>
                               </TableHeader>
@@ -1006,11 +1010,13 @@ export default function VariableWeightFormComponent() {
                                                   {summaryItem.totalCantidad || 0}
                                                 </div>
                                               </TableCell>
-                                               <TableCell className="text-right">
-                                                <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
-                                                  {summaryItem.totalPaletas || 0}
-                                                </div>
-                                              </TableCell>
+                                              {showTotalPaletasInSummary && (
+                                                <TableCell className="text-right">
+                                                  <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
+                                                    {summaryItem.totalPaletas || 0}
+                                                  </div>
+                                                </TableCell>
+                                              )}
                                               <TableCell className="text-right">
                                                 <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
                                                   {(summaryItem.totalPeso || 0).toFixed(2)}
@@ -1020,7 +1026,7 @@ export default function VariableWeightFormComponent() {
                                       )})
                                   ) : (
                                       <TableRow>
-                                          <TableCell colSpan={5} className="h-24 text-center">
+                                          <TableCell colSpan={showTotalPaletasInSummary ? 5 : 4} className="h-24 text-center">
                                               Agregue ítems para ver el resumen.
                                           </TableCell>
                                       </TableRow>
