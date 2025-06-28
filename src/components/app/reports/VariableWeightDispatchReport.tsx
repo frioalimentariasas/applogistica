@@ -48,8 +48,9 @@ interface VariableWeightDispatchReportProps {
 export function VariableWeightDispatchReport({ formData, userDisplayName, attachments }: VariableWeightDispatchReportProps) {
     const totalPeso = formData.summary?.reduce((acc: any, p: any) => acc + (p.totalPeso || 0), 0) || 0;
     const totalCantidad = formData.summary?.reduce((acc: any, p: any) => acc + (p.totalCantidad || 0), 0) || 0;
+    const totalPaletas = formData.summary?.reduce((acc: any, p: any) => acc + (p.totalPaletas || 0), 0) || 0;
+
     const operationTerm = 'Cargue';
-    const hasNonZeroPaleta = formData.items.some((p: any) => p.paleta && Number(p.paleta) !== 0);
 
     const fieldCellStyle: React.CSSProperties = { padding: '2px', fontSize: '11px', lineHeight: '1.4', verticalAlign: 'top' };
 
@@ -86,7 +87,7 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                 <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse' }}>
                     <thead>
                         <tr style={{ borderBottom: '1px solid #aaa' }}>
-                            {hasNonZeroPaleta && <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Paleta</th>}
+                            <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Paleta</th>
                             <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Descripción</th>
                             <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Lote</th>
                             <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Presentación</th>
@@ -97,12 +98,25 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                     <tbody>
                         {formData.items.map((p: any, i: number) => (
                             <tr key={i} style={{ borderBottom: '1px solid #ddd' }}>
-                                {hasNonZeroPaleta && <td style={{ padding: '4px' }}>{p.paleta && Number(p.paleta) !== 0 ? p.paleta : ''}</td>}
-                                <td style={{ padding: '4px' }}>{p.descripcion}</td>
-                                <td style={{ padding: '4px' }}>{p.lote}</td>
-                                <td style={{ padding: '4px' }}>{p.presentacion}</td>
-                                <td style={{ textAlign: 'right', padding: '4px' }}>{p.cantidadPorPaleta}</td>
-                                <td style={{ textAlign: 'right', padding: '4px' }}>{p.pesoNeto?.toFixed(2)}</td>
+                                {p.paleta === 0 ? (
+                                    <>
+                                        <td style={{ padding: '4px' }}>N/A</td>
+                                        <td style={{ padding: '4px' }}>{`${p.descripcion} (${p.totalPaletas || 'N/A'} paletas)`}</td>
+                                        <td style={{ padding: '4px' }}>{p.lote}</td>
+                                        <td style={{ padding: '4px' }}>{p.presentacion}</td>
+                                        <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalCantidad}</td>
+                                        <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPesoNeto?.toFixed(2)}</td>
+                                    </>
+                                ) : (
+                                    <>
+                                        <td style={{ padding: '4px' }}>{p.paleta}</td>
+                                        <td style={{ padding: '4px' }}>{p.descripcion}</td>
+                                        <td style={{ padding: '4px' }}>{p.lote}</td>
+                                        <td style={{ padding: '4px' }}>{p.presentacion}</td>
+                                        <td style={{ textAlign: 'right', padding: '4px' }}>{p.cantidadPorPaleta}</td>
+                                        <td style={{ textAlign: 'right', padding: '4px' }}>{p.pesoNeto?.toFixed(2)}</td>
+                                    </>
+                                )}
                             </tr>
                         ))}
                     </tbody>
@@ -117,6 +131,7 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                                 <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Descripción</th>
                                 <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Temp(°C)</th>
                                 <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Cantidad</th>
+                                <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Paletas</th>
                                 <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Peso (kg)</th>
                             </tr>
                         </thead>
@@ -126,12 +141,14 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                                     <td style={{ padding: '4px' }}>{p.descripcion}</td>
                                     <td style={{ textAlign: 'right', padding: '4px' }}>{p.temperatura}</td>
                                     <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalCantidad}</td>
+                                    <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPaletas?.toFixed(2)}</td>
                                     <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPeso?.toFixed(2)}</td>
                                 </tr>
                             ))}
                             <tr style={{ fontWeight: 'bold', backgroundColor: '#f1f5f9' }}>
                                 <td style={{ padding: '4px', textAlign: 'right' }} colSpan={2}>TOTALES:</td>
                                 <td style={{ textAlign: 'right', padding: '4px' }}>{totalCantidad}</td>
+                                <td style={{ textAlign: 'right', padding: '4px' }}>{totalPaletas.toFixed(2)}</td>
                                 <td style={{ textAlign: 'right', padding: '4px' }}>{totalPeso.toFixed(2)}</td>
                             </tr>
                         </tbody>

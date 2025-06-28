@@ -69,14 +69,31 @@ const itemSchema = z.object({
   descripcion: z.string().min(1, "La descripción es requerida."),
   lote: z.string().max(15, "Máximo 15 caracteres").optional(),
   presentacion: z.string().min(1, "Seleccione una presentación."),
-  cantidadPorPaleta: z.coerce.number({
-    required_error: "La cantidad es requerida.",
-    invalid_type_error: "La cantidad es requerida."
-  }).int().min(0, "Debe ser un número no negativo."),
-  pesoNeto: z.coerce.number({
-    required_error: "El peso neto es requerido.",
-    invalid_type_error: "El peso neto es requerido."
-  }).min(0, "Debe ser un número no negativo."),
+  // Conditional fields
+  cantidadPorPaleta: z.coerce.number().int().min(0, "Debe ser un número no negativo.").optional(),
+  pesoNeto: z.coerce.number().min(0, "Debe ser un número no negativo.").optional(),
+  totalCantidad: z.coerce.number().int().min(0, "Debe ser un número no negativo.").optional(),
+  totalPaletas: z.coerce.number().min(0, "Debe ser un número no negativo.").optional(),
+  totalPesoNeto: z.coerce.number().min(0, "Debe ser un número no negativo.").optional(),
+}).superRefine((data, ctx) => {
+    if (data.paleta > 0) {
+        if (data.cantidadPorPaleta === undefined || data.cantidadPorPaleta === null || isNaN(data.cantidadPorPaleta)) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La cantidad es requerida.", path: ["cantidadPorPaleta"] });
+        }
+        if (data.pesoNeto === undefined || data.pesoNeto === null || isNaN(data.pesoNeto)) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El peso neto es requerido.", path: ["pesoNeto"] });
+        }
+    } else if (data.paleta === 0) {
+        if (data.totalCantidad === undefined || data.totalCantidad === null || isNaN(data.totalCantidad)) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El total de cantidad es requerido.", path: ["totalCantidad"] });
+        }
+        if (data.totalPaletas === undefined || data.totalPaletas === null || isNaN(data.totalPaletas)) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El total de paletas es requerido.", path: ["totalPaletas"] });
+        }
+        if (data.totalPesoNeto === undefined || data.totalPesoNeto === null || isNaN(data.totalPesoNeto)) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El total de peso neto es requerido.", path: ["totalPesoNeto"] });
+        }
+    }
 });
 
 const summaryItemSchema = z.object({
@@ -84,6 +101,7 @@ const summaryItemSchema = z.object({
     temperatura: z.coerce.number({ required_error: "La temperatura es requerida.", invalid_type_error: "La temperatura es requerida." }),
     totalPeso: z.number(),
     totalCantidad: z.number(),
+    totalPaletas: z.number(),
   });
 
 const formSchema = z.object({
@@ -207,22 +225,26 @@ export default function VariableWeightFormComponent() {
         if (!item?.descripcion?.trim()) return acc;
         const desc = item.descripcion.trim();
 
-        const cantidad = Number(item.cantidadPorPaleta) || 0;
-        const pesoNeto = Number(item.pesoNeto) || 0;
-
         if (!acc[desc]) {
             acc[desc] = {
                 descripcion: desc,
                 totalPeso: 0,
                 totalCantidad: 0,
+                totalPaletas: 0,
             };
         }
-
-        acc[desc].totalPeso += isNaN(pesoNeto) ? 0 : pesoNeto;
-        acc[desc].totalCantidad += cantidad;
+        
+        if (item.paleta === 0) {
+            acc[desc].totalPeso += Number(item.totalPesoNeto) || 0;
+            acc[desc].totalCantidad += Number(item.totalCantidad) || 0;
+            acc[desc].totalPaletas += Number(item.totalPaletas) || 0;
+        } else {
+            acc[desc].totalPeso += Number(item.pesoNeto) || 0;
+            acc[desc].totalCantidad += Number(item.cantidadPorPaleta) || 0;
+        }
         
         return acc;
-    }, {} as Record<string, { descripcion: string; totalPeso: number; totalCantidad: number }>);
+    }, {} as Record<string, { descripcion: string; totalPeso: number; totalCantidad: number; totalPaletas: number }>);
 
     return Object.values(grouped);
   }, [watchedItems]);
@@ -257,7 +279,10 @@ export default function VariableWeightFormComponent() {
         lote: lastItem?.lote || '',
         presentacion: lastItem?.presentacion || '',
         cantidadPorPaleta: lastItem?.cantidadPorPaleta || NaN,
-        pesoNeto: NaN
+        pesoNeto: NaN,
+        totalCantidad: NaN,
+        totalPaletas: NaN,
+        totalPesoNeto: NaN,
     });
   };
 
@@ -268,7 +293,7 @@ export default function VariableWeightFormComponent() {
     };
     fetchClients();
     if (!submissionId) {
-        form.reset({ ...originalDefaultValues, items: [{ paleta: NaN, descripcion: '', lote: '', presentacion: '', cantidadPorPaleta: NaN, pesoNeto: NaN }]});
+        form.reset({ ...originalDefaultValues, items: [{ paleta: NaN, descripcion: '', lote: '', presentacion: '', cantidadPorPaleta: NaN, pesoNeto: NaN, totalCantidad: NaN, totalPaletas: NaN, totalPesoNeto: NaN }]});
     }
     window.scrollTo(0, 0);
   }, [submissionId, form]);
@@ -674,7 +699,7 @@ export default function VariableWeightFormComponent() {
                                                                 setClientDialogOpen(false);
                                                                 setClientSearch('');
                                                                 
-                                                                form.setValue('items', [{ paleta: NaN, descripcion: '', lote: '', presentacion: '', cantidadPorPaleta: NaN, pesoNeto: NaN }]);
+                                                                form.setValue('items', [{ paleta: NaN, descripcion: '', lote: '', presentacion: '', cantidadPorPaleta: NaN, pesoNeto: NaN, totalCantidad: NaN, totalPaletas: NaN, totalPesoNeto: NaN }]);
                                                                 setArticulos([]);
                                                                 setIsLoadingArticulos(true);
                                                                 try {
@@ -759,121 +784,142 @@ export default function VariableWeightFormComponent() {
                 <CardTitle>Detalle del Despacho</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {fields.map((item, index) => (
-                    <div key={item.id} className="p-4 border rounded-md relative space-y-4">
-                        <div className="flex justify-between items-center">
-                            <h4 className="font-semibold">Item #{index + 1}</h4>
-                            {fields.length > 1 && (
-                                <Button type="button" variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" onClick={() => remove(index)}>
-                                    <Trash2 className="h-4 w-4" />
-                                </Button>
-                            )}
+                {fields.map((item, index) => {
+                    const itemData = watchedItems?.[index];
+                    const isSummaryRow = itemData?.paleta === 0;
+
+                    return (
+                        <div key={item.id} className="p-4 border rounded-md relative space-y-4">
+                            <div className="flex justify-between items-center">
+                                <h4 className="font-semibold">Item #{index + 1}</h4>
+                                {fields.length > 1 && (
+                                    <Button type="button" variant="ghost" size="icon" className="text-destructive hover:bg-destructive/10" onClick={() => remove(index)}>
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                )}
+                            </div>
+                            <div className="space-y-4">
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <FormField control={form.control} name={`items.${index}.paleta`} render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Paleta</FormLabel>
+                                            <FormControl><Input type="text" inputMode="numeric" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}/>
+                                    <FormField control={form.control} name={`items.${index}.descripcion`} render={({ field }) => (
+                                        <FormItem className="md:col-span-2">
+                                        <FormLabel>Descripción del Producto</FormLabel>
+                                            <Dialog open={productDialogIndex === index} onOpenChange={(isOpen) => setProductDialogIndex(isOpen ? index : null)}>
+                                                <DialogTrigger asChild>
+                                                    <Button variant="outline" className="w-full justify-between text-left font-normal">
+                                                        {field.value || "Seleccionar producto..."}
+                                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                    </Button>
+                                                </DialogTrigger>
+                                                <DialogContent>
+                                                    <DialogHeader>
+                                                        <DialogTitle>Seleccionar Producto</DialogTitle>
+                                                    </DialogHeader>
+                                                    {!form.getValues('cliente') ? (
+                                                        <div className="p-4 text-center text-muted-foreground">
+                                                            Debe escoger primero un cliente.
+                                                        </div>
+                                                    ) : (
+                                                        <>
+                                                            <Input
+                                                                placeholder="Buscar producto..."
+                                                                value={productSearch}
+                                                                onChange={(e) => setProductSearch(e.target.value)}
+                                                                className="mb-4"
+                                                            />
+                                                            <ScrollArea className="h-72">
+                                                                <div className="space-y-1">
+                                                                    {isLoadingArticulos && <p className="text-center text-sm text-muted-foreground">Cargando...</p>}
+                                                                    {!isLoadingArticulos && filteredArticulos.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron productos.</p>}
+                                                                    {filteredArticulos.map((p, i) => (
+                                                                        <Button
+                                                                            key={`${p.value}-${i}`}
+                                                                            variant="ghost"
+                                                                            className="w-full justify-start h-auto text-wrap"
+                                                                            onClick={() => {
+                                                                                field.onChange(p.label);
+                                                                                setProductDialogIndex(null);
+                                                                                setProductSearch("");
+                                                                            }}
+                                                                        >
+                                                                            {p.label}
+                                                                        </Button>
+                                                                    ))}
+                                                                </div>
+                                                            </ScrollArea>
+                                                        </>
+                                                    )}
+                                                </DialogContent>
+                                            </Dialog>
+                                        <FormMessage />
+                                        </FormItem>
+                                    )}/>
+                                </div>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <FormField control={form.control} name={`items.${index}.lote`} render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Lote</FormLabel>
+                                            <FormControl><Input placeholder="Lote (máx. 15 caracteres)" {...field} /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}/>
+                                    <FormField control={form.control} name={`items.${index}.presentacion`} render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Presentación</FormLabel>
+                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                            <FormControl>
+                                                <SelectTrigger><SelectValue placeholder="Seleccione presentación" /></SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                {presentaciones.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                                            </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}/>
+                                    {!isSummaryRow && (
+                                        <FormField control={form.control} name={`items.${index}.cantidadPorPaleta`} render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Cantidad Por Paleta</FormLabel>
+                                                <FormControl><Input type="text" inputMode="numeric" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}/>
+                                    )}
+                                </div>
+                                {isSummaryRow ? (
+                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <FormField control={form.control} name={`items.${index}.totalCantidad`} render={({ field }) => (
+                                            <FormItem><FormLabel>Total Cantidad</FormLabel><FormControl><Input type="text" inputMode="numeric" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl><FormMessage /></FormItem>
+                                        )}/>
+                                        <FormField control={form.control} name={`items.${index}.totalPaletas`} render={({ field }) => (
+                                            <FormItem><FormLabel>Total Paletas</FormLabel><FormControl><Input type="text" inputMode="decimal" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl><FormMessage /></FormItem>
+                                        )}/>
+                                        <FormField control={form.control} name={`items.${index}.totalPesoNeto`} render={({ field }) => (
+                                            <FormItem><FormLabel>Total Peso Neto (kg)</FormLabel><FormControl><Input type="text" inputMode="decimal" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl><FormMessage /></FormItem>
+                                        )}/>
+                                     </div>
+                                ) : (
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                        <FormField control={form.control} name={`items.${index}.pesoNeto`} render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Peso Neto (kg)</FormLabel>
+                                                <FormControl><Input type="text" inputMode="decimal" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}/>
+                                    </div>
+                                )}
+                            </div>
                         </div>
-                        <div className="space-y-4">
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <FormField control={form.control} name={`items.${index}.paleta`} render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Paleta</FormLabel>
-                                        <FormControl><Input type="text" inputMode="numeric" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}/>
-                                <FormField control={form.control} name={`items.${index}.descripcion`} render={({ field }) => (
-                                    <FormItem className="md:col-span-2">
-                                    <FormLabel>Descripción del Producto</FormLabel>
-                                        <Dialog open={productDialogIndex === index} onOpenChange={(isOpen) => setProductDialogIndex(isOpen ? index : null)}>
-                                            <DialogTrigger asChild>
-                                                <Button variant="outline" className="w-full justify-between text-left font-normal">
-                                                    {field.value || "Seleccionar producto..."}
-                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                                </Button>
-                                            </DialogTrigger>
-                                            <DialogContent>
-                                                <DialogHeader>
-                                                    <DialogTitle>Seleccionar Producto</DialogTitle>
-                                                </DialogHeader>
-                                                {!form.getValues('cliente') ? (
-                                                    <div className="p-4 text-center text-muted-foreground">
-                                                        Debe escoger primero un cliente.
-                                                    </div>
-                                                ) : (
-                                                    <>
-                                                        <Input
-                                                            placeholder="Buscar producto..."
-                                                            value={productSearch}
-                                                            onChange={(e) => setProductSearch(e.target.value)}
-                                                            className="mb-4"
-                                                        />
-                                                        <ScrollArea className="h-72">
-                                                            <div className="space-y-1">
-                                                                {isLoadingArticulos && <p className="text-center text-sm text-muted-foreground">Cargando...</p>}
-                                                                {!isLoadingArticulos && filteredArticulos.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron productos.</p>}
-                                                                {filteredArticulos.map((p, i) => (
-                                                                    <Button
-                                                                        key={`${p.value}-${i}`}
-                                                                        variant="ghost"
-                                                                        className="w-full justify-start h-auto text-wrap"
-                                                                        onClick={() => {
-                                                                            field.onChange(p.label);
-                                                                            setProductDialogIndex(null);
-                                                                            setProductSearch("");
-                                                                        }}
-                                                                    >
-                                                                        {p.label}
-                                                                    </Button>
-                                                                ))}
-                                                            </div>
-                                                        </ScrollArea>
-                                                    </>
-                                                )}
-                                            </DialogContent>
-                                        </Dialog>
-                                    <FormMessage />
-                                    </FormItem>
-                                )}/>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <FormField control={form.control} name={`items.${index}.lote`} render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Lote</FormLabel>
-                                        <FormControl><Input placeholder="Lote (máx. 15 caracteres)" {...field} /></FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}/>
-                                <FormField control={form.control} name={`items.${index}.presentacion`} render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Presentación</FormLabel>
-                                        <Select onValueChange={field.onChange} defaultValue={field.value}>
-                                        <FormControl>
-                                            <SelectTrigger><SelectValue placeholder="Seleccione presentación" /></SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            {presentaciones.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                                        </SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}/>
-                                <FormField control={form.control} name={`items.${index}.cantidadPorPaleta`} render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Cantidad Por Paleta</FormLabel>
-                                        <FormControl><Input type="text" inputMode="numeric" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}/>
-                            </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                <FormField control={form.control} name={`items.${index}.pesoNeto`} render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Peso Neto (kg)</FormLabel>
-                                        <FormControl><Input type="text" inputMode="decimal" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}/>
-                            </div>
-                        </div>
-                    </div>
-                ))}
+                    );
+                })}
                 <Button type="button" variant="outline" onClick={handleAddItem}>
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Agregar Item
@@ -893,8 +939,9 @@ export default function VariableWeightFormComponent() {
                                   <TableRow>
                                       <TableHead className="w-[150px]">Temperatura (°C)</TableHead>
                                       <TableHead>Producto</TableHead>
+                                      <TableHead className="text-right">Total Cantidad</TableHead>
+                                      <TableHead className="text-right">Total Paletas</TableHead>
                                       <TableHead className="text-right">Total Peso (kg)</TableHead>
-                                      <TableHead className="text-right">Cantidad Total</TableHead>
                                   </TableRow>
                               </TableHeader>
                               <TableBody>
@@ -931,19 +978,24 @@ export default function VariableWeightFormComponent() {
                                               </TableCell>
                                               <TableCell className="text-right">
                                                 <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
-                                                  {(summaryItem.totalPeso || 0).toFixed(2)}
+                                                  {summaryItem.totalCantidad || 0}
+                                                </div>
+                                              </TableCell>
+                                               <TableCell className="text-right">
+                                                <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
+                                                  {(summaryItem.totalPaletas || 0).toFixed(2)}
                                                 </div>
                                               </TableCell>
                                               <TableCell className="text-right">
                                                 <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
-                                                  {summaryItem.totalCantidad || 0}
+                                                  {(summaryItem.totalPeso || 0).toFixed(2)}
                                                 </div>
                                               </TableCell>
                                           </TableRow>
                                       )})
                                   ) : (
                                       <TableRow>
-                                          <TableCell colSpan={4} className="h-24 text-center">
+                                          <TableCell colSpan={5} className="h-24 text-center">
                                               Agregue ítems para ver el resumen.
                                           </TableCell>
                                       </TableRow>
