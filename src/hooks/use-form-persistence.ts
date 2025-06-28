@@ -22,6 +22,7 @@ export function useFormPersistence<T extends FieldValues>(
     const [isRestoreDialogOpen, setRestoreDialogOpen] = useState(false);
     
     const [draftCheckComplete, setDraftCheckComplete] = useState(false);
+    const [isDiscarding, setIsDiscarding] = useState(false); // Flag to control saving
 
     const getStorageKey = useCallback(() => {
         if (!user) return null;
@@ -29,28 +30,26 @@ export function useFormPersistence<T extends FieldValues>(
     }, [formIdentifier, user]);
 
     // Save form data (text, numbers, etc.) to localStorage on change.
-    // localStorage is used for small, simple data.
     useEffect(() => {
         const storageKey = getStorageKey();
-        if (isEditMode || !storageKey || typeof window === 'undefined' || !draftCheckComplete) return;
+        if (isEditMode || !storageKey || typeof window === 'undefined' || !draftCheckComplete || isDiscarding) return;
 
         const subscription = watch((value) => {
             localStorage.setItem(storageKey, JSON.stringify(value));
         });
         return () => subscription.unsubscribe();
-    }, [watch, getStorageKey, draftCheckComplete, isEditMode]);
+    }, [watch, getStorageKey, draftCheckComplete, isEditMode, isDiscarding]);
 
     // Save attachments (base64 image strings) to IndexedDB on change.
-    // IndexedDB is used for large data to avoid hitting localStorage limits (especially on mobile).
     useEffect(() => {
         const storageKey = getStorageKey();
-        if (isEditMode || !storageKey || !draftCheckComplete) return;
+        if (isEditMode || !storageKey || !draftCheckComplete || isDiscarding) return;
 
         const attachmentsKey = `${storageKey}-attachments`;
         idb.set(attachmentsKey, attachments).catch(err => {
             console.error("Failed to save attachments to IndexedDB", err);
         });
-    }, [attachments, getStorageKey, draftCheckComplete, isEditMode]);
+    }, [attachments, getStorageKey, draftCheckComplete, isDiscarding, isEditMode]);
 
     // Check for saved data on mount
     useEffect(() => {
@@ -124,15 +123,15 @@ export function useFormPersistence<T extends FieldValues>(
     const discardDraft = useCallback(async () => {
         const storageKey = getStorageKey();
         if (!storageKey) return;
+        
+        setIsDiscarding(true); // Prevent saving
 
         try {
-            // First, reset the form state to its original defaults.
-            // This might trigger a re-save of the default state to storage, which is fine.
+            // Reset form state. Watchers are blocked by the flag.
             reset(originalDefaultValues);
             setAttachments([]);
 
-            // Then, immediately clear the storage. This ensures that the final state
-            // of the storage is empty, preventing the restore dialog on next visit.
+            // Clear storage
             const attachmentsKey = `${storageKey}-attachments`;
             localStorage.removeItem(storageKey);
             await idb.del(attachmentsKey);
@@ -144,6 +143,8 @@ export function useFormPersistence<T extends FieldValues>(
         } finally {
             setRestoreDialogOpen(false);
             setDraftCheckComplete(true);
+            // Re-enable saving after a short delay
+            setTimeout(() => setIsDiscarding(false), 100);
         }
     }, [getStorageKey, reset, originalDefaultValues, setAttachments, toast]);
     
