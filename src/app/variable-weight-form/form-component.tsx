@@ -234,7 +234,7 @@ export default function VariableWeightFormComponent() {
             };
         }
         
-        if (item.paleta === 0) {
+        if (Number(item.paleta) === 0) {
             acc[desc].totalPeso += Number(item.totalPesoNeto) || 0;
             acc[desc].totalCantidad += Number(item.totalCantidad) || 0;
             acc[desc].totalPaletas += Number(item.totalPaletas) || 0;
@@ -786,7 +786,7 @@ export default function VariableWeightFormComponent() {
               <CardContent className="space-y-4">
                 {fields.map((item, index) => {
                     const itemData = watchedItems?.[index];
-                    const isSummaryRow = itemData?.paleta === 0;
+                    const isSummaryRow = Number(itemData?.paleta) === 0;
 
                     return (
                         <div key={item.id} className="p-4 border rounded-md relative space-y-4">
@@ -803,7 +803,7 @@ export default function VariableWeightFormComponent() {
                                     <FormField control={form.control} name={`items.${index}.paleta`} render={({ field }) => (
                                         <FormItem>
                                             <FormLabel>Paleta</FormLabel>
-                                            <FormControl><Input type="text" inputMode="numeric" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl>
+                                            <FormControl><Input type="text" inputMode="numeric" min="0" placeholder="0 (para resumen)" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )}/>
@@ -910,7 +910,7 @@ export default function VariableWeightFormComponent() {
                                         <FormField control={form.control} name={`items.${index}.pesoNeto`} render={({ field }) => (
                                             <FormItem>
                                                 <FormLabel>Peso Neto (kg)</FormLabel>
-                                                <FormControl><Input type="text" inputMode="decimal" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl>
+                                                <FormControl><Input type="text" inputMode="decimal" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl>
                                                 <FormMessage />
                                             </FormItem>
                                         )}/>
