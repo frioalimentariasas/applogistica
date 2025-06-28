@@ -470,31 +470,36 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 yPos = (doc as any).autoTable.previous.finalY + 15;
                 
                 if (formData.summary?.length > 0) {
-                    const summaryHead = [['Descripción', 'Temp(°C)', 'Total Cantidad', 'Total Paletas', 'Total Peso (kg)']];
-                    const summaryBody = formData.summary.map((p: any) => [
-                        p.descripcion, 
-                        p.temperatura, 
-                        p.totalCantidad, 
-                        p.totalPaletas, 
-                        p.totalPeso?.toFixed(2)
-                    ]);
+                    const showTotalPaletasInSummary = !isReception && formData.items.some((p: any) => Number(p.paleta) === 0);
+
+                    const summaryHead = [[]];
+                    summaryHead[0].push('Descripción', 'Temp(°C)', 'Total Cantidad');
+                    if(showTotalPaletasInSummary) summaryHead[0].push('Total Paletas');
+                    summaryHead[0].push('Total Peso (kg)');
+                    
+                    const summaryBody = formData.summary.map((p: any) => {
+                        const row = [p.descripcion, p.temperatura, p.totalCantidad];
+                        if (showTotalPaletasInSummary) row.push(p.totalPaletas);
+                        row.push(p.totalPeso?.toFixed(2));
+                        return row;
+                    });
+
                     const totalPeso = formData.summary.reduce((acc: any, p: any) => acc + (p.totalPeso || 0), 0);
                     const totalCantidad = formData.summary.reduce((acc: any, p: any) => acc + (p.totalCantidad || 0), 0);
                     const totalPaletas = formData.summary.reduce((acc: any, p: any) => acc + (p.totalPaletas || 0), 0);
 
+                    const footRow: any[] = [{ content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }, totalCantidad];
+                    if (showTotalPaletasInSummary) footRow.push(totalPaletas);
+                    footRow.push(totalPeso.toFixed(2));
+
                     const summaryTableConfig = {
                         startY: yPos,
                         head: [
-                            [{ content: 'Resumen de Productos', colSpan: 5, styles: { halign: 'center' }}],
+                            [{ content: 'Resumen de Productos', colSpan: summaryHead[0].length, styles: { halign: 'center' }}],
                             ...summaryHead
                         ],
                         body: summaryBody,
-                        foot: [[
-                            { content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }, 
-                            totalCantidad,
-                            totalPaletas,
-                            totalPeso.toFixed(2)
-                        ]],
+                        foot: [footRow],
                         theme: 'grid',
                         footStyles: { fillColor: '#f1f5f9', fontStyle: 'bold', textColor: '#1a202c' },
                         styles: { fontSize: 8, cellPadding: 4 },
