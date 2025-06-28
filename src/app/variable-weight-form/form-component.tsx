@@ -266,8 +266,6 @@ export default function VariableWeightFormComponent() {
     defaultValues: originalDefaultValues,
   });
   
-  const { setValue } = form;
-
   const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: "items",
@@ -284,8 +282,11 @@ export default function VariableWeightFormComponent() {
     if (!watchedItems) return;
 
     watchedItems.forEach((item, index) => {
-      // Only perform calculations for individual pallet rows
-      if (item && typeof item.paleta === 'number' && item.paleta > 0) {
+      // Use Number() to handle values that might still be strings during input
+      const paletaValue = Number(item?.paleta);
+
+      // Only perform calculations for individual pallet rows (paleta > 0)
+      if (item && !isNaN(paletaValue) && paletaValue > 0) {
         
         const cantidad = Number(item.cantidadPorPaleta) || 0;
         const taraCaja = Number(item.taraCaja) || 0;
@@ -297,14 +298,14 @@ export default function VariableWeightFormComponent() {
 
         // Check if update is needed to avoid infinite loops
         if (item.totalTaraCaja !== newTotalTaraCaja) {
-          setValue(`items.${index}.totalTaraCaja`, newTotalTaraCaja, { shouldValidate: false });
+          form.setValue(`items.${index}.totalTaraCaja`, newTotalTaraCaja, { shouldValidate: false });
         }
         if (item.pesoNeto !== newPesoNeto) {
-          setValue(`items.${index}.pesoNeto`, newPesoNeto, { shouldValidate: false });
+          form.setValue(`items.${index}.pesoNeto`, newPesoNeto, { shouldValidate: false });
         }
       }
     });
-  }, [watchedItems, setValue]);
+  }, [watchedItems, form]);
 
 
   const showTotalPaletasInSummary = useMemo(() => {
