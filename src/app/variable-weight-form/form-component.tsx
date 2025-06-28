@@ -163,7 +163,7 @@ const originalDefaultValues: FormValues = {
   placa: "",
   precinto: "",
   setPoint: NaN,
-  items: [],
+  items: [{ paleta: NaN, descripcion: '', lote: '', presentacion: '', cantidadPorPaleta: NaN, pesoNeto: NaN, totalCantidad: NaN, totalPaletas: NaN, totalPesoNeto: NaN }],
   summary: [],
   horaInicio: "",
   horaFin: "",
@@ -317,7 +317,7 @@ export default function VariableWeightFormComponent() {
     };
     fetchClients();
     if (!submissionId) {
-        form.reset({ ...originalDefaultValues, items: [{ paleta: NaN, descripcion: '', lote: '', presentacion: '', cantidadPorPaleta: NaN, pesoNeto: NaN, totalCantidad: NaN, totalPaletas: NaN, totalPesoNeto: NaN }]});
+        form.reset(originalDefaultValues);
     }
     window.scrollTo(0, 0);
   }, [submissionId, form]);

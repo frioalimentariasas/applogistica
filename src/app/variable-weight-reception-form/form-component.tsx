@@ -114,7 +114,7 @@ const originalDefaultValues: FormValues = {
   placa: "",
   precinto: "",
   setPoint: NaN,
-  items: [],
+  items: [{ paleta: NaN, descripcion: "", lote: "", presentacion: "", cantidadPorPaleta: NaN, pesoBruto: NaN, taraEstiba: NaN, taraCaja: NaN, totalTaraCaja: NaN, pesoNeto: NaN }],
   summary: [],
   horaInicio: "",
   horaFin: "",
@@ -180,6 +180,8 @@ export default function VariableWeightReceptionFormComponent() {
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: originalDefaultValues,
+    mode: "onSubmit",
+    reValidateMode: "onSubmit"
   });
 
   const { fields, append, remove } = useFieldArray({
@@ -285,7 +287,7 @@ export default function VariableWeightReceptionFormComponent() {
     };
     fetchClients();
     if (!submissionId) {
-        form.reset({ ...originalDefaultValues, items: [{ paleta: NaN, descripcion: "", lote: "", presentacion: "", cantidadPorPaleta: NaN, pesoBruto: NaN, taraEstiba: NaN, taraCaja: NaN, totalTaraCaja: NaN, pesoNeto: NaN }]});
+        form.reset(originalDefaultValues);
     }
     window.scrollTo(0, 0);
   }, [submissionId, form]);

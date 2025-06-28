@@ -113,7 +113,7 @@ const originalDefaultValues: FormValues = {
   precinto: "",
   documentoTransporte: "",
   facturaRemision: "",
-  productos: [],
+  productos: [{ codigo: '', descripcion: '', cajas: NaN, totalPaletas: NaN, cantidadKg: NaN, temperatura: NaN }],
   nombreConductor: "",
   cedulaConductor: "",
   placa: "",
@@ -221,7 +221,7 @@ export default function FixedWeightFormComponent() {
     };
     fetchClients();
     if (!submissionId) {
-        form.reset({ ...originalDefaultValues, productos: [{ codigo: '', descripcion: '', cajas: NaN, totalPaletas: NaN, cantidadKg: NaN, temperatura: NaN }]});
+        form.reset(originalDefaultValues);
     }
     window.scrollTo(0, 0);
   }, [submissionId, form]);
@@ -1064,5 +1064,3 @@ export default function FixedWeightFormComponent() {
     </div>
   );
 }
-
-    
