@@ -113,32 +113,32 @@ const itemSchema = z.object({
           .min(0, "Debe ser un número no negativo.").optional()
     ),
   }).superRefine((data, ctx) => {
-      // This is where we check for required fields based on the value of 'paleta'
-      if (data.paleta !== undefined && data.paleta > 0) {
-          if (data.cantidadPorPaleta === undefined) {
-              ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La Cantidad Por Paleta es requerida.", path: ["cantidadPorPaleta"] });
-          }
-          if (data.pesoBruto === undefined) {
-              ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El Peso Bruto es requerido.", path: ["pesoBruto"] });
-          }
-          if (data.taraEstiba === undefined) {
-              ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La Tara Estiba es requerida.", path: ["taraEstiba"] });
-          }
-          if (data.taraCaja === undefined) {
-              ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La Tara Caja es requerida.", path: ["taraCaja"] });
-          }
-      } else if (data.paleta === 0) {
-          if (data.totalCantidad === undefined) {
-              ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El Total Cantidad es requerido.", path: ["totalCantidad"] });
-          }
-          if (data.totalPaletas === undefined) {
-              ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El Total Paletas es requerido.", path: ["totalPaletas"] });
-          }
-          if (data.totalPesoNeto === undefined) {
-              ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El Total Peso Neto es requerido.", path: ["totalPesoNeto"] });
-          }
-      }
-  });
+    // This is where we check for required fields based on the value of 'paleta'
+    if (data.paleta === 0) { // This is a summary row
+        if (data.totalCantidad === undefined) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El Total Cantidad es requerido.", path: ["totalCantidad"] });
+        }
+        if (data.totalPaletas === undefined) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El Total Paletas es requerido.", path: ["totalPaletas"] });
+        }
+        if (data.totalPesoNeto === undefined) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El Total Peso Neto es requerido.", path: ["totalPesoNeto"] });
+        }
+    } else { // This is an individual pallet row (or a new, empty row)
+        if (data.cantidadPorPaleta === undefined) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La Cantidad Por Paleta es requerida.", path: ["cantidadPorPaleta"] });
+        }
+        if (data.pesoBruto === undefined) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El Peso Bruto es requerido.", path: ["pesoBruto"] });
+        }
+        if (data.taraEstiba === undefined) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La Tara Estiba es requerida.", path: ["taraEstiba"] });
+        }
+        if (data.taraCaja === undefined) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La Tara Caja es requerida.", path: ["taraCaja"] });
+        }
+    }
+});
 
 const summaryItemSchema = z.object({
     descripcion: z.string(),
