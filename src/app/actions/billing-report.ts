@@ -46,13 +46,17 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
     try {
         let query: admin.firestore.Query = firestore.collection('submissions');
         
-        // Use explicit UTC dates to avoid any timezone ambiguity during query.
-        const startDate = new Date(`${criteria.startDate}T00:00:00.000Z`);
-        const endDate = new Date(`${criteria.endDate}T23:59:59.999Z`);
+        // Query a slightly wider date range on 'createdAt' to catch records on the boundaries of timezones.
+        // The accurate filtering based on `formData.fecha` will happen in memory.
+        const queryStartDate = new Date(`${criteria.startDate}T00:00:00.000Z`);
+        queryStartDate.setDate(queryStartDate.getDate() - 1);
+        
+        const queryEndDate = new Date(`${criteria.endDate}T23:59:59.999Z`);
+        queryEndDate.setDate(queryEndDate.getDate() + 1);
         
         query = query
-            .where('createdAt', '>=', startDate.toISOString())
-            .where('createdAt', '<=', endDate.toISOString());
+            .where('createdAt', '>=', queryStartDate.toISOString())
+            .where('createdAt', '<=', queryEndDate.toISOString());
 
         const snapshot = await query.get();
 
@@ -71,12 +75,27 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                 return; // Skip this doc if it doesn't match the client
             }
 
-            // Grouping is done strictly by the 'createdAt' field, which marks the creation date of the form.
-            const date = submission.createdAt.split('T')[0]; // YYYY-MM-DD
+            // Grouping must be based on the 'fecha' field from inside the form.
+            const formIsoDate = submission.formData.fecha;
+            if (!formIsoDate || typeof formIsoDate !== 'string') {
+                return; // Skip if date is missing
+            }
+            
+            // Create a date object from the UTC ISO string.
+            // Manually adjust the date to the user's local timezone (Colombia, UTC-5)
+            // This ensures that a form from 10 PM on June 27th is counted for June 27th, not June 28th.
+            const date = new Date(formIsoDate);
+            date.setHours(date.getHours() - 5);
+            const groupingDate = date.toISOString().split('T')[0]; // YYYY-MM-DD
 
-            if (!dailyTotals.has(date)) {
-                dailyTotals.set(date, {
-                    date,
+            // Perform the final, accurate date filtering in memory based on the user's request.
+            if (groupingDate < criteria.startDate || groupingDate > criteria.endDate) {
+                return;
+            }
+
+            if (!dailyTotals.has(groupingDate)) {
+                dailyTotals.set(groupingDate, {
+                    date: groupingDate,
                     fixedWeightIn: 0,
                     fixedWeightOut: 0,
                     variableWeightIn: 0,
@@ -84,7 +103,7 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                 });
             }
 
-            const dailyData = dailyTotals.get(date)!;
+            const dailyData = dailyTotals.get(groupingDate)!;
             
             switch (submission.formType) {
                 case 'fixed-weight-recepcion':
@@ -108,7 +127,6 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
             }
         });
         
-        // Convert map to array and sort by date descending
         const results = Array.from(dailyTotals.values());
         results.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         
