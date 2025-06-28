@@ -282,9 +282,9 @@ export default function VariableWeightFormComponent() {
     if (!watchedItems) return;
 
     watchedItems.forEach((item, index) => {
-      const paletaValue = Number(item?.paleta);
-
-      if (item && !isNaN(paletaValue) && paletaValue > 0) {
+      // The calculation should run for any row that is not a summary row (where paleta is 0).
+      // This includes rows where paleta is empty (NaN) or has a value > 0.
+      if (item && Number(item?.paleta) !== 0) {
         const cantidad = Number(item.cantidadPorPaleta) || 0;
         const taraCaja = Number(item.taraCaja) || 0;
         const pesoBruto = Number(item.pesoBruto) || 0;
@@ -293,6 +293,7 @@ export default function VariableWeightFormComponent() {
         const newTotalTaraCaja = cantidad * taraCaja;
         const newPesoNeto = pesoBruto - taraEstiba - newTotalTaraCaja;
 
+        // Only update if the calculated values are different to avoid re-renders
         if (item.totalTaraCaja !== newTotalTaraCaja || item.pesoNeto !== newPesoNeto) {
           form.setValue(`items.${index}.totalTaraCaja`, newTotalTaraCaja, { shouldValidate: false });
           form.setValue(`items.${index}.pesoNeto`, newPesoNeto, { shouldValidate: false });
