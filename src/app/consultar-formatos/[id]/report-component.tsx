@@ -418,7 +418,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 } else { // This is dispatch
                      detailHead = [['Paleta', 'Descripción', 'Lote', 'Presentación', 'Cant.', 'Peso Neto (kg)']];
                      detailBody = formData.items.map((p: any) => {
-                        if (p.paleta === 0) {
+                        if (Number(p.paleta) === 0) {
                             return [
                                 'N/A', 
                                 `${p.descripcion} (${p.totalPaletas || 'N/A'} paletas)`, 

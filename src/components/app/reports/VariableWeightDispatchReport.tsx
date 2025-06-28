@@ -98,7 +98,7 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                     <tbody>
                         {formData.items.map((p: any, i: number) => (
                             <tr key={i} style={{ borderBottom: '1px solid #ddd' }}>
-                                {p.paleta === 0 ? (
+                                {Number(p.paleta) === 0 ? (
                                     <>
                                         <td style={{ padding: '4px' }}>N/A</td>
                                         <td style={{ padding: '4px' }}>{`${p.descripcion} (${p.totalPaletas || 'N/A'} paletas)`}</td>
