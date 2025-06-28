@@ -138,7 +138,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
     
             const pageHeight = doc.internal.pageSize.getHeight();
             const pageWidth = doc.internal.pageSize.getWidth();
-            const margin = 40;
+            const margin = 30;
             let yPos = 0;
             let attachmentsStartPage = -1; // To track where attachments start
 
@@ -253,6 +253,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         2: { cellWidth: 'auto' }, 3: { cellWidth: '*' },
                         4: { cellWidth: 'auto' }, 5: { cellWidth: '*' },
                     },
+                    margin: { horizontal: margin },
                 });
                 yPos = (doc as any).autoTable.previous.finalY + 15;
     
@@ -281,7 +282,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 }
                 footRow.push(''); // For temperature column
     
-                const productTableConfig = {
+                const productTableConfig: any = {
                     startY: yPos,
                     head: [
                         [{ content: 'Características del Producto', colSpan: productHead[0].length, styles: { halign: 'center' }}],
@@ -307,6 +308,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         }
                     },
                     rowPageBreak: 'avoid',
+                    margin: { horizontal: margin },
                 };
                 
                 autoTable(doc, productTableConfig);
@@ -348,11 +350,12 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         2: { cellWidth: 'auto' }, 3: { cellWidth: '*' },
                         4: { cellWidth: 'auto' }, 5: { cellWidth: '*' },
                     },
+                    margin: { horizontal: margin },
                 });
                 yPos = (doc as any).autoTable.previous.finalY + 15;
     
                 if (formData.observaciones) {
-                    autoTable(doc, { startY: yPos, head: [[{ content: 'Observaciones', styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]], body: [[formData.observaciones]], theme: 'grid', styles: { fontSize: 8, cellPadding: 4 } });
+                    autoTable(doc, { startY: yPos, margin: { horizontal: margin }, head: [[{ content: 'Observaciones', styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]], body: [[formData.observaciones]], theme: 'grid', styles: { fontSize: 8, cellPadding: 4 } });
                     yPos = (doc as any).autoTable.previous.finalY + 15;
                 }
     
@@ -373,6 +376,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         0: { cellWidth: 'auto' }, 1: { cellWidth: '*' },
                         2: { cellWidth: 'auto' }, 3: { cellWidth: '*' },
                     },
+                    margin: { horizontal: margin },
                 });
                 yPos = (doc as any).autoTable.previous.finalY + 15;
     
@@ -413,6 +417,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         2: { cellWidth: 'auto' }, 3: { cellWidth: '*' },
                         4: { cellWidth: 'auto' }, 5: { cellWidth: '*' },
                     },
+                    margin: { horizontal: margin },
                 });
                 yPos = (doc as any).autoTable.previous.finalY + 15;
                 
@@ -438,11 +443,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         if (showPaletaColumnInPdf) {
                             rowData.push(p.paleta);
                         } else if (isSummaryRow) {
-                             // For summary rows, when paleta column is hidden, we don't push anything for it.
-                        } else {
-                            // This case handles non-summary rows when the paleta column is hidden.
-                            // We shouldn't be in this state based on the logic, but as a fallback:
-                            // rowData.push(''); // Or handle as an error
+                             rowData.push('N/A');
                         }
 
                         rowData.push(
@@ -457,7 +458,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     detailColSpan = detailHead[0].length;
                 }
                 
-                 const detailTableConfig = {
+                 const detailTableConfig: any = {
                     startY: yPos,
                     head: [
                         [{ content: `Detalle de ${isReception ? 'Recepción' : 'Despacho'}`, colSpan: detailColSpan, styles: { halign: 'center' } }],
@@ -480,6 +481,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         }
                     },
                     rowPageBreak: 'avoid',
+                    margin: { horizontal: margin },
                 };
                 autoTable(doc, detailTableConfig);
                 yPos = (doc as any).autoTable.previous.finalY + 15;
@@ -493,7 +495,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     summaryHead[0].push('Total Peso (kg)');
                     
                     const summaryBody = formData.summary.map((p: any) => {
-                        const row = [p.descripcion, p.temperatura, p.totalCantidad];
+                        const row: any[] = [p.descripcion, p.temperatura, p.totalCantidad];
                         if (showTotalPaletasInSummary) row.push(p.totalPaletas);
                         row.push(p.totalPeso?.toFixed(2));
                         return row;
@@ -507,7 +509,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     if (showTotalPaletasInSummary) footRow.push(totalPaletas);
                     footRow.push(totalPeso.toFixed(2));
 
-                    const summaryTableConfig = {
+                    const summaryTableConfig: any = {
                         startY: yPos,
                         head: [
                             [{ content: 'Resumen de Productos', colSpan: summaryHead[0].length, styles: { halign: 'center' }}],
@@ -532,13 +534,14 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             }
                         },
                         rowPageBreak: 'avoid',
+                        margin: { horizontal: margin },
                     };
                     autoTable(doc, summaryTableConfig);
                     yPos = (doc as any).autoTable.previous.finalY + 15;
                 }
 
                  if (formData.observaciones) {
-                    autoTable(doc, { startY: yPos, head: [[{ content: 'Observaciones', styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]], body: [[formData.observaciones]], theme: 'grid', styles: { fontSize: 8, cellPadding: 4 } });
+                    autoTable(doc, { startY: yPos, margin: { horizontal: margin }, head: [[{ content: 'Observaciones', styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]], body: [[formData.observaciones]], theme: 'grid', styles: { fontSize: 8, cellPadding: 4 } });
                     yPos = (doc as any).autoTable.previous.finalY + 15;
                 }
     
@@ -559,6 +562,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         0: { cellWidth: 'auto' }, 1: { cellWidth: '*' },
                         2: { cellWidth: 'auto' }, 3: { cellWidth: '*' },
                     },
+                    margin: { horizontal: margin },
                 });
                 yPos = (doc as any).autoTable.previous.finalY + 15;
             }
@@ -566,7 +570,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
             if (base64Images.length > 0) {
                 const titleHeightEstimate = 30;
                 const firstImgData = base64Images[0];
-                const imgWidth = (pageWidth - margin * 3) / 2;
+                const imgWidth = (pageWidth - margin * 2 - (margin / 2)) / 2;
                 const aspectRatio = firstImgData.height / firstImgData.width;
                 const imgHeight = imgWidth * aspectRatio;
                 const firstImageRowHeight = imgHeight + 20;
@@ -579,13 +583,13 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 
                 attachmentsStartPage = (doc as any).internal.getNumberOfPages();
 
-                autoTable(doc, { startY: yPos, head: [[{ content: 'Anexos: Registros Fotográficos', styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]], body: [], theme: 'grid' });
+                autoTable(doc, { startY: yPos, margin: { horizontal: margin }, head: [[{ content: 'Anexos: Registros Fotográficos', styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]], body: [], theme: 'grid' });
                 yPos = (doc as any).autoTable.previous.finalY + 10;
 
                 let xPos = margin;
                 for (let i = 0; i < base64Images.length; i++) {
                     const imgData = base64Images[i];
-                    const imgWidth = (pageWidth - margin * 3) / 2;
+                    const imgWidth = (pageWidth - margin * 2 - (margin / 2)) / 2;
                     const aspectRatio = imgData.height / imgData.width;
                     const imgHeight = imgWidth * aspectRatio;
 
