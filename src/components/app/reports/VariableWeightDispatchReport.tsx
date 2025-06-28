@@ -54,7 +54,6 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
     const fieldCellStyle: React.CSSProperties = { padding: '2px', fontSize: '11px', lineHeight: '1.4', verticalAlign: 'top' };
     
     const isUsingSummaryRows = formData.items.some((p: any) => Number(p.paleta) === 0);
-    const showTotalPaletasInSummary = formData.items.some((p: any) => Number(p.paleta) === 0);
 
     return (
         <>
@@ -159,7 +158,7 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                                 <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Descripción</th>
                                 <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Temp(°C)</th>
                                 <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Cantidad</th>
-                                {showTotalPaletasInSummary && <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Paletas</th>}
+                                <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Paletas</th>
                                 <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Peso (kg)</th>
                             </tr>
                         </thead>
@@ -169,14 +168,14 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                                     <td style={{ padding: '4px' }}>{p.descripcion}</td>
                                     <td style={{ textAlign: 'right', padding: '4px' }}>{p.temperatura}</td>
                                     <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalCantidad}</td>
-                                    {showTotalPaletasInSummary && <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPaletas}</td>}
+                                    <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPaletas}</td>
                                     <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPeso?.toFixed(2)}</td>
                                 </tr>
                             ))}
                             <tr style={{ fontWeight: 'bold', backgroundColor: '#f1f5f9' }}>
                                 <td style={{ padding: '4px', textAlign: 'right' }} colSpan={2}>TOTALES:</td>
                                 <td style={{ textAlign: 'right', padding: '4px' }}>{totalCantidad}</td>
-                                {showTotalPaletasInSummary && <td style={{ textAlign: 'right', padding: '4px' }}>{totalPaletas}</td>}
+                                <td style={{ textAlign: 'right', padding: '4px' }}>{totalPaletas}</td>
                                 <td style={{ textAlign: 'right', padding: '4px' }}>{totalPeso.toFixed(2)}</td>
                             </tr>
                         </tbody>

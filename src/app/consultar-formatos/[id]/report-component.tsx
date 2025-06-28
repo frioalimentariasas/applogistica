@@ -495,16 +495,16 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 yPos = (doc as any).autoTable.previous.finalY + 15;
                 
                 if (formData.summary?.length > 0) {
-                    const showTotalPaletasInSummary = !isReception && formData.items.some((p: any) => Number(p.paleta) === 0);
-
+                    const isDispatch = !isReception;
+                    
                     const summaryHead = [[]];
                     summaryHead[0].push('Descripción', 'Temp(°C)', 'Total Cantidad');
-                    if(showTotalPaletasInSummary) summaryHead[0].push('Total Paletas');
+                    if(isDispatch) summaryHead[0].push('Total Paletas');
                     summaryHead[0].push('Total Peso (kg)');
                     
                     const summaryBody = formData.summary.map((p: any) => {
                         const row: any[] = [p.descripcion, p.temperatura, p.totalCantidad];
-                        if (showTotalPaletasInSummary) row.push(p.totalPaletas);
+                        if (isDispatch) row.push(p.totalPaletas || 0);
                         row.push(p.totalPeso?.toFixed(2));
                         return row;
                     });
@@ -514,7 +514,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     const totalPaletas = formData.summary.reduce((acc: any, p: any) => acc + (p.totalPaletas || 0), 0);
 
                     const footRow: any[] = [{ content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }, totalCantidad];
-                    if (showTotalPaletasInSummary) footRow.push(totalPaletas);
+                    if (isDispatch) footRow.push(totalPaletas);
                     footRow.push(totalPeso.toFixed(2));
 
                     const summaryTableConfig: any = {

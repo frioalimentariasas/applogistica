@@ -311,38 +311,46 @@ export default function VariableWeightFormComponent() {
   }, [JSON.stringify(watchedItems), form]);
 
 
-  const showTotalPaletasInSummary = useMemo(() => {
-    return (watchedItems || []).some(item => item && Number(item.paleta) === 0);
-  }, [watchedItems]);
-
   const calculatedSummaryForDisplay = useMemo(() => {
-    const grouped = (watchedItems || []).reduce((acc, item) => {
+    const groupedByDesc = (watchedItems || []).reduce((acc, item) => {
         if (!item?.descripcion?.trim()) return acc;
         const desc = item.descripcion.trim();
-
         if (!acc[desc]) {
-            acc[desc] = {
-                descripcion: desc,
-                totalPeso: 0,
-                totalCantidad: 0,
-                totalPaletas: 0,
-            };
+            acc[desc] = [];
         }
-        
-        if (Number(item.paleta) === 0) {
-            acc[desc].totalPeso += Number(item.totalPesoNeto) || 0;
-            acc[desc].totalCantidad += Number(item.totalCantidad) || 0;
-            acc[desc].totalPaletas += Number(item.totalPaletas) || 0;
-        } else {
-            acc[desc].totalPeso += Number(item.pesoNeto) || 0;
-            acc[desc].totalCantidad += Number(item.cantidadPorPaleta) || 0;
-        }
-        
+        acc[desc].push(item);
         return acc;
-    }, {} as Record<string, { descripcion: string; totalPeso: number; totalCantidad: number; totalPaletas: number }>);
+    }, {} as Record<string, typeof watchedItems>);
 
-    return Object.values(grouped);
+    return Object.values(groupedByDesc).map(itemsInGroup => {
+        const isGroupInSummaryMode = itemsInGroup.some(item => Number(item.paleta) === 0);
+        
+        let totalPeso = 0;
+        let totalCantidad = 0;
+        let totalPaletas = 0;
+
+        itemsInGroup.forEach(item => {
+            totalPeso += (Number(item.paleta) === 0 ? Number(item.totalPesoNeto) : Number(item.pesoNeto)) || 0;
+            totalCantidad += (Number(item.paleta) === 0 ? Number(item.totalCantidad) : Number(item.cantidadPorPaleta)) || 0;
+
+            if (isGroupInSummaryMode) {
+                if (Number(item.paleta) === 0) {
+                    totalPaletas += Number(item.totalPaletas) || 0;
+                }
+            } else {
+                totalPaletas += 1;
+            }
+        });
+
+        return {
+            descripcion: itemsInGroup[0].descripcion,
+            totalPeso,
+            totalCantidad,
+            totalPaletas,
+        };
+    });
   }, [watchedItems]);
+
 
   const formIdentifier = `variable-weight-${operation}`;
   const { isRestoreDialogOpen, onRestore, onDiscard, onOpenChange, clearDraft } = useFormPersistence(formIdentifier, form, originalDefaultValues, attachments, setAttachments, !!submissionId);
@@ -1051,7 +1059,7 @@ export default function VariableWeightFormComponent() {
                                       <TableHead className="w-[150px]">Temperatura (°C)</TableHead>
                                       <TableHead>Producto</TableHead>
                                       <TableHead className="text-right">Total Cantidad</TableHead>
-                                      {showTotalPaletasInSummary && <TableHead className="text-right">Total Paletas</TableHead>}
+                                      <TableHead className="text-right">Total Paletas</TableHead>
                                       <TableHead className="text-right">Total Peso (kg)</TableHead>
                                   </TableRow>
                               </TableHeader>
@@ -1092,13 +1100,11 @@ export default function VariableWeightFormComponent() {
                                                   {summaryItem.totalCantidad || 0}
                                                 </div>
                                               </TableCell>
-                                              {showTotalPaletasInSummary && (
-                                                <TableCell className="text-right">
+                                              <TableCell className="text-right">
                                                   <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
                                                     {summaryItem.totalPaletas || 0}
                                                   </div>
-                                                </TableCell>
-                                              )}
+                                              </TableCell>
                                               <TableCell className="text-right">
                                                 <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
                                                   {(summaryItem.totalPeso || 0).toFixed(2)}
@@ -1108,7 +1114,7 @@ export default function VariableWeightFormComponent() {
                                       )})
                                   ) : (
                                       <TableRow>
-                                          <TableCell colSpan={showTotalPaletasInSummary ? 5 : 4} className="h-24 text-center">
+                                          <TableCell colSpan={5} className="h-24 text-center">
                                               Agregue ítems para ver el resumen.
                                           </TableCell>
                                       </TableRow>
