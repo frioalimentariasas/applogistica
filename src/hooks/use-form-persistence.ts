@@ -126,12 +126,16 @@ export function useFormPersistence<T extends FieldValues>(
         if (!storageKey) return;
 
         try {
+            // First, reset the form state to its original defaults.
+            // This might trigger a re-save of the default state to storage, which is fine.
+            reset(originalDefaultValues);
+            setAttachments([]);
+
+            // Then, immediately clear the storage. This ensures that the final state
+            // of the storage is empty, preventing the restore dialog on next visit.
             const attachmentsKey = `${storageKey}-attachments`;
             localStorage.removeItem(storageKey);
             await idb.del(attachmentsKey);
-            
-            reset(originalDefaultValues);
-            setAttachments([]);
 
             toast({ title: "Borrador Descartado" });
         } catch (e) {
