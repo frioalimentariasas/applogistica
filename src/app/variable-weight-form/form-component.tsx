@@ -282,12 +282,9 @@ export default function VariableWeightFormComponent() {
     if (!watchedItems) return;
 
     watchedItems.forEach((item, index) => {
-      // Use Number() to handle values that might still be strings during input
       const paletaValue = Number(item?.paleta);
 
-      // Only perform calculations for individual pallet rows (paleta > 0)
       if (item && !isNaN(paletaValue) && paletaValue > 0) {
-        
         const cantidad = Number(item.cantidadPorPaleta) || 0;
         const taraCaja = Number(item.taraCaja) || 0;
         const pesoBruto = Number(item.pesoBruto) || 0;
@@ -296,16 +293,13 @@ export default function VariableWeightFormComponent() {
         const newTotalTaraCaja = cantidad * taraCaja;
         const newPesoNeto = pesoBruto - taraEstiba - newTotalTaraCaja;
 
-        // Check if update is needed to avoid infinite loops
-        if (item.totalTaraCaja !== newTotalTaraCaja) {
+        if (item.totalTaraCaja !== newTotalTaraCaja || item.pesoNeto !== newPesoNeto) {
           form.setValue(`items.${index}.totalTaraCaja`, newTotalTaraCaja, { shouldValidate: false });
-        }
-        if (item.pesoNeto !== newPesoNeto) {
           form.setValue(`items.${index}.pesoNeto`, newPesoNeto, { shouldValidate: false });
         }
       }
     });
-  }, [watchedItems, form]);
+  }, [JSON.stringify(watchedItems), form]);
 
 
   const showTotalPaletasInSummary = useMemo(() => {
