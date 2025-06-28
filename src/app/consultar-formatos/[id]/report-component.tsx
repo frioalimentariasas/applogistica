@@ -208,12 +208,6 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     doc.text(`Página ${i} de ${pageCount}`, pageWidth - margin, pageHeight - 20, { align: 'right' });
                 }
             };
-
-            const applyLabelStyles = (data: any, colCount: number) => {
-                if (data.row.section === 'body' && data.column.index % (colCount/3) === 0) {
-                     data.cell.styles.fontStyle = 'bold';
-                }
-            };
     
             addHeader(getReportTitle());
     
@@ -269,16 +263,29 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
     
                 autoTable(doc, {
                     startY: yPos,
-                    head: [[{ content: 'Características del Producto', colSpan: 5, styles: { halign: 'center', fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold' } }]],
-                    body: [], theme: 'grid'
-                });
-                autoTable(doc, {
-                    startY: (doc as any).autoTable.previous.finalY,
-                    head: productHead, body: productBody,
+                    head: [
+                        [{ content: 'Características del Producto', colSpan: 5, styles: { halign: 'center' }}],
+                        productHead[0]
+                    ],
+                    body: productBody,
                     foot: [[{ content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }, totalCajas, formatPaletas(totalPaletas), '']],
-                    theme: 'striped', headStyles: { fillColor: '#f8fafc', textColor: '#334155', fontStyle: 'bold' },
+                    theme: 'grid',
                     footStyles: { fillColor: '#f1f5f9', fontStyle: 'bold', textColor: '#1a202c' },
-                    styles: { fontSize: 8, cellPadding: 4 }
+                    styles: { fontSize: 8, cellPadding: 4 },
+                    didParseCell: (data) => {
+                        if (data.section === 'head') {
+                            if (data.row.index === 0) { // Main title row
+                                data.cell.styles.fillColor = '#e2e8f0';
+                                data.cell.styles.textColor = '#1a202c';
+                                data.cell.styles.fontStyle = 'bold';
+                            }
+                            if (data.row.index === 1) { // Column headers row
+                                data.cell.styles.fillColor = '#f8fafc';
+                                data.cell.styles.textColor = '#334155';
+                                data.cell.styles.fontStyle = 'bold';
+                            }
+                        }
+                    },
                 });
                 yPos = (doc as any).autoTable.previous.finalY + 15;
     
@@ -421,8 +428,29 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     }
                 }
                 
-                autoTable(doc, { startY: yPos, head: [[{ content: `Detalle de ${isReception ? 'Recepción' : 'Despacho'}`, colSpan: detailColSpan, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]], body: [], theme: 'grid' });
-                autoTable(doc, { startY: (doc as any).autoTable.previous.finalY, head: detailHead, body: detailBody, theme: 'striped', headStyles: { fillColor: '#f8fafc', textColor: '#334155', fontStyle: 'bold' }, styles: { fontSize: 7, cellPadding: 3 } });
+                autoTable(doc, {
+                    startY: yPos,
+                    head: [
+                        [{ content: `Detalle de ${isReception ? 'Recepción' : 'Despacho'}`, colSpan: detailColSpan, styles: { halign: 'center' } }],
+                        ...detailHead
+                    ],
+                    body: detailBody,
+                    theme: 'grid',
+                    styles: { fontSize: 7, cellPadding: 3 },
+                    didParseCell: (data) => {
+                        if (data.section === 'head') {
+                            if (data.row.index === 0) {
+                                data.cell.styles.fillColor = '#e2e8f0';
+                                data.cell.styles.textColor = '#1a202c';
+                                data.cell.styles.fontStyle = 'bold';
+                            } else {
+                                data.cell.styles.fillColor = '#f8fafc';
+                                data.cell.styles.textColor = '#334155';
+                                data.cell.styles.fontStyle = 'bold';
+                            }
+                        }
+                    }
+                });
                 yPos = (doc as any).autoTable.previous.finalY + 15;
                 
                 if (formData.summary?.length > 0) {
@@ -431,9 +459,31 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     const totalPeso = formData.summary.reduce((acc: any, p: any) => acc + (p.totalPeso || 0), 0);
                     const totalCantidad = formData.summary.reduce((acc: any, p: any) => acc + (p.totalCantidad || 0), 0);
 
-                    autoTable(doc, { startY: yPos, head: [[{ content: 'Resumen de Productos', colSpan: 4, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]], body: [], theme: 'grid' });
-                    autoTable(doc, { startY: (doc as any).autoTable.previous.finalY, head: summaryHead, body: summaryBody, foot: [[{ content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }, totalCantidad, totalPeso.toFixed(2)]],
-                        theme: 'striped', headStyles: { fillColor: '#f8fafc', textColor: '#334155', fontStyle: 'bold' }, footStyles: { fillColor: '#f1f5f9', fontStyle: 'bold', textColor: '#1a202c' }, styles: { fontSize: 8, cellPadding: 4 } });
+                    autoTable(doc, {
+                        startY: yPos,
+                        head: [
+                            [{ content: 'Resumen de Productos', colSpan: 4, styles: { halign: 'center' }}],
+                            ...summaryHead
+                        ],
+                        body: summaryBody,
+                        foot: [[{ content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }, totalCantidad, totalPeso.toFixed(2)]],
+                        theme: 'grid',
+                        footStyles: { fillColor: '#f1f5f9', fontStyle: 'bold', textColor: '#1a202c' },
+                        styles: { fontSize: 8, cellPadding: 4 },
+                        didParseCell: (data) => {
+                            if (data.section === 'head') {
+                                if (data.row.index === 0) {
+                                    data.cell.styles.fillColor = '#e2e8f0';
+                                    data.cell.styles.textColor = '#1a202c';
+                                    data.cell.styles.fontStyle = 'bold';
+                                } else {
+                                    data.cell.styles.fillColor = '#f8fafc';
+                                    data.cell.styles.textColor = '#334155';
+                                    data.cell.styles.fontStyle = 'bold';
+                                }
+                            }
+                        }
+                    });
                     yPos = (doc as any).autoTable.previous.finalY + 15;
                 }
 
@@ -463,10 +513,21 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 yPos = (doc as any).autoTable.previous.finalY + 15;
             }
     
-             if (base64Images.length > 0) {
-                doc.addPage();
+            if (base64Images.length > 0) {
+                const titleHeightEstimate = 30; // A safe estimate for the title bar
+                const firstImgData = base64Images[0];
+                const imgWidth = (pageWidth - margin * 3) / 2;
+                const aspectRatio = firstImgData.height / firstImgData.width;
+                const imgHeight = imgWidth * aspectRatio;
+                const firstImageRowHeight = imgHeight + 20; // image + caption
+
+                // Check if there is enough space for the title and the first row of images
+                if (yPos + titleHeightEstimate + firstImageRowHeight > pageHeight - margin) {
+                    doc.addPage();
+                    yPos = margin;
+                }
+                
                 attachmentsStartPage = (doc as any).internal.getNumberOfPages();
-                yPos = margin;
 
                 autoTable(doc, { startY: yPos, head: [[{ content: 'Anexos: Registros Fotográficos', styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]], body: [], theme: 'grid' });
                 yPos = (doc as any).autoTable.previous.finalY + 10;
