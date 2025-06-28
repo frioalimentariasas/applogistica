@@ -306,15 +306,10 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             }
                         }
                     },
+                    rowPageBreak: 'avoid',
                 };
-
-                // Check for space before rendering the table
-                const tableHeight = (doc as any).autoTable.calculateHeight(productTableConfig);
-                if (yPos + tableHeight > pageHeight - margin) {
-                    doc.addPage();
-                    yPos = margin;
-                }
-                autoTable(doc, { ...productTableConfig, startY: yPos });
+                
+                autoTable(doc, productTableConfig);
                 yPos = (doc as any).autoTable.previous.finalY + 15;
     
                 autoTable(doc, {
@@ -428,6 +423,12 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         
                         if (showPaletaColumnInPdf) {
                             rowData.push(p.paleta);
+                        } else if (isSummaryRow) {
+                             // For summary rows, when paleta column is hidden, we don't push anything for it.
+                        } else {
+                            // This case handles non-summary rows when the paleta column is hidden.
+                            // We shouldn't be in this state based on the logic, but as a fallback:
+                            // rowData.push(''); // Or handle as an error
                         }
 
                         rowData.push(
@@ -463,10 +464,10 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                                 data.cell.styles.fontStyle = 'bold';
                             }
                         }
-                    }
+                    },
+                    rowPageBreak: 'avoid',
                 };
-                if (yPos + (doc as any).autoTable.calculateHeight(detailTableConfig) > pageHeight - margin) { doc.addPage(); yPos = margin; }
-                autoTable(doc, { ...detailTableConfig, startY: yPos });
+                autoTable(doc, detailTableConfig);
                 yPos = (doc as any).autoTable.previous.finalY + 15;
                 
                 if (formData.summary?.length > 0) {
@@ -515,10 +516,10 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                                     data.cell.styles.fontStyle = 'bold';
                                 }
                             }
-                        }
+                        },
+                        rowPageBreak: 'avoid',
                     };
-                    if (yPos + (doc as any).autoTable.calculateHeight(summaryTableConfig) > pageHeight - margin) { doc.addPage(); yPos = margin; }
-                    autoTable(doc, { ...summaryTableConfig, startY: yPos });
+                    autoTable(doc, summaryTableConfig);
                     yPos = (doc as any).autoTable.previous.finalY + 15;
                 }
 
