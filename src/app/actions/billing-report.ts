@@ -1,3 +1,4 @@
+
 'use server';
 
 import admin from 'firebase-admin';
@@ -45,12 +46,9 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
     try {
         let query: admin.firestore.Query = firestore.collection('submissions');
         
-        // Firestore query for the date range
-        const startDate = new Date(criteria.startDate);
-        startDate.setUTCHours(0, 0, 0, 0);
-
-        const endDate = new Date(criteria.endDate);
-        endDate.setUTCHours(23, 59, 59, 999);
+        // Use explicit UTC dates to avoid any timezone ambiguity during query.
+        const startDate = new Date(`${criteria.startDate}T00:00:00.000Z`);
+        const endDate = new Date(`${criteria.endDate}T23:59:59.999Z`);
         
         query = query
             .where('createdAt', '>=', startDate.toISOString())
@@ -73,6 +71,7 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                 return; // Skip this doc if it doesn't match the client
             }
 
+            // Grouping is done strictly by the 'createdAt' field, which marks the creation date of the form.
             const date = submission.createdAt.split('T')[0]; // YYYY-MM-DD
 
             if (!dailyTotals.has(date)) {
