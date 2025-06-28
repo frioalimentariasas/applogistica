@@ -378,27 +378,41 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
     
             } else if (formType.startsWith('variable-weight-')) {
                  const isReception = formType.includes('recepcion') || formType.includes('reception');
+                 const operationTerm = isReception ? 'Descargue' : 'Cargue';
                  
                  const generalInfoBody = [
-                    [{content: 'Pedido SISLOG:', styles: {fontStyle: 'bold'}}, formData.pedidoSislog || 'N/A'],
-                    [{content: 'Cliente:', styles: {fontStyle: 'bold'}}, formData.cliente || 'N/A'],
-                    [{content: 'Fecha:', styles: {fontStyle: 'bold'}}, formData.fecha ? format(new Date(formData.fecha), "dd/MM/yyyy") : 'N/A'],
-                    [{content: 'Conductor:', styles: {fontStyle: 'bold'}}, formData.conductor || 'N/A'],
-                    [{content: 'Cédula:', styles: {fontStyle: 'bold'}}, formData.cedulaConductor || 'N/A'],
-                    [{content: 'Placa:', styles: {fontStyle: 'bold'}}, formData.placa || 'N/A'],
-                    [{content: 'Precinto:', styles: {fontStyle: 'bold'}}, formData.precinto || 'N/A'],
-                    [{content: 'Set Point (°C):', styles: {fontStyle: 'bold'}}, formData.setPoint || 'N/A'],
-                    [{content: 'Operario:', styles: {fontStyle: 'bold'}}, userDisplayName || 'N/A'],
-                    [{content: isReception ? 'H. Inicio Descargue' : 'Hora Inicio Cargue', styles: {fontStyle: 'bold'}}, formatTime12Hour(formData.horaInicio)],
-                    [{content: isReception ? 'H. Fin Descargue' : 'Hora Fin Cargue', styles: {fontStyle: 'bold'}}, formatTime12Hour(formData.horaFin)],
+                     [
+                        {content: 'Pedido SISLOG:', styles: {fontStyle: 'bold'}}, formData.pedidoSislog || 'N/A',
+                        {content: 'Cliente:', styles: {fontStyle: 'bold'}}, formData.cliente || 'N/A',
+                        {content: 'Fecha:', styles: {fontStyle: 'bold'}}, formData.fecha ? format(new Date(formData.fecha), "dd/MM/yyyy") : 'N/A'
+                     ],
+                     [
+                        {content: 'Conductor:', styles: {fontStyle: 'bold'}}, formData.conductor || 'N/A',
+                        {content: 'Cédula:', styles: {fontStyle: 'bold'}}, formData.cedulaConductor || 'N/A',
+                        {content: 'Placa:', styles: {fontStyle: 'bold'}}, formData.placa || 'N/A'
+                     ],
+                     [
+                        {content: 'Precinto:', styles: {fontStyle: 'bold'}}, formData.precinto || 'N/A',
+                        {content: 'Set Point (°C):', styles: {fontStyle: 'bold'}}, formData.setPoint || 'N/A',
+                        {content: 'Operario:', styles: {fontStyle: 'bold'}}, userDisplayName || 'N/A'
+                     ],
+                     [
+                        {content: `H. Inicio ${operationTerm}:`, styles: {fontStyle: 'bold'}}, formatTime12Hour(formData.horaInicio),
+                        {content: `H. Fin ${operationTerm}:`, styles: {fontStyle: 'bold'}}, formatTime12Hour(formData.horaFin),
+                        {content: '', styles: {}}, {content: '', styles: {}}
+                     ]
                  ];
                  autoTable(doc, {
                     startY: yPos,
-                    head: [[{ content: `Datos de ${isReception ? 'Recepción' : 'Despacho'}`, colSpan: 2, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]],
+                    head: [[{ content: `Datos de ${isReception ? 'Recepción' : 'Despacho'}`, colSpan: 6, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]],
                     body: generalInfoBody,
                     theme: 'grid',
                     styles: { fontSize: 8, cellPadding: 4, valign: 'middle' },
-                    columnStyles: { 0: { cellWidth: 'auto', fontStyle: 'bold' }, 1: { cellWidth: '*' } },
+                    columnStyles: {
+                        0: { cellWidth: 'auto' }, 1: { cellWidth: '*' },
+                        2: { cellWidth: 'auto' }, 3: { cellWidth: '*' },
+                        4: { cellWidth: 'auto' }, 5: { cellWidth: '*' },
+                    },
                 });
                 yPos = (doc as any).autoTable.previous.finalY + 15;
                 
@@ -419,7 +433,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
 
                     detailBody = formData.items.map((p: any) => {
                         const isSummaryRow = Number(p.paleta) === 0;
-                        const rowData = [];
+                        const rowData: (string|number)[] = [];
                         
                         if (showPaletaColumnInPdf) {
                             rowData.push(p.paleta);
