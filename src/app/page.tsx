@@ -1,10 +1,9 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { FileText, LogOut, Users2, Box, ScrollText } from 'lucide-react';
+import { FileText, LogOut, Users2, Box, ScrollText, BookCopy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
@@ -219,6 +218,10 @@ export default function Home() {
                         Cargar Clientes (Excel)
                     </Button>
                 </div>
+                <Button size="lg" className="w-full h-12 text-base bg-[#3588CC] text-white hover:bg-[#3588CC]/90" onClick={() => router.push('/billing-reports')}>
+                    <BookCopy className="mr-2 h-5 w-5" />
+                    Informes para facturación
+                </Button>
               </>
             )}
         </div>
