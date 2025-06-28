@@ -91,6 +91,7 @@ const itemSchema = z.object({
   totalPaletas: z.preprocess(
       (val) => (val === "" ? undefined : val),
       z.coerce.number({ invalid_type_error: "El total de paletas debe ser un número." })
+        .int({ message: "El total de paletas debe ser un número entero." })
         .min(0, "Debe ser un número no negativo.").optional()
   ),
   totalPesoNeto: z.preprocess(
@@ -923,7 +924,7 @@ export default function VariableWeightFormComponent() {
                                             <FormItem><FormLabel>Total Cantidad</FormLabel><FormControl><Input type="text" inputMode="numeric" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl><FormMessage /></FormItem>
                                         )}/>
                                         <FormField control={form.control} name={`items.${index}.totalPaletas`} render={({ field }) => (
-                                            <FormItem><FormLabel>Total Paletas</FormLabel><FormControl><Input type="text" inputMode="decimal" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl><FormMessage /></FormItem>
+                                            <FormItem><FormLabel>Total Paletas</FormLabel><FormControl><Input type="text" inputMode="numeric" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl><FormMessage /></FormItem>
                                         )}/>
                                         <FormField control={form.control} name={`items.${index}.totalPesoNeto`} render={({ field }) => (
                                             <FormItem><FormLabel>Total Peso Neto (kg)</FormLabel><FormControl><Input type="text" inputMode="decimal" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl><FormMessage /></FormItem>
@@ -1007,7 +1008,7 @@ export default function VariableWeightFormComponent() {
                                               </TableCell>
                                                <TableCell className="text-right">
                                                 <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
-                                                  {(summaryItem.totalPaletas || 0).toFixed(2)}
+                                                  {summaryItem.totalPaletas || 0}
                                                 </div>
                                               </TableCell>
                                               <TableCell className="text-right">

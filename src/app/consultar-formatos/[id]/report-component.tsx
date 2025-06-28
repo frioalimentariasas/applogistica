@@ -473,7 +473,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         p.descripcion, 
                         p.temperatura, 
                         p.totalCantidad, 
-                        p.totalPaletas?.toFixed(2), 
+                        p.totalPaletas, 
                         p.totalPeso?.toFixed(2)
                     ]);
                     const totalPeso = formData.summary.reduce((acc: any, p: any) => acc + (p.totalPeso || 0), 0);
@@ -490,7 +490,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         foot: [[
                             { content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }, 
                             totalCantidad,
-                            totalPaletas.toFixed(2),
+                            totalPaletas,
                             totalPeso.toFixed(2)
                         ]],
                         theme: 'grid',
@@ -676,5 +676,3 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
         </div>
     );
 }
-
-    

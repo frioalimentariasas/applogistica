@@ -141,14 +141,14 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                                     <td style={{ padding: '4px' }}>{p.descripcion}</td>
                                     <td style={{ textAlign: 'right', padding: '4px' }}>{p.temperatura}</td>
                                     <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalCantidad}</td>
-                                    <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPaletas?.toFixed(2)}</td>
+                                    <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPaletas}</td>
                                     <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPeso?.toFixed(2)}</td>
                                 </tr>
                             ))}
                             <tr style={{ fontWeight: 'bold', backgroundColor: '#f1f5f9' }}>
                                 <td style={{ padding: '4px', textAlign: 'right' }} colSpan={2}>TOTALES:</td>
                                 <td style={{ textAlign: 'right', padding: '4px' }}>{totalCantidad}</td>
-                                <td style={{ textAlign: 'right', padding: '4px' }}>{totalPaletas.toFixed(2)}</td>
+                                <td style={{ textAlign: 'right', padding: '4px' }}>{totalPaletas}</td>
                                 <td style={{ textAlign: 'right', padding: '4px' }}>{totalPeso.toFixed(2)}</td>
                             </tr>
                         </tbody>
