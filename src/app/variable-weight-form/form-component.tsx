@@ -72,17 +72,31 @@ const itemSchema = z.object({
     descripcion: z.string().min(1, "La descripción es requerida."),
     lote: z.string().max(15, "Máximo 15 caracteres").optional(),
     presentacion: z.string().min(1, "Seleccione una presentación."),
-    // Conditional fields
+    // Conditional fields for individual pallets (paleta > 0)
     cantidadPorPaleta: z.preprocess(
         (val) => (val === "" || (typeof val === 'number' && Number.isNaN(val)) ? undefined : val),
         z.coerce.number({ invalid_type_error: "La cantidad debe ser un número." })
           .int({ message: "La cantidad debe ser un número entero." }).min(0, "Debe ser un número no negativo.").optional()
     ),
-    pesoNeto: z.preprocess(
+    pesoBruto: z.preprocess(
         (val) => (val === "" || (typeof val === 'number' && Number.isNaN(val)) ? undefined : val),
-        z.coerce.number({ invalid_type_error: "El peso neto debe ser un número." })
+        z.coerce.number({ invalid_type_error: "El peso bruto debe ser un número." })
           .min(0, "Debe ser un número no negativo.").optional()
     ),
+    taraEstiba: z.preprocess(
+        (val) => (val === "" || (typeof val === 'number' && Number.isNaN(val)) ? undefined : val),
+        z.coerce.number({ invalid_type_error: "La tara estiba debe ser un número." })
+          .min(0, "Debe ser un número no negativo.").optional()
+    ),
+    taraCaja: z.preprocess(
+        (val) => (val === "" || (typeof val === 'number' && Number.isNaN(val)) ? undefined : val),
+        z.coerce.number({ invalid_type_error: "La tara caja debe ser un número." })
+          .min(0, "Debe ser un número no negativo.").optional()
+    ),
+    // Calculated fields
+    totalTaraCaja: z.number().optional(),
+    pesoNeto: z.number().optional(),
+    // Conditional fields for summary row (paleta === 0)
     totalCantidad: z.preprocess(
         (val) => (val === "" || (typeof val === 'number' && Number.isNaN(val)) ? undefined : val),
         z.coerce.number({ invalid_type_error: "El total de cantidad debe ser un número." })
@@ -103,20 +117,26 @@ const itemSchema = z.object({
       // This is where we check for required fields based on the value of 'paleta'
       if (data.paleta !== undefined && data.paleta > 0) {
           if (data.cantidadPorPaleta === undefined) {
-              ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La cantidad es requerida.", path: ["cantidadPorPaleta"] });
+              ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La Cantidad Por Paleta es requerida.", path: ["cantidadPorPaleta"] });
           }
-          if (data.pesoNeto === undefined) {
-              ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El peso neto es requerido.", path: ["pesoNeto"] });
+          if (data.pesoBruto === undefined) {
+              ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El Peso Bruto es requerido.", path: ["pesoBruto"] });
+          }
+          if (data.taraEstiba === undefined) {
+              ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La Tara Estiba es requerida.", path: ["taraEstiba"] });
+          }
+          if (data.taraCaja === undefined) {
+              ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La Tara Caja es requerida.", path: ["taraCaja"] });
           }
       } else if (data.paleta === 0) {
           if (data.totalCantidad === undefined) {
-              ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El total de cantidad es requerido.", path: ["totalCantidad"] });
+              ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El Total Cantidad es requerido.", path: ["totalCantidad"] });
           }
           if (data.totalPaletas === undefined) {
-              ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El total de paletas es requerido.", path: ["totalPaletas"] });
+              ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El Total Paletas es requerido.", path: ["totalPaletas"] });
           }
           if (data.totalPesoNeto === undefined) {
-              ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El total de peso neto es requerido.", path: ["totalPesoNeto"] });
+              ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El Total Peso Neto es requerido.", path: ["totalPesoNeto"] });
           }
       }
   });
@@ -164,7 +184,21 @@ const originalDefaultValues: FormValues = {
   placa: "",
   precinto: "",
   setPoint: NaN,
-  items: [{ paleta: NaN, descripcion: '', lote: '', presentacion: '', cantidadPorPaleta: NaN, pesoNeto: NaN, totalCantidad: NaN, totalPaletas: NaN, totalPesoNeto: NaN }],
+  items: [{ 
+    paleta: NaN, 
+    descripcion: '', 
+    lote: '', 
+    presentacion: '', 
+    cantidadPorPaleta: NaN, 
+    pesoBruto: NaN,
+    taraEstiba: NaN,
+    taraCaja: NaN,
+    totalTaraCaja: NaN,
+    pesoNeto: NaN,
+    totalCantidad: NaN, 
+    totalPaletas: NaN, 
+    totalPesoNeto: NaN 
+  }],
   summary: [],
   horaInicio: "",
   horaFin: "",
@@ -245,6 +279,30 @@ export default function VariableWeightFormComponent() {
 
   const watchedItems = useWatch({ control: form.control, name: "items" });
   
+  useEffect(() => {
+    if (!watchedItems) return;
+
+    watchedItems.forEach((item, index) => {
+      if (item && item.paleta !== undefined && item.paleta > 0) {
+        const cantidadPorPaleta = Number(item.cantidadPorPaleta) || 0;
+        const taraCaja = Number(item.taraCaja) || 0;
+        const pesoBruto = Number(item.pesoBruto) || 0;
+        const taraEstiba = Number(item.taraEstiba) || 0;
+
+        const calculatedTotalTaraCaja = cantidadPorPaleta * taraCaja;
+        const calculatedPesoNeto = pesoBruto - taraEstiba - calculatedTotalTaraCaja;
+      
+        if (item.totalTaraCaja !== calculatedTotalTaraCaja) {
+            form.setValue(`items.${index}.totalTaraCaja`, calculatedTotalTaraCaja, { shouldValidate: false });
+        }
+        if (item.pesoNeto !== calculatedPesoNeto) {
+            form.setValue(`items.${index}.pesoNeto`, calculatedPesoNeto, { shouldValidate: false });
+        }
+      }
+    });
+  }, [watchedItems, form]);
+
+
   const showTotalPaletasInSummary = useMemo(() => {
     return (watchedItems || []).some(item => item && Number(item.paleta) === 0);
   }, [watchedItems]);
@@ -305,9 +363,13 @@ export default function VariableWeightFormComponent() {
     append({
         paleta: NaN,
         descripcion: lastItem?.descripcion || '',
-        lote: lastItem?.lote || '',
+        lote: '',
         presentacion: lastItem?.presentacion || '',
         cantidadPorPaleta: lastItem?.cantidadPorPaleta || NaN,
+        pesoBruto: NaN,
+        taraEstiba: lastItem?.taraEstiba || NaN,
+        taraCaja: lastItem?.taraCaja || NaN,
+        totalTaraCaja: NaN,
         pesoNeto: NaN,
         totalCantidad: NaN,
         totalPaletas: NaN,
@@ -728,7 +790,7 @@ export default function VariableWeightFormComponent() {
                                                                 setClientDialogOpen(false);
                                                                 setClientSearch('');
                                                                 
-                                                                form.setValue('items', [{ paleta: NaN, descripcion: '', lote: '', presentacion: '', cantidadPorPaleta: NaN, pesoNeto: NaN, totalCantidad: NaN, totalPaletas: NaN, totalPesoNeto: NaN }]);
+                                                                form.setValue('items', [{ paleta: NaN, descripcion: '', lote: '', presentacion: '', cantidadPorPaleta: NaN, pesoBruto: NaN, taraEstiba: NaN, taraCaja: NaN, totalTaraCaja: NaN, pesoNeto: NaN, totalCantidad: NaN, totalPaletas: NaN, totalPesoNeto: NaN }]);
                                                                 setArticulos([]);
                                                                 setIsLoadingArticulos(true);
                                                                 try {
@@ -816,6 +878,8 @@ export default function VariableWeightFormComponent() {
                 {fields.map((item, index) => {
                     const itemData = watchedItems?.[index];
                     const isSummaryRow = Number(itemData?.paleta) === 0;
+                    const totalTaraCaja = itemData?.totalTaraCaja;
+                    const pesoNeto = itemData?.pesoNeto;
 
                     return (
                         <div key={item.id} className="p-4 border rounded-md relative space-y-4">
@@ -935,14 +999,24 @@ export default function VariableWeightFormComponent() {
                                         )}/>
                                      </div>
                                 ) : (
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                        <FormField control={form.control} name={`items.${index}.pesoNeto`} render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Peso Neto (kg)</FormLabel>
-                                                <FormControl><Input type="text" inputMode="decimal" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl>
-                                                <FormMessage />
-                                            </FormItem>
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
+                                        <FormField control={form.control} name={`items.${index}.pesoBruto`} render={({ field }) => (
+                                            <FormItem><FormLabel>Peso Bruto (kg)</FormLabel><FormControl><Input type="text" inputMode="decimal" min="0" step="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl><FormMessage /></FormItem>
                                         )}/>
+                                        <FormField control={form.control} name={`items.${index}.taraEstiba`} render={({ field }) => (
+                                            <FormItem><FormLabel>Tara Estiba (kg)</FormLabel><FormControl><Input type="text" inputMode="decimal" min="0" step="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl><FormMessage /></FormItem>
+                                        )}/>
+                                        <FormField control={form.control} name={`items.${index}.taraCaja`} render={({ field }) => (
+                                            <FormItem><FormLabel>Tara Caja (kg)</FormLabel><FormControl><Input type="text" inputMode="decimal" min="0" step="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl><FormMessage /></FormItem>
+                                        )}/>
+                                        <FormItem>
+                                            <FormLabel>Total Tara Cajas (kg)</FormLabel>
+                                            <FormControl><Input disabled readOnly value={totalTaraCaja != null && !isNaN(totalTaraCaja) ? totalTaraCaja.toFixed(2) : '0.00'} /></FormControl>
+                                        </FormItem>
+                                        <FormItem>
+                                            <FormLabel>Peso Neto (kg)</FormLabel>
+                                            <FormControl><Input disabled readOnly value={pesoNeto != null && !isNaN(pesoNeto) ? pesoNeto.toFixed(2) : '0.00'} /></FormControl>
+                                        </FormItem>
                                     </div>
                                 )}
                             </div>

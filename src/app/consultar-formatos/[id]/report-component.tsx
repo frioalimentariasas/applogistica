@@ -387,32 +387,31 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                  const isReception = formType.includes('recepcion') || formType.includes('reception');
                  const operationTerm = isReception ? 'Descargue' : 'Cargue';
                  
-                 const generalInfoBody = [
-                     [
-                        {content: 'Pedido SISLOG:', styles: {fontStyle: 'bold'}}, formData.pedidoSislog || 'N/A',
-                        {content: 'Cliente:', styles: {fontStyle: 'bold'}}, formData.cliente || 'N/A',
-                        {content: 'Fecha:', styles: {fontStyle: 'bold'}}, formData.fecha ? format(new Date(formData.fecha), "dd/MM/yyyy") : 'N/A'
-                     ],
-                     [
-                        {content: 'Conductor:', styles: {fontStyle: 'bold'}}, formData.conductor || 'N/A',
-                        {content: 'Cédula:', styles: {fontStyle: 'bold'}}, formData.cedulaConductor || 'N/A',
-                        {content: 'Placa:', styles: {fontStyle: 'bold'}}, formData.placa || 'N/A'
-                     ],
-                     [
-                        {content: 'Precinto:', styles: {fontStyle: 'bold'}}, formData.precinto || 'N/A',
-                        {content: 'Set Point (°C):', styles: {fontStyle: 'bold'}}, formData.setPoint || 'N/A',
-                        {content: 'Operario:', styles: {fontStyle: 'bold'}}, userDisplayName || 'N/A'
-                     ],
-                     [
-                        {content: `H. Inicio ${operationTerm}:`, styles: {fontStyle: 'bold'}}, formatTime12Hour(formData.horaInicio),
-                        {content: `H. Fin ${operationTerm}:`, styles: {fontStyle: 'bold'}}, formatTime12Hour(formData.horaFin),
-                        {content: '', styles: {}}, {content: '', styles: {}}
-                     ]
-                 ];
                  autoTable(doc, {
                     startY: yPos,
                     head: [[{ content: `Datos de ${isReception ? 'Recepción' : 'Despacho'}`, colSpan: 6, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]],
-                    body: generalInfoBody,
+                    body: [
+                        [
+                           {content: 'Pedido SISLOG:', styles: {fontStyle: 'bold'}}, formData.pedidoSislog || 'N/A',
+                           {content: 'Cliente:', styles: {fontStyle: 'bold'}}, formData.cliente || 'N/A',
+                           {content: 'Fecha:', styles: {fontStyle: 'bold'}}, formData.fecha ? format(new Date(formData.fecha), "dd/MM/yyyy") : 'N/A'
+                        ],
+                        [
+                           {content: 'Conductor:', styles: {fontStyle: 'bold'}}, formData.conductor || 'N/A',
+                           {content: 'Cédula:', styles: {fontStyle: 'bold'}}, formData.cedulaConductor || 'N/A',
+                           {content: 'Placa:', styles: {fontStyle: 'bold'}}, formData.placa || 'N/A'
+                        ],
+                        [
+                           {content: 'Precinto:', styles: {fontStyle: 'bold'}}, formData.precinto || 'N/A',
+                           {content: 'Set Point (°C):', styles: {fontStyle: 'bold'}}, formData.setPoint || 'N/A',
+                           {content: 'Operario:', styles: {fontStyle: 'bold'}}, userDisplayName || 'N/A'
+                        ],
+                        [
+                           {content: `H. Inicio ${operationTerm}:`, styles: {fontStyle: 'bold'}}, formatTime12Hour(formData.horaInicio),
+                           {content: `H. Fin ${operationTerm}:`, styles: {fontStyle: 'bold'}}, formatTime12Hour(formData.horaFin),
+                           {content: '', styles: {}}, {content: '', styles: {}}
+                        ]
+                    ],
                     theme: 'grid',
                     styles: { fontSize: 8, cellPadding: 4, valign: 'middle' },
                     columnStyles: {
@@ -424,7 +423,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 });
                 yPos = (doc as any).autoTable.previous.finalY + 15;
                 
-                let detailHead: any[][];
+                let detailHead: any[];
                 let detailBody: any[][];
                 let detailColSpan: number;
 
@@ -435,18 +434,17 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 } else { // This is dispatch
                     const showPaletaColumnInPdf = !formData.items.some((p: any) => Number(p.paleta) === 0);
                     
-                    detailHead = [[]];
-                    if (showPaletaColumnInPdf) detailHead[0].push('Paleta');
-                    detailHead[0].push('Descripción', 'Lote', 'Presentación', 'Cant.', 'Peso Neto (kg)');
+                    const headRow:any[] = [];
+                    if (showPaletaColumnInPdf) headRow.push('Paleta');
+                    headRow.push('Descripción', 'Lote', 'Presentación', 'Cant.', 'P. Bruto', 'T. Estiba', 'T. Caja', 'Total Tara', 'P. Neto');
+                    detailHead = [headRow];
 
                     detailBody = formData.items.map((p: any) => {
                         const isSummaryRow = Number(p.paleta) === 0;
                         const rowData: (string|number)[] = [];
                         
                         if (showPaletaColumnInPdf) {
-                            rowData.push(p.paleta);
-                        } else if (isSummaryRow) {
-                             rowData.push('N/A');
+                            rowData.push(isSummaryRow ? 'N/A' : p.paleta);
                         }
 
                         rowData.push(
@@ -454,6 +452,10 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             p.lote,
                             p.presentacion,
                             isSummaryRow ? p.totalCantidad : p.cantidadPorPaleta,
+                            isSummaryRow ? '' : p.pesoBruto?.toFixed(2),
+                            isSummaryRow ? '' : p.taraEstiba?.toFixed(2),
+                            isSummaryRow ? '' : p.taraCaja?.toFixed(2),
+                            isSummaryRow ? '' : p.totalTaraCaja?.toFixed(2),
                             isSummaryRow ? p.totalPesoNeto?.toFixed(2) : p.pesoNeto?.toFixed(2)
                         );
                         return rowData;
@@ -465,7 +467,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     startY: yPos,
                     head: [
                         [{ content: `Detalle de ${isReception ? 'Recepción' : 'Despacho'}`, colSpan: detailColSpan, styles: { halign: 'center' } }],
-                        ...detailHead
+                        detailHead[0]
                     ],
                     body: detailBody,
                     theme: 'grid',
@@ -550,7 +552,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
     
                 autoTable(doc, { 
                     startY: yPos, 
-                    head: [[{ content: 'Responsables de la Operación', colSpan: 4, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]],
+                    head: [[{ content: 'Responsables de la Operación', colSpan: 4, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]], 
                     body: [
                         [
                            {content: 'Coordinador:', styles: {fontStyle: 'bold'}},
