@@ -101,6 +101,14 @@ const formSchema = z.object({
     horaFin: z.string().min(1, "La hora de fin es obligatoria.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
     observaciones: z.string().max(250, "Máximo 250 caracteres.").optional(),
     coordinador: z.string().min(1, "Seleccione un coordinador."),
+}).refine((data) => {
+    if (data.horaInicio && data.horaFin) {
+        return data.horaFin > data.horaInicio;
+    }
+    return true;
+}, {
+    message: "La hora de fin no puede ser anterior o igual a la hora de inicio.",
+    path: ["horaFin"],
 });
 
 type FormValues = z.infer<typeof formSchema>;

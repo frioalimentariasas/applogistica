@@ -113,28 +113,27 @@ const itemSchema = z.object({
           .min(0, "Debe ser un número no negativo.").optional()
     ),
   }).superRefine((data, ctx) => {
-    // This is where we check for required fields based on the value of 'paleta'
-    if (data.paleta === 0) { // This is a summary row
-        if (data.totalCantidad === undefined) {
+    if (Number(data.paleta) === 0) { // This is a summary row
+        if (data.totalCantidad === undefined || Number.isNaN(data.totalCantidad)) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El Total Cantidad es requerido.", path: ["totalCantidad"] });
         }
-        if (data.totalPaletas === undefined) {
+        if (data.totalPaletas === undefined || Number.isNaN(data.totalPaletas)) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El Total Paletas es requerido.", path: ["totalPaletas"] });
         }
-        if (data.totalPesoNeto === undefined) {
+        if (data.totalPesoNeto === undefined || Number.isNaN(data.totalPesoNeto)) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El Total Peso Neto es requerido.", path: ["totalPesoNeto"] });
         }
     } else { // This is an individual pallet row (or a new, empty row)
-        if (data.cantidadPorPaleta === undefined) {
+        if (data.cantidadPorPaleta === undefined || Number.isNaN(data.cantidadPorPaleta)) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La Cantidad Por Paleta es requerida.", path: ["cantidadPorPaleta"] });
         }
-        if (data.pesoBruto === undefined) {
+        if (data.pesoBruto === undefined || Number.isNaN(data.pesoBruto)) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El Peso Bruto es requerido.", path: ["pesoBruto"] });
         }
-        if (data.taraEstiba === undefined) {
+        if (data.taraEstiba === undefined || Number.isNaN(data.taraEstiba)) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La Tara Estiba es requerida.", path: ["taraEstiba"] });
         }
-        if (data.taraCaja === undefined) {
+        if (data.taraCaja === undefined || Number.isNaN(data.taraCaja)) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La Tara Caja es requerida.", path: ["taraCaja"] });
         }
     }
@@ -170,6 +169,14 @@ const formSchema = z.object({
     horaFin: z.string().min(1, "La hora de fin es obligatoria.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
     observaciones: z.string().max(250, "Máximo 250 caracteres.").optional(),
     coordinador: z.string().min(1, "Seleccione un coordinador."),
+}).refine((data) => {
+    if (data.horaInicio && data.horaFin) {
+        return data.horaFin > data.horaInicio;
+    }
+    return true;
+}, {
+    message: "La hora de fin no puede ser anterior o igual a la hora de inicio.",
+    path: ["horaFin"],
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -283,7 +290,6 @@ export default function VariableWeightFormComponent() {
 
     watchedItems.forEach((item, index) => {
       // The calculation should run for any row that is not a summary row (where paleta is 0).
-      // This includes rows where paleta is empty (NaN) or has a value > 0.
       if (item && Number(item?.paleta) !== 0) {
         const cantidad = Number(item.cantidadPorPaleta) || 0;
         const taraCaja = Number(item.taraCaja) || 0;

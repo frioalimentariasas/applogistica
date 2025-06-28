@@ -100,6 +100,14 @@ const formSchema = z.object({
   clienteRequiereTermoregistro: z.enum(["si", "no"], { required_error: "Seleccione una opción." }),
   observaciones: z.string().max(150, "Máximo 150 caracteres.").optional(),
   coordinador: z.string().min(1, "Seleccione un coordinador."),
+}).refine((data) => {
+    if (data.horaInicio && data.horaFin) {
+        return data.horaFin > data.horaInicio;
+    }
+    return true; // Don't validate if one is missing, other rules will catch that
+}, {
+    message: "La hora de fin no puede ser anterior o igual a la hora de inicio.",
+    path: ["horaFin"], // Specify the field that the error message should be displayed under
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -203,7 +211,7 @@ export default function FixedWeightFormComponent() {
   }, [productos]);
 
   const totalPaletas = useMemo(() => {
-    return (productos || []).reduce((acc, p) => acc + (Number(p.totalPaletas) || 0), 0);
+    return Math.floor((productos || []).reduce((acc, p) => acc + (Number(p.totalPaletas) || 0), 0));
   }, [productos]);
   
   const totalCantidadKg = useMemo(() => {
@@ -828,7 +836,7 @@ export default function FixedWeightFormComponent() {
                                 <FormField control={form.control} name={`productos.${index}.totalPaletas`} render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Total Paletas</FormLabel>
-                                        <FormControl><Input type="text" inputMode="numeric" min="1" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl>
+                                        <FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" min="1" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : parseInt(e.target.value, 10))} value={field.value == null || Number.isNaN(field.value) ? '' : String(field.value)} /></FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}/>
