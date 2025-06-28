@@ -65,7 +65,12 @@ const productSchema = z.object({
   codigo: z.string().optional(),
   descripcion: z.string().min(1, "La descripción es requerida."),
   cajas: z.coerce.number({required_error: "El No. de cajas es requerido.", invalid_type_error: "El No. de cajas es requerido."}).int().positive("El No. de Cajas debe ser mayor a 0."),
-  paletas: z.coerce.number({required_error: "El Total Paletas/Cantidad es requerido.", invalid_type_error: "El Total Paletas/Cantidad es requerido."}).positive("El Total Paletas/Cantidad debe ser un número positivo."),
+  totalPaletas: z.coerce.number({required_error: "El Total Paletas es requerido.", invalid_type_error: "El Total Paletas es requerido."}).positive("El Total Paletas debe ser un número positivo."),
+  cantidadKg: z.preprocess(
+      (val) => (val === "" || val === null || (typeof val === 'number' && Number.isNaN(val)) ? undefined : val),
+      z.coerce.number({ invalid_type_error: "Cantidad (KG) debe ser un número."})
+        .positive("Cantidad (KG) debe ser un número positivo.").optional()
+  ),
   temperatura: z.coerce.number({ required_error: "La temperatura es requerida.", invalid_type_error: "La temperatura es requerida." }).min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99."),
 });
 
@@ -198,7 +203,11 @@ export default function FixedWeightFormComponent() {
   }, [productos]);
 
   const totalPaletas = useMemo(() => {
-    return (productos || []).reduce((acc, p) => acc + (Number(p.paletas) || 0), 0);
+    return (productos || []).reduce((acc, p) => acc + (Number(p.totalPaletas) || 0), 0);
+  }, [productos]);
+  
+  const totalCantidadKg = useMemo(() => {
+      return (productos || []).reduce((acc, p) => acc + (Number(p.cantidadKg) || 0), 0);
   }, [productos]);
 
   const formIdentifier = `fixed-weight-${operation}`;
@@ -212,7 +221,7 @@ export default function FixedWeightFormComponent() {
     };
     fetchClients();
     if (!submissionId) {
-        form.reset({ ...originalDefaultValues, productos: [{ codigo: '', descripcion: '', cajas: NaN, paletas: NaN, temperatura: NaN }]});
+        form.reset({ ...originalDefaultValues, productos: [{ codigo: '', descripcion: '', cajas: NaN, totalPaletas: NaN, cantidadKg: NaN, temperatura: NaN }]});
     }
     window.scrollTo(0, 0);
   }, [submissionId, form]);
@@ -229,6 +238,16 @@ export default function FixedWeightFormComponent() {
         if (submission) {
           setOriginalSubmission(submission);
           const formData = submission.formData;
+          
+          // Handle backward compatibility for paletas -> totalPaletas
+          if (formData.productos && Array.isArray(formData.productos)) {
+            formData.productos = formData.productos.map((p: any) => ({
+              ...p,
+              totalPaletas: p.totalPaletas ?? p.paletas,
+              cantidadKg: p.cantidadKg, // Will be undefined/null for old forms
+            }));
+          }
+
           // Convert date string back to Date object for the form
           if (formData.fecha && typeof formData.fecha === 'string') {
             formData.fecha = new Date(formData.fecha);
@@ -569,7 +588,7 @@ export default function FixedWeightFormComponent() {
                   <FormField control={form.control} name="pedidoSislog" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Pedido SISLOG</FormLabel>
-                      <FormControl><Input placeholder="Máximo 10 dígitos" {...field} inputMode="numeric" pattern="[0-9]*" /></FormControl>
+                      <FormControl><Input placeholder="Máximo 10 dígitos" {...field} type="text" inputMode="numeric" pattern="[0-9]*" /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}/>
@@ -611,7 +630,7 @@ export default function FixedWeightFormComponent() {
                                                             setClientDialogOpen(false);
                                                             setClientSearch('');
                                                             
-                                                            form.setValue('productos', [{ codigo: '', descripcion: '', cajas: NaN, paletas: NaN, temperatura: NaN }]);
+                                                            form.setValue('productos', [{ codigo: '', descripcion: '', cajas: NaN, totalPaletas: NaN, cantidadKg: NaN, temperatura: NaN }]);
                                                             setArticulos([]);
                                                             setIsLoadingArticulos(true);
                                                             try {
@@ -798,7 +817,7 @@ export default function FixedWeightFormComponent() {
                                     </FormItem>
                                 )}/>
                             </div>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                                 <FormField control={form.control} name={`productos.${index}.cajas`} render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>No. de Cajas</FormLabel>
@@ -806,10 +825,17 @@ export default function FixedWeightFormComponent() {
                                         <FormMessage />
                                     </FormItem>
                                 )}/>
-                                <FormField control={form.control} name={`productos.${index}.paletas`} render={({ field }) => (
+                                <FormField control={form.control} name={`productos.${index}.totalPaletas`} render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Total Paletas/Cantidad</FormLabel>
+                                        <FormLabel>Total Paletas</FormLabel>
                                         <FormControl><Input type="text" inputMode="decimal" step="0.01" min="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}/>
+                                <FormField control={form.control} name={`productos.${index}.cantidadKg`} render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Cantidad (KG) (Opcional)</FormLabel>
+                                        <FormControl><Input type="text" inputMode="decimal" step="0.01" min="0" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}/>
@@ -824,21 +850,25 @@ export default function FixedWeightFormComponent() {
                         </div>
                     </div>
                 ))}
-                <Button type="button" variant="outline" onClick={() => append({ codigo: '', descripcion: '', cajas: NaN, paletas: NaN, temperatura: NaN })}>
+                <Button type="button" variant="outline" onClick={() => append({ codigo: '', descripcion: '', cajas: NaN, totalPaletas: NaN, cantidadKg: NaN, temperatura: NaN })}>
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Agregar Producto
                 </Button>
 
                 <Separator className="my-4" />
 
-                <div className="flex justify-end gap-6">
+                <div className="flex justify-end gap-6 flex-wrap">
                     <div className="flex items-center gap-2">
                         <span className="font-medium text-sm">Totales Cajas</span>
                         <Input className="w-28" disabled value={totalCajas} />
                     </div>
                     <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm">Totales Paletas/Cantidad</span>
+                        <span className="font-medium text-sm">Totales Paletas</span>
                         <Input className="w-28" disabled value={totalPaletas % 1 === 0 ? totalPaletas : totalPaletas.toFixed(2)} />
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm">Totales Cantidad (KG)</span>
+                        <Input className="w-28" disabled value={totalCantidadKg % 1 === 0 ? totalCantidadKg : totalCantidadKg.toFixed(2)} />
                     </div>
                 </div>
               </CardContent>
@@ -852,7 +882,7 @@ export default function FixedWeightFormComponent() {
                         <FormItem><FormLabel>Nombre Conductor</FormLabel><FormControl><Input placeholder="Nombre del conductor" {...field} /></FormControl><FormMessage /></FormItem>
                     )}/>
                     <FormField control={form.control} name="cedulaConductor" render={({ field }) => (
-                        <FormItem><FormLabel>Cédula Conductor</FormLabel><FormControl><Input placeholder="Cédula del conductor" {...field} inputMode="numeric" pattern="[0-9]*" /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Cédula Conductor</FormLabel><FormControl><Input placeholder="Cédula del conductor" {...field} type="text" inputMode="numeric" pattern="[0-9]*" /></FormControl><FormMessage /></FormItem>
                     )}/>
                     <FormField control={form.control} name="placa" render={({ field }) => (
                         <FormItem>

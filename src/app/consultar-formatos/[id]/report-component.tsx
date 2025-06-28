@@ -256,23 +256,43 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 });
                 yPos = (doc as any).autoTable.previous.finalY + 15;
     
-                const productHead = [['Código', 'Descripción', 'No. Cajas', 'Total Pal/Cant', 'Temp(°C)']];
-                const productBody = formData.productos.map((p: any) => [ p.codigo, p.descripcion, p.cajas, formatPaletas(p.paletas), p.temperatura ]);
+                const hasCantidadKg = formData.productos.some((p: any) => p.cantidadKg != null && !isNaN(Number(p.cantidadKg)) && Number(p.cantidadKg) > 0);
+
+                const productHead = [['Código', 'Descripción', 'No. Cajas', 'Total Paletas']];
+                if (hasCantidadKg) productHead[0].push('Cant. (KG)');
+                productHead[0].push('Temp(°C)');
+
+                const productBody = formData.productos.map((p: any) => {
+                    const row = [ p.codigo, p.descripcion, p.cajas, formatPaletas(p.totalPaletas ?? p.paletas) ];
+                    if (hasCantidadKg) {
+                        row.push(p.cantidadKg ? Number(p.cantidadKg).toFixed(2) : '');
+                    }
+                    row.push(p.temperatura);
+                    return row;
+                });
+                
                 const totalCajas = formData.productos.reduce((acc: any, p: any) => acc + (Number(p.cajas) || 0), 0);
-                const totalPaletas = formData.productos.reduce((acc: any, p: any) => acc + (Number(p.paletas) || 0), 0);
+                const totalPaletas = formData.productos.reduce((acc: any, p: any) => acc + (Number(p.totalPaletas ?? p.paletas) || 0), 0);
+                const totalCantidadKg = formData.productos.reduce((acc: any, p: any) => acc + (Number(p.cantidadKg) || 0), 0);
+
+                const footRow = [{ content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }, totalCajas, formatPaletas(totalPaletas)];
+                if (hasCantidadKg) {
+                    footRow.push(totalCantidadKg.toFixed(2));
+                }
+                footRow.push(''); // For temperature column
     
-                autoTable(doc, {
+                const productTableConfig = {
                     startY: yPos,
                     head: [
-                        [{ content: 'Características del Producto', colSpan: 5, styles: { halign: 'center' }}],
+                        [{ content: 'Características del Producto', colSpan: productHead[0].length, styles: { halign: 'center' }}],
                         productHead[0]
                     ],
                     body: productBody,
-                    foot: [[{ content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }, totalCajas, formatPaletas(totalPaletas), '']],
+                    foot: [footRow],
                     theme: 'grid',
                     footStyles: { fillColor: '#f1f5f9', fontStyle: 'bold', textColor: '#1a202c' },
                     styles: { fontSize: 8, cellPadding: 4 },
-                    didParseCell: (data) => {
+                    didParseCell: (data: any) => {
                         if (data.section === 'head') {
                             if (data.row.index === 0) { // Main title row
                                 data.cell.styles.fillColor = '#e2e8f0';
@@ -286,7 +306,15 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             }
                         }
                     },
-                });
+                };
+
+                // Check for space before rendering the table
+                const tableHeight = (doc as any).autoTable.calculateHeight(productTableConfig);
+                if (yPos + tableHeight > pageHeight - margin) {
+                    doc.addPage();
+                    yPos = margin;
+                }
+                autoTable(doc, { ...productTableConfig, startY: yPos });
                 yPos = (doc as any).autoTable.previous.finalY + 15;
     
                 autoTable(doc, {
@@ -355,53 +383,21 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
     
             } else if (formType.startsWith('variable-weight-')) {
                  const isReception = formType.includes('recepcion') || formType.includes('reception');
-                 const operationTerm = isReception ? 'Descargue' : 'Cargue';
+                 const operationTerm = isReception ? `H. Inicio ${'Descargue'}` : `Hora Inicio ${'Cargue'}`;
                  
-                 const generalDataBodyMultiCol = [
-                    [
-                        {content: 'Pedido SISLOG:', styles: {fontStyle: 'bold'}},
-                        formData.pedidoSislog || 'N/A',
-                        {content: 'Cliente:', styles: {fontStyle: 'bold'}},
-                        formData.cliente || 'N/A',
-                        {content: 'Fecha:', styles: {fontStyle: 'bold'}},
-                        formData.fecha ? format(new Date(formData.fecha), "dd/MM/yyyy") : 'N/A',
-                    ],
-                    [
-                        {content: 'Conductor:', styles: {fontStyle: 'bold'}},
-                        formData.conductor || 'N/A',
-                        {content: 'Cédula:', styles: {fontStyle: 'bold'}},
-                        formData.cedulaConductor || 'N/A',
-                        {content: 'Placa:', styles: {fontStyle: 'bold'}},
-                        formData.placa || 'N/A',
-                    ],
-                    [
-                        {content: 'Precinto:', styles: {fontStyle: 'bold'}},
-                        formData.precinto || 'N/A',
-                        {content: 'Set Point (°C):', styles: {fontStyle: 'bold'}},
-                        formData.setPoint || 'N/A',
-                        {content: 'Operario:', styles: {fontStyle: 'bold'}},
-                        userDisplayName || 'N/A',
-                    ],
-                    [
-                        {content: isReception ? `H. Inicio ${operationTerm}` : `Hora Inicio ${operationTerm}`, styles: {fontStyle: 'bold'}},
-                        formatTime12Hour(formData.horaInicio),
-                        {content: isReception ? `H. Fin ${operationTerm}` : `Hora Fin ${operationTerm}`, styles: {fontStyle: 'bold'}},
-                        formatTime12Hour(formData.horaFin),
-                        {content: '', styles: {}}, // Empty cell for alignment
-                        '',
-                    ]
-                ];
-
-                autoTable(doc, {
+                 autoTable(doc, {
                     startY: yPos,
                     head: [[{ content: `Datos de ${isReception ? 'Recepción' : 'Despacho'}`, colSpan: 6, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]],
-                    body: generalDataBodyMultiCol,
+                    body: [
+                        [{content: 'Pedido SISLOG:', styles: {fontStyle: 'bold'}}, formData.pedidoSislog || 'N/A', {content: 'Cliente:', styles: {fontStyle: 'bold'}}, formData.cliente || 'N/A', {content: 'Fecha:', styles: {fontStyle: 'bold'}}, formData.fecha ? format(new Date(formData.fecha), "dd/MM/yyyy") : 'N/A'],
+                        [{content: 'Conductor:', styles: {fontStyle: 'bold'}}, formData.conductor || 'N/A', {content: 'Cédula:', styles: {fontStyle: 'bold'}}, formData.cedulaConductor || 'N/A', {content: 'Placa:', styles: {fontStyle: 'bold'}}, formData.placa || 'N/A'],
+                        [{content: 'Precinto:', styles: {fontStyle: 'bold'}}, formData.precinto || 'N/A', {content: 'Set Point (°C):', styles: {fontStyle: 'bold'}}, formData.setPoint || 'N/A', {content: 'Operario:', styles: {fontStyle: 'bold'}}, userDisplayName || 'N/A'],
+                        [{content: isReception ? `H. Inicio ${'Descargue'}` : `Hora Inicio ${'Cargue'}`, styles: {fontStyle: 'bold'}}, formatTime12Hour(formData.horaInicio), {content: isReception ? `H. Fin ${'Descargue'}` : `Hora Fin ${'Cargue'}`, styles: {fontStyle: 'bold'}}, formatTime12Hour(formData.horaFin), {content: '', styles: {}}, '']
+                    ],
                     theme: 'grid',
                     styles: { fontSize: 8, cellPadding: 4, valign: 'middle' },
                     columnStyles: {
-                        0: { cellWidth: 'auto' }, 1: { cellWidth: '*' },
-                        2: { cellWidth: 'auto' }, 3: { cellWidth: '*' },
-                        4: { cellWidth: 'auto' }, 5: { cellWidth: '*' },
+                        0: { cellWidth: 'auto' }, 1: { cellWidth: '*' }, 2: { cellWidth: 'auto' }, 3: { cellWidth: '*' }, 4: { cellWidth: 'auto' }, 5: { cellWidth: '*' }
                     },
                 });
                 yPos = (doc as any).autoTable.previous.finalY + 15;
@@ -428,7 +424,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     }
                 }
                 
-                autoTable(doc, {
+                 const detailTableConfig = {
                     startY: yPos,
                     head: [
                         [{ content: `Detalle de ${isReception ? 'Recepción' : 'Despacho'}`, colSpan: detailColSpan, styles: { halign: 'center' } }],
@@ -437,7 +433,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     body: detailBody,
                     theme: 'grid',
                     styles: { fontSize: 7, cellPadding: 3 },
-                    didParseCell: (data) => {
+                    didParseCell: (data: any) => {
                         if (data.section === 'head') {
                             if (data.row.index === 0) {
                                 data.cell.styles.fillColor = '#e2e8f0';
@@ -450,7 +446,9 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             }
                         }
                     }
-                });
+                };
+                if (yPos + (doc as any).autoTable.calculateHeight(detailTableConfig) > pageHeight - margin) { doc.addPage(); yPos = margin; }
+                autoTable(doc, { ...detailTableConfig, startY: yPos });
                 yPos = (doc as any).autoTable.previous.finalY + 15;
                 
                 if (formData.summary?.length > 0) {
@@ -459,7 +457,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     const totalPeso = formData.summary.reduce((acc: any, p: any) => acc + (p.totalPeso || 0), 0);
                     const totalCantidad = formData.summary.reduce((acc: any, p: any) => acc + (p.totalCantidad || 0), 0);
 
-                    autoTable(doc, {
+                    const summaryTableConfig = {
                         startY: yPos,
                         head: [
                             [{ content: 'Resumen de Productos', colSpan: 4, styles: { halign: 'center' }}],
@@ -470,7 +468,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         theme: 'grid',
                         footStyles: { fillColor: '#f1f5f9', fontStyle: 'bold', textColor: '#1a202c' },
                         styles: { fontSize: 8, cellPadding: 4 },
-                        didParseCell: (data) => {
+                        didParseCell: (data: any) => {
                             if (data.section === 'head') {
                                 if (data.row.index === 0) {
                                     data.cell.styles.fillColor = '#e2e8f0';
@@ -483,7 +481,9 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                                 }
                             }
                         }
-                    });
+                    };
+                    if (yPos + (doc as any).autoTable.calculateHeight(summaryTableConfig) > pageHeight - margin) { doc.addPage(); yPos = margin; }
+                    autoTable(doc, { ...summaryTableConfig, startY: yPos });
                     yPos = (doc as any).autoTable.previous.finalY + 15;
                 }
 
@@ -514,12 +514,12 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
             }
     
             if (base64Images.length > 0) {
-                const titleHeightEstimate = 30; // A safe estimate for the title bar
+                const titleHeightEstimate = 30;
                 const firstImgData = base64Images[0];
                 const imgWidth = (pageWidth - margin * 3) / 2;
                 const aspectRatio = firstImgData.height / firstImgData.width;
                 const imgHeight = imgWidth * aspectRatio;
-                const firstImageRowHeight = imgHeight + 20; // image + caption
+                const firstImageRowHeight = imgHeight + 20;
 
                 // Check if there is enough space for the title and the first row of images
                 if (yPos + titleHeightEstimate + firstImageRowHeight > pageHeight - margin) {
