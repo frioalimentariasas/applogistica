@@ -371,7 +371,7 @@ export default function VariableWeightFormComponent() {
     append({
         paleta: NaN,
         descripcion: lastItem?.descripcion || '',
-        lote: '',
+        lote: lastItem?.lote || '',
         presentacion: lastItem?.presentacion || '',
         cantidadPorPaleta: lastItem?.cantidadPorPaleta || NaN,
         pesoBruto: NaN,
