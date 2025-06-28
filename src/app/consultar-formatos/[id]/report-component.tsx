@@ -17,6 +17,7 @@ import { ReportLayout } from '@/components/app/reports/ReportLayout';
 import { FixedWeightReport } from '@/components/app/reports/FixedWeightReport';
 import { VariableWeightDispatchReport } from '@/components/app/reports/VariableWeightDispatchReport';
 import { VariableWeightReceptionReport } from '@/components/app/reports/VariableWeightReceptionReport';
+import { optimizeImage } from '@/lib/image-optimizer';
 
 
 interface ReportComponentProps {
@@ -93,14 +94,19 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 const [logoData, ...attachmentDataURIs] = await Promise.all([logoPromise, ...attachmentPromises]);
                 
                 if (logoData) {
-                    const dims = await getImageWithDimensions(logoData);
+                    const optimizedLogo = await optimizeImage(logoData);
+                    const dims = await getImageWithDimensions(optimizedLogo);
                     setLogoDimensions({ width: dims.width, height: dims.height });
+                    setLogoBase64(optimizedLogo);
+                } else {
+                    setLogoBase64(logoData);
                 }
-                setLogoBase64(logoData);
 
                 const validAttachmentURIs = attachmentDataURIs.filter(img => img && !img.startsWith('data:image/gif'));
                 
-                const imageDimensionPromises = validAttachmentURIs.map(getImageWithDimensions);
+                const optimizedAttachments = await Promise.all(validAttachmentURIs.map(uri => optimizeImage(uri)));
+                
+                const imageDimensionPromises = optimizedAttachments.map(getImageWithDimensions);
                 const imagesWithDimensions = await Promise.all(imageDimensionPromises);
 
                 setBase64Images(imagesWithDimensions);

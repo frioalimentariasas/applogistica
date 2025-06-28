@@ -1,8 +1,8 @@
 'use client';
 
-const MAX_SIZE_MB = 1;
+const MAX_SIZE_MB = 0.4;
 const MAX_SIZE_BYTES = MAX_SIZE_MB * 1024 * 1024;
-const MAX_DIMENSION = 1920; // Max width or height
+const MAX_DIMENSION = 1024; // Max width or height
 
 // Helper to get byte size from base64 string.
 // This is an approximation.
