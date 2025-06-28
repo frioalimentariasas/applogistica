@@ -62,35 +62,59 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 
 
 const itemSchema = z.object({
-  paleta: z.coerce.number({
-    required_error: "La Paleta es requerida.",
-    invalid_type_error: "La Paleta es requerida.",
-  }).int().min(0, "Debe ser un número no negativo."),
+  paleta: z.preprocess(
+    (val) => (val === "" ? undefined : val),
+    z.coerce.number({
+        required_error: "La paleta es requerida.",
+        invalid_type_error: "La paleta debe ser un número.",
+    }).int({ message: "La paleta debe ser un número entero." }).min(0, "Debe ser un número no negativo.")
+  ),
   descripcion: z.string().min(1, "La descripción es requerida."),
   lote: z.string().max(15, "Máximo 15 caracteres").optional(),
   presentacion: z.string().min(1, "Seleccione una presentación."),
   // Conditional fields
-  cantidadPorPaleta: z.coerce.number().int().min(0, "Debe ser un número no negativo.").optional(),
-  pesoNeto: z.coerce.number().min(0, "Debe ser un número no negativo.").optional(),
-  totalCantidad: z.coerce.number().int().min(0, "Debe ser un número no negativo.").optional(),
-  totalPaletas: z.coerce.number().min(0, "Debe ser un número no negativo.").optional(),
-  totalPesoNeto: z.coerce.number().min(0, "Debe ser un número no negativo.").optional(),
+  cantidadPorPaleta: z.preprocess(
+      (val) => (val === "" ? undefined : val),
+      z.coerce.number({ invalid_type_error: "La cantidad debe ser un número." })
+        .int({ message: "La cantidad debe ser un número entero." }).min(0, "Debe ser un número no negativo.").optional()
+  ),
+  pesoNeto: z.preprocess(
+      (val) => (val === "" ? undefined : val),
+      z.coerce.number({ invalid_type_error: "El peso neto debe ser un número." })
+        .min(0, "Debe ser un número no negativo.").optional()
+  ),
+  totalCantidad: z.preprocess(
+      (val) => (val === "" ? undefined : val),
+      z.coerce.number({ invalid_type_error: "El total de cantidad debe ser un número." })
+        .int({ message: "El total de cantidad debe ser un número entero." }).min(0, "Debe ser un número no negativo.").optional()
+  ),
+  totalPaletas: z.preprocess(
+      (val) => (val === "" ? undefined : val),
+      z.coerce.number({ invalid_type_error: "El total de paletas debe ser un número." })
+        .min(0, "Debe ser un número no negativo.").optional()
+  ),
+  totalPesoNeto: z.preprocess(
+      (val) => (val === "" ? undefined : val),
+      z.coerce.number({ invalid_type_error: "El total de peso neto debe ser un número." })
+        .min(0, "Debe ser un número no negativo.").optional()
+  ),
 }).superRefine((data, ctx) => {
-    if (data.paleta > 0) {
-        if (data.cantidadPorPaleta === undefined || data.cantidadPorPaleta === null || isNaN(data.cantidadPorPaleta)) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La cantidad es requerida.", path: ["cantidadPorPaleta"] });
+    // This is where we check for required fields based on the value of 'paleta'
+    if (data.paleta !== undefined && data.paleta > 0) {
+        if (data.cantidadPorPaleta === undefined) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La cantidad por paleta es requerida.", path: ["cantidadPorPaleta"] });
         }
-        if (data.pesoNeto === undefined || data.pesoNeto === null || isNaN(data.pesoNeto)) {
+        if (data.pesoNeto === undefined) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El peso neto es requerido.", path: ["pesoNeto"] });
         }
     } else if (data.paleta === 0) {
-        if (data.totalCantidad === undefined || data.totalCantidad === null || isNaN(data.totalCantidad)) {
+        if (data.totalCantidad === undefined) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El total de cantidad es requerido.", path: ["totalCantidad"] });
         }
-        if (data.totalPaletas === undefined || data.totalPaletas === null || isNaN(data.totalPaletas)) {
+        if (data.totalPaletas === undefined) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El total de paletas es requerido.", path: ["totalPaletas"] });
         }
-        if (data.totalPesoNeto === undefined || data.totalPesoNeto === null || isNaN(data.totalPesoNeto)) {
+        if (data.totalPesoNeto === undefined) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El total de peso neto es requerido.", path: ["totalPesoNeto"] });
         }
     }
