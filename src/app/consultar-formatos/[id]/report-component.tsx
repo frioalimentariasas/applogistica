@@ -259,7 +259,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 const hasCantidadKg = formData.productos.some((p: any) => p.cantidadKg != null && !isNaN(Number(p.cantidadKg)) && Number(p.cantidadKg) > 0);
 
                 const productHead = [['Código', 'Descripción', 'No. Cajas', 'Total Paletas']];
-                if (hasCantidadKg) productHead[0].push('Cant. (KG)');
+                if (hasCantidadKg) productHead[0].push('Cant. (kg)');
                 productHead[0].push('Temp(°C)');
 
                 const productBody = formData.productos.map((p: any) => {
@@ -648,3 +648,5 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
         </div>
     );
 }
+
+    

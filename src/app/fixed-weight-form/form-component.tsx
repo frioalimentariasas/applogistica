@@ -68,8 +68,8 @@ const productSchema = z.object({
   totalPaletas: z.coerce.number({required_error: "El Total Paletas es requerido.", invalid_type_error: "El Total Paletas es requerido."}).positive("El Total Paletas debe ser un número positivo."),
   cantidadKg: z.preprocess(
       (val) => (val === "" || val === null || (typeof val === 'number' && Number.isNaN(val)) ? undefined : val),
-      z.coerce.number({ invalid_type_error: "Cantidad (KG) debe ser un número."})
-        .positive("Cantidad (KG) debe ser un número positivo.").optional()
+      z.coerce.number({ invalid_type_error: "Cantidad (kg) debe ser un número."})
+        .positive("Cantidad (kg) debe ser un número positivo.").optional()
   ),
   temperatura: z.coerce.number({ required_error: "La temperatura es requerida.", invalid_type_error: "La temperatura es requerida." }).min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99."),
 });
@@ -834,7 +834,7 @@ export default function FixedWeightFormComponent() {
                                 )}/>
                                 <FormField control={form.control} name={`productos.${index}.cantidadKg`} render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Cantidad (KG) (Opcional)</FormLabel>
+                                        <FormLabel>Cantidad (kg) (Opcional)</FormLabel>
                                         <FormControl><Input type="text" inputMode="decimal" step="0.01" min="0" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -867,7 +867,7 @@ export default function FixedWeightFormComponent() {
                         <Input className="w-28" disabled value={totalPaletas % 1 === 0 ? totalPaletas : totalPaletas.toFixed(2)} />
                     </div>
                     <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm">Totales Cantidad (KG)</span>
+                        <span className="font-medium text-sm">Totales Cantidad (kg)</span>
                         <Input className="w-28" disabled value={totalCantidadKg % 1 === 0 ? totalCantidadKg : totalCantidadKg.toFixed(2)} />
                     </div>
                 </div>
@@ -1064,3 +1064,5 @@ export default function FixedWeightFormComponent() {
     </div>
   );
 }
+
+    

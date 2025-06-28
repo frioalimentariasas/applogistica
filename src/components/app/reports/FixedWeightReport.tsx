@@ -98,7 +98,7 @@ export function FixedWeightReport({ formData, userDisplayName, attachments, form
                             <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Descripción</th>
                             <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>No. Cajas</th>
                             <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Paletas</th>
-                            {hasCantidadKg && <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Cant. (KG)</th>}
+                            {hasCantidadKg && <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Cant. (kg)</th>}
                             <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Temp(°C)</th>
                         </tr>
                     </thead>
@@ -187,3 +187,5 @@ export function FixedWeightReport({ formData, userDisplayName, attachments, form
         </>
     );
 }
+
+    
