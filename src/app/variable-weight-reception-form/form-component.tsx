@@ -269,10 +269,10 @@ export default function VariableWeightReceptionFormComponent() {
         descripcion: lastItem?.descripcion || '',
         lote: lastItem?.lote || '',
         presentacion: lastItem?.presentacion || '',
-        cantidadPorPaleta: NaN,
+        cantidadPorPaleta: lastItem?.cantidadPorPaleta || NaN,
         pesoBruto: NaN,
         taraEstiba: NaN,
-        taraCaja: NaN,
+        taraCaja: lastItem?.taraCaja || NaN,
         totalTaraCaja: NaN,
         pesoNeto: NaN,
     });

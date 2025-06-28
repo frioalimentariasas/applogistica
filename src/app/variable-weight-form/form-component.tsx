@@ -256,7 +256,7 @@ export default function VariableWeightFormComponent() {
         descripcion: lastItem?.descripcion || '',
         lote: lastItem?.lote || '',
         presentacion: lastItem?.presentacion || '',
-        cantidadPorPaleta: NaN,
+        cantidadPorPaleta: lastItem?.cantidadPorPaleta || NaN,
         pesoNeto: NaN
     });
   };
