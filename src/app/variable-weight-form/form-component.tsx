@@ -105,8 +105,7 @@ const itemSchema = z.object({
     totalPaletas: z.preprocess(
         (val) => (val === "" || (typeof val === 'number' && Number.isNaN(val)) ? undefined : val),
         z.coerce.number({ invalid_type_error: "El total de paletas debe ser un número." })
-          .int({ message: "El total de paletas debe ser un número entero." })
-          .min(0, "Debe ser un número no negativo.").optional()
+          .int("El Total Paletas debe ser un número entero.").min(0, "Debe ser un número no negativo.").optional()
     ),
     totalPesoNeto: z.preprocess(
         (val) => (val === "" || (typeof val === 'number' && Number.isNaN(val)) ? undefined : val),
@@ -266,6 +265,8 @@ export default function VariableWeightFormComponent() {
     resolver: zodResolver(formSchema),
     defaultValues: originalDefaultValues,
   });
+  
+  const { setValue } = form;
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
@@ -283,24 +284,27 @@ export default function VariableWeightFormComponent() {
     if (!watchedItems) return;
 
     watchedItems.forEach((item, index) => {
-      if (item && item.paleta !== undefined && item.paleta > 0) {
-        const cantidadPorPaleta = Number(item.cantidadPorPaleta) || 0;
+      // Only perform calculations for individual pallet rows
+      if (item && typeof item.paleta === 'number' && item.paleta > 0) {
+        
+        const cantidad = Number(item.cantidadPorPaleta) || 0;
         const taraCaja = Number(item.taraCaja) || 0;
         const pesoBruto = Number(item.pesoBruto) || 0;
         const taraEstiba = Number(item.taraEstiba) || 0;
 
-        const calculatedTotalTaraCaja = cantidadPorPaleta * taraCaja;
-        const calculatedPesoNeto = pesoBruto - taraEstiba - calculatedTotalTaraCaja;
-      
-        if (item.totalTaraCaja !== calculatedTotalTaraCaja) {
-            form.setValue(`items.${index}.totalTaraCaja`, calculatedTotalTaraCaja, { shouldValidate: false });
+        const newTotalTaraCaja = cantidad * taraCaja;
+        const newPesoNeto = pesoBruto - taraEstiba - newTotalTaraCaja;
+
+        // Check if update is needed to avoid infinite loops
+        if (item.totalTaraCaja !== newTotalTaraCaja) {
+          setValue(`items.${index}.totalTaraCaja`, newTotalTaraCaja, { shouldValidate: false });
         }
-        if (item.pesoNeto !== calculatedPesoNeto) {
-            form.setValue(`items.${index}.pesoNeto`, calculatedPesoNeto, { shouldValidate: false });
+        if (item.pesoNeto !== newPesoNeto) {
+          setValue(`items.${index}.pesoNeto`, newPesoNeto, { shouldValidate: false });
         }
       }
     });
-  }, [watchedItems, form]);
+  }, [watchedItems, setValue]);
 
 
   const showTotalPaletasInSummary = useMemo(() => {
@@ -992,7 +996,7 @@ export default function VariableWeightFormComponent() {
                                             <FormItem><FormLabel>Total Cantidad</FormLabel><FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl><FormMessage /></FormItem>
                                         )}/>
                                         <FormField control={form.control} name={`items.${index}.totalPaletas`} render={({ field }) => (
-                                            <FormItem><FormLabel>Total Paletas</FormLabel><FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl><FormMessage /></FormItem>
+                                            <FormItem><FormLabel>Total Paletas</FormLabel><FormControl><Input type="text" inputMode="numeric" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl><FormMessage /></FormItem>
                                         )}/>
                                         <FormField control={form.control} name={`items.${index}.totalPesoNeto`} render={({ field }) => (
                                             <FormItem><FormLabel>Total Peso Neto (kg)</FormLabel><FormControl><Input type="text" inputMode="decimal" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl><FormMessage /></FormItem>
