@@ -41,11 +41,8 @@ const ReportField = ({ label, value }: { label: string, value: any }) => (
 
 const formatPaletas = (num: any): string => {
     const number = Number(num);
-    if (num === null || num === undefined || isNaN(number)) return '0.00';
-    if (number % 1 === 0) {
-        return number.toString();
-    }
-    return number.toFixed(2);
+    if (num === null || num === undefined || isNaN(number)) return '0';
+    return String(Math.floor(number));
 };
 
 interface FixedWeightReportProps {
