@@ -96,11 +96,13 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                     dailyData.fixedWeightOut += paletasOut;
                     break;
                 case 'variable-weight-recepcion':
-                    const itemsIn = (submission.formData.summary || []).reduce((sum: number, s: any) => sum + (Number(s.totalCantidad) || 0), 0);
+                    // User wants to count the number of line items, not sum the quantities.
+                    const itemsIn = (submission.formData.items || []).length;
                     dailyData.variableWeightIn += itemsIn;
                     break;
                 case 'variable-weight-despacho':
-                    const itemsOut = (submission.formData.summary || []).reduce((sum: number, s: any) => sum + (Number(s.totalCantidad) || 0), 0);
+                    // Per user request, this is also the count of items for consistency.
+                    const itemsOut = (submission.formData.items || []).length;
                     dailyData.variableWeightOut += itemsOut;
                     break;
             }
