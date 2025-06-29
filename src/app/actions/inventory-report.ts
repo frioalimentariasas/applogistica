@@ -142,9 +142,20 @@ export async function getInventoryReport(
 
         snapshot.docs.forEach(doc => {
             const inventoryDay = doc.data();
+
+            // Defensive check to prevent crashes on malformed documents.
+            if (!inventoryDay || !Array.isArray(inventoryDay.data)) {
+                console.warn(`Documento de inventario con formato incorrecto omitido: ${doc.id}`);
+                return; // Skip this document and continue with the next one.
+            }
+
             const dailyData = inventoryDay.data as InventoryRow[];
             
-            const clientData = dailyData.filter(row => row.PROPIETARIO === criteria.clientName);
+            // Filter by client, trimming whitespace for robustness.
+            const clientData = dailyData.filter(row => 
+                row && typeof row.PROPIETARIO === 'string' && row.PROPIETARIO.trim() === criteria.clientName
+            );
+            
             const uniquePallets = new Set(clientData.map(row => row.PALETA));
             
             results.push({
