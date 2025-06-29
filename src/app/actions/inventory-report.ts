@@ -63,13 +63,20 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
         });
 
         const docRef = firestore.collection('dailyInventories').doc(reportDateStr);
+        const docSnapshot = await docRef.get();
+        const isUpdate = docSnapshot.exists;
+
         await docRef.set({
             date: reportDateStr,
             data: serializableData,
             uploadedAt: new Date().toISOString(),
         }, { merge: true }); // Use merge to upsert the data
         
-        return { success: true, message: `Inventario del ${reportDateStr} cargado y guardado correctamente.` };
+        const message = isUpdate
+            ? `El inventario para la fecha ${reportDateStr} ha sido actualizado correctamente.`
+            : `Inventario del ${reportDateStr} cargado y guardado correctamente.`;
+        
+        return { success: true, message };
 
     } catch (error) {
         console.error('Error procesando el archivo de inventario:', error);
