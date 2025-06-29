@@ -190,13 +190,22 @@ export async function getInventoryReport(
             }
         });
         
-        // Sort directly by the date string, which is safe for 'YYYY-MM-DD' format.
-        results.sort((a, b) => a.date.localeCompare(b.date));
+        // Defensive sorting: directly by the date string, which is safe for 'YYYY-MM-DD' format.
+        results.sort((a, b) => {
+            if (typeof a?.date !== 'string' || typeof b?.date !== 'string') {
+                return 0; // Don't sort if dates are not valid strings
+            }
+            return a.date.localeCompare(b.date);
+        });
         
         return results;
 
     } catch (error) {
         console.error('Error generando el reporte de inventario:', error);
+        if (error instanceof Error) {
+            // Re-throw the specific error message to the client for better debugging.
+            throw new Error(error.message);
+        }
         throw new Error('No se pudo generar el reporte de inventario.');
     }
 }
