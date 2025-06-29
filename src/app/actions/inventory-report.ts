@@ -141,27 +141,33 @@ export async function getInventoryReport(
         const results: { date: string; palletCount: number; }[] = [];
 
         snapshot.docs.forEach(doc => {
-            const inventoryDay = doc.data();
+            try {
+                const inventoryDay = doc.data();
 
-            // Defensive check to prevent crashes on malformed documents.
-            if (!inventoryDay || !Array.isArray(inventoryDay.data)) {
-                console.warn(`Documento de inventario con formato incorrecto omitido: ${doc.id}`);
-                return; // Skip this document and continue with the next one.
+                // Defensive check to prevent crashes on malformed documents.
+                if (!inventoryDay || !Array.isArray(inventoryDay.data) || typeof inventoryDay.date !== 'string') {
+                    console.warn(`Documento de inventario con formato incorrecto o fecha faltante, omitido: ${doc.id}`);
+                    return; // Skip this document
+                }
+
+                const dailyData = inventoryDay.data as InventoryRow[];
+                
+                // Filter by client, trimming whitespace for robustness.
+                const clientData = dailyData.filter(row => 
+                    row && typeof row.PROPIETARIO === 'string' && row.PROPIETARIO.trim() === criteria.clientName
+                );
+                
+                const uniquePallets = new Set(clientData.map(row => row.PALETA));
+                
+                results.push({
+                    date: inventoryDay.date,
+                    palletCount: uniquePallets.size,
+                });
+
+            } catch (innerError) {
+                console.error(`Error procesando el documento de inventario ${doc.id}:`, innerError);
+                // Continue to the next document, allowing the report to be partially generated.
             }
-
-            const dailyData = inventoryDay.data as InventoryRow[];
-            
-            // Filter by client, trimming whitespace for robustness.
-            const clientData = dailyData.filter(row => 
-                row && typeof row.PROPIETARIO === 'string' && row.PROPIETARIO.trim() === criteria.clientName
-            );
-            
-            const uniquePallets = new Set(clientData.map(row => row.PALETA));
-            
-            results.push({
-                date: inventoryDay.date,
-                palletCount: uniquePallets.size,
-            });
         });
         
         results.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
