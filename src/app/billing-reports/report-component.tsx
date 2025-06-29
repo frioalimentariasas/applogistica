@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { DateRange } from 'react-day-picker';
 import { format } from 'date-fns';
@@ -61,6 +61,27 @@ const EmptyState = ({ searched }: { searched: boolean }) => (
     </TableRow>
 );
 
+const getImageAsBase64Client = async (url: string): Promise<string> => {
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+        }
+        const blob = await response.blob();
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onerror = reject;
+            reader.onload = () => {
+                resolve(reader.result as string);
+            };
+            reader.readAsDataURL(blob);
+        });
+    } catch(e) {
+        console.error("Error fetching client image", e);
+        return ""; // Return empty string on failure
+    }
+};
+
 
 export default function BillingReportComponent({ clients }: { clients: ClientInfo[] }) {
     const router = useRouter();
@@ -75,6 +96,20 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     // For client dialog
     const [isClientDialogOpen, setClientDialogOpen] = useState(false);
     const [clientSearch, setClientSearch] = useState('');
+
+    const [logoBase64, setLogoBase64] = useState<string | null>(null);
+    const [isLogoLoading, setIsLogoLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchLogo = async () => {
+            setIsLogoLoading(true);
+            const logoUrl = new URL('/images/company-logo.png', window.location.origin).href;
+            const data = await getImageAsBase64Client(logoUrl);
+            setLogoBase64(data);
+            setIsLogoLoading(false);
+        };
+        fetchLogo();
+    }, []);
 
     const filteredClients = useMemo(() => {
         if (!clientSearch) return clients;
@@ -151,16 +186,43 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     };
 
     const handleExportPDF = () => {
-        if (!selectedClient || reportData.length === 0) return;
+        if (!selectedClient || reportData.length === 0 || !logoBase64) return;
         
         const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
         
-        doc.text(`Informe de Facturación para: ${selectedClient}`, 14, 16);
+        // Add logo
+        const logoWidth = 70;
+        const logoHeight = 35; 
+        const logoX = (pageWidth - logoWidth) / 2;
+        const logoY = 15;
+        doc.addImage(logoBase64, 'PNG', logoX, logoY, logoWidth, logoHeight);
+
+        // Add company info below logo
+        const textY = logoY + logoHeight + 10;
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'bold');
+        doc.text('FRIO ALIMENTARIA SAS', pageWidth / 2, textY, { align: 'center' });
+        
         doc.setFontSize(10);
-        doc.text(`Periodo: ${format(dateRange!.from!, 'dd/MM/yyyy')} - ${format(dateRange!.to!, 'dd/MM/yyyy')}`, 14, 22);
+        doc.setFont('helvetica', 'normal');
+        doc.text('NIT: 900736914-0', pageWidth / 2, textY + 6, { align: 'center' });
+        
+        // Add report title and period below company info
+        const titleY = textY + 16;
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`Informe de Facturación`, pageWidth / 2, titleY, { align: 'center' });
+        
+        const clientY = titleY + 8;
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Cliente: ${selectedClient}`, 14, clientY);
+        doc.text(`Periodo: ${format(dateRange!.from!, 'dd/MM/yyyy')} - ${format(dateRange!.to!, 'dd/MM/yyyy')}`, pageWidth - 14, clientY, { align: 'right' });
+
 
         autoTable(doc, {
-            startY: 30,
+            startY: clientY + 10,
             head: [['Fecha', 'Cliente', 'Paletas Recibidas', 'Paletas Despachadas']],
             body: reportData.map(row => [
                 format(new Date(row.date.replace(/-/g, '/')), 'dd/MM/yyyy'),
@@ -323,8 +385,9 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                 <Button onClick={handleExportExcel} disabled={isLoading || reportData.length === 0} variant="outline">
                                     <File className="mr-2 h-4 w-4" /> Exportar a Excel
                                 </Button>
-                                <Button onClick={handleExportPDF} disabled={isLoading || reportData.length === 0} variant="outline">
-                                    <FileDown className="mr-2 h-4 w-4" /> Exportar a PDF
+                                <Button onClick={handleExportPDF} disabled={isLoading || reportData.length === 0 || isLogoLoading} variant="outline">
+                                    {isLogoLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />}
+                                    Exportar a PDF
                                 </Button>
                             </div>
                         </div>
