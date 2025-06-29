@@ -444,9 +444,9 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const doc = new jsPDF({ orientation: 'landscape' });
         const pageWidth = doc.internal.pageSize.getWidth();
         const margin = 14;
+        const availableWidth = pageWidth - margin * 2;
 
-        // 1. Reduce logo size by 50% and reposition header
-        const logoWidth = 35; // 50% reduction from 70
+        const logoWidth = 35;
         const aspectRatio = logoDimensions.width / logoDimensions.height;
         const logoHeight = logoWidth / aspectRatio;
         const logoY = 15;
@@ -471,10 +471,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         doc.setFontSize(9);
         doc.setFont('helvetica', 'normal');
         
-        let clientText = inventoryClients.length > 0
-            ? `Cliente(s): ${inventoryClients.join(', ')}`
-            : "Todos los clientes";
-            
+        let clientText = inventoryClients.length > 0 ? `Cliente(s): ${inventoryClients.join(', ')}` : "Todos los clientes";
         const maxClientTextWidth = pageWidth / 2 - margin;
         clientText = doc.splitTextToSize(clientText, maxClientTextWidth)[0];
 
@@ -494,6 +491,39 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             });
             return rowData;
         });
+
+        const headStyles = {
+            fillColor: [33, 150, 243],
+            textColor: 255,
+            fontStyle: 'bold' as const,
+            halign: 'center' as const,
+            fontSize: 6,
+        };
+        
+        doc.setFontSize(headStyles.fontSize);
+        doc.setFont('helvetica', headStyles.fontStyle);
+
+        const PADDING = 4;
+        const dateHeaderWidth = doc.getTextWidth(head[0][0]) + PADDING * 2;
+        const clientHeaderWidths = clientHeaders.map(header => doc.getTextWidth(header) + PADDING * 2);
+        const totalContentWidth = dateHeaderWidth + clientHeaderWidths.reduce((a, b) => a + b, 0);
+
+        const columnStyles: { [key: number]: { cellWidth?: number | 'auto', halign?: 'left' | 'right' } } = {
+            0: { halign: 'left' }
+        };
+
+        if (totalContentWidth < availableWidth) {
+            columnStyles[0].cellWidth = dateHeaderWidth;
+            clientHeaderWidths.forEach((width, index) => {
+                columnStyles[index + 1] = { cellWidth: width, halign: 'right' };
+            });
+        } else {
+            const scaleFactor = availableWidth / totalContentWidth;
+            columnStyles[0].cellWidth = dateHeaderWidth * scaleFactor;
+            clientHeaderWidths.forEach((width, index) => {
+                columnStyles[index + 1] = { cellWidth: width * scaleFactor, halign: 'right' };
+            });
+        }
     
         autoTable(doc, {
             startY: infoY + 2,
@@ -505,16 +535,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 cellPadding: 1,
                 overflow: 'ellipsize',
             },
-            headStyles: {
-                fillColor: [33, 150, 243],
-                textColor: 255,
-                fontStyle: 'bold',
-                halign: 'center',
-                fontSize: 6,
-            },
-            columnStyles: {
-                0: { halign: 'left', cellWidth: 20 },
-            }
+            headStyles: headStyles,
+            columnStyles: columnStyles,
         });
     
         const fileName = `Reporte_Inventario_Acumulado_${format(inventoryDateRange!.from!, 'yyyy-MM-dd')}_a_${format(inventoryDateRange!.to!, 'yyyy-MM-dd')}.pdf`;
