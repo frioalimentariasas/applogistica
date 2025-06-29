@@ -1,6 +1,7 @@
 
 'use server';
 
+import admin from 'firebase-admin';
 import { firestore } from '@/lib/firebase-admin';
 import * as xlsx from 'xlsx';
 import { format, parse } from 'date-fns';
@@ -49,7 +50,7 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
         const requiredColumns = [
             'FECHA', 'FECHAENT', 'FECHASAL', 'PROPIETARIO', 'COD_PROPIE', 'PALETA',
             'SI', 'ARTICUL', 'VAR', 'VA', 'VARLOG', 'DENOMINACION', 'PAS', 'COLUMNA',
-            'ALTURA', 'SE', 'CAJAS', 'CANTIDAD', 'LOTE', 'CONTENEDOR', 'FECHACAD'
+            'ALTURA', 'SE', 'CAJAS', '(', 'CANTIDAD', 'LOTE', 'CONTENEDOR', 'FECHACAD'
         ];
         const actualColumns = Object.keys(firstRow);
         
@@ -143,8 +144,8 @@ export async function getInventoryReport(
 
     try {
         const snapshot = await firestore.collection('dailyInventories')
-            .where(firestore.FieldPath.documentId(), '>=', criteria.startDate)
-            .where(firestore.FieldPath.documentId(), '<=', criteria.endDate)
+            .where(admin.firestore.FieldPath.documentId(), '>=', criteria.startDate)
+            .where(admin.firestore.FieldPath.documentId(), '<=', criteria.endDate)
             .get();
 
         if (snapshot.empty) {
