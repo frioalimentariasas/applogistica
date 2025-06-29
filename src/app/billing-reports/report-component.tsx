@@ -6,6 +6,9 @@ import { useRouter } from 'next/navigation';
 import { DateRange } from 'react-day-picker';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
+import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
+import * as XLSX from 'xlsx';
 
 import { getBillingReport, DailyReportData } from '@/app/actions/billing-report';
 import type { ClientInfo } from '@/app/actions/clients';
@@ -20,7 +23,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, ChevronsUpDown, BarChart2, BookCopy } from 'lucide-react';
+import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, ChevronsUpDown, BarChart2, BookCopy, FileDown, File } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 
@@ -30,6 +33,7 @@ const ResultsSkeleton = () => (
     {Array.from({ length: 3 }).map((_, index) => (
       <TableRow key={index}>
         <TableCell><Skeleton className="h-5 w-[100px] rounded-md" /></TableCell>
+        <TableCell><Skeleton className="h-5 w-[150px] rounded-md" /></TableCell>
         <TableCell className="text-right"><Skeleton className="h-5 w-[150px] rounded-md float-right" /></TableCell>
         <TableCell className="text-right"><Skeleton className="h-5 w-[150px] rounded-md float-right" /></TableCell>
       </TableRow>
@@ -39,7 +43,7 @@ const ResultsSkeleton = () => (
 
 const EmptyState = ({ searched }: { searched: boolean }) => (
     <TableRow>
-        <TableCell colSpan={3} className="py-20 text-center">
+        <TableCell colSpan={4} className="py-20 text-center">
             <div className="flex flex-col items-center gap-4">
                 <div className="rounded-full bg-primary/10 p-4">
                     <BarChart2 className="h-12 w-12 text-primary" />
@@ -78,6 +82,15 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     }, [clientSearch, clients]);
 
     const handleSearch = async () => {
+        if (!selectedClient) {
+            toast({
+                variant: 'destructive',
+                title: 'Cliente no seleccionado',
+                description: 'Por favor, seleccione un cliente para generar el reporte.',
+            });
+            return;
+        }
+
         if (!dateRange || !dateRange.from || !dateRange.to) {
             toast({
                 variant: 'destructive',
@@ -119,6 +132,49 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         }
     };
 
+    const handleExportExcel = () => {
+        if (!selectedClient || reportData.length === 0) return;
+
+        const dataToExport = reportData.map(row => ({
+            'Fecha': format(new Date(row.date.replace(/-/g, '/')), 'dd/MM/yyyy'),
+            'Cliente': selectedClient,
+            'Paletas Recibidas': row.paletasRecibidas,
+            'Paletas Despachadas': row.paletasDespachadas,
+        }));
+
+        const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Reporte Facturación');
+
+        const fileName = `Reporte_Facturacion_${selectedClient.replace(/\s/g, '_')}_${format(dateRange!.from!, 'yyyy-MM-dd')}_a_${format(dateRange!.to!, 'yyyy-MM-dd')}.xlsx`;
+        XLSX.writeFile(workbook, fileName);
+    };
+
+    const handleExportPDF = () => {
+        if (!selectedClient || reportData.length === 0) return;
+        
+        const doc = new jsPDF();
+        
+        doc.text(`Informe de Facturación para: ${selectedClient}`, 14, 16);
+        doc.setFontSize(10);
+        doc.text(`Periodo: ${format(dateRange!.from!, 'dd/MM/yyyy')} - ${format(dateRange!.to!, 'dd/MM/yyyy')}`, 14, 22);
+
+        autoTable(doc, {
+            startY: 30,
+            head: [['Fecha', 'Cliente', 'Paletas Recibidas', 'Paletas Despachadas']],
+            body: reportData.map(row => [
+                format(new Date(row.date.replace(/-/g, '/')), 'dd/MM/yyyy'),
+                selectedClient,
+                row.paletasRecibidas,
+                row.paletasDespachadas
+            ]),
+            headStyles: { fillColor: [33, 150, 243] },
+        });
+
+        const fileName = `Reporte_Facturacion_${selectedClient.replace(/\s/g, '_')}_${format(dateRange!.from!, 'yyyy-MM-dd')}_a_${format(dateRange!.to!, 'yyyy-MM-dd')}.pdf`;
+        doc.save(fileName);
+    };
+
     const handleClear = () => {
         setSelectedClient(undefined);
         setDateRange(undefined);
@@ -153,16 +209,16 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 <Card className="mb-6">
                     <CardHeader>
                         <CardTitle>Filtros del Reporte</CardTitle>
-                        <CardDescription>Seleccione un cliente (opcional) y un rango de fechas para generar el informe.</CardDescription>
+                        <CardDescription>Seleccione un cliente y un rango de fechas para generar el informe.</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
                             <div className="space-y-2">
-                                <Label>Cliente (opcional)</Label>
+                                <Label>Cliente</Label>
                                 <Dialog open={isClientDialogOpen} onOpenChange={setClientDialogOpen}>
                                     <DialogTrigger asChild>
                                         <Button variant="outline" className="w-full justify-between text-left font-normal">
-                                            {selectedClient || "Todos los clientes"}
+                                            {selectedClient || "Seleccione un cliente"}
                                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                         </Button>
                                     </DialogTrigger>
@@ -256,10 +312,22 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
                 <Card>
                     <CardHeader>
-                        <CardTitle>Resultados del Informe</CardTitle>
-                        <CardDescription>
-                             {isLoading ? "Cargando resultados..." : `Mostrando ${reportData.length} días con movimientos.`}
-                        </CardDescription>
+                        <div className="flex justify-between items-center flex-wrap gap-4">
+                            <div>
+                                <CardTitle>Resultados del Informe</CardTitle>
+                                <CardDescription>
+                                     {isLoading ? "Cargando resultados..." : `Mostrando ${reportData.length} días con movimientos.`}
+                                </CardDescription>
+                            </div>
+                            <div className="flex gap-2">
+                                <Button onClick={handleExportExcel} disabled={isLoading || reportData.length === 0} variant="outline">
+                                    <File className="mr-2 h-4 w-4" /> Exportar a Excel
+                                </Button>
+                                <Button onClick={handleExportPDF} disabled={isLoading || reportData.length === 0} variant="outline">
+                                    <FileDown className="mr-2 h-4 w-4" /> Exportar a PDF
+                                </Button>
+                            </div>
+                        </div>
                     </CardHeader>
                     <CardContent>
                         <div className="rounded-md border">
@@ -267,6 +335,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>Fecha</TableHead>
+                                        <TableHead>Cliente</TableHead>
                                         <TableHead className="text-right">Paletas Recibidas</TableHead>
                                         <TableHead className="text-right">Paletas Despachadas</TableHead>
                                     </TableRow>
@@ -278,6 +347,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                         reportData.map((row) => (
                                             <TableRow key={row.date}>
                                                 <TableCell className="font-medium">{format(new Date(row.date.replace(/-/g, '/')), 'dd/MM/yyyy')}</TableCell>
+                                                <TableCell>{selectedClient}</TableCell>
                                                 <TableCell className="text-right">{row.paletasRecibidas}</TableCell>
                                                 <TableCell className="text-right">{row.paletasDespachadas}</TableCell>
                                             </TableRow>
