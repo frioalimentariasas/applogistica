@@ -110,7 +110,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const [isLoading, setIsLoading] = useState(false);
     const [searched, setSearched] = useState(false);
     const [isClientDialogOpen, setClientDialogOpen] = useState(false);
-    const [clientSearch, setClientSearch] = useState('');
+    const [clientSearch, setClientSearch] = useState("");
 
     // State for CSV inventory report
     const [isUploading, setIsUploading] = useState(false);
