@@ -43,7 +43,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
     inactivityTimer.current = setTimeout(() => {
         handleLogout();
-    }, 30 * 60 * 1000); // 30 minutes
+    }, 12 * 60 * 60 * 1000); // 12 hours
   }, [handleLogout]);
   
   useEffect(() => {
