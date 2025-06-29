@@ -8,6 +8,7 @@ import { format, parse } from 'date-fns';
 interface InventoryRow {
   PROPIETARIO: string;
   PALETA: string | number;
+  FECHA: string | Date | number;
   [key: string]: any; // Allow other columns
 }
 
@@ -17,36 +18,58 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
         return { success: false, message: 'No se encontró ningún archivo para cargar.' };
     }
 
-    // Server-side validation of filename and date extraction
-    const fileNamePattern = /^stock_(\d{2})_(\d{2})_(\d{2})\.csv$/i;
-    const match = file.name.match(fileNamePattern);
-
-    if (!match) {
-        return { success: false, message: 'El nombre del archivo es inválido. Debe seguir el formato "stock_DD_MM_YY.csv".' };
-    }
-
     if (!firestore) {
         return { success: false, message: 'Error de configuración del servidor: La base de datos no está disponible.' };
     }
 
     try {
         const buffer = await file.arrayBuffer();
-        const workbook = xlsx.read(buffer, { type: 'buffer' });
+        const workbook = xlsx.read(buffer, { type: 'buffer', cellDates: true });
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
         const data = xlsx.utils.sheet_to_json<InventoryRow>(sheet);
 
         if (data.length === 0) {
-            return { success: false, message: 'El archivo CSV está vacío o no tiene el formato correcto.' };
+            return { success: false, message: 'El archivo está vacío o no tiene el formato correcto.' };
         }
 
         const firstRow = data[0];
-        if (!('PROPIETARIO' in firstRow && 'PALETA' in firstRow)) {
-            return { success: false, message: 'Las columnas del archivo CSV no coinciden. Se esperan al menos "PROPIETARIO" y "PALETA".' };
+        const requiredColumns = ['FECHA', 'PROPIETARIO', 'PALETA', 'DENOMINACION'];
+        const actualColumns = Object.keys(firstRow);
+        
+        const missingColumns = requiredColumns.filter(col => !actualColumns.includes(col));
+
+        if (missingColumns.length > 0) {
+             return { success: false, message: `El archivo CSV no tiene el formato correcto. Faltan las siguientes columnas requeridas: ${missingColumns.join(', ')}.` };
         }
         
-        const [_, day, month, year] = match;
-        const reportDateStr = `20${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
+        const dateValue = firstRow.FECHA;
+        if (!dateValue) {
+             return { success: false, message: 'La columna "FECHA" está vacía en la primera fila del archivo y es obligatoria.' };
+        }
+        
+        let reportDate: Date;
+        if (dateValue instanceof Date) {
+            reportDate = dateValue;
+        } else if (typeof dateValue === 'string') {
+            try {
+                 // Try to parse 'dd/MM/yyyy' first, a common format in LATAM
+                 reportDate = parse(dateValue, 'dd/MM/yyyy', new Date());
+                 if (isNaN(reportDate.getTime())) {
+                     // As a fallback, try parsing as an ISO date string
+                     reportDate = parse(dateValue, 'yyyy-MM-dd', new Date());
+                     if (isNaN(reportDate.getTime())) {
+                        throw new Error('Invalid date format');
+                     }
+                 }
+            } catch(e) {
+                return { success: false, message: `No se pudo interpretar el formato de la fecha "${dateValue}". Se espera "dd/MM/yyyy" o "yyyy-MM-dd".` };
+            }
+        } else {
+             return { success: false, message: `El formato de la columna "FECHA" (${typeof dateValue}) no es reconocido.` };
+        }
+        
+        const reportDateStr = format(reportDate, 'yyyy-MM-dd');
 
         const serializableData = data.map(row => {
             const newRow: any = {};

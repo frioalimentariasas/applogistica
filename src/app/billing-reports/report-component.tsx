@@ -288,16 +288,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             toast({ variant: 'destructive', title: 'Error', description: 'Por favor, seleccione un archivo para cargar.' });
             return;
         }
-        
-        const fileNamePattern = /^stock_\d{2}_\d{2}_\d{2}\.csv$/i;
-        if (!fileNamePattern.test(file.name)) {
-            toast({
-                variant: 'destructive',
-                title: 'Nombre de archivo inválido',
-                description: 'El nombre del archivo debe seguir el formato "stock_DD_MM_YY.csv".',
-            });
-            return;
-        }
 
         setIsUploading(true);
         try {
@@ -537,18 +527,18 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 <Card className="mt-8">
                     <CardHeader>
                         <CardTitle>Informe de Inventario Acumulado por Día</CardTitle>
-                        <CardDescription>Cargue el archivo CSV de inventario y luego consulte por cliente y rango de fechas.</CardDescription>
+                        <CardDescription>Cargue el archivo de inventario y luego consulte por cliente y rango de fechas.</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <form action={handleFileUploadAction} ref={uploadFormRef} className="mb-6 rounded-lg border p-4">
-                             <Label htmlFor="csv-upload" className="font-semibold text-base">1. Cargar Archivo de Inventario Diario (.csv)</Label>
+                             <Label htmlFor="csv-upload" className="font-semibold text-base">1. Cargar Archivo de Inventario (.csv, .xlsx, .xls)</Label>
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-center mt-2">
                                 <div className="sm:col-span-2">
                                     <Input
                                         id="csv-upload"
                                         name="file"
                                         type="file"
-                                        accept=".csv"
+                                        accept=".csv, .xlsx, .xls"
                                         disabled={isUploading}
                                         className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
                                     />
