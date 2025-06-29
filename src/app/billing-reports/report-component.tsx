@@ -28,6 +28,7 @@ import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, ChevronsUpDown, BarC
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 const ResultsSkeleton = () => (
   <>
@@ -287,21 +288,23 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
     const handleFileUploadAction = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
-        const formData = new FormData(event.currentTarget);
+        const form = event.currentTarget;
+        const formData = new FormData(form);
         const files = formData.getAll('file') as File[];
         
         if (files.length === 0 || (files.length > 0 && files[0]?.size === 0)) {
             toast({ variant: 'destructive', title: 'Error', description: 'Por favor, seleccione uno o más archivos para cargar.' });
             return;
         }
-
+    
         setIsUploading(true);
         setUploadProgress(0);
+        
         const toastId = toast({
             title: 'Iniciando carga...',
             description: `Procesando 0 de ${files.length} archivo(s).`,
         });
-
+    
         const allResults = [];
         for (let i = 0; i < files.length; i++) {
             const file = files[i];
@@ -316,7 +319,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 allResults.push({ success: false, fileName: file.name, message: errorMessage, errors: [errorMessage] });
             }
             
-            // Update progress after each file
             const newProgress = ((i + 1) / files.length) * 100
             setUploadProgress(newProgress);
             toastId.update({
@@ -326,7 +328,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         }
         
         toastId.dismiss();
-
+    
         const processedCount = allResults.filter(r => r.success).length;
         const errors = allResults
             .filter(r => !r.success)
@@ -342,7 +344,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         if (processedCount === 0 && errors.length === 0) {
             message = 'No se procesó ningún archivo. Verifique que los archivos no estén vacíos y tengan el formato correcto.';
         }
-
+    
         toast({
             title: 'Proceso de Carga Completado',
             description: (
@@ -358,13 +360,12 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             variant: errors.length === 0 ? 'default' : 'destructive',
             duration: errors.length > 0 ? 10000 : 5000,
         });
-
+    
         if (uploadFormRef.current) {
             uploadFormRef.current.reset();
         }
         setIsUploading(false);
     };
-
     
     const handleInventorySearch = async () => {
         if (!inventoryClient) {
@@ -700,14 +701,25 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                     </Popover>
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="inventory-session">Sesión (SE)</Label>
-                                    <Input
-                                        id="inventory-session"
-                                        placeholder="Ej: A, B, 1..."
+                                    <Label htmlFor="inventory-session">Sesión</Label>
+                                    <Select
                                         value={inventorySesion}
-                                        onChange={(e) => setInventorySesion(e.target.value)}
+                                        onValueChange={setInventorySesion}
                                         disabled={isQuerying}
-                                    />
+                                    >
+                                        <SelectTrigger id="inventory-session">
+                                            <SelectValue placeholder="Seleccione una sesión" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="">Todos</SelectItem>
+                                            <SelectItem value="CO">CO - Congelados</SelectItem>
+                                            <SelectItem value="RE">RE - Refrigerado</SelectItem>
+                                            <SelectItem value="SE">SE - Seco</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                     <p className="text-xs text-muted-foreground">
+                                        CO: Congelados, RE: Refrigerado, SE: Seco
+                                    </p>
                                 </div>
                                 <Button onClick={handleInventorySearch} className="w-full" disabled={isQuerying}>
                                     {isQuerying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
