@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo } from 'react';
@@ -26,11 +27,9 @@ import { Label } from '@/components/ui/label';
 
 const ResultsSkeleton = () => (
   <>
-    {Array.from({ length: 5 }).map((_, index) => (
+    {Array.from({ length: 3 }).map((_, index) => (
       <TableRow key={index}>
         <TableCell><Skeleton className="h-5 w-[100px] rounded-md" /></TableCell>
-        <TableCell className="text-right"><Skeleton className="h-5 w-[150px] rounded-md float-right" /></TableCell>
-        <TableCell className="text-right"><Skeleton className="h-5 w-[150px] rounded-md float-right" /></TableCell>
         <TableCell className="text-right"><Skeleton className="h-5 w-[150px] rounded-md float-right" /></TableCell>
         <TableCell className="text-right"><Skeleton className="h-5 w-[150px] rounded-md float-right" /></TableCell>
       </TableRow>
@@ -40,7 +39,7 @@ const ResultsSkeleton = () => (
 
 const EmptyState = ({ searched }: { searched: boolean }) => (
     <TableRow>
-        <TableCell colSpan={5} className="py-20 text-center">
+        <TableCell colSpan={3} className="py-20 text-center">
             <div className="flex flex-col items-center gap-4">
                 <div className="rounded-full bg-primary/10 p-4">
                     <BarChart2 className="h-12 w-12 text-primary" />
@@ -268,10 +267,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>Fecha</TableHead>
-                                        <TableHead className="text-right">Entradas Peso Fijo (Paletas)</TableHead>
-                                        <TableHead className="text-right">Salidas Peso Fijo (Paletas)</TableHead>
-                                        <TableHead className="text-right">Entradas Peso Variable (Items)</TableHead>
-                                        <TableHead className="text-right">Salidas Peso Variable (Items)</TableHead>
+                                        <TableHead className="text-right">Paletas Recibidas</TableHead>
+                                        <TableHead className="text-right">Paletas Despachadas</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -281,10 +278,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                         reportData.map((row) => (
                                             <TableRow key={row.date}>
                                                 <TableCell className="font-medium">{format(new Date(row.date.replace(/-/g, '/')), 'dd/MM/yyyy')}</TableCell>
-                                                <TableCell className="text-right">{row.fixedWeightIn.toFixed(2)}</TableCell>
-                                                <TableCell className="text-right">{row.fixedWeightOut.toFixed(2)}</TableCell>
-                                                <TableCell className="text-right">{row.variableWeightIn}</TableCell>
-                                                <TableCell className="text-right">{row.variableWeightOut}</TableCell>
+                                                <TableCell className="text-right">{row.paletasRecibidas}</TableCell>
+                                                <TableCell className="text-right">{row.paletasDespachadas}</TableCell>
                                             </TableRow>
                                         ))
                                     ) : (

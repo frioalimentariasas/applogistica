@@ -32,10 +32,8 @@ export interface BillingReportCriteria {
 
 export interface DailyReportData {
   date: string; // YYYY-MM-DD
-  fixedWeightIn: number;
-  fixedWeightOut: number;
-  variableWeightIn: number;
-  variableWeightOut: number;
+  paletasRecibidas: number;
+  paletasDespachadas: number;
 }
 
 export async function getBillingReport(criteria: BillingReportCriteria): Promise<DailyReportData[]> {
@@ -96,10 +94,8 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
             if (!dailyTotals.has(groupingDate)) {
                 dailyTotals.set(groupingDate, {
                     date: groupingDate,
-                    fixedWeightIn: 0,
-                    fixedWeightOut: 0,
-                    variableWeightIn: 0,
-                    variableWeightOut: 0,
+                    paletasRecibidas: 0,
+                    paletasDespachadas: 0,
                 });
             }
 
@@ -107,22 +103,20 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
             
             switch (submission.formType) {
                 case 'fixed-weight-recepcion':
-                    const paletasIn = (submission.formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.paletas) || 0), 0);
-                    dailyData.fixedWeightIn += paletasIn;
+                    const receivedFixedPallets = (submission.formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.totalPaletas ?? p.paletas) || 0), 0);
+                    dailyData.paletasRecibidas += receivedFixedPallets;
                     break;
                 case 'fixed-weight-despacho':
-                    const paletasOut = (submission.formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.paletas) || 0), 0);
-                    dailyData.fixedWeightOut += paletasOut;
+                    const dispatchedFixedPallets = (submission.formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.totalPaletas ?? p.paletas) || 0), 0);
+                    dailyData.paletasDespachadas += dispatchedFixedPallets;
                     break;
                 case 'variable-weight-recepcion':
-                    // User wants to count the number of line items, not sum the quantities.
-                    const itemsIn = (submission.formData.items || []).length;
-                    dailyData.variableWeightIn += itemsIn;
+                    const receivedVariablePallets = (submission.formData.items || []).length;
+                    dailyData.paletasRecibidas += receivedVariablePallets;
                     break;
                 case 'variable-weight-despacho':
-                    // Per user request, this is also the count of items for consistency.
-                    const itemsOut = (submission.formData.items || []).length;
-                    dailyData.variableWeightOut += itemsOut;
+                    const dispatchedVariablePallets = (submission.formData.summary || []).reduce((sum: number, s: any) => sum + (Number(s.totalPaletas) || 0), 0);
+                    dailyData.paletasDespachadas += dispatchedVariablePallets;
                     break;
             }
         });
