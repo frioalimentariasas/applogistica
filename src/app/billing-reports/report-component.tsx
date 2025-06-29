@@ -753,6 +753,43 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                         <div>
                             <Label className="font-semibold text-base">2. Consultar Inventario Guardado</Label>
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end mt-2">
+                                <div className="space-y-2">
+                                    <Label>Rango de Fechas (Máx. 31 días)</Label>
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <Button
+                                                variant={"outline"}
+                                                className={cn("w-full justify-start text-left font-normal", !inventoryDateRange && "text-muted-foreground")}
+                                            >
+                                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                                {inventoryDateRange?.from ? (
+                                                    inventoryDateRange.to ? (
+                                                        <>
+                                                            {format(inventoryDateRange.from, "LLL dd, y", { locale: es })} -{" "}
+                                                            {format(inventoryDateRange.to, "LLL dd, y", { locale: es })}
+                                                        </>
+                                                    ) : ( format(inventoryDateRange.from, "LLL dd, y", { locale: es }) )
+                                                ) : ( <span>Seleccione un rango</span> )}
+                                            </Button>
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-auto p-0">
+                                            <Calendar
+                                                mode="range"
+                                                selected={inventoryDateRange}
+                                                onSelect={(range) => {
+                                                    if (range?.from && range?.to && differenceInDays(range.to, range.from) > MAX_DATE_RANGE_DAYS) {
+                                                        toast({ variant: 'destructive', title: 'Rango muy amplio', description: `Por favor, seleccione un rango de no más de ${MAX_DATE_RANGE_DAYS} días.` });
+                                                    } else {
+                                                        setInventoryDateRange(range);
+                                                    }
+                                                }}
+                                                defaultMonth={inventoryDateRange?.from}
+                                                numberOfMonths={2}
+                                                locale={es}
+                                            />
+                                        </PopoverContent>
+                                    </Popover>
+                                </div>
                                 <div className="space-y-2 md:col-span-2">
                                     <Label>Cliente(s)</Label>
                                     <Dialog open={isInventoryClientDialogOpen} onOpenChange={setInventoryClientDialogOpen}>
@@ -826,43 +863,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                             : "Deje en blanco para consultar todos los clientes."
                                         }
                                     </p>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Rango de Fechas (Máx. 31 días)</Label>
-                                    <Popover>
-                                        <PopoverTrigger asChild>
-                                            <Button
-                                                variant={"outline"}
-                                                className={cn("w-full justify-start text-left font-normal", !inventoryDateRange && "text-muted-foreground")}
-                                            >
-                                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                                {inventoryDateRange?.from ? (
-                                                    inventoryDateRange.to ? (
-                                                        <>
-                                                            {format(inventoryDateRange.from, "LLL dd, y", { locale: es })} -{" "}
-                                                            {format(inventoryDateRange.to, "LLL dd, y", { locale: es })}
-                                                        </>
-                                                    ) : ( format(inventoryDateRange.from, "LLL dd, y", { locale: es }) )
-                                                ) : ( <span>Seleccione un rango</span> )}
-                                            </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0">
-                                            <Calendar
-                                                mode="range"
-                                                selected={inventoryDateRange}
-                                                onSelect={(range) => {
-                                                    if (range?.from && range?.to && differenceInDays(range.to, range.from) > MAX_DATE_RANGE_DAYS) {
-                                                        toast({ variant: 'destructive', title: 'Rango muy amplio', description: `Por favor, seleccione un rango de no más de ${MAX_DATE_RANGE_DAYS} días.` });
-                                                    } else {
-                                                        setInventoryDateRange(range);
-                                                    }
-                                                }}
-                                                defaultMonth={inventoryDateRange?.from}
-                                                numberOfMonths={2}
-                                                locale={es}
-                                            />
-                                        </PopoverContent>
-                                    </Popover>
                                 </div>
                                 <div className="grid grid-cols-2 gap-2">
                                     <div className="space-y-2">
