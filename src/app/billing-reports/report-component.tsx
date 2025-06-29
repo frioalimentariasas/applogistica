@@ -590,7 +590,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 {/* Inventory Report Section */}
                 <Card className="mt-8">
                     <CardHeader>
-                        <CardTitle>Informe de Inventario Diario (desde CSV)</CardTitle>
+                        <CardTitle>Informe de Inventario Acumulado por Día</CardTitle>
                         <CardDescription>Cargue el archivo CSV diario para consultar el total de paletas almacenadas por cliente y fecha.</CardDescription>
                     </CardHeader>
                     <CardContent>
