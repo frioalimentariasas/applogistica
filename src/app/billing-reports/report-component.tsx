@@ -23,7 +23,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, ChevronsUpDown, BarChart2, BookCopy, FileDown, File } from 'lucide-react';
+import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, ChevronsUpDown, BarChart2, BookCopy, FileDown, File, FileUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 
@@ -98,16 +98,27 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const router = useRouter();
     const { toast } = useToast();
     
+    // State for billing report
     const [selectedClient, setSelectedClient] = useState<string | undefined>(undefined);
     const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
     const [reportData, setReportData] = useState<DailyReportData[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [searched, setSearched] = useState(false);
-
-    // For client dialog
     const [isClientDialogOpen, setClientDialogOpen] = useState(false);
     const [clientSearch, setClientSearch] = useState('');
 
+    // State for CSV inventory report
+    const [csvData, setCsvData] = useState<any[]>([]);
+    const [csvFileName, setCsvFileName] = useState<string>('');
+    const [isProcessingCsv, setIsProcessingCsv] = useState<boolean>(false);
+    const [inventoryClient, setInventoryClient] = useState<string | undefined>(undefined);
+    const [inventoryDate, setInventoryDate] = useState<Date | undefined>(undefined);
+    const [inventoryResult, setInventoryResult] = useState<{ count: number } | null>(null);
+    const [inventorySearched, setInventorySearched] = useState<boolean>(false);
+    const [isInventoryClientDialogOpen, setInventoryClientDialogOpen] = useState(false);
+    const [inventoryClientSearch, setInventoryClientSearch] = useState('');
+
+    // State for PDF logo
     const [logoBase64, setLogoBase64] = useState<string | null>(null);
     const [logoDimensions, setLogoDimensions] = useState<{ width: number, height: number } | null>(null);
     const [isLogoLoading, setIsLogoLoading] = useState(true);
@@ -136,6 +147,12 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         if (!clientSearch) return clients;
         return clients.filter(c => c.razonSocial.toLowerCase().includes(clientSearch.toLowerCase()));
     }, [clientSearch, clients]);
+    
+    const filteredInventoryClients = useMemo(() => {
+        if (!inventoryClientSearch) return clients;
+        return clients.filter(c => c.razonSocial.toLowerCase().includes(inventoryClientSearch.toLowerCase()));
+    }, [inventoryClientSearch, clients]);
+
 
     const handleSearch = async () => {
         if (!selectedClient) {
@@ -212,7 +229,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.getWidth();
         
-        // Add logo
         const logoWidth = 70;
         const aspectRatio = logoDimensions.width / logoDimensions.height;
         const logoHeight = logoWidth / aspectRatio;
@@ -221,7 +237,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const logoY = 15;
         doc.addImage(logoBase64, 'PNG', logoX, logoY, logoWidth, logoHeight);
 
-        // Add company info below logo
         const textY = logoY + logoHeight + 10;
         doc.setFontSize(11);
         doc.setFont('helvetica', 'bold');
@@ -231,7 +246,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         doc.setFont('helvetica', 'normal');
         doc.text('NIT: 900736914-0', pageWidth / 2, textY + 6, { align: 'center' });
         
-        // Add report title and period below company info
         const titleY = textY + 16;
         doc.setFontSize(12);
         doc.setFont('helvetica', 'bold');
@@ -266,6 +280,132 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         setReportData([]);
         setSearched(false);
     };
+
+    const handleFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0];
+        if (!file) {
+          setCsvData([]);
+          setCsvFileName('');
+          return;
+        }
+    
+        setIsProcessingCsv(true);
+        setCsvFileName(file.name);
+        setInventoryResult(null);
+        setInventorySearched(false);
+    
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          try {
+            const data = e.target?.result;
+            const workbook = XLSX.read(data, { type: 'binary', cellDates: true });
+            const sheetName = workbook.SheetNames[0];
+            const worksheet = workbook.Sheets[sheetName];
+            
+            const json = XLSX.utils.sheet_to_json(worksheet, { raw: true });
+            
+            if (json.length > 0) {
+                const firstRow: any = json[0];
+                if (!('FECHA' in firstRow && 'PROPIETARIO' in firstRow && 'PALETA' in firstRow)) {
+                     toast({
+                        variant: 'destructive',
+                        title: 'Formato de CSV incorrecto',
+                        description: 'El archivo debe contener las columnas "FECHA", "PROPIETARIO" y "PALETA".',
+                    });
+                    setCsvData([]);
+                    setCsvFileName('');
+                    setIsProcessingCsv(false);
+                    return;
+                }
+            }
+    
+            setCsvData(json);
+            toast({
+                title: 'Archivo cargado',
+                description: `${file.name} ha sido procesado. Ya puede filtrar.`,
+            });
+          } catch (error) {
+            console.error("Error parsing CSV file:", error);
+            toast({
+                variant: 'destructive',
+                title: 'Error al procesar el archivo',
+                description: 'Asegúrese de que es un archivo CSV válido con el formato correcto.',
+            });
+            setCsvData([]);
+            setCsvFileName('');
+          } finally {
+            setIsProcessingCsv(false);
+          }
+        };
+        reader.onerror = (error) => {
+            console.error("File reading error:", error);
+            toast({
+                variant: 'destructive',
+                title: 'Error al leer el archivo',
+                description: 'No se pudo leer el archivo seleccionado.',
+            });
+            setIsProcessingCsv(false);
+        };
+        reader.readAsBinaryString(file);
+    };
+
+    const handleCalculateInventory = () => {
+        if (!inventoryClient || !inventoryDate) {
+            toast({
+                variant: 'destructive',
+                title: 'Filtros incompletos',
+                description: 'Por favor seleccione un cliente y una fecha.',
+            });
+            return;
+        }
+    
+        setInventorySearched(true);
+    
+        const targetDate = new Date(Date.UTC(inventoryDate.getFullYear(), inventoryDate.getMonth(), inventoryDate.getDate()));
+    
+        const filteredData = csvData.filter(row => {
+            const clientMatch = row.PROPIETARIO === inventoryClient;
+            if (!clientMatch) return false;
+    
+            if (!row.FECHA) return false;
+
+            // Handle Excel serial date numbers or date strings
+            let rowDate: Date;
+            if (typeof row.FECHA === 'number') {
+                 // Excel serial date number
+                 const excelDate = new Date(Date.UTC(1899, 11, 30 + row.FECHA));
+                 rowDate = new Date(Date.UTC(excelDate.getFullYear(), excelDate.getMonth(), excelDate.getDate()));
+            } else if (typeof row.FECHA === 'string') {
+                // Assuming string is DD/MM/YYYY
+                const parts = row.FECHA.split('/');
+                if (parts.length === 3) {
+                    const d = parseInt(parts[0], 10);
+                    const m = parseInt(parts[1], 10) - 1;
+                    const y = parseInt(parts[2], 10);
+                    rowDate = new Date(Date.UTC(y, m, d));
+                } else {
+                    return false; // Skip invalid date strings
+                }
+            } else {
+                return false;
+            }
+            
+            return rowDate.getTime() === targetDate.getTime();
+        });
+    
+        const uniquePallets = new Set(filteredData.map(row => row.PALETA));
+        const count = uniquePallets.size;
+        
+        setInventoryResult({ count });
+    
+        if (count === 0) {
+            toast({
+                title: 'Sin resultados',
+                description: 'No se encontraron paletas para el cliente y fecha seleccionados en el archivo.',
+            });
+        }
+    };
+
 
     return (
         <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
@@ -444,6 +584,122 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                 </TableBody>
                             </Table>
                         </div>
+                    </CardContent>
+                </Card>
+                
+                {/* Inventory Report Section */}
+                <Card className="mt-8">
+                    <CardHeader>
+                        <CardTitle>Informe de Inventario Diario (desde CSV)</CardTitle>
+                        <CardDescription>Cargue el archivo CSV diario para consultar el total de paletas almacenadas por cliente y fecha.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
+                            <div className="space-y-2 lg:col-span-3">
+                                <Label htmlFor="csv-upload">Archivo de Inventario (.csv)</Label>
+                                <Input
+                                    id="csv-upload"
+                                    type="file"
+                                    accept=".csv"
+                                    onChange={handleFileChange}
+                                    disabled={isProcessingCsv}
+                                    className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+                                />
+                                {isProcessingCsv && <p className="text-sm text-muted-foreground flex items-center"><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Procesando archivo...</p>}
+                                {csvFileName && !isProcessingCsv && <p className="text-sm text-muted-foreground">Archivo cargado: {csvFileName}</p>}
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label>Cliente</Label>
+                                <Dialog open={isInventoryClientDialogOpen} onOpenChange={setInventoryClientDialogOpen}>
+                                    <DialogTrigger asChild>
+                                        <Button variant="outline" className="w-full justify-between text-left font-normal" disabled={csvData.length === 0}>
+                                            {inventoryClient || "Seleccione un cliente"}
+                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                        </Button>
+                                    </DialogTrigger>
+                                    <DialogContent className="sm:max-w-[425px]">
+                                        <DialogHeader>
+                                            <DialogTitle>Seleccionar Cliente</DialogTitle>
+                                        </DialogHeader>
+                                        <div className="p-4">
+                                            <Input
+                                                placeholder="Buscar cliente..."
+                                                value={inventoryClientSearch}
+                                                onChange={(e) => setInventoryClientSearch(e.target.value)}
+                                                className="mb-4"
+                                            />
+                                            <ScrollArea className="h-72">
+                                                <div className="space-y-1">
+                                                    {filteredInventoryClients.map((client) => (
+                                                        <Button
+                                                            key={client.id}
+                                                            variant="ghost"
+                                                            className="w-full justify-start"
+                                                            onClick={() => {
+                                                                setInventoryClient(client.razonSocial);
+                                                                setInventoryClientDialogOpen(false);
+                                                                setInventoryClientSearch('');
+                                                            }}
+                                                        >
+                                                            {client.razonSocial}
+                                                        </Button>
+                                                    ))}
+                                                    {filteredInventoryClients.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron clientes.</p>}
+                                                </div>
+                                            </ScrollArea>
+                                        </div>
+                                    </DialogContent>
+                                </Dialog>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label>Fecha del Inventario</Label>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button
+                                            variant={"outline"}
+                                            className={cn("w-full justify-start text-left font-normal", !inventoryDate && "text-muted-foreground")}
+                                            disabled={csvData.length === 0}
+                                        >
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {inventoryDate ? format(inventoryDate, "PPP", { locale: es }) : <span>Seleccione una fecha</span>}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0">
+                                        <Calendar
+                                            mode="single"
+                                            selected={inventoryDate}
+                                            onSelect={setInventoryDate}
+                                            initialFocus
+                                            locale={es}
+                                        />
+                                    </PopoverContent>
+                                </Popover>
+                            </div>
+
+                            <div className="flex">
+                                <Button onClick={handleCalculateInventory} className="w-full" disabled={csvData.length === 0}>
+                                    <Search className="mr-2 h-4 w-4" />
+                                    Consultar Inventario
+                                </Button>
+                            </div>
+                        </div>
+
+                        {inventorySearched && (
+                            <div className="mt-6">
+                                <h4 className="font-semibold mb-2 text-lg">Resultado del Inventario</h4>
+                                <div className="border rounded-md p-6 bg-muted/50">
+                                    {inventoryResult ? (
+                                        <p className="text-base">
+                                            Total de paletas almacenadas para <strong>{inventoryClient}</strong> en la fecha <strong>{format(inventoryDate!, 'dd/MM/yyyy')}</strong>: <strong className="text-2xl text-primary">{inventoryResult.count}</strong>
+                                        </p>
+                                    ) : (
+                                        <p className="text-muted-foreground">No se encontraron datos para la selección realizada. Verifique el cliente y la fecha.</p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
                     </CardContent>
                 </Card>
             </div>
