@@ -284,25 +284,45 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
     const handleFileUploadAction = async (formData: FormData) => {
         const files = formData.getAll('file') as File[];
-        if (files.length === 0 || (files.length === 1 && files[0].size === 0)) {
+        if (files.length === 0 || (files.length > 0 && files[0]?.size === 0)) {
             toast({ variant: 'destructive', title: 'Error', description: 'Por favor, seleccione uno o más archivos para cargar.' });
             return;
         }
 
         setIsUploading(true);
+        const uploadToast = toast({
+            title: 'Procesando archivos...',
+            description: `Cargando ${files.length} archivo(s). Por favor espere.`,
+        });
+
         try {
             const result = await uploadInventoryCsv(formData);
             
+            const description = (
+              <>
+                {result.message}
+                {result.errors && result.errors.length > 0 && (
+                  <ul className="mt-2 list-disc list-inside text-xs">
+                    {result.errors.map((e, i) => <li key={i}>{e}</li>)}
+                  </ul>
+                )}
+              </>
+            );
+
+            uploadToast.dismiss();
             toast({
                 title: 'Proceso de Carga Completado',
-                description: result.message,
+                description: description,
                 variant: result.success ? 'default' : 'destructive',
-                duration: result.errorCount > 0 ? 8000 : 5000,
+                duration: result.errors.length > 0 ? 10000 : 5000,
             });
 
-            uploadFormRef.current?.reset();
+            if (result.success || result.processedCount > 0) {
+                uploadFormRef.current?.reset();
+            }
         } catch (error) {
-            const msg = error instanceof Error ? error.message : 'Ocurrió un error inesperado.';
+            uploadToast.dismiss();
+            const msg = error instanceof Error ? error.message : 'Ocurrió un error inesperado en el cliente.';
             toast({ variant: 'destructive', title: 'Error Inesperado', description: msg });
         } finally {
             setIsUploading(false);
