@@ -115,8 +115,20 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                     dailyData.paletasRecibidas += receivedVariablePallets;
                     break;
                 case 'variable-weight-despacho':
-                    const dispatchedVariablePallets = (submission.formData.summary || []).reduce((sum: number, s: any) => sum + (Number(s.totalPaletas) || 0), 0);
-                    dailyData.paletasDespachadas += dispatchedVariablePallets;
+                    const items = submission.formData.items || [];
+                    const summary = submission.formData.summary || [];
+                    
+                    // This check determines if the form was filled in "summary mode"
+                    const isSummaryMode = items.some((p: any) => Number(p.paleta) === 0);
+
+                    if (isSummaryMode) {
+                        // In summary mode, we trust the `totalPaletas` value from the calculated summary array
+                        const dispatchedVariablePallets = summary.reduce((sum: number, s: any) => sum + (Number(s.totalPaletas) || 0), 0);
+                        dailyData.paletasDespachadas += dispatchedVariablePallets;
+                    } else {
+                        // In individual pallet mode, each item represents one pallet
+                        dailyData.paletasDespachadas += items.length;
+                    }
                     break;
             }
         });
