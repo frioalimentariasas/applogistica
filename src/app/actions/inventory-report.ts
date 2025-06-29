@@ -24,10 +24,13 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
 
     try {
         const buffer = await file.arrayBuffer();
-        const workbook = xlsx.read(buffer, { type: 'buffer', cellDates: true });
+        // Disable automatic date parsing by removing `cellDates: true`.
+        // We will parse dates manually to ensure correct format interpretation.
+        const workbook = xlsx.read(buffer, { type: 'buffer' });
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
-        let data = xlsx.utils.sheet_to_json<InventoryRow>(sheet);
+        // Use `raw: false` to get formatted strings (like dates) instead of raw values.
+        let data = xlsx.utils.sheet_to_json<InventoryRow>(sheet, { raw: false });
 
         if (data.length === 0) {
             return { success: false, message: 'El archivo está vacío o no tiene el formato correcto.' };
@@ -63,6 +66,7 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
         
         let reportDate: Date;
         if (dateValue instanceof Date) {
+            // This case might still happen if excel format is a true date type
             reportDate = dateValue;
         } else if (typeof dateValue === 'string') {
             try {
@@ -84,14 +88,13 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
         
         const reportDateStr = format(reportDate, 'yyyy-MM-dd');
 
+        // Data is already stringified from the CSV, so no complex serialization is needed.
+        // We just pass the array of objects as is.
         const serializableData = data.map(row => {
             const newRow: any = {};
             for (const key in row) {
-                if ((row as any)[key] instanceof Date) {
-                    newRow[key] = (row as any)[key].toISOString();
-                } else {
-                    newRow[key] = (row as any)[key];
-                }
+                // Ensure values are not undefined, convert to null if so.
+                newRow[key] = (row as any)[key] !== undefined ? (row as any)[key] : null;
             }
             return newRow;
         });
