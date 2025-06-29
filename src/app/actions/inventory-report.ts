@@ -183,7 +183,17 @@ export async function getInventoryReport(
             }
         });
         
-        results.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        results.sort((a, b) => {
+            const timeA = new Date(a.date).getTime();
+            const timeB = new Date(b.date).getTime();
+
+            // Handle cases where dates might be invalid
+            if (isNaN(timeA) && isNaN(timeB)) return 0;
+            if (isNaN(timeA)) return 1; // Put invalid dates at the end
+            if (isNaN(timeB)) return -1; // Put valid dates first
+
+            return timeA - timeB;
+        });
         return results;
 
     } catch (error) {
