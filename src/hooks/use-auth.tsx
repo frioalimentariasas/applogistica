@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
+import * as React from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
 
@@ -22,14 +22,14 @@ type AuthContextType = {
   displayName: string | null;
 };
 
-const AuthContext = createContext<AuthContextType>({ user: null, loading: true, displayName: null });
+const AuthContext = React.createContext<AuthContextType>({ user: null, loading: true, displayName: null });
 
-export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [displayName, setDisplayName] = useState<string | null>(null);
-  const [loading, setLoading] = useState(true);
+export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
+  const [user, setUser] = React.useState<User | null>(null);
+  const [displayName, setDisplayName] = React.useState<string | null>(null);
+  const [loading, setLoading] = React.useState(true);
 
-  useEffect(() => {
+  React.useEffect(() => {
     if (!auth) {
       setUser(null);
       setDisplayName(null);
@@ -56,4 +56,4 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   );
 };
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => React.useContext(AuthContext);
