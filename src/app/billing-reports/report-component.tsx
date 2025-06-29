@@ -11,7 +11,7 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 
 import { getBillingReport, DailyReportData } from '@/app/actions/billing-report';
-import { getInventoryReport, uploadInventoryCsv } from '@/app/actions/inventory-report';
+import { getInventoryReport, uploadInventoryCsv, type InventoryPivotReport } from '@/app/actions/inventory-report';
 import type { ClientInfo } from '@/app/actions/clients';
 import { useToast } from '@/hooks/use-toast';
 
@@ -23,12 +23,20 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, ChevronsUpDown, BarChart2, BookCopy, FileDown, File, Upload, FolderSearch } from 'lucide-react';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { Check, ArrowLeft, Search, XCircle, Loader2, CalendarIcon, ChevronsUpDown, BarChart2, BookCopy, FileDown, File, Upload, FolderSearch } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 
 const ResultsSkeleton = () => (
   <>
@@ -114,13 +122,11 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const [isUploading, setIsUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
     const [isQuerying, setIsQuerying] = useState(false);
-    const [inventoryClient, setInventoryClient] = useState<string | undefined>(undefined);
+    const [inventoryClients, setInventoryClients] = useState<string[]>([]);
     const [inventoryDateRange, setInventoryDateRange] = useState<DateRange | undefined>(undefined);
     const [inventorySesion, setInventorySesion] = useState<string>('');
-    const [inventoryReportData, setInventoryReportData] = useState<{ date: string; palletCount: number }[]>([]);
+    const [inventoryReportData, setInventoryReportData] = useState<InventoryPivotReport | null>(null);
     const [inventorySearched, setInventorySearched] = useState(false);
-    const [isInventoryClientDialogOpen, setInventoryClientDialogOpen] = useState(false);
-    const [inventoryClientSearch, setInventoryClientSearch] = useState('');
 
 
     // State for PDF logo
@@ -153,11 +159,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         return clients.filter(c => c.razonSocial.toLowerCase().includes(clientSearch.toLowerCase()));
     }, [clientSearch, clients]);
     
-    const filteredInventoryClients = useMemo(() => {
-        if (!inventoryClientSearch) return clients;
-        return clients.filter(c => c.razonSocial.toLowerCase().includes(inventoryClientSearch.toLowerCase()));
-    }, [inventoryClientSearch, clients]);
-
 
     const handleSearch = async () => {
         if (!selectedClient) {
@@ -368,29 +369,29 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     };
     
     const handleInventorySearch = async () => {
-        if (!inventoryClient) {
-            toast({ variant: 'destructive', title: 'Cliente no seleccionado', description: 'Por favor, seleccione un cliente.' });
-            return;
-        }
         if (!inventoryDateRange?.from || !inventoryDateRange?.to) {
             toast({ variant: 'destructive', title: 'Rango de fechas incompleto', description: 'Seleccione un rango de fechas para la consulta.' });
             return;
         }
 
+        if (inventoryClients.length === 0) {
+             toast({ title: 'Sugerencia', description: 'No ha seleccionado clientes. Se generará un reporte con todos los clientes encontrados.' });
+        }
+    
         setIsQuerying(true);
         setInventorySearched(true);
-        setInventoryReportData([]);
-
+        setInventoryReportData(null);
+    
         try {
             const results = await getInventoryReport({
-                clientName: inventoryClient,
+                clientNames: inventoryClients,
                 startDate: format(inventoryDateRange.from, 'yyyy-MM-dd'),
                 endDate: format(inventoryDateRange.to, 'yyyy-MM-dd'),
                 sesion: inventorySesion,
             });
             setInventoryReportData(results);
-            if (results.length === 0) {
-                toast({ title: 'Sin Resultados', description: 'No se encontró inventario para el cliente y fechas seleccionadas.' });
+            if (results.rows.length === 0) {
+                toast({ title: 'Sin Resultados', description: 'No se encontró inventario para los criterios seleccionados.' });
             }
         } catch (error) {
             const msg = error instanceof Error ? error.message : 'Ocurrió un error inesperado.';
@@ -398,6 +399,29 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         } finally {
             setIsQuerying(false);
         }
+    };
+    
+    const handleInventoryExportExcel = () => {
+        if (!inventoryReportData || inventoryReportData.rows.length === 0) return;
+    
+        const { clientHeaders, rows } = inventoryReportData;
+    
+        const dataToExport = rows.map(row => {
+            const rowData: Record<string, string | number> = {
+                'Fecha': format(new Date(row.date.replace(/-/g, '/')), 'dd/MM/yyyy'),
+            };
+            clientHeaders.forEach(client => {
+                rowData[client] = row.clientData[client] || 0;
+            });
+            return rowData;
+        });
+    
+        const worksheet = XLSX.utils.json_to_sheet(dataToExport, { header: ['Fecha', ...clientHeaders] });
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Reporte Inventario');
+        
+        const fileName = `Reporte_Inventario_Pivot_${format(inventoryDateRange!.from!, 'yyyy-MM-dd')}_a_${format(inventoryDateRange!.to!, 'yyyy-MM-dd')}.xlsx`;
+        XLSX.writeFile(workbook, fileName);
     };
 
 
@@ -622,46 +646,50 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                         <div>
                             <Label className="font-semibold text-base">2. Consultar Inventario Guardado</Label>
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end mt-2">
-                                <div className="space-y-2">
-                                    <Label>Cliente</Label>
-                                    <Dialog open={isInventoryClientDialogOpen} onOpenChange={setInventoryClientDialogOpen}>
-                                        <DialogTrigger asChild>
-                                            <Button variant="outline" className="w-full justify-between text-left font-normal">
-                                                {inventoryClient || "Seleccione un cliente"}
+                                <div className="space-y-2 md:col-span-2">
+                                    <Label>Cliente(s)</Label>
+                                    <Popover>
+                                        <PopoverTrigger asChild>
+                                            <Button variant="outline" className="w-full justify-between font-normal">
+                                                <span className="truncate">
+                                                    {inventoryClients.length === 0
+                                                        ? "Seleccione uno o más clientes"
+                                                        : inventoryClients.length === 1
+                                                        ? inventoryClients[0]
+                                                        : `${inventoryClients.length} clientes seleccionados`
+                                                    }
+                                                </span>
                                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                             </Button>
-                                        </DialogTrigger>
-                                        <DialogContent className="sm:max-w-[425px]">
-                                            <DialogHeader><DialogTitle>Seleccionar Cliente</DialogTitle></DialogHeader>
-                                            <div className="p-4">
-                                                <Input
-                                                    placeholder="Buscar cliente..."
-                                                    value={inventoryClientSearch}
-                                                    onChange={(e) => setInventoryClientSearch(e.target.value)}
-                                                    className="mb-4"
-                                                />
-                                                <ScrollArea className="h-72">
-                                                    <div className="space-y-1">
-                                                        {filteredInventoryClients.map((client) => (
-                                                            <Button
+                                        </PopoverTrigger>
+                                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                            <Command>
+                                                <CommandInput placeholder="Buscar cliente..." />
+                                                <CommandEmpty>No se encontró el cliente.</CommandEmpty>
+                                                <CommandList>
+                                                    <CommandGroup>
+                                                        {clients.map((client) => (
+                                                            <CommandItem
                                                                 key={client.id}
-                                                                variant="ghost"
-                                                                className="w-full justify-start"
-                                                                onClick={() => {
-                                                                    setInventoryClient(client.razonSocial);
-                                                                    setInventoryClientDialogOpen(false);
-                                                                    setInventoryClientSearch('');
+                                                                value={client.razonSocial}
+                                                                onSelect={() => {
+                                                                    setInventoryClients(prev => 
+                                                                        prev.includes(client.razonSocial)
+                                                                            ? prev.filter(s => s !== client.razonSocial)
+                                                                            : [...prev, client.razonSocial]
+                                                                    )
                                                                 }}
                                                             >
+                                                                <Check className={cn("mr-2 h-4 w-4", inventoryClients.includes(client.razonSocial) ? "opacity-100" : "opacity-0")} />
                                                                 {client.razonSocial}
-                                                            </Button>
+                                                            </CommandItem>
                                                         ))}
-                                                        {filteredInventoryClients.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron clientes.</p>}
-                                                    </div>
-                                                </ScrollArea>
-                                            </div>
-                                        </DialogContent>
-                                    </Dialog>
+                                                    </CommandGroup>
+                                                </CommandList>
+                                            </Command>
+                                        </PopoverContent>
+                                    </Popover>
+                                    <p className="text-xs text-muted-foreground">Deje en blanco para consultar todos los clientes.</p>
                                 </div>
                                 <div className="space-y-2">
                                     <Label>Rango de Fechas (Máx. 31 días)</Label>
@@ -700,64 +728,81 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                         </PopoverContent>
                                     </Popover>
                                 </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="inventory-session">Sesión</Label>
-                                    <Select
-                                        value={inventorySesion || 'all'}
-                                        onValueChange={(value) => setInventorySesion(value === 'all' ? '' : value)}
-                                        disabled={isQuerying}
-                                    >
-                                        <SelectTrigger id="inventory-session">
-                                            <SelectValue placeholder="Seleccione una sesión" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="all">Todos</SelectItem>
-                                            <SelectItem value="CO">CO - Congelados</SelectItem>
-                                            <SelectItem value="RE">RE - Refrigerado</SelectItem>
-                                            <SelectItem value="SE">SE - Seco</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                     <p className="text-xs text-muted-foreground">
-                                        CO: Congelados, RE: Refrigerado, SE: Seco
-                                    </p>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="inventory-session">Sesión</Label>
+                                        <Select
+                                            value={inventorySesion || 'all'}
+                                            onValueChange={(value) => setInventorySesion(value === 'all' ? '' : value)}
+                                            disabled={isQuerying}
+                                        >
+                                            <SelectTrigger id="inventory-session">
+                                                <SelectValue placeholder="Sesión" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">Todos</SelectItem>
+                                                <SelectItem value="CO">CO</SelectItem>
+                                                <SelectItem value="RE">RE</SelectItem>
+                                                <SelectItem value="SE">SE</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <p className="text-xs text-muted-foreground">
+                                            CO, RE, SE
+                                        </p>
+                                    </div>
+                                    <Button onClick={handleInventorySearch} className="w-full self-end" disabled={isQuerying}>
+                                        {isQuerying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                                        Consultar
+                                    </Button>
                                 </div>
-                                <Button onClick={handleInventorySearch} className="w-full" disabled={isQuerying}>
-                                    {isQuerying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
-                                    Consultar Inventario
-                                </Button>
                             </div>
                         </div>
                         
                         {inventorySearched && (
-                             <div className="mt-6 rounded-md border">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Fecha</TableHead>
-                                            <TableHead className="text-right">Total Paletas Almacenadas</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {isQuerying ? (
+                             <div className="mt-6">
+                                <div className="flex justify-between items-center mb-4">
+                                    <h3 className="text-lg font-semibold">Resultados del Inventario</h3>
+                                    <Button 
+                                        onClick={handleInventoryExportExcel} 
+                                        disabled={isQuerying || !inventoryReportData || inventoryReportData.rows.length === 0} 
+                                        variant="outline"
+                                    >
+                                        <File className="mr-2 h-4 w-4" /> Exportar a Excel
+                                    </Button>
+                                </div>
+                                <ScrollArea className="w-full whitespace-nowrap rounded-md border">
+                                    <Table>
+                                        <TableHeader>
                                             <TableRow>
-                                                <TableCell colSpan={2}><Skeleton className="h-5 w-full rounded-md" /></TableCell>
+                                                <TableHead className="sticky left-0 z-10 bg-background/95 backdrop-blur-sm">Fecha</TableHead>
+                                                {inventoryReportData?.clientHeaders.map(client => (
+                                                    <TableHead key={client} className="text-right">{client}</TableHead>
+                                                ))}
                                             </TableRow>
-                                        ) : inventoryReportData.length > 0 ? (
-                                            inventoryReportData.map((row) => (
-                                                <TableRow key={row.date}>
-                                                    <TableCell className="font-medium">{format(new Date(row.date.replace(/-/g, '/')), 'dd/MM/yyyy')}</TableCell>
-                                                    <TableCell className="text-right font-bold text-primary">{row.palletCount}</TableCell>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {isQuerying ? (
+                                                <TableRow><TableCell colSpan={(inventoryReportData?.clientHeaders.length || 1) + 1}><Skeleton className="h-20 w-full" /></TableCell></TableRow>
+                                            ) : inventoryReportData && inventoryReportData.rows.length > 0 ? (
+                                                inventoryReportData.rows.map((row) => (
+                                                    <TableRow key={row.date}>
+                                                        <TableCell className="font-medium sticky left-0 z-10 bg-background/95 backdrop-blur-sm">{format(new Date(row.date.replace(/-/g, '/')), 'dd/MM/yyyy')}</TableCell>
+                                                        {inventoryReportData.clientHeaders.map(client => (
+                                                            <TableCell key={client} className="text-right font-mono">{row.clientData[client] ?? 0}</TableCell>
+                                                        ))}
+                                                    </TableRow>
+                                                ))
+                                            ) : (
+                                                <TableRow>
+                                                    <TableCell colSpan={(inventoryReportData?.clientHeaders.length || 1) + 1} className="py-10 text-center text-muted-foreground">
+                                                        No se encontraron registros de inventario para su selección.
+                                                    </TableCell>
                                                 </TableRow>
-                                            ))
-                                        ) : (
-                                            <TableRow>
-                                                <TableCell colSpan={2} className="py-10 text-center text-muted-foreground">
-                                                    No se encontraron registros de inventario para su selección.
-                                                </TableCell>
-                                            </TableRow>
-                                        )}
-                                    </TableBody>
-                                </Table>
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                    <ScrollBar orientation="horizontal" />
+                                </ScrollArea>
                             </div>
                         )}
                     </CardContent>

@@ -10,6 +10,7 @@ interface InventoryRow {
   PROPIETARIO: string;
   PALETA: string | number;
   FECHA: string | Date | number;
+  SE?: string | number;
   [key: string]: any; // Allow other columns
 }
 
@@ -124,14 +125,25 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
 }
 
 
+export interface InventoryPivotRow {
+  date: string;
+  clientData: Record<string, number>; // e.g., { "CLIENT_A": 123, "CLIENT_B": 456 }
+}
+
+export interface InventoryPivotReport {
+  clientHeaders: string[]; // All unique client names found, for table headers
+  rows: InventoryPivotRow[];
+}
+
+
 export async function getInventoryReport(
-    criteria: { clientName: string; startDate: string; endDate: string; sesion?: string }
-): Promise<{ date: string; palletCount: number; }[]> {
+    criteria: { clientNames?: string[]; startDate: string; endDate: string; sesion?: string }
+): Promise<InventoryPivotReport> {
     if (!firestore) {
         throw new Error('Error de configuración del servidor.');
     }
-    if (!criteria.clientName || !criteria.startDate || !criteria.endDate) {
-        return [];
+    if (!criteria.startDate || !criteria.endDate) {
+        return { clientHeaders: [], rows: [] };
     }
 
     try {
@@ -141,15 +153,16 @@ export async function getInventoryReport(
             .get();
 
         if (snapshot.empty) {
-            return [];
+            return { clientHeaders: [], rows: [] };
         }
 
-        const results: { date: string; palletCount: number; }[] = [];
+        // Use a Map to store client pallet sets for each date
+        const resultsByDate = new Map<string, Map<string, Set<string>>>();
+        const allClientsFound = new Set<string>();
 
         snapshot.docs.forEach(doc => {
             try {
                 const inventoryDay = doc.data();
-
                 if (!inventoryDay || !Array.isArray(inventoryDay.data) || typeof inventoryDay.date !== 'string') {
                     console.warn(`Documento de inventario con formato incorrecto o fecha faltante, omitido: ${doc.id}`);
                     return;
@@ -157,13 +170,7 @@ export async function getInventoryReport(
 
                 let dailyData = inventoryDay.data as InventoryRow[];
                 
-                // Filter by client
-                dailyData = dailyData.filter(row => 
-                    row && typeof row.PROPIETARIO === 'string' && 
-                    row.PROPIETARIO.trim().toLowerCase() === criteria.clientName.toLowerCase()
-                );
-
-                // NEW: Filter by session (SE column) if provided and not empty
+                // Filter by session if provided
                 if (criteria.sesion && criteria.sesion.trim()) {
                     dailyData = dailyData.filter(row => 
                         row && row.SE !== undefined && row.SE !== null &&
@@ -171,16 +178,30 @@ export async function getInventoryReport(
                     );
                 }
                 
-                const uniquePallets = new Set<string>();
                 dailyData.forEach(row => {
-                    if (row && row.PALETA !== undefined && row.PALETA !== null) {
-                        uniquePallets.add(String(row.PALETA).trim());
+                    const clientName = row?.PROPIETARIO?.trim();
+                    if (!clientName) return;
+
+                    // Filter by client names if provided and not empty
+                    if (criteria.clientNames && criteria.clientNames.length > 0 && !criteria.clientNames.includes(clientName)) {
+                        return;
                     }
-                });
-                
-                results.push({
-                    date: inventoryDay.date,
-                    palletCount: uniquePallets.size,
+                    
+                    allClientsFound.add(clientName);
+
+                    if (!resultsByDate.has(inventoryDay.date)) {
+                        resultsByDate.set(inventoryDay.date, new Map<string, Set<string>>());
+                    }
+                    const dateData = resultsByDate.get(inventoryDay.date)!;
+
+                    if (!dateData.has(clientName)) {
+                        dateData.set(clientName, new Set<string>());
+                    }
+                    const clientPallets = dateData.get(clientName)!;
+                    
+                    if (row.PALETA !== undefined && row.PALETA !== null) {
+                        clientPallets.add(String(row.PALETA).trim());
+                    }
                 });
 
             } catch (innerError) {
@@ -188,18 +209,26 @@ export async function getInventoryReport(
             }
         });
         
-        results.sort((a, b) => {
-            // Robust date sorting to prevent crashes
-            if (!a.date || !b.date) return 0;
-            try {
-                // Using localeCompare on 'YYYY-MM-DD' strings is safe and simple
-                return a.date.localeCompare(b.date);
-            } catch (e) {
-                return 0; // Fallback for any unexpected error
-            }
-        });
+        const sortedClientHeaders = Array.from(allClientsFound).sort((a, b) => a.localeCompare(b));
         
-        return results;
+        const pivotRows: InventoryPivotRow[] = [];
+        const sortedDates = Array.from(resultsByDate.keys()).sort((a, b) => a.localeCompare(b));
+
+        for (const date of sortedDates) {
+            const clientPalletSets = resultsByDate.get(date)!;
+            const clientData: Record<string, number> = {};
+
+            for (const clientName of sortedClientHeaders) {
+                clientData[clientName] = clientPalletSets.get(clientName)?.size || 0;
+            }
+            
+            pivotRows.push({ date, clientData });
+        }
+        
+        return {
+            clientHeaders: sortedClientHeaders,
+            rows: pivotRows,
+        };
 
     } catch (error) {
         console.error('Error generando el reporte de inventario:', error);
