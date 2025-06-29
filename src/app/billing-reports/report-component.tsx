@@ -336,7 +336,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         setIsUploading(true);
         setUploadProgress(0);
         
-        const allResults = [];
         for (let i = 0; i < files.length; i++) {
             const file = files[i];
             const singleFileFormData = new FormData();
@@ -344,46 +343,32 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     
             try {
                 const result = await uploadInventoryCsv(singleFileFormData);
-                allResults.push({ ...result, fileName: file.name });
+                if (!result.success) {
+                    toast({
+                        variant: 'destructive',
+                        title: `Error al procesar "${file.name}"`,
+                        description: result.message || 'Ocurrió un error inesperado.',
+                        duration: 7000,
+                    });
+                }
             } catch (error) {
                 const errorMessage = error instanceof Error ? error.message : "Error inesperado en el cliente.";
-                allResults.push({ success: false, fileName: file.name, message: errorMessage, errors: [errorMessage] });
+                toast({
+                    variant: 'destructive',
+                    title: `Error crítico al procesar "${file.name}"`,
+                    description: errorMessage,
+                    duration: 7000,
+                });
             }
             
             const newProgress = ((i + 1) / files.length) * 100
             setUploadProgress(newProgress);
         }
     
-        const processedCount = allResults.filter(r => r.success).length;
-        const errors = allResults
-            .filter(r => !r.success)
-            .map(r => `Archivo "${r.fileName}": ${r.message}`);
-        
-        let message = '';
-        if (processedCount > 0) {
-            message += `Se procesaron exitosamente ${processedCount} archivo(s).`;
-        }
-        if (errors.length > 0) {
-            message += ` ${processedCount > 0 ? "Sin embargo, " : ""}fallaron ${errors.length} archivo(s).`;
-        }
-        if (processedCount === 0 && errors.length === 0) {
-            message = 'No se procesó ningún archivo. Verifique que los archivos no estén vacíos y tengan el formato correcto.';
-        }
-    
         toast({
             title: 'Proceso de Carga Completado',
-            description: (
-              <>
-                {message}
-                {errors.length > 0 && (
-                  <ul className="mt-2 list-disc list-inside text-xs">
-                    {errors.map((e, i) => <li key={i}>{e}</li>)}
-                  </ul>
-                )}
-              </>
-            ),
-            variant: errors.length === 0 ? 'default' : 'destructive',
-            duration: errors.length > 0 ? 10000 : 5000,
+            description: `Se han procesado ${files.length} archivo(s). Revise las notificaciones por si hubo errores.`,
+            duration: 5000,
         });
     
         if (uploadFormRef.current) {
@@ -894,7 +879,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                     </p>
                                 </div>
                                 <div className="flex gap-2">
-                                    <Button onClick={handleInventorySearch} className="w-full self-end" disabled={isQuerying || !inventoryDateRange?.from || !inventoryDateRange?.to}>
+                                    <Button onClick={handleInventorySearch} className="w-full self-end" disabled={isQuerying || !inventoryDateRange?.from || !inventoryDateRange?.to || isLoadingInventoryClients}>
                                         {isQuerying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                                         Consultar
                                     </Button>
