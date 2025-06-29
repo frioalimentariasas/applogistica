@@ -496,13 +496,13 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         });
     
         autoTable(doc, {
-            startY: infoY + 5,
+            startY: infoY + 2,
             head: head,
             body: body,
             theme: 'grid',
             styles: {
-                fontSize: 6,
-                cellPadding: 2,
+                fontSize: 5,
+                cellPadding: 1,
                 overflow: 'ellipsize',
             },
             headStyles: {
@@ -510,10 +510,10 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 textColor: 255,
                 fontStyle: 'bold',
                 halign: 'center',
-                fontSize: 7,
+                fontSize: 6,
             },
             columnStyles: {
-                0: { halign: 'left', cellWidth: 22 },
+                0: { halign: 'left', cellWidth: 20 },
             }
         });
     
@@ -921,9 +921,9 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                     <Table>
                                         <TableHeader>
                                             <TableRow>
-                                                <TableHead className="sticky left-0 z-10 bg-background/95 backdrop-blur-sm px-3 py-2 text-left font-normal">Fecha</TableHead>
+                                                <TableHead className="sticky left-0 z-10 bg-background/95 backdrop-blur-sm px-2 py-2 text-left font-normal text-xs">Fecha</TableHead>
                                                 {inventoryReportData?.clientHeaders.map(client => (
-                                                    <TableHead key={client} className="text-right px-3 py-2 font-normal">{client}</TableHead>
+                                                    <TableHead key={client} className="text-right px-2 py-2 font-normal text-xs">{client}</TableHead>
                                                 ))}
                                             </TableRow>
                                         </TableHeader>
@@ -933,9 +933,9 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                             ) : inventoryReportData && inventoryReportData.rows.length > 0 ? (
                                                 inventoryReportData.rows.map((row) => (
                                                     <TableRow key={row.date}>
-                                                        <TableCell className="font-medium sticky left-0 z-10 bg-background/95 backdrop-blur-sm px-3 py-2">{format(new Date(row.date.replace(/-/g, '/')), 'dd/MM/yyyy')}</TableCell>
+                                                        <TableCell className="font-medium sticky left-0 z-10 bg-background/95 backdrop-blur-sm px-2 py-2 text-xs">{format(new Date(row.date.replace(/-/g, '/')), 'dd/MM/yyyy')}</TableCell>
                                                         {inventoryReportData.clientHeaders.map(client => (
-                                                            <TableCell key={client} className="text-right font-mono px-3 py-2">{row.clientData[client] ?? 0}</TableCell>
+                                                            <TableCell key={client} className="text-right font-mono px-2 py-2 text-xs">{row.clientData[client] ?? 0}</TableCell>
                                                         ))}
                                                     </TableRow>
                                                 ))
@@ -958,3 +958,5 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         </div>
     );
 }
+
+    
