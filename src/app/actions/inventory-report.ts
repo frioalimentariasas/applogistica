@@ -157,20 +157,25 @@ export async function getInventoryReport(
             try {
                 const inventoryDay = doc.data();
 
-                // Defensive check to prevent crashes on malformed documents.
                 if (!inventoryDay || !Array.isArray(inventoryDay.data) || typeof inventoryDay.date !== 'string') {
                     console.warn(`Documento de inventario con formato incorrecto o fecha faltante, omitido: ${doc.id}`);
-                    return; // Skip this document
+                    return;
                 }
 
                 const dailyData = inventoryDay.data as InventoryRow[];
                 
-                // Filter by client, trimming whitespace for robustness.
                 const clientData = dailyData.filter(row => 
                     row && typeof row.PROPIETARIO === 'string' && row.PROPIETARIO.trim() === criteria.clientName
                 );
                 
-                const uniquePallets = new Set(clientData.map(row => row.PALETA));
+                // Bulletproof way to count unique pallets, avoiding errors with malformed rows.
+                const uniquePallets = new Set();
+                clientData.forEach(row => {
+                    // Ensure the PALETA property exists and is not null/undefined before adding.
+                    if (row && row.PALETA !== undefined && row.PALETA !== null) {
+                        uniquePallets.add(row.PALETA);
+                    }
+                });
                 
                 results.push({
                     date: inventoryDay.date,
@@ -183,7 +188,6 @@ export async function getInventoryReport(
             }
         });
         
-        // Sort by date string (YYYY-MM-DD), which is safe and avoids Date parsing issues.
         results.sort((a, b) => a.date.localeCompare(b.date));
         
         return results;
