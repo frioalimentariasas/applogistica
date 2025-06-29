@@ -383,6 +383,11 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             return;
         }
 
+        if (!inventorySesion) {
+            toast({ variant: 'destructive', title: 'Sesión no seleccionada', description: 'Por favor, seleccione una sesión para la consulta.' });
+            return;
+        }
+
         if (inventoryClients.length === 0) {
              toast({ title: 'Sugerencia', description: 'No ha seleccionado clientes. Se generará un reporte con todos los clientes encontrados.' });
         }
@@ -860,26 +865,25 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                 <div className="space-y-2">
                                     <Label htmlFor="inventory-session">Sesión</Label>
                                     <Select
-                                        value={inventorySesion || 'all'}
-                                        onValueChange={(value) => setInventorySesion(value === 'all' ? '' : value)}
+                                        value={inventorySesion}
+                                        onValueChange={setInventorySesion}
                                         disabled={isQuerying}
                                     >
                                         <SelectTrigger id="inventory-session">
-                                            <SelectValue placeholder="Sesión" />
+                                            <SelectValue placeholder="Seleccione una sesión" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="all">Todos</SelectItem>
                                             <SelectItem value="CO">CO - Congelados</SelectItem>
                                             <SelectItem value="RE">RE - Refrigerado</SelectItem>
                                             <SelectItem value="SE">SE - Seco</SelectItem>
                                         </SelectContent>
                                     </Select>
                                     <p className="text-xs text-muted-foreground">
-                                        Filtro opcional.
+                                        Este filtro es obligatorio.
                                     </p>
                                 </div>
                                 <div className="flex gap-2">
-                                    <Button onClick={handleInventorySearch} className="w-full self-end" disabled={isQuerying || !inventoryDateRange?.from || !inventoryDateRange?.to || isLoadingInventoryClients}>
+                                    <Button onClick={handleInventorySearch} className="w-full self-end" disabled={isQuerying || !inventoryDateRange?.from || !inventoryDateRange?.to || isLoadingInventoryClients || !inventorySesion}>
                                         {isQuerying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                                         Consultar
                                     </Button>
