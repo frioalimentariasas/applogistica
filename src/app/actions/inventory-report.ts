@@ -27,11 +27,20 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
         const workbook = xlsx.read(buffer, { type: 'buffer', cellDates: true });
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
-        const data = xlsx.utils.sheet_to_json<InventoryRow>(sheet);
+        let data = xlsx.utils.sheet_to_json<InventoryRow>(sheet);
 
         if (data.length === 0) {
             return { success: false, message: 'El archivo está vacío o no tiene el formato correcto.' };
         }
+
+        // Normalize header keys by trimming whitespace from them.
+        data = data.map(row => {
+            const newRow: any = {};
+            for (const key in row) {
+                newRow[key.trim()] = (row as any)[key];
+            }
+            return newRow;
+        });
 
         const firstRow = data[0];
         const requiredColumns = [
@@ -78,10 +87,10 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
         const serializableData = data.map(row => {
             const newRow: any = {};
             for (const key in row) {
-                if (row[key] instanceof Date) {
-                    newRow[key] = row[key].toISOString();
+                if ((row as any)[key] instanceof Date) {
+                    newRow[key] = (row as any)[key].toISOString();
                 } else {
-                    newRow[key] = row[key];
+                    newRow[key] = (row as any)[key];
                 }
             }
             return newRow;
