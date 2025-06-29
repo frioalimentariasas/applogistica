@@ -25,13 +25,12 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
             return { success: false, message: 'Error de configuración del servidor: La base de datos no está disponible.', processedCount: 0, errors: ['La base de datos no está disponible.'] };
         }
         
-        let processedCount = 0;
-        const errors: string[] = [];
-        
-        for (const file of files) {
-          try {
-            if (file.size === 0) continue;
+        const fileProcessingPromises = files.map(async (file) => {
+          if (file.size === 0) {
+              return { success: null, fileName: file.name, error: "Archivo vacío." }; // Skipped file
+          }
 
+          try {
             const buffer = await file.arrayBuffer();
             const workbook = xlsx.read(buffer, { type: 'buffer', cellDates: true });
             const sheetName = workbook.SheetNames[0];
@@ -122,14 +121,22 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
                 uploadedAt: new Date().toISOString(),
             }, { merge: true });
             
-            processedCount++;
+            return { success: true, fileName: file.name, error: null };
+
           } catch (error) {
               const errorMessage = error instanceof Error ? error.message : String(error);
               console.error(`Error al procesar el archivo ${file.name}:`, errorMessage);
-              errors.push(`Archivo "${file.name}": ${errorMessage}`);
+              return { success: false, fileName: file.name, error: errorMessage };
           }
-        }
+        });
 
+        const results = await Promise.all(fileProcessingPromises);
+        
+        const processedCount = results.filter(r => r.success === true).length;
+        const errors = results
+            .filter(r => r.success === false)
+            .map(r => `Archivo "${r.fileName}": ${r.error}`);
+        
         let message = '';
         if (processedCount > 0) {
             message += `Se procesaron exitosamente ${processedCount} archivo(s).`;
@@ -142,6 +149,7 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
         }
         
         return { success: errors.length === 0 && processedCount > 0, message, processedCount, errors };
+
     } catch (e) {
         console.error("Unhandled error in uploadInventoryCsv:", e);
         const errorMessage = e instanceof Error ? e.message : 'Error general del servidor. Revise los registros.';
