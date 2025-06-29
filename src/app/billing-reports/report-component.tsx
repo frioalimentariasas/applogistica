@@ -283,21 +283,24 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     };
 
     const handleFileUploadAction = async (formData: FormData) => {
-        const file = formData.get('file') as File;
-        if (!file || file.size === 0) {
-            toast({ variant: 'destructive', title: 'Error', description: 'Por favor, seleccione un archivo para cargar.' });
+        const files = formData.getAll('file') as File[];
+        if (files.length === 0 || (files.length === 1 && files[0].size === 0)) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Por favor, seleccione uno o más archivos para cargar.' });
             return;
         }
 
         setIsUploading(true);
         try {
             const result = await uploadInventoryCsv(formData);
-            if (result.success) {
-                toast({ title: 'Éxito', description: result.message });
-                uploadFormRef.current?.reset();
-            } else {
-                toast({ variant: 'destructive', title: 'Error de Carga', description: result.message });
-            }
+            
+            toast({
+                title: 'Proceso de Carga Completado',
+                description: result.message,
+                variant: result.success ? 'default' : 'destructive',
+                duration: result.errorCount > 0 ? 8000 : 5000,
+            });
+
+            uploadFormRef.current?.reset();
         } catch (error) {
             const msg = error instanceof Error ? error.message : 'Ocurrió un error inesperado.';
             toast({ variant: 'destructive', title: 'Error Inesperado', description: msg });
@@ -531,7 +534,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                     </CardHeader>
                     <CardContent>
                         <form action={handleFileUploadAction} ref={uploadFormRef} className="mb-6 rounded-lg border p-4">
-                             <Label htmlFor="csv-upload" className="font-semibold text-base">1. Cargar Archivo de Inventario (.csv, .xlsx, .xls)</Label>
+                             <Label htmlFor="csv-upload" className="font-semibold text-base">1. Cargar Archivo(s) de Inventario (.csv, .xlsx, .xls)</Label>
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-center mt-2">
                                 <div className="sm:col-span-2">
                                     <Input
@@ -540,6 +543,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                         type="file"
                                         accept=".csv, .xlsx, .xls"
                                         disabled={isUploading}
+                                        multiple
                                         className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
                                     />
                                 </div>

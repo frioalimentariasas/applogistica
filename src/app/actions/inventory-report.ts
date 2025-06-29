@@ -13,31 +13,34 @@ interface InventoryRow {
   [key: string]: any; // Allow other columns
 }
 
-export async function uploadInventoryCsv(formData: FormData): Promise<{ success: boolean; message:string; }> {
-    const file = formData.get('file') as File;
-    if (!file || file.size === 0) {
-        return { success: false, message: 'No se encontró ningún archivo para cargar.' };
+export async function uploadInventoryCsv(formData: FormData): Promise<{ success: boolean; message: string; processedCount: number, errorCount: number }> {
+    const files = formData.getAll('file') as File[];
+    
+    if (!files || files.length === 0 || files.every(f => f.size === 0)) {
+        return { success: false, message: 'No se encontraron archivos válidos para cargar.', processedCount: 0, errorCount: 0 };
     }
 
     if (!firestore) {
-        return { success: false, message: 'Error de configuración del servidor: La base de datos no está disponible.' };
+        return { success: false, message: 'Error de configuración del servidor: La base de datos no está disponible.', processedCount: 0, errorCount: 0 };
     }
+    
+    let processedCount = 0;
+    let errorCount = 0;
+    
+    for (const file of files) {
+      try {
+        if (file.size === 0) continue;
 
-    try {
         const buffer = await file.arrayBuffer();
-        // Disable automatic date parsing by removing `cellDates: true`.
-        // We will parse dates manually to ensure correct format interpretation.
         const workbook = xlsx.read(buffer, { type: 'buffer' });
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
-        // Use `raw: false` to get formatted strings (like dates) instead of raw values.
         let data = xlsx.utils.sheet_to_json<InventoryRow>(sheet, { raw: false });
 
         if (data.length === 0) {
-            return { success: false, message: 'El archivo está vacío o no tiene el formato correcto.' };
+            throw new Error(`El archivo ${file.name} está vacío o no tiene el formato correcto.`);
         }
 
-        // Normalize header keys by trimming whitespace from them.
         data = data.map(row => {
             const newRow: any = {};
             for (const key in row) {
@@ -57,79 +60,77 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
         const missingColumns = requiredColumns.filter(col => !actualColumns.includes(col));
 
         if (missingColumns.length > 0) {
-             return { success: false, message: `El archivo CSV no tiene el formato correcto. Faltan las siguientes columnas requeridas: ${missingColumns.join(', ')}.` };
+             throw new Error(`Al archivo ${file.name} le faltan las siguientes columnas: ${missingColumns.join(', ')}.`);
         }
         
         const dateValue = firstRow.FECHA;
         if (!dateValue) {
-             return { success: false, message: 'La columna "FECHA" está vacía en la primera fila del archivo y es obligatoria.' };
+             throw new Error(`La columna "FECHA" está vacía en la primera fila del archivo ${file.name}.`);
         }
         
         let reportDate: Date;
         if (dateValue instanceof Date) {
-            // This case might still happen if excel format is a true date type
             reportDate = dateValue;
         } else if (typeof dateValue === 'string') {
-            // With raw:false, dates come as strings. We try to parse multiple common formats.
-            // Example input from user: "1/6/25"
             const dateFormats = ['d/M/yy', 'd/MM/yy', 'd/MM/yyyy', 'd/M/yyyy', 'yyyy-MM-dd'];
             let parsedDate: Date | null = null;
             
             for (const fmt of dateFormats) {
                 const d = parse(dateValue, fmt, new Date());
-                // Check if the parse was successful and didn't result in an invalid date.
                 if (!isNaN(d.getTime())) {
-                    // Handle a common issue where 'yy' years like '25' are parsed as 1925 instead of 2025.
                     if (fmt.includes('yy') && !fmt.includes('yyyy') && d.getFullYear() < 2000) {
                         d.setFullYear(d.getFullYear() + 100);
                     }
                     parsedDate = d;
-                    break; // Stop on the first successful parse.
+                    break;
                 }
             }
 
             if (parsedDate) {
                 reportDate = parsedDate;
             } else {
-                 return { success: false, message: `No se pudo interpretar el formato de la fecha "${dateValue}". Se espera un formato como d/M/yy o d/MM/yyyy.` };
+                 throw new Error(`No se pudo interpretar el formato de la fecha "${dateValue}" en el archivo ${file.name}.`);
             }
         } else {
-             return { success: false, message: `El formato de la columna "FECHA" (${typeof dateValue}) no es reconocido.` };
+             throw new Error(`El formato de la columna "FECHA" (${typeof dateValue}) en ${file.name} no es reconocido.`);
         }
         
         const reportDateStr = format(reportDate, 'yyyy-MM-dd');
 
-        // Data is already stringified from the CSV, so no complex serialization is needed.
-        // We just pass the array of objects as is.
         const serializableData = data.map(row => {
             const newRow: any = {};
             for (const key in row) {
-                // Ensure values are not undefined, convert to null if so.
                 newRow[key] = (row as any)[key] !== undefined ? (row as any)[key] : null;
             }
             return newRow;
         });
 
         const docRef = firestore.collection('dailyInventories').doc(reportDateStr);
-        const docSnapshot = await docRef.get();
-        const isUpdate = docSnapshot.exists;
-
         await docRef.set({
             date: reportDateStr,
             data: serializableData,
             uploadedAt: new Date().toISOString(),
-        }, { merge: true }); // Use merge to upsert the data
+        }, { merge: true });
         
-        const message = isUpdate
-            ? `El inventario para la fecha ${reportDateStr} ha sido actualizado correctamente.`
-            : `Inventario del ${reportDateStr} cargado y guardado correctamente.`;
-        
-        return { success: true, message };
-
-    } catch (error) {
-        console.error('Error procesando el archivo de inventario:', error);
-        return { success: false, message: 'No se pudo procesar el archivo. Verifique el formato.' };
+        processedCount++;
+      } catch (error) {
+          errorCount++;
+          console.error(`Error al procesar el archivo ${file.name}:`, error);
+      }
     }
+
+    let message = '';
+    if (processedCount > 0) {
+        message += `Se procesaron exitosamente ${processedCount} archivo(s).`;
+    }
+    if (errorCount > 0) {
+        message += ` ${errorCount > 0 && processedCount > 0 ? "Sin embargo," : ""} Fallaron ${errorCount} archivo(s). Revise la consola del servidor para más detalles.`;
+    }
+    if (message === '') {
+        message = 'No se procesó ningún archivo. Verifique que los archivos no estén vacíos y tengan el formato correcto.';
+    }
+    
+    return { success: errorCount === 0 && processedCount > 0, message, processedCount, errorCount };
 }
 
 export async function getInventoryReport(
@@ -165,16 +166,13 @@ export async function getInventoryReport(
 
                 const dailyData = inventoryDay.data as InventoryRow[];
                 
-                // Case-insensitive and robust client name filtering
                 const clientData = dailyData.filter(row => 
                     row && typeof row.PROPIETARIO === 'string' && 
                     row.PROPIETARIO.trim().toLowerCase() === criteria.clientName.toLowerCase()
                 );
                 
-                // Bulletproof way to count unique pallets by treating them all as strings.
                 const uniquePallets = new Set<string>();
                 clientData.forEach(row => {
-                    // Ensure the PALETA property exists and is not null/undefined before adding.
                     if (row && row.PALETA !== undefined && row.PALETA !== null) {
                         uniquePallets.add(String(row.PALETA));
                     }
@@ -187,14 +185,12 @@ export async function getInventoryReport(
 
             } catch (innerError) {
                 console.error(`Error procesando el documento de inventario ${doc.id}:`, innerError);
-                // Continue to the next document, allowing the report to be partially generated.
             }
         });
         
-        // Defensive sorting: directly by the date string, which is safe for 'YYYY-MM-DD' format.
         results.sort((a, b) => {
             if (typeof a?.date !== 'string' || typeof b?.date !== 'string') {
-                return 0; // Don't sort if dates are not valid strings
+                return 0;
             }
             return a.date.localeCompare(b.date);
         });
@@ -204,7 +200,6 @@ export async function getInventoryReport(
     } catch (error) {
         console.error('Error generando el reporte de inventario:', error);
         if (error instanceof Error) {
-            // Re-throw the specific error message to the client for better debugging.
             throw new Error(error.message);
         }
         throw new Error('No se pudo generar el reporte de inventario.');
