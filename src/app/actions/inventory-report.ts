@@ -69,18 +69,28 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
             // This case might still happen if excel format is a true date type
             reportDate = dateValue;
         } else if (typeof dateValue === 'string') {
-            try {
-                 // Try to parse 'd/MM/yyyy' first, a common format in LATAM
-                 reportDate = parse(dateValue, 'd/MM/yyyy', new Date());
-                 if (isNaN(reportDate.getTime())) {
-                     // As a fallback, try parsing as an ISO date string
-                     reportDate = parse(dateValue, 'yyyy-MM-dd', new Date());
-                     if (isNaN(reportDate.getTime())) {
-                        throw new Error('Invalid date format');
-                     }
-                 }
-            } catch(e) {
-                return { success: false, message: `No se pudo interpretar el formato de la fecha "${dateValue}". Se espera "d/MM/yyyy" o "yyyy-MM-dd".` };
+            // With raw:false, dates come as strings. We try to parse multiple common formats.
+            // Example input from user: "1/6/25"
+            const dateFormats = ['d/M/yy', 'd/MM/yy', 'd/MM/yyyy', 'd/M/yyyy', 'yyyy-MM-dd'];
+            let parsedDate: Date | null = null;
+            
+            for (const fmt of dateFormats) {
+                const d = parse(dateValue, fmt, new Date());
+                // Check if the parse was successful and didn't result in an invalid date.
+                if (!isNaN(d.getTime())) {
+                    // Handle a common issue where 'yy' years like '25' are parsed as 1925 instead of 2025.
+                    if (fmt.includes('yy') && !fmt.includes('yyyy') && d.getFullYear() < 2000) {
+                        d.setFullYear(d.getFullYear() + 100);
+                    }
+                    parsedDate = d;
+                    break; // Stop on the first successful parse.
+                }
+            }
+
+            if (parsedDate) {
+                reportDate = parsedDate;
+            } else {
+                 return { success: false, message: `No se pudo interpretar el formato de la fecha "${dateValue}". Se espera un formato como d/M/yy o d/MM/yyyy.` };
             }
         } else {
              return { success: false, message: `El formato de la columna "FECHA" (${typeof dateValue}) no es reconocido.` };
