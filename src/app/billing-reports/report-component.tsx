@@ -531,6 +531,14 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         doc.save(fileName);
     };
 
+    const handleInventoryClear = () => {
+        setInventoryDateRange(undefined);
+        setInventoryClients([]);
+        setInventorySesion('');
+        setInventoryReportData(null);
+        setInventorySearched(false);
+    };
+
 
     return (
         <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
@@ -752,7 +760,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
                         <div>
                             <Label className="font-semibold text-base">2. Consultar Inventario Guardado</Label>
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end mt-2">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end mt-2">
                                 <div className="space-y-2">
                                     <Label>Rango de Fechas (Máx. 31 días)</Label>
                                     <Popover>
@@ -790,7 +798,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                         </PopoverContent>
                                     </Popover>
                                 </div>
-                                <div className="space-y-2 md:col-span-2">
+                                <div className="space-y-2">
                                     <Label>Cliente(s)</Label>
                                     <Dialog open={isInventoryClientDialogOpen} onOpenChange={setInventoryClientDialogOpen}>
                                         <DialogTrigger asChild>
@@ -864,31 +872,35 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                         }
                                     </p>
                                 </div>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <div className="space-y-2">
-                                        <Label htmlFor="inventory-session">Sesión</Label>
-                                        <Select
-                                            value={inventorySesion || 'all'}
-                                            onValueChange={(value) => setInventorySesion(value === 'all' ? '' : value)}
-                                            disabled={isQuerying}
-                                        >
-                                            <SelectTrigger id="inventory-session">
-                                                <SelectValue placeholder="Sesión" />
-                                            </SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="all">Todos</SelectItem>
-                                                <SelectItem value="CO">CO - Congelados</SelectItem>
-                                                <SelectItem value="RE">RE - Refrigerado</SelectItem>
-                                                <SelectItem value="SE">SE - Seco</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                        <p className="text-xs text-muted-foreground">
-                                            CO, RE, SE
-                                        </p>
-                                    </div>
-                                    <Button onClick={handleInventorySearch} className="w-full self-end" disabled={isQuerying}>
+                                <div className="space-y-2">
+                                    <Label htmlFor="inventory-session">Sesión</Label>
+                                    <Select
+                                        value={inventorySesion || 'all'}
+                                        onValueChange={(value) => setInventorySesion(value === 'all' ? '' : value)}
+                                        disabled={isQuerying}
+                                    >
+                                        <SelectTrigger id="inventory-session">
+                                            <SelectValue placeholder="Sesión" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">Todos</SelectItem>
+                                            <SelectItem value="CO">CO - Congelados</SelectItem>
+                                            <SelectItem value="RE">RE - Refrigerado</SelectItem>
+                                            <SelectItem value="SE">SE - Seco</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <p className="text-xs text-muted-foreground">
+                                        Filtro opcional.
+                                    </p>
+                                </div>
+                                <div className="flex gap-2">
+                                    <Button onClick={handleInventorySearch} className="w-full self-end" disabled={isQuerying || !inventoryDateRange?.from || !inventoryDateRange?.to}>
                                         {isQuerying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                                         Consultar
+                                    </Button>
+                                    <Button onClick={handleInventoryClear} variant="outline" className="w-full self-end">
+                                        <XCircle className="h-4 w-4" />
+                                        Limpiar
                                     </Button>
                                 </div>
                             </div>
