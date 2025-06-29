@@ -33,7 +33,7 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
             if (file.size === 0) continue;
 
             const buffer = await file.arrayBuffer();
-            const workbook = xlsx.read(buffer, { type: 'buffer' });
+            const workbook = xlsx.read(buffer, { type: 'buffer', cellDates: true });
             const sheetName = workbook.SheetNames[0];
             const sheet = workbook.Sheets[sheetName];
             let data = xlsx.utils.sheet_to_json<InventoryRow>(sheet, { raw: false });
@@ -92,6 +92,15 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
                 } else {
                      throw new Error(`No se pudo interpretar el formato de la fecha "${dateValue}".`);
                 }
+            } else if (typeof dateValue === 'number') {
+                // Handle Excel serial date number
+                const jsDate = new Date(Math.round((dateValue - 25569) * 86400 * 1000));
+                jsDate.setMinutes(jsDate.getMinutes() + jsDate.getTimezoneOffset());
+                reportDate = jsDate;
+
+                if (isNaN(reportDate.getTime())) {
+                    throw new Error(`El número de fecha de Excel "${dateValue}" no es válido.`);
+                }
             } else {
                  throw new Error(`El formato de la columna "FECHA" (${typeof dateValue}) no es reconocido.`);
             }
@@ -135,7 +144,8 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
         return { success: errors.length === 0 && processedCount > 0, message, processedCount, errors };
     } catch (e) {
         console.error("Unhandled error in uploadInventoryCsv:", e);
-        return { success: false, message: "Ocurrió un error inesperado en el servidor.", processedCount: 0, errors: ["Error general del servidor. Revise los registros."] };
+        const errorMessage = e instanceof Error ? e.message : 'Error general del servidor. Revise los registros.';
+        return { success: false, message: "Ocurrió un error inesperado en el servidor.", processedCount: 0, errors: [errorMessage] };
     }
 }
 
@@ -180,7 +190,7 @@ export async function getInventoryReport(
                 const uniquePallets = new Set<string>();
                 clientData.forEach(row => {
                     if (row && row.PALETA !== undefined && row.PALETA !== null) {
-                        uniquePallets.add(String(row.PALETA));
+                        uniquePallets.add(String(row.PALETA).trim());
                     }
                 });
                 
