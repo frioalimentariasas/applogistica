@@ -1,8 +1,9 @@
 "use client";
 
-import React, { type ReactNode } from 'react';
-import { onAuthStateChanged, User } from 'firebase/auth';
+import React, { type ReactNode, useEffect, useState, useContext, useRef, useCallback } from 'react';
+import { onAuthStateChanged, User, signOut } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
+import { useRouter } from 'next/navigation';
 
 const userDisplayNameMap: Record<string, string> = {
   'frioal.operario1@gmail.com': 'Andres Blanco',
@@ -28,8 +29,24 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = React.useState<User | null>(null);
   const [displayName, setDisplayName] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const router = useRouter();
+  const inactivityTimer = useRef<NodeJS.Timeout | null>(null);
 
-  React.useEffect(() => {
+  const handleLogout = useCallback(async () => {
+    if (auth && auth.currentUser) {
+        await signOut(auth);
+        router.push('/login');
+    }
+  }, [router]);
+
+  const resetInactivityTimer = useCallback(() => {
+    if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
+    inactivityTimer.current = setTimeout(() => {
+        handleLogout();
+    }, 30 * 60 * 1000); // 30 minutes
+  }, [handleLogout]);
+  
+  useEffect(() => {
     if (!auth) {
       setUser(null);
       setDisplayName(null);
@@ -48,6 +65,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     return () => unsubscribe();
   }, []);
+  
+  useEffect(() => {
+    const events: (keyof WindowEventMap)[] = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
+    
+    if (user && !loading) {
+        resetInactivityTimer();
+        events.forEach(event => window.addEventListener(event, resetInactivityTimer));
+        
+        return () => {
+            if (inactivityTimer.current) {
+                clearTimeout(inactivityTimer.current);
+            }
+            events.forEach(event => window.removeEventListener(event, resetInactivityTimer));
+        };
+    } else {
+        // Clear timer if user logs out or is not present
+        if (inactivityTimer.current) {
+            clearTimeout(inactivityTimer.current);
+        }
+    }
+  }, [user, loading, resetInactivityTimer]);
+
 
   return (
     <AuthContext.Provider value={{ user, loading, displayName }}>
