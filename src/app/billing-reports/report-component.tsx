@@ -420,21 +420,34 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     
         const { clientHeaders, rows } = inventoryReportData;
     
-        const dataToExport = rows.map(row => {
-            const rowData: Record<string, string | number> = {
-                'Fecha': format(new Date(row.date.replace(/-/g, '/')), 'dd/MM/yyyy'),
-            };
+        const sessionMap: { [key: string]: string } = {
+            'CO': 'Congelados',
+            'RE': 'Refrigerado',
+            'SE': 'Seco'
+        };
+        const sessionText = `Sesión: ${sessionMap[inventorySesion] || inventorySesion}`;
+    
+        const headers = ['Fecha', ...clientHeaders];
+
+        const sheetData: (string | number)[][] = [
+            [sessionText],
+            [], // Empty row for spacing
+            headers
+        ];
+
+        rows.forEach(row => {
+            const rowData: (string | number)[] = [format(new Date(row.date.replace(/-/g, '/')), 'dd/MM/yyyy')];
             clientHeaders.forEach(client => {
-                rowData[client] = row.clientData[client] || 0;
+                rowData.push(row.clientData[client] || 0);
             });
-            return rowData;
+            sheetData.push(rowData);
         });
     
-        const worksheet = XLSX.utils.json_to_sheet(dataToExport, { header: ['Fecha', ...clientHeaders] });
+        const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, 'Reporte Inventario');
         
-        const fileName = `Reporte_Inventario_Pivot_${format(inventoryDateRange!.from!, 'yyyy-MM-dd')}_a_${format(inventoryDateRange!.to!, 'yyyy-MM-dd')}.xlsx`;
+        const fileName = `Reporte_Inventario_Pivot_${inventorySesion}_${format(inventoryDateRange!.from!, 'yyyy-MM-dd')}_a_${format(inventoryDateRange!.to!, 'yyyy-MM-dd')}.xlsx`;
         XLSX.writeFile(workbook, fileName);
     };
     
@@ -465,7 +478,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         
         doc.setFontSize(12);
         doc.setFont('helvetica', 'bold');
-        doc.text(`Informe de Inventario Acumulado`, pageWidth / 2, contentStartY, { align: 'center' });
+        doc.text(`Informe de Inventario Acumulado por Día`, pageWidth / 2, contentStartY, { align: 'center' });
         
         const infoY = contentStartY + 8;
         doc.setFontSize(9);
@@ -478,9 +491,17 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const periodText = (inventoryDateRange?.from && inventoryDateRange?.to) 
             ? `Periodo: ${format(inventoryDateRange.from, 'dd/MM/yyyy')} - ${format(inventoryDateRange.to, 'dd/MM/yyyy')}`
             : '';
+        
+        const sessionMap: { [key: string]: string } = {
+            'CO': 'Congelados',
+            'RE': 'Refrigerado',
+            'SE': 'Seco'
+        };
+        const sessionText = `Sesión: ${sessionMap[inventorySesion] || inventorySesion}`;
 
         doc.text(clientText, margin, infoY);
         doc.text(periodText, pageWidth - margin, infoY, { align: 'right' });
+        doc.text(sessionText, margin, infoY + 12);
     
         const { clientHeaders, rows } = inventoryReportData;
         const head = [['Fecha', ...clientHeaders]];
@@ -497,7 +518,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             textColor: 255,
             fontStyle: 'bold' as const,
             halign: 'center' as const,
-            fontSize: 6,
+            fontSize: 5,
         };
         
         doc.setFontSize(headStyles.fontSize);
@@ -526,7 +547,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         }
     
         autoTable(doc, {
-            startY: infoY + 2,
+            startY: infoY + 14,
             head: head,
             body: body,
             theme: 'grid',
@@ -539,7 +560,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             columnStyles: columnStyles,
         });
     
-        const fileName = `Reporte_Inventario_Acumulado_${format(inventoryDateRange!.from!, 'yyyy-MM-dd')}_a_${format(inventoryDateRange!.to!, 'yyyy-MM-dd')}.pdf`;
+        const fileName = `Reporte_Inventario_Acumulado_${inventorySesion}_${format(inventoryDateRange!.from!, 'yyyy-MM-dd')}_a_${format(inventoryDateRange!.to!, 'yyyy-MM-dd')}.pdf`;
         doc.save(fileName);
     };
 
@@ -771,7 +792,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                         </form>
 
                         <div>
-                            <Label className="font-semibold text-base">2. Consultar Inventario Guardado</Label>
+                            <Label className="font-semibold text-base">Consultar inventario Acumulado por Día</Label>
                             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end mt-2">
                                 <div className="space-y-2">
                                     <Label>Rango de Fechas (Máx. 31 días)</Label>
@@ -980,5 +1001,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         </div>
     );
 }
+
+    
 
     
