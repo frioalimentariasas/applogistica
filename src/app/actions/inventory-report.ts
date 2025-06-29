@@ -66,8 +66,8 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
             reportDate = dateValue;
         } else if (typeof dateValue === 'string') {
             try {
-                 // Try to parse 'dd/MM/yyyy' first, a common format in LATAM
-                 reportDate = parse(dateValue, 'dd/MM/yyyy', new Date());
+                 // Try to parse 'd/MM/yyyy' first, a common format in LATAM
+                 reportDate = parse(dateValue, 'd/MM/yyyy', new Date());
                  if (isNaN(reportDate.getTime())) {
                      // As a fallback, try parsing as an ISO date string
                      reportDate = parse(dateValue, 'yyyy-MM-dd', new Date());
@@ -76,7 +76,7 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
                      }
                  }
             } catch(e) {
-                return { success: false, message: `No se pudo interpretar el formato de la fecha "${dateValue}". Se espera "dd/MM/yyyy" o "yyyy-MM-dd".` };
+                return { success: false, message: `No se pudo interpretar el formato de la fecha "${dateValue}". Se espera "d/MM/yyyy" o "yyyy-MM-dd".` };
             }
         } else {
              return { success: false, message: `El formato de la columna "FECHA" (${typeof dateValue}) no es reconocido.` };
