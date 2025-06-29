@@ -432,7 +432,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const handleInventoryExportPDF = () => {
         if (!inventoryReportData || inventoryReportData.rows.length === 0 || !logoBase64 || !logoDimensions) return;
         
-        const doc = new jsPDF();
+        const doc = new jsPDF({ orientation: 'landscape' });
         const pageWidth = doc.internal.pageSize.getWidth();
         
         const logoWidth = 70;
