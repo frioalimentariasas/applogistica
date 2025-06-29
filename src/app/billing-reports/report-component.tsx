@@ -296,7 +296,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
         doc.text(`Cliente: ${selectedClient}`, 14, clientY);
-        doc.text(`Periodo: ${format(dateRange!.from!, 'dd/MM/yyyy')} - ${format(dateRange!.to!, 'yyyy/MM/dd')}`, pageWidth - 14, clientY, { align: 'right' });
+        doc.text(`Periodo: ${format(dateRange!.from!, 'dd/MM/yyyy')} - ${format(dateRange!.to!, 'dd/MM/yyyy')}`, pageWidth - 14, clientY, { align: 'right' });
 
 
         autoTable(doc, {
@@ -453,34 +453,47 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         
         const doc = new jsPDF({ orientation: 'landscape' });
         const pageWidth = doc.internal.pageSize.getWidth();
-        
-        const logoWidth = 70;
+        const margin = 14;
+
+        // 1. Reduce logo size by 50% and reposition header
+        const logoWidth = 35; // 50% reduction from 70
         const aspectRatio = logoDimensions.width / logoDimensions.height;
         const logoHeight = logoWidth / aspectRatio;
-        const logoX = (pageWidth - logoWidth) / 2;
         const logoY = 15;
-        doc.addImage(logoBase64, 'PNG', logoX, logoY, logoWidth, logoHeight);
+        doc.addImage(logoBase64, 'PNG', margin, logoY, logoWidth, logoHeight);
     
-        const textY = logoY + logoHeight + 10;
+        const textX = margin + logoWidth + 10;
         doc.setFontSize(11);
         doc.setFont('helvetica', 'bold');
-        doc.text('FRIO ALIMENTARIA SAS', pageWidth / 2, textY, { align: 'center' });
+        doc.text('FRIO ALIMENTARIA SAS', textX, logoY + 8);
         
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
-        doc.text('NIT: 900736914-0', pageWidth / 2, textY + 6, { align: 'center' });
+        doc.text('NIT: 900736914-0', textX, logoY + 18);
         
-        const titleY = textY + 16;
+        const contentStartY = logoY + logoHeight + 10;
+        
         doc.setFontSize(12);
         doc.setFont('helvetica', 'bold');
-        doc.text(`Informe de Inventario Acumulado`, pageWidth / 2, titleY, { align: 'center' });
+        doc.text(`Informe de Inventario Acumulado`, pageWidth / 2, contentStartY, { align: 'center' });
         
-        const clientY = titleY + 8;
-        doc.setFontSize(10);
+        const infoY = contentStartY + 8;
+        doc.setFontSize(9);
         doc.setFont('helvetica', 'normal');
-        if (inventoryDateRange?.from && inventoryDateRange?.to) {
-            doc.text(`Periodo: ${format(inventoryDateRange.from, 'dd/MM/yyyy')} - ${format(inventoryDateRange.to, 'yyyy/MM/dd')}`, pageWidth - 14, clientY, { align: 'right' });
-        }
+        
+        let clientText = inventoryClients.length > 0
+            ? `Cliente(s): ${inventoryClients.join(', ')}`
+            : "Todos los clientes";
+            
+        const maxClientTextWidth = pageWidth / 2 - margin;
+        clientText = doc.splitTextToSize(clientText, maxClientTextWidth)[0];
+
+        const periodText = (inventoryDateRange?.from && inventoryDateRange?.to) 
+            ? `Periodo: ${format(inventoryDateRange.from, 'dd/MM/yyyy')} - ${format(inventoryDateRange.to, 'dd/MM/yyyy')}`
+            : '';
+
+        doc.text(clientText, margin, infoY);
+        doc.text(periodText, pageWidth - margin, infoY, { align: 'right' });
     
         const { clientHeaders, rows } = inventoryReportData;
         const head = [['Fecha', ...clientHeaders]];
@@ -493,10 +506,25 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         });
     
         autoTable(doc, {
-            startY: clientY + 10,
+            startY: infoY + 5,
             head: head,
             body: body,
-            headStyles: { fillColor: [33, 150, 243] },
+            theme: 'grid',
+            styles: {
+                fontSize: 6,
+                cellPadding: 2,
+                overflow: 'ellipsize',
+            },
+            headStyles: {
+                fillColor: [33, 150, 243],
+                textColor: 255,
+                fontStyle: 'bold',
+                halign: 'center',
+                fontSize: 7,
+            },
+            columnStyles: {
+                0: { halign: 'left', cellWidth: 22 },
+            }
         });
     
         const fileName = `Reporte_Inventario_Acumulado_${format(inventoryDateRange!.from!, 'yyyy-MM-dd')}_a_${format(inventoryDateRange!.to!, 'yyyy-MM-dd')}.pdf`;
