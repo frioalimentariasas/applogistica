@@ -27,6 +27,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, ChevronsUpDown, BarChart2, BookCopy, FileDown, File, Upload, FolderSearch } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
+import { Progress } from '@/components/ui/progress';
 
 const ResultsSkeleton = () => (
   <>
@@ -110,6 +111,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
     // State for CSV inventory report
     const [isUploading, setIsUploading] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
     const [isQuerying, setIsQuerying] = useState(false);
     const [inventoryClient, setInventoryClient] = useState<string | undefined>(undefined);
     const [inventoryDateRange, setInventoryDateRange] = useState<DateRange | undefined>(undefined);
@@ -282,52 +284,75 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         setSearched(false);
     };
 
-    const handleFileUploadAction = async (formData: FormData) => {
+    const handleFileUploadAction = async (event: React.FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        const formData = new FormData(event.currentTarget);
         const files = formData.getAll('file') as File[];
+        
         if (files.length === 0 || (files.length > 0 && files[0]?.size === 0)) {
             toast({ variant: 'destructive', title: 'Error', description: 'Por favor, seleccione uno o más archivos para cargar.' });
             return;
         }
 
         setIsUploading(true);
-        const uploadToast = toast({
-            title: 'Procesando archivos...',
-            description: `Cargando ${files.length} archivo(s). Por favor espere.`,
-        });
+        setUploadProgress(0);
 
-        try {
-            const result = await uploadInventoryCsv(formData);
+        const allResults = [];
+        for (let i = 0; i < files.length; i++) {
+            const file = files[i];
+            const singleFileFormData = new FormData();
+            singleFileFormData.append('file', file);
+    
+            try {
+                const result = await uploadInventoryCsv(singleFileFormData);
+                allResults.push({ ...result, fileName: file.name });
+            } catch (error) {
+                const errorMessage = error instanceof Error ? error.message : "Error inesperado en el cliente.";
+                allResults.push({ success: false, fileName: file.name, message: errorMessage, errors: [errorMessage] });
+            }
             
-            const description = (
+            // Update progress after each file
+            setUploadProgress(((i + 1) / files.length) * 100);
+        }
+
+        const processedCount = allResults.filter(r => r.success).length;
+        const errors = allResults
+            .filter(r => !r.success)
+            .map(r => `Archivo "${r.fileName}": ${r.message}`);
+        
+        let message = '';
+        if (processedCount > 0) {
+            message += `Se procesaron exitosamente ${processedCount} archivo(s).`;
+        }
+        if (errors.length > 0) {
+            message += ` ${processedCount > 0 ? "Sin embargo, " : ""}fallaron ${errors.length} archivo(s).`;
+        }
+        if (processedCount === 0 && errors.length === 0) {
+            message = 'No se procesó ningún archivo. Verifique que los archivos no estén vacíos y tengan el formato correcto.';
+        }
+
+        toast({
+            title: 'Proceso de Carga Completado',
+            description: (
               <>
-                {result.message}
-                {result.errors && result.errors.length > 0 && (
+                {message}
+                {errors.length > 0 && (
                   <ul className="mt-2 list-disc list-inside text-xs">
-                    {result.errors.map((e, i) => <li key={i}>{e}</li>)}
+                    {errors.map((e, i) => <li key={i}>{e}</li>)}
                   </ul>
                 )}
               </>
-            );
+            ),
+            variant: errors.length === 0 ? 'default' : 'destructive',
+            duration: errors.length > 0 ? 10000 : 5000,
+        });
 
-            uploadToast.dismiss();
-            toast({
-                title: 'Proceso de Carga Completado',
-                description: description,
-                variant: result.success ? 'default' : 'destructive',
-                duration: result.errors.length > 0 ? 10000 : 5000,
-            });
-
-            if (result.success || result.processedCount > 0) {
-                uploadFormRef.current?.reset();
-            }
-        } catch (error) {
-            uploadToast.dismiss();
-            const msg = error instanceof Error ? error.message : 'Ocurrió un error inesperado en el cliente.';
-            toast({ variant: 'destructive', title: 'Error Inesperado', description: msg });
-        } finally {
-            setIsUploading(false);
+        if (uploadFormRef.current) {
+            uploadFormRef.current.reset();
         }
+        setIsUploading(false);
     };
+
     
     const handleInventorySearch = async () => {
         if (!inventoryClient) {
@@ -553,7 +578,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                         <CardDescription>Cargue el archivo de inventario y luego consulte por cliente y rango de fechas.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <form action={handleFileUploadAction} ref={uploadFormRef} className="mb-6 rounded-lg border p-4">
+                        <form onSubmit={handleFileUploadAction} ref={uploadFormRef} className="mb-6 rounded-lg border p-4">
                              <Label htmlFor="csv-upload" className="font-semibold text-base">1. Cargar Archivo(s) de Inventario (.csv, .xlsx, .xls)</Label>
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-center mt-2">
                                 <div className="sm:col-span-2">
@@ -572,6 +597,12 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                     Cargar
                                 </Button>
                             </div>
+                             {isUploading && (
+                                <div className="mt-4 space-y-2">
+                                    <Progress value={uploadProgress} className="w-full" />
+                                    <p className="text-sm text-center text-muted-foreground">Procesando... {Math.round(uploadProgress)}%</p>
+                                </div>
+                            )}
                         </form>
 
                         <div>
