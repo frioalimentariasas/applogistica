@@ -45,9 +45,16 @@ export default function Home() {
       'facturacion@frioalimentaria.com.co',
       'procesos@frioalimentaria.com.co'
   ];
+  const billingUsersEmails = [
+    'facturacion@frioalimentaria.com.co', // Daniela Díaz
+    'logistica@frioalimentaria.com.co',   // Flor Simanca
+    'sistemas@frioalimentaria.com.co'    // Cristian Jaramillo
+  ];
 
   const isOperario = user && operarioEmails.includes(user.email || '');
   const isViewer = user && viewerEmails.includes(user.email || '');
+  const canViewBilling = user && billingUsersEmails.includes(user.email || '');
+
 
   useEffect(() => {
     if (!loading && !user) {
@@ -218,11 +225,14 @@ export default function Home() {
                         Cargar Clientes (Excel)
                     </Button>
                 </div>
-                <Button size="lg" className="w-full h-12 text-base bg-[#3588CC] text-white hover:bg-[#3588CC]/90" onClick={() => router.push('/billing-reports')}>
-                    <BookCopy className="mr-2 h-5 w-5" />
-                    Informes para facturación
-                </Button>
               </>
+            )}
+            
+            {canViewBilling && (
+              <Button size="lg" className="w-full h-12 text-base bg-[#3588CC] text-white hover:bg-[#3588CC]/90" onClick={() => router.push('/billing-reports')}>
+                  <BookCopy className="mr-2 h-5 w-5" />
+                  Informes para facturación
+              </Button>
             )}
         </div>
 
