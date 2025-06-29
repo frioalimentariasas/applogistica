@@ -382,14 +382,15 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             toast({ variant: 'destructive', title: 'Rango de fechas incompleto', description: 'Seleccione un rango de fechas para la consulta.' });
             return;
         }
-
+    
         if (!inventorySesion) {
             toast({ variant: 'destructive', title: 'Sesión no seleccionada', description: 'Por favor, seleccione una sesión para la consulta.' });
             return;
         }
 
         if (inventoryClients.length === 0) {
-             toast({ title: 'Sugerencia', description: 'No ha seleccionado clientes. Se generará un reporte con todos los clientes encontrados.' });
+            toast({ variant: 'destructive', title: 'Clientes no seleccionados', description: 'Por favor, seleccione al menos un cliente para la consulta.' });
+            return;
         }
     
         setIsQuerying(true);
@@ -444,6 +445,13 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         });
     
         const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
+        // Set column widths for better legibility
+        const colWidths = [
+            { wch: 12 }, // Date column
+            ...clientHeaders.map(header => ({ wch: Math.max(header.length, 12) })) // Client columns
+        ];
+        worksheet['!cols'] = colWidths;
+        
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, 'Reporte Inventario');
         
@@ -481,7 +489,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         doc.text(`Informe de Inventario Acumulado por Día`, pageWidth / 2, contentStartY, { align: 'center' });
         
         const infoY = contentStartY + 8;
-        doc.setFontSize(9);
+        doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
         
         let clientText = inventoryClients.length > 0 ? `Cliente(s): ${inventoryClients.join(', ')}` : "Todos los clientes";
@@ -518,7 +526,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             textColor: 255,
             fontStyle: 'bold' as const,
             halign: 'center' as const,
-            fontSize: 5,
+            fontSize: 9,
         };
         
         doc.setFontSize(headStyles.fontSize);
@@ -552,8 +560,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             body: body,
             theme: 'grid',
             styles: {
-                fontSize: 5,
-                cellPadding: 1,
+                fontSize: 8,
+                cellPadding: 2,
                 overflow: 'ellipsize',
             },
             headStyles: headStyles,
@@ -900,8 +908,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                     </Dialog>
                                     <p className="text-xs text-muted-foreground">
                                         {!inventoryDateRange?.from || !inventoryDateRange?.to 
-                                            ? "Seleccione un rango de fechas para habilitar este filtro."
-                                            : "Deje en blanco para consultar todos los clientes."
+                                            ? "Seleccione un rango de fechas para ver y seleccionar clientes."
+                                            : "Seleccione uno o más clientes. Este filtro es obligatorio."
                                         }
                                     </p>
                                 </div>
@@ -926,7 +934,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                     </p>
                                 </div>
                                 <div className="flex gap-2">
-                                    <Button onClick={handleInventorySearch} className="w-full self-end" disabled={isQuerying || !inventoryDateRange?.from || !inventoryDateRange?.to || isLoadingInventoryClients || !inventorySesion}>
+                                    <Button onClick={handleInventorySearch} className="w-full self-end" disabled={isQuerying || !inventoryDateRange?.from || !inventoryDateRange?.to || isLoadingInventoryClients || !inventorySesion || inventoryClients.length === 0}>
                                         {isQuerying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
                                         Consultar
                                     </Button>
@@ -1001,6 +1009,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         </div>
     );
 }
+
+    
 
     
 
