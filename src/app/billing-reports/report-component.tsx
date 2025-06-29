@@ -260,7 +260,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
         doc.text(`Cliente: ${selectedClient}`, 14, clientY);
-        doc.text(`Periodo: ${format(dateRange!.from!, 'dd/MM/yyyy')} - ${format(dateRange!.to!, 'dd/MM/yyyy')}`, pageWidth - 14, clientY, { align: 'right' });
+        doc.text(`Periodo: ${format(dateRange!.from!, 'dd/MM/yyyy')} - ${format(dateRange!.to!, 'yyyy/MM/dd')}`, pageWidth - 14, clientY, { align: 'right' });
 
 
         autoTable(doc, {
@@ -703,15 +703,15 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                 <div className="space-y-2">
                                     <Label htmlFor="inventory-session">Sesión</Label>
                                     <Select
-                                        value={inventorySesion}
-                                        onValueChange={setInventorySesion}
+                                        value={inventorySesion || 'all'}
+                                        onValueChange={(value) => setInventorySesion(value === 'all' ? '' : value)}
                                         disabled={isQuerying}
                                     >
                                         <SelectTrigger id="inventory-session">
                                             <SelectValue placeholder="Seleccione una sesión" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="">Todos</SelectItem>
+                                            <SelectItem value="all">Todos</SelectItem>
                                             <SelectItem value="CO">CO - Congelados</SelectItem>
                                             <SelectItem value="RE">RE - Refrigerado</SelectItem>
                                             <SelectItem value="SE">SE - Seco</SelectItem>
