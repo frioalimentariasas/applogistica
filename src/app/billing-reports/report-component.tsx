@@ -61,6 +61,17 @@ const EmptyState = ({ searched }: { searched: boolean }) => (
     </TableRow>
 );
 
+const getImageWithDimensions = (src: string): Promise<{ width: number; height: number }> => {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+            resolve({ width: img.width, height: img.height });
+        };
+        img.onerror = reject;
+        img.src = src;
+    });
+};
+
 const getImageAsBase64Client = async (url: string): Promise<string> => {
     try {
         const response = await fetch(url);
@@ -98,15 +109,25 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const [clientSearch, setClientSearch] = useState('');
 
     const [logoBase64, setLogoBase64] = useState<string | null>(null);
+    const [logoDimensions, setLogoDimensions] = useState<{ width: number, height: number } | null>(null);
     const [isLogoLoading, setIsLogoLoading] = useState(true);
 
     useEffect(() => {
         const fetchLogo = async () => {
             setIsLogoLoading(true);
             const logoUrl = new URL('/images/company-logo.png', window.location.origin).href;
-            const data = await getImageAsBase64Client(logoUrl);
-            setLogoBase64(data);
-            setIsLogoLoading(false);
+            try {
+                const data = await getImageAsBase64Client(logoUrl);
+                if (data) {
+                    const dims = await getImageWithDimensions(data);
+                    setLogoDimensions(dims);
+                    setLogoBase64(data);
+                }
+            } catch (error) {
+                console.error("Failed to load logo for PDF:", error);
+            } finally {
+                setIsLogoLoading(false);
+            }
         };
         fetchLogo();
     }, []);
@@ -186,14 +207,16 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     };
 
     const handleExportPDF = () => {
-        if (!selectedClient || reportData.length === 0 || !logoBase64) return;
+        if (!selectedClient || reportData.length === 0 || !logoBase64 || !logoDimensions) return;
         
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.getWidth();
         
         // Add logo
         const logoWidth = 70;
-        const logoHeight = 35; 
+        const aspectRatio = logoDimensions.width / logoDimensions.height;
+        const logoHeight = logoWidth / aspectRatio;
+        
         const logoX = (pageWidth - logoWidth) / 2;
         const logoY = 15;
         doc.addImage(logoBase64, 'PNG', logoX, logoY, logoWidth, logoHeight);
