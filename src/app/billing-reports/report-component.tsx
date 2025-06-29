@@ -288,6 +288,16 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             toast({ variant: 'destructive', title: 'Error', description: 'Por favor, seleccione un archivo para cargar.' });
             return;
         }
+        
+        const fileNamePattern = /^stock_\d{2}_\d{2}_\d{2}\.csv$/i;
+        if (!fileNamePattern.test(file.name)) {
+            toast({
+                variant: 'destructive',
+                title: 'Nombre de archivo inválido',
+                description: 'El nombre del archivo debe seguir el formato "stock_DD_MM_YY.csv".',
+            });
+            return;
+        }
 
         setIsUploading(true);
         try {
@@ -538,7 +548,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                         id="csv-upload"
                                         name="file"
                                         type="file"
-                                        accept=".csv,.xlsx"
+                                        accept=".csv"
                                         disabled={isUploading}
                                         className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
                                     />

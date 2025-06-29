@@ -6,7 +6,6 @@ import * as xlsx from 'xlsx';
 import { format, parse } from 'date-fns';
 
 interface InventoryRow {
-  FECHA: any; // Can be string or Excel date number
   PROPIETARIO: string;
   PALETA: string | number;
   [key: string]: any; // Allow other columns
@@ -18,38 +17,36 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
         return { success: false, message: 'No se encontró ningún archivo para cargar.' };
     }
 
+    // Server-side validation of filename and date extraction
+    const fileNamePattern = /^stock_(\d{2})_(\d{2})_(\d{2})\.csv$/i;
+    const match = file.name.match(fileNamePattern);
+
+    if (!match) {
+        return { success: false, message: 'El nombre del archivo es inválido. Debe seguir el formato "stock_DD_MM_YY.csv".' };
+    }
+
     if (!firestore) {
         return { success: false, message: 'Error de configuración del servidor: La base de datos no está disponible.' };
     }
 
     try {
         const buffer = await file.arrayBuffer();
-        const workbook = xlsx.read(buffer, { type: 'buffer', cellDates: true });
+        const workbook = xlsx.read(buffer, { type: 'buffer' });
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
         const data = xlsx.utils.sheet_to_json<InventoryRow>(sheet);
 
         if (data.length === 0) {
-            return { success: false, message: 'El archivo Excel está vacío o no tiene el formato correcto.' };
+            return { success: false, message: 'El archivo CSV está vacío o no tiene el formato correcto.' };
         }
 
         const firstRow = data[0];
-        if (!('FECHA' in firstRow && 'PROPIETARIO' in firstRow && 'PALETA' in firstRow)) {
-            return { success: false, message: 'Las columnas del archivo Excel no coinciden. Se esperan "FECHA", "PROPIETARIO", y "PALETA".' };
+        if (!('PROPIETARIO' in firstRow && 'PALETA' in firstRow)) {
+            return { success: false, message: 'Las columnas del archivo CSV no coinciden. Se esperan al menos "PROPIETARIO" y "PALETA".' };
         }
         
-        let reportDate: Date;
-        if (firstRow.FECHA instanceof Date) {
-            reportDate = firstRow.FECHA;
-        } else if (typeof firstRow.FECHA === 'number') {
-            // Handle Excel serial date number
-            const excelEpoch = new Date(Date.UTC(1899, 11, 30));
-            reportDate = new Date(excelEpoch.getTime() + firstRow.FECHA * 24 * 60 * 60 * 1000);
-        } else {
-             return { success: false, message: 'El formato de la columna "FECHA" es inválido. No se pudo determinar la fecha del reporte.'};
-        }
-        
-        const reportDateStr = format(reportDate, 'yyyy-MM-dd');
+        const [_, day, month, year] = match;
+        const reportDateStr = `20${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
 
         const serializableData = data.map(row => {
             const newRow: any = {};
