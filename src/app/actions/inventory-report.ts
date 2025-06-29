@@ -34,7 +34,11 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
         }
 
         const firstRow = data[0];
-        const requiredColumns = ['FECHA', 'PROPIETARIO', 'PALETA', 'DENOMINACION'];
+        const requiredColumns = [
+            'FECHA', 'FECHAENT', 'FECHASAL', 'PROPIETARIO', 'COD_PROPIE', 'PALETA',
+            'SI', 'ARTICUL', 'VAR', 'VA', 'VARLOG', 'DENOMINACION', 'PAS', 'COLUMNA',
+            'ALTURA', 'SE', 'CAJAS', 'CANTIDAD', 'LOTE', 'CONTENEDOR', 'FECHACAD'
+        ];
         const actualColumns = Object.keys(firstRow);
         
         const missingColumns = requiredColumns.filter(col => !actualColumns.includes(col));
