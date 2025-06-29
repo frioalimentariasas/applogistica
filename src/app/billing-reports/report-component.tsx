@@ -433,7 +433,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 
                 <Card className="mb-6">
                     <CardHeader>
-                        <CardTitle>Filtros del Reporte</CardTitle>
+                        <CardTitle>Filtros del Reporte Movimientos Diarios</CardTitle>
                         <CardDescription>Seleccione un cliente y un rango de fechas para generar el informe.</CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -539,7 +539,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                     <CardHeader>
                         <div className="flex justify-between items-center flex-wrap gap-4">
                             <div>
-                                <CardTitle>Resultados del Informe</CardTitle>
+                                <CardTitle>Resultados del Informe Movimientos Diarios</CardTitle>
                                 <CardDescription>
                                      {isLoading ? "Cargando resultados..." : `Mostrando ${reportData.length} días con movimientos.`}
                                 </CardDescription>
@@ -706,3 +706,5 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         </div>
     );
 }
+
+    
