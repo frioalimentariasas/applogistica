@@ -241,3 +241,43 @@ export async function getInventoryReport(
         throw new Error('No se pudo generar el reporte de inventario.');
     }
 }
+
+
+export async function getClientsWithInventory(startDate: string, endDate: string): Promise<string[]> {
+    if (!firestore) {
+        throw new Error('Error de configuración del servidor.');
+    }
+    if (!startDate || !endDate) {
+        return [];
+    }
+
+    try {
+        const snapshot = await firestore.collection('dailyInventories')
+            .where(admin.firestore.FieldPath.documentId(), '>=', startDate)
+            .where(admin.firestore.FieldPath.documentId(), '<=', endDate)
+            .get();
+
+        if (snapshot.empty) {
+            return [];
+        }
+
+        const clients = new Set<string>();
+
+        snapshot.docs.forEach(doc => {
+            const inventoryDay = doc.data();
+            if (inventoryDay && Array.isArray(inventoryDay.data)) {
+                inventoryDay.data.forEach((row: any) => {
+                    if (row && row.PROPIETARIO && typeof row.PROPIETARIO === 'string') {
+                        clients.add(row.PROPIETARIO.trim());
+                    }
+                });
+            }
+        });
+
+        return Array.from(clients).sort((a, b) => a.localeCompare(b));
+
+    } catch (error) {
+        console.error('Error fetching clients with inventory:', error);
+        throw new Error('No se pudo obtener la lista de clientes con inventario.');
+    }
+}

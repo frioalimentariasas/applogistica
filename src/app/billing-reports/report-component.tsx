@@ -11,7 +11,7 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 
 import { getBillingReport, DailyReportData } from '@/app/actions/billing-report';
-import { getInventoryReport, uploadInventoryCsv, type InventoryPivotReport } from '@/app/actions/inventory-report';
+import { getInventoryReport, uploadInventoryCsv, type InventoryPivotReport, getClientsWithInventory } from '@/app/actions/inventory-report';
 import type { ClientInfo } from '@/app/actions/clients';
 import { useToast } from '@/hooks/use-toast';
 
@@ -123,7 +123,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const [inventorySearched, setInventorySearched] = useState(false);
     const [isInventoryClientDialogOpen, setInventoryClientDialogOpen] = useState(false);
     const [inventoryClientSearch, setInventoryClientSearch] = useState('');
-
+    const [availableInventoryClients, setAvailableInventoryClients] = useState<string[]>([]);
+    const [isLoadingInventoryClients, setIsLoadingInventoryClients] = useState(false);
 
     // State for PDF logo
     const [logoBase64, setLogoBase64] = useState<string | null>(null);
@@ -150,15 +151,49 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         fetchLogo();
     }, []);
 
+    useEffect(() => {
+        const fetchInventoryClients = async () => {
+            if (inventoryDateRange?.from && inventoryDateRange?.to) {
+                setIsLoadingInventoryClients(true);
+                try {
+                    const startDate = format(inventoryDateRange.from, 'yyyy-MM-dd');
+                    const endDate = format(inventoryDateRange.to, 'yyyy-MM-dd');
+                    const clientsWithInv = await getClientsWithInventory(startDate, endDate);
+                    setAvailableInventoryClients(clientsWithInv);
+
+                    // Clear selected clients that are not in the new list
+                    setInventoryClients(prev => prev.filter(c => clientsWithInv.includes(c)));
+
+                    if (clientsWithInv.length === 0) {
+                        toast({
+                            title: "No se encontraron clientes",
+                            description: "No hay datos de inventario para ningún cliente en el rango de fechas seleccionado.",
+                        });
+                    }
+                } catch (error) {
+                    toast({ variant: 'destructive', title: 'Error', description: 'No se pudo cargar la lista de clientes para el inventario.' });
+                } finally {
+                    setIsLoadingInventoryClients(false);
+                }
+            } else {
+                // Clear the list if the date range is incomplete
+                setAvailableInventoryClients([]);
+                setInventoryClients([]);
+            }
+        };
+        fetchInventoryClients();
+    }, [inventoryDateRange, toast]);
+
     const filteredClients = useMemo(() => {
         if (!clientSearch) return clients;
         return clients.filter(c => c.razonSocial.toLowerCase().includes(clientSearch.toLowerCase()));
     }, [clientSearch, clients]);
     
-    const filteredInventoryClients = useMemo(() => {
-        if (!inventoryClientSearch) return clients;
-        return clients.filter(c => c.razonSocial.toLowerCase().includes(inventoryClientSearch.toLowerCase()));
-    }, [inventoryClientSearch, clients]);
+    const filteredAvailableInventoryClients = useMemo(() => {
+        if (!inventoryClientSearch) return availableInventoryClients;
+        return availableInventoryClients.filter(c => c.toLowerCase().includes(inventoryClientSearch.toLowerCase()));
+    }, [inventoryClientSearch, availableInventoryClients]);
+
 
     const handleSearch = async () => {
         if (!selectedClient) {
@@ -301,19 +336,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         setIsUploading(true);
         setUploadProgress(0);
         
-        let toastId: ReturnType<typeof toast> | null = null;
-        
-        const updateToast = (progress: number, totalFiles: number, currentFile: number) => {
-            const description = `Procesando ${currentFile} de ${totalFiles} archivo(s).`;
-            if (toastId) {
-                toastId.update({ id: toastId.id, description });
-            } else {
-                toastId = toast({ title: 'Iniciando carga...', description });
-            }
-        };
-
-        updateToast(0, files.length, 0);
-
         const allResults = [];
         for (let i = 0; i < files.length; i++) {
             const file = files[i];
@@ -330,10 +352,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             
             const newProgress = ((i + 1) / files.length) * 100
             setUploadProgress(newProgress);
-            updateToast(newProgress, files.length, i + 1);
         }
-        
-        if(toastId) toastId.dismiss();
     
         const processedCount = allResults.filter(r => r.success).length;
         const errors = allResults
@@ -710,7 +729,11 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                     <Label>Cliente(s)</Label>
                                     <Dialog open={isInventoryClientDialogOpen} onOpenChange={setInventoryClientDialogOpen}>
                                         <DialogTrigger asChild>
-                                            <Button variant="outline" className="w-full justify-between font-normal">
+                                            <Button
+                                                variant="outline"
+                                                className="w-full justify-between font-normal"
+                                                disabled={!inventoryDateRange?.from || !inventoryDateRange?.to || isLoadingInventoryClients}
+                                            >
                                                 <span className="truncate">
                                                     {inventoryClients.length === 0
                                                         ? "Seleccione uno o más clientes"
@@ -718,7 +741,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                         ? inventoryClients[0]
                                                         : `${inventoryClients.length} clientes seleccionados`}
                                                 </span>
-                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                {isLoadingInventoryClients ? <Loader2 className="ml-2 h-4 w-4 shrink-0 animate-spin" /> : <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />}
                                             </Button>
                                         </DialogTrigger>
                                         <DialogContent className="sm:max-w-[425px]">
@@ -733,25 +756,35 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                     className="mb-4"
                                                 />
                                                 <ScrollArea className="h-72">
-                                                    <div className="space-y-1">
-                                                        {filteredInventoryClients.map((client) => (
-                                                            <div key={client.id} className="flex items-center space-x-2 rounded-md p-2 hover:bg-accent">
-                                                                <Checkbox
-                                                                    id={`client-${client.id}`}
-                                                                    checked={inventoryClients.includes(client.razonSocial)}
-                                                                    onCheckedChange={(checked) => {
-                                                                        setInventoryClients(prev =>
-                                                                            checked
-                                                                                ? [...prev, client.razonSocial]
-                                                                                : prev.filter(s => s !== client.razonSocial)
-                                                                        )
-                                                                    }}
-                                                                />
-                                                                <Label htmlFor={`client-${client.id}`} className="w-full cursor-pointer">{client.razonSocial}</Label>
-                                                            </div>
-                                                        ))}
-                                                        {filteredInventoryClients.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron clientes.</p>}
-                                                    </div>
+                                                    {isLoadingInventoryClients ? (
+                                                        <div className="flex justify-center items-center h-full">
+                                                            <Loader2 className="h-6 w-6 animate-spin" />
+                                                        </div>
+                                                    ) : (
+                                                        <div className="space-y-1">
+                                                            {filteredAvailableInventoryClients.map((clientName) => (
+                                                                <div key={clientName} className="flex items-center space-x-2 rounded-md p-2 hover:bg-accent">
+                                                                    <Checkbox
+                                                                        id={`client-inv-${clientName}`}
+                                                                        checked={inventoryClients.includes(clientName)}
+                                                                        onCheckedChange={(checked) => {
+                                                                            setInventoryClients(prev =>
+                                                                                checked
+                                                                                    ? [...prev, clientName]
+                                                                                    : prev.filter(s => s !== clientName)
+                                                                            )
+                                                                        }}
+                                                                    />
+                                                                    <Label htmlFor={`client-inv-${clientName}`} className="w-full cursor-pointer">{clientName}</Label>
+                                                                </div>
+                                                            ))}
+                                                            {filteredAvailableInventoryClients.length === 0 && (
+                                                                <p className="text-center text-sm text-muted-foreground">
+                                                                    {availableInventoryClients.length > 0 ? "No se encontraron clientes." : "No hay clientes con inventario en estas fechas."}
+                                                                </p>
+                                                            )}
+                                                        </div>
+                                                    )}
                                                 </ScrollArea>
                                             </div>
                                             <DialogFooter>
@@ -759,7 +792,12 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                             </DialogFooter>
                                         </DialogContent>
                                     </Dialog>
-                                    <p className="text-xs text-muted-foreground">Deje en blanco para consultar todos los clientes.</p>
+                                    <p className="text-xs text-muted-foreground">
+                                        {!inventoryDateRange?.from || !inventoryDateRange?.to 
+                                            ? "Seleccione un rango de fechas para habilitar este filtro."
+                                            : "Deje en blanco para consultar todos los clientes."
+                                        }
+                                    </p>
                                 </div>
                                 <div className="space-y-2">
                                     <Label>Rango de Fechas (Máx. 31 días)</Label>
