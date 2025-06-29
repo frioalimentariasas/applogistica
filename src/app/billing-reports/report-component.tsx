@@ -21,22 +21,16 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
 import { Input } from '@/components/ui/input';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { Check, ArrowLeft, Search, XCircle, Loader2, CalendarIcon, ChevronsUpDown, BarChart2, BookCopy, FileDown, File, Upload, FolderSearch } from 'lucide-react';
+import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, ChevronsUpDown, BookCopy, FileDown, File, Upload, FolderSearch } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from "@/components/ui/command";
+import { Checkbox } from '@/components/ui/checkbox';
+
 
 const ResultsSkeleton = () => (
   <>
@@ -127,6 +121,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const [inventorySesion, setInventorySesion] = useState<string>('');
     const [inventoryReportData, setInventoryReportData] = useState<InventoryPivotReport | null>(null);
     const [inventorySearched, setInventorySearched] = useState(false);
+    const [isInventoryClientDialogOpen, setInventoryClientDialogOpen] = useState(false);
+    const [inventoryClientSearch, setInventoryClientSearch] = useState('');
 
 
     // State for PDF logo
@@ -159,6 +155,10 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         return clients.filter(c => c.razonSocial.toLowerCase().includes(clientSearch.toLowerCase()));
     }, [clientSearch, clients]);
     
+    const filteredInventoryClients = useMemo(() => {
+        if (!inventoryClientSearch) return clients;
+        return clients.filter(c => c.razonSocial.toLowerCase().includes(inventoryClientSearch.toLowerCase()));
+    }, [inventoryClientSearch, clients]);
 
     const handleSearch = async () => {
         if (!selectedClient) {
@@ -301,11 +301,19 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         setIsUploading(true);
         setUploadProgress(0);
         
-        const toastId = toast({
-            title: 'Iniciando carga...',
-            description: `Procesando 0 de ${files.length} archivo(s).`,
-        });
-    
+        let toastId: ReturnType<typeof toast> | null = null;
+        
+        const updateToast = (progress: number, totalFiles: number, currentFile: number) => {
+            const description = `Procesando ${currentFile} de ${totalFiles} archivo(s).`;
+            if (toastId) {
+                toastId.update({ id: toastId.id, description });
+            } else {
+                toastId = toast({ title: 'Iniciando carga...', description });
+            }
+        };
+
+        updateToast(0, files.length, 0);
+
         const allResults = [];
         for (let i = 0; i < files.length; i++) {
             const file = files[i];
@@ -322,13 +330,10 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             
             const newProgress = ((i + 1) / files.length) * 100
             setUploadProgress(newProgress);
-            toastId.update({
-                id: toastId.id,
-                description: `Procesando ${i + 1} de ${files.length} archivo(s).`,
-            });
+            updateToast(newProgress, files.length, i + 1);
         }
         
-        toastId.dismiss();
+        if(toastId) toastId.dismiss();
     
         const processedCount = allResults.filter(r => r.success).length;
         const errors = allResults
@@ -422,6 +427,61 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         
         const fileName = `Reporte_Inventario_Pivot_${format(inventoryDateRange!.from!, 'yyyy-MM-dd')}_a_${format(inventoryDateRange!.to!, 'yyyy-MM-dd')}.xlsx`;
         XLSX.writeFile(workbook, fileName);
+    };
+    
+    const handleInventoryExportPDF = () => {
+        if (!inventoryReportData || inventoryReportData.rows.length === 0 || !logoBase64 || !logoDimensions) return;
+        
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+        
+        const logoWidth = 70;
+        const aspectRatio = logoDimensions.width / logoDimensions.height;
+        const logoHeight = logoWidth / aspectRatio;
+        const logoX = (pageWidth - logoWidth) / 2;
+        const logoY = 15;
+        doc.addImage(logoBase64, 'PNG', logoX, logoY, logoWidth, logoHeight);
+    
+        const textY = logoY + logoHeight + 10;
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'bold');
+        doc.text('FRIO ALIMENTARIA SAS', pageWidth / 2, textY, { align: 'center' });
+        
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.text('NIT: 900736914-0', pageWidth / 2, textY + 6, { align: 'center' });
+        
+        const titleY = textY + 16;
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`Informe de Inventario Acumulado`, pageWidth / 2, titleY, { align: 'center' });
+        
+        const clientY = titleY + 8;
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        if (inventoryDateRange?.from && inventoryDateRange?.to) {
+            doc.text(`Periodo: ${format(inventoryDateRange.from, 'dd/MM/yyyy')} - ${format(inventoryDateRange.to, 'yyyy/MM/dd')}`, pageWidth - 14, clientY, { align: 'right' });
+        }
+    
+        const { clientHeaders, rows } = inventoryReportData;
+        const head = [['Fecha', ...clientHeaders]];
+        const body = rows.map(row => {
+            const rowData: (string | number)[] = [format(new Date(row.date.replace(/-/g, '/')), 'dd/MM/yyyy')];
+            clientHeaders.forEach(client => {
+                rowData.push(row.clientData[client] || 0);
+            });
+            return rowData;
+        });
+    
+        autoTable(doc, {
+            startY: clientY + 10,
+            head: head,
+            body: body,
+            headStyles: { fillColor: [33, 150, 243] },
+        });
+    
+        const fileName = `Reporte_Inventario_Acumulado_${format(inventoryDateRange!.from!, 'yyyy-MM-dd')}_a_${format(inventoryDateRange!.to!, 'yyyy-MM-dd')}.pdf`;
+        doc.save(fileName);
     };
 
 
@@ -648,47 +708,57 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end mt-2">
                                 <div className="space-y-2 md:col-span-2">
                                     <Label>Cliente(s)</Label>
-                                    <Popover>
-                                        <PopoverTrigger asChild>
+                                    <Dialog open={isInventoryClientDialogOpen} onOpenChange={setInventoryClientDialogOpen}>
+                                        <DialogTrigger asChild>
                                             <Button variant="outline" className="w-full justify-between font-normal">
                                                 <span className="truncate">
                                                     {inventoryClients.length === 0
                                                         ? "Seleccione uno o más clientes"
                                                         : inventoryClients.length === 1
                                                         ? inventoryClients[0]
-                                                        : `${inventoryClients.length} clientes seleccionados`
-                                                    }
+                                                        : `${inventoryClients.length} clientes seleccionados`}
                                                 </span>
                                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                             </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                                            <Command>
-                                                <CommandInput placeholder="Buscar cliente..." />
-                                                <CommandEmpty>No se encontró el cliente.</CommandEmpty>
-                                                <CommandList>
-                                                    <CommandGroup>
-                                                        {clients.map((client) => (
-                                                            <CommandItem
-                                                                key={client.id}
-                                                                value={client.razonSocial}
-                                                                onSelect={() => {
-                                                                    setInventoryClients(prev => 
-                                                                        prev.includes(client.razonSocial)
-                                                                            ? prev.filter(s => s !== client.razonSocial)
-                                                                            : [...prev, client.razonSocial]
-                                                                    )
-                                                                }}
-                                                            >
-                                                                <Check className={cn("mr-2 h-4 w-4", inventoryClients.includes(client.razonSocial) ? "opacity-100" : "opacity-0")} />
-                                                                {client.razonSocial}
-                                                            </CommandItem>
+                                        </DialogTrigger>
+                                        <DialogContent className="sm:max-w-[425px]">
+                                            <DialogHeader>
+                                                <DialogTitle>Seleccionar Cliente(s)</DialogTitle>
+                                            </DialogHeader>
+                                            <div className="p-4">
+                                                <Input
+                                                    placeholder="Buscar cliente..."
+                                                    value={inventoryClientSearch}
+                                                    onChange={(e) => setInventoryClientSearch(e.target.value)}
+                                                    className="mb-4"
+                                                />
+                                                <ScrollArea className="h-72">
+                                                    <div className="space-y-1">
+                                                        {filteredInventoryClients.map((client) => (
+                                                            <div key={client.id} className="flex items-center space-x-2 rounded-md p-2 hover:bg-accent">
+                                                                <Checkbox
+                                                                    id={`client-${client.id}`}
+                                                                    checked={inventoryClients.includes(client.razonSocial)}
+                                                                    onCheckedChange={(checked) => {
+                                                                        setInventoryClients(prev =>
+                                                                            checked
+                                                                                ? [...prev, client.razonSocial]
+                                                                                : prev.filter(s => s !== client.razonSocial)
+                                                                        )
+                                                                    }}
+                                                                />
+                                                                <Label htmlFor={`client-${client.id}`} className="w-full cursor-pointer">{client.razonSocial}</Label>
+                                                            </div>
                                                         ))}
-                                                    </CommandGroup>
-                                                </CommandList>
-                                            </Command>
-                                        </PopoverContent>
-                                    </Popover>
+                                                        {filteredInventoryClients.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron clientes.</p>}
+                                                    </div>
+                                                </ScrollArea>
+                                            </div>
+                                            <DialogFooter>
+                                                <Button onClick={() => setInventoryClientDialogOpen(false)}>Cerrar</Button>
+                                            </DialogFooter>
+                                        </DialogContent>
+                                    </Dialog>
                                     <p className="text-xs text-muted-foreground">Deje en blanco para consultar todos los clientes.</p>
                                 </div>
                                 <div className="space-y-2">
@@ -741,9 +811,9 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                             </SelectTrigger>
                                             <SelectContent>
                                                 <SelectItem value="all">Todos</SelectItem>
-                                                <SelectItem value="CO">CO</SelectItem>
-                                                <SelectItem value="RE">RE</SelectItem>
-                                                <SelectItem value="SE">SE</SelectItem>
+                                                <SelectItem value="CO">CO - Congelados</SelectItem>
+                                                <SelectItem value="RE">RE - Refrigerado</SelectItem>
+                                                <SelectItem value="SE">SE - Seco</SelectItem>
                                             </SelectContent>
                                         </Select>
                                         <p className="text-xs text-muted-foreground">
@@ -760,15 +830,25 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                         
                         {inventorySearched && (
                              <div className="mt-6">
-                                <div className="flex justify-between items-center mb-4">
+                                <div className="flex justify-between items-center flex-wrap gap-4 mb-4">
                                     <h3 className="text-lg font-semibold">Resultados del Inventario</h3>
-                                    <Button 
-                                        onClick={handleInventoryExportExcel} 
-                                        disabled={isQuerying || !inventoryReportData || inventoryReportData.rows.length === 0} 
-                                        variant="outline"
-                                    >
-                                        <File className="mr-2 h-4 w-4" /> Exportar a Excel
-                                    </Button>
+                                    <div className="flex gap-2">
+                                        <Button 
+                                            onClick={handleInventoryExportExcel} 
+                                            disabled={isQuerying || !inventoryReportData || inventoryReportData.rows.length === 0} 
+                                            variant="outline"
+                                        >
+                                            <File className="mr-2 h-4 w-4" /> Exportar a Excel
+                                        </Button>
+                                        <Button 
+                                            onClick={handleInventoryExportPDF} 
+                                            disabled={isQuerying || !inventoryReportData || inventoryReportData.rows.length === 0 || isLogoLoading} 
+                                            variant="outline"
+                                        >
+                                            {isLogoLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />}
+                                            Exportar a PDF
+                                        </Button>
+                                    </div>
                                 </div>
                                 <ScrollArea className="w-full whitespace-nowrap rounded-md border">
                                     <Table>
