@@ -164,16 +164,18 @@ export async function getInventoryReport(
 
                 const dailyData = inventoryDay.data as InventoryRow[];
                 
+                // Case-insensitive and robust client name filtering
                 const clientData = dailyData.filter(row => 
-                    row && typeof row.PROPIETARIO === 'string' && row.PROPIETARIO.trim() === criteria.clientName
+                    row && typeof row.PROPIETARIO === 'string' && 
+                    row.PROPIETARIO.trim().toLowerCase() === criteria.clientName.toLowerCase()
                 );
                 
-                // Bulletproof way to count unique pallets, avoiding errors with malformed rows.
-                const uniquePallets = new Set();
+                // Bulletproof way to count unique pallets by treating them all as strings.
+                const uniquePallets = new Set<string>();
                 clientData.forEach(row => {
                     // Ensure the PALETA property exists and is not null/undefined before adding.
                     if (row && row.PALETA !== undefined && row.PALETA !== null) {
-                        uniquePallets.add(row.PALETA);
+                        uniquePallets.add(String(row.PALETA));
                     }
                 });
                 
@@ -188,6 +190,7 @@ export async function getInventoryReport(
             }
         });
         
+        // Sort directly by the date string, which is safe for 'YYYY-MM-DD' format.
         results.sort((a, b) => a.date.localeCompare(b.date));
         
         return results;
