@@ -125,7 +125,7 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
 
 
 export async function getInventoryReport(
-    criteria: { clientName: string; startDate: string; endDate: string }
+    criteria: { clientName: string; startDate: string; endDate: string; sesion?: string }
 ): Promise<{ date: string; palletCount: number; }[]> {
     if (!firestore) {
         throw new Error('Error de configuración del servidor.');
@@ -155,15 +155,24 @@ export async function getInventoryReport(
                     return;
                 }
 
-                const dailyData = inventoryDay.data as InventoryRow[];
+                let dailyData = inventoryDay.data as InventoryRow[];
                 
-                const clientData = dailyData.filter(row => 
+                // Filter by client
+                dailyData = dailyData.filter(row => 
                     row && typeof row.PROPIETARIO === 'string' && 
                     row.PROPIETARIO.trim().toLowerCase() === criteria.clientName.toLowerCase()
                 );
+
+                // NEW: Filter by session (SE column) if provided and not empty
+                if (criteria.sesion && criteria.sesion.trim()) {
+                    dailyData = dailyData.filter(row => 
+                        row && row.SE !== undefined && row.SE !== null &&
+                        String(row.SE).trim().toLowerCase() === criteria.sesion!.trim().toLowerCase()
+                    );
+                }
                 
                 const uniquePallets = new Set<string>();
-                clientData.forEach(row => {
+                dailyData.forEach(row => {
                     if (row && row.PALETA !== undefined && row.PALETA !== null) {
                         uniquePallets.add(String(row.PALETA).trim());
                     }
@@ -179,7 +188,16 @@ export async function getInventoryReport(
             }
         });
         
-        results.sort((a, b) => (a.date || '').localeCompare(b.date || ''));
+        results.sort((a, b) => {
+            // Robust date sorting to prevent crashes
+            if (!a.date || !b.date) return 0;
+            try {
+                // Using localeCompare on 'YYYY-MM-DD' strings is safe and simple
+                return a.date.localeCompare(b.date);
+            } catch (e) {
+                return 0; // Fallback for any unexpected error
+            }
+        });
         
         return results;
 
@@ -189,7 +207,7 @@ export async function getInventoryReport(
             if (error.message.includes('needs an index') || error.message.includes('requires an index')) {
                  throw new Error('La consulta requiere un índice en Firestore que no existe. Revise la consola del servidor para ver el enlace para crearlo.');
             }
-            throw new Error(error.message);
+            throw new Error(`Error del servidor: ${error.message}`);
         }
         throw new Error('No se pudo generar el reporte de inventario.');
     }

@@ -115,6 +115,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const [isQuerying, setIsQuerying] = useState(false);
     const [inventoryClient, setInventoryClient] = useState<string | undefined>(undefined);
     const [inventoryDateRange, setInventoryDateRange] = useState<DateRange | undefined>(undefined);
+    const [inventorySesion, setInventorySesion] = useState<string>('');
     const [inventoryReportData, setInventoryReportData] = useState<{ date: string; palletCount: number }[]>([]);
     const [inventorySearched, setInventorySearched] = useState(false);
     const [isInventoryClientDialogOpen, setInventoryClientDialogOpen] = useState(false);
@@ -296,6 +297,10 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
         setIsUploading(true);
         setUploadProgress(0);
+        const toastId = toast({
+            title: 'Iniciando carga...',
+            description: `Procesando 0 de ${files.length} archivo(s).`,
+        });
 
         const allResults = [];
         for (let i = 0; i < files.length; i++) {
@@ -312,8 +317,15 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             }
             
             // Update progress after each file
-            setUploadProgress(((i + 1) / files.length) * 100);
+            const newProgress = ((i + 1) / files.length) * 100
+            setUploadProgress(newProgress);
+            toastId.update({
+                id: toastId.id,
+                description: `Procesando ${i + 1} de ${files.length} archivo(s).`,
+            });
         }
+        
+        toastId.dismiss();
 
         const processedCount = allResults.filter(r => r.success).length;
         const errors = allResults
@@ -373,6 +385,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 clientName: inventoryClient,
                 startDate: format(inventoryDateRange.from, 'yyyy-MM-dd'),
                 endDate: format(inventoryDateRange.to, 'yyyy-MM-dd'),
+                sesion: inventorySesion,
             });
             setInventoryReportData(results);
             if (results.length === 0) {
@@ -607,7 +620,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
                         <div>
                             <Label className="font-semibold text-base">2. Consultar Inventario Guardado</Label>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end mt-2">
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 items-end mt-2">
                                 <div className="space-y-2">
                                     <Label>Cliente</Label>
                                     <Dialog open={isInventoryClientDialogOpen} onOpenChange={setInventoryClientDialogOpen}>
@@ -685,6 +698,16 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                             />
                                         </PopoverContent>
                                     </Popover>
+                                </div>
+                                <div className="space-y-2">
+                                    <Label htmlFor="inventory-session">Sesión (SE)</Label>
+                                    <Input
+                                        id="inventory-session"
+                                        placeholder="Ej: A, B, 1..."
+                                        value={inventorySesion}
+                                        onChange={(e) => setInventorySesion(e.target.value)}
+                                        disabled={isQuerying}
+                                    />
                                 </div>
                                 <Button onClick={handleInventorySearch} className="w-full" disabled={isQuerying}>
                                     {isQuerying ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
