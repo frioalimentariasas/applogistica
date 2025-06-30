@@ -448,7 +448,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         // Set column widths for better legibility
         const colWidths = [
             { wch: 12 }, // Date column
-            ...clientHeaders.map(header => ({ wch: Math.max(header.length, 12) })) // Client columns
+            ...clientHeaders.map(header => ({ wch: Math.max(header.length, 15) })) // Client columns
         ];
         worksheet['!cols'] = colWidths;
         
@@ -465,51 +465,45 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const doc = new jsPDF({ orientation: 'landscape' });
         const pageWidth = doc.internal.pageSize.getWidth();
         const margin = 14;
-        const availableWidth = pageWidth - margin * 2;
 
+        // --- HEADER ---
         const logoWidth = 35;
         const aspectRatio = logoDimensions.width / logoDimensions.height;
         const logoHeight = logoWidth / aspectRatio;
-        const logoY = 15;
-        doc.addImage(logoBase64, 'PNG', margin, logoY, logoWidth, logoHeight);
-    
+        const headerY = 15;
+        doc.addImage(logoBase64, 'PNG', margin, headerY, logoWidth, logoHeight);
+
         const textX = margin + logoWidth + 10;
         doc.setFontSize(11);
         doc.setFont('helvetica', 'bold');
-        doc.text('FRIO ALIMENTARIA SAS', textX, logoY + 8);
-        
+        doc.text('FRIO ALIMENTARIA SAS', textX, headerY + 8);
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
-        doc.text('NIT: 900736914-0', textX, logoY + 18);
-        
-        const contentStartY = logoY + logoHeight + 10;
-        
+        doc.text('NIT: 900736914-0', textX, headerY + 18);
+
         doc.setFontSize(12);
         doc.setFont('helvetica', 'bold');
-        doc.text(`Informe de Inventario Acumulado por Día`, pageWidth / 2, contentStartY, { align: 'center' });
-        
-        const infoY = contentStartY + 8;
-        doc.setFontSize(10);
+        doc.text(`Informe de Inventario Acumulado por Día`, pageWidth / 2, headerY + 15, { align: 'center' });
+
+        // --- SUB-HEADER ---
+        const contentStartY = headerY + logoHeight + 10;
+        doc.setFontSize(9);
         doc.setFont('helvetica', 'normal');
         
-        let clientText = inventoryClients.length > 0 ? `Cliente(s): ${inventoryClients.join(', ')}` : "Todos los clientes";
-        const maxClientTextWidth = pageWidth / 2 - margin;
-        clientText = doc.splitTextToSize(clientText, maxClientTextWidth)[0];
-
+        const clientText = `Cliente(s): ${inventoryClients.join(', ')}`;
         const periodText = (inventoryDateRange?.from && inventoryDateRange?.to) 
             ? `Periodo: ${format(inventoryDateRange.from, 'dd/MM/yyyy')} - ${format(inventoryDateRange.to, 'dd/MM/yyyy')}`
             : '';
-        
         const sessionMap: { [key: string]: string } = {
-            'CO': 'Congelados',
-            'RE': 'Refrigerado',
-            'SE': 'Seco'
+            'CO': 'Congelados', 'RE': 'Refrigerado', 'SE': 'Seco'
         };
         const sessionText = `Sesión: ${sessionMap[inventorySesion] || inventorySesion}`;
-
-        doc.text(clientText, margin, infoY);
-        doc.text(periodText, pageWidth - margin, infoY, { align: 'right' });
-        doc.text(sessionText, margin, infoY + 12);
+        
+        doc.text(clientText, margin, contentStartY, { maxWidth: pageWidth / 2 - margin * 2 });
+        doc.text(periodText, pageWidth - margin, contentStartY, { align: 'right' });
+        doc.text(sessionText, margin, contentStartY + 12);
+        
+        const tableStartY = contentStartY + 24;
     
         const { clientHeaders, rows } = inventoryReportData;
         const head = [['Fecha', ...clientHeaders]];
@@ -521,51 +515,32 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             return rowData;
         });
 
-        const headStyles = {
-            fillColor: [33, 150, 243],
-            textColor: 255,
-            fontStyle: 'bold' as const,
-            halign: 'center' as const,
-            fontSize: 9,
-        };
-        
-        doc.setFontSize(headStyles.fontSize);
-        doc.setFont('helvetica', headStyles.fontStyle);
-
-        const PADDING = 4;
-        const dateHeaderWidth = doc.getTextWidth(head[0][0]) + PADDING * 2;
-        const clientHeaderWidths = clientHeaders.map(header => doc.getTextWidth(header) + PADDING * 2);
-        const totalContentWidth = dateHeaderWidth + clientHeaderWidths.reduce((a, b) => a + b, 0);
-
-        const columnStyles: { [key: number]: { cellWidth?: number | 'auto', halign?: 'left' | 'right' } } = {
-            0: { halign: 'left' }
-        };
-
-        if (totalContentWidth < availableWidth) {
-            columnStyles[0].cellWidth = dateHeaderWidth;
-            clientHeaderWidths.forEach((width, index) => {
-                columnStyles[index + 1] = { cellWidth: width, halign: 'right' };
-            });
-        } else {
-            const scaleFactor = availableWidth / totalContentWidth;
-            columnStyles[0].cellWidth = dateHeaderWidth * scaleFactor;
-            clientHeaderWidths.forEach((width, index) => {
-                columnStyles[index + 1] = { cellWidth: width * scaleFactor, halign: 'right' };
-            });
-        }
-    
         autoTable(doc, {
-            startY: infoY + 14,
+            startY: tableStartY,
             head: head,
             body: body,
             theme: 'grid',
             styles: {
                 fontSize: 8,
-                cellPadding: 2,
-                overflow: 'ellipsize',
+                cellPadding: 1.5,
+                overflow: 'linebreak',
             },
-            headStyles: headStyles,
-            columnStyles: columnStyles,
+            headStyles: {
+                fillColor: [33, 150, 243],
+                textColor: 255,
+                fontStyle: 'bold',
+                fontSize: 8,
+                halign: 'center',
+                cellPadding: 2,
+            },
+            columnStyles: {
+                0: { halign: 'left' },
+            },
+            didParseCell: (data) => {
+                if (data.column.index > 0) {
+                    data.cell.styles.halign = 'right';
+                }
+            }
         });
     
         const fileName = `Reporte_Inventario_Acumulado_${inventorySesion}_${format(inventoryDateRange!.from!, 'yyyy-MM-dd')}_a_${format(inventoryDateRange!.to!, 'yyyy-MM-dd')}.pdf`;
@@ -1009,6 +984,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         </div>
     );
 }
+
+    
 
     
 
