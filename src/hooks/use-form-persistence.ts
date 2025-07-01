@@ -78,19 +78,25 @@ export function useFormPersistence<T extends FieldValues>(
 
     // --- RESTORE DRAFT LOGIC ---
     useEffect(() => {
-        if (isEditMode || !user) {
-            hasCheckedForDraft.current = true; // No restore in edit mode, so we can start saving immediately.
+        // In edit mode, we don't deal with drafts.
+        if (isEditMode) {
+            hasCheckedForDraft.current = true;
             return;
         }
 
-        const storageKey = getStorageKey();
-        if (!storageKey || typeof window === 'undefined') {
+        // Wait until user is authenticated.
+        if (!user) {
             return;
         }
         
         // This effect should only run once when the user is available.
-        if (hasCheckedForDraft.current) return;
+        if (hasCheckedForDraft.current) {
+            return;
+        }
 
+        const storageKey = getStorageKey();
+        if (!storageKey) return;
+        
         const checkData = async () => {
             try {
                 const savedDataJSON = localStorage.getItem(storageKey);
@@ -101,8 +107,9 @@ export function useFormPersistence<T extends FieldValues>(
                 if (savedDataJSON) {
                     const savedData = JSON.parse(savedDataJSON);
                     const hasTextFields = savedData.pedidoSislog || savedData.cliente || savedData.nombreCliente || savedData.conductor || savedData.nombreConductor;
-                    const hasItems = savedData.items && savedData.items.some((i: any) => i.descripcion?.trim());
-                    const hasProducts = savedData.productos && savedData.productos.some((p: any) => p.descripcion?.trim());
+                    // Check if items/products array has more than the initial empty item, or if the first item has been filled.
+                    const hasItems = savedData.items && (savedData.items.length > 1 || (savedData.items.length === 1 && savedData.items[0].descripcion?.trim()));
+                    const hasProducts = savedData.productos && (savedData.productos.length > 1 || (savedData.productos.length === 1 && savedData.productos[0].descripcion?.trim()));
 
                     if (hasTextFields || hasItems || hasProducts) {
                         hasMeaningfulData = true;
@@ -122,9 +129,10 @@ export function useFormPersistence<T extends FieldValues>(
             }
         };
 
+        // Use a short delay to ensure other initializations are complete.
         const timer = setTimeout(checkData, 100);
         return () => clearTimeout(timer);
-    }, [getStorageKey, isEditMode, user]);
+    }, [isEditMode, user, getStorageKey, setAttachments, toast, reset]);
 
 
     const restoreDraft = useCallback(async () => {
