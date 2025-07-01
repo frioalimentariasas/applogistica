@@ -35,7 +35,7 @@ const ReportSection = ({ title, children }: { title: string, children: React.Rea
 const ReportField = ({ label, value }: { label: string, value: any }) => (
     <>
       <span style={{ fontWeight: 'bold' }}>{label}: </span>
-      <span>{value || 'N/A'}</span>
+      <span>{value !== null && value !== undefined && !Number.isNaN(value) ? value : 'N/A'}</span>
     </>
 );
 
@@ -184,5 +184,3 @@ export function FixedWeightReport({ formData, userDisplayName, attachments, form
         </>
     );
 }
-
-    

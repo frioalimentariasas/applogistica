@@ -94,7 +94,11 @@ const formSchema = z.object({
   placa: z.string().min(1, "La placa es obligatoria.").regex(/^[A-Z]{3}[0-9]{3}$/, "Formato inválido. Deben ser 3 letras y 3 números (ej: ABC123)."),
   muelle: z.string().min(1, "Seleccione un muelle."),
   contenedor: z.string().optional(),
-  setPoint: z.coerce.number({required_error: "El Set Point es requerido.", invalid_type_error: "El Set Point es requerido."}).min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99."),
+  setPoint: z.preprocess(
+      (val) => (val === "" || val === null || (typeof val === 'number' && Number.isNaN(val)) ? undefined : val),
+      z.coerce.number({ invalid_type_error: "Set Point debe ser un número."})
+        .min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99.").optional()
+  ),
   condicionesHigiene: z.enum(["limpio", "sucio"], { required_error: "Seleccione una condición." }),
   termoregistrador: z.enum(["si", "no"], { required_error: "Seleccione una opción." }),
   clienteRequiereTermoregistro: z.enum(["si", "no"], { required_error: "Seleccione una opción." }),

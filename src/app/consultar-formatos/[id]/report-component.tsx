@@ -72,6 +72,13 @@ const formatTime12Hour = (time24: string | undefined): string => {
     return `${h}:${minutes} ${ampm}`;
 };
 
+const formatOptionalNumber = (num: any): string => {
+    if (num === null || num === undefined || Number.isNaN(Number(num))) {
+        return 'N/A';
+    }
+    return String(num);
+};
+
 
 export default function ReportComponent({ submission }: ReportComponentProps) {
     const [isDownloading, setIsDownloading] = useState(false);
@@ -335,7 +342,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             {content: 'Contenedor:', styles: {fontStyle: 'bold'}},
                             formData.contenedor || 'N/A',
                             {content: 'Set Point (°C):', styles: {fontStyle: 'bold'}},
-                            formData.setPoint || 'N/A'
+                            formatOptionalNumber(formData.setPoint)
                         ],
                         [
                             {content: 'Cond. Higiene:', styles: {fontStyle: 'bold'}},
@@ -403,7 +410,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         ],
                         [
                            {content: 'Precinto:', styles: {fontStyle: 'bold'}}, formData.precinto || 'N/A',
-                           {content: 'Set Point (°C):', styles: {fontStyle: 'bold'}}, formData.setPoint || 'N/A',
+                           {content: 'Set Point (°C):', styles: {fontStyle: 'bold'}}, formatOptionalNumber(formData.setPoint),
                            {content: 'Operario:', styles: {fontStyle: 'bold'}}, userDisplayName || 'N/A'
                         ],
                         [
