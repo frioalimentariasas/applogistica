@@ -762,13 +762,13 @@ export default function FixedWeightFormComponent() {
                                             <Input 
                                                 placeholder="Código del producto"
                                                 {...field}
-                                                onChange={(e) => {
-                                                    const code = e.target.value;
-                                                    field.onChange(code); // Update the field's own state first
-                                                    const articulo = articulos.find(a => a.value === code);
-                                                    if (articulo) {
-                                                        // Only set value if a match is found
-                                                        form.setValue(`productos.${index}.descripcion`, articulo.label, { shouldValidate: true });
+                                                onBlur={() => {
+                                                    const code = field.value;
+                                                    if (code) {
+                                                        const articulo = articulos.find(a => a.value === code);
+                                                        if (articulo) {
+                                                            form.setValue(`productos.${index}.descripcion`, articulo.label, { shouldValidate: true });
+                                                        }
                                                     }
                                                 }}
                                             />

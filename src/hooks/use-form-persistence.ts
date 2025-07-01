@@ -1,8 +1,8 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
-import { useForm, FieldValues } from 'react-hook-form';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { useForm, FieldValues, useWatch } from 'react-hook-form';
 import { useAuth } from './use-auth';
 import * as idb from '@/lib/idb';
 import { useToast } from './use-toast';
@@ -21,24 +21,63 @@ export function useFormPersistence<T extends FieldValues>(
 
     const [isRestoreDialogOpen, setRestoreDialogOpen] = useState(false);
     
-    // This flag prevents saving until the user has made a decision about the draft.
-    const [canSaveDraft, setCanSaveDraft] = useState(false);
+    // Use a ref to hold the debounce timer
+    const debounceTimer = useRef<NodeJS.Timeout | null>(null);
 
     const getStorageKey = useCallback(() => {
         if (!user) return null;
         return `${formIdentifier}-${user.uid}`;
     }, [formIdentifier, user]);
 
-    // Effect to check for an existing draft when the component mounts.
+    // Use useWatch to get updates from the form values
+    const watchedValues = useWatch({ control: form.control });
+
+    // --- SAVE DRAFT LOGIC ---
+    useEffect(() => {
+        const storageKey = getStorageKey();
+        if (isEditMode || !storageKey) {
+            return;
+        }
+
+        // Clear previous timer if it exists
+        if (debounceTimer.current) {
+            clearTimeout(debounceTimer.current);
+        }
+
+        // Set a new timer to save the draft
+        debounceTimer.current = setTimeout(() => {
+            try {
+                const currentValues = getValues();
+                // Save form fields to localStorage (synchronous, fast)
+                localStorage.setItem(storageKey, JSON.stringify(currentValues));
+                
+                // Save attachments to IndexedDB (asynchronous)
+                const attachmentsKey = `${storageKey}-attachments`;
+                idb.set(attachmentsKey, attachments).catch(err => {
+                    console.error("Failed to save attachments draft to IDB", err);
+                });
+            } catch (e) {
+                console.error("Failed to save draft", e);
+            }
+        }, 1500); // Debounce for 1.5 seconds
+
+        // Cleanup function to clear the timer
+        return () => {
+            if (debounceTimer.current) {
+                clearTimeout(debounceTimer.current);
+            }
+        };
+    }, [watchedValues, attachments, isEditMode, getStorageKey, getValues]);
+    
+
+    // --- RESTORE DRAFT LOGIC ---
     useEffect(() => {
         if (isEditMode) {
-            setCanSaveDraft(false); // Never save drafts when editing an existing form.
             return;
         }
 
         const storageKey = getStorageKey();
         if (!storageKey || typeof window === 'undefined') {
-            setCanSaveDraft(true); // Nothing to restore, so it's safe to start saving new data.
             return;
         }
 
@@ -49,79 +88,17 @@ export function useFormPersistence<T extends FieldValues>(
                 const savedAttachments = await idb.get<string[]>(attachmentsKey);
                 
                 if (savedData || (savedAttachments && savedAttachments.length > 0)) {
-                    // A draft was found. Prompt the user. Saving remains disabled.
                     setRestoreDialogOpen(true);
-                } else {
-                    // No draft found, so enable saving for any new input.
-                    setCanSaveDraft(true);
                 }
             } catch (e) {
                 console.error("Failed to check for draft", e);
-                setCanSaveDraft(true); // Allow saving even if check fails to avoid blocking the user.
             }
         };
 
-        checkData();
-    // This effect should only run once on mount for a given user.
+        const timer = setTimeout(checkData, 100);
+        return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [getStorageKey, isEditMode]);
-
-
-    // Effect to save attachments to IDB whenever they change, with a debounce.
-    // This is more reliable on mobile, as it happens while the app is in the foreground.
-    useEffect(() => {
-        const storageKey = getStorageKey();
-        if (!canSaveDraft || !storageKey) {
-            return;
-        }
-
-        const handler = setTimeout(() => {
-            const attachmentsKey = `${storageKey}-attachments`;
-            idb.set(attachmentsKey, attachments).catch(err => {
-                console.error("Failed to save attachments draft to IDB", err);
-            });
-        }, 1000); // Save 1 second after the last change to attachments array
-
-        return () => {
-            clearTimeout(handler);
-        };
-    }, [attachments, getStorageKey, canSaveDraft]);
-
-
-    // This effect handles saving the lightweight form data (from localStorage).
-    // It's fast and synchronous, making it ideal for the 'visibilitychange' event.
-    useEffect(() => {
-        const storageKey = getStorageKey();
-        if (!canSaveDraft || !storageKey) return;
-
-        const saveFormData = () => {
-            const currentValues = getValues();
-            try {
-                localStorage.setItem(storageKey, JSON.stringify(currentValues));
-            } catch (e) {
-                console.error("Failed to save form data draft to localStorage", e);
-                toast({
-                    variant: 'destructive',
-                    title: 'Error de Guardado Automático',
-                    description: 'No se pudo guardar el borrador de los campos del formulario.'
-                });
-            }
-        };
-        
-        const handleVisibilityChange = () => {
-            if (document.visibilityState === 'hidden') {
-                saveFormData();
-            }
-        };
-
-        document.addEventListener('visibilitychange', handleVisibilityChange);
-
-        return () => {
-            document.removeEventListener('visibilitychange', handleVisibilityChange);
-            // Save one last time when the component unmounts, just in case.
-            saveFormData();
-        };
-    }, [canSaveDraft, getStorageKey, getValues, toast]);
 
 
     const restoreDraft = useCallback(async () => {
@@ -129,18 +106,9 @@ export function useFormPersistence<T extends FieldValues>(
         if (!storageKey) return;
 
         try {
-            // Restore attachments from IndexedDB first
-            const attachmentsKey = `${storageKey}-attachments`;
-            const savedAttachments = await idb.get<string[]>(attachmentsKey);
-            if (savedAttachments) {
-                setAttachments(savedAttachments);
-            }
-
-            // Restore form fields from localStorage
             const savedData = localStorage.getItem(storageKey);
             if (savedData) {
                 const parsedData = JSON.parse(savedData);
-                // Ensure date strings are converted back to Date objects before resetting
                 Object.keys(parsedData).forEach(key => {
                     const value = parsedData[key];
                     if (typeof value === 'string' && value.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)) {
@@ -149,6 +117,12 @@ export function useFormPersistence<T extends FieldValues>(
                 });
                 reset(parsedData);
             }
+
+            const attachmentsKey = `${storageKey}-attachments`;
+            const savedAttachments = await idb.get<string[]>(attachmentsKey);
+            if (savedAttachments) {
+                setAttachments(savedAttachments);
+            }
             
             toast({ title: "Datos Restaurados", description: "Tu borrador ha sido cargado." });
         } catch (e) {
@@ -156,50 +130,41 @@ export function useFormPersistence<T extends FieldValues>(
             toast({ variant: 'destructive', title: "Error", description: "No se pudo restaurar el borrador." });
         } finally {
             setRestoreDialogOpen(false);
-            // Now that restore is complete, enable saving for subsequent changes.
-            setCanSaveDraft(true); 
         }
     }, [getStorageKey, reset, setAttachments, toast]);
 
-    const discardDraft = useCallback(async () => {
+    const clearDraft = useCallback(async (showToast = false) => {
         const storageKey = getStorageKey();
         if (!storageKey) return;
         
-        setCanSaveDraft(false); // Disable saving while we clear things out.
-
         try {
-            reset(originalDefaultValues);
-            setAttachments([]);
-
             const attachmentsKey = `${storageKey}-attachments`;
             localStorage.removeItem(storageKey);
             await idb.del(attachmentsKey);
-
-            toast({ title: "Borrador Descartado" });
+            
+            if (showToast) {
+                 toast({ title: "Borrador Descartado" });
+            }
         } catch (e) {
-            console.error("Failed to discard draft", e);
-            toast({ variant: "destructive", title: "Error", description: "No se pudo descartar el borrador." });
-        } finally {
-            setRestoreDialogOpen(false);
-            // Re-enable saving for new input.
-            setCanSaveDraft(true);
+            console.error("Failed to clear draft", e);
+             if (showToast) {
+                toast({ variant: "destructive", title: "Error", description: "No se pudo descartar el borrador." });
+            }
         }
-    }, [getStorageKey, reset, originalDefaultValues, setAttachments, toast]);
-    
-    const clearDraft = useCallback(async () => {
-        const storageKey = getStorageKey();
-        if (!storageKey) return;
-        setCanSaveDraft(false); // Disable saving
-        const attachmentsKey = `${storageKey}-attachments`;
-        localStorage.removeItem(storageKey);
-        await idb.del(attachmentsKey);
-    }, [getStorageKey]);
+    }, [getStorageKey, toast]);
 
+    const discardDraft = useCallback(async () => {
+        reset(originalDefaultValues);
+        setAttachments([]);
+        await clearDraft(true);
+        setRestoreDialogOpen(false);
+    }, [reset, originalDefaultValues, setAttachments, clearDraft]);
+    
     return {
         isRestoreDialogOpen,
         onOpenChange: setRestoreDialogOpen,
         onRestore: restoreDraft,
         onDiscard: discardDraft,
-        clearDraft
+        clearDraft: () => clearDraft(false)
     };
 }
