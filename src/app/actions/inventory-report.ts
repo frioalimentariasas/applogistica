@@ -243,7 +243,7 @@ export async function getInventoryReport(
 }
 
 
-export async function getLatestStockBeforeDate(clientName: string, date: string): Promise<number> {
+export async function getLatestStockBeforeDate(clientName: string, date: string, sesion?: string): Promise<number> {
     if (!firestore) {
         throw new Error('Error de configuración del servidor.');
     }
@@ -270,8 +270,18 @@ export async function getLatestStockBeforeDate(clientName: string, date: string)
             return 0;
         }
 
+        let inventoryData = inventoryDay.data as InventoryRow[];
+
+        // Filter by session if provided
+        if (sesion && sesion.trim()) {
+            inventoryData = inventoryData.filter(row => 
+                row && row.SE !== undefined && row.SE !== null &&
+                String(row.SE).trim().toLowerCase() === sesion.trim().toLowerCase()
+            );
+        }
+
         const pallets = new Set<string>();
-        inventoryDay.data.forEach((row: any) => {
+        inventoryData.forEach((row: any) => {
             if (row && row.PROPIETARIO?.trim() === clientName) {
                 if (row.PALETA !== undefined && row.PALETA !== null) {
                     pallets.add(String(row.PALETA).trim());
@@ -281,7 +291,7 @@ export async function getLatestStockBeforeDate(clientName: string, date: string)
 
         return pallets.size;
     } catch (error) {
-        console.error(`Error fetching latest stock for ${clientName} before ${date}:`, error);
+        console.error(`Error fetching latest stock for ${clientName} before ${date} for session ${sesion}:`, error);
         // Do not throw, just return 0 as a fallback
         return 0;
     }

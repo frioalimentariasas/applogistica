@@ -108,6 +108,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     // State for billing report
     const [selectedClient, setSelectedClient] = useState<string | undefined>(undefined);
     const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+    const [selectedSesion, setSelectedSesion] = useState<string>('');
     const [reportData, setReportData] = useState<DailyReportData[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [searched, setSearched] = useState(false);
@@ -204,20 +205,11 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
 
     const handleSearch = async () => {
-        if (!selectedClient) {
+        if (!selectedClient || !selectedSesion || !dateRange || !dateRange.from || !dateRange.to) {
             toast({
                 variant: 'destructive',
-                title: 'Cliente no seleccionado',
-                description: 'Por favor, seleccione un cliente para generar el reporte.',
-            });
-            return;
-        }
-
-        if (!dateRange || !dateRange.from || !dateRange.to) {
-            toast({
-                variant: 'destructive',
-                title: 'Filtro incompleto',
-                description: 'Por favor, seleccione un rango de fechas.',
+                title: 'Filtros incompletos',
+                description: 'Por favor, seleccione un cliente, un rango de fechas y una sesión para generar el reporte.',
             });
             return;
         }
@@ -231,6 +223,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 clientName: selectedClient,
                 startDate: format(dateRange.from, 'yyyy-MM-dd'),
                 endDate: format(dateRange.to, 'yyyy-MM-dd'),
+                sesion: selectedSesion,
             };
 
             const results = await getBillingReport(criteria);
@@ -257,6 +250,11 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const handleExportExcel = () => {
         if (!selectedClient || reportData.length === 0) return;
 
+        const sessionMap: { [key: string]: string } = {
+            'CO': 'Congelados', 'RE': 'Refrigerado', 'SE': 'Seco'
+        };
+        const sessionText = `Sesión: ${sessionMap[selectedSesion] || selectedSesion}`;
+        
         const dataToExport = reportData.map(row => ({
             'Fecha': format(new Date(row.date.replace(/-/g, '/')), 'dd/MM/yyyy'),
             'Cliente': selectedClient,
@@ -265,11 +263,14 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             'Paletas Almacenadas': row.paletasAlmacenadas,
         }));
 
-        const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+        const worksheet = XLSX.utils.json_to_sheet([]);
+        XLSX.utils.sheet_add_aoa(worksheet, [[sessionText]], { origin: "A1" });
+        XLSX.utils.sheet_add_json(worksheet, dataToExport, { origin: "A3", skipHeader: false });
+        
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, 'Reporte Facturación');
 
-        const fileName = `Reporte_Facturacion_${selectedClient.replace(/\s/g, '_')}_${format(dateRange!.from!, 'yyyy-MM-dd')}_a_${format(dateRange!.to!, 'yyyy-MM-dd')}.xlsx`;
+        const fileName = `Reporte_Facturacion_${selectedClient.replace(/\s/g, '_')}_${selectedSesion}_${format(dateRange!.from!, 'yyyy-MM-dd')}_a_${format(dateRange!.to!, 'yyyy-MM-dd')}.xlsx`;
         XLSX.writeFile(workbook, fileName);
     };
 
@@ -302,14 +303,20 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         doc.text(`Informe de Facturación`, pageWidth / 2, titleY, { align: 'center' });
         
         const clientY = titleY + 8;
+        const sessionMap: { [key: string]: string } = {
+            'CO': 'Congelados', 'RE': 'Refrigerado', 'SE': 'Seco'
+        };
+        const sessionText = `Sesión: ${sessionMap[selectedSesion] || selectedSesion}`;
+        
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
         doc.text(`Cliente: ${selectedClient}`, 14, clientY);
         doc.text(`Periodo: ${format(dateRange!.from!, 'dd/MM/yyyy')} - ${format(dateRange!.to!, 'dd/MM/yyyy')}`, pageWidth - 14, clientY, { align: 'right' });
+        doc.text(sessionText, 14, clientY + 6);
 
 
         autoTable(doc, {
-            startY: clientY + 10,
+            startY: clientY + 16,
             head: [['Fecha', 'Cliente', 'Paletas Recibidas', 'Paletas Despachadas', 'Paletas Almacenadas']],
             body: reportData.map(row => [
                 format(new Date(row.date.replace(/-/g, '/')), 'dd/MM/yyyy'),
@@ -321,13 +328,14 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             headStyles: { fillColor: [33, 150, 243] },
         });
 
-        const fileName = `Reporte_Facturacion_${selectedClient.replace(/\s/g, '_')}_${format(dateRange!.from!, 'yyyy-MM-dd')}_a_${format(dateRange!.to!, 'yyyy-MM-dd')}.pdf`;
+        const fileName = `Reporte_Facturacion_${selectedClient.replace(/\s/g, '_')}_${selectedSesion}_${format(dateRange!.from!, 'yyyy-MM-dd')}_a_${format(dateRange!.to!, 'yyyy-MM-dd')}.pdf`;
         doc.save(fileName);
     };
 
     const handleClear = () => {
         setSelectedClient(undefined);
         setDateRange(undefined);
+        setSelectedSesion('');
         setReportData([]);
         setSearched(false);
     };
@@ -515,7 +523,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const clientTextLines = doc.splitTextToSize(clientText, pageWidth * 0.6);
         doc.text(clientTextLines, margin, contentStartY);
         
-        const lineHeight = currentFontSize * 1.15;
+        const lineHeight = doc.getLineHeight() / doc.getFont().scaleFactor;
         const clientTextBlockHeight = clientTextLines.length * lineHeight;
         
         const sessionY = contentStartY + clientTextBlockHeight;
@@ -622,10 +630,10 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 <Card className="mb-6">
                     <CardHeader>
                         <CardTitle>Filtros del Reporte Movimientos Diarios</CardTitle>
-                        <CardDescription>Seleccione un cliente y un rango de fechas para generar el informe.</CardDescription>
+                        <CardDescription>Seleccione un cliente, un rango de fechas y una sesión para generar el informe.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
                             <div className="space-y-2">
                                 <Label>Cliente</Label>
                                 <Dialog open={isClientDialogOpen} onOpenChange={setClientDialogOpen}>
@@ -709,6 +717,23 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                     </PopoverContent>
                                 </Popover>
                             </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="billing-session">Sesión</Label>
+                                <Select
+                                    value={selectedSesion}
+                                    onValueChange={setSelectedSesion}
+                                    disabled={isLoading}
+                                >
+                                    <SelectTrigger id="billing-session">
+                                        <SelectValue placeholder="Seleccione una sesión" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="CO">CO - Congelados</SelectItem>
+                                        <SelectItem value="RE">RE - Refrigerado</SelectItem>
+                                        <SelectItem value="SE">SE - Seco</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
                             <div className="flex gap-2">
                                 <Button onClick={handleSearch} className="w-full" disabled={isLoading}>
                                     {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
@@ -773,7 +798,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                             searched={searched}
                                             title="No se encontraron movimientos"
                                             emptyDescription="No hay datos para el cliente y rango de fechas seleccionado."
-                                            description="Seleccione un cliente y un rango de fechas para ver el informe."
+                                            description="Seleccione un cliente, un rango de fechas y una sesión para ver el informe."
                                         />
                                     )}
                                 </TableBody>

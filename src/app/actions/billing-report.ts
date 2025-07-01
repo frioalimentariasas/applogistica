@@ -29,6 +29,7 @@ export interface BillingReportCriteria {
   clientName: string; // Must be provided for this report
   startDate: string;
   endDate: string;
+  sesion: string;
 }
 
 export interface DailyReportData {
@@ -43,8 +44,8 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
         throw new Error('El servidor no está configurado correctamente.');
     }
 
-    if (!criteria.clientName) {
-        throw new Error('El nombre del cliente es requerido para este reporte.');
+    if (!criteria.clientName || !criteria.sesion) {
+        throw new Error('El nombre del cliente y la sesión son requeridos para este reporte.');
     }
 
     try {
@@ -137,7 +138,7 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
 
         resultsWithoutStock.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
         
-        let lastStock = await getLatestStockBeforeDate(criteria.clientName, criteria.startDate);
+        let lastStock = await getLatestStockBeforeDate(criteria.clientName, criteria.startDate, criteria.sesion);
         
         const resultsWithStock: DailyReportData[] = [];
 
