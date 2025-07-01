@@ -487,7 +487,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
         // --- SUB-HEADER ---
         const contentStartY = headerY + logoHeight + 10;
-        doc.setFontSize(9);
+        const currentFontSize = 9;
+        doc.setFontSize(currentFontSize);
         doc.setFont('helvetica', 'normal');
         
         const clientText = `Cliente(s): ${inventoryClients.join(', ')}`;
@@ -499,11 +500,23 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         };
         const sessionText = `Sesión: ${sessionMap[inventorySesion] || inventorySesion}`;
         
-        doc.text(clientText, margin, contentStartY, { maxWidth: pageWidth / 2 - margin * 2 });
+        // Draw Period text on the right
         doc.text(periodText, pageWidth - margin, contentStartY, { align: 'right' });
-        doc.text(sessionText, margin, contentStartY + 12);
         
-        const tableStartY = contentStartY + 24;
+        // Draw client text, allowing it to wrap
+        const clientTextLines = doc.splitTextToSize(clientText, pageWidth * 0.6); // Wrap at 60% of page width
+        doc.text(clientTextLines, margin, contentStartY);
+        
+        // Calculate the height of the client text block
+        const lineHeight = currentFontSize * 1.15; // Standard line height factor in jsPDF
+        const clientTextBlockHeight = clientTextLines.length * lineHeight;
+        
+        // Y position for the session text, below the client text block
+        const sessionY = contentStartY + clientTextBlockHeight;
+        doc.text(sessionText, margin, sessionY);
+
+        // Y position for the table, below the session text
+        const tableStartY = sessionY + lineHeight + 4; // Add a bit of padding
     
         const { clientHeaders, rows } = inventoryReportData;
         const head = [['Fecha', ...clientHeaders]];
@@ -515,14 +528,37 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             return rowData;
         });
 
+        // Calculate column styles dynamically
+        const availableTableWidth = pageWidth - margin * 2 - 25; // page width - margins - date column width
+        const clientNamesWidths = clientHeaders.map(header => doc.getTextWidth(header));
+        const totalClientNamesWidth = clientNamesWidths.reduce((sum, width) => sum + width, 0);
+
+        let columnStyles: { [key: number]: { cellWidth: number | 'auto' } } = {
+            0: { cellWidth: 25 } // Date column fixed width
+        };
+
+        if (totalClientNamesWidth < availableTableWidth) {
+            // If there's enough space, assign specific widths
+            clientHeaders.forEach((header, index) => {
+                // Add a little padding to the calculated width
+                columnStyles[index + 1] = { cellWidth: clientNamesWidths[index] + 10 };
+            });
+        } else {
+            // If not enough space, use auto to let the library decide
+             clientHeaders.forEach((header, index) => {
+                columnStyles[index + 1] = { cellWidth: 'auto' };
+            });
+        }
+
+
         autoTable(doc, {
             startY: tableStartY,
             head: head,
             body: body,
             theme: 'grid',
             styles: {
-                fontSize: 8,
-                cellPadding: 1.5,
+                fontSize: 9,
+                cellPadding: 2,
                 overflow: 'linebreak',
             },
             headStyles: {
@@ -532,11 +568,11 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 fontSize: 8,
                 halign: 'center',
                 cellPadding: 2,
+                overflow: 'hidden', // Prevent header text from wrapping
             },
-            columnStyles: {
-                0: { halign: 'left' },
-            },
+            columnStyles: columnStyles,
             didParseCell: (data) => {
+                // Align all columns except the first one (date) to the right
                 if (data.column.index > 0) {
                     data.cell.styles.halign = 'right';
                 }
@@ -984,6 +1020,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         </div>
     );
 }
+
+    
 
     
 
