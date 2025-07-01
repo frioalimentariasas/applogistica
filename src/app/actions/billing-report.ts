@@ -3,6 +3,7 @@
 
 import admin from 'firebase-admin';
 import { firestore } from '@/lib/firebase-admin';
+import { getLatestStockBeforeDate } from './inventory-report';
 
 // This helper will recursively convert any Firestore Timestamps in an object to ISO strings.
 const serializeTimestamps = (data: any): any => {
@@ -25,7 +26,7 @@ const serializeTimestamps = (data: any): any => {
 };
 
 export interface BillingReportCriteria {
-  clientName?: string;
+  clientName: string; // Must be provided for this report
   startDate: string;
   endDate: string;
 }
@@ -34,11 +35,16 @@ export interface DailyReportData {
   date: string; // YYYY-MM-DD
   paletasRecibidas: number;
   paletasDespachadas: number;
+  paletasAlmacenadas: number;
 }
 
 export async function getBillingReport(criteria: BillingReportCriteria): Promise<DailyReportData[]> {
     if (!firestore) {
         throw new Error('El servidor no está configurado correctamente.');
+    }
+
+    if (!criteria.clientName) {
+        throw new Error('El nombre del cliente es requerido para este reporte.');
     }
 
     try {
@@ -58,18 +64,14 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
 
         const snapshot = await query.get();
 
-        if (snapshot.empty) {
-            return [];
-        }
-
-        const dailyTotals = new Map<string, DailyReportData>();
+        const dailyTotals = new Map<string, Omit<DailyReportData, 'paletasAlmacenadas'>>();
 
         snapshot.docs.forEach(doc => {
             const submission = serializeTimestamps(doc.data());
             
-            // In-memory filter for client if provided
+            // In-memory filter for client
             const clientField = submission.formData.nombreCliente || submission.formData.cliente;
-            if (criteria.clientName && clientField !== criteria.clientName) {
+            if (clientField !== criteria.clientName) {
                 return; // Skip this doc if it doesn't match the client
             }
 
@@ -79,9 +81,6 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                 return; // Skip if date is missing
             }
             
-            // Create a date object from the UTC ISO string.
-            // Manually adjust the date to the user's local timezone (Colombia, UTC-5)
-            // This ensures that a form from 10 PM on June 27th is counted for June 27th, not June 28th.
             const date = new Date(formIsoDate);
             date.setHours(date.getHours() - 5);
             const groupingDate = date.toISOString().split('T')[0]; // YYYY-MM-DD
@@ -118,25 +117,42 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                     const items = submission.formData.items || [];
                     const summary = submission.formData.summary || [];
                     
-                    // This check determines if the form was filled in "summary mode"
                     const isSummaryMode = items.some((p: any) => Number(p.paleta) === 0);
 
                     if (isSummaryMode) {
-                        // In summary mode, we trust the `totalPaletas` value from the calculated summary array
                         const dispatchedVariablePallets = summary.reduce((sum: number, s: any) => sum + (Number(s.totalPaletas) || 0), 0);
                         dailyData.paletasDespachadas += dispatchedVariablePallets;
                     } else {
-                        // In individual pallet mode, each item represents one pallet
                         dailyData.paletasDespachadas += items.length;
                     }
                     break;
             }
         });
         
-        const results = Array.from(dailyTotals.values());
-        results.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        const resultsWithoutStock: Omit<DailyReportData, 'paletasAlmacenadas'>[] = Array.from(dailyTotals.values());
         
-        return results;
+        if (resultsWithoutStock.length === 0) {
+            return [];
+        }
+
+        resultsWithoutStock.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        
+        let lastStock = await getLatestStockBeforeDate(criteria.clientName, criteria.startDate);
+        
+        const resultsWithStock: DailyReportData[] = [];
+
+        for (const day of resultsWithoutStock) {
+            const paletasAlmacenadas = lastStock + day.paletasRecibidas - day.paletasDespachadas;
+            resultsWithStock.push({
+                ...day,
+                paletasAlmacenadas,
+            });
+            lastStock = paletasAlmacenadas;
+        }
+
+        resultsWithStock.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        
+        return resultsWithStock;
 
     } catch (error) {
         console.error('Error generating billing report:', error);

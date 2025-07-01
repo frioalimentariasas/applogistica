@@ -243,6 +243,50 @@ export async function getInventoryReport(
 }
 
 
+export async function getLatestStockBeforeDate(clientName: string, date: string): Promise<number> {
+    if (!firestore) {
+        throw new Error('Error de configuración del servidor.');
+    }
+
+    if (!clientName || !date) {
+        return 0;
+    }
+
+    try {
+        const snapshot = await firestore.collection('dailyInventories')
+            .where(admin.firestore.FieldPath.documentId(), '<', date)
+            .orderBy(admin.firestore.FieldPath.documentId(), 'desc')
+            .limit(1)
+            .get();
+
+        if (snapshot.empty) {
+            return 0; // No inventory records before the given date
+        }
+        
+        const latestInventoryDoc = snapshot.docs[0];
+        const inventoryDay = latestInventoryDoc.data();
+        
+        if (!inventoryDay || !Array.isArray(inventoryDay.data)) {
+            return 0;
+        }
+
+        const pallets = new Set<string>();
+        inventoryDay.data.forEach((row: any) => {
+            if (row && row.PROPIETARIO?.trim() === clientName) {
+                if (row.PALETA !== undefined && row.PALETA !== null) {
+                    pallets.add(String(row.PALETA).trim());
+                }
+            }
+        });
+
+        return pallets.size;
+    } catch (error) {
+        console.error(`Error fetching latest stock for ${clientName} before ${date}:`, error);
+        // Do not throw, just return 0 as a fallback
+        return 0;
+    }
+}
+
 export async function getClientsWithInventory(startDate: string, endDate: string): Promise<string[]> {
     if (!firestore) {
         throw new Error('Error de configuración del servidor.');
