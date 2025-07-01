@@ -441,6 +441,17 @@ export default function VariableWeightReceptionFormComponent() {
     if (videoRef.current && canvasRef.current) {
         const video = videoRef.current;
         const canvas = canvasRef.current;
+        
+        if (video.videoWidth === 0 || video.videoHeight === 0) {
+            toast({
+                variant: 'destructive',
+                title: 'Error de Cámara',
+                description: 'No se pudo obtener la imagen de la cámara. Por favor, intente de nuevo.',
+            });
+            handleCloseCamera();
+            return;
+        }
+
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
         const context = canvas.getContext('2d');
