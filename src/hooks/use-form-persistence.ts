@@ -21,9 +21,6 @@ export function useFormPersistence<T extends FieldValues>(
 
     const [isRestoreDialogOpen, setRestoreDialogOpen] = useState(false);
     
-    // Use a ref to hold the debounce timer
-    const debounceTimer = useRef<NodeJS.Timeout | null>(null);
-
     const getStorageKey = useCallback(() => {
         if (!user) return null;
         return `${formIdentifier}-${user.uid}`;
@@ -35,38 +32,27 @@ export function useFormPersistence<T extends FieldValues>(
     // --- SAVE DRAFT LOGIC ---
     useEffect(() => {
         const storageKey = getStorageKey();
+        // Do not save drafts in edit mode.
         if (isEditMode || !storageKey) {
             return;
         }
 
-        // Clear previous timer if it exists
-        if (debounceTimer.current) {
-            clearTimeout(debounceTimer.current);
+        try {
+            // Get the current form values
+            const currentValues = getValues();
+            
+            // Save text fields to localStorage (fast, synchronous)
+            localStorage.setItem(storageKey, JSON.stringify(currentValues));
+            
+            // Save attachments to IndexedDB (asynchronous)
+            const attachmentsKey = `${storageKey}-attachments`;
+            idb.set(attachmentsKey, attachments).catch(err => {
+                console.error("Failed to save attachments draft to IDB", err);
+            });
+        } catch (e) {
+            console.error("Failed to save draft", e);
         }
-
-        // Set a new timer to save the draft
-        debounceTimer.current = setTimeout(() => {
-            try {
-                const currentValues = getValues();
-                // Save form fields to localStorage (synchronous, fast)
-                localStorage.setItem(storageKey, JSON.stringify(currentValues));
-                
-                // Save attachments to IndexedDB (asynchronous)
-                const attachmentsKey = `${storageKey}-attachments`;
-                idb.set(attachmentsKey, attachments).catch(err => {
-                    console.error("Failed to save attachments draft to IDB", err);
-                });
-            } catch (e) {
-                console.error("Failed to save draft", e);
-            }
-        }, 1500); // Debounce for 1.5 seconds
-
-        // Cleanup function to clear the timer
-        return () => {
-            if (debounceTimer.current) {
-                clearTimeout(debounceTimer.current);
-            }
-        };
+    // This effect runs on every change to form values or attachments, ensuring the draft is always up-to-date.
     }, [watchedValues, attachments, isEditMode, getStorageKey, getValues]);
     
 
@@ -90,9 +76,9 @@ export function useFormPersistence<T extends FieldValues>(
                 let hasMeaningfulData = false;
                 if (savedDataJSON) {
                     const savedData = JSON.parse(savedDataJSON);
-                    // Heuristic: if a required field like pedidoSislog or cliente has a value,
+                    // Heuristic: if a required field has a value, or items exist,
                     // then the form is not blank and we should offer to restore.
-                    if (savedData.pedidoSislog || savedData.cliente) {
+                    if (savedData.pedidoSislog || savedData.cliente || (savedData.items && savedData.items.some((i: any) => i.descripcion))) {
                         hasMeaningfulData = true;
                     }
                 }
@@ -144,12 +130,6 @@ export function useFormPersistence<T extends FieldValues>(
     }, [getStorageKey, reset, setAttachments, toast]);
 
     const clearDraft = useCallback(async (showToast = false) => {
-        // Clear any pending save operation before deleting the draft
-        if (debounceTimer.current) {
-            clearTimeout(debounceTimer.current);
-            debounceTimer.current = null;
-        }
-        
         const storageKey = getStorageKey();
         if (!storageKey) return;
         
@@ -170,7 +150,7 @@ export function useFormPersistence<T extends FieldValues>(
     }, [getStorageKey, toast]);
 
     const discardDraft = useCallback(async () => {
-        // Must clear the draft storage first to prevent race condition with save effect
+        // Clear draft storage *before* resetting the form state
         await clearDraft(true);
         reset(originalDefaultValues);
         setAttachments([]);
