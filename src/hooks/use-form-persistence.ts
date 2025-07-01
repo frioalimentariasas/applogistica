@@ -15,7 +15,7 @@ export function useFormPersistence<T extends FieldValues>(
     setAttachments: (attachments: string[] | ((prev: string[]) => string[])) => void,
     isEditMode = false
 ) {
-    const { user } = useAuth();
+    const { user, registerBeforeLogoutAction } = useAuth();
     const { reset, getValues } = form;
     const { toast } = useToast();
 
@@ -25,6 +25,12 @@ export function useFormPersistence<T extends FieldValues>(
     const hasCheckedForDraft = useRef(false);
     const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
     
+    // Use a ref for attachments to avoid stale closures in callbacks
+    const attachmentsRef = useRef(attachments);
+    useEffect(() => {
+        attachmentsRef.current = attachments;
+    }, [attachments]);
+
     const getStorageKey = useCallback(() => {
         if (!user) return null;
         return `${formIdentifier}-${user.uid}`;
@@ -32,15 +38,27 @@ export function useFormPersistence<T extends FieldValues>(
 
     // Use useWatch to get updates from the form values
     const watchedValues = useWatch({ control: form.control });
+    
+    const saveDraft = useCallback(async () => {
+        const storageKey = getStorageKey();
+        if (!storageKey || isEditMode) return;
+        
+        try {
+            const currentValues = getValues();
+            localStorage.setItem(storageKey, JSON.stringify(currentValues));
+
+            const attachmentsKey = `${storageKey}-attachments`;
+            await idb.set(attachmentsKey, attachmentsRef.current);
+        } catch (e) {
+            console.error("Failed to save draft", e);
+        }
+    }, [getStorageKey, isEditMode, getValues]);
+
 
     // --- SAVE DRAFT LOGIC ---
     useEffect(() => {
-        // Don't save anything until we've checked for an existing draft.
+        // Don't save anything until we've checked for an existing draft and decided whether to restore.
         if (!hasCheckedForDraft.current) {
-            return;
-        }
-        // Don't save drafts in edit mode.
-        if (isEditMode) {
             return;
         }
 
@@ -49,19 +67,7 @@ export function useFormPersistence<T extends FieldValues>(
         }
 
         saveTimeoutRef.current = setTimeout(() => {
-            const storageKey = getStorageKey();
-            if (!storageKey) return;
-            try {
-                const currentValues = getValues();
-                localStorage.setItem(storageKey, JSON.stringify(currentValues));
-
-                const attachmentsKey = `${storageKey}-attachments`;
-                idb.set(attachmentsKey, attachments).catch(err => {
-                    console.error("Failed to save attachments draft to IDB", err);
-                });
-            } catch (e) {
-                console.error("Failed to save draft", e);
-            }
+            saveDraft();
         }, 500); // Debounce save by 500ms
 
         return () => {
@@ -69,14 +75,19 @@ export function useFormPersistence<T extends FieldValues>(
                 clearTimeout(saveTimeoutRef.current);
             }
         };
-    // The dependency array is carefully chosen. getStorageKey and getValues are stable enough for this.
-    // We want this to run on any form value or attachment change.
-    }, [watchedValues, attachments, isEditMode, getStorageKey, getValues]);
+    }, [watchedValues, attachments, saveDraft]);
+
+    // Register a final save attempt that runs just before the inactivity logout.
+    useEffect(() => {
+        if (isEditMode) return;
+        const unregister = registerBeforeLogoutAction(saveDraft);
+        return unregister; // Cleanup the registration when the component unmounts
+    }, [registerBeforeLogoutAction, saveDraft, isEditMode]);
     
 
     // --- RESTORE DRAFT LOGIC ---
     useEffect(() => {
-        if (isEditMode) {
+        if (isEditMode || !user) {
             hasCheckedForDraft.current = true; // No restore in edit mode, so we can start saving immediately.
             return;
         }
@@ -98,7 +109,11 @@ export function useFormPersistence<T extends FieldValues>(
                 let hasMeaningfulData = false;
                 if (savedDataJSON) {
                     const savedData = JSON.parse(savedDataJSON);
-                    if (savedData.pedidoSislog || savedData.cliente || (savedData.items && savedData.items.some((i: any) => i.descripcion?.trim()))) {
+                    const hasTextFields = savedData.pedidoSislog || savedData.cliente || savedData.nombreCliente || savedData.conductor || savedData.nombreConductor;
+                    const hasItems = savedData.items && savedData.items.some((i: any) => i.descripcion?.trim());
+                    const hasProducts = savedData.productos && savedData.productos.some((p: any) => p.descripcion?.trim());
+
+                    if (hasTextFields || hasItems || hasProducts) {
                         hasMeaningfulData = true;
                     }
                 }
@@ -116,11 +131,9 @@ export function useFormPersistence<T extends FieldValues>(
             }
         };
 
-        // Use a short timeout to let the component fully render.
         const timer = setTimeout(checkData, 100);
         return () => clearTimeout(timer);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [getStorageKey, isEditMode]);
+    }, [getStorageKey, isEditMode, user]);
 
 
     const restoreDraft = useCallback(async () => {
@@ -183,6 +196,10 @@ export function useFormPersistence<T extends FieldValues>(
     }, [getStorageKey, toast]);
 
     const discardDraft = useCallback(async () => {
+        // Stop any pending save that might be about to fire
+        if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current);
+        }
         await clearDraft(true);
         reset(originalDefaultValues);
         setAttachments([]);

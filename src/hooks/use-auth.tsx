@@ -21,9 +21,10 @@ type AuthContextType = {
   user: User | null;
   loading: boolean;
   displayName: string | null;
+  registerBeforeLogoutAction: (action: () => Promise<void>) => () => void;
 };
 
-const AuthContext = React.createContext<AuthContextType>({ user: null, loading: true, displayName: null });
+const AuthContext = React.createContext<AuthContextType>({ user: null, loading: true, displayName: null, registerBeforeLogoutAction: () => () => {} });
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = React.useState<User | null>(null);
@@ -31,8 +32,26 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [loading, setLoading] = React.useState(true);
   const router = useRouter();
   const inactivityTimer = useRef<NodeJS.Timeout | null>(null);
+  const beforeLogoutActions = useRef<Set<() => Promise<void>>>(new Set());
+
+  const registerBeforeLogoutAction = useCallback((action: () => Promise<void>) => {
+    beforeLogoutActions.current.add(action);
+    // Return a function to unregister the action
+    return () => {
+        beforeLogoutActions.current.delete(action);
+    };
+  }, []);
 
   const handleLogout = useCallback(async () => {
+    // Run all registered "before logout" actions
+    for (const action of beforeLogoutActions.current) {
+        try {
+            await action();
+        } catch (e) {
+            console.error("Error running before-logout action", e);
+        }
+    }
+
     if (auth && auth.currentUser) {
         await signOut(auth);
         router.push('/login');
@@ -89,7 +108,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
 
   return (
-    <AuthContext.Provider value={{ user, loading, displayName }}>
+    <AuthContext.Provider value={{ user, loading, displayName, registerBeforeLogoutAction }}>
       {children}
     </AuthContext.Provider>
   );
