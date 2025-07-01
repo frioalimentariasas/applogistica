@@ -67,39 +67,50 @@ export function useFormPersistence<T extends FieldValues>(
     }, [getStorageKey, isEditMode]);
 
 
-    // This effect handles the saving logic.
-    // It uses the 'visibilitychange' event, which is the most reliable way on mobile
-    // to save data before a tab is backgrounded or closed.
+    // Effect to save attachments to IDB whenever they change, with a debounce.
+    // This is more reliable on mobile, as it happens while the app is in the foreground.
     useEffect(() => {
         const storageKey = getStorageKey();
-        // Do not attach the listener if we can't save (e.g., in edit mode or before draft check).
+        if (!canSaveDraft || !storageKey) {
+            return;
+        }
+
+        const handler = setTimeout(() => {
+            const attachmentsKey = `${storageKey}-attachments`;
+            idb.set(attachmentsKey, attachments).catch(err => {
+                console.error("Failed to save attachments draft to IDB", err);
+            });
+        }, 1000); // Save 1 second after the last change to attachments array
+
+        return () => {
+            clearTimeout(handler);
+        };
+    }, [attachments, getStorageKey, canSaveDraft]);
+
+
+    // This effect handles saving the lightweight form data (from localStorage).
+    // It's fast and synchronous, making it ideal for the 'visibilitychange' event.
+    useEffect(() => {
+        const storageKey = getStorageKey();
         if (!canSaveDraft || !storageKey) return;
 
-        const saveDraft = () => {
+        const saveFormData = () => {
             const currentValues = getValues();
-            const attachmentsKey = `${storageKey}-attachments`;
-
             try {
-                // Synchronous operation, safe to do here.
                 localStorage.setItem(storageKey, JSON.stringify(currentValues));
-
-                // Asynchronous operation. The 'hidden' state gives us the best chance for it to complete.
-                idb.set(attachmentsKey, attachments).catch(err => {
-                    console.error("Failed to save attachments draft", err);
-                });
             } catch (e) {
-                console.error("Failed to save draft to storage", e);
+                console.error("Failed to save form data draft to localStorage", e);
                 toast({
                     variant: 'destructive',
                     title: 'Error de Guardado Automático',
-                    description: 'No se pudo guardar el borrador. Es posible que el almacenamiento esté lleno.'
+                    description: 'No se pudo guardar el borrador de los campos del formulario.'
                 });
             }
         };
         
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'hidden') {
-                saveDraft();
+                saveFormData();
             }
         };
 
@@ -107,9 +118,10 @@ export function useFormPersistence<T extends FieldValues>(
 
         return () => {
             document.removeEventListener('visibilitychange', handleVisibilityChange);
+            // Save one last time when the component unmounts, just in case.
+            saveFormData();
         };
-
-    }, [canSaveDraft, getStorageKey, getValues, attachments, toast]);
+    }, [canSaveDraft, getStorageKey, getValues, toast]);
 
 
     const restoreDraft = useCallback(async () => {

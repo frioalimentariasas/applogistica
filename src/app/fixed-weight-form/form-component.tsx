@@ -195,7 +195,7 @@ export default function FixedWeightFormComponent() {
     defaultValues: originalDefaultValues,
   });
 
-  const { fields, append, remove, update } = useFieldArray({
+  const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: "productos",
   });
@@ -749,17 +749,16 @@ export default function FixedWeightFormComponent() {
                                         <FormLabel>Código</FormLabel>
                                         <FormControl>
                                             <Input 
-                                                placeholder="Código del producto" 
+                                                placeholder="Código del producto"
                                                 {...field}
                                                 onChange={(e) => {
                                                     const code = e.target.value;
-                                                    const currentProduct = form.getValues(`productos.${index}`);
+                                                    field.onChange(code); // Update the field's own state first
                                                     const articulo = articulos.find(a => a.value === code);
-                                                    update(index, {
-                                                      ...currentProduct,
-                                                      codigo: code,
-                                                      descripcion: articulo ? articulo.label : currentProduct.descripcion
-                                                    });
+                                                    if (articulo) {
+                                                        // Only set value if a match is found
+                                                        form.setValue(`productos.${index}.descripcion`, articulo.label, { shouldValidate: true });
+                                                    }
                                                 }}
                                             />
                                         </FormControl>
@@ -802,12 +801,8 @@ export default function FixedWeightFormComponent() {
                                                                         variant="ghost"
                                                                         className="w-full justify-start h-auto text-wrap"
                                                                         onClick={() => {
-                                                                            const currentProduct = form.getValues(`productos.${index}`);
-                                                                            update(index, {
-                                                                                ...currentProduct,
-                                                                                descripcion: p.label,
-                                                                                codigo: p.value
-                                                                            });
+                                                                            form.setValue(`productos.${index}.descripcion`, p.label);
+                                                                            form.setValue(`productos.${index}.codigo`, p.value);
                                                                             setProductDialogIndex(null);
                                                                             setProductSearch("");
                                                                         }}
