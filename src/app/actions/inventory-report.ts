@@ -325,3 +325,38 @@ export async function getClientsWithInventory(startDate: string, endDate: string
         throw new Error('No se pudo obtener la lista de clientes con inventario.');
     }
 }
+
+export async function deleteInventoryByDateRange(startDate: string, endDate: string): Promise<{ success: boolean; message: string; deletedCount: number }> {
+    if (!firestore) {
+        return { success: false, message: 'Error de configuración del servidor.', deletedCount: 0 };
+    }
+    if (!startDate || !endDate) {
+        return { success: false, message: 'Se requieren fechas de inicio y fin.', deletedCount: 0 };
+    }
+
+    try {
+        const snapshot = await firestore.collection('dailyInventories')
+            .where(admin.firestore.FieldPath.documentId(), '>=', startDate)
+            .where(admin.firestore.FieldPath.documentId(), '<=', endDate)
+            .get();
+
+        if (snapshot.empty) {
+            return { success: false, message: 'No se encontraron registros de inventario en el rango de fechas seleccionado.', deletedCount: 0 };
+        }
+
+        const batch = firestore.batch();
+        snapshot.docs.forEach(doc => {
+            batch.delete(doc.ref);
+        });
+
+        await batch.commit();
+
+        const deletedCount = snapshot.size;
+        return { success: true, message: `Se eliminaron ${deletedCount} registro(s) de inventario.`, deletedCount };
+
+    } catch (error) {
+        console.error('Error deleting inventory data:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Ocurrió un error desconocido.';
+        return { success: false, message: `Error del servidor: ${errorMessage}`, deletedCount: 0 };
+    }
+}

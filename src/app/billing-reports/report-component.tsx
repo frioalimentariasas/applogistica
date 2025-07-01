@@ -11,20 +11,21 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 
 import { getBillingReport, DailyReportData } from '@/app/actions/billing-report';
-import { getInventoryReport, uploadInventoryCsv, type InventoryPivotReport, getClientsWithInventory } from '@/app/actions/inventory-report';
+import { getInventoryReport, uploadInventoryCsv, type InventoryPivotReport, getClientsWithInventory, deleteInventoryByDateRange } from '@/app/actions/inventory-report';
 import type { ClientInfo } from '@/app/actions/clients';
 import { useToast } from '@/hooks/use-toast';
 
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter, DialogDescription } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, ChevronsUpDown, BookCopy, FileDown, File, Upload, FolderSearch } from 'lucide-react';
+import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, ChevronsUpDown, BookCopy, FileDown, File, Upload, FolderSearch, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
@@ -126,6 +127,12 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const [inventoryClientSearch, setInventoryClientSearch] = useState('');
     const [availableInventoryClients, setAvailableInventoryClients] = useState<string[]>([]);
     const [isLoadingInventoryClients, setIsLoadingInventoryClients] = useState(false);
+
+    // State for deleting inventory
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+    const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
+    const [dateRangeToDelete, setDateRangeToDelete] = useState<DateRange | undefined>(undefined);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     // State for PDF logo
     const [logoBase64, setLogoBase64] = useState<string | null>(null);
@@ -450,8 +457,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
         // Set column widths for better legibility
         const colWidths = [
-            { wch: 12 }, // Date column
-            ...clientHeaders.map(header => ({ wch: Math.max(header.length, 15) })) // Client columns
+            { wch: 15 }, // Date column
+            ...clientHeaders.map(header => ({ wch: Math.max(header.length, 18) })) // Client columns
         ];
         worksheet['!cols'] = colWidths;
         
@@ -490,7 +497,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
         // --- SUB-HEADER ---
         const contentStartY = headerY + logoHeight + 10;
-        const currentFontSize = 9;
+        const currentFontSize = 10;
         doc.setFontSize(currentFontSize);
         doc.setFont('helvetica', 'normal');
         
@@ -503,23 +510,18 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         };
         const sessionText = `Sesión: ${sessionMap[inventorySesion] || inventorySesion}`;
         
-        // Draw Period text on the right
         doc.text(periodText, pageWidth - margin, contentStartY, { align: 'right' });
         
-        // Draw client text, allowing it to wrap
-        const clientTextLines = doc.splitTextToSize(clientText, pageWidth * 0.6); // Wrap at 60% of page width
+        const clientTextLines = doc.splitTextToSize(clientText, pageWidth * 0.6);
         doc.text(clientTextLines, margin, contentStartY);
         
-        // Calculate the height of the client text block
-        const lineHeight = currentFontSize * 1.15; // Standard line height factor in jsPDF
+        const lineHeight = currentFontSize * 1.15;
         const clientTextBlockHeight = clientTextLines.length * lineHeight;
         
-        // Y position for the session text, below the client text block
         const sessionY = contentStartY + clientTextBlockHeight;
         doc.text(sessionText, margin, sessionY);
 
-        // Y position for the table, below the session text
-        const tableStartY = sessionY + lineHeight + 4; // Add a bit of padding
+        const tableStartY = sessionY + lineHeight + 4;
     
         const { clientHeaders, rows } = inventoryReportData;
         const head = [['Fecha', ...clientHeaders]];
@@ -537,26 +539,18 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             body: body,
             theme: 'grid',
             styles: {
-                fontSize: 8,
-                cellPadding: 1.5,
+                fontSize: 9,
+                cellPadding: 2,
                 overflow: 'linebreak',
             },
             headStyles: {
                 fillColor: [33, 150, 243],
                 textColor: 255,
                 fontStyle: 'bold',
-                fontSize: 8,
+                fontSize: 9,
                 halign: 'center',
-                cellPadding: 1.5,
-                overflow: 'hidden', // Prevent header text from wrapping
+                cellPadding: 2,
             },
-            didParseCell: (data) => {
-                // Align all columns except the first one (date) to the right
-                if (data.column.index > 0) {
-                    data.cell.styles.halign = 'right';
-                }
-            },
-            // Use auto table layout to allow intelligent column sizing
             tableWidth: 'auto', 
         });
     
@@ -570,6 +564,34 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         setInventorySesion('');
         setInventoryReportData(null);
         setInventorySearched(false);
+    };
+
+    const handleConfirmDelete = async () => {
+        if (!dateRangeToDelete?.from || !dateRangeToDelete?.to) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Rango de fechas para eliminar no es válido.' });
+            return;
+        }
+        
+        setIsDeleting(true);
+        try {
+            const startDate = format(dateRangeToDelete.from, 'yyyy-MM-dd');
+            const endDate = format(dateRangeToDelete.to, 'yyyy-MM-dd');
+            const result = await deleteInventoryByDateRange(startDate, endDate);
+
+            if (result.success) {
+                toast({ title: 'Éxito', description: result.message });
+                handleInventoryClear();
+            } else {
+                throw new Error(result.message);
+            }
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "Ocurrió un error desconocido.";
+            toast({ variant: 'destructive', title: 'Error al eliminar', description: errorMessage });
+        } finally {
+            setIsDeleting(false);
+            setIsDeleteConfirmOpen(false);
+            setDateRangeToDelete(undefined);
+        }
     };
 
 
@@ -763,35 +785,79 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 <Card className="mt-8">
                     <CardHeader>
                         <CardTitle>Informe de Inventario Acumulado por Día</CardTitle>
-                        <CardDescription>Cargue el archivo de inventario y luego consulte por cliente y rango de fechas.</CardDescription>
+                        <CardDescription>Cargue, elimine o consulte el inventario diario.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <form onSubmit={handleFileUploadAction} ref={uploadFormRef} className="mb-6 rounded-lg border p-4">
-                             <Label htmlFor="csv-upload" className="font-semibold text-base">1. Cargar Archivo(s) de Inventario (.csv, .xlsx, .xls)</Label>
-                            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-center mt-2">
-                                <div className="sm:col-span-2">
-                                    <Input
-                                        id="csv-upload"
-                                        name="file"
-                                        type="file"
-                                        accept=".csv, .xlsx, .xls"
-                                        disabled={isUploading}
-                                        multiple
-                                        className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
-                                    />
+                        <div className="mb-6 rounded-lg border p-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                                <form onSubmit={handleFileUploadAction} ref={uploadFormRef} className="space-y-2 flex flex-col">
+                                    <Label htmlFor="csv-upload" className="font-semibold text-base">Cargar Inventario</Label>
+                                    <p className="text-sm text-muted-foreground flex-grow">Suba los archivos de inventario (.csv, .xlsx, .xls).</p>
+                                    <div className="flex items-center gap-2 pt-2">
+                                        <Input
+                                            id="csv-upload"
+                                            name="file"
+                                            type="file"
+                                            accept=".csv, .xlsx, .xls"
+                                            disabled={isUploading}
+                                            multiple
+                                            className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+                                        />
+                                        <Button type="submit" disabled={isUploading}>
+                                            {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                                            Cargar
+                                        </Button>
+                                    </div>
+                                    {isUploading && (
+                                        <div className="mt-4 space-y-2">
+                                            <Progress value={uploadProgress} className="w-full" />
+                                            <p className="text-sm text-center text-muted-foreground">Procesando... {Math.round(uploadProgress)}%</p>
+                                        </div>
+                                    )}
+                                </form>
+                                <div className="space-y-2 flex flex-col border-t pt-6 md:border-t-0 md:border-l md:pt-0 md:pl-8">
+                                    <Label className="font-semibold text-base text-destructive">Eliminar Inventario</Label>
+                                    <p className="text-sm text-muted-foreground flex-grow">Esta acción es permanente. Seleccione un rango para eliminar los registros.</p>
+                                    <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                                        <DialogTrigger asChild>
+                                            <Button variant="destructive" className="w-full mt-2">
+                                                <Trash2 className="mr-2 h-4 w-4" />
+                                                Eliminar Registros por Rango
+                                            </Button>
+                                        </DialogTrigger>
+                                        <DialogContent>
+                                            <DialogHeader>
+                                                <DialogTitle>Seleccione el rango de fechas a eliminar</DialogTitle>
+                                                <DialogDescription>
+                                                    Todos los registros de inventario dentro de este rango (incluyendo las fechas de inicio y fin) serán eliminados.
+                                                </DialogDescription>
+                                            </DialogHeader>
+                                            <div className="flex justify-center py-4">
+                                                <Calendar
+                                                    mode="range"
+                                                    selected={dateRangeToDelete}
+                                                    onSelect={setDateRangeToDelete}
+                                                    locale={es}
+                                                />
+                                            </div>
+                                            <DialogFooter>
+                                                <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>Cancelar</Button>
+                                                <Button 
+                                                    variant="destructive" 
+                                                    disabled={!dateRangeToDelete?.from || !dateRangeToDelete?.to}
+                                                    onClick={() => {
+                                                        setIsDeleteDialogOpen(false);
+                                                        setIsDeleteConfirmOpen(true);
+                                                    }}
+                                                >
+                                                    Proceder a Eliminar
+                                                </Button>
+                                            </DialogFooter>
+                                        </DialogContent>
+                                    </Dialog>
                                 </div>
-                                <Button type="submit" disabled={isUploading} className="w-full">
-                                    {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-                                    Cargar
-                                </Button>
                             </div>
-                             {isUploading && (
-                                <div className="mt-4 space-y-2">
-                                    <Progress value={uploadProgress} className="w-full" />
-                                    <p className="text-sm text-center text-muted-foreground">Procesando... {Math.round(uploadProgress)}%</p>
-                                </div>
-                            )}
-                        </form>
+                        </div>
 
                         <div>
                             <Label className="font-semibold text-base">Consultar inventario Acumulado por Día</Label>
@@ -1000,16 +1066,32 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                     </CardContent>
                 </Card>
             </div>
+            
+             <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>¿Está absolutamente seguro?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Esta acción no se puede deshacer. Se eliminarán permanentemente los registros de inventario para el rango:
+                            <br />
+                            <strong className="text-foreground">
+                                {dateRangeToDelete?.from && format(dateRangeToDelete.from, "PPP", { locale: es })} - {dateRangeToDelete?.to && format(dateRangeToDelete.to, "PPP", { locale: es })}
+                            </strong>.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction 
+                            onClick={handleConfirmDelete} 
+                            disabled={isDeleting}
+                            className={buttonVariants({ variant: 'destructive' })}
+                        >
+                            {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Sí, eliminar registros
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }
-
-    
-
-    
-
-    
-
-    
-
-    
