@@ -1,9 +1,8 @@
 "use client";
 
-import React, { type ReactNode, useEffect, useState, useContext, useRef, useCallback } from 'react';
-import { onAuthStateChanged, User, signOut } from 'firebase/auth';
+import React, { type ReactNode, useEffect, useState, useContext } from 'react';
+import { onAuthStateChanged, User } from 'firebase/auth';
 import { auth } from '@/lib/firebase';
-import { useRouter } from 'next/navigation';
 
 const userDisplayNameMap: Record<string, string> = {
   'frioal.operario1@gmail.com': 'Andres Blanco',
@@ -21,49 +20,14 @@ type AuthContextType = {
   user: User | null;
   loading: boolean;
   displayName: string | null;
-  registerBeforeLogoutAction: (action: () => Promise<void>) => () => void;
 };
 
-const AuthContext = React.createContext<AuthContextType>({ user: null, loading: true, displayName: null, registerBeforeLogoutAction: () => () => {} });
+const AuthContext = React.createContext<AuthContextType>({ user: null, loading: true, displayName: null });
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = React.useState<User | null>(null);
   const [displayName, setDisplayName] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
-  const router = useRouter();
-  const inactivityTimer = useRef<NodeJS.Timeout | null>(null);
-  const beforeLogoutActions = useRef<Set<() => Promise<void>>>(new Set());
-
-  const registerBeforeLogoutAction = useCallback((action: () => Promise<void>) => {
-    beforeLogoutActions.current.add(action);
-    // Return a function to unregister the action
-    return () => {
-        beforeLogoutActions.current.delete(action);
-    };
-  }, []);
-
-  const handleLogout = useCallback(async () => {
-    // Run all registered "before logout" actions
-    for (const action of beforeLogoutActions.current) {
-        try {
-            await action();
-        } catch (e) {
-            console.error("Error running before-logout action", e);
-        }
-    }
-
-    if (auth && auth.currentUser) {
-        await signOut(auth);
-        router.push('/login');
-    }
-  }, [router]);
-
-  const resetInactivityTimer = useCallback(() => {
-    if (inactivityTimer.current) clearTimeout(inactivityTimer.current);
-    inactivityTimer.current = setTimeout(() => {
-        handleLogout();
-    }, 12 * 60 * 60 * 1000); // 12 hours
-  }, [handleLogout]);
   
   useEffect(() => {
     if (!auth) {
@@ -85,30 +49,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return () => unsubscribe();
   }, []);
   
-  useEffect(() => {
-    const events: (keyof WindowEventMap)[] = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
-    
-    if (user && !loading) {
-        resetInactivityTimer();
-        events.forEach(event => window.addEventListener(event, resetInactivityTimer));
-        
-        return () => {
-            if (inactivityTimer.current) {
-                clearTimeout(inactivityTimer.current);
-            }
-            events.forEach(event => window.removeEventListener(event, resetInactivityTimer));
-        };
-    } else {
-        // Clear timer if user logs out or is not present
-        if (inactivityTimer.current) {
-            clearTimeout(inactivityTimer.current);
-        }
-    }
-  }, [user, loading, resetInactivityTimer]);
-
-
   return (
-    <AuthContext.Provider value={{ user, loading, displayName, registerBeforeLogoutAction }}>
+    <AuthContext.Provider value={{ user, loading, displayName }}>
       {children}
     </AuthContext.Provider>
   );

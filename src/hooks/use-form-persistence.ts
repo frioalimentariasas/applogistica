@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -15,7 +14,7 @@ export function useFormPersistence<T extends FieldValues>(
     setAttachments: (attachments: string[] | ((prev: string[]) => string[])) => void,
     isEditMode = false
 ) {
-    const { user, registerBeforeLogoutAction } = useAuth();
+    const { user } = useAuth();
     const { reset, getValues } = form;
     const { toast } = useToast();
 
@@ -57,7 +56,7 @@ export function useFormPersistence<T extends FieldValues>(
 
     // --- SAVE DRAFT LOGIC ---
     useEffect(() => {
-        // Don't save anything until we've checked for an existing draft and decided whether to restore.
+        // Don't save anything until we've checked for an existing draft and decided whether to restore it.
         if (!hasCheckedForDraft.current) {
             return;
         }
@@ -76,14 +75,6 @@ export function useFormPersistence<T extends FieldValues>(
             }
         };
     }, [watchedValues, attachments, saveDraft]);
-
-    // Register a final save attempt that runs just before the inactivity logout.
-    useEffect(() => {
-        if (isEditMode) return;
-        const unregister = registerBeforeLogoutAction(saveDraft);
-        return unregister; // Cleanup the registration when the component unmounts
-    }, [registerBeforeLogoutAction, saveDraft, isEditMode]);
-    
 
     // --- RESTORE DRAFT LOGIC ---
     useEffect(() => {
