@@ -83,11 +83,21 @@ export function useFormPersistence<T extends FieldValues>(
 
         const checkData = async () => {
             try {
-                const savedData = localStorage.getItem(storageKey);
+                const savedDataJSON = localStorage.getItem(storageKey);
                 const attachmentsKey = `${storageKey}-attachments`;
                 const savedAttachments = await idb.get<string[]>(attachmentsKey);
+
+                let hasMeaningfulData = false;
+                if (savedDataJSON) {
+                    const savedData = JSON.parse(savedDataJSON);
+                    // Heuristic: if a required field like pedidoSislog or cliente has a value,
+                    // then the form is not blank and we should offer to restore.
+                    if (savedData.pedidoSislog || savedData.cliente) {
+                        hasMeaningfulData = true;
+                    }
+                }
                 
-                if (savedData || (savedAttachments && savedAttachments.length > 0)) {
+                if (hasMeaningfulData || (savedAttachments && savedAttachments.length > 0)) {
                     setRestoreDialogOpen(true);
                 }
             } catch (e) {
@@ -134,6 +144,12 @@ export function useFormPersistence<T extends FieldValues>(
     }, [getStorageKey, reset, setAttachments, toast]);
 
     const clearDraft = useCallback(async (showToast = false) => {
+        // Clear any pending save operation before deleting the draft
+        if (debounceTimer.current) {
+            clearTimeout(debounceTimer.current);
+            debounceTimer.current = null;
+        }
+        
         const storageKey = getStorageKey();
         if (!storageKey) return;
         
@@ -154,9 +170,10 @@ export function useFormPersistence<T extends FieldValues>(
     }, [getStorageKey, toast]);
 
     const discardDraft = useCallback(async () => {
+        // Must clear the draft storage first to prevent race condition with save effect
+        await clearDraft(true);
         reset(originalDefaultValues);
         setAttachments([]);
-        await clearDraft(true);
         setRestoreDialogOpen(false);
     }, [reset, originalDefaultValues, setAttachments, clearDraft]);
     
