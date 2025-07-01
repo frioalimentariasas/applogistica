@@ -21,6 +21,10 @@ export function useFormPersistence<T extends FieldValues>(
 
     const [isRestoreDialogOpen, setRestoreDialogOpen] = useState(false);
     
+    // This ref prevents saving the form's initial (blank) state over a saved draft before the user has a chance to restore it.
+    const hasCheckedForDraft = useRef(false);
+    const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+    
     const getStorageKey = useCallback(() => {
         if (!user) return null;
         return `${formIdentifier}-${user.uid}`;
@@ -31,34 +35,49 @@ export function useFormPersistence<T extends FieldValues>(
 
     // --- SAVE DRAFT LOGIC ---
     useEffect(() => {
-        const storageKey = getStorageKey();
-        // Do not save drafts in edit mode.
-        if (isEditMode || !storageKey) {
+        // Don't save anything until we've checked for an existing draft.
+        if (!hasCheckedForDraft.current) {
+            return;
+        }
+        // Don't save drafts in edit mode.
+        if (isEditMode) {
             return;
         }
 
-        try {
-            // Get the current form values
-            const currentValues = getValues();
-            
-            // Save text fields to localStorage (fast, synchronous)
-            localStorage.setItem(storageKey, JSON.stringify(currentValues));
-            
-            // Save attachments to IndexedDB (asynchronous)
-            const attachmentsKey = `${storageKey}-attachments`;
-            idb.set(attachmentsKey, attachments).catch(err => {
-                console.error("Failed to save attachments draft to IDB", err);
-            });
-        } catch (e) {
-            console.error("Failed to save draft", e);
+        if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current);
         }
-    // This effect runs on every change to form values or attachments, ensuring the draft is always up-to-date.
+
+        saveTimeoutRef.current = setTimeout(() => {
+            const storageKey = getStorageKey();
+            if (!storageKey) return;
+            try {
+                const currentValues = getValues();
+                localStorage.setItem(storageKey, JSON.stringify(currentValues));
+
+                const attachmentsKey = `${storageKey}-attachments`;
+                idb.set(attachmentsKey, attachments).catch(err => {
+                    console.error("Failed to save attachments draft to IDB", err);
+                });
+            } catch (e) {
+                console.error("Failed to save draft", e);
+            }
+        }, 500); // Debounce save by 500ms
+
+        return () => {
+            if (saveTimeoutRef.current) {
+                clearTimeout(saveTimeoutRef.current);
+            }
+        };
+    // The dependency array is carefully chosen. getStorageKey and getValues are stable enough for this.
+    // We want this to run on any form value or attachment change.
     }, [watchedValues, attachments, isEditMode, getStorageKey, getValues]);
     
 
     // --- RESTORE DRAFT LOGIC ---
     useEffect(() => {
         if (isEditMode) {
+            hasCheckedForDraft.current = true; // No restore in edit mode, so we can start saving immediately.
             return;
         }
 
@@ -66,31 +85,38 @@ export function useFormPersistence<T extends FieldValues>(
         if (!storageKey || typeof window === 'undefined') {
             return;
         }
+        
+        // This effect should only run once when the user is available.
+        if (hasCheckedForDraft.current) return;
 
         const checkData = async () => {
             try {
                 const savedDataJSON = localStorage.getItem(storageKey);
                 const attachmentsKey = `${storageKey}-attachments`;
                 const savedAttachments = await idb.get<string[]>(attachmentsKey);
-
+                
                 let hasMeaningfulData = false;
                 if (savedDataJSON) {
                     const savedData = JSON.parse(savedDataJSON);
-                    // Heuristic: if a required field has a value, or items exist,
-                    // then the form is not blank and we should offer to restore.
-                    if (savedData.pedidoSislog || savedData.cliente || (savedData.items && savedData.items.some((i: any) => i.descripcion))) {
+                    if (savedData.pedidoSislog || savedData.cliente || (savedData.items && savedData.items.some((i: any) => i.descripcion?.trim()))) {
                         hasMeaningfulData = true;
                     }
                 }
                 
                 if (hasMeaningfulData || (savedAttachments && savedAttachments.length > 0)) {
                     setRestoreDialogOpen(true);
+                } else {
+                    // No meaningful draft found, so we can enable saving.
+                    hasCheckedForDraft.current = true;
                 }
             } catch (e) {
                 console.error("Failed to check for draft", e);
+                // On error, enable saving to prevent getting stuck.
+                hasCheckedForDraft.current = true;
             }
         };
 
+        // Use a short timeout to let the component fully render.
         const timer = setTimeout(checkData, 100);
         return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -105,6 +131,7 @@ export function useFormPersistence<T extends FieldValues>(
             const savedData = localStorage.getItem(storageKey);
             if (savedData) {
                 const parsedData = JSON.parse(savedData);
+                // Convert date strings back to Date objects
                 Object.keys(parsedData).forEach(key => {
                     const value = parsedData[key];
                     if (typeof value === 'string' && value.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)) {
@@ -126,10 +153,16 @@ export function useFormPersistence<T extends FieldValues>(
             toast({ variant: 'destructive', title: "Error", description: "No se pudo restaurar el borrador." });
         } finally {
             setRestoreDialogOpen(false);
+            hasCheckedForDraft.current = true; // Enable saving after restoring.
         }
     }, [getStorageKey, reset, setAttachments, toast]);
 
     const clearDraft = useCallback(async (showToast = false) => {
+        // Stop any pending save
+        if (saveTimeoutRef.current) {
+            clearTimeout(saveTimeoutRef.current);
+        }
+        
         const storageKey = getStorageKey();
         if (!storageKey) return;
         
@@ -150,12 +183,12 @@ export function useFormPersistence<T extends FieldValues>(
     }, [getStorageKey, toast]);
 
     const discardDraft = useCallback(async () => {
-        // Clear draft storage *before* resetting the form state
         await clearDraft(true);
         reset(originalDefaultValues);
         setAttachments([]);
         setRestoreDialogOpen(false);
-    }, [reset, originalDefaultValues, setAttachments, clearDraft]);
+        hasCheckedForDraft.current = true; // Enable saving for the new blank form.
+    }, [clearDraft, reset, originalDefaultValues, setAttachments]);
     
     return {
         isRestoreDialogOpen,
