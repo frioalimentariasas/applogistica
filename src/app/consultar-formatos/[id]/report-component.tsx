@@ -160,32 +160,59 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 if (num === null || num === undefined || isNaN(number)) return '0';
                 return String(Math.floor(number));
             };
+
+            const { formType, formData, userDisplayName } = submission;
     
             const addHeader = (title: string) => {
-                const logoWidth = 70;
-                const logoHeight = 35; 
-                if (logoBase64) {
+                // Centered Logo
+                if (logoBase64 && logoDimensions) {
+                    const logoAspectRatio = logoDimensions.width / logoDimensions.height;
+                    const logoPdfHeight = 35;
+                    const logoPdfWidth = logoPdfHeight * logoAspectRatio;
+                    const logoX = (pageWidth - logoPdfWidth) / 2;
                     try {
-                        doc.addImage(logoBase64, 'PNG', margin, margin, logoWidth, logoHeight); 
+                        doc.addImage(logoBase64, 'PNG', logoX, margin, logoPdfWidth, logoPdfHeight); 
                     } catch (e) {
                         console.error("Error adding logo to PDF:", e);
                     }
                 }
                 
-                const titleX = margin + logoWidth + 20;
-                const availableWidth = pageWidth - titleX - margin;
-            
+                // Info Box for Fixed Weight Reports
+                const isFixedWeight = formType.startsWith('fixed-weight-');
+                if (isFixedWeight) {
+                    doc.setFontSize(8);
+                    doc.setFont('helvetica', 'normal');
+                    doc.setDrawColor(170, 170, 170); // #aaa
+                    doc.setTextColor(51, 51, 51); // #333
+                    const boxWidth = 90;
+                    const boxHeight = 28;
+                    const boxX = pageWidth - margin - boxWidth;
+                    const boxY = margin;
+                    
+                    doc.rect(boxX, boxY, boxWidth, boxHeight, 'S'); // 'S' for stroke
+                    
+                    const textStartX = boxX + 5;
+                    const lineHeight = 9;
+                    const textStartY = boxY + lineHeight;
+                    
+                    doc.text('Código: FA-GL-F01', textStartX, textStartY);
+                    doc.text('Versión: 01', textStartX, textStartY + lineHeight);
+                    doc.text('Fecha: 16/06/2025', textStartX, textStartY + (lineHeight * 2));
+                }
+                
+                // Report Title and Subtitle (positioned below logo/box)
+                const headerContentY = margin + 35 + 10;
                 doc.setFontSize(16);
                 doc.setFont('helvetica', 'bold');
                 doc.setTextColor('#005a9e');
-                doc.text(title, titleX + availableWidth / 2, margin + 20, { align: 'center', maxWidth: availableWidth });
+                doc.text(title, pageWidth / 2, headerContentY, { align: 'center' });
                 
                 doc.setFontSize(9);
                 doc.setFont('helvetica', 'bold');
                 doc.setTextColor('#3588CC');
-                doc.text('FRIO ALIMENTARIA SAS NIT 900736914-0', titleX + availableWidth / 2, margin + 35, { align: 'center', maxWidth: availableWidth });
+                doc.text('FRIO ALIMENTARIA SAS NIT 900736914-0', pageWidth / 2, headerContentY + 15, { align: 'center' });
                 
-                yPos = margin + logoHeight + 20;
+                yPos = headerContentY + 30;
             };
 
             const addWatermark = () => {
@@ -220,8 +247,6 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
             };
     
             addHeader(getReportTitle());
-    
-            const { formType, formData, userDisplayName } = submission;
     
             if (formType.startsWith('fixed-weight-')) {
                 const isReception = formType.includes('recepcion');
@@ -675,6 +700,8 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
         }
     };
 
+    const isFixedWeight = submission.formType.startsWith('fixed-weight-');
+
     return (
         <div className="bg-gray-100 min-h-screen p-4 sm:p-8">
             <div className="max-w-4xl mx-auto">
@@ -709,7 +736,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 )}
 
                 <div className="bg-white shadow-lg">
-                    <ReportLayout title={getReportTitle()} logoBase64={logoBase64}>
+                    <ReportLayout title={getReportTitle()} logoBase64={logoBase64} showInfoBox={isFixedWeight}>
                         {renderReportContent()}
                     </ReportLayout>
                 </div>
