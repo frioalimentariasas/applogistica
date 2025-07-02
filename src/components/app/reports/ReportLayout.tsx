@@ -15,7 +15,7 @@ export function ReportLayout({ title, children, logoBase64, infoBoxType }: Repor
         <div style={{ fontFamily: 'Arial, sans-serif', color: '#333', backgroundColor: '#fff', padding: '0' }}>
             
             {/* Header Section: Wrapped in a div to enforce page break rules */}
-            <div style={{ pageBreakInside: 'avoid', breakInside: 'avoid', marginBottom: '16px' }}>
+            <div style={{ pageBreakInside: 'avoid', breakInside: 'avoid', marginBottom: '24px' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <tbody>
                         <tr>
@@ -43,17 +43,29 @@ export function ReportLayout({ title, children, logoBase64, infoBoxType }: Repor
                                         display: 'inline-block',
                                         textAlign: 'left',
                                         borderRadius: '6px',
-                                        minWidth: '120px'
                                     }}>
-                                        <div><strong>Código:</strong> {code}</div>
-                                        <div><strong>Versión:</strong> 01</div>
-                                        <div><strong>Fecha:</strong> 16/06/2025</div>
+                                        <table style={{ borderCollapse: 'collapse' }}>
+                                            <tbody>
+                                                <tr>
+                                                    <td style={{ padding: '0 8px 0 0', fontWeight: 'bold' }}>Código:</td>
+                                                    <td style={{ padding: '0' }}>{code}</td>
+                                                </tr>
+                                                <tr>
+                                                    <td style={{ padding: '0 8px 0 0', fontWeight: 'bold' }}>Versión:</td>
+                                                    <td style={{ padding: '0' }}>01</td>
+                                                </tr>
+                                                <tr>
+                                                    <td style={{ padding: '0 8px 0 0', fontWeight: 'bold' }}>Fecha:</td>
+                                                    <td style={{ padding: '0' }}>16/06/2025</td>
+                                                </tr>
+                                            </tbody>
+                                        </table>
                                     </div>
                                 )}
                             </td>
                         </tr>
                         <tr>
-                            <td colSpan={3} style={{ textAlign: 'center', borderBottom: '2px solid #ccc', paddingBottom: '8px', paddingTop: '8px' }}>
+                            <td colSpan={3} style={{ textAlign: 'center', borderBottom: '2px solid #ccc', paddingBottom: '8px', paddingTop: '16px' }}>
                                 <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#005a9e', margin: '0 0 4px 0' }}>{title}</div>
                                 <div style={{ fontSize: '10px', color: '#555', margin: '0' }}>FRIO ALIMENTARIA SAS NIT 900736914-0</div>
                             </td>

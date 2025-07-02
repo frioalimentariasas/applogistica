@@ -187,13 +187,13 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     
                     const code = isFixedWeight ? 'FA-GL-F01' : 'FA-GL-F02';
                     
-                    const boxWidth = 90;
+                    const boxWidth = 110; // Increased width
                     const boxHeight = 32;
                     const boxX = pageWidth - margin - boxWidth;
                     const boxY = margin;
                     
-                    const textStartX = boxX + 6;
-                    const valueStartX = textStartX + 35; // Position for the values
+                    const labelStartX = boxX + 6;
+                    const valueStartX = labelStartX + 40; // Adjusted value start position
                     const lineHeight = 10;
                     
                     // Draw the styled box
@@ -206,27 +206,27 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     // Line 1: Código
                     currentY += lineHeight;
                     doc.setFont('helvetica', 'bold');
-                    doc.text('Código:', textStartX, currentY);
+                    doc.text('Código:', labelStartX, currentY);
                     doc.setFont('helvetica', 'normal');
                     doc.text(code, valueStartX, currentY);
                     
                     // Line 2: Versión
                     currentY += lineHeight;
                     doc.setFont('helvetica', 'bold');
-                    doc.text('Versión:', textStartX, currentY);
+                    doc.text('Versión:', labelStartX, currentY);
                     doc.setFont('helvetica', 'normal');
                     doc.text('01', valueStartX, currentY);
                     
                     // Line 3: Fecha
                     currentY += lineHeight;
                     doc.setFont('helvetica', 'bold');
-                    doc.text('Fecha:', textStartX, currentY);
+                    doc.text('Fecha:', labelStartX, currentY);
                     doc.setFont('helvetica', 'normal');
                     doc.text('16/06/2025', valueStartX, currentY);
                 }
                 
                 // Report Title and Subtitle (positioned below logo/box)
-                const headerContentY = margin + 35 + 24; // Increased spacing
+                const headerContentY = margin + 35 + 32; // Increased spacing
                 doc.setFontSize(16);
                 doc.setFont('helvetica', 'bold');
                 doc.setTextColor('#005a9e');
