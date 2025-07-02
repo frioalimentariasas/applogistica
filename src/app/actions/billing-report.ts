@@ -70,11 +70,11 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
     try {
         let query: admin.firestore.Query = firestore.collection('submissions');
         
-        const queryStartDate = new Date(`${criteria.startDate}T00:00:00.000Z`);
-        queryStartDate.setDate(queryStartDate.getDate() - 1);
-        
-        const queryEndDate = new Date(`${criteria.endDate}T23:59:59.999Z`);
-        queryEndDate.setDate(queryEndDate.getDate() + 1);
+        // Widen the query range to avoid timezone issues with 'createdAt'
+        const queryStartDate = new Date(criteria.startDate);
+        queryStartDate.setDate(queryStartDate.getDate() - 2); 
+        const queryEndDate = new Date(criteria.endDate);
+        queryEndDate.setDate(queryEndDate.getDate() + 2);
         
         query = query
             .where('createdAt', '>=', queryStartDate.toISOString())
@@ -97,9 +97,8 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                 return;
             }
             
-            const date = new Date(formIsoDate);
-            date.setUTCHours(date.getUTCHours() - 5);
-            const groupingDate = date.toISOString().split('T')[0];
+            // Group by the date part of the ISO string, assuming it's stored in UTC.
+            const groupingDate = formIsoDate.split('T')[0];
 
             if (groupingDate < criteria.startDate || groupingDate > criteria.endDate) {
                 return;
@@ -147,7 +146,7 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                     const receivedVariablePallets = (submission.formData.items || []).reduce((sum: number, item: any) => {
                         const temp = summaryTempMap[item.descripcion];
                         if (productMatchesSession(temp, criteria.sesion)) {
-                            return sum + 1;
+                            return sum + 1; // Each item is a pallet in reception
                         }
                         return sum;
                     }, 0);
@@ -170,13 +169,14 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                             return sum;
                         }, 0);
                     } else {
-                         dispatchedVariablePallets = items.reduce((sum: number, item: any) => {
-                            const temp = summaryTempMap[item.descripcion];
-                            if (productMatchesSession(temp, criteria.sesion)) {
-                                return sum + 1;
-                            }
-                            return sum;
-                        }, 0);
+                         const uniquePallets = new Set<string>();
+                         items.forEach((item: any) => {
+                             const temp = summaryTempMap[item.descripcion];
+                             if (productMatchesSession(temp, criteria.sesion)) {
+                                 uniquePallets.add(String(item.paleta));
+                             }
+                         });
+                         dispatchedVariablePallets = uniquePallets.size;
                     }
                     dailyData.paletasDespachadas += dispatchedVariablePallets;
                     break;
@@ -184,37 +184,41 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
             }
         });
         
-        const fullReport: DailyReportData[] = [];
+        // The critical part: Calculate running stock day by day
+        const finalReport: DailyReportData[] = [];
         let runningStock = await getLatestStockBeforeDate(criteria.clientName, criteria.startDate, criteria.sesion);
-
-        const start = new Date(`${criteria.startDate}T12:00:00Z`);
-        const end = new Date(`${criteria.endDate}T12:00:00Z`);
         
-        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-            const dateStr = d.toISOString().split('T')[0];
-            const movements = dailyTotals.get(dateStr) || { date: dateStr, paletasRecibidas: 0, paletasDespachadas: 0 };
+        let currentDate = new Date(criteria.startDate + "T12:00:00.000Z");
+        const endDate = new Date(criteria.endDate + "T12:00:00.000Z");
+
+        while(currentDate <= endDate) {
+            const dateStr = currentDate.toISOString().split('T')[0];
+            const movements = dailyTotals.get(dateStr) || { paletasRecibidas: 0, paletasDespachadas: 0 };
             
-            runningStock += movements.paletasRecibidas - movements.paletasDespachadas;
+            const endOfDayStock = runningStock + movements.paletasRecibidas - movements.paletasDespachadas;
+
+            // Only add days with movements to the final report
+            if (movements.paletasRecibidas > 0 || movements.paletasDespachadas > 0) {
+                finalReport.push({
+                    date: dateStr,
+                    paletasRecibidas: movements.paletasRecibidas,
+                    paletasDespachadas: movements.paletasDespachadas,
+                    paletasAlmacenadas: endOfDayStock,
+                });
+            }
             
-            fullReport.push({
-                date: dateStr,
-                paletasRecibidas: movements.paletasRecibidas,
-                paletasDespachadas: movements.paletasDespachadas,
-                paletasAlmacenadas: runningStock,
-            });
+            // The stock for the next day starts as the end-of-day stock of the current day
+            runningStock = endOfDayStock;
+            currentDate.setUTCDate(currentDate.getUTCDate() + 1);
         }
-        
-        const resultsWithMovements = fullReport.filter(
-            d => d.paletasRecibidas > 0 || d.paletasDespachadas > 0
-        );
 
-        if (resultsWithMovements.length === 0) {
+        if (finalReport.length === 0) {
             return [];
         }
         
-        resultsWithMovements.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        finalReport.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         
-        return resultsWithMovements;
+        return finalReport;
 
     } catch (error) {
         console.error('Error generating billing report:', error);
