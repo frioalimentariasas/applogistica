@@ -188,7 +188,7 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
         const finalReport: DailyReportData[] = [];
         
         // 1. Get the stock from the day before the start date. This is our running total.
-        let currentStock = await getLatestStockBeforeDate(
+        let stockAcumulado = await getLatestStockBeforeDate(
             criteria.clientName,
             criteria.startDate,
             criteria.sesion
@@ -210,7 +210,7 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
             };
 
             // 5. Calculate the end-of-day stock.
-            const endOfDayStock = currentStock + movementsForDay.paletasRecibidas - movementsForDay.paletasDespachadas;
+            const endOfDayStock = stockAcumulado + movementsForDay.paletasRecibidas - movementsForDay.paletasDespachadas;
             
             // 6. If there were movements, add this day to the report.
             if (movementsForDay.paletasRecibidas > 0 || movementsForDay.paletasDespachadas > 0) {
@@ -222,8 +222,8 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                 });
             }
             
-            // 7. Update the running stock for the next day's calculation.
-            currentStock = endOfDayStock;
+            // 7. Update the running stock for the next day's calculation. This is the crucial step.
+            stockAcumulado = endOfDayStock;
 
             // Move to the next day in a timezone-safe way
             iteratorDate.setUTCDate(iteratorDate.getUTCDate() + 1);
