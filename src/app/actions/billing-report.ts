@@ -5,7 +5,6 @@ import admin from 'firebase-admin';
 import { firestore } from '@/lib/firebase-admin';
 import { getLatestStockBeforeDate } from './inventory-report';
 import { format, addDays, parseISO } from 'date-fns';
-import type { InventoryRow } from './inventory-report';
 
 // This helper will recursively convert any Firestore Timestamps in an object to ISO strings.
 const serializeTimestamps = (data: any): any => {
@@ -74,51 +73,36 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
 
     try {
         // Step 1: Query all submissions within the date range.
-        // This is a broad query to avoid needing a composite index. Filtering by client happens in memory.
-        let query: admin.firestore.Query = firestore.collection('submissions');
-        
         const queryStartDate = new Date(`${criteria.startDate}T00:00:00.000Z`);
         const queryEndDate = new Date(`${criteria.endDate}T23:59:59.999Z`);
-        
-        query = query
+        const snapshot = await firestore.collection('submissions')
             .where('createdAt', '>=', queryStartDate.toISOString())
-            .where('createdAt', '<=', queryEndDate.toISOString());
-
-        const snapshot = await query.get();
+            .where('createdAt', '<=', queryEndDate.toISOString())
+            .get();
 
         // Step 2: Process submissions into a map of daily movements, filtered by client and session.
-        const dailyTotals = new Map<string, { date: string; paletasRecibidas: number; paletasDespachadas: number }>();
+        const dailyMovements = new Map<string, { paletasRecibidas: number; paletasDespachadas: number }>();
 
         snapshot.docs.forEach(doc => {
             const submission = serializeTimestamps(doc.data());
             
-            // In-memory filter for client name
             const clientField = submission.formData.nombreCliente || submission.formData.cliente;
             if (clientField !== criteria.clientName) {
                 return;
             }
 
-            // Ensure date is valid
             const formIsoDate = submission.formData.fecha;
-            if (!formIsoDate || typeof formIsoDate !== 'string') {
-                return;
-            }
+            if (!formIsoDate || typeof formIsoDate !== 'string') return;
             
             const groupingDate = formIsoDate.split('T')[0];
 
-            if (groupingDate < criteria.startDate || groupingDate > criteria.endDate) {
-                return;
+            if (groupingDate < criteria.startDate || groupingDate > criteria.endDate) return;
+
+            if (!dailyMovements.has(groupingDate)) {
+                dailyMovements.set(groupingDate, { paletasRecibidas: 0, paletasDespachadas: 0 });
             }
 
-            if (!dailyTotals.has(groupingDate)) {
-                dailyTotals.set(groupingDate, {
-                    date: groupingDate,
-                    paletasRecibidas: 0,
-                    paletasDespachadas: 0,
-                });
-            }
-
-            const dailyData = dailyTotals.get(groupingDate)!;
+            const dailyData = dailyMovements.get(groupingDate)!;
             
             const summaryTempMap = (submission.formData.summary || []).reduce((acc: any, s: any) => {
                 if (s.descripcion) {
@@ -152,7 +136,7 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                     const receivedVariablePallets = (submission.formData.items || []).reduce((sum: number, item: any) => {
                         const temp = summaryTempMap[item.descripcion];
                         if (productMatchesSession(temp, criteria.sesion)) {
-                            return sum + 1; // Each item is a pallet in reception
+                            return sum + 1;
                         }
                         return sum;
                     }, 0);
@@ -191,41 +175,38 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
         });
         
         // Step 3: Get the starting stock from the last inventory report before the start date
-        let stockAcumulado = await getLatestStockBeforeDate(criteria.clientName, criteria.startDate, criteria.sesion);
+        const stockInicial = await getLatestStockBeforeDate(criteria.clientName, criteria.startDate, criteria.sesion);
         
-        // Step 4: Iterate day-by-day to calculate the running total of stored pallets
-        const reporteCompleto: DailyReportData[] = [];
+        // Step 4: Iterate day-by-day to calculate the running total and build the final report
+        const reporteFinal: DailyReportData[] = [];
+        let stockAcumulado = stockInicial;
         
         let currentDate = parseISO(criteria.startDate);
         const fechaFin = parseISO(criteria.endDate);
 
         while (currentDate <= fechaFin) {
             const dateKey = format(currentDate, 'yyyy-MM-dd');
-            const movements = dailyTotals.get(dateKey) || { paletasRecibidas: 0, paletasDespachadas: 0 };
+            const movements = dailyMovements.get(dateKey) || { paletasRecibidas: 0, paletasDespachadas: 0 };
             
-            stockAcumulado += movements.paletasRecibidas - movements.paletasDespachadas;
+            const tieneMovimiento = movements.paletasRecibidas > 0 || movements.paletasDespachadas > 0;
             
-            reporteCompleto.push({
-                date: dateKey,
-                paletasRecibidas: movements.paletasRecibidas,
-                paletasDespachadas: movements.paletasDespachadas,
-                paletasAlmacenadas: stockAcumulado,
-            });
+            const stockAlmacenadoHoy = stockAcumulado + movements.paletasRecibidas - movements.paletasDespachadas;
+
+            if (tieneMovimiento) {
+                reporteFinal.push({
+                    date: dateKey,
+                    paletasRecibidas: movements.paletasRecibidas,
+                    paletasDespachadas: movements.paletasDespachadas,
+                    paletasAlmacenadas: stockAlmacenadoHoy,
+                });
+            }
             
-            // Move to the next day
+            stockAcumulado = stockAlmacenadoHoy;
+            
             currentDate = addDays(currentDate, 1);
         }
-
-        // Step 5: Filter the full report to only show days that had movements
-        const reporteFinal = reporteCompleto.filter(
-            (day) => day.paletasRecibidas > 0 || day.paletasDespachadas > 0
-        );
         
-        if (reporteFinal.length === 0) {
-            return [];
-        }
-        
-        // Step 6: Sort the final report in descending date order for the UI
+        // Step 5: Sort the final report in descending date order for the UI
         reporteFinal.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         return reporteFinal;
 
