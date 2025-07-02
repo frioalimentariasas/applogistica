@@ -183,29 +183,50 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 
                 if (isFixedWeight || isVariableWeight) {
                     doc.setFontSize(8);
-                    doc.setFont('helvetica', 'normal');
-                    doc.setDrawColor(170, 170, 170); // #aaa
                     doc.setTextColor(51, 51, 51); // #333
+                    
+                    const code = isFixedWeight ? 'FA-GL-F01' : 'FA-GL-F02';
+                    
                     const boxWidth = 90;
-                    const boxHeight = 28;
+                    const boxHeight = 32;
                     const boxX = pageWidth - margin - boxWidth;
                     const boxY = margin;
                     
-                    doc.rect(boxX, boxY, boxWidth, boxHeight, 'S'); // 'S' for stroke
+                    const textStartX = boxX + 6;
+                    const valueStartX = textStartX + 35; // Position for the values
+                    const lineHeight = 10;
                     
-                    const textStartX = boxX + 5;
-                    const lineHeight = 9;
-                    const textStartY = boxY + lineHeight;
+                    // Draw the styled box
+                    doc.setFillColor(248, 249, 250); // #f8f9fa
+                    doc.setDrawColor(204, 204, 204); // #ccc
+                    doc.rect(boxX, boxY, boxWidth, boxHeight, 'FD'); // Fill and Draw
                     
-                    const code = isFixedWeight ? 'FA-GL-F01' : 'FA-GL-F02';
-
-                    doc.text(`Código: ${code}`, textStartX, textStartY);
-                    doc.text('Versión: 01', textStartX, textStartY + lineHeight);
-                    doc.text('Fecha: 16/06/2025', textStartX, textStartY + (lineHeight * 2));
+                    let currentY = boxY + 4;
+                    
+                    // Line 1: Código
+                    currentY += lineHeight;
+                    doc.setFont('helvetica', 'bold');
+                    doc.text('Código:', textStartX, currentY);
+                    doc.setFont('helvetica', 'normal');
+                    doc.text(code, valueStartX, currentY);
+                    
+                    // Line 2: Versión
+                    currentY += lineHeight;
+                    doc.setFont('helvetica', 'bold');
+                    doc.text('Versión:', textStartX, currentY);
+                    doc.setFont('helvetica', 'normal');
+                    doc.text('01', valueStartX, currentY);
+                    
+                    // Line 3: Fecha
+                    currentY += lineHeight;
+                    doc.setFont('helvetica', 'bold');
+                    doc.text('Fecha:', textStartX, currentY);
+                    doc.setFont('helvetica', 'normal');
+                    doc.text('16/06/2025', valueStartX, currentY);
                 }
                 
                 // Report Title and Subtitle (positioned below logo/box)
-                const headerContentY = margin + 35 + 15;
+                const headerContentY = margin + 35 + 24; // Increased spacing
                 doc.setFontSize(16);
                 doc.setFont('helvetica', 'bold');
                 doc.setTextColor('#005a9e');
@@ -697,7 +718,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                  return <FixedWeightReport {...props} formType={submission.formType} />;
             case 'variable-weight-despacho':
                 return <VariableWeightDispatchReport {...props} />;
-            case 'variable-weight-recepcion':
+            case 'variable-weight-reception':
                 return <VariableWeightReceptionReport {...props} />;
             default:
                 return <div className="p-4">Tipo de formato no reconocido.</div>;

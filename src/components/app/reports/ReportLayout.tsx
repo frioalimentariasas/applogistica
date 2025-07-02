@@ -15,7 +15,7 @@ export function ReportLayout({ title, children, logoBase64, infoBoxType }: Repor
         <div style={{ fontFamily: 'Arial, sans-serif', color: '#333', backgroundColor: '#fff', padding: '0' }}>
             
             {/* Header Section: Wrapped in a div to enforce page break rules */}
-            <div style={{ pageBreakInside: 'avoid', breakInside: 'avoid' }}>
+            <div style={{ pageBreakInside: 'avoid', breakInside: 'avoid', marginBottom: '16px' }}>
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                     <tbody>
                         <tr>
@@ -34,24 +34,26 @@ export function ReportLayout({ title, children, logoBase64, infoBoxType }: Repor
                             </td>
                             <td style={{ width: '25%', verticalAlign: 'top', textAlign: 'right', padding: '0 16px' }}>
                                 {showInfoBox && (
-                                    <div style={{
-                                        border: '1px solid #aaa',
-                                        padding: '4px 8px',
+                                     <div style={{
+                                        border: '1px solid #ccc',
+                                        backgroundColor: '#f8f9fa',
+                                        padding: '6px 10px',
                                         fontSize: '10px',
-                                        lineHeight: '1.4',
+                                        lineHeight: '1.5',
                                         display: 'inline-block',
                                         textAlign: 'left',
-                                        borderRadius: '4px'
+                                        borderRadius: '6px',
+                                        minWidth: '120px'
                                     }}>
-                                        <div>Código: {code}</div>
-                                        <div>Versión: 01</div>
-                                        <div>Fecha: 16/06/2025</div>
+                                        <div><strong>Código:</strong> {code}</div>
+                                        <div><strong>Versión:</strong> 01</div>
+                                        <div><strong>Fecha:</strong> 16/06/2025</div>
                                     </div>
                                 )}
                             </td>
                         </tr>
                         <tr>
-                            <td colSpan={3} style={{ textAlign: 'center', borderBottom: '2px solid #ccc', paddingBottom: '8px' }}>
+                            <td colSpan={3} style={{ textAlign: 'center', borderBottom: '2px solid #ccc', paddingBottom: '8px', paddingTop: '8px' }}>
                                 <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#005a9e', margin: '0 0 4px 0' }}>{title}</div>
                                 <div style={{ fontSize: '10px', color: '#555', margin: '0' }}>FRIO ALIMENTARIA SAS NIT 900736914-0</div>
                             </td>
@@ -61,7 +63,7 @@ export function ReportLayout({ title, children, logoBase64, infoBoxType }: Repor
             </div>
 
             {/* Main Content section */}
-            <main style={{ paddingTop: '16px' }}>
+            <main style={{ paddingTop: '0' }}>
                 {children}
             </main>
         </div>
