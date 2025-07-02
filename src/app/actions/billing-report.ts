@@ -3,8 +3,6 @@
 
 import admin from 'firebase-admin';
 import { firestore } from '@/lib/firebase-admin';
-import { getLatestStockBeforeDate } from './inventory-report';
-import { format, addDays, parseISO } from 'date-fns';
 
 // This helper will recursively convert any Firestore Timestamps in an object to ISO strings.
 const serializeTimestamps = (data: any): any => {
@@ -37,7 +35,6 @@ export interface DailyReportData {
   date: string; // YYYY-MM-DD
   paletasRecibidas: number;
   paletasDespachadas: number;
-  paletasAlmacenadas: number;
 }
 
 const productMatchesSession = (temperatura: any, session: string): boolean => {
@@ -174,39 +171,19 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
             }
         });
         
-        // Step 3: Get the starting stock from the last inventory report before the start date
-        const stockInicial = await getLatestStockBeforeDate(criteria.clientName, criteria.startDate, criteria.sesion);
-        
-        // Step 4: Iterate day-by-day to calculate the running total and build the final report
+        // Step 3: Convert map to an array, filtering for days with movement.
         const reporteFinal: DailyReportData[] = [];
-        let stockAcumulado = stockInicial;
-        
-        let currentDate = parseISO(criteria.startDate);
-        const fechaFin = parseISO(criteria.endDate);
-
-        while (currentDate <= fechaFin) {
-            const dateKey = format(currentDate, 'yyyy-MM-dd');
-            const movements = dailyMovements.get(dateKey) || { paletasRecibidas: 0, paletasDespachadas: 0 };
-            
-            const tieneMovimiento = movements.paletasRecibidas > 0 || movements.paletasDespachadas > 0;
-            
-            const stockAlmacenadoHoy = stockAcumulado + movements.paletasRecibidas - movements.paletasDespachadas;
-
-            if (tieneMovimiento) {
+        for (const [date, movements] of dailyMovements.entries()) {
+            if (movements.paletasRecibidas > 0 || movements.paletasDespachadas > 0) {
                 reporteFinal.push({
-                    date: dateKey,
+                    date,
                     paletasRecibidas: movements.paletasRecibidas,
                     paletasDespachadas: movements.paletasDespachadas,
-                    paletasAlmacenadas: stockAlmacenadoHoy,
                 });
             }
-            
-            stockAcumulado = stockAlmacenadoHoy;
-            
-            currentDate = addDays(currentDate, 1);
         }
         
-        // Step 5: Sort the final report in descending date order for the UI
+        // Step 4: Sort the final report in descending date order for the UI
         reporteFinal.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         return reporteFinal;
 

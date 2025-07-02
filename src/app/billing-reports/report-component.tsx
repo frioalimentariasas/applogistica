@@ -41,7 +41,6 @@ const ResultsSkeleton = () => (
         <TableCell><Skeleton className="h-5 w-[150px] rounded-md" /></TableCell>
         <TableCell className="text-right"><Skeleton className="h-5 w-[150px] rounded-md float-right" /></TableCell>
         <TableCell className="text-right"><Skeleton className="h-5 w-[150px] rounded-md float-right" /></TableCell>
-        <TableCell className="text-right"><Skeleton className="h-5 w-[150px] rounded-md float-right" /></TableCell>
       </TableRow>
     ))}
   </>
@@ -49,7 +48,7 @@ const ResultsSkeleton = () => (
 
 const EmptyState = ({ searched, title, description, emptyDescription }: { searched: boolean; title: string; description: string; emptyDescription: string; }) => (
     <TableRow>
-        <TableCell colSpan={5} className="py-20 text-center">
+        <TableCell colSpan={4} className="py-20 text-center">
             <div className="flex flex-col items-center gap-4">
                 <div className="rounded-full bg-primary/10 p-4">
                     <FolderSearch className="h-12 w-12 text-primary" />
@@ -260,7 +259,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             'Cliente': selectedClient,
             'Paletas Recibidas': row.paletasRecibidas,
             'Paletas Despachadas': row.paletasDespachadas,
-            'Paletas Almacenadas': row.paletasAlmacenadas,
         }));
 
         const worksheet = XLSX.utils.json_to_sheet([]);
@@ -317,13 +315,12 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
         autoTable(doc, {
             startY: clientY + 16,
-            head: [['Fecha', 'Cliente', 'Paletas Recibidas', 'Paletas Despachadas', 'Paletas Almacenadas']],
+            head: [['Fecha', 'Cliente', 'Paletas Recibidas', 'Paletas Despachadas']],
             body: reportData.map(row => [
                 format(new Date(row.date.replace(/-/g, '/')), 'dd/MM/yyyy'),
                 selectedClient,
                 row.paletasRecibidas,
-                row.paletasDespachadas,
-                row.paletasAlmacenadas
+                row.paletasDespachadas
             ]),
             headStyles: { fillColor: [33, 150, 243] },
         });
@@ -777,7 +774,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                         <TableHead>Cliente</TableHead>
                                         <TableHead className="text-right">Paletas Recibidas</TableHead>
                                         <TableHead className="text-right">Paletas Despachadas</TableHead>
-                                        <TableHead className="text-right">Paletas Almacenadas</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -790,7 +786,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                 <TableCell>{selectedClient}</TableCell>
                                                 <TableCell className="text-right">{row.paletasRecibidas}</TableCell>
                                                 <TableCell className="text-right">{row.paletasDespachadas}</TableCell>
-                                                <TableCell className="text-right font-semibold">{row.paletasAlmacenadas}</TableCell>
                                             </TableRow>
                                         ))
                                     ) : (
