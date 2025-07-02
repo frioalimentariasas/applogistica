@@ -69,9 +69,9 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
     }
 
     try {
+        // Step 1: Query all relevant submissions in a slightly wider date range to handle timezone differences
         let query: admin.firestore.Query = firestore.collection('submissions');
         
-        // Widen the query range to avoid timezone issues with 'createdAt'
         const queryStartDate = new Date(criteria.startDate);
         queryStartDate.setDate(queryStartDate.getDate() - 2); 
         const queryEndDate = new Date(criteria.endDate);
@@ -83,6 +83,7 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
 
         const snapshot = await query.get();
 
+        // Step 2: Process submissions into a map of daily movements, filtered by client and session
         const dailyTotals = new Map<string, { date: string; paletasRecibidas: number; paletasDespachadas: number }>();
 
         snapshot.docs.forEach(doc => {
@@ -98,7 +99,6 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                 return;
             }
             
-            // Group by the date part of the ISO string, assuming it's stored in UTC.
             const groupingDate = formIsoDate.split('T')[0];
 
             if (groupingDate < criteria.startDate || groupingDate > criteria.endDate) {
@@ -185,24 +185,23 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
             }
         });
         
-        // --- START: FINAL, ROBUST CALCULATION LOGIC ---
+        // Step 3: Get the starting stock from the last inventory report before the start date
         const stockAnterior = await getLatestStockBeforeDate(
             criteria.clientName,
             criteria.startDate,
             criteria.sesion
         );
 
+        // Step 4: Iterate day-by-day to calculate the running total of stored pallets
         let stockAcumulado = stockAnterior;
         const reporteCompleto: DailyReportData[] = [];
         
-        // Use date-fns for robust date handling, avoiding timezone issues by setting time to noon.
-        const fechaFin = new Date(`${criteria.endDate}T12:00:00Z`);
-        let currentDate = new Date(`${criteria.startDate}T12:00:00Z`);
+        // Use UTC dates to avoid timezone issues
+        const fechaInicio = new Date(`${criteria.startDate}T12:00:00.000Z`);
+        const fechaFin = new Date(`${criteria.endDate}T12:00:00.000Z`);
 
-        // Iterate through each day in the date range.
-        while (currentDate <= fechaFin) {
-            const dateKey = format(currentDate, 'yyyy-MM-dd');
-            
+        for (let d = new Date(fechaInicio); d <= fechaFin; d.setUTCDate(d.getUTCDate() + 1)) {
+            const dateKey = d.toISOString().split('T')[0];
             const movements = dailyTotals.get(dateKey) || { paletasRecibidas: 0, paletasDespachadas: 0 };
             
             const stockFinalDelDia = stockAcumulado + movements.paletasRecibidas - movements.paletasDespachadas;
@@ -214,24 +213,22 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                 paletasAlmacenadas: stockFinalDelDia,
             });
             
-            // The accumulated stock for the next day's calculation is the final stock from today.
+            // The running total for the next day is the final stock from today
             stockAcumulado = stockFinalDelDia;
-
-            // Safely increment the day
-            currentDate.setDate(currentDate.getDate() + 1);
         }
 
-        const finalReport = reporteCompleto.filter(
+        // Step 5: Filter the full report to only show days that had movements
+        const reporteFinal = reporteCompleto.filter(
             (day) => day.paletasRecibidas > 0 || day.paletasDespachadas > 0
         );
         
-        if (finalReport.length === 0) {
+        if (reporteFinal.length === 0) {
             return [];
         }
         
-        finalReport.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-        return finalReport;
-        // --- END: FINAL, ROBUST CALCULATION LOGIC ---
+        // Step 6: Sort the final report in descending date order for the UI
+        reporteFinal.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        return reporteFinal;
 
     } catch (error) {
         console.error('Error generating billing report:', error);
