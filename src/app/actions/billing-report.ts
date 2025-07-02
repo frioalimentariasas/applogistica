@@ -5,6 +5,7 @@ import admin from 'firebase-admin';
 import { firestore } from '@/lib/firebase-admin';
 import { getLatestStockBeforeDate } from './inventory-report';
 import { format } from 'date-fns';
+import type { InventoryRow } from './inventory-report';
 
 // This helper will recursively convert any Firestore Timestamps in an object to ISO strings.
 const serializeTimestamps = (data: any): any => {
@@ -186,12 +187,33 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
         });
         
         // Step 3: Get the starting stock from the last inventory report before the start date
-        const stockAnterior = await getLatestStockBeforeDate(
-            criteria.clientName,
-            criteria.startDate,
-            criteria.sesion
-        );
+        let stockAnterior = 0;
+        const latestInventorySnapshot = await firestore.collection('dailyInventories')
+            .where(admin.firestore.FieldPath.documentId(), '<', criteria.startDate)
+            .orderBy(admin.firestore.FieldPath.documentId(), 'desc')
+            .limit(1)
+            .get();
 
+        if (!latestInventorySnapshot.empty) {
+            const inventoryDoc = latestInventorySnapshot.docs[0].data();
+            if (inventoryDoc && Array.isArray(inventoryDoc.data)) {
+                const inventoryData = inventoryDoc.data as InventoryRow[];
+                const clientPallets = new Set<string>();
+                inventoryData.forEach((row: any) => {
+                    const rowSession = String(row.SE || '').trim().toLowerCase();
+                    const criteriaSession = criteria.sesion.trim().toLowerCase();
+                    const rowClient = String(row.PROPIETARIO || '').trim();
+
+                    if (rowClient === criteria.clientName && rowSession === criteriaSession) {
+                        if (row.PALETA !== undefined && row.PALETA !== null) {
+                            clientPallets.add(String(row.PALETA).trim());
+                        }
+                    }
+                });
+                stockAnterior = clientPallets.size;
+            }
+        }
+        
         // Step 4: Iterate day-by-day to calculate the running total of stored pallets
         let stockAcumulado = stockAnterior;
         const reporteCompleto: DailyReportData[] = [];
@@ -213,7 +235,6 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                 paletasAlmacenadas: stockFinalDelDia,
             });
             
-            // The running total for the next day is the final stock from today
             stockAcumulado = stockFinalDelDia;
         }
 
