@@ -205,7 +205,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 }
                 
                 // Report Title and Subtitle (positioned below logo/box)
-                const headerContentY = margin + 35 + 10;
+                const headerContentY = margin + 35 + 15;
                 doc.setFontSize(16);
                 doc.setFont('helvetica', 'bold');
                 doc.setTextColor('#005a9e');

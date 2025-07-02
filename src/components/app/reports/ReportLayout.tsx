@@ -20,7 +20,7 @@ export function ReportLayout({ title, children, logoBase64, infoBoxType }: Repor
                     <tbody>
                         <tr>
                             <td style={{ width: '25%', verticalAlign: 'top' }}>&nbsp;</td>
-                            <td style={{ width: '50%', textAlign: 'center', paddingBottom: '10px' }}>
+                            <td style={{ width: '50%', textAlign: 'center', paddingBottom: '16px' }}>
                                 {logoBase64 ? (
                                     <img
                                         src={logoBase64}

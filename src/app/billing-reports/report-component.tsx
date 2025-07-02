@@ -286,7 +286,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const logoY = 15;
         doc.addImage(logoBase64, 'PNG', logoX, logoY, logoWidth, logoHeight);
 
-        const textY = logoY + logoHeight + 10;
+        const textY = logoY + logoHeight + 16;
         doc.setFontSize(11);
         doc.setFont('helvetica', 'bold');
         doc.text('FRIO ALIMENTARIA SAS', pageWidth / 2, textY, { align: 'center' });
@@ -501,7 +501,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         doc.text(`Informe de Inventario Acumulado por Día`, pageWidth / 2, headerY + 15, { align: 'center' });
 
         // --- SUB-HEADER ---
-        const contentStartY = headerY + logoHeight + 10;
+        const contentStartY = headerY + logoHeight + 16;
         const currentFontSize = 10;
         doc.setFontSize(currentFontSize);
         doc.setFont('helvetica', 'normal');
