@@ -4,7 +4,7 @@
 import admin from 'firebase-admin';
 import { firestore } from '@/lib/firebase-admin';
 import { getLatestStockBeforeDate } from './inventory-report';
-import { format } from 'date-fns';
+import { format, addDays, parseISO } from 'date-fns';
 import type { InventoryRow } from './inventory-report';
 
 // This helper will recursively convert any Firestore Timestamps in an object to ISO strings.
@@ -42,8 +42,11 @@ export interface DailyReportData {
 }
 
 const productMatchesSession = (temperatura: any, session: string): boolean => {
-    const temp = Number(temperatura);
-    // If temp is not a number or undefined, it cannot match any session reliably.
+    // Treat null, undefined, or empty strings as 0. This is crucial for 'CO' session.
+    const tempValue = temperatura === null || temperatura === undefined || String(temperatura).trim() === '' ? 0 : temperatura;
+    const temp = Number(tempValue);
+
+    // If after conversion it's still not a number, it can't match.
     if (isNaN(temp)) {
         return false;
     }
@@ -188,33 +191,29 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
         });
         
         // Step 3: Get the starting stock from the last inventory report before the start date
-        const stockAnterior = await getLatestStockBeforeDate(criteria.clientName, criteria.startDate, criteria.sesion);
+        let stockAcumulado = await getLatestStockBeforeDate(criteria.clientName, criteria.startDate, criteria.sesion);
         
         // Step 4: Iterate day-by-day to calculate the running total of stored pallets
-        let stockAcumulado = stockAnterior;
         const reporteCompleto: DailyReportData[] = [];
         
-        const fechaInicio = new Date(`${criteria.startDate}T12:00:00.000Z`);
-        const fechaFin = new Date(`${criteria.endDate}T12:00:00.000Z`);
+        let currentDate = parseISO(criteria.startDate);
+        const fechaFin = parseISO(criteria.endDate);
 
-        let currentDate = new Date(fechaInicio);
         while (currentDate <= fechaFin) {
-            const dateKey = currentDate.toISOString().split('T')[0];
+            const dateKey = format(currentDate, 'yyyy-MM-dd');
             const movements = dailyTotals.get(dateKey) || { paletasRecibidas: 0, paletasDespachadas: 0 };
             
-            const stockFinalDelDia = stockAcumulado + movements.paletasRecibidas - movements.paletasDespachadas;
+            stockAcumulado += movements.paletasRecibidas - movements.paletasDespachadas;
             
             reporteCompleto.push({
                 date: dateKey,
                 paletasRecibidas: movements.paletasRecibidas,
                 paletasDespachadas: movements.paletasDespachadas,
-                paletasAlmacenadas: stockFinalDelDia,
+                paletasAlmacenadas: stockAcumulado,
             });
             
-            stockAcumulado = stockFinalDelDia;
-
             // Move to the next day
-            currentDate.setUTCDate(currentDate.getUTCDate() + 1);
+            currentDate = addDays(currentDate, 1);
         }
 
         // Step 5: Filter the full report to only show days that had movements
