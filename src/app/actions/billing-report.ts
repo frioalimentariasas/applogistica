@@ -4,6 +4,7 @@
 import admin from 'firebase-admin';
 import { firestore } from '@/lib/firebase-admin';
 import { getLatestStockBeforeDate } from './inventory-report';
+import { format } from 'date-fns';
 
 // This helper will recursively convert any Firestore Timestamps in an object to ISO strings.
 const serializeTimestamps = (data: any): any => {
@@ -184,7 +185,7 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
             }
         });
         
-        // --- START: NEW, ROBUST CALCULATION LOGIC ---
+        // --- START: FINAL, ROBUST CALCULATION LOGIC ---
         const stockAnterior = await getLatestStockBeforeDate(
             criteria.clientName,
             criteria.startDate,
@@ -193,12 +194,15 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
 
         let stockAcumulado = stockAnterior;
         const reporteCompleto: DailyReportData[] = [];
-        const fechaInicio = new Date(`${criteria.startDate}T00:00:00.000Z`);
-        const fechaFin = new Date(`${criteria.endDate}T00:00:00.000Z`);
+        
+        // Use date-fns for robust date handling, avoiding timezone issues by setting time to noon.
+        const fechaFin = new Date(`${criteria.endDate}T12:00:00Z`);
+        let currentDate = new Date(`${criteria.startDate}T12:00:00Z`);
 
-        // Create a report for every day in the range, accumulating stock.
-        for (let d = new Date(fechaInicio); d <= fechaFin; d.setUTCDate(d.getUTCDate() + 1)) {
-            const dateKey = d.toISOString().split('T')[0];
+        // Iterate through each day in the date range.
+        while (currentDate <= fechaFin) {
+            const dateKey = format(currentDate, 'yyyy-MM-dd');
+            
             const movements = dailyTotals.get(dateKey) || { paletasRecibidas: 0, paletasDespachadas: 0 };
             
             const stockFinalDelDia = stockAcumulado + movements.paletasRecibidas - movements.paletasDespachadas;
@@ -210,11 +214,13 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                 paletasAlmacenadas: stockFinalDelDia,
             });
             
-            // The new accumulated stock for the next day is the final stock from today.
+            // The accumulated stock for the next day's calculation is the final stock from today.
             stockAcumulado = stockFinalDelDia;
+
+            // Safely increment the day
+            currentDate.setDate(currentDate.getDate() + 1);
         }
 
-        // Now, filter the full report to only include days where there were movements.
         const finalReport = reporteCompleto.filter(
             (day) => day.paletasRecibidas > 0 || day.paletasDespachadas > 0
         );
@@ -225,7 +231,7 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
         
         finalReport.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         return finalReport;
-        // --- END: NEW, ROBUST CALCULATION LOGIC ---
+        // --- END: FINAL, ROBUST CALCULATION LOGIC ---
 
     } catch (error) {
         console.error('Error generating billing report:', error);
