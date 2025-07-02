@@ -39,6 +39,25 @@ export interface DailyReportData {
   paletasAlmacenadas: number;
 }
 
+const productMatchesSession = (temperatura: any, session: string): boolean => {
+    const temp = Number(temperatura);
+    // If temp is not a number or undefined, it can only match Seco (SE) for safety
+    if (isNaN(temp)) {
+        return session === 'SE';
+    }
+
+    switch (session) {
+        case 'CO': // Congelado
+            return temp <= 0;
+        case 'RE': // Refrigerado
+            return temp > 0 && temp <= 10;
+        case 'SE': // Seco
+            return temp > 10;
+        default:
+            return false;
+    }
+};
+
 export async function getBillingReport(criteria: BillingReportCriteria): Promise<DailyReportData[]> {
     if (!firestore) {
         throw new Error('El servidor no está configurado correctamente.');
@@ -82,8 +101,9 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                 return; // Skip if date is missing
             }
             
+            // Adjust for Colombia Time (UTC-5) to group submissions by the local day they occurred on.
             const date = new Date(formIsoDate);
-            date.setHours(date.getHours() - 5);
+            date.setUTCHours(date.getUTCHours() - 5);
             const groupingDate = date.toISOString().split('T')[0]; // YYYY-MM-DD
 
             // Perform the final, accurate date filtering in memory based on the user's request.
@@ -101,36 +121,78 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
 
             const dailyData = dailyTotals.get(groupingDate)!;
             
+            // Build a map from description to temperature from the summary for variable weight forms
+            const summaryTempMap = (submission.formData.summary || []).reduce((acc: any, s: any) => {
+                if (s.descripcion) {
+                    acc[s.descripcion] = s.temperatura;
+                }
+                return acc;
+            }, {});
+
             switch (submission.formType) {
-                case 'fixed-weight-recepcion':
-                    const receivedFixedPallets = (submission.formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.totalPaletas ?? p.paletas) || 0), 0);
+                case 'fixed-weight-recepcion': {
+                    const receivedFixedPallets = (submission.formData.productos || []).reduce((sum: number, p: any) => {
+                        if (productMatchesSession(p.temperatura, criteria.sesion)) {
+                            return sum + (Number(p.totalPaletas ?? p.paletas) || 0);
+                        }
+                        return sum;
+                    }, 0);
                     dailyData.paletasRecibidas += receivedFixedPallets;
                     break;
-                case 'fixed-weight-despacho':
-                    const dispatchedFixedPallets = (submission.formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.totalPaletas ?? p.paletas) || 0), 0);
+                }
+                case 'fixed-weight-despacho': {
+                    const dispatchedFixedPallets = (submission.formData.productos || []).reduce((sum: number, p: any) => {
+                         if (productMatchesSession(p.temperatura, criteria.sesion)) {
+                            return sum + (Number(p.totalPaletas ?? p.paletas) || 0);
+                        }
+                        return sum;
+                    }, 0);
                     dailyData.paletasDespachadas += dispatchedFixedPallets;
                     break;
-                case 'variable-weight-recepcion':
-                    const receivedVariablePallets = (submission.formData.items || []).length;
+                }
+                case 'variable-weight-recepcion': {
+                    const receivedVariablePallets = (submission.formData.items || []).reduce((sum: number, item: any) => {
+                        const temp = summaryTempMap[item.descripcion];
+                        if (productMatchesSession(temp, criteria.sesion)) {
+                            return sum + 1; // Each item is one pallet
+                        }
+                        return sum;
+                    }, 0);
                     dailyData.paletasRecibidas += receivedVariablePallets;
                     break;
-                case 'variable-weight-despacho':
+                }
+                case 'variable-weight-despacho': {
                     const items = submission.formData.items || [];
-                    const summary = submission.formData.summary || [];
-                    
                     const isSummaryMode = items.some((p: any) => Number(p.paleta) === 0);
-
+                    let dispatchedVariablePallets = 0;
+                    
                     if (isSummaryMode) {
-                        const dispatchedVariablePallets = summary.reduce((sum: number, s: any) => sum + (Number(s.totalPaletas) || 0), 0);
-                        dailyData.paletasDespachadas += dispatchedVariablePallets;
+                         dispatchedVariablePallets = items.reduce((sum: number, item: any) => {
+                            if (Number(item.paleta) === 0) {
+                                const temp = summaryTempMap[item.descripcion];
+                                if (productMatchesSession(temp, criteria.sesion)) {
+                                    return sum + (Number(item.totalPaletas) || 0);
+                                }
+                            }
+                            return sum;
+                        }, 0);
                     } else {
-                        dailyData.paletasDespachadas += items.length;
+                         dispatchedVariablePallets = items.reduce((sum: number, item: any) => {
+                            const temp = summaryTempMap[item.descripcion];
+                            if (productMatchesSession(temp, criteria.sesion)) {
+                                return sum + 1; // Each item is one pallet
+                            }
+                            return sum;
+                        }, 0);
                     }
+                    dailyData.paletasDespachadas += dispatchedVariablePallets;
                     break;
+                }
             }
         });
         
-        const resultsWithoutStock: Omit<DailyReportData, 'paletasAlmacenadas'>[] = Array.from(dailyTotals.values());
+        const resultsWithoutStock = Array.from(dailyTotals.values())
+            .filter(d => d.paletasRecibidas > 0 || d.paletasDespachadas > 0);
         
         if (resultsWithoutStock.length === 0) {
             return [];
