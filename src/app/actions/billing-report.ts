@@ -41,9 +41,9 @@ export interface DailyReportData {
 
 const productMatchesSession = (temperatura: any, session: string): boolean => {
     const temp = Number(temperatura);
-    // If temp is not a number or undefined, it can only match Seco (SE) for safety
+    // If temp is not a number or undefined, it cannot match any session reliably.
     if (isNaN(temp)) {
-        return session === 'SE';
+        return false;
     }
 
     switch (session) {
@@ -184,26 +184,35 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
             }
         });
         
-        // --- START: CORRECTED CALCULATION LOGIC ---
+        // --- START: ROBUST CALCULATION LOGIC ---
         const finalReport: DailyReportData[] = [];
-        let runningTotalStock = await getLatestStockBeforeDate(criteria.clientName, criteria.startDate, criteria.sesion);
         
-        const loopStartDate = new Date(`${criteria.startDate}T00:00:00.000Z`);
-        const loopEndDate = new Date(`${criteria.endDate}T00:00:00.000Z`);
-        const dayInMillis = 24 * 60 * 60 * 1000;
-        const diffInDays = Math.round((loopEndDate.getTime() - loopStartDate.getTime()) / dayInMillis);
+        // 1. Get the stock from the day before the start date. This is our running total.
+        let currentStock = await getLatestStockBeforeDate(
+            criteria.clientName,
+            criteria.startDate,
+            criteria.sesion
+        );
 
-        for (let i = 0; i <= diffInDays; i++) {
-            const currentDate = new Date(loopStartDate.getTime() + i * dayInMillis);
-            const dateKey = currentDate.toISOString().split('T')[0];
+        // 2. Create a date iterator to avoid timezone issues. Use UTC.
+        const iteratorDate = new Date(`${criteria.startDate}T00:00:00Z`);
+        const loopEndDate = new Date(`${criteria.endDate}T00:00:00Z`);
 
+        // 3. Loop through each day in the range.
+        while (iteratorDate <= loopEndDate) {
+            // Get YYYY-MM-DD string for the current day
+            const dateKey = iteratorDate.toISOString().split('T')[0];
+            
+            // 4. Get the movements for the current day.
             const movementsForDay = dailyTotals.get(dateKey) || {
                 paletasRecibidas: 0,
                 paletasDespachadas: 0,
             };
 
-            const endOfDayStock = runningTotalStock + movementsForDay.paletasRecibidas - movementsForDay.paletasDespachadas;
-
+            // 5. Calculate the end-of-day stock.
+            const endOfDayStock = currentStock + movementsForDay.paletasRecibidas - movementsForDay.paletasDespachadas;
+            
+            // 6. If there were movements, add this day to the report.
             if (movementsForDay.paletasRecibidas > 0 || movementsForDay.paletasDespachadas > 0) {
                 finalReport.push({
                     date: dateKey,
@@ -212,10 +221,14 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                     paletasAlmacenadas: endOfDayStock,
                 });
             }
+            
+            // 7. Update the running stock for the next day's calculation.
+            currentStock = endOfDayStock;
 
-            runningTotalStock = endOfDayStock;
+            // Move to the next day in a timezone-safe way
+            iteratorDate.setUTCDate(iteratorDate.getUTCDate() + 1);
         }
-        // --- END: CORRECTED CALCULATION LOGIC ---
+        // --- END: ROBUST CALCULATION LOGIC ---
 
         if (finalReport.length === 0) {
             return [];
