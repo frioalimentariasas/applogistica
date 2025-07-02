@@ -192,29 +192,30 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
         );
 
         let stockAcumulado = stockAnterior;
-        const allDaysData: DailyReportData[] = [];
-        const startDate = new Date(`${criteria.startDate}T00:00:00.000Z`);
-        const endDate = new Date(`${criteria.endDate}T00:00:00.000Z`);
+        const reporteCompleto: DailyReportData[] = [];
+        const fechaInicio = new Date(`${criteria.startDate}T00:00:00.000Z`);
+        const fechaFin = new Date(`${criteria.endDate}T00:00:00.000Z`);
 
         // Create a report for every day in the range, accumulating stock.
-        for (let d = new Date(startDate); d <= endDate; d.setUTCDate(d.getUTCDate() + 1)) {
+        for (let d = new Date(fechaInicio); d <= fechaFin; d.setUTCDate(d.getUTCDate() + 1)) {
             const dateKey = d.toISOString().split('T')[0];
             const movements = dailyTotals.get(dateKey) || { paletasRecibidas: 0, paletasDespachadas: 0 };
             
-            const stockActualizado = stockAcumulado + movements.paletasRecibidas - movements.paletasDespachadas;
+            const stockFinalDelDia = stockAcumulado + movements.paletasRecibidas - movements.paletasDespachadas;
             
-            allDaysData.push({
+            reporteCompleto.push({
                 date: dateKey,
                 paletasRecibidas: movements.paletasRecibidas,
                 paletasDespachadas: movements.paletasDespachadas,
-                paletasAlmacenadas: stockActualizado,
+                paletasAlmacenadas: stockFinalDelDia,
             });
             
-            stockAcumulado = stockActualizado;
+            // The new accumulated stock for the next day is the final stock from today.
+            stockAcumulado = stockFinalDelDia;
         }
 
         // Now, filter the full report to only include days where there were movements.
-        const finalReport = allDaysData.filter(
+        const finalReport = reporteCompleto.filter(
             (day) => day.paletasRecibidas > 0 || day.paletasDespachadas > 0
         );
         
