@@ -177,9 +177,11 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     }
                 }
                 
-                // Info Box for Fixed Weight Reports
+                // Info Box
                 const isFixedWeight = formType.startsWith('fixed-weight-');
-                if (isFixedWeight) {
+                const isVariableWeight = formType.startsWith('variable-weight-');
+                
+                if (isFixedWeight || isVariableWeight) {
                     doc.setFontSize(8);
                     doc.setFont('helvetica', 'normal');
                     doc.setDrawColor(170, 170, 170); // #aaa
@@ -195,7 +197,9 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     const lineHeight = 9;
                     const textStartY = boxY + lineHeight;
                     
-                    doc.text('Código: FA-GL-F01', textStartX, textStartY);
+                    const code = isFixedWeight ? 'FA-GL-F01' : 'FA-GL-F02';
+
+                    doc.text(`Código: ${code}`, textStartX, textStartY);
                     doc.text('Versión: 01', textStartX, textStartY + lineHeight);
                     doc.text('Fecha: 16/06/2025', textStartX, textStartY + (lineHeight * 2));
                 }
@@ -700,7 +704,15 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
         }
     };
 
-    const isFixedWeight = submission.formType.startsWith('fixed-weight-');
+    const getInfoBoxType = (): 'fixed' | 'variable' | undefined => {
+        if (submission.formType.startsWith('fixed-weight-')) {
+            return 'fixed';
+        }
+        if (submission.formType.startsWith('variable-weight-')) {
+            return 'variable';
+        }
+        return undefined;
+    };
 
     return (
         <div className="bg-gray-100 min-h-screen p-4 sm:p-8">
@@ -736,7 +748,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 )}
 
                 <div className="bg-white shadow-lg">
-                    <ReportLayout title={getReportTitle()} logoBase64={logoBase64} showInfoBox={isFixedWeight}>
+                    <ReportLayout title={getReportTitle()} logoBase64={logoBase64} infoBoxType={getInfoBoxType()}>
                         {renderReportContent()}
                     </ReportLayout>
                 </div>

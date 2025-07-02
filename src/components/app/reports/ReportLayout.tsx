@@ -3,10 +3,13 @@ interface ReportLayoutProps {
   title: string;
   children: React.ReactNode;
   logoBase64: string | null;
-  showInfoBox?: boolean;
+  infoBoxType?: 'fixed' | 'variable';
 }
 
-export function ReportLayout({ title, children, logoBase64, showInfoBox = false }: ReportLayoutProps) {
+export function ReportLayout({ title, children, logoBase64, infoBoxType }: ReportLayoutProps) {
+    const showInfoBox = infoBoxType === 'fixed' || infoBoxType === 'variable';
+    const code = infoBoxType === 'fixed' ? 'FA-GL-F01' : 'FA-GL-F02';
+
     return (
         // The main container for the entire report page
         <div style={{ fontFamily: 'Arial, sans-serif', color: '#333', backgroundColor: '#fff', padding: '0' }}>
@@ -40,7 +43,7 @@ export function ReportLayout({ title, children, logoBase64, showInfoBox = false 
                                         textAlign: 'left',
                                         borderRadius: '4px'
                                     }}>
-                                        <div>Código: FA-GL-F01</div>
+                                        <div>Código: {code}</div>
                                         <div>Versión: 01</div>
                                         <div>Fecha: 16/06/2025</div>
                                     </div>
