@@ -70,8 +70,6 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
     try {
         let query: admin.firestore.Query = firestore.collection('submissions');
         
-        // Query a slightly wider date range on 'createdAt' to catch records on the boundaries of timezones.
-        // The accurate filtering based on `formData.fecha` will happen in memory.
         const queryStartDate = new Date(`${criteria.startDate}T00:00:00.000Z`);
         queryStartDate.setDate(queryStartDate.getDate() - 1);
         
@@ -84,29 +82,25 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
 
         const snapshot = await query.get();
 
-        const dailyTotals = new Map<string, Omit<DailyReportData, 'paletasAlmacenadas'>>();
+        const dailyTotals = new Map<string, { date: string; paletasRecibidas: number; paletasDespachadas: number }>();
 
         snapshot.docs.forEach(doc => {
             const submission = serializeTimestamps(doc.data());
             
-            // In-memory filter for client
             const clientField = submission.formData.nombreCliente || submission.formData.cliente;
             if (clientField !== criteria.clientName) {
-                return; // Skip this doc if it doesn't match the client
+                return;
             }
 
-            // Grouping must be based on the 'fecha' field from inside the form.
             const formIsoDate = submission.formData.fecha;
             if (!formIsoDate || typeof formIsoDate !== 'string') {
-                return; // Skip if date is missing
+                return;
             }
             
-            // Adjust for Colombia Time (UTC-5) to group submissions by the local day they occurred on.
             const date = new Date(formIsoDate);
             date.setUTCHours(date.getUTCHours() - 5);
-            const groupingDate = date.toISOString().split('T')[0]; // YYYY-MM-DD
+            const groupingDate = date.toISOString().split('T')[0];
 
-            // Perform the final, accurate date filtering in memory based on the user's request.
             if (groupingDate < criteria.startDate || groupingDate > criteria.endDate) {
                 return;
             }
@@ -121,7 +115,6 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
 
             const dailyData = dailyTotals.get(groupingDate)!;
             
-            // Build a map from description to temperature from the summary for variable weight forms
             const summaryTempMap = (submission.formData.summary || []).reduce((acc: any, s: any) => {
                 if (s.descripcion) {
                     acc[s.descripcion] = s.temperatura;
@@ -154,7 +147,7 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                     const receivedVariablePallets = (submission.formData.items || []).reduce((sum: number, item: any) => {
                         const temp = summaryTempMap[item.descripcion];
                         if (productMatchesSession(temp, criteria.sesion)) {
-                            return sum + 1; // Each item is one pallet
+                            return sum + 1;
                         }
                         return sum;
                     }, 0);
@@ -180,7 +173,7 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                          dispatchedVariablePallets = items.reduce((sum: number, item: any) => {
                             const temp = summaryTempMap[item.descripcion];
                             if (productMatchesSession(temp, criteria.sesion)) {
-                                return sum + 1; // Each item is one pallet
+                                return sum + 1;
                             }
                             return sum;
                         }, 0);
@@ -191,31 +184,37 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
             }
         });
         
-        const resultsWithoutStock = Array.from(dailyTotals.values())
-            .filter(d => d.paletasRecibidas > 0 || d.paletasDespachadas > 0);
+        const fullReport: DailyReportData[] = [];
+        let runningStock = await getLatestStockBeforeDate(criteria.clientName, criteria.startDate, criteria.sesion);
+
+        const start = new Date(`${criteria.startDate}T12:00:00Z`);
+        const end = new Date(`${criteria.endDate}T12:00:00Z`);
         
-        if (resultsWithoutStock.length === 0) {
+        for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+            const dateStr = d.toISOString().split('T')[0];
+            const movements = dailyTotals.get(dateStr) || { date: dateStr, paletasRecibidas: 0, paletasDespachadas: 0 };
+            
+            runningStock += movements.paletasRecibidas - movements.paletasDespachadas;
+            
+            fullReport.push({
+                date: dateStr,
+                paletasRecibidas: movements.paletasRecibidas,
+                paletasDespachadas: movements.paletasDespachadas,
+                paletasAlmacenadas: runningStock,
+            });
+        }
+        
+        const resultsWithMovements = fullReport.filter(
+            d => d.paletasRecibidas > 0 || d.paletasDespachadas > 0
+        );
+
+        if (resultsWithMovements.length === 0) {
             return [];
         }
-
-        resultsWithoutStock.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
         
-        let lastStock = await getLatestStockBeforeDate(criteria.clientName, criteria.startDate, criteria.sesion);
+        resultsWithMovements.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         
-        const resultsWithStock: DailyReportData[] = [];
-
-        for (const day of resultsWithoutStock) {
-            const paletasAlmacenadas = lastStock + day.paletasRecibidas - day.paletasDespachadas;
-            resultsWithStock.push({
-                ...day,
-                paletasAlmacenadas,
-            });
-            lastStock = paletasAlmacenadas;
-        }
-
-        resultsWithStock.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-        
-        return resultsWithStock;
+        return resultsWithMovements;
 
     } catch (error) {
         console.error('Error generating billing report:', error);
