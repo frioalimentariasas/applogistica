@@ -184,37 +184,41 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
             }
         });
         
-        // --- START: CORRECTED CALCULATION LOGIC ---
-        let runningStock = await getLatestStockBeforeDate(
+        // --- START: Final calculation logic ---
+        // 1. Get the stock from the day before the report starts. This is our base value.
+        const stockAnterior = await getLatestStockBeforeDate(
             criteria.clientName,
             criteria.startDate,
             criteria.sesion
         );
 
+        let stockAcumulado = stockAnterior;
         const finalReport: DailyReportData[] = [];
-        
-        // Use a loop that is not prone to timezone modification issues
         const currentDate = new Date(`${criteria.startDate}T00:00:00Z`);
         const loopEndDate = new Date(`${criteria.endDate}T00:00:00Z`);
 
+        // 2. Iterate through each day of the requested period.
         while (currentDate <= loopEndDate) {
             const dateKey = currentDate.toISOString().split('T')[0];
             const movements = dailyTotals.get(dateKey) || { paletasRecibidas: 0, paletasDespachadas: 0 };
-
-            // The running stock for the current day is the previous day's stock plus today's movements.
-            runningStock += movements.paletasRecibidas - movements.paletasDespachadas;
             
-            // Only add the day to the report if there were movements.
+            // 3. Calculate the new cumulative stock for the current day.
+            const stockActualizado = stockAcumulado + movements.paletasRecibidas - movements.paletasDespachadas;
+            
+            // 4. If there were movements, add this day's data to the report.
             if (movements.paletasRecibidas > 0 || movements.paletasDespachadas > 0) {
                 finalReport.push({
                     date: dateKey,
                     paletasRecibidas: movements.paletasRecibidas,
                     paletasDespachadas: movements.paletasDespachadas,
-                    paletasAlmacenadas: runningStock, // The final stock for *this* day
+                    paletasAlmacenadas: stockActualizado,
                 });
             }
             
-            // Move to the next day
+            // 5. The stock for the next day's calculation is the updated stock from this day.
+            stockAcumulado = stockActualizado;
+            
+            // Advance to the next day.
             currentDate.setUTCDate(currentDate.getUTCDate() + 1);
         }
 
@@ -222,11 +226,11 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
             return [];
         }
         
-        // Sort descending by date for the final display.
+        // 6. Sort the final report from newest to oldest date.
         finalReport.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         
         return finalReport;
-        // --- END: CORRECTED CALCULATION LOGIC ---
+        // --- END: Final calculation logic ---
 
     } catch (error) {
         console.error('Error generating billing report:', error);
