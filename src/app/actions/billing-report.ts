@@ -70,13 +70,12 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
     }
 
     try {
-        // Step 1: Query all relevant submissions in a slightly wider date range to handle timezone differences
+        // Step 1: Query all submissions within the date range.
+        // This is a broad query to avoid needing a composite index. Filtering by client happens in memory.
         let query: admin.firestore.Query = firestore.collection('submissions');
         
-        const queryStartDate = new Date(criteria.startDate);
-        queryStartDate.setDate(queryStartDate.getDate() - 2); 
-        const queryEndDate = new Date(criteria.endDate);
-        queryEndDate.setDate(queryEndDate.getDate() + 2);
+        const queryStartDate = new Date(`${criteria.startDate}T00:00:00.000Z`);
+        const queryEndDate = new Date(`${criteria.endDate}T23:59:59.999Z`);
         
         query = query
             .where('createdAt', '>=', queryStartDate.toISOString())
@@ -84,17 +83,19 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
 
         const snapshot = await query.get();
 
-        // Step 2: Process submissions into a map of daily movements, filtered by client and session
+        // Step 2: Process submissions into a map of daily movements, filtered by client and session.
         const dailyTotals = new Map<string, { date: string; paletasRecibidas: number; paletasDespachadas: number }>();
 
         snapshot.docs.forEach(doc => {
             const submission = serializeTimestamps(doc.data());
             
+            // In-memory filter for client name
             const clientField = submission.formData.nombreCliente || submission.formData.cliente;
             if (clientField !== criteria.clientName) {
                 return;
             }
 
+            // Ensure date is valid
             const formIsoDate = submission.formData.fecha;
             if (!formIsoDate || typeof formIsoDate !== 'string') {
                 return;
@@ -187,43 +188,18 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
         });
         
         // Step 3: Get the starting stock from the last inventory report before the start date
-        let stockAnterior = 0;
-        const latestInventorySnapshot = await firestore.collection('dailyInventories')
-            .where(admin.firestore.FieldPath.documentId(), '<', criteria.startDate)
-            .orderBy(admin.firestore.FieldPath.documentId(), 'desc')
-            .limit(1)
-            .get();
-
-        if (!latestInventorySnapshot.empty) {
-            const inventoryDoc = latestInventorySnapshot.docs[0].data();
-            if (inventoryDoc && Array.isArray(inventoryDoc.data)) {
-                const inventoryData = inventoryDoc.data as InventoryRow[];
-                const clientPallets = new Set<string>();
-                inventoryData.forEach((row: any) => {
-                    const rowSession = String(row.SE || '').trim().toLowerCase();
-                    const criteriaSession = criteria.sesion.trim().toLowerCase();
-                    const rowClient = String(row.PROPIETARIO || '').trim();
-
-                    if (rowClient === criteria.clientName && rowSession === criteriaSession) {
-                        if (row.PALETA !== undefined && row.PALETA !== null) {
-                            clientPallets.add(String(row.PALETA).trim());
-                        }
-                    }
-                });
-                stockAnterior = clientPallets.size;
-            }
-        }
+        const stockAnterior = await getLatestStockBeforeDate(criteria.clientName, criteria.startDate, criteria.sesion);
         
         // Step 4: Iterate day-by-day to calculate the running total of stored pallets
         let stockAcumulado = stockAnterior;
         const reporteCompleto: DailyReportData[] = [];
         
-        // Use UTC dates to avoid timezone issues
         const fechaInicio = new Date(`${criteria.startDate}T12:00:00.000Z`);
         const fechaFin = new Date(`${criteria.endDate}T12:00:00.000Z`);
 
-        for (let d = new Date(fechaInicio); d <= fechaFin; d.setUTCDate(d.getUTCDate() + 1)) {
-            const dateKey = d.toISOString().split('T')[0];
+        let currentDate = new Date(fechaInicio);
+        while (currentDate <= fechaFin) {
+            const dateKey = currentDate.toISOString().split('T')[0];
             const movements = dailyTotals.get(dateKey) || { paletasRecibidas: 0, paletasDespachadas: 0 };
             
             const stockFinalDelDia = stockAcumulado + movements.paletasRecibidas - movements.paletasDespachadas;
@@ -236,6 +212,9 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
             });
             
             stockAcumulado = stockFinalDelDia;
+
+            // Move to the next day
+            currentDate.setUTCDate(currentDate.getUTCDate() + 1);
         }
 
         // Step 5: Filter the full report to only show days that had movements
