@@ -184,33 +184,38 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
             }
         });
         
-        // The critical part: Calculate running stock day by day
+        // --- START: CORRECTED CALCULATION LOGIC ---
         const finalReport: DailyReportData[] = [];
-        let runningStock = await getLatestStockBeforeDate(criteria.clientName, criteria.startDate, criteria.sesion);
+        let runningTotalStock = await getLatestStockBeforeDate(criteria.clientName, criteria.startDate, criteria.sesion);
         
-        let currentDate = new Date(criteria.startDate + "T12:00:00.000Z");
-        const endDate = new Date(criteria.endDate + "T12:00:00.000Z");
+        const loopStartDate = new Date(`${criteria.startDate}T00:00:00.000Z`);
+        const loopEndDate = new Date(`${criteria.endDate}T00:00:00.000Z`);
+        const dayInMillis = 24 * 60 * 60 * 1000;
+        const diffInDays = Math.round((loopEndDate.getTime() - loopStartDate.getTime()) / dayInMillis);
 
-        while(currentDate <= endDate) {
-            const dateStr = currentDate.toISOString().split('T')[0];
-            const movements = dailyTotals.get(dateStr) || { paletasRecibidas: 0, paletasDespachadas: 0 };
-            
-            const endOfDayStock = runningStock + movements.paletasRecibidas - movements.paletasDespachadas;
+        for (let i = 0; i <= diffInDays; i++) {
+            const currentDate = new Date(loopStartDate.getTime() + i * dayInMillis);
+            const dateKey = currentDate.toISOString().split('T')[0];
 
-            // Only add days with movements to the final report
-            if (movements.paletasRecibidas > 0 || movements.paletasDespachadas > 0) {
+            const movementsForDay = dailyTotals.get(dateKey) || {
+                paletasRecibidas: 0,
+                paletasDespachadas: 0,
+            };
+
+            const endOfDayStock = runningTotalStock + movementsForDay.paletasRecibidas - movementsForDay.paletasDespachadas;
+
+            if (movementsForDay.paletasRecibidas > 0 || movementsForDay.paletasDespachadas > 0) {
                 finalReport.push({
-                    date: dateStr,
-                    paletasRecibidas: movements.paletasRecibidas,
-                    paletasDespachadas: movements.paletasDespachadas,
+                    date: dateKey,
+                    paletasRecibidas: movementsForDay.paletasRecibidas,
+                    paletasDespachadas: movementsForDay.paletasDespachadas,
                     paletasAlmacenadas: endOfDayStock,
                 });
             }
-            
-            // The stock for the next day starts as the end-of-day stock of the current day
-            runningStock = endOfDayStock;
-            currentDate.setUTCDate(currentDate.getUTCDate() + 1);
+
+            runningTotalStock = endOfDayStock;
         }
+        // --- END: CORRECTED CALCULATION LOGIC ---
 
         if (finalReport.length === 0) {
             return [];
