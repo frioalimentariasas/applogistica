@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Skeleton } from '@/components/ui/skeleton';
 import { ArrowLeft, RefreshCw, ShieldAlert, ShieldCheck, UserX, Loader2 } from 'lucide-react';
+import { cn } from '@/lib/utils';
 
 const AccessDenied = () => (
     <div className="flex flex-col items-center justify-center text-center gap-4">
@@ -43,6 +44,7 @@ const UserSkeleton = () => (
             <TableCell><Skeleton className="h-5 w-48 rounded-md" /></TableCell>
             <TableCell><Skeleton className="h-5 w-40 rounded-md" /></TableCell>
             <TableCell><Skeleton className="h-5 w-24 rounded-md" /></TableCell>
+            <TableCell className="text-right"><Skeleton className="h-8 w-24 rounded-md float-right" /></TableCell>
         </TableRow>
     ))
 );
@@ -162,6 +164,7 @@ export default function SessionManagementComponent() {
                                         <TableHead>Nombre</TableHead>
                                         <TableHead>Email</TableHead>
                                         <TableHead>Último Inicio de Sesión</TableHead>
+                                        <TableHead>Estado</TableHead>
                                         <TableHead className="text-right">Acciones</TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -175,11 +178,22 @@ export default function SessionManagementComponent() {
                                                 ? formatDistanceToNow(lastSignInDate, { addSuffix: true, locale: es })
                                                 : "Nunca";
 
+                                            const FIVE_MINUTES_IN_MS = 5 * 60 * 1000;
+                                            const now = new Date();
+                                            const timeDifference = now.getTime() - lastSignInDate.getTime();
+                                            const isActive = lastSignInDate.getFullYear() > 1970 && timeDifference < FIVE_MINUTES_IN_MS;
+
                                             return (
                                                 <TableRow key={u.uid} className={u.uid === user?.uid ? 'bg-blue-50' : ''}>
                                                     <TableCell className="font-medium">{u.displayName}</TableCell>
                                                     <TableCell>{u.email}</TableCell>
                                                     <TableCell>{lastSignInDisplay}</TableCell>
+                                                    <TableCell>
+                                                        <div className="flex items-center gap-2">
+                                                            <span className={cn('h-2.5 w-2.5 rounded-full', isActive ? 'bg-green-500' : 'bg-gray-400')} />
+                                                            <span className="text-sm">{isActive ? 'Activo' : 'Inactivo'}</span>
+                                                        </div>
+                                                    </TableCell>
                                                     <TableCell className="text-right">
                                                         <Button 
                                                             variant="destructive" 
@@ -197,7 +211,7 @@ export default function SessionManagementComponent() {
                                         })
                                     ) : (
                                         <TableRow>
-                                            <TableCell colSpan={4} className="h-24 text-center">No se encontraron usuarios.</TableCell>
+                                            <TableCell colSpan={5} className="h-24 text-center">No se encontraron usuarios.</TableCell>
                                         </TableRow>
                                     )}
                                 </TableBody>
