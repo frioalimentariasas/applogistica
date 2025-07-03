@@ -355,15 +355,15 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
                             <div className="space-y-2">
                                 <Label htmlFor="operationType">Tipo de Operación</Label>
                                 <Select
-                                    value={criteria.operationType || ''}
-                                    onValueChange={(value) => setCriteria({ ...criteria, operationType: value ? (value as 'recepcion' | 'despacho') : undefined })}
+                                    value={criteria.operationType || 'all'}
+                                    onValueChange={(value) => setCriteria({ ...criteria, operationType: value === 'all' ? undefined : (value as 'recepcion' | 'despacho') })}
                                     disabled={isLoading}
                                 >
                                     <SelectTrigger id="operationType">
                                         <SelectValue placeholder="Todos" />
                                     </SelectTrigger>
                                     <SelectContent>
-                                        <SelectItem value="">Todos</SelectItem>
+                                        <SelectItem value="all">Todos</SelectItem>
                                         <SelectItem value="recepcion">Recepción</SelectItem>
                                         <SelectItem value="despacho">Despacho</SelectItem>
                                     </SelectContent>
