@@ -46,25 +46,20 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
     }
 
     try {
-        // Step 1: Query all submissions within the date range.
-        // We add a day to the end date to catch forms submitted after their formData.fecha.
-        const queryStartDate = new Date(`${criteria.startDate}T00:00:00.000Z`);
-        const queryEndDate = new Date(`${criteria.endDate}T23:59:59.999Z`);
-        queryEndDate.setDate(queryEndDate.getDate() + 2); // Widen query range to be safe
+        // Step 1: Query all submissions. We will filter by client and date in-memory for accuracy.
+        // This is more robust than relying on createdAt for date filtering.
+        const snapshot = await firestore.collection('submissions').get();
 
-        const snapshot = await firestore.collection('submissions')
-            .where('createdAt', '>=', queryStartDate.toISOString())
-            .where('createdAt', '<=', queryEndDate.toISOString())
-            .get();
-
-        // Step 2: Process submissions into a map of daily movements, filtered by client.
+        // Step 2: Process submissions into a map of daily movements, filtered by client and date.
         const dailyMovements = new Map<string, { paletasRecibidas: number; paletasDespachadas: number }>();
 
         snapshot.docs.forEach(doc => {
             const submission = serializeTimestamps(doc.data());
             
             const clientField = submission.formData.nombreCliente || submission.formData.cliente;
-            if (clientField !== criteria.clientName) {
+            
+            // In-memory filter for client name (case-insensitive and trimmed)
+            if (!clientField || clientField.trim().toLowerCase() !== criteria.clientName.trim().toLowerCase()) {
                 return;
             }
 
@@ -73,7 +68,7 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
             
             const groupingDate = formIsoDate.split('T')[0];
 
-            // Precise in-memory filter for the date range
+            // Precise in-memory filter for the date range on the operational date (formData.fecha)
             if (groupingDate < criteria.startDate || groupingDate > criteria.endDate) return;
 
             if (!dailyMovements.has(groupingDate)) {
