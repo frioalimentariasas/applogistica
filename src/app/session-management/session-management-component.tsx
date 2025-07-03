@@ -151,7 +151,7 @@ export default function SessionManagementComponent() {
                         <div className="flex justify-between items-center">
                             <div>
                                 <CardTitle>Usuarios Activos</CardTitle>
-                                <CardDescription>Listado de todos los usuarios y su último inicio de sesión.</CardDescription>
+                                <CardDescription>Listado de todos los usuarios y su última actividad.</CardDescription>
                             </div>
                              <Button variant="outline" onClick={fetchUsers} disabled={isLoading}>
                                 <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
@@ -176,10 +176,10 @@ export default function SessionManagementComponent() {
                                         <UserSkeleton />
                                     ) : users.length > 0 ? (
                                         users.map((u) => {
-                                            const signInDate = new Date(u.lastSignInTime || 0);
-                                            const refreshDate = new Date(u.lastRefreshTime || 0);
-
-                                            const lastActivityDate = signInDate > refreshDate ? signInDate : refreshDate;
+                                            const lastActivityDate = new Date(Math.max(
+                                                new Date(u.lastSignInTime || 0).getTime(),
+                                                new Date(u.lastRefreshTime || 0).getTime()
+                                            ));
                                             
                                             const hasEverBeenActive = lastActivityDate.getFullYear() > 1970;
 
@@ -191,7 +191,15 @@ export default function SessionManagementComponent() {
                                             const now = new Date();
                                             const timeDifference = now.getTime() - lastActivityDate.getTime();
                                             const isActive = hasEverBeenActive && timeDifference < FIVE_MINUTES_IN_MS;
-                                            const isRevoked = revokedUids.includes(u.uid);
+                                            
+                                            const wasJustRevokedInUI = revokedUids.includes(u.uid);
+                                            const tokensValidAfter = u.tokensValidAfterTime ? new Date(u.tokensValidAfterTime) : null;
+                                            
+                                            // A session is programmatically revoked if a revocation timestamp exists and it's newer than the last known activity.
+                                            // This means the user has not logged back in since the revocation.
+                                            const isEffectivelyRevoked = tokensValidAfter ? tokensValidAfter.getTime() > lastActivityDate.getTime() : false;
+
+                                            const isRevoked = wasJustRevokedInUI || isEffectivelyRevoked;
 
                                             return (
                                                 <TableRow key={u.uid} className={u.uid === user?.uid ? 'bg-blue-50' : ''}>
@@ -210,7 +218,11 @@ export default function SessionManagementComponent() {
                                                             size="sm"
                                                             onClick={() => setUserToRevoke(u)}
                                                             disabled={u.uid === user?.uid || isRevoked}
-                                                            title={u.uid === user?.uid ? 'No puede revocar su propia sesión' : 'Revocar sesión'}
+                                                            title={
+                                                                u.uid === user?.uid ? 'No puede revocar su propia sesión' 
+                                                                : isRevoked ? 'La sesión ya está revocada. El usuario debe volver a iniciar sesión.'
+                                                                : 'Revocar sesión'
+                                                            }
                                                         >
                                                             <UserX className="mr-2 h-4 w-4" />
                                                             {isRevoked ? "Revocada" : "Revocar"}

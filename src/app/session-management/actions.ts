@@ -10,6 +10,7 @@ export interface ActiveUser {
     lastSignInTime: string;
     creationTime: string;
     lastRefreshTime: string;
+    tokensValidAfterTime?: string;
 }
 
 const userDisplayNameMap: Record<string, string> = {
@@ -45,6 +46,7 @@ export async function listActiveUsers(): Promise<ActiveUser[]> {
             lastSignInTime: user.metadata.lastSignInTime,
             creationTime: user.metadata.creationTime,
             lastRefreshTime: user.metadata.lastRefreshTime,
+            tokensValidAfterTime: user.tokensValidAfterTime,
         }));
 
         // Sort by the most recent activity (either sign-in or token refresh)
@@ -75,6 +77,10 @@ export async function revokeUserSession(uid: string): Promise<{ success: boolean
     try {
         await auth.revokeRefreshTokens(uid);
         const user = await auth.getUser(uid);
+        
+        // This helps to propagate the revocation to any live client sessions.
+        // The client-side SDK will detect the change and force the user to sign out.
+        await auth.updateUser(uid, { disabled: user.disabled });
         
         return { success: true, message: `La sesión del usuario ${user.email} ha sido revocada.` };
     } catch (error: any) {
