@@ -77,8 +77,7 @@ const productSchema = z.object({
 const formSchema = z.object({
     pedidoSislog: z.string()
     .min(1, "El pedido SISLOG es obligatorio.")
-    .max(10, "El número de pedido no puede exceder los 10 dígitos.")
-    .regex(/^[0-9]*$/, "El pedido solo puede contener números."),
+    .max(15, "El pedido SISLOG no puede exceder los 15 caracteres."),
   nombreCliente: z.string().min(1, "Seleccione un cliente."),
   fecha: z.date({ required_error: "La fecha es obligatoria." }),
   horaInicio: z.string().min(1, "La hora de inicio es obligatoria."),
@@ -611,7 +610,7 @@ export default function FixedWeightFormComponent() {
                   <FormField control={form.control} name="pedidoSislog" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Pedido SISLOG</FormLabel>
-                      <FormControl><Input placeholder="Máximo 10 dígitos" {...field} type="text" inputMode="numeric" pattern="[0-9]*" /></FormControl>
+                      <FormControl><Input placeholder="Máximo 15 caracteres" {...field} type="text" /></FormControl>
                       <FormMessage />
                     </FormItem>
                   )}/>
