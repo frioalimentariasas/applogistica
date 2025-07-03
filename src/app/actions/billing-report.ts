@@ -94,24 +94,19 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                     break;
                 }
                 case 'variable-weight-recepcion': {
-                    const uniquePallets = new Set<string>();
+                    // Rule: Count the number of items.
                     const items = submission.formData.items || [];
-                    
-                    items.forEach((item: any) => {
-                        if (item.paleta !== undefined && item.paleta !== null) {
-                            uniquePallets.add(String(item.paleta));
-                        }
-                    });
-                    
-                    dailyData.paletasRecibidas += uniquePallets.size;
+                    dailyData.paletasRecibidas += items.length;
                     break;
                 }
                 case 'variable-weight-despacho': {
                     const items = submission.formData.items || [];
+                    // A form is in summary mode if it contains at least one item with paleta === 0
                     const isSummaryMode = items.some((p: any) => Number(p.paleta) === 0);
                     let dispatchedVariablePallets = 0;
                     
                     if (isSummaryMode) {
+                         // Rule (Summary Mode): Sum the 'totalPaletas' field from the summary rows.
                          dispatchedVariablePallets = items.reduce((sum: number, item: any) => {
                             if (Number(item.paleta) === 0) {
                                 return sum + (Number(item.totalPaletas) || 0);
@@ -119,11 +114,11 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                             return sum;
                         }, 0);
                     } else {
-                         const uniquePallets = new Set<string>();
-                         items.forEach((item: any) => {
-                            uniquePallets.add(String(item.paleta));
-                         });
-                         dispatchedVariablePallets = uniquePallets.size;
+                         // Rule (Individual Mode): Sum the 'totalPaletas' from the calculated summary section.
+                         const summary = submission.formData.summary || [];
+                         dispatchedVariablePallets = summary.reduce((sum: number, summaryItem: any) => {
+                             return sum + (Number(summaryItem.totalPaletas) || 0);
+                         }, 0);
                     }
                     dailyData.paletasDespachadas += dispatchedVariablePallets;
                     break;
