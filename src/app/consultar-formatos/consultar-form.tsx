@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { format, parseISO } from 'date-fns';
@@ -75,16 +75,16 @@ const EmptyState = ({ searched }: { searched: boolean }) => (
     </TableRow>
 );
 
+const SESSION_STORAGE_KEY = 'consultarFormatosCriteria';
 
 export default function ConsultarFormatosComponent() {
     const router = useRouter();
     const { toast } = useToast();
     const { user } = useAuth();
     
-    const [criteria, setCriteria] = useState<SearchCriteria>({
+    const [criteria, setCriteria] = useState<Omit<SearchCriteria, 'fechaCreacion' | 'requestingUser'>>({
         pedidoSislog: '',
         nombreCliente: '',
-        fechaCreacion: undefined,
     });
     const [date, setDate] = useState<Date | undefined>(undefined);
     const [results, setResults] = useState<SubmissionResult[]>([]);
@@ -106,31 +106,26 @@ export default function ConsultarFormatosComponent() {
     const isOperario = user && operarioEmails.includes(user.email || '');
     const isViewer = user && viewerEmails.includes(user.email || '');
 
-    const handleSearch = async () => {
+    const runSearch = useCallback(async (searchCriteria: SearchCriteria, isAutoSearch = false) => {
         setIsLoading(true);
         setSearched(true);
         try {
-            const finalCriteria: SearchCriteria = {
-                ...criteria,
-                fechaCreacion: date ? date.toISOString().split('T')[0] : undefined,
-                requestingUser: user ? { id: user.uid, email: user.email || '' } : undefined,
-            };
-
-            const isDefaultSearch = !finalCriteria.pedidoSislog && !finalCriteria.nombreCliente && !finalCriteria.fechaCreacion;
-
-            const searchResults = await searchSubmissions(finalCriteria);
+            const searchResults = await searchSubmissions(searchCriteria);
             setResults(searchResults);
 
-            if (isDefaultSearch && searchResults.length > 0) {
-                 toast({
-                    title: "Mostrando resultados de la última semana",
-                    description: "Para ver más información, utilice los filtros disponibles.",
-                });
-            } else if (searchResults.length === 0 && !isDefaultSearch) {
-                toast({
-                    title: "Sin resultados",
-                    description: "No se encontraron formatos con los criterios de búsqueda proporcionados.",
-                });
+            if (!isAutoSearch) {
+                const isDefaultSearch = !searchCriteria.pedidoSislog && !searchCriteria.nombreCliente && !searchCriteria.fechaCreacion;
+                if (isDefaultSearch && searchResults.length > 0) {
+                     toast({
+                        title: "Mostrando resultados de la última semana",
+                        description: "Para ver más información, utilice los filtros disponibles.",
+                    });
+                } else if (searchResults.length === 0 && !isDefaultSearch) {
+                    toast({
+                        title: "Sin resultados",
+                        description: "No se encontraron formatos con los criterios de búsqueda proporcionados.",
+                    });
+                }
             }
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "Ocurrió un error desconocido.";
@@ -142,17 +137,59 @@ export default function ConsultarFormatosComponent() {
         } finally {
             setIsLoading(false);
         }
+    }, [toast, user]);
+
+    useEffect(() => {
+        if (user) {
+            const savedCriteriaJSON = sessionStorage.getItem(SESSION_STORAGE_KEY);
+            if (savedCriteriaJSON) {
+                const savedCriteria = JSON.parse(savedCriteriaJSON);
+                
+                const restoredCriteria: Omit<SearchCriteria, 'fechaCreacion' | 'requestingUser'> = {
+                    pedidoSislog: savedCriteria.pedidoSislog || '',
+                    nombreCliente: savedCriteria.nombreCliente || '',
+                };
+                const restoredDate = savedCriteria.fechaCreacion ? parseISO(savedCriteria.fechaCreacion) : undefined;
+                
+                setCriteria(restoredCriteria);
+                setDate(restoredDate);
+
+                const finalCriteria: SearchCriteria = {
+                    ...restoredCriteria,
+                    fechaCreacion: restoredDate?.toISOString().split('T')[0],
+                    requestingUser: user ? { id: user.uid, email: user.email || '' } : undefined,
+                };
+                runSearch(finalCriteria, true);
+            }
+        }
+    }, [user, runSearch]);
+
+    const handleSearch = () => {
+        const finalCriteria: SearchCriteria = {
+            ...criteria,
+            fechaCreacion: date ? date.toISOString().split('T')[0] : undefined,
+            requestingUser: user ? { id: user.uid, email: user.email || '' } : undefined,
+        };
+        
+        const criteriaToSave = {
+            pedidoSislog: criteria.pedidoSislog,
+            nombreCliente: criteria.nombreCliente,
+            fechaCreacion: date ? date.toISOString().split('T')[0] : undefined,
+        };
+        sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(criteriaToSave));
+
+        runSearch(finalCriteria);
     };
 
     const handleClear = () => {
         setCriteria({
             pedidoSislog: '',
             nombreCliente: '',
-            fechaCreacion: undefined,
         });
         setDate(undefined);
         setResults([]);
         setSearched(false);
+        sessionStorage.removeItem(SESSION_STORAGE_KEY);
     };
 
     const handleConfirmDelete = async () => {
@@ -422,4 +459,5 @@ export default function ConsultarFormatosComponent() {
             </AlertDialog>
         </div>
     );
-}
+
+    
