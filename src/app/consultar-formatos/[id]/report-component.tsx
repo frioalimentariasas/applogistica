@@ -187,13 +187,13 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     
                     const code = isFixedWeight ? 'FA-GL-F01' : 'FA-GL-F02';
                     
-                    const boxWidth = 120; // Increased width
+                    const boxWidth = 140; // Further increased width to ensure content fits
                     const boxHeight = 32;
                     const boxX = pageWidth - margin - boxWidth;
                     const boxY = margin;
                     
                     const labelStartX = boxX + 6;
-                    const valueStartX = labelStartX + 42;
+                    const valueStartX = labelStartX + 45; // Adjusted start position for value
                     const lineHeight = 10;
                     
                     // Draw the styled box
