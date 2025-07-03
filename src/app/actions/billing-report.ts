@@ -130,14 +130,20 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                     break;
                 }
                 case 'variable-weight-recepcion': {
-                    const receivedVariablePallets = (submission.formData.items || []).reduce((sum: number, item: any) => {
+                    const uniquePallets = new Set<string>();
+                    const items = submission.formData.items || [];
+                    
+                    items.forEach((item: any) => {
                         const temp = summaryTempMap[item.descripcion];
                         if (productMatchesSession(temp, criteria.sesion)) {
-                            return sum + 1;
+                            // Ensure pallet number exists before adding to the set
+                            if (item.paleta !== undefined && item.paleta !== null) {
+                                uniquePallets.add(String(item.paleta));
+                            }
                         }
-                        return sum;
-                    }, 0);
-                    dailyData.paletasRecibidas += receivedVariablePallets;
+                    });
+                    
+                    dailyData.paletasRecibidas += uniquePallets.size;
                     break;
                 }
                 case 'variable-weight-despacho': {
