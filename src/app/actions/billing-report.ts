@@ -28,7 +28,6 @@ export interface BillingReportCriteria {
   clientName: string; // Must be provided for this report
   startDate: string;
   endDate: string;
-  sesion: string;
 }
 
 export interface DailyReportData {
@@ -37,35 +36,13 @@ export interface DailyReportData {
   paletasDespachadas: number;
 }
 
-const productMatchesSession = (temperatura: any, session: string): boolean => {
-    // Treat null, undefined, or empty strings as 0. This is crucial for 'CO' session.
-    const tempValue = temperatura === null || temperatura === undefined || String(temperatura).trim() === '' ? 0 : temperatura;
-    const temp = Number(tempValue);
-
-    // If after conversion it's still not a number, it can't match.
-    if (isNaN(temp)) {
-        return false;
-    }
-
-    switch (session) {
-        case 'CO': // Congelado
-            return temp <= 0;
-        case 'RE': // Refrigerado
-            return temp > 0 && temp <= 10;
-        case 'SE': // Seco
-            return temp > 10;
-        default:
-            return false;
-    }
-};
-
 export async function getBillingReport(criteria: BillingReportCriteria): Promise<DailyReportData[]> {
     if (!firestore) {
         throw new Error('El servidor no está configurado correctamente.');
     }
 
-    if (!criteria.clientName || !criteria.sesion) {
-        throw new Error('El nombre del cliente y la sesión son requeridos para este reporte.');
+    if (!criteria.clientName) {
+        throw new Error('El nombre del cliente es requerido para este reporte.');
     }
 
     try {
@@ -77,7 +54,7 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
             .where('createdAt', '<=', queryEndDate.toISOString())
             .get();
 
-        // Step 2: Process submissions into a map of daily movements, filtered by client and session.
+        // Step 2: Process submissions into a map of daily movements, filtered by client.
         const dailyMovements = new Map<string, { paletasRecibidas: number; paletasDespachadas: number }>();
 
         snapshot.docs.forEach(doc => {
@@ -101,30 +78,17 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
 
             const dailyData = dailyMovements.get(groupingDate)!;
             
-            const summaryTempMap = (submission.formData.summary || []).reduce((acc: any, s: any) => {
-                if (s.descripcion) {
-                    acc[s.descripcion] = s.temperatura;
-                }
-                return acc;
-            }, {});
-
             switch (submission.formType) {
                 case 'fixed-weight-recepcion': {
                     const receivedFixedPallets = (submission.formData.productos || []).reduce((sum: number, p: any) => {
-                        if (productMatchesSession(p.temperatura, criteria.sesion)) {
-                            return sum + (Number(p.totalPaletas ?? p.paletas) || 0);
-                        }
-                        return sum;
+                        return sum + (Number(p.totalPaletas ?? p.paletas) || 0);
                     }, 0);
                     dailyData.paletasRecibidas += receivedFixedPallets;
                     break;
                 }
                 case 'fixed-weight-despacho': {
                     const dispatchedFixedPallets = (submission.formData.productos || []).reduce((sum: number, p: any) => {
-                         if (productMatchesSession(p.temperatura, criteria.sesion)) {
-                            return sum + (Number(p.totalPaletas ?? p.paletas) || 0);
-                        }
-                        return sum;
+                        return sum + (Number(p.totalPaletas ?? p.paletas) || 0);
                     }, 0);
                     dailyData.paletasDespachadas += dispatchedFixedPallets;
                     break;
@@ -134,12 +98,8 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                     const items = submission.formData.items || [];
                     
                     items.forEach((item: any) => {
-                        const temp = summaryTempMap[item.descripcion];
-                        if (productMatchesSession(temp, criteria.sesion)) {
-                            // Ensure pallet number exists before adding to the set
-                            if (item.paleta !== undefined && item.paleta !== null) {
-                                uniquePallets.add(String(item.paleta));
-                            }
+                        if (item.paleta !== undefined && item.paleta !== null) {
+                            uniquePallets.add(String(item.paleta));
                         }
                     });
                     
@@ -154,20 +114,14 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                     if (isSummaryMode) {
                          dispatchedVariablePallets = items.reduce((sum: number, item: any) => {
                             if (Number(item.paleta) === 0) {
-                                const temp = summaryTempMap[item.descripcion];
-                                if (productMatchesSession(temp, criteria.sesion)) {
-                                    return sum + (Number(item.totalPaletas) || 0);
-                                }
+                                return sum + (Number(item.totalPaletas) || 0);
                             }
                             return sum;
                         }, 0);
                     } else {
                          const uniquePallets = new Set<string>();
                          items.forEach((item: any) => {
-                             const temp = summaryTempMap[item.descripcion];
-                             if (productMatchesSession(temp, criteria.sesion)) {
-                                 uniquePallets.add(String(item.paleta));
-                             }
+                            uniquePallets.add(String(item.paleta));
                          });
                          dispatchedVariablePallets = uniquePallets.size;
                     }
