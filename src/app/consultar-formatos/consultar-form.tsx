@@ -77,7 +77,7 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
     const { toast } = useToast();
     const { user } = useAuth();
     
-    const [criteria, setCriteria] = useState<Omit<SearchCriteria, 'fechaCreacion' | 'requestingUser'>>({
+    const [criteria, setCriteria] = useState<Omit<SearchCriteria, 'requestingUser' | 'searchDateStart' | 'searchDateEnd'>>({
         pedidoSislog: '',
         nombreCliente: '',
         operationType: undefined,
@@ -117,7 +117,7 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
             setResults(searchResults);
 
             if (!isAutoSearch) {
-                const isDefaultSearch = !searchCriteria.pedidoSislog && !searchCriteria.nombreCliente && !searchCriteria.fechaCreacion && !searchCriteria.operationType;
+                const isDefaultSearch = !searchCriteria.pedidoSislog && !searchCriteria.nombreCliente && !searchCriteria.searchDateStart && !searchCriteria.operationType;
                 if (isDefaultSearch && searchResults.length > 0) {
                      toast({
                         title: "Mostrando resultados de la última semana",
@@ -148,19 +148,20 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
             if (savedCriteriaJSON) {
                 const savedCriteria = JSON.parse(savedCriteriaJSON);
                 
-                const restoredCriteria: Omit<SearchCriteria, 'fechaCreacion' | 'requestingUser'> = {
+                const restoredCriteria: Omit<SearchCriteria, 'requestingUser' | 'searchDateStart' | 'searchDateEnd'> = {
                     pedidoSislog: savedCriteria.pedidoSislog || '',
                     nombreCliente: savedCriteria.nombreCliente || '',
                     operationType: savedCriteria.operationType,
                 };
-                const restoredDate = savedCriteria.fechaCreacion ? parseISO(savedCriteria.fechaCreacion) : undefined;
+                const restoredDate = savedCriteria.searchDateStart ? parseISO(savedCriteria.searchDateStart) : undefined;
                 
                 setCriteria(restoredCriteria);
                 setDate(restoredDate);
 
                 const finalCriteria: SearchCriteria = {
                     ...restoredCriteria,
-                    fechaCreacion: restoredDate?.toISOString().split('T')[0],
+                    searchDateStart: savedCriteria.searchDateStart,
+                    searchDateEnd: savedCriteria.searchDateEnd,
                     requestingUser: user ? { id: user.uid, email: user.email || '' } : undefined,
                 };
                 runSearch(finalCriteria, true);
@@ -169,9 +170,23 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
     }, [user, runSearch]);
 
     const handleSearch = () => {
+        let searchDateStart: string | undefined;
+        let searchDateEnd: string | undefined;
+
+        if (date) {
+            const startOfDay = new Date(date);
+            startOfDay.setHours(0, 0, 0, 0);
+            searchDateStart = startOfDay.toISOString();
+
+            const endOfDay = new Date(date);
+            endOfDay.setHours(23, 59, 59, 999);
+            searchDateEnd = endOfDay.toISOString();
+        }
+
         const finalCriteria: SearchCriteria = {
             ...criteria,
-            fechaCreacion: date ? date.toISOString().split('T')[0] : undefined,
+            searchDateStart,
+            searchDateEnd,
             requestingUser: user ? { id: user.uid, email: user.email || '' } : undefined,
         };
         
@@ -179,7 +194,8 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
             pedidoSislog: criteria.pedidoSislog,
             nombreCliente: criteria.nombreCliente,
             operationType: criteria.operationType,
-            fechaCreacion: date ? date.toISOString().split('T')[0] : undefined,
+            searchDateStart,
+            searchDateEnd,
         };
         sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(criteriaToSave));
 

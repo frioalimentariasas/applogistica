@@ -8,7 +8,8 @@ import type { FormSubmissionData } from './save-form';
 export interface SearchCriteria {
   pedidoSislog?: string;
   nombreCliente?: string;
-  fechaCreacion?: string; // YYYY-MM-DD
+  searchDateStart?: string; // ISO String
+  searchDateEnd?: string; // ISO String
   operationType?: 'recepcion' | 'despacho';
   requestingUser?: {
     id: string;
@@ -75,7 +76,7 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
             query = query.where('formData.pedidoSislog', '==', criteria.pedidoSislog.trim());
         }
         
-        const noFilters = !criteria.pedidoSislog && !criteria.nombreCliente && !criteria.fechaCreacion && !criteria.operationType;
+        const noFilters = !criteria.pedidoSislog && !criteria.nombreCliente && !criteria.searchDateStart && !criteria.operationType;
 
         // For non-operarios with no filters, we must limit the query to avoid reading the whole collection.
         // We query the last 7 days. This is safe as createdAt will have a single-field index.
@@ -105,9 +106,10 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
         // Now, apply the rest of the filters in memory
 
         // Filter by date if it was provided
-        if (criteria.fechaCreacion) {
-             const searchDate = criteria.fechaCreacion; // YYYY-MM-DD
-             results = results.filter(sub => sub.createdAt.startsWith(searchDate));
+        if (criteria.searchDateStart && criteria.searchDateEnd) {
+             results = results.filter(sub => 
+                sub.createdAt >= criteria.searchDateStart! && sub.createdAt <= criteria.searchDateEnd!
+             );
         }
 
         // For operarios with no filters, apply the 7-day filter now
