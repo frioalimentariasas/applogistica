@@ -189,8 +189,8 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     
                     const code = isFixedWeight ? 'FA-GL-F01' : 'FA-GL-F02';
                     
-                    const boxWidth = 100; // A safe width
-                    boxHeight = 35; // A bit taller for padding
+                    const boxWidth = 110; 
+                    boxHeight = 35; 
                     const boxX = pageWidth - margin - boxWidth;
                     const boxY = margin;
                     const padding = 6;
@@ -229,7 +229,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 
                 // Report Title and Subtitle (positioned below logo/box)
                 const headerBottomY = margin + Math.max(logoPdfHeight, boxHeight);
-                const titleY = headerBottomY + 24;
+                const titleY = headerBottomY + 30; // Increased spacing
 
                 doc.setFontSize(16);
                 doc.setFont('helvetica', 'bold');
@@ -722,7 +722,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                  return <FixedWeightReport {...props} formType={submission.formType} />;
             case 'variable-weight-despacho':
                 return <VariableWeightDispatchReport {...props} />;
-            case 'variable-weight-reception':
+            case 'variable-weight-recepcion':
                 return <VariableWeightReceptionReport {...props} />;
             default:
                 return <div className="p-4">Tipo de formato no reconocido.</div>;
