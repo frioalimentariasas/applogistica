@@ -164,10 +164,11 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
             const { formType, formData, userDisplayName } = submission;
     
             const addHeader = (title: string) => {
+                const logoPdfHeight = 35;
+
                 // Centered Logo
                 if (logoBase64 && logoDimensions) {
                     const logoAspectRatio = logoDimensions.width / logoDimensions.height;
-                    const logoPdfHeight = 35;
                     const logoPdfWidth = logoPdfHeight * logoAspectRatio;
                     const logoX = (pageWidth - logoPdfWidth) / 2;
                     try {
@@ -181,19 +182,21 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 const isFixedWeight = formType.startsWith('fixed-weight-');
                 const isVariableWeight = formType.startsWith('variable-weight-');
                 
+                let boxHeight = 0;
                 if (isFixedWeight || isVariableWeight) {
                     doc.setFontSize(8);
                     doc.setTextColor(51, 51, 51); // #333
                     
                     const code = isFixedWeight ? 'FA-GL-F01' : 'FA-GL-F02';
                     
-                    const boxWidth = 140; // Further increased width to ensure content fits
-                    const boxHeight = 32;
+                    const boxWidth = 100; // A safe width
+                    boxHeight = 35; // A bit taller for padding
                     const boxX = pageWidth - margin - boxWidth;
                     const boxY = margin;
+                    const padding = 6;
                     
-                    const labelStartX = boxX + 6;
-                    const valueStartX = labelStartX + 45; // Adjusted start position for value
+                    const labelX = boxX + padding;
+                    const valueX = boxX + boxWidth - padding;
                     const lineHeight = 10;
                     
                     // Draw the styled box
@@ -201,43 +204,44 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     doc.setDrawColor(204, 204, 204); // #ccc
                     doc.rect(boxX, boxY, boxWidth, boxHeight, 'FD'); // Fill and Draw
                     
-                    let currentY = boxY + 4;
+                    let currentY = boxY + padding + 2; // Start with top padding
                     
                     // Line 1: Código
-                    currentY += lineHeight;
                     doc.setFont('helvetica', 'bold');
-                    doc.text('Código:', labelStartX, currentY);
+                    doc.text('Código:', labelX, currentY, { align: 'left' });
                     doc.setFont('helvetica', 'normal');
-                    doc.text(code, valueStartX, currentY);
+                    doc.text(code, valueX, currentY, { align: 'right' });
                     
                     // Line 2: Versión
                     currentY += lineHeight;
                     doc.setFont('helvetica', 'bold');
-                    doc.text('Versión:', labelStartX, currentY);
+                    doc.text('Versión:', labelX, currentY, { align: 'left' });
                     doc.setFont('helvetica', 'normal');
-                    doc.text('01', valueStartX, currentY);
+                    doc.text('01', valueX, currentY, { align: 'right' });
                     
                     // Line 3: Fecha
                     currentY += lineHeight;
                     doc.setFont('helvetica', 'bold');
-                    doc.text('Fecha:', labelStartX, currentY);
+                    doc.text('Fecha:', labelX, currentY, { align: 'left' });
                     doc.setFont('helvetica', 'normal');
-                    doc.text('16/06/2025', valueStartX, currentY);
+                    doc.text('16/06/2025', valueX, currentY, { align: 'right' });
                 }
                 
                 // Report Title and Subtitle (positioned below logo/box)
-                const headerContentY = margin + 35 + 32; // Increased spacing
+                const headerBottomY = margin + Math.max(logoPdfHeight, boxHeight);
+                const titleY = headerBottomY + 24;
+
                 doc.setFontSize(16);
                 doc.setFont('helvetica', 'bold');
                 doc.setTextColor('#005a9e');
-                doc.text(title, pageWidth / 2, headerContentY, { align: 'center' });
+                doc.text(title, pageWidth / 2, titleY, { align: 'center' });
                 
                 doc.setFontSize(9);
                 doc.setFont('helvetica', 'bold');
                 doc.setTextColor('#3588CC');
-                doc.text('FRIO ALIMENTARIA SAS NIT 900736914-0', pageWidth / 2, headerContentY + 15, { align: 'center' });
+                doc.text('FRIO ALIMENTARIA SAS NIT 900736914-0', pageWidth / 2, titleY + 15, { align: 'center' });
                 
-                yPos = headerContentY + 30;
+                yPos = titleY + 30;
             };
 
             const addWatermark = () => {
