@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
-import { format, formatDistanceToNow } from 'date-fns';
+import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 import { listActiveUsers, revokeUserSession, ActiveUser } from './actions';
@@ -59,9 +59,11 @@ export default function SessionManagementComponent() {
     const [isLoading, setIsLoading] = useState(true);
     const [userToRevoke, setUserToRevoke] = useState<ActiveUser | null>(null);
     const [isRevoking, setIsRevoking] = useState(false);
+    const [revokedUids, setRevokedUids] = useState<string[]>([]);
 
     const fetchUsers = async () => {
         setIsLoading(true);
+        setRevokedUids([]);
         try {
             const activeUsers = await listActiveUsers();
             setUsers(activeUsers);
@@ -80,6 +82,7 @@ export default function SessionManagementComponent() {
         if (!authLoading && isAdmin) {
             fetchUsers();
         }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [isAdmin, authLoading]);
 
     const handleRevoke = async () => {
@@ -91,7 +94,7 @@ export default function SessionManagementComponent() {
                 title: 'Éxito',
                 description: result.message,
             });
-            fetchUsers(); // Refresh the list
+            setRevokedUids(prev => [...prev, userToRevoke.uid]);
         } else {
             toast({
                 variant: 'destructive',
@@ -188,6 +191,7 @@ export default function SessionManagementComponent() {
                                             const now = new Date();
                                             const timeDifference = now.getTime() - lastActivityDate.getTime();
                                             const isActive = hasEverBeenActive && timeDifference < FIVE_MINUTES_IN_MS;
+                                            const isRevoked = revokedUids.includes(u.uid);
 
                                             return (
                                                 <TableRow key={u.uid} className={u.uid === user?.uid ? 'bg-blue-50' : ''}>
@@ -202,14 +206,14 @@ export default function SessionManagementComponent() {
                                                     </TableCell>
                                                     <TableCell className="text-right">
                                                         <Button 
-                                                            variant="destructive" 
+                                                            variant={isRevoked ? "secondary" : "destructive"}
                                                             size="sm"
                                                             onClick={() => setUserToRevoke(u)}
-                                                            disabled={u.uid === user?.uid}
+                                                            disabled={u.uid === user?.uid || isRevoked}
                                                             title={u.uid === user?.uid ? 'No puede revocar su propia sesión' : 'Revocar sesión'}
                                                         >
                                                             <UserX className="mr-2 h-4 w-4" />
-                                                            Revocar
+                                                            {isRevoked ? "Revocada" : "Revocar"}
                                                         </Button>
                                                     </TableCell>
                                                 </TableRow>
