@@ -163,7 +163,7 @@ export default function SessionManagementComponent() {
                                     <TableRow>
                                         <TableHead>Nombre</TableHead>
                                         <TableHead>Email</TableHead>
-                                        <TableHead>Último Inicio de Sesión</TableHead>
+                                        <TableHead>Última Actividad</TableHead>
                                         <TableHead>Estado</TableHead>
                                         <TableHead className="text-right">Acciones</TableHead>
                                     </TableRow>
@@ -173,21 +173,27 @@ export default function SessionManagementComponent() {
                                         <UserSkeleton />
                                     ) : users.length > 0 ? (
                                         users.map((u) => {
-                                            const lastSignInDate = new Date(u.lastSignInTime);
-                                            const lastSignInDisplay = lastSignInDate.getFullYear() > 1970
-                                                ? formatDistanceToNow(lastSignInDate, { addSuffix: true, locale: es })
+                                            const signInDate = new Date(u.lastSignInTime || 0);
+                                            const refreshDate = new Date(u.lastRefreshTime || 0);
+
+                                            const lastActivityDate = signInDate > refreshDate ? signInDate : refreshDate;
+                                            
+                                            const hasEverBeenActive = lastActivityDate.getFullYear() > 1970;
+
+                                            const lastActivityDisplay = hasEverBeenActive
+                                                ? formatDistanceToNow(lastActivityDate, { addSuffix: true, locale: es })
                                                 : "Nunca";
 
                                             const FIVE_MINUTES_IN_MS = 5 * 60 * 1000;
                                             const now = new Date();
-                                            const timeDifference = now.getTime() - lastSignInDate.getTime();
-                                            const isActive = lastSignInDate.getFullYear() > 1970 && timeDifference < FIVE_MINUTES_IN_MS;
+                                            const timeDifference = now.getTime() - lastActivityDate.getTime();
+                                            const isActive = hasEverBeenActive && timeDifference < FIVE_MINUTES_IN_MS;
 
                                             return (
                                                 <TableRow key={u.uid} className={u.uid === user?.uid ? 'bg-blue-50' : ''}>
                                                     <TableCell className="font-medium">{u.displayName}</TableCell>
                                                     <TableCell>{u.email}</TableCell>
-                                                    <TableCell>{lastSignInDisplay}</TableCell>
+                                                    <TableCell>{lastActivityDisplay}</TableCell>
                                                     <TableCell>
                                                         <div className="flex items-center gap-2">
                                                             <span className={cn('h-2.5 w-2.5 rounded-full', isActive ? 'bg-green-500' : 'bg-gray-400')} />

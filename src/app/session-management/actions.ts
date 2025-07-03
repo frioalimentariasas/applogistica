@@ -9,6 +9,7 @@ export interface ActiveUser {
     displayName: string | undefined;
     lastSignInTime: string;
     creationTime: string;
+    lastRefreshTime: string;
 }
 
 const userDisplayNameMap: Record<string, string> = {
@@ -43,12 +44,19 @@ export async function listActiveUsers(): Promise<ActiveUser[]> {
             displayName: user.email ? userDisplayNameMap[user.email] || user.displayName || user.email : 'N/A',
             lastSignInTime: user.metadata.lastSignInTime,
             creationTime: user.metadata.creationTime,
+            lastRefreshTime: user.metadata.lastRefreshTime,
         }));
 
-        // Sort by last sign-in time, descending
+        // Sort by the most recent activity (either sign-in or token refresh)
         users.sort((a, b) => {
-            const timeA = a.lastSignInTime ? new Date(a.lastSignInTime).getTime() : 0;
-            const timeB = b.lastSignInTime ? new Date(b.lastSignInTime).getTime() : 0;
+            const timeA = Math.max(
+                new Date(a.lastSignInTime || 0).getTime(),
+                new Date(a.lastRefreshTime || 0).getTime()
+            );
+            const timeB = Math.max(
+                new Date(b.lastSignInTime || 0).getTime(),
+                new Date(b.lastRefreshTime || 0).getTime()
+            );
             return timeB - timeA;
         });
         
