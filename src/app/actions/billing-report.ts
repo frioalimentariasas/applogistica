@@ -47,8 +47,11 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
 
     try {
         // Step 1: Query all submissions within the date range.
+        // We add a day to the end date to catch forms submitted after their formData.fecha.
         const queryStartDate = new Date(`${criteria.startDate}T00:00:00.000Z`);
         const queryEndDate = new Date(`${criteria.endDate}T23:59:59.999Z`);
+        queryEndDate.setDate(queryEndDate.getDate() + 2); // Widen query range to be safe
+
         const snapshot = await firestore.collection('submissions')
             .where('createdAt', '>=', queryStartDate.toISOString())
             .where('createdAt', '<=', queryEndDate.toISOString())
@@ -70,6 +73,7 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
             
             const groupingDate = formIsoDate.split('T')[0];
 
+            // Precise in-memory filter for the date range
             if (groupingDate < criteria.startDate || groupingDate > criteria.endDate) return;
 
             if (!dailyMovements.has(groupingDate)) {
@@ -94,6 +98,7 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
 
             } else if (formType === 'variable-weight-recepcion' || formType === 'variable-weight-reception') {
                 const items = submission.formData.items || [];
+                // The business rule is to count each item as one pallet for this report.
                 dailyData.paletasRecibidas += items.length;
 
             } else if (formType === 'variable-weight-despacho') {
