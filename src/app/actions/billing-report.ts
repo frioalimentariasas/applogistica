@@ -77,52 +77,44 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
             }
 
             const dailyData = dailyMovements.get(groupingDate)!;
-            
-            switch (submission.formType) {
-                case 'fixed-weight-recepcion': {
-                    const receivedFixedPallets = (submission.formData.productos || []).reduce((sum: number, p: any) => {
-                        return sum + (Number(p.totalPaletas ?? p.paletas) || 0);
+            const formType = submission.formType;
+
+            // Logic to calculate pallets based on form type
+            if (formType === 'fixed-weight-recepcion') {
+                const receivedFixedPallets = (submission.formData.productos || []).reduce((sum: number, p: any) => {
+                    return sum + (Number(p.totalPaletas ?? p.paletas) || 0);
+                }, 0);
+                dailyData.paletasRecibidas += receivedFixedPallets;
+
+            } else if (formType === 'fixed-weight-despacho') {
+                const dispatchedFixedPallets = (submission.formData.productos || []).reduce((sum: number, p: any) => {
+                    return sum + (Number(p.totalPaletas ?? p.paletas) || 0);
+                }, 0);
+                dailyData.paletasDespachadas += dispatchedFixedPallets;
+
+            } else if (formType === 'variable-weight-recepcion' || formType === 'variable-weight-reception') {
+                const items = submission.formData.items || [];
+                dailyData.paletasRecibidas += items.length;
+
+            } else if (formType === 'variable-weight-despacho') {
+                const items = submission.formData.items || [];
+                const isSummaryMode = items.some((p: any) => Number(p.paleta) === 0);
+                let dispatchedVariablePallets = 0;
+                
+                if (isSummaryMode) {
+                     dispatchedVariablePallets = items.reduce((sum: number, item: any) => {
+                        if (Number(item.paleta) === 0) {
+                            return sum + (Number(item.totalPaletas) || 0);
+                        }
+                        return sum;
                     }, 0);
-                    dailyData.paletasRecibidas += receivedFixedPallets;
-                    break;
+                } else {
+                     const summary = submission.formData.summary || [];
+                     dispatchedVariablePallets = summary.reduce((sum: number, summaryItem: any) => {
+                         return sum + (Number(summaryItem.totalPaletas) || 0);
+                     }, 0);
                 }
-                case 'fixed-weight-despacho': {
-                    const dispatchedFixedPallets = (submission.formData.productos || []).reduce((sum: number, p: any) => {
-                        return sum + (Number(p.totalPaletas ?? p.paletas) || 0);
-                    }, 0);
-                    dailyData.paletasDespachadas += dispatchedFixedPallets;
-                    break;
-                }
-                case 'variable-weight-recepcion': {
-                    // Rule: Count the number of items.
-                    const items = submission.formData.items || [];
-                    dailyData.paletasRecibidas += items.length;
-                    break;
-                }
-                case 'variable-weight-despacho': {
-                    const items = submission.formData.items || [];
-                    // A form is in summary mode if it contains at least one item with paleta === 0
-                    const isSummaryMode = items.some((p: any) => Number(p.paleta) === 0);
-                    let dispatchedVariablePallets = 0;
-                    
-                    if (isSummaryMode) {
-                         // Rule (Summary Mode): Sum the 'totalPaletas' field from the summary rows.
-                         dispatchedVariablePallets = items.reduce((sum: number, item: any) => {
-                            if (Number(item.paleta) === 0) {
-                                return sum + (Number(item.totalPaletas) || 0);
-                            }
-                            return sum;
-                        }, 0);
-                    } else {
-                         // Rule (Individual Mode): Sum the 'totalPaletas' from the calculated summary section.
-                         const summary = submission.formData.summary || [];
-                         dispatchedVariablePallets = summary.reduce((sum: number, summaryItem: any) => {
-                             return sum + (Number(summaryItem.totalPaletas) || 0);
-                         }, 0);
-                    }
-                    dailyData.paletasDespachadas += dispatchedVariablePallets;
-                    break;
-                }
+                dailyData.paletasDespachadas += dispatchedVariablePallets;
             }
         });
         
