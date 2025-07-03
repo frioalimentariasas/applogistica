@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { FileText, LogOut, Users2, Box, ScrollText, BookCopy } from 'lucide-react';
+import { FileText, LogOut, Users2, Box, ScrollText, BookCopy, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
@@ -32,7 +32,7 @@ export default function Home() {
   const [productType, setProductType] = useState<string>();
   const router = useRouter();
   const { toast } = useToast();
-  const { user, loading, displayName } = useAuth();
+  const { user, loading, displayName, isAdmin } = useAuth();
 
   // Define roles based on email
   const operarioEmails = [
@@ -233,6 +233,13 @@ export default function Home() {
                   <BookCopy className="mr-2 h-5 w-5" />
                   Informes para facturación
               </Button>
+            )}
+
+            {isAdmin && (
+                <Button size="lg" className="w-full h-12 text-base bg-amber-600 text-white hover:bg-amber-600/90" onClick={() => router.push('/session-management')}>
+                    <ShieldCheck className="mr-2 h-5 w-5" />
+                    Gestionar Sesiones de Usuarios
+                </Button>
             )}
         </div>
 

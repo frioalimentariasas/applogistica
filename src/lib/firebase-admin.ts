@@ -23,8 +23,8 @@ if (!admin.apps.length) {
 }
 
 const firestore = admin.apps.length ? admin.firestore() : null;
-// Get storage instance
 const storage = admin.apps.length ? admin.storage() : null;
+const auth = admin.apps.length ? admin.auth() : null;
 
 
-export { firestore, storage };
+export { firestore, storage, auth };

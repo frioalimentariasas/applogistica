@@ -16,32 +16,41 @@ const userDisplayNameMap: Record<string, string> = {
   'sistemas@frioalimentaria.com.co': 'Cristian Jaramillo',
 };
 
+const adminEmails = [
+    'sistemas@frioalimentaria.com.co'
+];
+
 type AuthContextType = {
   user: User | null;
   loading: boolean;
   displayName: string | null;
+  isAdmin: boolean;
 };
 
-const AuthContext = React.createContext<AuthContextType>({ user: null, loading: true, displayName: null });
+const AuthContext = React.createContext<AuthContextType>({ user: null, loading: true, displayName: null, isAdmin: false });
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = React.useState<User | null>(null);
   const [displayName, setDisplayName] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
+  const [isAdmin, setIsAdmin] = React.useState(false);
   
   useEffect(() => {
     if (!auth) {
       setUser(null);
       setDisplayName(null);
       setLoading(false);
+      setIsAdmin(false);
       return;
     }
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
       if (user && user.email) {
         setDisplayName(userDisplayNameMap[user.email] || user.email);
+        setIsAdmin(adminEmails.includes(user.email));
       } else {
         setDisplayName(null);
+        setIsAdmin(false);
       }
       setLoading(false);
     });
@@ -50,7 +59,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
   
   return (
-    <AuthContext.Provider value={{ user, loading, displayName }}>
+    <AuthContext.Provider value={{ user, loading, displayName, isAdmin }}>
       {children}
     </AuthContext.Provider>
   );
