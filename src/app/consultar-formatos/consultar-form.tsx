@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { format, parseISO } from 'date-fns';
@@ -10,6 +10,7 @@ import { es } from 'date-fns/locale';
 import { searchSubmissions, SubmissionResult, SearchCriteria, deleteSubmission } from '@/app/actions/consultar-formatos';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
+import type { ClientInfo } from '@/app/actions/clients';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -20,17 +21,11 @@ import { Calendar } from '@/components/ui/calendar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ArrowLeft, Search, XCircle, Loader2, FileSearch, Eye, Edit, Trash2, CalendarIcon, FolderSearch } from 'lucide-react';
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+import { ArrowLeft, Search, XCircle, Loader2, FileSearch, Eye, Edit, Trash2, CalendarIcon, FolderSearch, ChevronsUpDown } from 'lucide-react';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 
 const ResultsSkeleton = () => (
@@ -77,7 +72,7 @@ const EmptyState = ({ searched }: { searched: boolean }) => (
 
 const SESSION_STORAGE_KEY = 'consultarFormatosCriteria';
 
-export default function ConsultarFormatosComponent() {
+export default function ConsultarFormatosComponent({ clients }: { clients: ClientInfo[] }) {
     const router = useRouter();
     const { toast } = useToast();
     const { user } = useAuth();
@@ -85,6 +80,7 @@ export default function ConsultarFormatosComponent() {
     const [criteria, setCriteria] = useState<Omit<SearchCriteria, 'fechaCreacion' | 'requestingUser'>>({
         pedidoSislog: '',
         nombreCliente: '',
+        operationType: undefined,
     });
     const [date, setDate] = useState<Date | undefined>(undefined);
     const [results, setResults] = useState<SubmissionResult[]>([]);
@@ -92,6 +88,8 @@ export default function ConsultarFormatosComponent() {
     const [isDeleting, setIsDeleting] = useState(false);
     const [searched, setSearched] = useState(false);
     const [submissionToDelete, setSubmissionToDelete] = useState<SubmissionResult | null>(null);
+    const [isClientDialogOpen, setClientDialogOpen] = useState(false);
+    const [clientSearch, setClientSearch] = useState("");
 
     const operarioEmails = [
         'frioal.operario1@gmail.com',
@@ -106,6 +104,11 @@ export default function ConsultarFormatosComponent() {
     const isOperario = user && operarioEmails.includes(user.email || '');
     const isViewer = user && viewerEmails.includes(user.email || '');
 
+    const filteredClients = useMemo(() => {
+        if (!clientSearch) return clients;
+        return clients.filter(c => c.razonSocial.toLowerCase().includes(clientSearch.toLowerCase()));
+    }, [clientSearch, clients]);
+
     const runSearch = useCallback(async (searchCriteria: SearchCriteria, isAutoSearch = false) => {
         setIsLoading(true);
         setSearched(true);
@@ -114,7 +117,7 @@ export default function ConsultarFormatosComponent() {
             setResults(searchResults);
 
             if (!isAutoSearch) {
-                const isDefaultSearch = !searchCriteria.pedidoSislog && !searchCriteria.nombreCliente && !searchCriteria.fechaCreacion;
+                const isDefaultSearch = !searchCriteria.pedidoSislog && !searchCriteria.nombreCliente && !searchCriteria.fechaCreacion && !searchCriteria.operationType;
                 if (isDefaultSearch && searchResults.length > 0) {
                      toast({
                         title: "Mostrando resultados de la última semana",
@@ -137,7 +140,7 @@ export default function ConsultarFormatosComponent() {
         } finally {
             setIsLoading(false);
         }
-    }, [toast, user]);
+    }, [toast]);
 
     useEffect(() => {
         if (user) {
@@ -148,6 +151,7 @@ export default function ConsultarFormatosComponent() {
                 const restoredCriteria: Omit<SearchCriteria, 'fechaCreacion' | 'requestingUser'> = {
                     pedidoSislog: savedCriteria.pedidoSislog || '',
                     nombreCliente: savedCriteria.nombreCliente || '',
+                    operationType: savedCriteria.operationType,
                 };
                 const restoredDate = savedCriteria.fechaCreacion ? parseISO(savedCriteria.fechaCreacion) : undefined;
                 
@@ -174,6 +178,7 @@ export default function ConsultarFormatosComponent() {
         const criteriaToSave = {
             pedidoSislog: criteria.pedidoSislog,
             nombreCliente: criteria.nombreCliente,
+            operationType: criteria.operationType,
             fechaCreacion: date ? date.toISOString().split('T')[0] : undefined,
         };
         sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(criteriaToSave));
@@ -185,6 +190,7 @@ export default function ConsultarFormatosComponent() {
         setCriteria({
             pedidoSislog: '',
             nombreCliente: '',
+            operationType: undefined,
         });
         setDate(undefined);
         setResults([]);
@@ -271,7 +277,7 @@ export default function ConsultarFormatosComponent() {
                         <CardDescription>Utilice uno o más filtros para encontrar los formatos que necesita.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
                             <div className="space-y-2">
                                 <Label htmlFor="pedidoSislog">Pedido SISLOG</Label>
                                 <Input 
@@ -282,13 +288,47 @@ export default function ConsultarFormatosComponent() {
                                 />
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="nombreCliente">Nombre del Cliente</Label>
-                                <Input 
-                                    id="nombreCliente"
-                                    placeholder="Nombre del cliente"
-                                    value={criteria.nombreCliente}
-                                    onChange={(e) => setCriteria({...criteria, nombreCliente: e.target.value})}
-                                />
+                                <Label>Nombre del Cliente</Label>
+                                <Dialog open={isClientDialogOpen} onOpenChange={setClientDialogOpen}>
+                                    <DialogTrigger asChild>
+                                        <Button variant="outline" className="w-full justify-between text-left font-normal">
+                                            {criteria.nombreCliente || "Seleccione un cliente"}
+                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                        </Button>
+                                    </DialogTrigger>
+                                    <DialogContent className="sm:max-w-[425px]">
+                                        <DialogHeader>
+                                            <DialogTitle>Seleccionar Cliente</DialogTitle>
+                                        </DialogHeader>
+                                        <div className="p-4">
+                                            <Input
+                                                placeholder="Buscar cliente..."
+                                                value={clientSearch}
+                                                onChange={(e) => setClientSearch(e.target.value)}
+                                                className="mb-4"
+                                            />
+                                            <ScrollArea className="h-72">
+                                                <div className="space-y-1">
+                                                    {filteredClients.map((client) => (
+                                                        <Button
+                                                            key={client.id}
+                                                            variant="ghost"
+                                                            className="w-full justify-start"
+                                                            onClick={() => {
+                                                                setCriteria({ ...criteria, nombreCliente: client.razonSocial });
+                                                                setClientDialogOpen(false);
+                                                                setClientSearch('');
+                                                            }}
+                                                        >
+                                                            {client.razonSocial}
+                                                        </Button>
+                                                    ))}
+                                                    {filteredClients.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron clientes.</p>}
+                                                </div>
+                                            </ScrollArea>
+                                        </div>
+                                    </DialogContent>
+                                </Dialog>
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="fechaCreacion">Fecha de Creación</Label>
@@ -311,6 +351,23 @@ export default function ConsultarFormatosComponent() {
                                     />
                                     </PopoverContent>
                                 </Popover>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="operationType">Tipo de Operación</Label>
+                                <Select
+                                    value={criteria.operationType || ''}
+                                    onValueChange={(value) => setCriteria({ ...criteria, operationType: value ? (value as 'recepcion' | 'despacho') : undefined })}
+                                    disabled={isLoading}
+                                >
+                                    <SelectTrigger id="operationType">
+                                        <SelectValue placeholder="Todos" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="">Todos</SelectItem>
+                                        <SelectItem value="recepcion">Recepción</SelectItem>
+                                        <SelectItem value="despacho">Despacho</SelectItem>
+                                    </SelectContent>
+                                </Select>
                             </div>
                             <div className="flex gap-2">
                                 <Button onClick={handleSearch} className="w-full" disabled={isLoading}>
@@ -459,5 +516,4 @@ export default function ConsultarFormatosComponent() {
             </AlertDialog>
         </div>
     );
-
-    
+}

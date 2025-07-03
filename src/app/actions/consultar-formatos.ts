@@ -9,6 +9,7 @@ export interface SearchCriteria {
   pedidoSislog?: string;
   nombreCliente?: string;
   fechaCreacion?: string; // YYYY-MM-DD
+  operationType?: 'recepcion' | 'despacho';
   requestingUser?: {
     id: string;
     email: string;
@@ -74,7 +75,7 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
             query = query.where('formData.pedidoSislog', '==', criteria.pedidoSislog.trim());
         }
         
-        const noFilters = !criteria.pedidoSislog && !criteria.nombreCliente && !criteria.fechaCreacion;
+        const noFilters = !criteria.pedidoSislog && !criteria.nombreCliente && !criteria.fechaCreacion && !criteria.operationType;
 
         // For non-operarios with no filters, we must limit the query to avoid reading the whole collection.
         // We query the last 7 days. This is safe as createdAt will have a single-field index.
@@ -121,15 +122,27 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
             });
         }
         
-        // Filter by client name
+        // Filter by client name (exact match)
         if (criteria.nombreCliente) {
-            const searchClient = criteria.nombreCliente.toLowerCase().trim();
             results = results.filter(sub => {
                 const clientName = sub.formData.nombreCliente || sub.formData.cliente;
-                return clientName && clientName.toLowerCase().includes(searchClient);
+                return clientName && clientName === criteria.nombreCliente;
             });
         }
         
+        // Filter by operation type
+        if (criteria.operationType) {
+            results = results.filter(sub => {
+                if (criteria.operationType === 'recepcion') {
+                    return sub.formType.includes('recepcion') || sub.formType.includes('reception');
+                }
+                if (criteria.operationType === 'despacho') {
+                    return sub.formType.includes('despacho');
+                }
+                return true;
+            });
+        }
+
         // Finally, sort results by date descending in memory
         results.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
         
