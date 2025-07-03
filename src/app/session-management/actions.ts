@@ -46,7 +46,11 @@ export async function listActiveUsers(): Promise<ActiveUser[]> {
         }));
 
         // Sort by last sign-in time, descending
-        users.sort((a, b) => new Date(b.lastSignInTime).getTime() - new Date(a.lastSignInTime).getTime());
+        users.sort((a, b) => {
+            const timeA = a.lastSignInTime ? new Date(a.lastSignInTime).getTime() : 0;
+            const timeB = b.lastSignInTime ? new Date(b.lastSignInTime).getTime() : 0;
+            return timeB - timeA;
+        });
         
         return users;
     } catch (error) {

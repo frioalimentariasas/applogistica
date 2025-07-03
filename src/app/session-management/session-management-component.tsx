@@ -169,25 +169,32 @@ export default function SessionManagementComponent() {
                                     {isLoading ? (
                                         <UserSkeleton />
                                     ) : users.length > 0 ? (
-                                        users.map((u) => (
-                                            <TableRow key={u.uid} className={u.uid === user?.uid ? 'bg-blue-50' : ''}>
-                                                <TableCell className="font-medium">{u.displayName}</TableCell>
-                                                <TableCell>{u.email}</TableCell>
-                                                <TableCell>{formatDistanceToNow(new Date(u.lastSignInTime), { addSuffix: true, locale: es })}</TableCell>
-                                                <TableCell className="text-right">
-                                                    <Button 
-                                                        variant="destructive" 
-                                                        size="sm"
-                                                        onClick={() => setUserToRevoke(u)}
-                                                        disabled={u.uid === user?.uid}
-                                                        title={u.uid === user?.uid ? 'No puede revocar su propia sesión' : 'Revocar sesión'}
-                                                    >
-                                                        <UserX className="mr-2 h-4 w-4" />
-                                                        Revocar
-                                                    </Button>
-                                                </TableCell>
-                                            </TableRow>
-                                        ))
+                                        users.map((u) => {
+                                            const lastSignInDate = new Date(u.lastSignInTime);
+                                            const lastSignInDisplay = lastSignInDate.getFullYear() > 1970
+                                                ? formatDistanceToNow(lastSignInDate, { addSuffix: true, locale: es })
+                                                : "Nunca";
+
+                                            return (
+                                                <TableRow key={u.uid} className={u.uid === user?.uid ? 'bg-blue-50' : ''}>
+                                                    <TableCell className="font-medium">{u.displayName}</TableCell>
+                                                    <TableCell>{u.email}</TableCell>
+                                                    <TableCell>{lastSignInDisplay}</TableCell>
+                                                    <TableCell className="text-right">
+                                                        <Button 
+                                                            variant="destructive" 
+                                                            size="sm"
+                                                            onClick={() => setUserToRevoke(u)}
+                                                            disabled={u.uid === user?.uid}
+                                                            title={u.uid === user?.uid ? 'No puede revocar su propia sesión' : 'Revocar sesión'}
+                                                        >
+                                                            <UserX className="mr-2 h-4 w-4" />
+                                                            Revocar
+                                                        </Button>
+                                                    </TableCell>
+                                                </TableRow>
+                                            );
+                                        })
                                     ) : (
                                         <TableRow>
                                             <TableCell colSpan={4} className="h-24 text-center">No se encontraron usuarios.</TableCell>
