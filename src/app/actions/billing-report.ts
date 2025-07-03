@@ -109,10 +109,15 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                         return sum;
                     }, 0);
                 } else {
-                     const summary = submission.formData.summary || [];
-                     dispatchedVariablePallets = summary.reduce((sum: number, summaryItem: any) => {
-                         return sum + (Number(summaryItem.totalPaletas) || 0);
-                     }, 0);
+                     // Count unique pallet numbers from the items list for non-summary dispatches.
+                     const palletNumbers = new Set<number>();
+                     (items || []).forEach((item: any) => {
+                        const paletaValue = Number(item.paleta);
+                        if (!isNaN(paletaValue) && paletaValue > 0) {
+                           palletNumbers.add(paletaValue);
+                        }
+                     });
+                     dispatchedVariablePallets = palletNumbers.size;
                 }
                 dailyData.paletasDespachadas += dispatchedVariablePallets;
             }
