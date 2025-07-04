@@ -41,7 +41,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import {
     ArrowLeft,
     Trash2,
@@ -58,7 +58,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { RestoreDialog } from "@/components/app/restore-dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDialogDesc, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 
 const itemSchema = z.object({
@@ -800,7 +800,7 @@ export default function VariableWeightFormComponent() {
                                     <DialogContent className="sm:max-w-[425px]">
                                         <DialogHeader>
                                             <DialogTitle>Seleccionar Cliente</DialogTitle>
-                                            <DialogDescription>Busque y seleccione un cliente de la lista. Esto cargará los productos asociados.</DialogDescription>
+                                            <AlertDialogDesc>Busque y seleccione un cliente de la lista. Esto cargará los productos asociados.</AlertDialogDesc>
                                         </DialogHeader>
                                         <div className="p-4">
                                             <Input
@@ -944,7 +944,7 @@ export default function VariableWeightFormComponent() {
                                                 <DialogContent>
                                                     <DialogHeader>
                                                         <DialogTitle>Seleccionar Producto</DialogTitle>
-                                                        <DialogDescription>Busque y seleccione un producto de la lista del cliente.</DialogDescription>
+                                                        <AlertDialogDesc>Busque y seleccione un producto de la lista del cliente.</AlertDialogDesc>
                                                     </DialogHeader>
                                                     {!form.getValues('cliente') ? (
                                                         <div className="p-4 text-center text-muted-foreground">
@@ -1228,9 +1228,9 @@ export default function VariableWeightFormComponent() {
                                     <AlertDialogContent>
                                         <AlertDialogHeader>
                                             <AlertDialogTitle>¿Está seguro de eliminar todos los anexos?</AlertDialogTitle>
-                                            <AlertDialogDescription>
+                                            <AlertDialogDesc>
                                                 Esta acción no se puede deshacer. Se eliminarán permanentemente todos los archivos adjuntos.
-                                            </AlertDialogDescription>
+                                            </AlertDialogDesc>
                                         </AlertDialogHeader>
                                         <AlertDialogFooter>
                                             <AlertDialogCancel>Cancelar</AlertDialogCancel>
@@ -1301,9 +1301,9 @@ export default function VariableWeightFormComponent() {
           <AlertDialogContent>
               <AlertDialogHeader>
                   <AlertDialogTitle>¿Está seguro que desea limpiar el formato?</AlertDialogTitle>
-                  <AlertDialogDescription>
+                  <AlertDialogDesc>
                       Esta acción no se puede deshacer. Se eliminará toda la información que ha ingresado en el formato.
-                  </AlertDialogDescription>
+                  </AlertDialogDesc>
               </AlertDialogHeader>
               <AlertDialogFooter>
                   <AlertDialogCancel>Cancelar</AlertDialogCancel>
