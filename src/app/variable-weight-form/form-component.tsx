@@ -800,7 +800,7 @@ export default function VariableWeightFormComponent() {
                                     <DialogContent className="sm:max-w-[425px]">
                                         <DialogHeader>
                                             <DialogTitle>Seleccionar Cliente</DialogTitle>
-                                            <AlertDialogDesc>Busque y seleccione un cliente de la lista. Esto cargará los productos asociados.</AlertDialogDesc>
+                                            <DialogDescription>Busque y seleccione un cliente de la lista. Esto cargará los productos asociados.</DialogDescription>
                                         </DialogHeader>
                                         <div className="p-4">
                                             <Input
@@ -944,7 +944,7 @@ export default function VariableWeightFormComponent() {
                                                 <DialogContent>
                                                     <DialogHeader>
                                                         <DialogTitle>Seleccionar Producto</DialogTitle>
-                                                        <AlertDialogDesc>Busque y seleccione un producto de la lista del cliente.</AlertDialogDesc>
+                                                        <DialogDescription>Busque y seleccione un producto de la lista del cliente.</DialogDescription>
                                                     </DialogHeader>
                                                     {!form.getValues('cliente') ? (
                                                         <div className="p-4 text-center text-muted-foreground">
