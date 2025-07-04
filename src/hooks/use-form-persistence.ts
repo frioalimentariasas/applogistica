@@ -44,12 +44,12 @@ export function useFormPersistence<T extends FieldValues>(
         
         try {
             const currentValues = getValues();
-            localStorage.setItem(storageKey, JSON.stringify(currentValues));
+            await idb.set(storageKey, currentValues);
 
             const attachmentsKey = `${storageKey}-attachments`;
             await idb.set(attachmentsKey, attachmentsRef.current);
         } catch (e) {
-            console.error("Failed to save draft", e);
+            console.error("Failed to save draft to IndexedDB", e);
         }
     }, [getStorageKey, isEditMode, getValues]);
 
@@ -99,13 +99,12 @@ export function useFormPersistence<T extends FieldValues>(
         
         const checkData = async () => {
             try {
-                const savedDataJSON = localStorage.getItem(storageKey);
+                const savedData = await idb.get<T>(storageKey);
                 const attachmentsKey = `${storageKey}-attachments`;
                 const savedAttachments = await idb.get<string[]>(attachmentsKey);
                 
                 let hasMeaningfulData = false;
-                if (savedDataJSON) {
-                    const savedData = JSON.parse(savedDataJSON);
+                if (savedData) {
                     const hasTextFields = savedData.pedidoSislog || savedData.cliente || savedData.nombreCliente || savedData.conductor || savedData.nombreConductor;
                     // Check if items/products array has more than the initial empty item, or if the first item has been filled.
                     const hasItems = savedData.items && (savedData.items.length > 1 || (savedData.items.length === 1 && savedData.items[0].descripcion?.trim()));
@@ -123,7 +122,7 @@ export function useFormPersistence<T extends FieldValues>(
                     hasCheckedForDraft.current = true;
                 }
             } catch (e) {
-                console.error("Failed to check for draft", e);
+                console.error("Failed to check for draft in IndexedDB", e);
                 // On error, enable saving to prevent getting stuck.
                 hasCheckedForDraft.current = true;
             }
@@ -140,14 +139,14 @@ export function useFormPersistence<T extends FieldValues>(
         if (!storageKey) return;
 
         try {
-            const savedData = localStorage.getItem(storageKey);
+            const savedData = await idb.get<T>(storageKey);
             if (savedData) {
-                const parsedData = JSON.parse(savedData);
+                const parsedData = savedData;
                 // Convert date strings back to Date objects
                 Object.keys(parsedData).forEach(key => {
-                    const value = parsedData[key];
+                    const value = parsedData[key as keyof typeof parsedData];
                     if (typeof value === 'string' && value.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)) {
-                         parsedData[key] = new Date(value);
+                         parsedData[key as keyof typeof parsedData] = new Date(value) as any;
                     }
                 });
                 reset(parsedData);
@@ -161,7 +160,7 @@ export function useFormPersistence<T extends FieldValues>(
             
             toast({ title: "Datos Restaurados", description: "Tu borrador ha sido cargado." });
         } catch (e) {
-            console.error("Failed to restore draft", e);
+            console.error("Failed to restore draft from IndexedDB", e);
             toast({ variant: 'destructive', title: "Error", description: "No se pudo restaurar el borrador." });
         } finally {
             setRestoreDialogOpen(false);
@@ -180,14 +179,14 @@ export function useFormPersistence<T extends FieldValues>(
         
         try {
             const attachmentsKey = `${storageKey}-attachments`;
-            localStorage.removeItem(storageKey);
+            await idb.del(storageKey);
             await idb.del(attachmentsKey);
             
             if (showToast) {
                  toast({ title: "Borrador Descartado" });
             }
         } catch (e) {
-            console.error("Failed to clear draft", e);
+            console.error("Failed to clear draft from IndexedDB", e);
              if (showToast) {
                 toast({ variant: "destructive", title: "Error", description: "No se pudo descartar el borrador." });
             }
