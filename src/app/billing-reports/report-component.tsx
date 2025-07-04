@@ -627,6 +627,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                     <DialogContent className="sm:max-w-[425px]">
                                         <DialogHeader>
                                             <DialogTitle>Seleccionar Cliente</DialogTitle>
+                                            <DialogDescription>Busque y seleccione un cliente para generar el informe.</DialogDescription>
                                         </DialogHeader>
                                         <div className="p-4">
                                             <Input
@@ -908,6 +909,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                         <DialogContent className="sm:max-w-[425px]">
                                             <DialogHeader>
                                                 <DialogTitle>Seleccionar Cliente(s)</DialogTitle>
+                                                <DialogDescription>Seleccione los clientes para incluir en el reporte de inventario.</DialogDescription>
                                             </DialogHeader>
                                             <div className="p-4">
                                                 <Input

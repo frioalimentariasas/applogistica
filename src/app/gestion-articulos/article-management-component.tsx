@@ -210,6 +210,7 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
                                 <DialogContent className="sm:max-w-[425px]">
                                     <DialogHeader>
                                         <DialogTitle>Seleccionar Cliente</DialogTitle>
+                                        <DialogDescription>Busque y seleccione el cliente al que pertenecerá el nuevo artículo.</DialogDescription>
                                     </DialogHeader>
                                     <div className="p-4">
                                         <Input
@@ -294,6 +295,7 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
                         <DialogContent className="sm:max-w-[425px]">
                             <DialogHeader>
                                 <DialogTitle>Seleccionar Cliente</DialogTitle>
+                                <DialogDescription>Busque y seleccione un cliente para ver y gestionar sus artículos.</DialogDescription>
                             </DialogHeader>
                             <div className="p-4">
                                 <Input

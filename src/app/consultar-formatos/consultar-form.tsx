@@ -315,6 +315,7 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
                                     <DialogContent className="sm:max-w-[425px]">
                                         <DialogHeader>
                                             <DialogTitle>Seleccionar Cliente</DialogTitle>
+                                            <AlertDialogDescription>Busque y seleccione un cliente para filtrar los resultados.</AlertDialogDescription>
                                         </DialogHeader>
                                         <div className="p-4">
                                             <Input
