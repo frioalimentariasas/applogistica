@@ -42,7 +42,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import {
     ArrowLeft,
@@ -58,7 +58,7 @@ import {
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { RestoreDialog } from "@/components/app/restore-dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDialogDesc, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from "@/components/ui/alert-dialog";
 
 
 const productSchema = z.object({
@@ -998,9 +998,9 @@ export default function FixedWeightFormComponent() {
                                     <AlertDialogContent>
                                         <AlertDialogHeader>
                                             <AlertDialogTitle>¿Está seguro de eliminar todos los anexos?</AlertDialogTitle>
-                                            <AlertDialogDescription>
+                                            <AlertDialogDesc>
                                                 Esta acción no se puede deshacer. Se eliminarán permanentemente todos los archivos adjuntos.
-                                            </AlertDialogDescription>
+                                            </AlertDialogDesc>
                                         </AlertDialogHeader>
                                         <AlertDialogFooter>
                                             <AlertDialogCancel>Cancelar</AlertDialogCancel>
@@ -1071,9 +1071,9 @@ export default function FixedWeightFormComponent() {
           <AlertDialogContent>
               <AlertDialogHeader>
                   <AlertDialogTitle>¿Está seguro que desea limpiar el formato?</AlertDialogTitle>
-                  <AlertDialogDescription>
+                  <AlertDialogDesc>
                       Esta acción no se puede deshacer. Se eliminará toda la información que ha ingresado en el formato.
-                  </AlertDialogDescription>
+                  </AlertDialogDesc>
               </AlertDialogHeader>
               <AlertDialogFooter>
                   <AlertDialogCancel>Cancelar</AlertDialogCancel>
