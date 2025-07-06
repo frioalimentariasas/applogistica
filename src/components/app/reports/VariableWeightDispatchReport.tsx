@@ -11,6 +11,18 @@ const formatTime12Hour = (time24: string | undefined): string => {
     return `${h}:${minutes} ${ampm}`;
 };
 
+const formatUTCDate = (isoDateString: string | undefined): string => {
+    if (!isoDateString) return 'N/A';
+    try {
+        const datePart = isoDateString.split('T')[0];
+        const [year, month, day] = datePart.split('-');
+        if (!year || !month || !day) return 'Invalid Date';
+        return `${day}/${month}/${year}`;
+    } catch (e) {
+        return 'Invalid Date';
+    }
+};
+
 const ReportSection = ({ title, children }: { title: string, children: React.ReactNode }) => (
     <div style={{ marginBottom: '12px' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse', border: '1px solid #aaa', pageBreakInside: 'avoid', breakInside: 'avoid' }}>
@@ -63,7 +75,7 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                         <tr>
                             <td style={{...fieldCellStyle, width: '33.33%'}}><ReportField label="Pedido SISLOG" value={formData.pedidoSislog} /></td>
                             <td style={{...fieldCellStyle, width: '33.33%'}}><ReportField label="Cliente" value={formData.cliente} /></td>
-                            <td style={{...fieldCellStyle, width: '33.33%'}}><ReportField label="Fecha" value={formData.fecha ? format(new Date(formData.fecha), "dd/MM/yyyy") : 'N/A'} /></td>
+                            <td style={{...fieldCellStyle, width: '33.33%'}}><ReportField label="Fecha" value={formatUTCDate(formData.fecha)} /></td>
                         </tr>
                         <tr>
                            <td style={fieldCellStyle}><ReportField label="Conductor" value={formData.conductor} /></td>
