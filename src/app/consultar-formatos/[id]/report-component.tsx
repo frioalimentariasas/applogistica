@@ -559,13 +559,21 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     const isDispatch = !isReception;
                     
                     const summaryHead = [[]];
-                    summaryHead[0].push('Descripción', 'Temp(°C)', 'Total Cantidad');
-                    if(isDispatch) summaryHead[0].push('Total Paletas');
+                    summaryHead[0].push('Descripción', 'Temp(°C)');
+                    if (isDispatch) {
+                        summaryHead[0].push('Total Cantidad', 'Total Paletas');
+                    } else { // Reception
+                        summaryHead[0].push('Total Paletas', 'Total Cantidad');
+                    }
                     summaryHead[0].push('Total Peso (kg)');
                     
                     const summaryBody = formData.summary.map((p: any) => {
-                        const row: any[] = [p.descripcion, p.temperatura, p.totalCantidad];
-                        if (isDispatch) row.push(p.totalPaletas || 0);
+                        const row: any[] = [p.descripcion, p.temperatura];
+                        if (isDispatch) {
+                            row.push(p.totalCantidad, p.totalPaletas || 0);
+                        } else {
+                            row.push(p.totalPaletas || 0, p.totalCantidad);
+                        }
                         row.push(p.totalPeso?.toFixed(2));
                         return row;
                     });
@@ -574,8 +582,12 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     const totalCantidad = formData.summary.reduce((acc: any, p: any) => acc + (p.totalCantidad || 0), 0);
                     const totalPaletas = formData.summary.reduce((acc: any, p: any) => acc + (p.totalPaletas || 0), 0);
 
-                    const footRow: any[] = [{ content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }, totalCantidad];
-                    if (isDispatch) footRow.push(totalPaletas);
+                    const footRow: any[] = [{ content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }];
+                    if (isDispatch) {
+                        footRow.push(totalCantidad, totalPaletas);
+                    } else {
+                        footRow.push(totalPaletas, totalCantidad);
+                    }
                     footRow.push(totalPeso.toFixed(2));
 
                     const summaryTableConfig: any = {

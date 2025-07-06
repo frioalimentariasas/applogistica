@@ -77,6 +77,7 @@ const summaryItemSchema = z.object({
   temperatura: z.coerce.number({ required_error: "La temperatura es requerida.", invalid_type_error: "La temperatura es requerida." }),
   totalPeso: z.number(),
   totalCantidad: z.number(),
+  totalPaletas: z.number(),
 });
 
 const formSchema = z.object({
@@ -239,22 +240,32 @@ export default function VariableWeightReceptionFormComponent() {
 
         const cantidad = Number(item.cantidadPorPaleta) || 0;
         const pesoNeto = Number(item.pesoNeto) || 0;
+        const paleta = Number(item.paleta);
 
         if (!acc[desc]) {
             acc[desc] = {
                 descripcion: desc,
                 totalPeso: 0,
                 totalCantidad: 0,
+                paletas: new Set<number>(),
             };
         }
 
         acc[desc].totalPeso += isNaN(pesoNeto) ? 0 : pesoNeto;
         acc[desc].totalCantidad += cantidad;
+        if (!isNaN(paleta) && paleta > 0) {
+            acc[desc].paletas.add(paleta);
+        }
         
         return acc;
-    }, {} as Record<string, { descripcion: string; totalPeso: number; totalCantidad: number }>);
+    }, {} as Record<string, { descripcion: string; totalPeso: number; totalCantidad: number; paletas: Set<number> }>);
 
-    return Object.values(grouped);
+    return Object.values(grouped).map(group => ({
+        descripcion: group.descripcion,
+        totalPeso: group.totalPeso,
+        totalCantidad: group.totalCantidad,
+        totalPaletas: group.paletas.size,
+    }));
   }, [watchedItems]);
 
   useEffect(() => {
@@ -892,6 +903,7 @@ export default function VariableWeightReceptionFormComponent() {
                                     <TableRow>
                                         <TableHead className="w-[150px]">Temperatura (°C)</TableHead>
                                         <TableHead>Producto</TableHead>
+                                        <TableHead className="text-right">Total Paletas</TableHead>
                                         <TableHead className="text-right">Total Peso (kg)</TableHead>
                                         <TableHead className="text-right">Cantidad Total</TableHead>
                                     </TableRow>
@@ -930,6 +942,11 @@ export default function VariableWeightReceptionFormComponent() {
                                                 </TableCell>
                                                 <TableCell className="text-right">
                                                   <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
+                                                    {summaryItem.totalPaletas || 0}
+                                                  </div>
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                  <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
                                                     {(summaryItem.totalPeso || 0).toFixed(2)}
                                                   </div>
                                                 </TableCell>
@@ -942,7 +959,7 @@ export default function VariableWeightReceptionFormComponent() {
                                         )})
                                     ) : (
                                         <TableRow>
-                                            <TableCell colSpan={4} className="h-24 text-center">
+                                            <TableCell colSpan={5} className="h-24 text-center">
                                                 Agregue ítems para ver el resumen.
                                             </TableCell>
                                         </TableRow>
