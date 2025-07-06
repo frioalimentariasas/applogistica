@@ -92,11 +92,15 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                 dailyData.paletasDespachadas += dispatchedFixedPallets;
 
             } else if (formType === 'variable-weight-recepcion' || formType === 'variable-weight-reception') {
-                const summary = submission.formData.summary || [];
-                const receivedVariablePallets = summary.reduce((sum: number, productSummary: any) => {
-                    return sum + (Number(productSummary.totalPaletas) || 0);
-                }, 0);
-                dailyData.paletasRecibidas += receivedVariablePallets;
+                const items = submission.formData.items || [];
+                const palletNumbers = new Set<number>();
+                items.forEach((item: any) => {
+                    const paletaValue = Number(item.paleta);
+                    if (!isNaN(paletaValue) && paletaValue > 0) {
+                        palletNumbers.add(paletaValue);
+                    }
+                });
+                dailyData.paletasRecibidas += palletNumbers.size;
 
             } else if (formType === 'variable-weight-despacho') {
                 const items = submission.formData.items || [];
