@@ -56,11 +56,11 @@ import {
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { RestoreDialog } from "@/components/app/restore-dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDialogDesc, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 
 
 const itemSchema = z.object({
-    paleta: z.coerce.number({ required_error: "La paleta es requerida.", invalid_type_error: "La paleta es requerida."}).int().min(0, "Debe ser un número no negativo."),
+    paleta: z.coerce.number({ required_error: "La paleta es requerida.", invalid_type_error: "La paleta es requerida."}).int().min(1, "El número de paleta debe ser 1 o mayor."),
     descripcion: z.string().min(1, "La descripción es requerida."),
     lote: z.string().min(1, "El lote es requerido.").max(15, "Máx 15 caracteres"),
     presentacion: z.string().min(1, "La presentación es requerida."),
@@ -1054,9 +1054,9 @@ export default function VariableWeightReceptionFormComponent() {
                                     <AlertDialogContent>
                                         <AlertDialogHeader>
                                             <AlertDialogTitle>¿Está seguro de eliminar todos los anexos?</AlertDialogTitle>
-                                            <AlertDialogDescription>
+                                            <AlertDialogDesc>
                                                 Esta acción no se puede deshacer. Se eliminarán permanentemente todos los archivos adjuntos.
-                                            </AlertDialogDescription>
+                                            </AlertDialogDesc>
                                         </AlertDialogHeader>
                                         <AlertDialogFooter>
                                             <AlertDialogCancel>Cancelar</AlertDialogCancel>
@@ -1124,9 +1124,9 @@ export default function VariableWeightReceptionFormComponent() {
             <AlertDialogContent>
                 <AlertDialogHeader>
                     <AlertDialogTitle>¿Está seguro que desea limpiar el formato?</AlertDialogTitle>
-                    <AlertDialogDescription>
+                    <AlertDialogDesc>
                         Esta acción no se puede deshacer. Se eliminará toda la información que ha ingresado en el formato.
-                    </AlertDialogDescription>
+                    </AlertDialogDesc>
                 </AlertDialogHeader>
                 <AlertDialogFooter>
                     <AlertDialogCancel>Cancelar</AlertDialogCancel>
