@@ -336,37 +336,45 @@ export async function getClientsWithInventory(startDate: string, endDate: string
     }
 }
 
-export async function deleteInventoryByDateRange(startDate: string, endDate: string): Promise<{ success: boolean; message: string; deletedCount: number }> {
+export async function getInventoryIdsByDateRange(startDate: string, endDate: string): Promise<{ success: boolean; ids?: string[]; message: string }> {
     if (!firestore) {
-        return { success: false, message: 'Error de configuración del servidor.', deletedCount: 0 };
+        return { success: false, message: 'Error de configuración del servidor.' };
     }
     if (!startDate || !endDate) {
-        return { success: false, message: 'Se requieren fechas de inicio y fin.', deletedCount: 0 };
+        return { success: false, message: 'Se requieren fechas de inicio y fin.' };
     }
 
     try {
         const snapshot = await firestore.collection('dailyInventories')
             .where(admin.firestore.FieldPath.documentId(), '>=', startDate)
             .where(admin.firestore.FieldPath.documentId(), '<=', endDate)
+            .select() // Select no fields, just get the document references
             .get();
 
         if (snapshot.empty) {
-            return { success: false, message: 'No se encontraron registros de inventario en el rango de fechas seleccionado.', deletedCount: 0 };
+            return { success: false, message: 'No se encontraron registros de inventario en el rango de fechas seleccionado.' };
         }
 
-        const batch = firestore.batch();
-        snapshot.docs.forEach(doc => {
-            batch.delete(doc.ref);
-        });
-
-        await batch.commit();
-
-        const deletedCount = snapshot.size;
-        return { success: true, message: `Se eliminaron ${deletedCount} registro(s) de inventario.`, deletedCount };
+        const ids = snapshot.docs.map(doc => doc.id);
+        return { success: true, ids, message: `${ids.length} IDs found.` };
 
     } catch (error) {
-        console.error('Error deleting inventory data:', error);
+        console.error('Error fetching inventory IDs:', error);
         const errorMessage = error instanceof Error ? error.message : 'Ocurrió un error desconocido.';
-        return { success: false, message: `Error del servidor: ${errorMessage}`, deletedCount: 0 };
+        return { success: false, message: `Error del servidor: ${errorMessage}` };
+    }
+}
+
+export async function deleteSingleInventoryDoc(id: string): Promise<{ success: boolean; message: string }> {
+    if (!firestore) {
+        return { success: false, message: 'Error de configuración del servidor.' };
+    }
+    try {
+        await firestore.collection('dailyInventories').doc(id).delete();
+        return { success: true, message: `Documento ${id} eliminado.` };
+    } catch (error) {
+        console.error(`Error deleting inventory doc ${id}:`, error);
+        const errorMessage = error instanceof Error ? error.message : 'Ocurrió un error desconocido.';
+        return { success: false, message: `Error al eliminar ${id}: ${errorMessage}` };
     }
 }

@@ -11,7 +11,7 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 
 import { getBillingReport, DailyReportData } from '@/app/actions/billing-report';
-import { getInventoryReport, uploadInventoryCsv, type InventoryPivotReport, getClientsWithInventory, deleteInventoryByDateRange } from '@/app/actions/inventory-report';
+import { getInventoryReport, uploadInventoryCsv, type InventoryPivotReport, getClientsWithInventory, getInventoryIdsByDateRange, deleteSingleInventoryDoc } from '@/app/actions/inventory-report';
 import type { ClientInfo } from '@/app/actions/clients';
 import { useToast } from '@/hooks/use-toast';
 
@@ -132,6 +132,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
     const [dateRangeToDelete, setDateRangeToDelete] = useState<DateRange | undefined>(undefined);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [deleteProgress, setDeleteProgress] = useState(0);
 
     // State for PDF logo
     const [logoBase64, setLogoBase64] = useState<string | null>(null);
@@ -560,19 +561,49 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             toast({ variant: 'destructive', title: 'Error', description: 'Rango de fechas para eliminar no es válido.' });
             return;
         }
-        
+
         setIsDeleting(true);
+        setDeleteProgress(0);
+
         try {
             const startDate = format(dateRangeToDelete.from, 'yyyy-MM-dd');
             const endDate = format(dateRangeToDelete.to, 'yyyy-MM-dd');
-            const result = await deleteInventoryByDateRange(startDate, endDate);
 
-            if (result.success) {
-                toast({ title: 'Éxito', description: result.message });
-                handleInventoryClear();
-            } else {
-                throw new Error(result.message);
+            const idResult = await getInventoryIdsByDateRange(startDate, endDate);
+
+            if (!idResult.success || !idResult.ids || idResult.ids.length === 0) {
+                toast({
+                    variant: 'destructive',
+                    title: 'Sin registros',
+                    description: idResult.message || 'No se encontraron registros de inventario para eliminar en el rango seleccionado.',
+                });
+                setIsDeleting(false);
+                setIsDeleteConfirmOpen(false);
+                return;
             }
+
+            const idsToDelete = idResult.ids;
+            const totalCount = idsToDelete.length;
+            let deletedCount = 0;
+
+            for (let i = 0; i < totalCount; i++) {
+                const id = idsToDelete[i];
+                const deleteResult = await deleteSingleInventoryDoc(id);
+                if (deleteResult.success) {
+                    deletedCount++;
+                } else {
+                    console.error(`No se pudo eliminar el documento ${id}: ${deleteResult.message}`);
+                }
+                setDeleteProgress(((i + 1) / totalCount) * 100);
+            }
+
+            toast({
+                title: 'Proceso completado',
+                description: `Se eliminaron ${deletedCount} de ${totalCount} registro(s) de inventario.`,
+            });
+            
+            handleInventoryClear(); // Refresh the view
+
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "Ocurrió un error desconocido.";
             toast({ variant: 'destructive', title: 'Error al eliminar', description: errorMessage });
@@ -580,6 +611,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             setIsDeleting(false);
             setIsDeleteConfirmOpen(false);
             setDateRangeToDelete(undefined);
+            setTimeout(() => setDeleteProgress(0), 1000);
         }
     };
 
@@ -1066,17 +1098,23 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                             <strong className="text-foreground">
                                 {dateRangeToDelete?.from && format(dateRangeToDelete.from, "PPP", { locale: es })} - {dateRangeToDelete?.to && format(dateRangeToDelete.to, "PPP", { locale: es })}
                             </strong>.
+                             {isDeleting && (
+                                <div className="mt-4 space-y-2">
+                                    <Progress value={deleteProgress} className="w-full" />
+                                    <p className="text-sm text-center text-muted-foreground">Eliminando... {Math.round(deleteProgress)}%</p>
+                                </div>
+                            )}
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <AlertDialogFooter>
-                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
                         <AlertDialogAction 
                             onClick={handleConfirmDelete} 
                             disabled={isDeleting}
                             className={buttonVariants({ variant: 'destructive' })}
                         >
                             {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            Sí, eliminar registros
+                            {isDeleting ? "Eliminando..." : "Sí, eliminar registros"}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
