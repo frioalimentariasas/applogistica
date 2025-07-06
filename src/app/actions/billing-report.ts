@@ -4,6 +4,20 @@
 import admin from 'firebase-admin';
 import { firestore } from '@/lib/firebase-admin';
 
+// Helper to get a YYYY-MM-DD string adjusted for a specific timezone (e.g., UTC-5 for Colombia)
+const getLocalGroupingDate = (isoString: string): string => {
+    if (!isoString) return '';
+    try {
+        const date = new Date(isoString);
+        // Adjust for a fixed timezone offset. UTC-5 for Colombia.
+        date.setUTCHours(date.getUTCHours() - 5);
+        return date.toISOString().split('T')[0];
+    } catch (e) {
+        console.error(`Invalid date string for grouping: ${isoString}`);
+        return '';
+    }
+};
+
 // This helper will recursively convert any Firestore Timestamps in an object to ISO strings.
 const serializeTimestamps = (data: any): any => {
     if (data === null || data === undefined || typeof data !== 'object') {
@@ -69,7 +83,8 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
             const formIsoDate = submission.formData.fecha;
             if (!formIsoDate || typeof formIsoDate !== 'string') return;
             
-            const groupingDate = formIsoDate.split('T')[0];
+            const groupingDate = getLocalGroupingDate(formIsoDate);
+            if (!groupingDate) return;
 
             if (groupingDate < criteria.startDate || groupingDate > criteria.endDate) return;
 
@@ -101,7 +116,6 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                 dailyData.fixedDespachadas += dispatchedFixedPallets;
 
             } else if (formType === 'variable-weight-recepcion' || formType === 'variable-weight-reception') {
-                // This form type is always itemized (paleta >= 1), so we just add to the Set for uniqueness.
                 items.forEach((item: any) => {
                     const paletaValue = Number(item.paleta);
                     if (!isNaN(paletaValue) && paletaValue > 0) {
@@ -109,14 +123,11 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                     }
                 });
             } else if (formType === 'variable-weight-despacho') {
-                 // This form type can have mixed itemized and summary rows. Process each one.
                  items.forEach((item: any) => {
                     const paletaValue = Number(item.paleta);
                     if (paletaValue === 0) {
-                        // This is a summary row. Add the total pallets from it.
                         dailyData.varDespachadasSummary += (Number(item.totalPaletas) || 0);
                     } else if (!isNaN(paletaValue) && paletaValue > 0) {
-                        // This is an itemized row. Add its number to the Set for uniqueness.
                         dailyData.varDespachadasItemized.add(paletaValue);
                     }
                 });
@@ -125,8 +136,7 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
         
         const reporteFinal: DailyReportData[] = [];
         for (const [date, movements] of dailyDataMap.entries()) {
-            // Simple sum of all categories. Uniqueness for itemized forms is handled by the Sets.
-            const totalRecibidas = movements.fixedRecibidas + movements.varRecibidasItemized.size + movements.varRecibidasSummary;
+            const totalRecibidas = movements.fixedRecibidas + movements.varRecibidasItemized.size;
             const totalDespachadas = movements.fixedDespachadas + movements.varDespachadasItemized.size + movements.varDespachadasSummary;
             
             if (totalRecibidas > 0 || totalDespachadas > 0) {

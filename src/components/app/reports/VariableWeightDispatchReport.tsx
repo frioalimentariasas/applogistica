@@ -1,5 +1,5 @@
 
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 
 const formatTime12Hour = (time24: string | undefined): string => {
     if (!time24 || !time24.includes(':')) return 'N/A';
@@ -11,13 +11,11 @@ const formatTime12Hour = (time24: string | undefined): string => {
     return `${h}:${minutes} ${ampm}`;
 };
 
-const formatUTCDate = (isoDateString: string | undefined): string => {
+const formatDateLocal = (isoDateString: string | undefined): string => {
     if (!isoDateString) return 'N/A';
     try {
-        const datePart = isoDateString.split('T')[0];
-        const [year, month, day] = datePart.split('-');
-        if (!year || !month || !day) return 'Invalid Date';
-        return `${day}/${month}/${year}`;
+        const date = parseISO(isoDateString);
+        return format(date, "dd/MM/yyyy");
     } catch (e) {
         return 'Invalid Date';
     }
@@ -75,7 +73,7 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                         <tr>
                             <td style={{...fieldCellStyle, width: '33.33%'}}><ReportField label="Pedido SISLOG" value={formData.pedidoSislog} /></td>
                             <td style={{...fieldCellStyle, width: '33.33%'}}><ReportField label="Cliente" value={formData.cliente} /></td>
-                            <td style={{...fieldCellStyle, width: '33.33%'}}><ReportField label="Fecha" value={formatUTCDate(formData.fecha)} /></td>
+                            <td style={{...fieldCellStyle, width: '33.33%'}}><ReportField label="Fecha" value={formatDateLocal(formData.fecha)} /></td>
                         </tr>
                         <tr>
                            <td style={fieldCellStyle}><ReportField label="Conductor" value={formData.conductor} /></td>
