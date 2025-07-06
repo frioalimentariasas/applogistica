@@ -253,7 +253,7 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
         if (formType.startsWith('fixed-weight-')) {
             return `/fixed-weight-form?operation=${operation}&id=${id}`;
         }
-        if (formType.startsWith('variable-weight-recepcion')) {
+        if (formType === 'variable-weight-recepcion' || formType === 'variable-weight-reception') {
             return `/variable-weight-reception-form?operation=recepcion&id=${id}`;
         }
         if (formType.startsWith('variable-weight-despacho')) {
@@ -534,3 +534,5 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
         </div>
     );
 }
+
+    

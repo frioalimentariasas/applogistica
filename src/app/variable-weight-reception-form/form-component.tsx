@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
@@ -618,7 +619,7 @@ export default function VariableWeightReceptionFormComponent() {
         const submissionData = {
             userId: user.uid,
             userDisplayName: displayName || 'N/A',
-            formType: `variable-weight-reception`,
+            formType: `variable-weight-recepcion`,
             formData: dataWithFinalSummary,
             attachmentUrls: finalAttachmentUrls,
             createdAt: originalSubmission?.createdAt,
@@ -1167,3 +1168,5 @@ export default function VariableWeightReceptionFormComponent() {
       </div>
   );
 }
+
+    
