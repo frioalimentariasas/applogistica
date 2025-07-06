@@ -46,19 +46,22 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
     }
 
     try {
-        // Step 1: Query all submissions. We will filter by client and date in-memory for accuracy.
-        // This is more robust than relying on createdAt for date filtering.
         const snapshot = await firestore.collection('submissions').get();
 
-        // Step 2: Process submissions into a map of daily movements, filtered by client and date.
-        const dailyMovements = new Map<string, { paletasRecibidas: number; paletasDespachadas: number }>();
+        const dailyDataMap = new Map<string, {
+            fixedRecibidas: number;
+            fixedDespachadas: number;
+            varRecibidasItemized: Set<number>;
+            varDespachadasItemized: Set<number>;
+            varRecibidasSummary: number;
+            varDespachadasSummary: number;
+        }>();
 
         snapshot.docs.forEach(doc => {
             const submission = serializeTimestamps(doc.data());
             
             const clientField = submission.formData.nombreCliente || submission.formData.cliente;
             
-            // In-memory filter for client name (case-insensitive and trimmed)
             if (!clientField || clientField.trim().toLowerCase() !== criteria.clientName.trim().toLowerCase()) {
                 return;
             }
@@ -68,94 +71,93 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
             
             const groupingDate = formIsoDate.split('T')[0];
 
-            // Precise in-memory filter for the date range on the operational date (formData.fecha)
             if (groupingDate < criteria.startDate || groupingDate > criteria.endDate) return;
 
-            if (!dailyMovements.has(groupingDate)) {
-                dailyMovements.set(groupingDate, { paletasRecibidas: 0, paletasDespachadas: 0 });
+            if (!dailyDataMap.has(groupingDate)) {
+                dailyDataMap.set(groupingDate, {
+                    fixedRecibidas: 0,
+                    fixedDespachadas: 0,
+                    varRecibidasItemized: new Set(),
+                    varDespachadasItemized: new Set(),
+                    varRecibidasSummary: 0,
+                    varDespachadasSummary: 0,
+                });
             }
 
-            const dailyData = dailyMovements.get(groupingDate)!;
+            const dailyData = dailyDataMap.get(groupingDate)!;
             const formType = submission.formType;
+            const items = submission.formData.items || [];
 
-            // Logic to calculate pallets based on form type
             if (formType === 'fixed-weight-recepcion') {
                 const receivedFixedPallets = (submission.formData.productos || []).reduce((sum: number, p: any) => {
                     return sum + (Number(p.totalPaletas ?? p.paletas) || 0);
                 }, 0);
-                dailyData.paletasRecibidas += receivedFixedPallets;
+                dailyData.fixedRecibidas += receivedFixedPallets;
 
             } else if (formType === 'fixed-weight-despacho') {
                 const dispatchedFixedPallets = (submission.formData.productos || []).reduce((sum: number, p: any) => {
                     return sum + (Number(p.totalPaletas ?? p.paletas) || 0);
                 }, 0);
-                dailyData.paletasDespachadas += dispatchedFixedPallets;
+                dailyData.fixedDespachadas += dispatchedFixedPallets;
 
             } else if (formType === 'variable-weight-recepcion' || formType === 'variable-weight-reception') {
-                const items = submission.formData.items || [];
                 const isSummaryMode = items.some((p: any) => Number(p.paleta) === 0);
-                let receivedVariablePallets = 0;
-                
                 if (isSummaryMode) {
-                     receivedVariablePallets = items.reduce((sum: number, item: any) => {
-                        if (Number(item.paleta) === 0) {
-                            // Assuming `totalPaletas` exists on summary items for reception too, based on user feedback.
-                            return sum + (Number(item.totalPaletas) || 0);
-                        }
-                        return sum;
+                    const summaryCount = items.reduce((sum: number, item: any) => {
+                        return (Number(item.paleta) === 0) ? sum + (Number(item.totalPaletas) || 0) : sum;
                     }, 0);
+                    dailyData.varRecibidasSummary += summaryCount;
                 } else {
-                     const palletNumbers = new Set<number>();
-                     (items || []).forEach((item: any) => {
+                    items.forEach((item: any) => {
                         const paletaValue = Number(item.paleta);
                         if (!isNaN(paletaValue) && paletaValue > 0) {
-                           palletNumbers.add(paletaValue);
+                            dailyData.varRecibidasItemized.add(paletaValue);
                         }
-                     });
-                     receivedVariablePallets = palletNumbers.size;
+                    });
                 }
-                dailyData.paletasRecibidas += receivedVariablePallets;
-
             } else if (formType === 'variable-weight-despacho') {
-                const items = submission.formData.items || [];
                 const isSummaryMode = items.some((p: any) => Number(p.paleta) === 0);
-                let dispatchedVariablePallets = 0;
-                
-                if (isSummaryMode) {
-                     dispatchedVariablePallets = items.reduce((sum: number, item: any) => {
-                        if (Number(item.paleta) === 0) {
-                            return sum + (Number(item.totalPaletas) || 0);
-                        }
-                        return sum;
+                 if (isSummaryMode) {
+                    const summaryCount = items.reduce((sum: number, item: any) => {
+                        return (Number(item.paleta) === 0) ? sum + (Number(item.totalPaletas) || 0) : sum;
                     }, 0);
+                    dailyData.varDespachadasSummary += summaryCount;
                 } else {
-                     // Count unique pallet numbers from the items list for non-summary dispatches.
-                     const palletNumbers = new Set<number>();
-                     (items || []).forEach((item: any) => {
+                    items.forEach((item: any) => {
                         const paletaValue = Number(item.paleta);
                         if (!isNaN(paletaValue) && paletaValue > 0) {
-                           palletNumbers.add(paletaValue);
+                            dailyData.varDespachadasItemized.add(paletaValue);
                         }
-                     });
-                     dispatchedVariablePallets = palletNumbers.size;
+                    });
                 }
-                dailyData.paletasDespachadas += dispatchedVariablePallets;
             }
         });
         
-        // Step 3: Convert map to an array, filtering for days with movement.
         const reporteFinal: DailyReportData[] = [];
-        for (const [date, movements] of dailyMovements.entries()) {
-            if (movements.paletasRecibidas > 0 || movements.paletasDespachadas > 0) {
+        for (const [date, movements] of dailyDataMap.entries()) {
+            let totalRecibidas = movements.fixedRecibidas;
+            if (movements.varRecibidasItemized.size > 0) {
+                totalRecibidas += movements.varRecibidasItemized.size;
+            } else {
+                totalRecibidas += movements.varRecibidasSummary;
+            }
+
+            let totalDespachadas = movements.fixedDespachadas;
+            if (movements.varDespachadasItemized.size > 0) {
+                totalDespachadas += movements.varDespachadasItemized.size;
+            } else {
+                totalDespachadas += movements.varDespachadasSummary;
+            }
+            
+            if (totalRecibidas > 0 || totalDespachadas > 0) {
                 reporteFinal.push({
                     date,
-                    paletasRecibidas: movements.paletasRecibidas,
-                    paletasDespachadas: movements.paletasDespachadas,
+                    paletasRecibidas: totalRecibidas,
+                    paletasDespachadas: totalDespachadas,
                 });
             }
         }
         
-        // Step 4: Sort the final report in descending date order for the UI
         reporteFinal.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
         return reporteFinal;
 
