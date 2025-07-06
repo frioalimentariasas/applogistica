@@ -559,19 +559,24 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     const isDispatch = !isReception;
                     
                     const summaryHead = [[]];
-                    summaryHead[0].push('Descripción', 'Temp(°C)');
+                    
                     if (isDispatch) {
-                        summaryHead[0].push('Total Cantidad', 'Total Paletas');
+                        summaryHead[0].push('Descripción', 'Temp(°C)', 'Total Cantidad', 'Total Paletas', 'Total Peso (kg)');
                     } else { // Reception
-                        summaryHead[0].push('Total Paletas', 'Total Cantidad');
+                        summaryHead[0].push('Descripción', 'Temperaturas (°C)', 'Total Paletas', 'Total Cantidad', 'Total Peso (kg)');
                     }
-                    summaryHead[0].push('Total Peso (kg)');
                     
                     const summaryBody = formData.summary.map((p: any) => {
-                        const row: any[] = [p.descripcion, p.temperatura];
+                        const row: any[] = [p.descripcion];
                         if (isDispatch) {
+                            row.push(p.temperatura);
                             row.push(p.totalCantidad, p.totalPaletas || 0);
-                        } else {
+                        } else { // Reception
+                            const temps = [p.temperatura1, p.temperatura2, p.temperatura3, p.temperatura]
+                                .filter(t => t != null && !isNaN(Number(t)));
+                            const uniqueTemps = [...new Set(temps)];
+                            const tempString = uniqueTemps.join(' / ');
+                            row.push(tempString);
                             row.push(p.totalPaletas || 0, p.totalCantidad);
                         }
                         row.push(p.totalPeso?.toFixed(2));
@@ -585,7 +590,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     const footRow: any[] = [{ content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }];
                     if (isDispatch) {
                         footRow.push(totalCantidad, totalPaletas);
-                    } else {
+                    } else { // Reception
                         footRow.push(totalPaletas, totalCantidad);
                     }
                     footRow.push(totalPeso.toFixed(2));
@@ -735,6 +740,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
             case 'variable-weight-despacho':
                 return <VariableWeightDispatchReport {...props} />;
             case 'variable-weight-recepcion':
+            case 'variable-weight-reception':
                 return <VariableWeightReceptionReport {...props} />;
             default:
                 return <div className="p-4">Tipo de formato no reconocido.</div>;

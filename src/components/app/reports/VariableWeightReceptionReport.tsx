@@ -14,21 +14,13 @@ const formatTime12Hour = (time24: string | undefined): string => {
 const formatDateLocal = (isoDateString: string | undefined): string => {
     if (!isoDateString) return 'N/A';
     try {
-        // Create a date object from the ISO string (which is in UTC)
         const date = new Date(isoDateString);
-        
-        // Manually adjust for Colombia's timezone (UTC-5)
-        // This avoids issues with daylight saving time if we were to use a named timezone
         date.setUTCHours(date.getUTCHours() - 5);
-
-        // Extract the day, month, and year from the *adjusted* date
         const day = String(date.getUTCDate()).padStart(2, '0');
-        const month = String(date.getUTCMonth() + 1).padStart(2, '0'); // Month is 0-indexed
+        const month = String(date.getUTCMonth() + 1).padStart(2, '0');
         const year = date.getUTCFullYear();
-        
         return `${day}/${month}/${year}`;
     } catch (e) {
-        console.error("Error formatting date:", e);
         return 'Invalid Date';
     }
 };
@@ -80,13 +72,15 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
             const paleta = Number(item.paleta);
 
             if (!acc[desc]) {
+                const summaryItem = formData.summary?.find(s => s.descripcion === desc);
                 acc[desc] = {
                     descripcion: desc,
                     totalPeso: 0,
                     totalCantidad: 0,
                     paletas: new Set<number>(),
-                    // Carry over temperature from the pre-saved summary if available
-                    temperatura: formData.summary?.find(s => s.descripcion === desc)?.temperatura ?? 'N/A'
+                    temperatura1: summaryItem?.temperatura1 ?? summaryItem?.temperatura, // Fallback for old data
+                    temperatura2: summaryItem?.temperatura2,
+                    temperatura3: summaryItem?.temperatura3,
                 };
             }
 
@@ -97,14 +91,16 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
             }
             
             return acc;
-        }, {} as Record<string, { descripcion: string; totalPeso: number; totalCantidad: number; paletas: Set<number>; temperatura: any }>);
+        }, {} as Record<string, { descripcion: string; totalPeso: number; totalCantidad: number; paletas: Set<number>; temperatura1: any; temperatura2: any; temperatura3: any; }>);
 
         return Object.values(grouped).map(group => ({
             descripcion: group.descripcion,
             totalPeso: group.totalPeso,
             totalCantidad: group.totalCantidad,
             totalPaletas: group.paletas.size,
-            temperatura: group.temperatura
+            temperatura1: group.temperatura1,
+            temperatura2: group.temperatura2,
+            temperatura3: group.temperatura3,
         }));
     })();
 
@@ -183,22 +179,25 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                         <thead>
                             <tr style={{ borderBottom: '1px solid #aaa' }}>
                                 <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Descripción</th>
-                                <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Temp(°C)</th>
+                                <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Temperaturas(°C)</th>
                                 <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Paletas</th>
                                 <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Cantidad</th>
                                 <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Peso (kg)</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {recalculatedSummary.map((p, i) => (
+                            {recalculatedSummary.map((p, i) => {
+                                const temps = [p.temperatura1, p.temperatura2, p.temperatura3].filter(t => t != null && !isNaN(t));
+                                const tempString = temps.join(' / ');
+                                return (
                                 <tr key={i} style={{ borderBottom: '1px solid #ddd' }}>
                                     <td style={{ padding: '4px' }}>{p.descripcion}</td>
-                                    <td style={{ textAlign: 'right', padding: '4px' }}>{p.temperatura}</td>
+                                    <td style={{ textAlign: 'right', padding: '4px' }}>{tempString}</td>
                                     <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPaletas || 0}</td>
                                     <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalCantidad}</td>
                                     <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPeso?.toFixed(2)}</td>
                                 </tr>
-                            ))}
+                            )})}
                             <tr style={{ fontWeight: 'bold', backgroundColor: '#f1f5f9' }}>
                                 <td style={{ padding: '4px', textAlign: 'right' }} colSpan={2}>TOTALES:</td>
                                 <td style={{ textAlign: 'right', padding: '4px' }}>{totalGeneralPaletas}</td>

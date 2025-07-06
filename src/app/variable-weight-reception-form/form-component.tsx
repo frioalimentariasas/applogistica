@@ -72,9 +72,16 @@ const itemSchema = z.object({
     pesoNeto: z.coerce.number().optional(), 
 });
   
+const tempSchema = z.preprocess(
+    (val) => (val === "" || val === null || (typeof val === 'number' && Number.isNaN(val)) ? undefined : val),
+    z.coerce.number({ invalid_type_error: "Temperatura debe ser un número."}).optional()
+);
+
 const summaryItemSchema = z.object({
   descripcion: z.string(),
-  temperatura: z.coerce.number({ required_error: "La temperatura es requerida.", invalid_type_error: "La temperatura es requerida." }),
+  temperatura1: tempSchema,
+  temperatura2: tempSchema,
+  temperatura3: tempSchema,
   totalPeso: z.number(),
   totalCantidad: z.number(),
   totalPaletas: z.number(),
@@ -274,7 +281,9 @@ export default function VariableWeightReceptionFormComponent() {
           const existingItem = currentSummaryInForm.find(oldItem => oldItem.descripcion === newItem.descripcion);
           return {
               ...newItem,
-              temperatura: existingItem?.temperatura,
+              temperatura1: existingItem?.temperatura1,
+              temperatura2: existingItem?.temperatura2,
+              temperatura3: existingItem?.temperatura3,
           };
       });
       if (JSON.stringify(newSummaryState) !== JSON.stringify(currentSummaryInForm)) {
@@ -582,7 +591,9 @@ export default function VariableWeightReceptionFormComponent() {
             const formItem = (data.summary || []).find(s => s.descripcion === summaryItem.descripcion);
             return {
                 ...summaryItem,
-                temperatura: formItem?.temperatura as number,
+                temperatura1: formItem?.temperatura1,
+                temperatura2: formItem?.temperatura2,
+                temperatura3: formItem?.temperatura3,
             }
         });
         const dataWithFinalSummary = { ...data, summary: finalSummary };
@@ -605,7 +616,7 @@ export default function VariableWeightReceptionFormComponent() {
         const submissionData = {
             userId: user.uid,
             userDisplayName: displayName || 'N/A',
-            formType: `variable-weight-${operation}`,
+            formType: `variable-weight-reception`,
             formData: dataWithFinalSummary,
             attachmentUrls: finalAttachmentUrls,
             createdAt: originalSubmission?.createdAt,
@@ -901,7 +912,7 @@ export default function VariableWeightReceptionFormComponent() {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead className="w-[150px]">Temperatura (°C)</TableHead>
+                                        <TableHead className="w-[240px]">Temperaturas (°C)</TableHead>
                                         <TableHead>Producto</TableHead>
                                         <TableHead className="text-right">Total Paletas</TableHead>
                                         <TableHead className="text-right">Total Peso (kg)</TableHead>
@@ -916,21 +927,35 @@ export default function VariableWeightReceptionFormComponent() {
                                             <TableRow key={summaryItem.descripcion}>
                                                 <TableCell>
                                                     { summaryIndex > -1 ? (
-                                                        <FormField
-                                                            control={form.control}
-                                                            name={`summary.${summaryIndex}.temperatura`}
-                                                            render={({ field }) => (
+                                                      <div className="flex items-center gap-1">
+                                                          <FormField
+                                                              control={form.control}
+                                                              name={`summary.${summaryIndex}.temperatura1`}
+                                                              render={({ field }) => (
                                                                 <FormItem>
-                                                                    <FormControl>
-                                                                        <Input type="text" inputMode="decimal" placeholder="0" {...field} 
-                                                                            onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} 
-                                                                            value={field.value == null || Number.isNaN(field.value) ? '' : field.value}
-                                                                        />
-                                                                    </FormControl>
-                                                                    <FormMessage />
+                                                                  <FormControl><Input type="text" inputMode="decimal" placeholder="T1" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} className="w-20 h-9 text-center" /></FormControl>
+                                                                  <FormMessage className="text-xs"/>
                                                                 </FormItem>
-                                                            )}
-                                                        />
+                                                              )} />
+                                                          <FormField
+                                                              control={form.control}
+                                                              name={`summary.${summaryIndex}.temperatura2`}
+                                                              render={({ field }) => (
+                                                                <FormItem>
+                                                                  <FormControl><Input type="text" inputMode="decimal" placeholder="T2" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} className="w-20 h-9 text-center" /></FormControl>
+                                                                  <FormMessage className="text-xs"/>
+                                                                </FormItem>
+                                                              )} />
+                                                          <FormField
+                                                              control={form.control}
+                                                              name={`summary.${summaryIndex}.temperatura3`}
+                                                              render={({ field }) => (
+                                                                <FormItem>
+                                                                  <FormControl><Input type="text" inputMode="decimal" placeholder="T3" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} className="w-20 h-9 text-center" /></FormControl>
+                                                                  <FormMessage className="text-xs"/>
+                                                                </FormItem>
+                                                              )} />
+                                                      </div>
                                                     ) : (
                                                       <div className="h-10 w-full" />
                                                     )}
