@@ -101,53 +101,33 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                 dailyData.fixedDespachadas += dispatchedFixedPallets;
 
             } else if (formType === 'variable-weight-recepcion' || formType === 'variable-weight-reception') {
-                const isSummaryMode = items.some((p: any) => Number(p.paleta) === 0);
-                if (isSummaryMode) {
-                    const summaryCount = items.reduce((sum: number, item: any) => {
-                        return (Number(item.paleta) === 0) ? sum + (Number(item.totalPaletas) || 0) : sum;
-                    }, 0);
-                    dailyData.varRecibidasSummary += summaryCount;
-                } else {
-                    items.forEach((item: any) => {
-                        const paletaValue = Number(item.paleta);
-                        if (!isNaN(paletaValue) && paletaValue > 0) {
-                            dailyData.varRecibidasItemized.add(paletaValue);
-                        }
-                    });
-                }
+                // This form type is always itemized (paleta >= 1), so we just add to the Set for uniqueness.
+                items.forEach((item: any) => {
+                    const paletaValue = Number(item.paleta);
+                    if (!isNaN(paletaValue) && paletaValue > 0) {
+                        dailyData.varRecibidasItemized.add(paletaValue);
+                    }
+                });
             } else if (formType === 'variable-weight-despacho') {
-                const isSummaryMode = items.some((p: any) => Number(p.paleta) === 0);
-                 if (isSummaryMode) {
-                    const summaryCount = items.reduce((sum: number, item: any) => {
-                        return (Number(item.paleta) === 0) ? sum + (Number(item.totalPaletas) || 0) : sum;
-                    }, 0);
-                    dailyData.varDespachadasSummary += summaryCount;
-                } else {
-                    items.forEach((item: any) => {
-                        const paletaValue = Number(item.paleta);
-                        if (!isNaN(paletaValue) && paletaValue > 0) {
-                            dailyData.varDespachadasItemized.add(paletaValue);
-                        }
-                    });
-                }
+                 // This form type can have mixed itemized and summary rows. Process each one.
+                 items.forEach((item: any) => {
+                    const paletaValue = Number(item.paleta);
+                    if (paletaValue === 0) {
+                        // This is a summary row. Add the total pallets from it.
+                        dailyData.varDespachadasSummary += (Number(item.totalPaletas) || 0);
+                    } else if (!isNaN(paletaValue) && paletaValue > 0) {
+                        // This is an itemized row. Add its number to the Set for uniqueness.
+                        dailyData.varDespachadasItemized.add(paletaValue);
+                    }
+                });
             }
         });
         
         const reporteFinal: DailyReportData[] = [];
         for (const [date, movements] of dailyDataMap.entries()) {
-            let totalRecibidas = movements.fixedRecibidas;
-            if (movements.varRecibidasItemized.size > 0) {
-                totalRecibidas += movements.varRecibidasItemized.size;
-            } else {
-                totalRecibidas += movements.varRecibidasSummary;
-            }
-
-            let totalDespachadas = movements.fixedDespachadas;
-            if (movements.varDespachadasItemized.size > 0) {
-                totalDespachadas += movements.varDespachadasItemized.size;
-            } else {
-                totalDespachadas += movements.varDespachadasSummary;
-            }
+            // Simple sum of all categories. Uniqueness for itemized forms is handled by the Sets.
+            const totalRecibidas = movements.fixedRecibidas + movements.varRecibidasItemized.size + movements.varRecibidasSummary;
+            const totalDespachadas = movements.fixedDespachadas + movements.varDespachadasItemized.size + movements.varDespachadasSummary;
             
             if (totalRecibidas > 0 || totalDespachadas > 0) {
                 reporteFinal.push({
