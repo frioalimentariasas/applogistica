@@ -1098,13 +1098,13 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                             <strong className="text-foreground">
                                 {dateRangeToDelete?.from && format(dateRangeToDelete.from, "PPP", { locale: es })} - {dateRangeToDelete?.to && format(dateRangeToDelete.to, "PPP", { locale: es })}
                             </strong>.
-                             {isDeleting && (
-                                <div className="mt-4 space-y-2">
-                                    <Progress value={deleteProgress} className="w-full" />
-                                    <p className="text-sm text-center text-muted-foreground">Eliminando... {Math.round(deleteProgress)}%</p>
-                                </div>
-                            )}
                         </AlertDialogDescription>
+                         {isDeleting && (
+                            <div className="pt-2 space-y-2">
+                                <Progress value={deleteProgress} className="w-full" />
+                                <p className="text-sm text-center text-muted-foreground">Eliminando... {Math.round(deleteProgress)}%</p>
+                            </div>
+                        )}
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
