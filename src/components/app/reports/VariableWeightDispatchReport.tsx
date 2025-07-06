@@ -1,5 +1,5 @@
 
-import { format, parseISO } from 'date-fns';
+import { parseISO } from 'date-fns';
 
 const formatTime12Hour = (time24: string | undefined): string => {
     if (!time24 || !time24.includes(':')) return 'N/A';
@@ -14,8 +14,12 @@ const formatTime12Hour = (time24: string | undefined): string => {
 const formatDateLocal = (isoDateString: string | undefined): string => {
     if (!isoDateString) return 'N/A';
     try {
-        const date = parseISO(isoDateString);
-        return format(date, "dd/MM/yyyy");
+        const yyyyMMdd = isoDateString.split('T')[0];
+        const [year, month, day] = yyyyMMdd.split('-');
+        if (!year || !month || !day || year.length !== 4) {
+            return 'Invalid Date';
+        }
+        return `${day}/${month}/${year}`;
     } catch (e) {
         return 'Invalid Date';
     }
