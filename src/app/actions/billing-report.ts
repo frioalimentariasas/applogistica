@@ -92,9 +92,11 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                 dailyData.paletasDespachadas += dispatchedFixedPallets;
 
             } else if (formType === 'variable-weight-recepcion' || formType === 'variable-weight-reception') {
-                const items = submission.formData.items || [];
-                // The business rule is to count each item as one pallet for this report.
-                dailyData.paletasRecibidas += items.length;
+                const summary = submission.formData.summary || [];
+                const receivedVariablePallets = summary.reduce((sum: number, productSummary: any) => {
+                    return sum + (Number(productSummary.totalPaletas) || 0);
+                }, 0);
+                dailyData.paletasRecibidas += receivedVariablePallets;
 
             } else if (formType === 'variable-weight-despacho') {
                 const items = submission.formData.items || [];
