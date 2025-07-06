@@ -93,14 +93,28 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
 
             } else if (formType === 'variable-weight-recepcion' || formType === 'variable-weight-reception') {
                 const items = submission.formData.items || [];
-                const palletNumbers = new Set<number>();
-                items.forEach((item: any) => {
-                    const paletaValue = Number(item.paleta);
-                    if (!isNaN(paletaValue) && paletaValue > 0) {
-                        palletNumbers.add(paletaValue);
-                    }
-                });
-                dailyData.paletasRecibidas += palletNumbers.size;
+                const isSummaryMode = items.some((p: any) => Number(p.paleta) === 0);
+                let receivedVariablePallets = 0;
+                
+                if (isSummaryMode) {
+                     receivedVariablePallets = items.reduce((sum: number, item: any) => {
+                        if (Number(item.paleta) === 0) {
+                            // Assuming `totalPaletas` exists on summary items for reception too, based on user feedback.
+                            return sum + (Number(item.totalPaletas) || 0);
+                        }
+                        return sum;
+                    }, 0);
+                } else {
+                     const palletNumbers = new Set<number>();
+                     (items || []).forEach((item: any) => {
+                        const paletaValue = Number(item.paleta);
+                        if (!isNaN(paletaValue) && paletaValue > 0) {
+                           palletNumbers.add(paletaValue);
+                        }
+                     });
+                     receivedVariablePallets = palletNumbers.size;
+                }
+                dailyData.paletasRecibidas += receivedVariablePallets;
 
             } else if (formType === 'variable-weight-despacho') {
                 const items = submission.formData.items || [];
