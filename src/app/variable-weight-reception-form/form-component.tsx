@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from "react";
@@ -74,7 +73,10 @@ const itemSchema = z.object({
   
 const tempSchema = z.preprocess(
     (val) => (val === "" || val === null || (typeof val === 'number' && Number.isNaN(val)) ? undefined : val),
-    z.coerce.number({ invalid_type_error: "Temperatura debe ser un número."}).optional()
+    z.coerce.number({ invalid_type_error: "Temperatura debe ser un número."})
+      .min(-99, "El valor debe estar entre -99 y 99.")
+      .max(99, "El valor debe estar entre -99 y 99.")
+      .optional()
 );
 
 const summaryItemSchema = z.object({
@@ -933,7 +935,10 @@ export default function VariableWeightReceptionFormComponent() {
                                                               name={`summary.${summaryIndex}.temperatura1`}
                                                               render={({ field }) => (
                                                                 <FormItem>
-                                                                  <FormControl><Input type="text" inputMode="decimal" placeholder="T1" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} className="w-20 h-9 text-center" /></FormControl>
+                                                                  <FormControl><Input type="text" inputMode="decimal" placeholder="T1" {...field} 
+                                                                          onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} 
+                                                                          value={field.value == null || Number.isNaN(field.value) ? '' : field.value}
+                                                                      className="w-20 h-9 text-center" /></FormControl>
                                                                   <FormMessage className="text-xs"/>
                                                                 </FormItem>
                                                               )} />
