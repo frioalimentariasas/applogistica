@@ -58,11 +58,51 @@ interface VariableWeightReceptionReportProps {
 }
 
 export function VariableWeightReceptionReport({ formData, userDisplayName, attachments }: VariableWeightReceptionReportProps) {
-    const totalPeso = formData.summary?.reduce((acc: any, p: any) => acc + (p.totalPeso || 0), 0) || 0;
-    const totalCantidad = formData.summary?.reduce((acc: any, p: any) => acc + (p.totalCantidad || 0), 0) || 0;
-    const totalGeneralPaletas = formData.summary?.reduce((acc: any, p: any) => acc + (p.totalPaletas || 0), 0) || 0;
-    const operationTerm = 'Descargue';
+    
+    // Recalculate summary here to ensure accuracy for old and new data
+    const recalculatedSummary = (() => {
+        const grouped = (formData.items || []).reduce((acc, item) => {
+            if (!item?.descripcion?.trim()) return acc;
+            const desc = item.descripcion.trim();
 
+            const cantidad = Number(item.cantidadPorPaleta) || 0;
+            const pesoNeto = Number(item.pesoNeto) || 0;
+            const paleta = Number(item.paleta);
+
+            if (!acc[desc]) {
+                acc[desc] = {
+                    descripcion: desc,
+                    totalPeso: 0,
+                    totalCantidad: 0,
+                    paletas: new Set<number>(),
+                    // Carry over temperature from the pre-saved summary if available
+                    temperatura: formData.summary?.find(s => s.descripcion === desc)?.temperatura ?? 'N/A'
+                };
+            }
+
+            acc[desc].totalPeso += isNaN(pesoNeto) ? 0 : pesoNeto;
+            acc[desc].totalCantidad += cantidad;
+            if (!isNaN(paleta) && paleta > 0) {
+                acc[desc].paletas.add(paleta);
+            }
+            
+            return acc;
+        }, {} as Record<string, { descripcion: string; totalPeso: number; totalCantidad: number; paletas: Set<number>; temperatura: any }>);
+
+        return Object.values(grouped).map(group => ({
+            descripcion: group.descripcion,
+            totalPeso: group.totalPeso,
+            totalCantidad: group.totalCantidad,
+            totalPaletas: group.paletas.size,
+            temperatura: group.temperatura
+        }));
+    })();
+
+    const totalPeso = recalculatedSummary.reduce((acc, p) => acc + (p.totalPeso || 0), 0);
+    const totalCantidad = recalculatedSummary.reduce((acc, p) => acc + (p.totalCantidad || 0), 0);
+    const totalGeneralPaletas = recalculatedSummary.reduce((acc, p) => acc + (p.totalPaletas || 0), 0);
+
+    const operationTerm = 'Descargue';
     const fieldCellStyle: React.CSSProperties = { padding: '2px', fontSize: '11px', lineHeight: '1.4', verticalAlign: 'top' };
 
     return (
@@ -127,7 +167,7 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                 </table>
             </ReportSection>
 
-             {formData.summary && formData.summary.length > 0 && (
+             {recalculatedSummary && recalculatedSummary.length > 0 && (
                 <ReportSection title="Resumen de Productos">
                     <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse' }}>
                         <thead>
@@ -140,7 +180,7 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                             </tr>
                         </thead>
                         <tbody>
-                            {formData.summary.map((p: any, i: number) => (
+                            {recalculatedSummary.map((p, i) => (
                                 <tr key={i} style={{ borderBottom: '1px solid #ddd' }}>
                                     <td style={{ padding: '4px' }}>{p.descripcion}</td>
                                     <td style={{ textAlign: 'right', padding: '4px' }}>{p.temperatura}</td>
