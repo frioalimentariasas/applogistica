@@ -48,6 +48,7 @@ export function useFormPersistence<T extends FieldValues>(
 
             const attachmentsKey = `${storageKey}-attachments`;
             await idb.set(attachmentsKey, attachmentsRef.current);
+            console.log(`[Draft Saved] Key: ${storageKey}`);
         } catch (e) {
             console.error("Failed to save draft to IndexedDB", e);
         }
