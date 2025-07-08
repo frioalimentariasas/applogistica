@@ -1,7 +1,9 @@
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
 import * as xlsx from 'xlsx';
+import { revalidatePath } from 'next/cache';
 
 // Define the structure of an article based on the Excel columns
 interface Articulo {
@@ -57,6 +59,8 @@ export async function uploadArticulos(formData: FormData): Promise<{ success: bo
     });
 
     await writeBatch.commit();
+    
+    revalidatePath('/gestion-articulos');
 
     return { success: true, message: `Se agregaron ${data.length} nuevos artículos correctamente.`, count: data.length };
   } catch (error) {

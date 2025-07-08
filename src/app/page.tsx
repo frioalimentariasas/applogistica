@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -211,18 +212,6 @@ export default function Home() {
                     <Button size="lg" className="w-full h-12 text-base bg-[#3588CC] text-white hover:bg-[#3588CC]/90" onClick={() => router.push('/gestion-clientes')}>
                         <Users2 className="mr-2 h-5 w-5" />
                         Gestión de Clientes
-                    </Button>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                    <Button size="lg" className="w-full h-12 text-base bg-[#3588CC] text-white hover:bg-[#3588CC]/90" onClick={() => router.push('/upload-articulos')}>
-                        <Box className="mr-2 h-5 w-5" />
-                        Cargar Artículos (Excel)
-                    </Button>
-
-                    <Button size="lg" className="w-full h-12 text-base bg-[#3588CC] text-white hover:bg-[#3588CC]/90" onClick={() => router.push('/upload-clientes')}>
-                        <Users2 className="mr-2 h-5 w-5" />
-                        Cargar Clientes (Excel)
                     </Button>
                 </div>
               </>

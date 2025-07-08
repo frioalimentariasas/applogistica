@@ -3,6 +3,7 @@
 
 import { firestore } from '@/lib/firebase-admin';
 import * as xlsx from 'xlsx';
+import { revalidatePath } from 'next/cache';
 
 // Define the structure of a client based on the Excel columns
 interface Cliente {
@@ -62,6 +63,8 @@ export async function uploadClientes(formData: FormData): Promise<{ success: boo
     }
 
     await writeBatch.commit();
+    
+    revalidatePath('/gestion-clientes');
 
     return { success: true, message: `Se agregaron ${addedClients.length} nuevos clientes correctamente.`, count: addedClients.length };
   } catch (error) {

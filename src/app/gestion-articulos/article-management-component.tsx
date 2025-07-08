@@ -3,16 +3,18 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useForm, SubmitHandler } from 'react-hook-form';
+import { useFormStatus } from 'react-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { addArticle, updateArticle, deleteArticle } from './actions';
 import { getArticulosByClient, ArticuloInfo } from '@/app/actions/articulos';
+import { uploadArticulos } from '../upload-articulos/actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Loader2, Box, PlusCircle, Edit, Trash2, ChevronsUpDown } from 'lucide-react';
+import { ArrowLeft, Loader2, Box, PlusCircle, Edit, Trash2, ChevronsUpDown, FileUp } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -27,6 +29,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import { Alert, AlertTitle } from '@/components/ui/alert';
 import type { ClientInfo } from '@/app/actions/clients';
 
 
@@ -46,6 +49,26 @@ type EditArticleFormValues = z.infer<typeof editArticleSchema>;
 
 interface ArticleManagementComponentProps {
   clients: ClientInfo[];
+}
+
+function UploadSubmitButton() {
+  const { pending } = useFormStatus();
+
+  return (
+    <Button type="submit" disabled={pending} className="w-full">
+      {pending ? (
+        <>
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          Cargando...
+        </>
+      ) : (
+        <>
+          <FileUp className="mr-2 h-4 w-4" />
+          Cargar y Procesar Archivo
+        </>
+      )}
+    </Button>
+  );
 }
 
 export default function ArticleManagementComponent({ clients }: ArticleManagementComponentProps) {
@@ -69,6 +92,10 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
   // State for consult client dialog
   const [isConsultClientDialogOpen, setConsultClientDialogOpen] = useState(false);
   const [consultClientSearch, setConsultClientSearch] = useState('');
+
+  // State for upload form
+  const [uploadFileName, setUploadFileName] = useState('');
+  const [uploadFormError, setUploadFormError] = useState<string | null>(null);
 
   const addForm = useForm<ArticleFormValues>({
     resolver: zodResolver(articleSchema),
@@ -166,6 +193,48 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
     });
   };
 
+  const handleUploadFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setUploadFileName(file.name);
+      setUploadFormError(null);
+    } else {
+      setUploadFileName('');
+    }
+  };
+
+  async function handleUploadFormAction(formData: FormData) {
+    const file = formData.get('file') as File;
+    if (!file || file.size === 0) {
+      setUploadFormError('Por favor, seleccione un archivo para cargar.');
+      return;
+    }
+
+    const result = await uploadArticulos(formData);
+
+    if (result.success) {
+      toast({
+        title: "¡Éxito!",
+        description: `${result.message} Si los artículos pertenecen al cliente seleccionado, la lista se actualizará.`,
+      });
+      setUploadFileName('');
+      const form = document.getElementById('upload-articles-form') as HTMLFormElement;
+      form?.reset();
+      
+      // If upload affects current client, refresh list
+      if (selectedClient) {
+        handleClientSelect(selectedClient);
+      }
+
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Error en la Carga",
+        description: result.message,
+      });
+    }
+  }
+
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
       <div className="max-w-6xl mx-auto">
@@ -184,8 +253,8 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
           </div>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-1">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="space-y-8">
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><PlusCircle /> Agregar Nuevo Artículo</CardTitle>
@@ -275,13 +344,46 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
                 </Form>
               </CardContent>
             </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><FileUp /> Cargar Artículos desde Excel</CardTitle>
+                <CardDescription>Suba un archivo (.xlsx, .xls) para agregar múltiples artículos.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Alert className="mb-4 border-blue-500 bg-blue-50 text-blue-800 [&>svg]:text-blue-600">
+                    <AlertTitle className="text-blue-700">Formato del Archivo</AlertTitle>
+                    <AlertDialogDescription>
+                        El archivo debe tener las columnas: <strong>Razón Social</strong>, <strong>Codigo Producto</strong>, y <strong>Denominación articulo</strong>.
+                    </AlertDialogDescription>
+                </Alert>
+                <form id="upload-articles-form" action={handleUploadFormAction} className="space-y-4">
+                  <div className="space-y-1">
+                      <FormLabel htmlFor="file-upload">Archivo Excel</FormLabel>
+                      <Input 
+                          id="file-upload" 
+                          name="file" 
+                          type="file" 
+                          required 
+                          accept=".xlsx, .xls"
+                          onChange={handleUploadFileChange}
+                          className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+                      />
+                      {uploadFileName && <p className="text-xs text-muted-foreground">Archivo seleccionado: {uploadFileName}</p>}
+                      {uploadFormError && <p className="text-sm font-medium text-destructive">{uploadFormError}</p>}
+                  </div>
+                  <UploadSubmitButton />
+                </form>
+              </CardContent>
+            </Card>
+
           </div>
           
-          <div className="lg:col-span-2">
+          <div>
             <Card>
               <CardHeader>
                 <CardTitle>Consultar Artículos por Cliente</CardTitle>
-                <CardDescription>Seleccione un cliente para ver sus artículos asociados.</CardDescription>
+                <CardDescription>Seleccione un cliente para ver y gestionar sus artículos asociados.</CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="mb-4">

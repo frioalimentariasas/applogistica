@@ -3,15 +3,17 @@
 
 import { useState } from 'react';
 import { useForm, SubmitHandler } from 'react-hook-form';
+import { useFormStatus } from 'react-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useRouter } from 'next/navigation';
 import { useToast } from '@/hooks/use-toast';
 import { addClient, updateClient, deleteClient } from './actions';
+import { uploadClientes } from '../upload-clientes/actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Loader2, Users2, UserPlus, Edit, Trash2 } from 'lucide-react';
+import { ArrowLeft, Loader2, Users2, UserPlus, Edit, Trash2, FileUp } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -26,6 +28,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { Alert, AlertTitle } from '@/components/ui/alert';
 import type { ClientInfo } from '@/app/actions/clients';
 
 // Schemas for forms
@@ -41,6 +44,26 @@ type EditClientFormValues = z.infer<typeof editClientSchema>;
 
 interface ClientManagementComponentProps {
   initialClients: ClientInfo[];
+}
+
+function UploadSubmitButton() {
+  const { pending } = useFormStatus();
+
+  return (
+    <Button type="submit" disabled={pending} className="w-full">
+      {pending ? (
+        <>
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          Cargando...
+        </>
+      ) : (
+        <>
+          <FileUp className="mr-2 h-4 w-4" />
+          Cargar y Procesar Archivo
+        </>
+      )}
+    </Button>
+  );
 }
 
 export default function ClientManagementComponent({ initialClients }: ClientManagementComponentProps) {
@@ -59,6 +82,10 @@ export default function ClientManagementComponent({ initialClients }: ClientMana
   // Delete state
   const [clientToDelete, setClientToDelete] = useState<ClientInfo | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Upload state
+  const [uploadFileName, setUploadFileName] = useState('');
+  const [uploadFormError, setUploadFormError] = useState<string | null>(null);
 
   // Forms
   const addForm = useForm<AddClientFormValues>({
@@ -117,13 +144,50 @@ export default function ClientManagementComponent({ initialClients }: ClientMana
     editForm.reset({ razonSocial: client.razonSocial });
   };
 
+  const handleUploadFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setUploadFileName(file.name);
+      setUploadFormError(null);
+    } else {
+      setUploadFileName('');
+    }
+  };
+  
+  async function handleUploadFormAction(formData: FormData) {
+    const file = formData.get('file') as File;
+    if (!file || file.size === 0) {
+      setUploadFormError('Por favor, seleccione un archivo para cargar.');
+      return;
+    }
+
+    const result = await uploadClientes(formData);
+
+    if (result.success) {
+      toast({
+        title: "¡Éxito!",
+        description: `${result.message} La lista de clientes se está actualizando.`,
+      });
+      setUploadFileName('');
+      const form = document.getElementById('upload-clients-form') as HTMLFormElement;
+      form?.reset();
+      router.refresh();
+    } else {
+      toast({
+        variant: "destructive",
+        title: "Error en la Carga",
+        description: result.message,
+      });
+    }
+  }
+
   const filteredClients = clients.filter(client => 
     client.razonSocial.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         {/* Header */}
         <header className="mb-8">
           <div className="relative flex items-center justify-center text-center">
@@ -135,44 +199,77 @@ export default function ClientManagementComponent({ initialClients }: ClientMana
                 <Users2 className="h-8 w-8 text-primary" />
                 <h1 className="text-2xl font-bold text-primary">Gestión de Clientes</h1>
               </div>
-              <p className="text-sm text-gray-500">Agregue nuevos clientes o consulte los existentes.</p>
+              <p className="text-sm text-gray-500">Agregue nuevos clientes, cargue desde un archivo, o consulte los existentes.</p>
             </div>
           </div>
         </header>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Add Client Card */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2"><UserPlus />Agregar Nuevo Cliente</CardTitle>
-              <CardDescription>Ingrese la razón social para crear un nuevo cliente.</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Form {...addForm}>
-                <form onSubmit={addForm.handleSubmit(onAddSubmit)} className="space-y-4">
-                  <FormField
-                    control={addForm.control}
-                    name="razonSocial"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Razón Social</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Colocar nombre Propietario SISLOG" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <Button type="submit" disabled={isSubmittingAdd} className="w-full">
-                    {isSubmittingAdd ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserPlus className="mr-2 h-4 w-4" />}
-                    Agregar Cliente
-                  </Button>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="space-y-8">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><UserPlus />Agregar Nuevo Cliente</CardTitle>
+                <CardDescription>Ingrese la razón social para crear un nuevo cliente.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Form {...addForm}>
+                  <form onSubmit={addForm.handleSubmit(onAddSubmit)} className="space-y-4">
+                    <FormField
+                      control={addForm.control}
+                      name="razonSocial"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Razón Social</FormLabel>
+                          <FormControl>
+                            <Input placeholder="Colocar nombre Propietario SISLOG" {...field} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    <Button type="submit" disabled={isSubmittingAdd} className="w-full">
+                      {isSubmittingAdd ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <UserPlus className="mr-2 h-4 w-4" />}
+                      Agregar Cliente
+                    </Button>
+                  </form>
+                </Form>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2"><FileUp />Cargar Clientes desde Excel</CardTitle>
+                <CardDescription>Suba un archivo (.xlsx, .xls) para agregar múltiples clientes de una vez.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Alert className="mb-4 border-blue-500 bg-blue-50 text-blue-800 [&>svg]:text-blue-600">
+                    <AlertTitle className="text-blue-700">Formato del Archivo</AlertTitle>
+                    <AlertDialogDescription>
+                        El archivo debe tener una única columna con el encabezado: <strong>Razón Social</strong>.
+                    </AlertDialogDescription>
+                </Alert>
+                <form id="upload-clients-form" action={handleUploadFormAction} className="space-y-4">
+                    <div className="space-y-1">
+                        <FormLabel htmlFor="file-upload-clients">Archivo Excel</FormLabel>
+                        <Input 
+                            id="file-upload-clients" 
+                            name="file" 
+                            type="file" 
+                            required 
+                            accept=".xlsx, .xls"
+                            onChange={handleUploadFileChange}
+                            className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+                        />
+                        {uploadFileName && <p className="text-xs text-muted-foreground">Archivo seleccionado: {uploadFileName}</p>}
+                        {uploadFormError && <p className="text-sm font-medium text-destructive">{uploadFormError}</p>}
+                    </div>
+                    <UploadSubmitButton />
                 </form>
-              </Form>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+
+          </div>
           
-          {/* Client List Card */}
           <Card>
             <CardHeader>
               <CardTitle>Listado de Clientes</CardTitle>
@@ -185,7 +282,7 @@ export default function ClientManagementComponent({ initialClients }: ClientMana
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="mb-4"
               />
-              <ScrollArea className="h-72">
+              <ScrollArea className="h-96">
                 <Table>
                   <TableHeader>
                     <TableRow>
