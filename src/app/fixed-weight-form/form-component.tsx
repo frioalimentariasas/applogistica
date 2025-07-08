@@ -218,8 +218,25 @@ export default function FixedWeightFormComponent() {
       return (productos || []).reduce((acc, p) => acc + (Number(p.cantidadKg) || 0), 0);
   }, [productos]);
 
-  const formIdentifier = `fixed-weight-${operation}`;
-  const { isRestoreDialogOpen, onRestore, onDiscard, onOpenChange, clearDraft } = useFormPersistence(formIdentifier, form, originalDefaultValues, attachments, setAttachments, !!submissionId);
+  const formIdentifier = submissionId ? `fixed-weight-edit-${submissionId}` : `fixed-weight-${operation}`;
+  const { isRestoreDialogOpen, onRestore, onDiscard: onDiscardFromHook, onOpenChange, clearDraft } = useFormPersistence(formIdentifier, form, originalDefaultValues, attachments, setAttachments, !!submissionId);
+
+  const handleDiscard = () => {
+    onDiscardFromHook(); // Clears storage via hook
+    if (submissionId && originalSubmission) {
+        // In edit mode, reset to the original data loaded from the DB
+        const formData = originalSubmission.formData;
+        if (formData.fecha && typeof formData.fecha === 'string') {
+            formData.fecha = new Date(formData.fecha);
+        }
+        form.reset(formData);
+        setAttachments(originalSubmission.attachmentUrls);
+    } else {
+        // In new form mode, reset to blank
+        form.reset(originalDefaultValues);
+        setAttachments([]);
+    }
+  };
 
 
   useEffect(() => {
@@ -571,7 +588,7 @@ export default function FixedWeightFormComponent() {
         open={isRestoreDialogOpen}
         onOpenChange={onOpenChange}
         onRestore={onRestore}
-        onDiscard={onDiscard}
+        onDiscard={handleDiscard}
       />
       <div className="max-w-6xl mx-auto">
         <header className="mb-8">
@@ -1084,7 +1101,7 @@ export default function FixedWeightFormComponent() {
               </AlertDialogHeader>
               <AlertDialogFooter>
                   <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                  <AlertDialogAction onClick={onDiscard} className="bg-destructive hover:bg-destructive/90">Limpiar Formato</AlertDialogAction>
+                  <AlertDialogAction onClick={handleDiscard} className="bg-destructive hover:bg-destructive/90">Limpiar Formato</AlertDialogAction>
               </AlertDialogFooter>
           </AlertDialogContent>
       </AlertDialog>

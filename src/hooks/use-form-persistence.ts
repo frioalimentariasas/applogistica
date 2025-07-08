@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -40,7 +41,7 @@ export function useFormPersistence<T extends FieldValues>(
     
     const saveDraft = useCallback(async () => {
         const storageKey = getStorageKey();
-        if (!storageKey || isEditMode) return;
+        if (!storageKey) return;
         
         try {
             const currentValues = getValues();
@@ -52,7 +53,7 @@ export function useFormPersistence<T extends FieldValues>(
         } catch (e) {
             console.error("Failed to save draft to IndexedDB", e);
         }
-    }, [getStorageKey, isEditMode, getValues]);
+    }, [getStorageKey, getValues]);
 
 
     // --- SAVE DRAFT LOGIC ---
@@ -79,12 +80,6 @@ export function useFormPersistence<T extends FieldValues>(
 
     // --- RESTORE DRAFT LOGIC ---
     useEffect(() => {
-        // In edit mode, we don't deal with drafts.
-        if (isEditMode) {
-            hasCheckedForDraft.current = true;
-            return;
-        }
-
         // Wait until user is authenticated.
         if (!user) {
             return;
@@ -106,13 +101,16 @@ export function useFormPersistence<T extends FieldValues>(
                 
                 let hasMeaningfulData = false;
                 if (savedData) {
-                    const hasTextFields = savedData.pedidoSislog || savedData.cliente || savedData.nombreCliente || savedData.conductor || savedData.nombreConductor;
-                    // Check if items/products array has more than the initial empty item, or if the first item has been filled.
-                    const hasItems = savedData.items && (savedData.items.length > 1 || (savedData.items.length === 1 && savedData.items[0].descripcion?.trim()));
-                    const hasProducts = savedData.productos && (savedData.productos.length > 1 || (savedData.productos.length === 1 && savedData.productos[0].descripcion?.trim()));
+                    if (isEditMode) {
+                        hasMeaningfulData = true; // Any saved draft for an edit form is meaningful.
+                    } else {
+                        const hasTextFields = savedData.pedidoSislog || savedData.cliente || savedData.nombreCliente || savedData.conductor || savedData.nombreConductor;
+                        const hasItems = savedData.items && (savedData.items.length > 1 || (savedData.items.length === 1 && savedData.items[0].descripcion?.trim()));
+                        const hasProducts = savedData.productos && (savedData.productos.length > 1 || (savedData.productos.length === 1 && savedData.productos[0].descripcion?.trim()));
 
-                    if (hasTextFields || hasItems || hasProducts) {
-                        hasMeaningfulData = true;
+                        if (hasTextFields || hasItems || hasProducts) {
+                            hasMeaningfulData = true;
+                        }
                     }
                 }
                 
@@ -132,7 +130,7 @@ export function useFormPersistence<T extends FieldValues>(
         // Use a short delay to ensure other initializations are complete.
         const timer = setTimeout(checkData, 100);
         return () => clearTimeout(timer);
-    }, [isEditMode, user, getStorageKey, setAttachments, toast, reset]);
+    }, [isEditMode, user, getStorageKey]);
 
 
     const restoreDraft = useCallback(async () => {
@@ -194,23 +192,22 @@ export function useFormPersistence<T extends FieldValues>(
         }
     }, [getStorageKey, toast]);
 
-    const discardDraft = useCallback(async () => {
+    const onDiscard = useCallback(async () => {
         // Stop any pending save that might be about to fire
         if (saveTimeoutRef.current) {
             clearTimeout(saveTimeoutRef.current);
         }
         await clearDraft(true);
-        reset(originalDefaultValues);
-        setAttachments([]);
+        // This function will NOT reset the form state. The component is responsible for that.
         setRestoreDialogOpen(false);
-        hasCheckedForDraft.current = true; // Enable saving for the new blank form.
-    }, [clearDraft, reset, originalDefaultValues, setAttachments]);
+        hasCheckedForDraft.current = true; // Enable saving for the new (reset) form state.
+    }, [clearDraft]);
     
     return {
         isRestoreDialogOpen,
         onOpenChange: setRestoreDialogOpen,
         onRestore: restoreDraft,
-        onDiscard: discardDraft,
+        onDiscard: onDiscard,
         clearDraft: () => clearDraft(false)
     };
 }
