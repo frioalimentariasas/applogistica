@@ -49,7 +49,7 @@ const ResultsSkeleton = () => (
 
 const EmptyState = ({ searched, title, description, emptyDescription }: { searched: boolean; title: string; description: string; emptyDescription: string; }) => (
     <TableRow>
-        <TableCell colSpan={10} className="py-20 text-center">
+        <TableCell colSpan={11} className="py-20 text-center">
             <div className="flex flex-col items-center gap-4">
                 <div className="rounded-full bg-primary/10 p-4">
                     <FolderSearch className="h-12 w-12 text-primary" />
@@ -395,6 +395,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
         const dataToExport = detailedReportData.map(row => ({
             'Fecha': format(new Date(row.fecha), 'dd/MM/yyyy'),
+            'Operación Logística': row.operacionLogistica,
             'Hora Inicio': formatTime12Hour(row.horaInicio),
             'Hora Fin': formatTime12Hour(row.horaFin),
             'Placa Vehículo': row.placa,
@@ -427,10 +428,11 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         autoTable(doc, {
             startY: 30,
             head: [[
-                'Fecha', 'Cliente', 'Tipo Pedido', 'No. Pedido', 'Placa', 'Contenedor', 'H. Inicio', 'H. Fin', 'Total Paletas', 'Observaciones'
+                'Fecha', 'Op. Log.', 'Cliente', 'Tipo Pedido', 'No. Pedido', 'Placa', 'Contenedor', 'H. Inicio', 'H. Fin', 'Total Paletas', 'Observaciones'
             ]],
             body: detailedReportData.map(row => [
                 format(new Date(row.fecha), 'dd/MM/yy'),
+                row.operacionLogistica,
                 row.cliente,
                 row.tipoPedido,
                 row.pedidoSislog,
@@ -445,7 +447,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             headStyles: { fillColor: [33, 150, 243], fontSize: 8 },
             styles: { fontSize: 7, cellPadding: 1.5, overflow: 'linebreak' },
             columnStyles: {
-                9: { cellWidth: 50 }, // Observaciones column
+                1: { cellWidth: 25 }, // Op. Log.
+                10: { cellWidth: 50 }, // Observaciones column
             }
         });
 
@@ -717,6 +720,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             const idsToDelete = idResult.ids;
             const totalCount = idsToDelete.length;
             let deletedCount = 0;
+            let errorCount = 0;
 
             for (let i = 0; i < totalCount; i++) {
                 const id = idsToDelete[i];
@@ -724,15 +728,24 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 if (deleteResult.success) {
                     deletedCount++;
                 } else {
+                    errorCount++;
                     console.error(`No se pudo eliminar el documento ${id}: ${deleteResult.message}`);
                 }
                 setDeleteProgress(((i + 1) / totalCount) * 100);
             }
-
-            toast({
-                title: 'Proceso completado',
-                description: `Se eliminaron ${deletedCount} de ${totalCount} registro(s) de inventario.`,
-            });
+            
+            if (errorCount > 0) {
+                 toast({
+                    variant: "destructive",
+                    title: 'Proceso completado con errores',
+                    description: `Se eliminaron ${deletedCount} de ${totalCount} registro(s). ${errorCount} no pudieron ser eliminados.`,
+                });
+            } else {
+                 toast({
+                    title: 'Proceso completado',
+                    description: `Se eliminaron ${deletedCount} de ${totalCount} registro(s) de inventario.`,
+                });
+            }
             
             handleInventoryClear(); // Refresh the view
 
@@ -1020,6 +1033,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>Fecha</TableHead>
+                                        <TableHead>Op. Logística</TableHead>
                                         <TableHead>Cliente</TableHead>
                                         <TableHead>Tipo Pedido</TableHead>
                                         <TableHead>No. Pedido</TableHead>
@@ -1033,11 +1047,12 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                 </TableHeader>
                                 <TableBody>
                                      {isDetailedReportLoading ? (
-                                        <TableRow><TableCell colSpan={10}><Skeleton className="h-20 w-full" /></TableCell></TableRow>
+                                        <TableRow><TableCell colSpan={11}><Skeleton className="h-20 w-full" /></TableCell></TableRow>
                                      ) : detailedReportData.length > 0 ? (
                                         detailedReportData.map((row) => (
                                             <TableRow key={row.id}>
                                                 <TableCell>{format(new Date(row.fecha), 'dd/MM/yyyy')}</TableCell>
+                                                <TableCell>{row.operacionLogistica}</TableCell>
                                                 <TableCell>{row.cliente}</TableCell>
                                                 <TableCell>{row.tipoPedido}</TableCell>
                                                 <TableCell>{row.pedidoSislog}</TableCell>
@@ -1361,12 +1376,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                 {dateRangeToDelete?.from && format(dateRangeToDelete.from, "PPP", { locale: es })} - {dateRangeToDelete?.to && format(dateRangeToDelete.to, "PPP", { locale: es })}
                             </strong>.
                         </AlertDialogDescription>
-                         {isDeleting && (
-                            <div className="pt-4 space-y-2">
-                                <Progress value={deleteProgress} className="w-full" />
-                                <p className="text-sm text-center text-muted-foreground">Eliminando... {Math.round(deleteProgress)}%</p>
-                            </div>
-                        )}
                     </AlertDialogHeader>
                     <AlertDialogFooter>
                         <AlertDialogCancel disabled={isDeleting}>Cancelar</AlertDialogCancel>
@@ -1375,8 +1384,16 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                             disabled={isDeleting}
                             className={buttonVariants({ variant: 'destructive' })}
                         >
-                            {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                            {isDeleting ? "Eliminando..." : "Sí, eliminar registros"}
+                            {isDeleting ? (
+                                <div className="flex flex-col items-center w-full">
+                                    <div className="flex items-center">
+                                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                        <span>Eliminando...</span>
+                                    </div>
+                                    <Progress value={deleteProgress} className="w-full mt-2" />
+                                    <p className="text-xs text-center text-muted-foreground mt-1">{Math.round(deleteProgress)}%</p>
+                                </div>
+                            ) : "Sí, eliminar registros"}
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

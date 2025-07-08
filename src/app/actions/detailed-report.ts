@@ -1,7 +1,71 @@
+
 'use server';
 
 import admin from 'firebase-admin';
 import { firestore } from '@/lib/firebase-admin';
+
+// Helper function to determine the logistic operation type
+const getOperationLogisticsType = (isoDateString: string, horaInicio: string, horaFin: string): string => {
+    if (!isoDateString || !horaInicio || !horaFin) return 'N/A';
+
+    try {
+        const date = new Date(isoDateString);
+        // Correct for Colombia Timezone (UTC-5)
+        date.setUTCHours(date.getUTCHours() - 5);
+
+        const dayOfWeek = date.getUTCDay(); // 0 = Sunday, 6 = Saturday
+
+        if (dayOfWeek === 0) { // Sunday
+            return 'Extra';
+        }
+        
+        const [startHours, startMinutes] = horaInicio.split(':').map(Number);
+        const startTime = new Date(date);
+        startTime.setUTCHours(startHours, startMinutes, 0, 0);
+        
+        const [endHours, endMinutes] = horaFin.split(':').map(Number);
+        const endTime = new Date(date);
+        endTime.setUTCHours(endHours, endMinutes, 0, 0);
+
+        // Handle overnight operations for end time
+        if (endTime <= startTime) {
+            endTime.setUTCDate(endTime.getUTCDate() + 1);
+        }
+
+        let diurnoStart: Date;
+        let diurnoEnd: Date;
+        let shiftType: { diurno: string; other: string };
+
+        if (dayOfWeek >= 1 && dayOfWeek <= 5) { // Monday to Friday
+            diurnoStart = new Date(date);
+            diurnoStart.setUTCHours(7, 0, 0, 0); // 7:00 AM
+
+            diurnoEnd = new Date(date);
+            diurnoEnd.setUTCHours(17, 0, 0, 0); // 5:00 PM
+
+            shiftType = { diurno: 'Diurno', other: 'Nocturno' };
+        } else { // Saturday (dayOfWeek === 6)
+            diurnoStart = new Date(date);
+            diurnoStart.setUTCHours(7, 0, 0, 0); // 7:00 AM
+            
+            diurnoEnd = new Date(date);
+            diurnoEnd.setUTCHours(12, 0, 0, 0); // 12:00 PM
+            
+            shiftType = { diurno: 'Diurno', other: 'Extra' };
+        }
+
+        // Check if the entire operation falls within the diurno window
+        if (startTime >= diurnoStart && endTime <= diurnoEnd) {
+            return shiftType.diurno;
+        } else {
+            return shiftType.other;
+        }
+
+    } catch (e) {
+        console.error(`Error calculating logistics type:`, e);
+        return 'Error';
+    }
+};
 
 // Helper to serialize Firestore Timestamps
 const serializeTimestamps = (data: any): any => {
@@ -44,6 +108,7 @@ export interface DetailedReportRow {
     totalPaletas: number;
     tipoPedido: string;
     pedidoSislog: string;
+    operacionLogistica: string;
 }
 
 const calculateTotalPallets = (formType: string, formData: any): number => {
@@ -106,6 +171,8 @@ export async function getDetailedReport(criteria: DetailedReportCriteria): Promi
         } else if (formType.includes('despacho')) {
             tipoPedido = 'Despacho';
         }
+
+        const operacionLogistica = getOperationLogisticsType(formData.fecha, formData.horaInicio, formData.horaFin);
         
         return {
             id: doc.id,
@@ -119,6 +186,7 @@ export async function getDetailedReport(criteria: DetailedReportCriteria): Promi
             totalPaletas,
             tipoPedido,
             pedidoSislog: formData.pedidoSislog || 'N/A',
+            operacionLogistica,
         };
     });
 
