@@ -11,6 +11,7 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 
 import { getBillingReport, DailyReportData } from '@/app/actions/billing-report';
+import { getDetailedReport, type DetailedReportRow } from '@/app/actions/detailed-report';
 import { getInventoryReport, uploadInventoryCsv, type InventoryPivotReport, getClientsWithInventory, getInventoryIdsByDateRange, deleteSingleInventoryDoc } from '@/app/actions/inventory-report';
 import type { ClientInfo } from '@/app/actions/clients';
 import { useToast } from '@/hooks/use-toast';
@@ -48,7 +49,7 @@ const ResultsSkeleton = () => (
 
 const EmptyState = ({ searched, title, description, emptyDescription }: { searched: boolean; title: string; description: string; emptyDescription: string; }) => (
     <TableRow>
-        <TableCell colSpan={4} className="py-20 text-center">
+        <TableCell colSpan={10} className="py-20 text-center">
             <div className="flex flex-col items-center gap-4">
                 <div className="rounded-full bg-primary/10 p-4">
                     <FolderSearch className="h-12 w-12 text-primary" />
@@ -96,6 +97,16 @@ const getImageAsBase64Client = async (url: string): Promise<string> => {
     }
 };
 
+const formatTime12Hour = (time24: string | undefined): string => {
+    if (!time24 || !time24.includes(':')) return 'N/A';
+    const [hours, minutes] = time24.split(':');
+    let h = parseInt(hours, 10);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12;
+    h = h ? h : 12; // the hour '0' should be '12'
+    return `${h}:${minutes} ${ampm}`;
+};
+
 const MAX_DATE_RANGE_DAYS = 31;
 
 
@@ -112,6 +123,17 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const [searched, setSearched] = useState(false);
     const [isClientDialogOpen, setClientDialogOpen] = useState(false);
     const [clientSearch, setClientSearch] = useState("");
+
+    // State for detailed operation report
+    const [detailedReportDateRange, setDetailedReportDateRange] = useState<DateRange | undefined>(undefined);
+    const [detailedReportClient, setDetailedReportClient] = useState<string | undefined>(undefined);
+    const [detailedReportOperationType, setDetailedReportOperationType] = useState<string>('');
+    const [detailedReportContainer, setDetailedReportContainer] = useState<string>('');
+    const [detailedReportData, setDetailedReportData] = useState<DetailedReportRow[]>([]);
+    const [isDetailedReportLoading, setIsDetailedReportLoading] = useState(false);
+    const [isDetailedReportSearched, setIsDetailedReportSearched] = useState(false);
+    const [isDetailedClientDialogOpen, setDetailedClientDialogOpen] = useState(false);
+    const [detailedClientSearch, setDetailedClientSearch] = useState("");
 
     // State for CSV inventory report
     const [isUploading, setIsUploading] = useState(false);
@@ -196,6 +218,11 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         if (!clientSearch) return clients;
         return clients.filter(c => c.razonSocial.toLowerCase().includes(clientSearch.toLowerCase()));
     }, [clientSearch, clients]);
+    
+    const filteredDetailedClients = useMemo(() => {
+        if (!detailedClientSearch) return clients;
+        return clients.filter(c => c.razonSocial.toLowerCase().includes(detailedClientSearch.toLowerCase()));
+    }, [detailedClientSearch, clients]);
     
     const filteredAvailableInventoryClients = useMemo(() => {
         if (!inventoryClientSearch) return availableInventoryClients;
@@ -321,6 +348,111 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         setReportData([]);
         setSearched(false);
     };
+
+    const handleDetailedReportSearch = async () => {
+        if (!detailedReportDateRange?.from || !detailedReportDateRange?.to) {
+            toast({ variant: 'destructive', title: 'Filtros incompletos', description: 'Por favor, seleccione un rango de fechas para generar el reporte.' });
+            return;
+        }
+
+        setIsDetailedReportLoading(true);
+        setIsDetailedReportSearched(true);
+        setDetailedReportData([]);
+
+        try {
+            const criteria: DetailedReportCriteria = {
+                startDate: format(detailedReportDateRange.from, 'yyyy-MM-dd'),
+                endDate: format(detailedReportDateRange.to, 'yyyy-MM-dd'),
+                clientName: detailedReportClient,
+                operationType: detailedReportOperationType === 'todos' ? undefined : detailedReportOperationType as 'recepcion' | 'despacho',
+                containerNumber: detailedReportContainer,
+            };
+
+            const results = await getDetailedReport(criteria);
+            setDetailedReportData(results);
+            if (results.length === 0) {
+                 toast({ title: "Sin resultados", description: "No se encontraron operaciones para los filtros seleccionados." });
+            }
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "Ocurrió un error desconocido.";
+            toast({ variant: 'destructive', title: 'Error al generar el reporte', description: errorMessage });
+        } finally {
+            setIsDetailedReportLoading(false);
+        }
+    };
+    
+    const handleDetailedReportClear = () => {
+        setDetailedReportDateRange(undefined);
+        setDetailedReportClient(undefined);
+        setDetailedReportOperationType('');
+        setDetailedReportContainer('');
+        setDetailedReportData([]);
+        setIsDetailedReportSearched(false);
+    };
+
+    const handleDetailedReportExportExcel = () => {
+        if (detailedReportData.length === 0) return;
+
+        const dataToExport = detailedReportData.map(row => ({
+            'Fecha': format(new Date(row.fecha), 'dd/MM/yyyy'),
+            'Hora Inicio': formatTime12Hour(row.horaInicio),
+            'Hora Fin': formatTime12Hour(row.horaFin),
+            'Placa Vehículo': row.placa,
+            'No. Contenedor': row.contenedor,
+            'Cliente': row.cliente,
+            'Observaciones': row.observaciones,
+            'Total Paletas': row.totalPaletas,
+            'Tipo Pedido': row.tipoPedido,
+            'No. Pedido (SISLOG)': row.pedidoSislog
+        }));
+
+        const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Reporte Detallado');
+        const fileName = `Reporte_Detallado_Operacion_${format(detailedReportDateRange!.from!, 'yyyy-MM-dd')}_a_${format(detailedReportDateRange!.to!, 'yyyy-MM-dd')}.xlsx`;
+        XLSX.writeFile(workbook, fileName);
+    };
+
+    const handleDetailedReportExportPDF = () => {
+        if (detailedReportData.length === 0 || !logoBase64 || !logoDimensions) return;
+        
+        const doc = new jsPDF({ orientation: 'landscape' });
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        
+        doc.setFontSize(11);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Informe Detallado por Operación', pageWidth / 2, 20, { align: 'center' });
+
+        autoTable(doc, {
+            startY: 30,
+            head: [[
+                'Fecha', 'Cliente', 'Tipo Pedido', 'No. Pedido', 'Placa', 'Contenedor', 'H. Inicio', 'H. Fin', 'Total Paletas', 'Observaciones'
+            ]],
+            body: detailedReportData.map(row => [
+                format(new Date(row.fecha), 'dd/MM/yy'),
+                row.cliente,
+                row.tipoPedido,
+                row.pedidoSislog,
+                row.placa,
+                row.contenedor,
+                formatTime12Hour(row.horaInicio),
+                formatTime12Hour(row.horaFin),
+                row.totalPaletas,
+                row.observaciones
+            ]),
+            theme: 'grid',
+            headStyles: { fillColor: [33, 150, 243], fontSize: 8 },
+            styles: { fontSize: 7, cellPadding: 1.5, overflow: 'linebreak' },
+            columnStyles: {
+                9: { cellWidth: 50 }, // Observaciones column
+            }
+        });
+
+        const fileName = `Reporte_Detallado_Operacion_${format(detailedReportDateRange!.from!, 'yyyy-MM-dd')}_a_${format(detailedReportDateRange!.to!, 'yyyy-MM-dd')}.pdf`;
+        doc.save(fileName);
+    };
+
 
     const handleFileUploadAction = async (event: React.FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -802,6 +934,136 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                     </CardContent>
                 </Card>
                 
+                <Card className="mt-8 mb-6">
+                    <CardHeader>
+                        <CardTitle>Informe Detallado por Operación</CardTitle>
+                        <CardDescription>Filtre para ver un listado detallado de las operaciones registradas.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end mb-6">
+                            <div className="space-y-2">
+                                <Label>Rango de Fechas</Label>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !detailedReportDateRange && "text-muted-foreground")}>
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {detailedReportDateRange?.from ? (detailedReportDateRange.to ? (<>{format(detailedReportDateRange.from, "LLL dd, y", { locale: es })} - {format(detailedReportDateRange.to, "LLL dd, y", { locale: es })}</>) : (format(detailedReportDateRange.from, "LLL dd, y", { locale: es }))) : (<span>Seleccione un rango</span>)}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0" align="start">
+                                        <Calendar initialFocus mode="range" defaultMonth={detailedReportDateRange?.from} selected={detailedReportDateRange} onSelect={setDetailedReportDateRange} numberOfMonths={2} locale={es} />
+                                    </PopoverContent>
+                                </Popover>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Cliente (Opcional)</Label>
+                                 <Dialog open={isDetailedClientDialogOpen} onOpenChange={setDetailedClientDialogOpen}>
+                                    <DialogTrigger asChild>
+                                        <Button variant="outline" className="w-full justify-between text-left font-normal">
+                                            {detailedReportClient || "Seleccione un cliente"}
+                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                        </Button>
+                                    </DialogTrigger>
+                                    <DialogContent className="sm:max-w-[425px]">
+                                        <DialogHeader><DialogTitle>Seleccionar Cliente</DialogTitle></DialogHeader>
+                                        <div className="p-4">
+                                            <Input placeholder="Buscar cliente..." value={detailedClientSearch} onChange={(e) => setDetailedClientSearch(e.target.value)} className="mb-4" />
+                                            <ScrollArea className="h-72"><div className="space-y-1">
+                                                <Button variant="ghost" className="w-full justify-start" onClick={() => { setDetailedReportClient(undefined); setDetailedClientDialogOpen(false); setDetailedClientSearch(''); }}>-- Todos los clientes --</Button>
+                                                {filteredDetailedClients.map((client) => (
+                                                    <Button key={client.id} variant="ghost" className="w-full justify-start" onClick={() => { setDetailedReportClient(client.razonSocial); setDetailedClientDialogOpen(false); setDetailedClientSearch(''); }}>{client.razonSocial}</Button>
+                                                ))}
+                                            </div></ScrollArea>
+                                        </div>
+                                    </DialogContent>
+                                </Dialog>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Tipo de Operación</Label>
+                                <Select value={detailedReportOperationType} onValueChange={setDetailedReportOperationType}>
+                                    <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="todos">Todos</SelectItem>
+                                        <SelectItem value="recepcion">Recepción</SelectItem>
+                                        <SelectItem value="despacho">Despacho</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>No. Contenedor (Opcional)</Label>
+                                <Input placeholder="Buscar por contenedor" value={detailedReportContainer} onChange={(e) => setDetailedReportContainer(e.target.value)} />
+                            </div>
+                             <div className="flex gap-2">
+                                <Button onClick={handleDetailedReportSearch} className="w-full" disabled={isDetailedReportLoading}>
+                                    {isDetailedReportLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+                                    Buscar
+                                </Button>
+                                <Button onClick={handleDetailedReportClear} variant="outline" className="w-full">
+                                    <XCircle className="mr-2 h-4 w-4" />
+                                    Limpiar
+                                </Button>
+                            </div>
+                        </div>
+                        
+                         <div className="flex justify-end gap-2 my-4">
+                            <Button onClick={handleDetailedReportExportExcel} disabled={isDetailedReportLoading || detailedReportData.length === 0} variant="outline">
+                                <File className="mr-2 h-4 w-4" /> Exportar a Excel
+                            </Button>
+                            <Button onClick={handleDetailedReportExportPDF} disabled={isDetailedReportLoading || detailedReportData.length === 0 || isLogoLoading} variant="outline">
+                                {isLogoLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />}
+                                Exportar a PDF
+                            </Button>
+                        </div>
+
+                        <ScrollArea className="w-full whitespace-nowrap rounded-md border">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Fecha</TableHead>
+                                        <TableHead>Cliente</TableHead>
+                                        <TableHead>Tipo Pedido</TableHead>
+                                        <TableHead>No. Pedido</TableHead>
+                                        <TableHead>Placa</TableHead>
+                                        <TableHead>Contenedor</TableHead>
+                                        <TableHead>H. Inicio</TableHead>
+                                        <TableHead>H. Fin</TableHead>
+                                        <TableHead>Total Paletas</TableHead>
+                                        <TableHead>Observaciones</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                     {isDetailedReportLoading ? (
+                                        <TableRow><TableCell colSpan={10}><Skeleton className="h-20 w-full" /></TableCell></TableRow>
+                                     ) : detailedReportData.length > 0 ? (
+                                        detailedReportData.map((row) => (
+                                            <TableRow key={row.id}>
+                                                <TableCell>{format(new Date(row.fecha), 'dd/MM/yyyy')}</TableCell>
+                                                <TableCell>{row.cliente}</TableCell>
+                                                <TableCell>{row.tipoPedido}</TableCell>
+                                                <TableCell>{row.pedidoSislog}</TableCell>
+                                                <TableCell>{row.placa}</TableCell>
+                                                <TableCell>{row.contenedor}</TableCell>
+                                                <TableCell>{formatTime12Hour(row.horaInicio)}</TableCell>
+                                                <TableCell>{formatTime12Hour(row.horaFin)}</TableCell>
+                                                <TableCell>{row.totalPaletas}</TableCell>
+                                                <TableCell className="max-w-[200px] truncate" title={row.observaciones}>{row.observaciones}</TableCell>
+                                            </TableRow>
+                                        ))
+                                     ) : (
+                                         <EmptyState
+                                            searched={isDetailedReportSearched}
+                                            title="No se encontraron operaciones"
+                                            emptyDescription="No hay datos para los filtros seleccionados."
+                                            description="Seleccione los filtros para ver el informe."
+                                        />
+                                     )}
+                                </TableBody>
+                            </Table>
+                            <ScrollBar orientation="horizontal" />
+                        </ScrollArea>
+                    </CardContent>
+                </Card>
+
                 <Card className="mt-8">
                     <CardHeader>
                         <CardTitle>Informe de Inventario Acumulado por Día</CardTitle>
@@ -1100,7 +1362,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                             </strong>.
                         </AlertDialogDescription>
                          {isDeleting && (
-                            <div className="pt-2 space-y-2">
+                            <div className="pt-4 space-y-2">
                                 <Progress value={deleteProgress} className="w-full" />
                                 <p className="text-sm text-center text-muted-foreground">Eliminando... {Math.round(deleteProgress)}%</p>
                             </div>
