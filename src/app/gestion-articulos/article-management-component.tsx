@@ -17,6 +17,7 @@ import { ArrowLeft, Loader2, Box, PlusCircle, Edit, Trash2, ChevronsUpDown, File
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import {
   AlertDialog,
@@ -358,7 +359,7 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
                 </Alert>
                 <form id="upload-articles-form" action={handleUploadFormAction} className="space-y-4">
                   <div className="space-y-1">
-                      <FormLabel htmlFor="file-upload">Archivo Excel</FormLabel>
+                      <Label htmlFor="file-upload">Archivo Excel</Label>
                       <Input 
                           id="file-upload" 
                           name="file" 
@@ -553,3 +554,5 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
     </div>
   );
 }
+
+    
