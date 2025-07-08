@@ -789,8 +789,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 <Tabs defaultValue="daily-movements" className="w-full">
                     <TabsList className="grid w-full grid-cols-3 mb-6">
                         <TabsTrigger value="daily-movements">Movimientos Diarios</TabsTrigger>
-                        <TabsTrigger value="detailed-operation">Operación Detallada</TabsTrigger>
-                        <TabsTrigger value="inventory">Inventario</TabsTrigger>
+                        <TabsTrigger value="detailed-operation">Operaciones Detalladas</TabsTrigger>
+                        <TabsTrigger value="inventory">Inventario por Día</TabsTrigger>
                     </TabsList>
                     
                     <TabsContent value="daily-movements" className="space-y-6">
