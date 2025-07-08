@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from 'react';
@@ -28,7 +27,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Alert, AlertTitle } from '@/components/ui/alert';
+import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import type { ClientInfo } from '@/app/actions/clients';
 
 // Schemas for forms
@@ -244,9 +243,9 @@ export default function ClientManagementComponent({ initialClients }: ClientMana
               <CardContent>
                 <Alert className="mb-4 border-blue-500 bg-blue-50 text-blue-800 [&>svg]:text-blue-600">
                     <AlertTitle className="text-blue-700">Formato del Archivo</AlertTitle>
-                    <AlertDialogDescription>
+                    <AlertDescription>
                         El archivo debe tener una única columna con el encabezado: <strong>Razón Social</strong>.
-                    </AlertDialogDescription>
+                    </AlertDescription>
                 </Alert>
                 <form id="upload-clients-form" action={handleUploadFormAction} className="space-y-4">
                     <div className="space-y-1">
