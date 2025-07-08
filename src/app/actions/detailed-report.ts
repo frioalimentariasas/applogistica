@@ -148,18 +148,41 @@ export async function getDetailedReport(criteria: DetailedReportCriteria): Promi
 
     // To avoid full collection scans, we require a date range.
     if (criteria.startDate && criteria.endDate) {
-        // Add 1 day to endDate to make the range inclusive of the end date
-        const inclusiveEndDate = new Date(criteria.endDate);
-        inclusiveEndDate.setDate(inclusiveEndDate.getDate() + 1);
+        // Widen the server query by a day on each side to account for timezone differences.
+        // The precise filtering will happen in memory using formData.fecha.
+        const serverQueryStartDate = new Date(criteria.startDate);
+        serverQueryStartDate.setDate(serverQueryStartDate.getDate() - 1);
         
-        query = query.where('createdAt', '>=', criteria.startDate).where('createdAt', '<', inclusiveEndDate.toISOString().split('T')[0]);
+        const serverQueryEndDate = new Date(criteria.endDate);
+        serverQueryEndDate.setDate(serverQueryEndDate.getDate() + 2);
+        
+        query = query.where('createdAt', '>=', serverQueryStartDate.toISOString().split('T')[0])
+                     .where('createdAt', '<', serverQueryEndDate.toISOString().split('T')[0]);
     } else {
         throw new Error('Se requiere un rango de fechas para generar este informe.');
     }
 
     const snapshot = await query.get();
+    
+    // Filter the results in memory using the correct date field (`formData.fecha`)
+    const filteredDocs = snapshot.docs.filter(doc => {
+        const data = doc.data();
+        const formIsoDate = data.formData?.fecha;
+        
+        // Handle both Timestamp and string dates for compatibility
+        let formDatePart: string;
+        if (formIsoDate instanceof admin.firestore.Timestamp) {
+            formDatePart = formIsoDate.toDate().toISOString().split('T')[0];
+        } else if (typeof formIsoDate === 'string') {
+            formDatePart = formIsoDate.split('T')[0];
+        } else {
+            return false; // Skip if date is missing or invalid format
+        }
 
-    let results = snapshot.docs.map(doc => {
+        return formDatePart >= criteria.startDate! && formDatePart <= criteria.endDate!;
+    });
+
+    let results = filteredDocs.map(doc => {
         const submission = serializeTimestamps(doc.data());
         const { formType, formData } = submission;
 
