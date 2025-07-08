@@ -32,6 +32,7 @@ import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
 
 const ResultsSkeleton = () => (
@@ -778,591 +779,605 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                         <div>
                             <div className="flex items-center justify-center gap-2">
                                 <BookCopy className="h-8 w-8 text-primary" />
-                                <h1 className="text-2xl font-bold text-primary">Informes para Facturación</h1>
+                                <h1 className="text-2xl font-bold text-primary">Informes</h1>
                             </div>
-                             <p className="text-sm text-gray-500">Consulte los movimientos consolidados y el inventario diario.</p>
+                             <p className="text-sm text-gray-500">Seleccione un tipo de informe y utilice los filtros para generar los datos.</p>
                         </div>
                     </div>
                 </header>
-                
-                <Card className="mb-6">
-                    <CardHeader>
-                        <CardTitle>Filtros del Reporte Movimientos Diarios</CardTitle>
-                        <CardDescription>Seleccione un cliente y un rango de fechas para generar el informe.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
-                            <div className="space-y-2">
-                                <Label>Cliente</Label>
-                                <Dialog open={isClientDialogOpen} onOpenChange={setClientDialogOpen}>
-                                    <DialogTrigger asChild>
-                                        <Button variant="outline" className="w-full justify-between text-left font-normal">
-                                            {selectedClient || "Seleccione un cliente"}
-                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                        </Button>
-                                    </DialogTrigger>
-                                    <DialogContent className="sm:max-w-[425px]">
-                                        <DialogHeader>
-                                            <DialogTitle>Seleccionar Cliente</DialogTitle>
-                                            <DialogDescription>Busque y seleccione un cliente para generar el informe.</DialogDescription>
-                                        </DialogHeader>
-                                        <div className="p-4">
-                                            <Input
-                                                placeholder="Buscar cliente..."
-                                                value={clientSearch}
-                                                onChange={(e) => setClientSearch(e.target.value)}
-                                                className="mb-4"
-                                            />
-                                            <ScrollArea className="h-72">
-                                                <div className="space-y-1">
-                                                    {filteredClients.map((client) => (
-                                                        <Button
-                                                            key={client.id}
-                                                            variant="ghost"
-                                                            className="w-full justify-start"
-                                                            onClick={() => {
-                                                                setSelectedClient(client.razonSocial);
-                                                                setClientDialogOpen(false);
-                                                                setClientSearch('');
-                                                            }}
-                                                        >
-                                                            {client.razonSocial}
-                                                        </Button>
-                                                    ))}
-                                                    {filteredClients.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron clientes.</p>}
+
+                <Tabs defaultValue="daily-movements" className="w-full">
+                    <TabsList className="grid w-full grid-cols-3 mb-6">
+                        <TabsTrigger value="daily-movements">Movimientos Diarios</TabsTrigger>
+                        <TabsTrigger value="detailed-operation">Operación Detallada</TabsTrigger>
+                        <TabsTrigger value="inventory">Inventario</TabsTrigger>
+                    </TabsList>
+                    
+                    <TabsContent value="daily-movements" className="space-y-6">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Filtros del Reporte Movimientos Diarios</CardTitle>
+                                <CardDescription>Seleccione un cliente y un rango de fechas para generar el informe.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
+                                    <div className="space-y-2">
+                                        <Label>Cliente</Label>
+                                        <Dialog open={isClientDialogOpen} onOpenChange={setClientDialogOpen}>
+                                            <DialogTrigger asChild>
+                                                <Button variant="outline" className="w-full justify-between text-left font-normal">
+                                                    {selectedClient || "Seleccione un cliente"}
+                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                </Button>
+                                            </DialogTrigger>
+                                            <DialogContent className="sm:max-w-[425px]">
+                                                <DialogHeader>
+                                                    <DialogTitle>Seleccionar Cliente</DialogTitle>
+                                                    <DialogDescription>Busque y seleccione un cliente para generar el informe.</DialogDescription>
+                                                </DialogHeader>
+                                                <div className="p-4">
+                                                    <Input
+                                                        placeholder="Buscar cliente..."
+                                                        value={clientSearch}
+                                                        onChange={(e) => setClientSearch(e.target.value)}
+                                                        className="mb-4"
+                                                    />
+                                                    <ScrollArea className="h-72">
+                                                        <div className="space-y-1">
+                                                            {filteredClients.map((client) => (
+                                                                <Button
+                                                                    key={client.id}
+                                                                    variant="ghost"
+                                                                    className="w-full justify-start"
+                                                                    onClick={() => {
+                                                                        setSelectedClient(client.razonSocial);
+                                                                        setClientDialogOpen(false);
+                                                                        setClientSearch('');
+                                                                    }}
+                                                                >
+                                                                    {client.razonSocial}
+                                                                </Button>
+                                                            ))}
+                                                            {filteredClients.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron clientes.</p>}
+                                                        </div>
+                                                    </ScrollArea>
                                                 </div>
-                                            </ScrollArea>
-                                        </div>
-                                    </DialogContent>
-                                </Dialog>
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="date">Rango de Fechas</Label>
-                                 <Popover>
-                                    <PopoverTrigger asChild>
-                                        <Button
-                                            id="date"
-                                            variant={"outline"}
-                                            className={cn(
-                                                "w-full justify-start text-left font-normal",
-                                                !dateRange && "text-muted-foreground"
-                                            )}
-                                        >
-                                            <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {dateRange?.from ? (
-                                                dateRange.to ? (
-                                                    <>
-                                                        {format(dateRange.from, "LLL dd, y", { locale: es })} -{" "}
-                                                        {format(dateRange.to, "LLL dd, y", { locale: es })}
-                                                    </>
-                                                ) : (
-                                                    format(dateRange.from, "LLL dd, y", { locale: es })
-                                                )
-                                            ) : (
-                                                <span>Seleccione un rango</span>
-                                            )}
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0" align="start">
-                                        <Calendar
-                                            initialFocus
-                                            mode="range"
-                                            defaultMonth={dateRange?.from}
-                                            selected={dateRange}
-                                            onSelect={setDateRange}
-                                            numberOfMonths={2}
-                                            locale={es}
-                                        />
-                                    </PopoverContent>
-                                </Popover>
-                            </div>
-                            <div className="flex gap-2">
-                                <Button onClick={handleSearch} className="w-full" disabled={isLoading}>
-                                    {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
-                                    Generar
-                                </Button>
-                                <Button onClick={handleClear} variant="outline" className="w-full">
-                                    <XCircle className="mr-2 h-4 w-4" />
-                                    Limpiar
-                                </Button>
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardHeader>
-                        <div className="flex justify-between items-center flex-wrap gap-4">
-                            <div>
-                                <CardTitle>Resultados del Informe Movimientos Diarios</CardTitle>
-                                <CardDescription>
-                                     {isLoading ? "Cargando resultados..." : `Mostrando ${reportData.length} días con movimientos.`}
-                                </CardDescription>
-                            </div>
-                            <div className="flex gap-2">
-                                <Button onClick={handleExportExcel} disabled={isLoading || reportData.length === 0} variant="outline">
-                                    <File className="mr-2 h-4 w-4" /> Exportar a Excel
-                                </Button>
-                                <Button onClick={handleExportPDF} disabled={isLoading || reportData.length === 0 || isLogoLoading} variant="outline">
-                                    {isLogoLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />}
-                                    Exportar a PDF
-                                </Button>
-                            </div>
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="rounded-md border">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Fecha</TableHead>
-                                        <TableHead>Cliente</TableHead>
-                                        <TableHead className="text-right">Paletas Recibidas</TableHead>
-                                        <TableHead className="text-right">Paletas Despachadas</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {isLoading ? (
-                                        <ResultsSkeleton />
-                                    ) : reportData.length > 0 ? (
-                                        reportData.map((row) => (
-                                            <TableRow key={row.date}>
-                                                <TableCell className="font-medium">{format(new Date(row.date.replace(/-/g, '/')), 'dd/MM/yyyy')}</TableCell>
-                                                <TableCell>{selectedClient}</TableCell>
-                                                <TableCell className="text-right">{row.paletasRecibidas}</TableCell>
-                                                <TableCell className="text-right">{row.paletasDespachadas}</TableCell>
-                                            </TableRow>
-                                        ))
-                                    ) : (
-                                        <EmptyState
-                                            searched={searched}
-                                            title="No se encontraron movimientos"
-                                            emptyDescription="No hay datos para el cliente y rango de fechas seleccionado."
-                                            description="Seleccione un cliente y un rango de fechas para ver el informe."
-                                        />
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </div>
-                    </CardContent>
-                </Card>
-                
-                <Card className="mt-8 mb-6">
-                    <CardHeader>
-                        <CardTitle>Informe Detallado por Operación</CardTitle>
-                        <CardDescription>Filtre para ver un listado detallado de las operaciones registradas.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end mb-6">
-                            <div className="space-y-2">
-                                <Label>Rango de Fechas</Label>
-                                <Popover>
-                                    <PopoverTrigger asChild>
-                                        <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !detailedReportDateRange && "text-muted-foreground")}>
-                                            <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {detailedReportDateRange?.from ? (detailedReportDateRange.to ? (<>{format(detailedReportDateRange.from, "LLL dd, y", { locale: es })} - {format(detailedReportDateRange.to, "LLL dd, y", { locale: es })}</>) : (format(detailedReportDateRange.from, "LLL dd, y", { locale: es }))) : (<span>Seleccione un rango</span>)}
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0" align="start">
-                                        <Calendar initialFocus mode="range" defaultMonth={detailedReportDateRange?.from} selected={detailedReportDateRange} onSelect={setDetailedReportDateRange} numberOfMonths={2} locale={es} />
-                                    </PopoverContent>
-                                </Popover>
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Cliente (Opcional)</Label>
-                                 <Dialog open={isDetailedClientDialogOpen} onOpenChange={setDetailedClientDialogOpen}>
-                                    <DialogTrigger asChild>
-                                        <Button variant="outline" className="w-full justify-between text-left font-normal">
-                                            {detailedReportClient || "Seleccione un cliente"}
-                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                        </Button>
-                                    </DialogTrigger>
-                                    <DialogContent className="sm:max-w-[425px]">
-                                        <DialogHeader><DialogTitle>Seleccionar Cliente</DialogTitle></DialogHeader>
-                                        <div className="p-4">
-                                            <Input placeholder="Buscar cliente..." value={detailedClientSearch} onChange={(e) => setDetailedClientSearch(e.target.value)} className="mb-4" />
-                                            <ScrollArea className="h-72"><div className="space-y-1">
-                                                <Button variant="ghost" className="w-full justify-start" onClick={() => { setDetailedReportClient(undefined); setDetailedClientDialogOpen(false); setDetailedClientSearch(''); }}>-- Todos los clientes --</Button>
-                                                {filteredDetailedClients.map((client) => (
-                                                    <Button key={client.id} variant="ghost" className="w-full justify-start" onClick={() => { setDetailedReportClient(client.razonSocial); setDetailedClientDialogOpen(false); setDetailedClientSearch(''); }}>{client.razonSocial}</Button>
-                                                ))}
-                                            </div></ScrollArea>
-                                        </div>
-                                    </DialogContent>
-                                </Dialog>
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Tipo de Operación</Label>
-                                <Select value={detailedReportOperationType} onValueChange={setDetailedReportOperationType}>
-                                    <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="todos">Todos</SelectItem>
-                                        <SelectItem value="recepcion">Recepción</SelectItem>
-                                        <SelectItem value="despacho">Despacho</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-2">
-                                <Label>No. Contenedor (Opcional)</Label>
-                                <Input placeholder="Buscar por contenedor" value={detailedReportContainer} onChange={(e) => setDetailedReportContainer(e.target.value)} />
-                            </div>
-                             <div className="flex gap-2">
-                                <Button onClick={handleDetailedReportSearch} className="w-full" disabled={isDetailedReportLoading}>
-                                    {isDetailedReportLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
-                                    Buscar
-                                </Button>
-                                <Button onClick={handleDetailedReportClear} variant="outline" className="w-full">
-                                    <XCircle className="mr-2 h-4 w-4" />
-                                    Limpiar
-                                </Button>
-                            </div>
-                        </div>
-                        
-                         <div className="flex justify-end gap-2 my-4">
-                            <Button onClick={handleDetailedReportExportExcel} disabled={isDetailedReportLoading || detailedReportData.length === 0} variant="outline">
-                                <File className="mr-2 h-4 w-4" /> Exportar a Excel
-                            </Button>
-                            <Button onClick={handleDetailedReportExportPDF} disabled={isDetailedReportLoading || detailedReportData.length === 0 || isLogoLoading} variant="outline">
-                                {isLogoLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />}
-                                Exportar a PDF
-                            </Button>
-                        </div>
-
-                        <ScrollArea className="w-full whitespace-nowrap rounded-md border">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Fecha</TableHead>
-                                        <TableHead>Op. Logística</TableHead>
-                                        <TableHead>Cliente</TableHead>
-                                        <TableHead>Tipo Pedido</TableHead>
-                                        <TableHead>No. Pedido</TableHead>
-                                        <TableHead>Placa</TableHead>
-                                        <TableHead>Contenedor</TableHead>
-                                        <TableHead>H. Inicio</TableHead>
-                                        <TableHead>H. Fin</TableHead>
-                                        <TableHead>Total Paletas</TableHead>
-                                        <TableHead>Observaciones</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                     {isDetailedReportLoading ? (
-                                        <TableRow><TableCell colSpan={11}><Skeleton className="h-20 w-full" /></TableCell></TableRow>
-                                     ) : detailedReportData.length > 0 ? (
-                                        detailedReportData.map((row) => (
-                                            <TableRow key={row.id}>
-                                                <TableCell>{format(new Date(row.fecha), 'dd/MM/yyyy')}</TableCell>
-                                                <TableCell>{row.operacionLogistica}</TableCell>
-                                                <TableCell>{row.cliente}</TableCell>
-                                                <TableCell>{row.tipoPedido}</TableCell>
-                                                <TableCell>{row.pedidoSislog}</TableCell>
-                                                <TableCell>{row.placa}</TableCell>
-                                                <TableCell>{row.contenedor}</TableCell>
-                                                <TableCell>{formatTime12Hour(row.horaInicio)}</TableCell>
-                                                <TableCell>{formatTime12Hour(row.horaFin)}</TableCell>
-                                                <TableCell>{row.totalPaletas}</TableCell>
-                                                <TableCell className="max-w-[200px] truncate" title={row.observaciones}>{row.observaciones}</TableCell>
-                                            </TableRow>
-                                        ))
-                                     ) : (
-                                         <EmptyState
-                                            searched={isDetailedReportSearched}
-                                            title="No se encontraron operaciones"
-                                            emptyDescription="No hay datos para los filtros seleccionados."
-                                            description="Seleccione los filtros para ver el informe."
-                                        />
-                                     )}
-                                </TableBody>
-                            </Table>
-                            <ScrollBar orientation="horizontal" />
-                        </ScrollArea>
-                    </CardContent>
-                </Card>
-
-                <Card className="mt-8">
-                    <CardHeader>
-                        <CardTitle>Informe de Inventario Acumulado por Día</CardTitle>
-                        <CardDescription>Cargue, elimine o consulte el inventario diario.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="mb-6 rounded-lg border p-4">
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
-                                <form onSubmit={handleFileUploadAction} ref={uploadFormRef} className="space-y-2 flex flex-col">
-                                    <Label htmlFor="csv-upload" className="font-semibold text-base">Cargar Inventario</Label>
-                                    <p className="text-sm text-muted-foreground flex-grow">Suba los archivos de inventario (.csv, .xlsx, .xls).</p>
-                                    <div className="flex items-center gap-2 pt-2">
-                                        <Input
-                                            id="csv-upload"
-                                            name="file"
-                                            type="file"
-                                            accept=".csv, .xlsx, .xls"
-                                            disabled={isUploading}
-                                            multiple
-                                            className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
-                                        />
-                                        <Button type="submit" disabled={isUploading}>
-                                            {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
-                                            Cargar
-                                        </Button>
+                                            </DialogContent>
+                                        </Dialog>
                                     </div>
-                                    {isUploading && (
-                                        <div className="mt-4 space-y-2">
-                                            <Progress value={uploadProgress} className="w-full" />
-                                            <p className="text-sm text-center text-muted-foreground">Procesando... {Math.round(uploadProgress)}%</p>
-                                        </div>
-                                    )}
-                                </form>
-                                <div className="space-y-2 flex flex-col border-t pt-6 md:border-t-0 md:border-l md:pt-0 md:pl-8">
-                                    <Label className="font-semibold text-base text-destructive">Eliminar Inventario</Label>
-                                    <p className="text-sm text-muted-foreground flex-grow">Esta acción es permanente. Seleccione un rango para eliminar los registros.</p>
-                                    <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-                                        <DialogTrigger asChild>
-                                            <Button variant="destructive" className="w-full mt-2">
-                                                <Trash2 className="mr-2 h-4 w-4" />
-                                                Eliminar Registros por Rango
-                                            </Button>
-                                        </DialogTrigger>
-                                        <DialogContent>
-                                            <DialogHeader>
-                                                <DialogTitle>Seleccione el rango de fechas a eliminar</DialogTitle>
-                                                <DialogDescription>
-                                                    Todos los registros de inventario dentro de este rango (incluyendo las fechas de inicio y fin) serán eliminados.
-                                                </DialogDescription>
-                                            </DialogHeader>
-                                            <div className="flex justify-center py-4">
+                                    <div className="space-y-2">
+                                        <Label htmlFor="date">Rango de Fechas</Label>
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                                <Button
+                                                    id="date"
+                                                    variant={"outline"}
+                                                    className={cn(
+                                                        "w-full justify-start text-left font-normal",
+                                                        !dateRange && "text-muted-foreground"
+                                                    )}
+                                                >
+                                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                                    {dateRange?.from ? (
+                                                        dateRange.to ? (
+                                                            <>
+                                                                {format(dateRange.from, "LLL dd, y", { locale: es })} -{" "}
+                                                                {format(dateRange.to, "LLL dd, y", { locale: es })}
+                                                            </>
+                                                        ) : (
+                                                            format(dateRange.from, "LLL dd, y", { locale: es })
+                                                        )
+                                                    ) : (
+                                                        <span>Seleccione un rango</span>
+                                                    )}
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto p-0" align="start">
                                                 <Calendar
+                                                    initialFocus
                                                     mode="range"
-                                                    selected={dateRangeToDelete}
-                                                    onSelect={setDateRangeToDelete}
+                                                    defaultMonth={dateRange?.from}
+                                                    selected={dateRange}
+                                                    onSelect={setDateRange}
+                                                    numberOfMonths={2}
                                                     locale={es}
                                                 />
-                                            </div>
-                                            <DialogFooter>
-                                                <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>Cancelar</Button>
-                                                <Button 
-                                                    variant="destructive" 
-                                                    disabled={!dateRangeToDelete?.from || !dateRangeToDelete?.to}
-                                                    onClick={() => {
-                                                        setIsDeleteDialogOpen(false);
-                                                        setIsDeleteConfirmOpen(true);
-                                                    }}
-                                                >
-                                                    Proceder a Eliminar
-                                                </Button>
-                                            </DialogFooter>
-                                        </DialogContent>
-                                    </Dialog>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div>
-                            <Label className="font-semibold text-base">Consultar inventario Acumulado por Día</Label>
-                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end mt-2">
-                                <div className="space-y-2">
-                                    <Label>Rango de Fechas (Máx. 31 días)</Label>
-                                    <Popover>
-                                        <PopoverTrigger asChild>
-                                            <Button
-                                                variant={"outline"}
-                                                className={cn("w-full justify-start text-left font-normal", !inventoryDateRange && "text-muted-foreground")}
-                                            >
-                                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                                {inventoryDateRange?.from ? (
-                                                    inventoryDateRange.to ? (
-                                                        <>
-                                                            {format(inventoryDateRange.from, "LLL dd, y", { locale: es })} -{" "}
-                                                            {format(inventoryDateRange.to, "LLL dd, y", { locale: es })}
-                                                        </>
-                                                    ) : ( format(inventoryDateRange.from, "LLL dd, y", { locale: es }) )
-                                                ) : ( <span>Seleccione un rango</span> )}
-                                            </Button>
-                                        </PopoverTrigger>
-                                        <PopoverContent className="w-auto p-0">
-                                            <Calendar
-                                                mode="range"
-                                                selected={inventoryDateRange}
-                                                onSelect={(range) => {
-                                                    if (range?.from && range?.to && differenceInDays(range.to, range.from) > MAX_DATE_RANGE_DAYS) {
-                                                        toast({ variant: 'destructive', title: 'Rango muy amplio', description: `Por favor, seleccione un rango de no más de ${MAX_DATE_RANGE_DAYS} días.` });
-                                                    } else {
-                                                        setInventoryDateRange(range);
-                                                    }
-                                                }}
-                                                defaultMonth={inventoryDateRange?.from}
-                                                numberOfMonths={2}
-                                                locale={es}
-                                            />
-                                        </PopoverContent>
-                                    </Popover>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label>Cliente(s)</Label>
-                                    <Dialog open={isInventoryClientDialogOpen} onOpenChange={setInventoryClientDialogOpen}>
-                                        <DialogTrigger asChild>
-                                            <Button
-                                                variant="outline"
-                                                className="w-full justify-between font-normal"
-                                                disabled={!inventoryDateRange?.from || !inventoryDateRange?.to || isLoadingInventoryClients}
-                                            >
-                                                <span className="truncate">
-                                                    {inventoryClients.length === 0
-                                                        ? "Seleccione uno o más clientes"
-                                                        : inventoryClients.length === 1
-                                                        ? inventoryClients[0]
-                                                        : `${inventoryClients.length} clientes seleccionados`}
-                                                </span>
-                                                {isLoadingInventoryClients ? <Loader2 className="ml-2 h-4 w-4 shrink-0 animate-spin" /> : <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />}
-                                            </Button>
-                                        </DialogTrigger>
-                                        <DialogContent className="sm:max-w-[425px]">
-                                            <DialogHeader>
-                                                <DialogTitle>Seleccionar Cliente(s)</DialogTitle>
-                                                <DialogDescription>Seleccione los clientes para incluir en el reporte de inventario.</DialogDescription>
-                                            </DialogHeader>
-                                            <div className="p-4">
-                                                <Input
-                                                    placeholder="Buscar cliente..."
-                                                    value={inventoryClientSearch}
-                                                    onChange={(e) => setInventoryClientSearch(e.target.value)}
-                                                    className="mb-4"
-                                                />
-                                                <ScrollArea className="h-72">
-                                                    {isLoadingInventoryClients ? (
-                                                        <div className="flex justify-center items-center h-full">
-                                                            <Loader2 className="h-6 w-6 animate-spin" />
-                                                        </div>
-                                                    ) : (
-                                                        <div className="space-y-1">
-                                                            {filteredAvailableInventoryClients.map((clientName) => (
-                                                                <div key={clientName} className="flex items-center space-x-2 rounded-md p-2 hover:bg-accent">
-                                                                    <Checkbox
-                                                                        id={`client-inv-${clientName}`}
-                                                                        checked={inventoryClients.includes(clientName)}
-                                                                        onCheckedChange={(checked) => {
-                                                                            setInventoryClients(prev =>
-                                                                                checked
-                                                                                    ? [...prev, clientName]
-                                                                                    : prev.filter(s => s !== clientName)
-                                                                            )
-                                                                        }}
-                                                                    />
-                                                                    <Label htmlFor={`client-inv-${clientName}`} className="w-full cursor-pointer">{clientName}</Label>
-                                                                </div>
-                                                            ))}
-                                                            {filteredAvailableInventoryClients.length === 0 && (
-                                                                <p className="text-center text-sm text-muted-foreground">
-                                                                    {availableInventoryClients.length > 0 ? "No se encontraron clientes." : "No hay clientes con inventario en estas fechas."}
-                                                                </p>
-                                                            )}
-                                                        </div>
-                                                    )}
-                                                </ScrollArea>
-                                            </div>
-                                            <DialogFooter>
-                                                <Button onClick={() => setInventoryClientDialogOpen(false)}>Cerrar</Button>
-                                            </DialogFooter>
-                                        </DialogContent>
-                                    </Dialog>
-                                    <p className="text-xs text-muted-foreground">
-                                        {!inventoryDateRange?.from || !inventoryDateRange?.to 
-                                            ? "Seleccione un rango de fechas para ver y seleccionar clientes."
-                                            : "Seleccione uno o más clientes. Este filtro es obligatorio."
-                                        }
-                                    </p>
-                                </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="inventory-session">Sesión</Label>
-                                    <Select
-                                        value={inventorySesion}
-                                        onValueChange={setInventorySesion}
-                                        disabled={isQuerying}
-                                    >
-                                        <SelectTrigger id="inventory-session">
-                                            <SelectValue placeholder="Seleccione una sesión" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="CO">CO - Congelados</SelectItem>
-                                            <SelectItem value="RE">RE - Refrigerado</SelectItem>
-                                            <SelectItem value="SE">SE - Seco</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <p className="text-xs text-muted-foreground">
-                                        Este filtro es obligatorio.
-                                    </p>
-                                </div>
-                                <div className="flex gap-2">
-                                    <Button onClick={handleInventorySearch} className="w-full self-end" disabled={isQuerying || !inventoryDateRange?.from || !inventoryDateRange?.to || isLoadingInventoryClients || !inventorySesion || inventoryClients.length === 0}>
-                                        {isQuerying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
-                                        Consultar
-                                    </Button>
-                                    <Button onClick={handleInventoryClear} variant="outline" className="w-full self-end">
-                                        <XCircle className="h-4 w-4" />
-                                        Limpiar
-                                    </Button>
-                                </div>
-                            </div>
-                        </div>
-                        
-                        {inventorySearched && (
-                             <div className="mt-6">
-                                <div className="flex justify-between items-center flex-wrap gap-4 mb-4">
-                                    <h3 className="text-lg font-semibold">Resultados del Inventario</h3>
+                                            </PopoverContent>
+                                        </Popover>
+                                    </div>
                                     <div className="flex gap-2">
-                                        <Button 
-                                            onClick={handleInventoryExportExcel} 
-                                            disabled={isQuerying || !inventoryReportData || inventoryReportData.rows.length === 0} 
-                                            variant="outline"
-                                        >
+                                        <Button onClick={handleSearch} className="w-full" disabled={isLoading}>
+                                            {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+                                            Generar
+                                        </Button>
+                                        <Button onClick={handleClear} variant="outline" className="w-full">
+                                            <XCircle className="mr-2 h-4 w-4" />
+                                            Limpiar
+                                        </Button>
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+
+                        <Card>
+                            <CardHeader>
+                                <div className="flex justify-between items-center flex-wrap gap-4">
+                                    <div>
+                                        <CardTitle>Resultados del Informe Movimientos Diarios</CardTitle>
+                                        <CardDescription>
+                                            {isLoading ? "Cargando resultados..." : `Mostrando ${reportData.length} días con movimientos.`}
+                                        </CardDescription>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <Button onClick={handleExportExcel} disabled={isLoading || reportData.length === 0} variant="outline">
                                             <File className="mr-2 h-4 w-4" /> Exportar a Excel
                                         </Button>
-                                        <Button 
-                                            onClick={handleInventoryExportPDF} 
-                                            disabled={isQuerying || !inventoryReportData || inventoryReportData.rows.length === 0 || isLogoLoading} 
-                                            variant="outline"
-                                        >
+                                        <Button onClick={handleExportPDF} disabled={isLoading || reportData.length === 0 || isLogoLoading} variant="outline">
                                             {isLogoLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />}
                                             Exportar a PDF
                                         </Button>
                                     </div>
                                 </div>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="rounded-md border">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Fecha</TableHead>
+                                                <TableHead>Cliente</TableHead>
+                                                <TableHead className="text-right">Paletas Recibidas</TableHead>
+                                                <TableHead className="text-right">Paletas Despachadas</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {isLoading ? (
+                                                <ResultsSkeleton />
+                                            ) : reportData.length > 0 ? (
+                                                reportData.map((row) => (
+                                                    <TableRow key={row.date}>
+                                                        <TableCell className="font-medium">{format(new Date(row.date.replace(/-/g, '/')), 'dd/MM/yyyy')}</TableCell>
+                                                        <TableCell>{selectedClient}</TableCell>
+                                                        <TableCell className="text-right">{row.paletasRecibidas}</TableCell>
+                                                        <TableCell className="text-right">{row.paletasDespachadas}</TableCell>
+                                                    </TableRow>
+                                                ))
+                                            ) : (
+                                                <EmptyState
+                                                    searched={searched}
+                                                    title="No se encontraron movimientos"
+                                                    emptyDescription="No hay datos para el cliente y rango de fechas seleccionado."
+                                                    description="Seleccione un cliente y un rango de fechas para ver el informe."
+                                                />
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+
+                    <TabsContent value="detailed-operation">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Informe Detallado por Operación</CardTitle>
+                                <CardDescription>Filtre para ver un listado detallado de las operaciones registradas.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end mb-6">
+                                    <div className="space-y-2">
+                                        <Label>Rango de Fechas</Label>
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                                <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !detailedReportDateRange && "text-muted-foreground")}>
+                                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                                    {detailedReportDateRange?.from ? (detailedReportDateRange.to ? (<>{format(detailedReportDateRange.from, "LLL dd, y", { locale: es })} - {format(detailedReportDateRange.to, "LLL dd, y", { locale: es })}</>) : (format(detailedReportDateRange.from, "LLL dd, y", { locale: es }))) : (<span>Seleccione un rango</span>)}
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto p-0" align="start">
+                                                <Calendar initialFocus mode="range" defaultMonth={detailedReportDateRange?.from} selected={detailedReportDateRange} onSelect={setDetailedReportDateRange} numberOfMonths={2} locale={es} />
+                                            </PopoverContent>
+                                        </Popover>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Cliente (Opcional)</Label>
+                                        <Dialog open={isDetailedClientDialogOpen} onOpenChange={setDetailedClientDialogOpen}>
+                                            <DialogTrigger asChild>
+                                                <Button variant="outline" className="w-full justify-between text-left font-normal">
+                                                    {detailedReportClient || "Seleccione un cliente"}
+                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                </Button>
+                                            </DialogTrigger>
+                                            <DialogContent className="sm:max-w-[425px]">
+                                                <DialogHeader><DialogTitle>Seleccionar Cliente</DialogTitle></DialogHeader>
+                                                <div className="p-4">
+                                                    <Input placeholder="Buscar cliente..." value={detailedClientSearch} onChange={(e) => setDetailedClientSearch(e.target.value)} className="mb-4" />
+                                                    <ScrollArea className="h-72"><div className="space-y-1">
+                                                        <Button variant="ghost" className="w-full justify-start" onClick={() => { setDetailedReportClient(undefined); setDetailedClientDialogOpen(false); setDetailedClientSearch(''); }}>-- Todos los clientes --</Button>
+                                                        {filteredDetailedClients.map((client) => (
+                                                            <Button key={client.id} variant="ghost" className="w-full justify-start" onClick={() => { setDetailedReportClient(client.razonSocial); setDetailedClientDialogOpen(false); setDetailedClientSearch(''); }}>{client.razonSocial}</Button>
+                                                        ))}
+                                                    </div></ScrollArea>
+                                                </div>
+                                            </DialogContent>
+                                        </Dialog>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Tipo de Operación</Label>
+                                        <Select value={detailedReportOperationType} onValueChange={setDetailedReportOperationType}>
+                                            <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="todos">Todos</SelectItem>
+                                                <SelectItem value="recepcion">Recepción</SelectItem>
+                                                <SelectItem value="despacho">Despacho</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>No. Contenedor (Opcional)</Label>
+                                        <Input placeholder="Buscar por contenedor" value={detailedReportContainer} onChange={(e) => setDetailedReportContainer(e.target.value)} />
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <Button onClick={handleDetailedReportSearch} className="w-full" disabled={isDetailedReportLoading}>
+                                            {isDetailedReportLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+                                            Buscar
+                                        </Button>
+                                        <Button onClick={handleDetailedReportClear} variant="outline" className="w-full">
+                                            <XCircle className="mr-2 h-4 w-4" />
+                                            Limpiar
+                                        </Button>
+                                    </div>
+                                </div>
+                                
+                                <div className="flex justify-end gap-2 my-4">
+                                    <Button onClick={handleDetailedReportExportExcel} disabled={isDetailedReportLoading || detailedReportData.length === 0} variant="outline">
+                                        <File className="mr-2 h-4 w-4" /> Exportar a Excel
+                                    </Button>
+                                    <Button onClick={handleDetailedReportExportPDF} disabled={isDetailedReportLoading || detailedReportData.length === 0 || isLogoLoading} variant="outline">
+                                        {isLogoLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />}
+                                        Exportar a PDF
+                                    </Button>
+                                </div>
+
                                 <ScrollArea className="w-full whitespace-nowrap rounded-md border">
                                     <Table>
                                         <TableHeader>
                                             <TableRow>
-                                                <TableHead className="sticky left-0 z-10 bg-background/95 backdrop-blur-sm px-2 py-2 text-left font-normal text-xs">Fecha</TableHead>
-                                                {inventoryReportData?.clientHeaders.map(client => (
-                                                    <TableHead key={client} className="text-right px-2 py-2 font-normal text-xs">{client}</TableHead>
-                                                ))}
+                                                <TableHead>Fecha</TableHead>
+                                                <TableHead>Op. Logística</TableHead>
+                                                <TableHead>Cliente</TableHead>
+                                                <TableHead>Tipo Pedido</TableHead>
+                                                <TableHead>No. Pedido</TableHead>
+                                                <TableHead>Placa</TableHead>
+                                                <TableHead>Contenedor</TableHead>
+                                                <TableHead>H. Inicio</TableHead>
+                                                <TableHead>H. Fin</TableHead>
+                                                <TableHead>Total Paletas</TableHead>
+                                                <TableHead>Observaciones</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
-                                            {isQuerying ? (
-                                                <TableRow><TableCell colSpan={(inventoryReportData?.clientHeaders.length || 1) + 1}><Skeleton className="h-20 w-full" /></TableCell></TableRow>
-                                            ) : inventoryReportData && inventoryReportData.rows.length > 0 ? (
-                                                inventoryReportData.rows.map((row) => (
-                                                    <TableRow key={row.date}>
-                                                        <TableCell className="font-medium sticky left-0 z-10 bg-background/95 backdrop-blur-sm px-2 py-2 text-xs">{format(new Date(row.date.replace(/-/g, '/')), 'dd/MM/yyyy')}</TableCell>
-                                                        {inventoryReportData.clientHeaders.map(client => (
-                                                            <TableCell key={client} className="text-right font-mono px-2 py-2 text-xs">{row.clientData[client] ?? 0}</TableCell>
-                                                        ))}
+                                            {isDetailedReportLoading ? (
+                                                <TableRow><TableCell colSpan={11}><Skeleton className="h-20 w-full" /></TableCell></TableRow>
+                                            ) : detailedReportData.length > 0 ? (
+                                                detailedReportData.map((row) => (
+                                                    <TableRow key={row.id}>
+                                                        <TableCell>{format(new Date(row.fecha), 'dd/MM/yyyy')}</TableCell>
+                                                        <TableCell>{row.operacionLogistica}</TableCell>
+                                                        <TableCell>{row.cliente}</TableCell>
+                                                        <TableCell>{row.tipoPedido}</TableCell>
+                                                        <TableCell>{row.pedidoSislog}</TableCell>
+                                                        <TableCell>{row.placa}</TableCell>
+                                                        <TableCell>{row.contenedor}</TableCell>
+                                                        <TableCell>{formatTime12Hour(row.horaInicio)}</TableCell>
+                                                        <TableCell>{formatTime12Hour(row.horaFin)}</TableCell>
+                                                        <TableCell>{row.totalPaletas}</TableCell>
+                                                        <TableCell className="max-w-[200px] truncate" title={row.observaciones}>{row.observaciones}</TableCell>
                                                     </TableRow>
                                                 ))
                                             ) : (
-                                                <TableRow>
-                                                    <TableCell colSpan={(inventoryReportData?.clientHeaders.length || 1) + 1} className="py-10 text-center text-muted-foreground">
-                                                        No se encontraron registros de inventario para su selección.
-                                                    </TableCell>
-                                                </TableRow>
+                                                <EmptyState
+                                                    searched={isDetailedReportSearched}
+                                                    title="No se encontraron operaciones"
+                                                    emptyDescription="No hay datos para los filtros seleccionados."
+                                                    description="Seleccione los filtros para ver el informe."
+                                                />
                                             )}
                                         </TableBody>
                                     </Table>
                                     <ScrollBar orientation="horizontal" />
                                 </ScrollArea>
-                            </div>
-                        )}
-                    </CardContent>
-                </Card>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+
+                    <TabsContent value="inventory">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>Informe de Inventario Acumulado por Día</CardTitle>
+                                <CardDescription>Cargue, elimine o consulte el inventario diario.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="mb-6 rounded-lg border p-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
+                                        <form onSubmit={handleFileUploadAction} ref={uploadFormRef} className="space-y-2 flex flex-col">
+                                            <Label htmlFor="csv-upload" className="font-semibold text-base">Cargar Inventario</Label>
+                                            <p className="text-sm text-muted-foreground flex-grow">Suba los archivos de inventario (.csv, .xlsx, .xls).</p>
+                                            <div className="flex items-center gap-2 pt-2">
+                                                <Input
+                                                    id="csv-upload"
+                                                    name="file"
+                                                    type="file"
+                                                    accept=".csv, .xlsx, .xls"
+                                                    disabled={isUploading}
+                                                    multiple
+                                                    className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+                                                />
+                                                <Button type="submit" disabled={isUploading}>
+                                                    {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Upload className="mr-2 h-4 w-4" />}
+                                                    Cargar
+                                                </Button>
+                                            </div>
+                                            {isUploading && (
+                                                <div className="mt-4 space-y-2">
+                                                    <Progress value={uploadProgress} className="w-full" />
+                                                    <p className="text-sm text-center text-muted-foreground">Procesando... {Math.round(uploadProgress)}%</p>
+                                                </div>
+                                            )}
+                                        </form>
+                                        <div className="space-y-2 flex flex-col border-t pt-6 md:border-t-0 md:border-l md:pt-0 md:pl-8">
+                                            <Label className="font-semibold text-base text-destructive">Eliminar Inventario</Label>
+                                            <p className="text-sm text-muted-foreground flex-grow">Esta acción es permanente. Seleccione un rango para eliminar los registros.</p>
+                                            <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                                                <DialogTrigger asChild>
+                                                    <Button variant="destructive" className="w-full mt-2">
+                                                        <Trash2 className="mr-2 h-4 w-4" />
+                                                        Eliminar Registros por Rango
+                                                    </Button>
+                                                </DialogTrigger>
+                                                <DialogContent>
+                                                    <DialogHeader>
+                                                        <DialogTitle>Seleccione el rango de fechas a eliminar</DialogTitle>
+                                                        <DialogDescription>
+                                                            Todos los registros de inventario dentro de este rango (incluyendo las fechas de inicio y fin) serán eliminados.
+                                                        </DialogDescription>
+                                                    </DialogHeader>
+                                                    <div className="flex justify-center py-4">
+                                                        <Calendar
+                                                            mode="range"
+                                                            selected={dateRangeToDelete}
+                                                            onSelect={setDateRangeToDelete}
+                                                            locale={es}
+                                                        />
+                                                    </div>
+                                                    <DialogFooter>
+                                                        <Button variant="outline" onClick={() => setIsDeleteDialogOpen(false)}>Cancelar</Button>
+                                                        <Button 
+                                                            variant="destructive" 
+                                                            disabled={!dateRangeToDelete?.from || !dateRangeToDelete?.to}
+                                                            onClick={() => {
+                                                                setIsDeleteDialogOpen(false);
+                                                                setIsDeleteConfirmOpen(true);
+                                                            }}
+                                                        >
+                                                            Proceder a Eliminar
+                                                        </Button>
+                                                    </DialogFooter>
+                                                </DialogContent>
+                                            </Dialog>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div>
+                                    <Label className="font-semibold text-base">Consultar inventario Acumulado por Día</Label>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end mt-2">
+                                        <div className="space-y-2">
+                                            <Label>Rango de Fechas (Máx. 31 días)</Label>
+                                            <Popover>
+                                                <PopoverTrigger asChild>
+                                                    <Button
+                                                        variant={"outline"}
+                                                        className={cn("w-full justify-start text-left font-normal", !inventoryDateRange && "text-muted-foreground")}
+                                                    >
+                                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                                        {inventoryDateRange?.from ? (
+                                                            inventoryDateRange.to ? (
+                                                                <>
+                                                                    {format(inventoryDateRange.from, "LLL dd, y", { locale: es })} -{" "}
+                                                                    {format(inventoryDateRange.to, "LLL dd, y", { locale: es })}
+                                                                </>
+                                                            ) : ( format(inventoryDateRange.from, "LLL dd, y", { locale: es }) )
+                                                        ) : ( <span>Seleccione un rango</span> )}
+                                                    </Button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-auto p-0">
+                                                    <Calendar
+                                                        mode="range"
+                                                        selected={inventoryDateRange}
+                                                        onSelect={(range) => {
+                                                            if (range?.from && range?.to && differenceInDays(range.to, range.from) > MAX_DATE_RANGE_DAYS) {
+                                                                toast({ variant: 'destructive', title: 'Rango muy amplio', description: `Por favor, seleccione un rango de no más de ${MAX_DATE_RANGE_DAYS} días.` });
+                                                            } else {
+                                                                setInventoryDateRange(range);
+                                                            }
+                                                        }}
+                                                        defaultMonth={inventoryDateRange?.from}
+                                                        numberOfMonths={2}
+                                                        locale={es}
+                                                    />
+                                                </PopoverContent>
+                                            </Popover>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>Cliente(s)</Label>
+                                            <Dialog open={isInventoryClientDialogOpen} onOpenChange={setInventoryClientDialogOpen}>
+                                                <DialogTrigger asChild>
+                                                    <Button
+                                                        variant="outline"
+                                                        className="w-full justify-between font-normal"
+                                                        disabled={!inventoryDateRange?.from || !inventoryDateRange?.to || isLoadingInventoryClients}
+                                                    >
+                                                        <span className="truncate">
+                                                            {inventoryClients.length === 0
+                                                                ? "Seleccione uno o más clientes"
+                                                                : inventoryClients.length === 1
+                                                                ? inventoryClients[0]
+                                                                : `${inventoryClients.length} clientes seleccionados`}
+                                                        </span>
+                                                        {isLoadingInventoryClients ? <Loader2 className="ml-2 h-4 w-4 shrink-0 animate-spin" /> : <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />}
+                                                    </Button>
+                                                </DialogTrigger>
+                                                <DialogContent className="sm:max-w-[425px]">
+                                                    <DialogHeader>
+                                                        <DialogTitle>Seleccionar Cliente(s)</DialogTitle>
+                                                        <DialogDescription>Seleccione los clientes para incluir en el reporte de inventario.</DialogDescription>
+                                                    </DialogHeader>
+                                                    <div className="p-4">
+                                                        <Input
+                                                            placeholder="Buscar cliente..."
+                                                            value={inventoryClientSearch}
+                                                            onChange={(e) => setInventoryClientSearch(e.target.value)}
+                                                            className="mb-4"
+                                                        />
+                                                        <ScrollArea className="h-72">
+                                                            {isLoadingInventoryClients ? (
+                                                                <div className="flex justify-center items-center h-full">
+                                                                    <Loader2 className="h-6 w-6 animate-spin" />
+                                                                </div>
+                                                            ) : (
+                                                                <div className="space-y-1">
+                                                                    {filteredAvailableInventoryClients.map((clientName) => (
+                                                                        <div key={clientName} className="flex items-center space-x-2 rounded-md p-2 hover:bg-accent">
+                                                                            <Checkbox
+                                                                                id={`client-inv-${clientName}`}
+                                                                                checked={inventoryClients.includes(clientName)}
+                                                                                onCheckedChange={(checked) => {
+                                                                                    setInventoryClients(prev =>
+                                                                                        checked
+                                                                                            ? [...prev, clientName]
+                                                                                            : prev.filter(s => s !== clientName)
+                                                                                    )
+                                                                                }}
+                                                                            />
+                                                                            <Label htmlFor={`client-inv-${clientName}`} className="w-full cursor-pointer">{clientName}</Label>
+                                                                        </div>
+                                                                    ))}
+                                                                    {filteredAvailableInventoryClients.length === 0 && (
+                                                                        <p className="text-center text-sm text-muted-foreground">
+                                                                            {availableInventoryClients.length > 0 ? "No se encontraron clientes." : "No hay clientes con inventario en estas fechas."}
+                                                                        </p>
+                                                                    )}
+                                                                </div>
+                                                            )}
+                                                        </ScrollArea>
+                                                    </div>
+                                                    <DialogFooter>
+                                                        <Button onClick={() => setInventoryClientDialogOpen(false)}>Cerrar</Button>
+                                                    </DialogFooter>
+                                                </DialogContent>
+                                            </Dialog>
+                                            <p className="text-xs text-muted-foreground">
+                                                {!inventoryDateRange?.from || !inventoryDateRange?.to 
+                                                    ? "Seleccione un rango de fechas para ver y seleccionar clientes."
+                                                    : "Seleccione uno o más clientes. Este filtro es obligatorio."
+                                                }
+                                            </p>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label htmlFor="inventory-session">Sesión</Label>
+                                            <Select
+                                                value={inventorySesion}
+                                                onValueChange={setInventorySesion}
+                                                disabled={isQuerying}
+                                            >
+                                                <SelectTrigger id="inventory-session">
+                                                    <SelectValue placeholder="Seleccione una sesión" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="CO">CO - Congelados</SelectItem>
+                                                    <SelectItem value="RE">RE - Refrigerado</SelectItem>
+                                                    <SelectItem value="SE">SE - Seco</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                            <p className="text-xs text-muted-foreground">
+                                                Este filtro es obligatorio.
+                                            </p>
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <Button onClick={handleInventorySearch} className="w-full self-end" disabled={isQuerying || !inventoryDateRange?.from || !inventoryDateRange?.to || isLoadingInventoryClients || !inventorySesion || inventoryClients.length === 0}>
+                                                {isQuerying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+                                                Consultar
+                                            </Button>
+                                            <Button onClick={handleInventoryClear} variant="outline" className="w-full self-end">
+                                                <XCircle className="h-4 w-4" />
+                                                Limpiar
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                {inventorySearched && (
+                                    <div className="mt-6">
+                                        <div className="flex justify-between items-center flex-wrap gap-4 mb-4">
+                                            <h3 className="text-lg font-semibold">Resultados del Inventario</h3>
+                                            <div className="flex gap-2">
+                                                <Button 
+                                                    onClick={handleInventoryExportExcel} 
+                                                    disabled={isQuerying || !inventoryReportData || inventoryReportData.rows.length === 0} 
+                                                    variant="outline"
+                                                >
+                                                    <File className="mr-2 h-4 w-4" /> Exportar a Excel
+                                                </Button>
+                                                <Button 
+                                                    onClick={handleInventoryExportPDF} 
+                                                    disabled={isQuerying || !inventoryReportData || inventoryReportData.rows.length === 0 || isLogoLoading} 
+                                                    variant="outline"
+                                                >
+                                                    {isLogoLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />}
+                                                    Exportar a PDF
+                                                </Button>
+                                            </div>
+                                        </div>
+                                        <ScrollArea className="w-full whitespace-nowrap rounded-md border">
+                                            <Table>
+                                                <TableHeader>
+                                                    <TableRow>
+                                                        <TableHead className="sticky left-0 z-10 bg-background/95 backdrop-blur-sm px-2 py-2 text-left font-normal text-xs">Fecha</TableHead>
+                                                        {inventoryReportData?.clientHeaders.map(client => (
+                                                            <TableHead key={client} className="text-right px-2 py-2 font-normal text-xs">{client}</TableHead>
+                                                        ))}
+                                                    </TableRow>
+                                                </TableHeader>
+                                                <TableBody>
+                                                    {isQuerying ? (
+                                                        <TableRow><TableCell colSpan={(inventoryReportData?.clientHeaders.length || 1) + 1}><Skeleton className="h-20 w-full" /></TableCell></TableRow>
+                                                    ) : inventoryReportData && inventoryReportData.rows.length > 0 ? (
+                                                        inventoryReportData.rows.map((row) => (
+                                                            <TableRow key={row.date}>
+                                                                <TableCell className="font-medium sticky left-0 z-10 bg-background/95 backdrop-blur-sm px-2 py-2 text-xs">{format(new Date(row.date.replace(/-/g, '/')), 'dd/MM/yyyy')}</TableCell>
+                                                                {inventoryReportData.clientHeaders.map(client => (
+                                                                    <TableCell key={client} className="text-right font-mono px-2 py-2 text-xs">{row.clientData[client] ?? 0}</TableCell>
+                                                                ))}
+                                                            </TableRow>
+                                                        ))
+                                                    ) : (
+                                                        <TableRow>
+                                                            <TableCell colSpan={(inventoryReportData?.clientHeaders.length || 1) + 1} className="py-10 text-center text-muted-foreground">
+                                                                No se encontraron registros de inventario para su selección.
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    )}
+                                                </TableBody>
+                                            </Table>
+                                            <ScrollBar orientation="horizontal" />
+                                        </ScrollArea>
+                                    </div>
+                                )}
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+                </Tabs>
             </div>
             
              <AlertDialog open={isDeleteConfirmOpen} onOpenChange={setIsDeleteConfirmOpen}>
