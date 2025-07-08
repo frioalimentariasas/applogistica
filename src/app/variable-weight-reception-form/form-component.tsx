@@ -116,16 +116,29 @@ const formSchema = z.object({
     observaciones: z.string().max(250, "Máximo 250 caracteres.").optional(),
     coordinador: z.string().min(1, "Seleccione un coordinador."),
 }).refine((data) => {
-    if (data.horaInicio && data.horaFin) {
-        // This logic allows for operations that cross midnight (e.g., 23:00 to 01:00).
-        // It only considers it an error if the start and end times are identical.
-        if (data.horaInicio === data.horaFin) {
-            return false;
+    if (data.fecha && data.horaInicio && data.horaFin) {
+        const [startHours, startMinutes] = data.horaInicio.split(':').map(Number);
+        const [endHours, endMinutes] = data.horaFin.split(':').map(Number);
+
+        const startDate = new Date(data.fecha);
+        startDate.setHours(startHours, startMinutes, 0, 0);
+
+        const endDate = new Date(data.fecha);
+        endDate.setHours(endHours, endMinutes, 0, 0);
+
+        if (endDate <= startDate) {
+            endDate.setDate(endDate.getDate() + 1);
+        }
+
+        const durationHours = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60);
+
+        if (durationHours >= 24 || durationHours > 18) {
+             return false;
         }
     }
-    return true; // If fields are missing, other validators will catch it.
+    return true;
 }, {
-    message: "La hora de fin no puede ser igual a la hora de inicio.",
+    message: "Hora inválida. Verifique que no sea la misma que la de inicio o que la duración sea razonable.",
     path: ["horaFin"],
 });
 
@@ -1172,3 +1185,5 @@ export default function VariableWeightReceptionFormComponent() {
       </div>
   );
 }
+
+    
