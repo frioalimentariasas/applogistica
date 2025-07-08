@@ -844,7 +844,12 @@ export default function VariableWeightReceptionFormComponent() {
                                     <FormField control={form.control} name={`items.${index}.descripcion`} render={({ field: controllerField }) => (
                                         <FormItem className="md:col-span-2">
                                             <FormLabel>Descripción del Producto</FormLabel>
-                                            <Dialog open={productDialogIndex === index} onOpenChange={(isOpen) => setProductDialogIndex(isOpen ? index : null)}>
+                                            <Dialog open={productDialogIndex === index} onOpenChange={(isOpen) => {
+                                                if (!isOpen) {
+                                                    setProductSearch("");
+                                                }
+                                                setProductDialogIndex(isOpen ? index : null)
+                                            }}>
                                                 <DialogTrigger asChild>
                                                     <Button variant="outline" className="w-full justify-between text-left font-normal">
                                                         {controllerField.value || "Seleccionar producto..."}

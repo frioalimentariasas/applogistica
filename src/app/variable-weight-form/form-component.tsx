@@ -789,7 +789,12 @@ export default function VariableWeightFormComponent() {
                           render={({ field }) => (
                               <FormItem className="flex flex-col">
                                 <FormLabel>Cliente</FormLabel>
-                                <Dialog open={isClientDialogOpen} onOpenChange={setClientDialogOpen}>
+                                <Dialog open={isClientDialogOpen} onOpenChange={(isOpen) => {
+                                    if (!isOpen) {
+                                        setClientSearch("");
+                                    }
+                                    setClientDialogOpen(isOpen);
+                                }}>
                                     <DialogTrigger asChild>
                                         <Button variant="outline" className="w-full justify-between text-left font-normal">
                                             {field.value || "Seleccione un cliente..."}
@@ -940,7 +945,12 @@ export default function VariableWeightFormComponent() {
                                     <FormField control={form.control} name={`items.${index}.descripcion`} render={({ field }) => (
                                         <FormItem className="md:col-span-2">
                                         <FormLabel>Descripción del Producto</FormLabel>
-                                            <Dialog open={productDialogIndex === index} onOpenChange={(isOpen) => setProductDialogIndex(isOpen ? index : null)}>
+                                            <Dialog open={productDialogIndex === index} onOpenChange={(isOpen) => {
+                                                if (!isOpen) {
+                                                    setProductSearch("");
+                                                }
+                                                setProductDialogIndex(isOpen ? index : null)
+                                            }}>
                                                 <DialogTrigger asChild>
                                                     <Button variant="outline" className="w-full justify-between text-left font-normal">
                                                         {field.value || "Seleccionar producto..."}
