@@ -163,7 +163,6 @@ export async function getDetailedReport(criteria: DetailedReportCriteria): Promi
     // To avoid full collection scans, we require a date range.
     if (criteria.startDate && criteria.endDate) {
         // Widen the server query by a day on each side to account for timezone differences.
-        // The precise filtering will happen in memory using formData.fecha.
         const serverQueryStartDate = new Date(criteria.startDate);
         serverQueryStartDate.setDate(serverQueryStartDate.getDate() - 1);
         
@@ -178,23 +177,27 @@ export async function getDetailedReport(criteria: DetailedReportCriteria): Promi
 
     const snapshot = await query.get();
     
-    // Filter the results in memory using the correct date field (`formData.fecha`)
-    const filteredDocs = snapshot.docs.filter(doc => {
-        const data = doc.data();
-        const formIsoDate = data.formData?.fecha;
-        
+    // First, serialize all documents from Firestore
+    const allSubmissions = snapshot.docs.map(doc => {
+        return {
+            id: doc.id,
+            ...serializeTimestamps(doc.data())
+        };
+    });
+
+    // Then, filter the serialized documents by the correct local date
+    const dateFilteredSubmissions = allSubmissions.filter(submission => {
+        const formIsoDate = submission.formData?.fecha;
         if (!formIsoDate || typeof formIsoDate !== 'string') {
-            return false; // Skip if date is missing or invalid format
+            return false;
         }
-
         const formDatePart = getLocalGroupingDate(formIsoDate);
-
         return formDatePart >= criteria.startDate! && formDatePart <= criteria.endDate!;
     });
 
-    let results = filteredDocs.map(doc => {
-        const submission = serializeTimestamps(doc.data());
-        const { formType, formData } = submission;
+    // Now, map the correctly filtered documents to the report row structure
+    let results = dateFilteredSubmissions.map(submission => {
+        const { id, formType, formData } = submission;
 
         const totalPaletas = calculateTotalPallets(formType, formData);
         
@@ -208,7 +211,7 @@ export async function getDetailedReport(criteria: DetailedReportCriteria): Promi
         const operacionLogistica = getOperationLogisticsType(formData.fecha, formData.horaInicio, formData.horaFin);
         
         return {
-            id: doc.id,
+            id,
             fecha: formData.fecha,
             horaInicio: formData.horaInicio || 'N/A',
             horaFin: formData.horaFin || 'N/A',
