@@ -117,11 +117,15 @@ const formSchema = z.object({
     coordinador: z.string().min(1, "Seleccione un coordinador."),
 }).refine((data) => {
     if (data.horaInicio && data.horaFin) {
-        return data.horaFin > data.horaInicio;
+        // This logic allows for operations that cross midnight (e.g., 23:00 to 01:00).
+        // It only considers it an error if the start and end times are identical.
+        if (data.horaInicio === data.horaFin) {
+            return false;
+        }
     }
-    return true;
+    return true; // If fields are missing, other validators will catch it.
 }, {
-    message: "La hora de fin no puede ser anterior o igual a la hora de inicio.",
+    message: "La hora de fin no puede ser igual a la hora de inicio.",
     path: ["horaFin"],
 });
 
@@ -619,7 +623,7 @@ export default function VariableWeightReceptionFormComponent() {
         const submissionData = {
             userId: user.uid,
             userDisplayName: displayName || 'N/A',
-            formType: `variable-weight-recepcion`,
+            formType: `variable-weight-reception`,
             formData: dataWithFinalSummary,
             attachmentUrls: finalAttachmentUrls,
             createdAt: originalSubmission?.createdAt,
@@ -1168,5 +1172,3 @@ export default function VariableWeightReceptionFormComponent() {
       </div>
   );
 }
-
-    

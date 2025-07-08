@@ -80,8 +80,8 @@ const formSchema = z.object({
     .max(15, "El pedido SISLOG no puede exceder los 15 caracteres."),
   nombreCliente: z.string().min(1, "Seleccione un cliente."),
   fecha: z.date({ required_error: "La fecha es obligatoria." }),
-  horaInicio: z.string().min(1, "La hora de inicio es obligatoria."),
-  horaFin: z.string().min(1, "La hora de fin es obligatoria."),
+  horaInicio: z.string().min(1, "La hora de inicio es obligatoria.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
+  horaFin: z.string().min(1, "La hora de fin es obligatoria.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
   precinto: z.string()
     .min(1, "El precinto es obligatorio.")
     .max(40, "Máximo 40 caracteres."),
@@ -105,12 +105,16 @@ const formSchema = z.object({
   coordinador: z.string().min(1, "Seleccione un coordinador."),
 }).refine((data) => {
     if (data.horaInicio && data.horaFin) {
-        return data.horaFin > data.horaInicio;
+        // This logic allows for operations that cross midnight (e.g., 23:00 to 01:00).
+        // It only considers it an error if the start and end times are identical.
+        if (data.horaInicio === data.horaFin) {
+            return false;
+        }
     }
-    return true; // Don't validate if one is missing, other rules will catch that
+    return true; // If fields are missing, other validators will catch it.
 }, {
-    message: "La hora de fin no puede ser anterior o igual a la hora de inicio.",
-    path: ["horaFin"], // Specify the field that the error message should be displayed under
+    message: "La hora de fin no puede ser igual a la hora de inicio.",
+    path: ["horaFin"],
 });
 
 type FormValues = z.infer<typeof formSchema>;
