@@ -67,6 +67,20 @@ const getOperationLogisticsType = (isoDateString: string, horaInicio: string, ho
     }
 };
 
+// Helper to get a YYYY-MM-DD string adjusted for a specific timezone (e.g., UTC-5 for Colombia)
+const getLocalGroupingDate = (isoString: string): string => {
+    if (!isoString) return '';
+    try {
+        const date = new Date(isoString);
+        // Adjust for a fixed timezone offset. UTC-5 for Colombia.
+        date.setUTCHours(date.getUTCHours() - 5);
+        return date.toISOString().split('T')[0];
+    } catch (e) {
+        console.error(`Invalid date string for grouping: ${isoString}`);
+        return '';
+    }
+};
+
 // Helper to serialize Firestore Timestamps
 const serializeTimestamps = (data: any): any => {
     if (data === null || data === undefined || typeof data !== 'object') {
@@ -169,15 +183,11 @@ export async function getDetailedReport(criteria: DetailedReportCriteria): Promi
         const data = doc.data();
         const formIsoDate = data.formData?.fecha;
         
-        // Handle both Timestamp and string dates for compatibility
-        let formDatePart: string;
-        if (formIsoDate instanceof admin.firestore.Timestamp) {
-            formDatePart = formIsoDate.toDate().toISOString().split('T')[0];
-        } else if (typeof formIsoDate === 'string') {
-            formDatePart = formIsoDate.split('T')[0];
-        } else {
+        if (!formIsoDate || typeof formIsoDate !== 'string') {
             return false; // Skip if date is missing or invalid format
         }
+
+        const formDatePart = getLocalGroupingDate(formIsoDate);
 
         return formDatePart >= criteria.startDate! && formDatePart <= criteria.endDate!;
     });
