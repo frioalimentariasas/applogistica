@@ -1,10 +1,9 @@
-
 "use client";
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { FileText, LogOut, Users2, Box, ScrollText, BookCopy, ShieldCheck } from 'lucide-react';
+import { FileText, LogOut, Users2, Box, ScrollText, BookCopy, ShieldCheck, Settings } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
@@ -13,6 +12,13 @@ import { FirebaseChecker } from '@/components/app/firebase-checker';
 import { useAuth } from '@/hooks/use-auth';
 import { auth } from '@/lib/firebase';
 import { signOut } from 'firebase/auth';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 
 
 const Logo = () => (
@@ -197,39 +203,48 @@ export default function Home() {
         )}
         
         <div className="space-y-4">
-            <Button size="lg" className="w-full h-12 text-base bg-[#3588CC] text-white hover:bg-[#3588CC]/90" onClick={() => router.push('/consultar-formatos')}>
-                <ScrollText className="mr-2 h-5 w-5" />
-                Consultar Formatos Guardados
-            </Button>
-            
-            {!isOperario && !isViewer && (
-              <>
-                <div className="grid grid-cols-2 gap-4">
-                    <Button size="lg" className="w-full h-12 text-base bg-[#3588CC] text-white hover:bg-[#3588CC]/90" onClick={() => router.push('/gestion-articulos')}>
-                        <Box className="mr-2 h-5 w-5" />
-                        Gestión de Artículos
-                    </Button>
-                    <Button size="lg" className="w-full h-12 text-base bg-[#3588CC] text-white hover:bg-[#3588CC]/90" onClick={() => router.push('/gestion-clientes')}>
-                        <Users2 className="mr-2 h-5 w-5" />
-                        Gestión de Clientes
-                    </Button>
-                </div>
-              </>
-            )}
-            
-            {canViewBilling && (
-              <Button size="lg" className="w-full h-12 text-base bg-[#3588CC] text-white hover:bg-[#3588CC]/90" onClick={() => router.push('/billing-reports')}>
-                  <BookCopy className="mr-2 h-5 w-5" />
-                  Informes para facturación
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="lg" className="w-full h-12 text-base bg-[#3588CC] text-white hover:bg-[#3588CC]/90">
+                <Settings className="mr-2 h-5 w-5" />
+                Herramientas y Consultas
               </Button>
-            )}
-
-            {isAdmin && (
-                <Button size="lg" className="w-full h-12 text-base bg-amber-600 text-white hover:bg-amber-600/90" onClick={() => router.push('/session-management')}>
-                    <ShieldCheck className="mr-2 h-5 w-5" />
-                    Gestionar Sesiones de Usuarios
-                </Button>
-            )}
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]" align="center">
+              <DropdownMenuItem onSelect={() => router.push('/consultar-formatos')}>
+                <ScrollText className="mr-2 h-4 w-4" />
+                <span>Consultar Formatos Guardados</span>
+              </DropdownMenuItem>
+              {canViewBilling && (
+                <DropdownMenuItem onSelect={() => router.push('/billing-reports')}>
+                  <BookCopy className="mr-2 h-4 w-4" />
+                  <span>Informes para Facturación</span>
+                </DropdownMenuItem>
+              )}
+              {!isOperario && !isViewer && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={() => router.push('/gestion-articulos')}>
+                    <Box className="mr-2 h-4 w-4" />
+                    <span>Gestión de Artículos</span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onSelect={() => router.push('/gestion-clientes')}>
+                    <Users2 className="mr-2 h-4 w-4" />
+                    <span>Gestión de Clientes</span>
+                  </DropdownMenuItem>
+                </>
+              )}
+              {isAdmin && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onSelect={() => router.push('/session-management')}>
+                    <ShieldCheck className="mr-2 h-4 w-4" />
+                    <span>Gestionar Sesiones de Usuarios</span>
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
 
         <div className="pt-4">
