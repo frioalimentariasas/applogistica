@@ -788,7 +788,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
                 <Tabs defaultValue="daily-movements" className="w-full">
                     <TabsList className="grid w-full grid-cols-3 mb-6">
-                        <TabsTrigger value="daily-movements">Movimientos Diarios</TabsTrigger>
+                        <TabsTrigger value="daily-movements">Movimientos Diarios Paletas</TabsTrigger>
                         <TabsTrigger value="detailed-operation">Operaciones Detalladas</TabsTrigger>
                         <TabsTrigger value="inventory">Inventario por Día</TabsTrigger>
                     </TabsList>
@@ -796,7 +796,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                     <TabsContent value="daily-movements" className="space-y-6">
                         <Card>
                             <CardHeader>
-                                <CardTitle>Filtros del Reporte Movimientos Diarios</CardTitle>
+                                <CardTitle>Filtros del Reporte Movimientos Diarios de Paletas</CardTitle>
                                 <CardDescription>Seleccione un cliente y un rango de fechas para generar el informe.</CardDescription>
                             </CardHeader>
                             <CardContent>
@@ -903,7 +903,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                             <CardHeader>
                                 <div className="flex justify-between items-center flex-wrap gap-4">
                                     <div>
-                                        <CardTitle>Resultados del Informe Movimientos Diarios</CardTitle>
+                                        <CardTitle>Resultados del Informe Movimientos Diarios de Paletas</CardTitle>
                                         <CardDescription>
                                             {isLoading ? "Cargando resultados..." : `Mostrando ${reportData.length} días con movimientos.`}
                                         </CardDescription>
