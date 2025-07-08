@@ -305,21 +305,16 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const logoY = 15;
         doc.addImage(logoBase64, 'PNG', logoX, logoY, logoWidth, logoHeight);
 
-        const textY = logoY + logoHeight + 16;
-        doc.setFontSize(11);
-        doc.setFont('helvetica', 'bold');
-        doc.text('FRIO ALIMENTARIA SAS', pageWidth / 2, textY, { align: 'center' });
-        
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        doc.text('NIT: 900736914-0', pageWidth / 2, textY + 6, { align: 'center' });
-        
-        const titleY = textY + 16;
+        const titleY = logoY + logoHeight + 16;
         doc.setFontSize(12);
         doc.setFont('helvetica', 'bold');
         doc.text(`Informe de Facturación`, pageWidth / 2, titleY, { align: 'center' });
         
-        const clientY = titleY + 8;
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Frio Alimentaria SAS Nit: 900736914-0', pageWidth / 2, titleY + 8, { align: 'center' });
+
+        const clientY = titleY + 22;
         
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
@@ -420,14 +415,25 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         
         const doc = new jsPDF({ orientation: 'landscape' });
         const pageWidth = doc.internal.pageSize.getWidth();
-        const pageHeight = doc.internal.pageSize.getHeight();
         
-        doc.setFontSize(11);
+        const logoWidth = 70;
+        const aspectRatio = logoDimensions.width / logoDimensions.height;
+        const logoHeight = logoWidth / aspectRatio;
+        const logoX = (pageWidth - logoWidth) / 2;
+        doc.addImage(logoBase64, 'PNG', logoX, 15, logoWidth, logoHeight);
+
+        const titleY = 15 + logoHeight + 8;
+
+        doc.setFontSize(12);
         doc.setFont('helvetica', 'bold');
-        doc.text('Informe Detallado por Operación', pageWidth / 2, 20, { align: 'center' });
+        doc.text('Informe Detallado por Operación', pageWidth / 2, titleY, { align: 'center' });
+        
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Frio Alimentaria SAS Nit: 900736914-0', pageWidth / 2, titleY + 8, { align: 'center' });
 
         autoTable(doc, {
-            startY: 30,
+            startY: titleY + 18,
             head: [[
                 'Fecha', 'Op. Log.', 'Cliente', 'Tipo Pedido', 'No. Pedido', 'Placa', 'Contenedor', 'H. Inicio', 'H. Fin', 'Total Paletas', 'Observaciones'
             ]],
@@ -603,26 +609,24 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const margin = 14;
 
         // --- HEADER ---
-        const logoWidth = 35;
+        const logoWidth = 70;
         const aspectRatio = logoDimensions.width / logoDimensions.height;
         const logoHeight = logoWidth / aspectRatio;
+        const logoX = (pageWidth - logoWidth) / 2;
         const headerY = 15;
-        doc.addImage(logoBase64, 'PNG', margin, headerY, logoWidth, logoHeight);
+        doc.addImage(logoBase64, 'PNG', logoX, headerY, logoWidth, logoHeight);
 
-        const textX = margin + logoWidth + 10;
-        doc.setFontSize(11);
-        doc.setFont('helvetica', 'bold');
-        doc.text('FRIO ALIMENTARIA SAS', textX, headerY + 8);
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        doc.text('NIT: 900736914-0', textX, headerY + 18);
-
+        const titleY = headerY + logoHeight + 8;
         doc.setFontSize(12);
         doc.setFont('helvetica', 'bold');
-        doc.text(`Informe de Inventario Acumulado por Día`, pageWidth / 2, headerY + 15, { align: 'center' });
+        doc.text(`Informe de Inventario Acumulado por Día`, pageWidth / 2, titleY, { align: 'center' });
+
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Frio Alimentaria SAS Nit: 900736914-0', pageWidth / 2, titleY + 8, { align: 'center' });
 
         // --- SUB-HEADER ---
-        const contentStartY = headerY + logoHeight + 16;
+        const contentStartY = titleY + 22;
         const currentFontSize = 10;
         doc.setFontSize(currentFontSize);
         doc.setFont('helvetica', 'normal');
@@ -1416,3 +1420,5 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         </div>
     );
 }
+
+    
