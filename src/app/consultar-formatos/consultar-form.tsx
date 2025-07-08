@@ -348,7 +348,7 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
                                 </Dialog>
                             </div>
                             <div className="space-y-2">
-                                <Label htmlFor="fechaCreacion">Fecha de Creación</Label>
+                                <Label htmlFor="fechaCreacion">Fecha de Operación</Label>
                                  <Popover>
                                     <PopoverTrigger asChild>
                                     <Button
@@ -412,7 +412,7 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>Fecha Creación</TableHead>
+                                        <TableHead>Fecha Operación</TableHead>
                                         <TableHead>Tipo Formato</TableHead>
                                         <TableHead>Operación</TableHead>
                                         <TableHead>Pedido SISLOG</TableHead>
@@ -427,7 +427,7 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
                                     ) : results.length > 0 ? (
                                         results.map((sub) => (
                                             <TableRow key={sub.id}>
-                                                <TableCell>{format(parseISO(sub.createdAt), 'dd/MM/yyyy HH:mm', { locale: es })}</TableCell>
+                                                <TableCell>{format(parseISO(sub.formData.fecha), 'dd/MM/yyyy', { locale: es })}</TableCell>
                                                 <TableCell>{getFormTypeName(sub.formType)}</TableCell>
                                                 <TableCell>{getOperationTypeName(sub.formType)}</TableCell>
                                                 <TableCell>{sub.formData.pedidoSislog}</TableCell>

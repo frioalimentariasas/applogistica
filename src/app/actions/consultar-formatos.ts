@@ -107,9 +107,15 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
 
         // Filter by date if it was provided
         if (criteria.searchDateStart && criteria.searchDateEnd) {
-             results = results.filter(sub => 
-                sub.createdAt >= criteria.searchDateStart! && sub.createdAt <= criteria.searchDateEnd!
-             );
+             results = results.filter(sub => {
+                // Use the form's own date field, not the creation timestamp, for filtering.
+                // This correctly handles forms created late at night in a different timezone.
+                const formDate = sub.formData.fecha; 
+                if (!formDate || typeof formDate !== 'string') {
+                    return false;
+                }
+                return formDate >= criteria.searchDateStart! && formDate <= criteria.searchDateEnd!;
+             });
         }
 
         // For operarios with no filters, apply the 7-day filter now
