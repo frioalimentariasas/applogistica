@@ -14,13 +14,13 @@ const formatTime12Hour = (time24: string | undefined): string => {
 const formatDateLocal = (isoDateString: string | undefined): string => {
     if (!isoDateString) return 'N/A';
     try {
-        const date = new Date(isoDateString);
-        date.setUTCHours(date.getUTCHours() - 5);
+        const date = new Date(isoDateString.split('T')[0]);
         const day = String(date.getUTCDate()).padStart(2, '0');
         const month = String(date.getUTCMonth() + 1).padStart(2, '0');
         const year = date.getUTCFullYear();
         return `${day}/${month}/${year}`;
     } catch (e) {
+        console.error("Error formatting date:", e);
         return 'Invalid Date';
     }
 };
@@ -129,7 +129,7 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                          <tr>
                             <td style={fieldCellStyle}><ReportField label="Precinto" value={formData.precinto} /></td>
                             <td style={fieldCellStyle}><ReportField label="Set Point (°C)" value={formData.setPoint} /></td>
-                            <td style={fieldCellStyle}></td>
+                            <td style={fieldCellStyle}><ReportField label="Contenedor" value={formData.contenedor} /></td>
                         </tr>
                          <tr>
                             <td style={fieldCellStyle}><ReportField label={`Hora Inicio ${operationTerm}`} value={formatTime12Hour(formData.horaInicio)} /></td>

@@ -465,7 +465,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         [
                            {content: 'Precinto:', styles: {fontStyle: 'bold'}}, formData.precinto || 'N/A',
                            {content: 'Set Point (°C):', styles: {fontStyle: 'bold'}}, formatOptionalNumber(formData.setPoint),
-                           {content: 'Operario:', styles: {fontStyle: 'bold'}}, userDisplayName || 'N/A'
+                           {content: 'Contenedor:', styles: {fontStyle: 'bold'}}, formData.contenedor || 'N/A'
                         ],
                         [
                            {content: `H. Inicio ${operationTerm}:`, styles: {fontStyle: 'bold'}}, formatTime12Hour(formData.horaInicio),

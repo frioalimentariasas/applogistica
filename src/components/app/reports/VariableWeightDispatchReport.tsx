@@ -14,18 +14,10 @@ const formatTime12Hour = (time24: string | undefined): string => {
 const formatDateLocal = (isoDateString: string | undefined): string => {
     if (!isoDateString) return 'N/A';
     try {
-        // Create a date object from the ISO string (which is in UTC)
-        const date = new Date(isoDateString);
-        
-        // Manually adjust for Colombia's timezone (UTC-5)
-        // This avoids issues with daylight saving time if we were to use a named timezone
-        date.setUTCHours(date.getUTCHours() - 5);
-
-        // Extract the day, month, and year from the *adjusted* date
+        const date = new Date(isoDateString.split('T')[0]);
         const day = String(date.getUTCDate()).padStart(2, '0');
-        const month = String(date.getUTCMonth() + 1).padStart(2, '0'); // Month is 0-indexed
+        const month = String(date.getUTCMonth() + 1).padStart(2, '0');
         const year = date.getUTCFullYear();
-        
         return `${day}/${month}/${year}`;
     } catch (e) {
         console.error("Error formatting date:", e);
@@ -95,7 +87,7 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                          <tr>
                             <td style={fieldCellStyle}><ReportField label="Precinto" value={formData.precinto} /></td>
                             <td style={fieldCellStyle}><ReportField label="Set Point (°C)" value={formData.setPoint} /></td>
-                            <td style={fieldCellStyle}></td>
+                            <td style={fieldCellStyle}><ReportField label="Contenedor" value={formData.contenedor} /></td>
                         </tr>
                         <tr>
                             <td style={fieldCellStyle}><ReportField label={`Hora Inicio ${operationTerm}`} value={formatTime12Hour(formData.horaInicio)} /></td>
