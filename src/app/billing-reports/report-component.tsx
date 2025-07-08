@@ -779,7 +779,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                         <div>
                             <div className="flex items-center justify-center gap-2">
                                 <BookCopy className="h-8 w-8 text-primary" />
-                                <h1 className="text-2xl font-bold text-primary">Informes</h1>
+                                <h1 className="text-2xl font-bold text-primary">Reportes Facturación</h1>
                             </div>
                              <p className="text-sm text-gray-500">Seleccione un tipo de informe y utilice los filtros para generar los datos.</p>
                         </div>
