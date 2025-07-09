@@ -148,7 +148,7 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
             }
         }
         
-        reporteFinal.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        reporteFinal.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
         return reporteFinal;
 
     } catch (error) {

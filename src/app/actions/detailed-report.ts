@@ -237,7 +237,7 @@ export async function getDetailedReport(criteria: DetailedReportCriteria): Promi
         results = results.filter(row => row.contenedor.toLowerCase().includes(criteria.containerNumber!.trim().toLowerCase()));
     }
 
-    results.sort((a, b) => new Date(b.fecha).getTime() - new Date(a.fecha).getTime());
+    results.sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
 
     return results;
 }

@@ -151,8 +151,8 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
             });
         }
 
-        // Finally, sort results by date descending in memory
-        results.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+        // Finally, sort results by date ascending in memory
+        results.sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
         
         return results;
     } catch (error) {
