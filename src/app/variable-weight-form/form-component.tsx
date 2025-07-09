@@ -75,22 +75,22 @@ const itemSchema = z.object({
     cantidadPorPaleta: z.preprocess(
         (val) => (val === "" || (typeof val === 'number' && Number.isNaN(val)) ? null : val),
         z.coerce.number({ invalid_type_error: "La cantidad debe ser un número." })
-          .int({ message: "La cantidad debe ser un número entero." }).min(0, "Debe ser un número no negativo.").nullable().optional()
+          .int({ message: "La cantidad debe ser un número entero." }).min(0, "Debe ser un número no negativo.").nullable()
     ),
     pesoBruto: z.preprocess(
         (val) => (val === "" || (typeof val === 'number' && Number.isNaN(val)) ? null : val),
         z.coerce.number({ invalid_type_error: "El peso bruto debe ser un número." })
-          .min(0, "Debe ser un número no negativo.").nullable().optional()
+          .min(0, "Debe ser un número no negativo.").nullable()
     ),
     taraEstiba: z.preprocess(
         (val) => (val === "" || (typeof val === 'number' && Number.isNaN(val)) ? null : val),
         z.coerce.number({ invalid_type_error: "La tara estiba debe ser un número." })
-          .min(0, "Debe ser un número no negativo.").nullable().optional()
+          .min(0, "Debe ser un número no negativo.").nullable()
     ),
     taraCaja: z.preprocess(
         (val) => (val === "" || (typeof val === 'number' && Number.isNaN(val)) ? null : val),
         z.coerce.number({ invalid_type_error: "La tara caja debe ser un número." })
-          .min(0, "Debe ser un número no negativo.").nullable().optional()
+          .min(0, "Debe ser un número no negativo.").nullable()
     ),
     // Calculated fields
     totalTaraCaja: z.number().optional(),
@@ -99,17 +99,17 @@ const itemSchema = z.object({
     totalCantidad: z.preprocess(
         (val) => (val === "" || (typeof val === 'number' && Number.isNaN(val)) ? null : val),
         z.coerce.number({ invalid_type_error: "El total de cantidad debe ser un número." })
-          .int({ message: "El total de cantidad debe ser un número entero." }).min(0, "Debe ser un número no negativo.").nullable().optional()
+          .int({ message: "El total de cantidad debe ser un número entero." }).min(0, "Debe ser un número no negativo.").nullable()
     ),
     totalPaletas: z.preprocess(
         (val) => (val === "" || (typeof val === 'number' && Number.isNaN(val)) ? null : val),
         z.coerce.number({ invalid_type_error: "El total de paletas debe ser un número." })
-          .int("El Total Paletas debe ser un número entero.").min(0, "Debe ser un número no negativo.").nullable().optional()
+          .int("El Total Paletas debe ser un número entero.").min(0, "Debe ser un número no negativo.").nullable()
     ),
     totalPesoNeto: z.preprocess(
         (val) => (val === "" || (typeof val === 'number' && Number.isNaN(val)) ? null : val),
         z.coerce.number({ invalid_type_error: "El total de peso neto debe ser un número." })
-          .min(0, "Debe ser un número no negativo.").nullable().optional()
+          .min(0, "Debe ser un número no negativo.").nullable()
     ),
   }).superRefine((data, ctx) => {
     // If it's a summary row (paleta is exactly 0)
@@ -143,7 +143,7 @@ const itemSchema = z.object({
 
 const summaryItemSchema = z.object({
     descripcion: z.string(),
-    temperatura: z.coerce.number({ required_error: "La temperatura es requerida.", invalid_type_error: "La temperatura es requerida." }),
+    temperatura: z.coerce.number({ required_error: "La temperatura es requerida.", invalid_type_error: "La temperatura es requerida." }).nullable(),
     totalPeso: z.number(),
     totalCantidad: z.number(),
     totalPaletas: z.number(),
@@ -436,6 +436,27 @@ export default function VariableWeightFormComponent() {
         if (submission) {
           setOriginalSubmission(submission);
           const formData = submission.formData;
+
+          // Sanitize data before resetting the form
+          formData.setPoint = formData.setPoint ?? null;
+          if (formData.items && Array.isArray(formData.items)) {
+            formData.items.forEach((item: any) => {
+                item.paleta = item.paleta ?? null;
+                item.cantidadPorPaleta = item.cantidadPorPaleta ?? null;
+                item.pesoBruto = item.pesoBruto ?? null;
+                item.taraEstiba = item.taraEstiba ?? null;
+                item.taraCaja = item.taraCaja ?? null;
+                item.totalCantidad = item.totalCantidad ?? null;
+                item.totalPaletas = item.totalPaletas ?? null;
+                item.totalPesoNeto = item.totalPesoNeto ?? null;
+            });
+          }
+          if (formData.summary && Array.isArray(formData.summary)) {
+              formData.summary.forEach((item: any) => {
+                  item.temperatura = item.temperatura ?? null;
+              });
+          }
+
           // Convert date string back to Date object for the form
           if (formData.fecha && typeof formData.fecha === 'string') {
             formData.fecha = new Date(formData.fecha);
@@ -1127,8 +1148,8 @@ export default function VariableWeightFormComponent() {
                                                               <FormItem>
                                                                   <FormControl>
                                                                       <Input type="text" inputMode="decimal" placeholder="0" {...field} 
-                                                                          onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} 
-                                                                          value={field.value == null || Number.isNaN(field.value) ? '' : field.value}
+                                                                          onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} 
+                                                                          value={field.value ?? ''}
                                                                       />
                                                                   </FormControl>
                                                                   <FormMessage />

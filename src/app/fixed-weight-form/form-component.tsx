@@ -264,13 +264,14 @@ export default function FixedWeightFormComponent() {
           setOriginalSubmission(submission);
           const formData = submission.formData;
           
-          // Handle backward compatibility for paletas -> totalPaletas
+          // Sanitize data before resetting the form
+          formData.setPoint = formData.setPoint ?? null;
           if (formData.productos && Array.isArray(formData.productos)) {
-            formData.productos = formData.productos.map((p: any) => ({
-              ...p,
-              totalPaletas: p.totalPaletas ?? p.paletas,
-              cantidadKg: p.cantidadKg, // Will be undefined/null for old forms
-            }));
+              formData.productos = formData.productos.map((p: any) => ({
+                ...p,
+                totalPaletas: p.totalPaletas ?? p.paletas, // Handle backward compatibility
+                cantidadKg: p.cantidadKg ?? null, // Ensure null instead of undefined
+              }));
           }
 
           // Convert date string back to Date object for the form

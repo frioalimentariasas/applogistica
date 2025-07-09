@@ -83,8 +83,8 @@ const itemSchema = z.object({
       (val) => (val === "" || val == null ? null : val),
       z.coerce.number({ required_error: "La tara caja es requerida.", invalid_type_error: "La tara caja es requerida." }).min(0, "Debe ser un número no negativo.").nullable()
     ),
-    totalTaraCaja: z.coerce.number().optional().nullable(), 
-    pesoNeto: z.coerce.number().optional().nullable(), 
+    totalTaraCaja: z.coerce.number().nullable(), 
+    pesoNeto: z.coerce.number().nullable(), 
 });
   
 const tempSchema = z.preprocess(
@@ -369,6 +369,30 @@ export default function VariableWeightReceptionFormComponent() {
         if (submission) {
           setOriginalSubmission(submission);
           const formData = submission.formData;
+          
+          // Sanitize data before resetting the form
+          formData.setPoint = formData.setPoint ?? null;
+          if (formData.items && Array.isArray(formData.items)) {
+              formData.items.forEach((item: any) => {
+                  item.paleta = item.paleta ?? null;
+                  item.cantidadPorPaleta = item.cantidadPorPaleta ?? null;
+                  item.pesoBruto = item.pesoBruto ?? null;
+                  item.taraEstiba = item.taraEstiba ?? null;
+                  item.taraCaja = item.taraCaja ?? null;
+              });
+          }
+          if (formData.summary && Array.isArray(formData.summary)) {
+              formData.summary.forEach((item: any) => {
+                  // Handle old data with single `temperatura` field
+                  if (item.temperatura !== undefined && item.temperatura1 === undefined) {
+                      item.temperatura1 = item.temperatura;
+                  }
+                  item.temperatura1 = item.temperatura1 ?? null;
+                  item.temperatura2 = item.temperatura2 ?? null;
+                  item.temperatura3 = item.temperatura3 ?? null;
+              });
+          }
+
           // Convert date string back to Date object for the form
           if (formData.fecha && typeof formData.fecha === 'string') {
             formData.fecha = new Date(formData.fecha);
