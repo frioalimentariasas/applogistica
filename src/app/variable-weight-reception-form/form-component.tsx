@@ -88,7 +88,7 @@ const itemSchema = z.object({
 });
   
 const tempSchema = z.preprocess(
-    (val) => (val === "" || (typeof val === 'number' && Number.isNaN(val)) ? null : val),
+    (val) => (val === "" || val === null ? null : val),
     z.coerce.number({ invalid_type_error: "Temperatura debe ser un número."})
       .min(-99, "El valor debe estar entre -99 y 99.")
       .max(99, "El valor debe estar entre -99 y 99.")
@@ -120,7 +120,7 @@ const formSchema = z.object({
       .regex(/^[A-Z]{3}[0-9]{3}$/, "Formato inválido. Deben ser 3 letras y 3 números (ej: ABC123)."),
     precinto: z.string().min(1, "El precinto es obligatorio."),
     setPoint: z.preprocess(
-      (val) => (val === "" || (typeof val === 'number' && Number.isNaN(val)) ? null : val),
+      (val) => (val === "" || val === null ? null : val),
       z.coerce.number({ invalid_type_error: "Set Point debe ser un número."})
         .min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99.").nullable()
     ),
@@ -372,18 +372,23 @@ export default function VariableWeightReceptionFormComponent() {
           
           // Sanitize data before resetting the form
           formData.setPoint = formData.setPoint ?? null;
+          formData.observaciones = formData.observaciones ?? '';
+
           if (formData.items && Array.isArray(formData.items)) {
               formData.items.forEach((item: any) => {
                   item.paleta = item.paleta ?? null;
+                  item.lote = item.lote ?? '';
                   item.cantidadPorPaleta = item.cantidadPorPaleta ?? null;
                   item.pesoBruto = item.pesoBruto ?? null;
                   item.taraEstiba = item.taraEstiba ?? null;
                   item.taraCaja = item.taraCaja ?? null;
               });
+          } else {
+            formData.items = [];
           }
+          
           if (formData.summary && Array.isArray(formData.summary)) {
               formData.summary.forEach((item: any) => {
-                  // Handle old data with single `temperatura` field
                   if (item.temperatura !== undefined && item.temperatura1 === undefined) {
                       item.temperatura1 = item.temperatura;
                   }
@@ -391,6 +396,8 @@ export default function VariableWeightReceptionFormComponent() {
                   item.temperatura2 = item.temperatura2 ?? null;
                   item.temperatura3 = item.temperatura3 ?? null;
               });
+          } else {
+            formData.summary = [];
           }
 
           // Convert date string back to Date object for the form
@@ -419,7 +426,7 @@ export default function VariableWeightReceptionFormComponent() {
       }
     };
     loadSubmissionData();
-  }, [submissionId, form, router, toast, setAttachments]);
+  }, [submissionId, form, router, toast]);
 
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     if (event.target.files) {
@@ -943,10 +950,10 @@ export default function VariableWeightReceptionFormComponent() {
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <FormField control={form.control} name={`items.${index}.lote`} render={({ field }) => (
-                                        <FormItem><FormLabel>Lote</FormLabel><FormControl><Input placeholder="Lote (máx. 15 caracteres)" {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>
+                                        <FormItem><FormLabel>Lote</FormLabel><FormControl><Input placeholder="Lote (máx. 15 caracteres)" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>
                                     )}/>
                                     <FormField control={form.control} name={`items.${index}.presentacion`} render={({ field }) => (
-                                        <FormItem><FormLabel>Presentación</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione presentación" /></SelectTrigger></FormControl><SelectContent>{presentaciones.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                                        <FormItem><FormLabel>Presentación</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione presentación" /></SelectTrigger></FormControl><SelectContent>{presentaciones.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                                     )}/>
                                     <FormField control={form.control} name={`items.${index}.cantidadPorPaleta`} render={({ field }) => (
                                         <FormItem><FormLabel>Cantidad Por Paleta</FormLabel><FormControl><Input type="text" inputMode="numeric" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
@@ -1095,7 +1102,7 @@ export default function VariableWeightReceptionFormComponent() {
                       <FormField control={form.control} name="observaciones" render={({ field }) => (
                           <FormItem className="md:col-span-2 relative">
                               <FormLabel>Observaciones</FormLabel>
-                              <FormControl><Textarea placeholder="Observaciones (opcional)" {...field} className="pr-10" /></FormControl>
+                              <FormControl><Textarea placeholder="Observaciones (opcional)" {...field} value={field.value ?? ''} className="pr-10" /></FormControl>
                               <Edit2 className="absolute right-3 bottom-3 h-4 w-4 text-muted-foreground" />
                               <FormMessage />
                           </FormItem>
@@ -1107,7 +1114,7 @@ export default function VariableWeightReceptionFormComponent() {
                   <CardHeader><CardTitle>Coordinador y Operario Responsables de la Operación</CardTitle></CardHeader>
                   <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <FormField control={form.control} name="coordinador" render={({ field }) => (
-                          <FormItem><FormLabel>Coordinador Responsable de la Operación</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                          <FormItem><FormLabel>Coordinador Responsable de la Operación</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                       )}/>
                       <FormItem>
                           <FormLabel>Operario Logístico Responsable</FormLabel>

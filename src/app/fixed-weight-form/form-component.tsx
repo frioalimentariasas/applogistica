@@ -67,7 +67,7 @@ const productSchema = z.object({
   cajas: z.coerce.number({required_error: "El No. de cajas es requerido.", invalid_type_error: "El No. de cajas es requerido."}).int().positive("El No. de Cajas debe ser mayor a 0."),
   totalPaletas: z.coerce.number({required_error: "El Total Paletas es requerido.", invalid_type_error: "El Total Paletas es requerido."}).int("El Total Paletas debe ser un número entero.").positive("El Total Paletas debe ser un número positivo."),
   cantidadKg: z.preprocess(
-      (val) => (val === "" || (typeof val === 'number' && Number.isNaN(val)) ? null : val),
+      (val) => (val === "" || val === null ? null : val),
       z.coerce.number({ invalid_type_error: "Cantidad (kg) debe ser un número."})
         .positive("Cantidad (kg) debe ser un número positivo.").nullable()
   ),
@@ -94,7 +94,7 @@ const formSchema = z.object({
   muelle: z.string().min(1, "Seleccione un muelle."),
   contenedor: z.string().optional(),
   setPoint: z.preprocess(
-      (val) => (val === "" || (typeof val === 'number' && Number.isNaN(val)) ? null : val),
+      (val) => (val === "" || val === null ? null : val),
       z.coerce.number({ invalid_type_error: "Set Point debe ser un número."})
         .min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99.").nullable()
   ),
@@ -266,12 +266,22 @@ export default function FixedWeightFormComponent() {
           
           // Sanitize data before resetting the form
           formData.setPoint = formData.setPoint ?? null;
+          formData.documentoTransporte = formData.documentoTransporte ?? "";
+          formData.facturaRemision = formData.facturaRemision ?? "";
+          formData.contenedor = formData.contenedor ?? "";
+          formData.observaciones = formData.observaciones ?? "";
+
           if (formData.productos && Array.isArray(formData.productos)) {
               formData.productos = formData.productos.map((p: any) => ({
                 ...p,
-                totalPaletas: p.totalPaletas ?? p.paletas, // Handle backward compatibility
-                cantidadKg: p.cantidadKg ?? null, // Ensure null instead of undefined
+                codigo: p.codigo ?? "",
+                totalPaletas: p.totalPaletas ?? p.paletas ?? NaN,
+                cantidadKg: p.cantidadKg ?? null,
+                cajas: p.cajas ?? NaN,
+                temperatura: p.temperatura ?? NaN,
               }));
+          } else {
+            formData.productos = [];
           }
 
           // Convert date string back to Date object for the form
@@ -300,7 +310,7 @@ export default function FixedWeightFormComponent() {
       }
     };
     loadSubmissionData();
-  }, [submissionId, form, router, toast, setAttachments]);
+  }, [submissionId, form, router, toast]);
 
   
   const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -742,7 +752,7 @@ export default function FixedWeightFormComponent() {
                     <FormField control={form.control} name="documentoTransporte" render={({ field }) => (
                     <FormItem>
                         <FormLabel>Doc. Transp.</FormLabel>
-                        <FormControl><Input placeholder="Máx 15 caracteres" {...field} /></FormControl>
+                        <FormControl><Input placeholder="Máx 15 caracteres" {...field} value={field.value ?? ''} /></FormControl>
                         <FormMessage />
                     </FormItem>
                     )}/>
@@ -753,7 +763,7 @@ export default function FixedWeightFormComponent() {
                     <FormField control={form.control} name="facturaRemision" render={({ field }) => (
                     <FormItem>
                         <FormLabel>Factura/Remisión</FormLabel>
-                        <FormControl><Input placeholder="Máx 15 caracteres" {...field} /></FormControl>
+                        <FormControl><Input placeholder="Máx 15 caracteres" {...field} value={field.value ?? ''} /></FormControl>
                         <FormMessage />
                     </FormItem>
                     )}/>
@@ -943,10 +953,10 @@ export default function FixedWeightFormComponent() {
                         </FormItem>
                     )}/>
                     <FormField control={form.control} name="muelle" render={({ field }) => (
-                        <FormItem><FormLabel>Muelle</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un muelle" /></SelectTrigger></FormControl><SelectContent>{muelles.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Muelle</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un muelle" /></SelectTrigger></FormControl><SelectContent>{muelles.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                     )}/>
                     <FormField control={form.control} name="contenedor" render={({ field }) => (
-                        <FormItem><FormLabel>Contenedor</FormLabel><FormControl><Input placeholder="Número de contenedor" {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Contenedor</FormLabel><FormControl><Input placeholder="Número de contenedor" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                     )}/>
                     <FormField control={form.control} name="setPoint" render={({ field }) => (
                         <FormItem>
@@ -958,16 +968,16 @@ export default function FixedWeightFormComponent() {
                         </FormItem>
                     )}/>
                     <FormField control={form.control} name="condicionesHigiene" render={({ field }) => (
-                        <FormItem className="space-y-3"><FormLabel>Condiciones de Higiene</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex gap-4"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="limpio" id="limpio" /><Label htmlFor="limpio">Limpio</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="sucio" id="sucio" /><Label htmlFor="sucio">Sucio</Label></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>
+                        <FormItem className="space-y-3"><FormLabel>Condiciones de Higiene</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="limpio" id="limpio" /><Label htmlFor="limpio">Limpio</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="sucio" id="sucio" /><Label htmlFor="sucio">Sucio</Label></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>
                     )}/>
                     <FormField control={form.control} name="termoregistrador" render={({ field }) => (
-                        <FormItem className="space-y-3"><FormLabel>Termoregistrador</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex gap-4"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="termo-si" /><Label htmlFor="termo-si">Sí</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="termo-no" /><Label htmlFor="termo-no">No</Label></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>
+                        <FormItem className="space-y-3"><FormLabel>Termoregistrador</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="termo-si" /><Label htmlFor="termo-si">Sí</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="termo-no" /><Label htmlFor="termo-no">No</Label></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>
                     )}/>
                     <FormField control={form.control} name="clienteRequiereTermoregistro" render={({ field }) => (
-                        <FormItem className="space-y-3"><FormLabel>Cliente Requiere Termoregistro</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex gap-4"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="req-termo-si" /><Label htmlFor="req-termo-si">Sí</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="req-termo-no" /><Label htmlFor="req-termo-no">No</Label></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>
+                        <FormItem className="space-y-3"><FormLabel>Cliente Requiere Termoregistro</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="req-termo-si" /><Label htmlFor="req-termo-si">Sí</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="req-termo-no" /><Label htmlFor="req-termo-no">No</Label></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>
                     )}/>
                     <FormField control={form.control} name="observaciones" render={({ field }) => (
-                        <FormItem className="md:col-span-3"><FormLabel>Observaciones</FormLabel><FormControl><Textarea placeholder="Observaciones Generales del Pedido (opcional, máx. 150 caracteres)" {...field} /></FormControl><FormMessage /></FormItem>
+                        <FormItem className="md:col-span-3"><FormLabel>Observaciones</FormLabel><FormControl><Textarea placeholder="Observaciones Generales del Pedido (opcional, máx. 150 caracteres)" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                     )}/>
                 </CardContent>
             </Card>
@@ -977,7 +987,7 @@ export default function FixedWeightFormComponent() {
                 <CardHeader><CardTitle>Coordinador y Operario Responsables de la Operación</CardTitle></CardHeader>
                 <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField control={form.control} name="coordinador" render={({ field }) => (
-                        <FormItem><FormLabel>Coordinador Responsable de la Operación</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Coordinador Responsable de la Operación</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                     )}/>
                      <FormItem>
                         <FormLabel>Operario Logístico Responsable</FormLabel>
