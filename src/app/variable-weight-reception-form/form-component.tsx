@@ -93,7 +93,6 @@ const tempSchema = z.preprocess(
       .min(-99, "El valor debe estar entre -99 y 99.")
       .max(99, "El valor debe estar entre -99 y 99.")
       .nullable()
-      .optional()
 );
 
 const summaryItemSchema = z.object({
@@ -123,7 +122,7 @@ const formSchema = z.object({
     setPoint: z.preprocess(
       (val) => (val === "" || (typeof val === 'number' && Number.isNaN(val)) ? null : val),
       z.coerce.number({ invalid_type_error: "Set Point debe ser un número."})
-        .min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99.").nullable().optional()
+        .min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99.").nullable()
     ),
     contenedor: z.string().min(1, "El contenedor es obligatorio.").max(20, "Máximo 20 caracteres."),
     items: z.array(itemSchema).min(1, "Debe agregar al menos un item."),
@@ -1212,5 +1211,3 @@ export default function VariableWeightReceptionFormComponent() {
       </div>
   );
 }
-
-    

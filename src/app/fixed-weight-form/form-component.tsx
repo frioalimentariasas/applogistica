@@ -69,7 +69,7 @@ const productSchema = z.object({
   cantidadKg: z.preprocess(
       (val) => (val === "" || (typeof val === 'number' && Number.isNaN(val)) ? null : val),
       z.coerce.number({ invalid_type_error: "Cantidad (kg) debe ser un número."})
-        .positive("Cantidad (kg) debe ser un número positivo.").nullable().optional()
+        .positive("Cantidad (kg) debe ser un número positivo.").nullable()
   ),
   temperatura: z.coerce.number({ required_error: "La temperatura es requerida.", invalid_type_error: "La temperatura es requerida." }).min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99."),
 });
@@ -96,7 +96,7 @@ const formSchema = z.object({
   setPoint: z.preprocess(
       (val) => (val === "" || (typeof val === 'number' && Number.isNaN(val)) ? null : val),
       z.coerce.number({ invalid_type_error: "Set Point debe ser un número."})
-        .min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99.").nullable().optional()
+        .min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99.").nullable()
   ),
   condicionesHigiene: z.enum(["limpio", "sucio"], { required_error: "Seleccione una condición." }),
   termoregistrador: z.enum(["si", "no"], { required_error: "Seleccione una opción." }),

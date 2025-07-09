@@ -66,7 +66,7 @@ const itemSchema = z.object({
       (val) => (val === "" || (typeof val === 'number' && Number.isNaN(val)) ? null : val),
       z.coerce.number({
           invalid_type_error: "La paleta debe ser un número.",
-      }).int({ message: "La paleta debe ser un número entero." }).min(0, "Debe ser un número no negativo.").nullable().optional()
+      }).int({ message: "La paleta debe ser un número entero." }).min(0, "Debe ser un número no negativo.").nullable()
     ),
     descripcion: z.string().min(1, "La descripción es requerida."),
     lote: z.string().max(15, "Máximo 15 caracteres").optional(),
@@ -166,7 +166,7 @@ const formSchema = z.object({
     setPoint: z.preprocess(
       (val) => (val === "" || (typeof val === 'number' && Number.isNaN(val)) ? null : val),
       z.coerce.number({ invalid_type_error: "Set Point debe ser un número."})
-        .min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99.").nullable().optional()
+        .min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99.").nullable()
     ),
     contenedor: z.string().min(1, "El contenedor es obligatorio.").max(20, "Máximo 20 caracteres."),
     items: z.array(itemSchema).min(1, "Debe agregar al menos un item."),
