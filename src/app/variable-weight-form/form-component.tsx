@@ -437,18 +437,33 @@ export default function VariableWeightFormComponent() {
           setOriginalSubmission(submission);
           const formData = submission.formData;
 
-          // Sanitize data before resetting the form
+          // Sanitize top-level fields
+          formData.pedidoSislog = formData.pedidoSislog ?? '';
+          formData.cliente = formData.cliente ?? '';
+          formData.conductor = formData.conductor ?? '';
+          formData.cedulaConductor = formData.cedulaConductor ?? '';
+          formData.placa = formData.placa ?? '';
+          formData.precinto = formData.precinto ?? '';
           formData.setPoint = formData.setPoint ?? null;
+          formData.contenedor = formData.contenedor ?? '';
+          formData.horaInicio = formData.horaInicio ?? '';
+          formData.horaFin = formData.horaFin ?? '';
           formData.observaciones = formData.observaciones ?? '';
+          formData.coordinador = formData.coordinador ?? '';
 
+          // Sanitize items array
           if (formData.items && Array.isArray(formData.items)) {
             formData.items.forEach((item: any) => {
                 item.paleta = item.paleta ?? null;
+                item.descripcion = item.descripcion ?? '';
                 item.lote = item.lote ?? '';
+                item.presentacion = item.presentacion ?? '';
                 item.cantidadPorPaleta = item.cantidadPorPaleta ?? null;
                 item.pesoBruto = item.pesoBruto ?? null;
                 item.taraEstiba = item.taraEstiba ?? null;
                 item.taraCaja = item.taraCaja ?? null;
+                item.totalTaraCaja = item.totalTaraCaja ?? null;
+                item.pesoNeto = item.pesoNeto ?? null;
                 item.totalCantidad = item.totalCantidad ?? null;
                 item.totalPaletas = item.totalPaletas ?? null;
                 item.totalPesoNeto = item.totalPesoNeto ?? null;
@@ -457,9 +472,14 @@ export default function VariableWeightFormComponent() {
             formData.items = [];
           }
 
+          // Sanitize summary array
           if (formData.summary && Array.isArray(formData.summary)) {
               formData.summary.forEach((item: any) => {
+                  item.descripcion = item.descripcion ?? '';
                   item.temperatura = item.temperatura ?? null;
+                  item.totalPeso = item.totalPeso ?? 0;
+                  item.totalCantidad = item.totalCantidad ?? 0;
+                  item.totalPaletas = item.totalPaletas ?? 0;
               });
           } else {
              formData.summary = [];
@@ -722,7 +742,7 @@ export default function VariableWeightFormComponent() {
             const formItem = (data.summary || []).find(s => s.descripcion === summaryItem.descripcion);
             return {
                 ...summaryItem,
-                temperatura: formItem?.temperatura as number,
+                temperatura: formItem?.temperatura,
             }
         });
   

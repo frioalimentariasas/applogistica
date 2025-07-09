@@ -121,7 +121,7 @@ const originalDefaultValues: FormValues = {
   precinto: "",
   documentoTransporte: "",
   facturaRemision: "",
-  productos: [{ codigo: '', descripcion: '', cajas: NaN, totalPaletas: NaN, cantidadKg: null, temperatura: NaN }],
+  productos: [{ codigo: '', descripcion: '', cajas: null, totalPaletas: null, cantidadKg: null, temperatura: null }],
   nombreConductor: "",
   cedulaConductor: "",
   placa: "",
@@ -264,24 +264,38 @@ export default function FixedWeightFormComponent() {
           setOriginalSubmission(submission);
           const formData = submission.formData;
           
-          // Sanitize data before resetting the form
+          // Sanitize top-level fields
+          formData.pedidoSislog = formData.pedidoSislog ?? '';
+          formData.nombreCliente = formData.nombreCliente ?? '';
+          formData.horaInicio = formData.horaInicio ?? '';
+          formData.horaFin = formData.horaFin ?? '';
+          formData.precinto = formData.precinto ?? '';
+          formData.documentoTransporte = formData.documentoTransporte ?? '';
+          formData.facturaRemision = formData.facturaRemision ?? '';
+          formData.nombreConductor = formData.nombreConductor ?? '';
+          formData.cedulaConductor = formData.cedulaConductor ?? '';
+          formData.placa = formData.placa ?? '';
+          formData.muelle = formData.muelle ?? '';
+          formData.contenedor = formData.contenedor ?? '';
           formData.setPoint = formData.setPoint ?? null;
-          formData.documentoTransporte = formData.documentoTransporte ?? "";
-          formData.facturaRemision = formData.facturaRemision ?? "";
-          formData.contenedor = formData.contenedor ?? "";
-          formData.observaciones = formData.observaciones ?? "";
+          formData.condicionesHigiene = formData.condicionesHigiene ?? undefined;
+          formData.termoregistrador = formData.termoregistrador ?? undefined;
+          formData.clienteRequiereTermoregistro = formData.clienteRequiereTermoregistro ?? undefined;
+          formData.observaciones = formData.observaciones ?? '';
+          formData.coordinador = formData.coordinador ?? '';
 
+          // Sanitize productos array
           if (formData.productos && Array.isArray(formData.productos)) {
-              formData.productos = formData.productos.map((p: any) => ({
-                ...p,
-                codigo: p.codigo ?? "",
-                totalPaletas: p.totalPaletas ?? p.paletas ?? NaN,
-                cantidadKg: p.cantidadKg ?? null,
-                cajas: p.cajas ?? NaN,
-                temperatura: p.temperatura ?? NaN,
-              }));
+              formData.productos.forEach((p: any) => {
+                  p.codigo = p.codigo ?? '';
+                  p.descripcion = p.descripcion ?? '';
+                  p.cajas = p.cajas ?? null;
+                  p.totalPaletas = p.totalPaletas ?? p.paletas ?? null;
+                  p.cantidadKg = p.cantidadKg ?? null;
+                  p.temperatura = p.temperatura ?? null;
+              });
           } else {
-            formData.productos = [];
+              formData.productos = [];
           }
 
           // Convert date string back to Date object for the form
@@ -683,7 +697,7 @@ export default function FixedWeightFormComponent() {
                                                             setClientDialogOpen(false);
                                                             setClientSearch('');
                                                             
-                                                            form.setValue('productos', [{ codigo: '', descripcion: '', cajas: NaN, totalPaletas: NaN, cantidadKg: null, temperatura: NaN }]);
+                                                            form.setValue('productos', [{ codigo: '', descripcion: '', cajas: null, totalPaletas: null, cantidadKg: null, temperatura: null }]);
                                                             setArticulos([]);
                                                             setIsLoadingArticulos(true);
                                                             try {
@@ -875,14 +889,14 @@ export default function FixedWeightFormComponent() {
                                 <FormField control={form.control} name={`productos.${index}.cajas`} render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>No. de Cajas</FormLabel>
-                                        <FormControl><Input type="text" inputMode="numeric" min="1" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl>
+                                        <FormControl><Input type="text" inputMode="numeric" min="1" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}/>
                                 <FormField control={form.control} name={`productos.${index}.totalPaletas`} render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Total Paletas</FormLabel>
-                                        <FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" min="1" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : parseInt(e.target.value, 10))} value={field.value == null || Number.isNaN(field.value) ? '' : String(field.value)} /></FormControl>
+                                        <FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" min="1" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}/>
@@ -896,7 +910,7 @@ export default function FixedWeightFormComponent() {
                                 <FormField control={form.control} name={`productos.${index}.temperatura`} render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Temperatura (°C)</FormLabel>
-                                        <FormControl><Input type="text" inputMode="decimal" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl>
+                                        <FormControl><Input type="text" inputMode="decimal" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}/>
@@ -904,7 +918,7 @@ export default function FixedWeightFormComponent() {
                         </div>
                     </div>
                 ))}
-                <Button type="button" variant="outline" onClick={() => append({ codigo: '', descripcion: '', cajas: NaN, totalPaletas: NaN, cantidadKg: null, temperatura: NaN })}>
+                <Button type="button" variant="outline" onClick={() => append({ codigo: '', descripcion: '', cajas: null, totalPaletas: null, cantidadKg: null, temperatura: null })}>
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Agregar Producto
                 </Button>
