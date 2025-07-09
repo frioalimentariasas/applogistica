@@ -11,12 +11,12 @@ import * as XLSX from 'xlsx';
 
 import { useToast } from '@/hooks/use-toast';
 import { addArticle, updateArticle, deleteArticle } from './actions';
-import { getArticulosByClient, ArticuloInfo } from '@/app/actions/articulos';
+import { getArticulosByClients, ArticuloInfo } from '@/app/actions/articulos';
 import { uploadArticulos } from '../upload-articulos/actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Loader2, Box, PlusCircle, Edit, Trash2, ChevronsUpDown, FileUp, Download } from 'lucide-react';
+import { ArrowLeft, Loader2, Box, PlusCircle, Edit, Trash2, ChevronsUpDown, FileUp, Download, Search, XCircle } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -34,6 +34,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Checkbox } from '@/components/ui/checkbox';
 import type { ClientInfo } from '@/app/actions/clients';
 
 
@@ -81,9 +82,13 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
   const router = useRouter();
   const { toast } = useToast();
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [selectedClient, setSelectedClient] = useState('');
+  
+  // State for article consultation
+  const [selectedClients, setSelectedClients] = useState<string[]>([]);
   const [articles, setArticles] = useState<ArticuloInfo[]>([]);
   const [isLoadingArticles, setIsLoadingArticles] = useState(false);
+  const [filterCode, setFilterCode] = useState('');
+  const [filterSession, setFilterSession] = useState('');
 
   // State for edit and delete operations
   const [articleToEdit, setArticleToEdit] = useState<ArticuloInfo | null>(null);
@@ -122,6 +127,28 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
     },
   });
 
+  useEffect(() => {
+    const fetchArticles = async () => {
+      if (selectedClients.length > 0) {
+        setIsLoadingArticles(true);
+        const fetchedArticles = await getArticulosByClients(selectedClients);
+        setArticles(fetchedArticles);
+        setIsLoadingArticles(false);
+      } else {
+        setArticles([]);
+      }
+    };
+    fetchArticles();
+  }, [selectedClients]);
+
+  const filteredArticles = useMemo(() => {
+    return articles.filter(article => {
+      const codeMatch = filterCode ? article.codigoProducto.toLowerCase().includes(filterCode.toLowerCase()) : true;
+      const sessionMatch = filterSession ? article.sesion === filterSession : true;
+      return codeMatch && sessionMatch;
+    });
+  }, [articles, filterCode, filterSession]);
+
   const filteredClients = useMemo(() => {
     if (!clientSearch) return clients;
     return clients.filter(c => c.razonSocial.toLowerCase().includes(clientSearch.toLowerCase()));
@@ -140,8 +167,11 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
       toast({ title: 'Éxito', description: result.message });
       addForm.reset();
       // If the new article belongs to the currently viewed client, refresh the list
-      if (data.razonSocial === selectedClient) {
-        handleClientSelect(data.razonSocial);
+      if (selectedClients.includes(data.razonSocial)) {
+        setIsLoadingArticles(true);
+        const fetchedArticles = await getArticulosByClients(selectedClients);
+        setArticles(fetchedArticles);
+        setIsLoadingArticles(false);
       }
     } else {
       toast({ variant: 'destructive', title: 'Error', description: result.message });
@@ -158,7 +188,10 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
     if (result.success) {
       toast({ title: 'Éxito', description: result.message });
       setArticleToEdit(null); // Close dialog on success
-      handleClientSelect(selectedClient); // Refresh the list for the current client
+      setIsLoadingArticles(true);
+      const fetchedArticles = await getArticulosByClients(selectedClients);
+      setArticles(fetchedArticles);
+      setIsLoadingArticles(false);
     } else {
       toast({ variant: 'destructive', title: 'Error', description: result.message });
     }
@@ -179,18 +212,6 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
     }
     setArticleToDelete(null); // Close dialog
     setIsDeleting(false);
-  };
-
-  const handleClientSelect = async (clientName: string) => {
-    setSelectedClient(clientName);
-    if (clientName) {
-      setIsLoadingArticles(true);
-      const fetchedArticles = await getArticulosByClient(clientName);
-      setArticles(fetchedArticles);
-      setIsLoadingArticles(false);
-    } else {
-      setArticles([]);
-    }
   };
 
   const openEditDialog = (article: ArticuloInfo) => {
@@ -231,8 +252,11 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
       form?.reset();
       
       // If upload affects current client, refresh list
-      if (selectedClient) {
-        handleClientSelect(selectedClient);
+      if (selectedClients.length > 0) {
+        setIsLoadingArticles(true);
+        const fetchedArticles = await getArticulosByClients(selectedClients);
+        setArticles(fetchedArticles);
+        setIsLoadingArticles(false);
       }
 
     } else {
@@ -245,25 +269,16 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
   }
 
   const handleExportArticles = () => {
-    if (!selectedClient) {
-        toast({
-            variant: "destructive",
-            title: "Seleccione un cliente",
-            description: "Debe seleccionar un cliente para poder exportar sus artículos."
-        });
-        return;
-    }
-
     if (articles.length === 0) {
         toast({
             title: "Sin datos",
-            description: "El cliente seleccionado no tiene artículos para exportar."
+            description: "No hay artículos para exportar con los filtros actuales."
         });
         return;
     }
 
-    const dataToExport = articles.map(article => ({
-      'Cliente': selectedClient,
+    const dataToExport = filteredArticles.map(article => ({
+      'Cliente': article.razonSocial,
       'Codigo Producto': article.codigoProducto,
       'Denominacion Articulo': article.denominacionArticulo,
       'Sesion': article.sesion
@@ -272,8 +287,15 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
     const worksheet = XLSX.utils.json_to_sheet(dataToExport);
     const workbook = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Articulos');
-    const fileName = `Maestro_Articulos_${selectedClient.replace(/\s/g, '_')}.xlsx`;
+    const fileName = `Maestro_Articulos_Export.xlsx`;
     XLSX.writeFile(workbook, fileName);
+  };
+  
+  const getSelectedClientsText = () => {
+    if (selectedClients.length === 0) return "Seleccione uno o más clientes...";
+    if (selectedClients.length === clients.length) return "Todos los clientes seleccionados";
+    if (selectedClients.length === 1) return selectedClients[0];
+    return `${selectedClients.length} clientes seleccionados`;
   };
 
   return (
@@ -448,9 +470,9 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
                 <div className="flex justify-between items-center">
                     <div>
                         <CardTitle>Consultar Artículos por Cliente</CardTitle>
-                        <CardDescription>Seleccione un cliente para ver y gestionar sus artículos.</CardDescription>
+                        <CardDescription>Seleccione clientes y filtre para ver y gestionar sus artículos.</CardDescription>
                     </div>
-                    <Button onClick={handleExportArticles} variant="outline" size="sm" disabled={articles.length === 0}>
+                    <Button onClick={handleExportArticles} variant="outline" size="sm" disabled={filteredArticles.length === 0}>
                         <Download className="mr-2 h-4 w-4" />
                         Exportar
                     </Button>
@@ -458,17 +480,18 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
               </CardHeader>
               <CardContent>
                 <div className="mb-4">
+                    <Label>Cliente(s)</Label>
                     <Dialog open={isConsultClientDialogOpen} onOpenChange={setConsultClientDialogOpen}>
                         <DialogTrigger asChild>
                             <Button variant="outline" className="w-full justify-between text-left font-normal">
-                                {selectedClient || "Seleccione un cliente para consultar..."}
+                                <span className="truncate">{getSelectedClientsText()}</span>
                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                             </Button>
                         </DialogTrigger>
                         <DialogContent className="sm:max-w-[425px]">
                             <DialogHeader>
-                                <DialogTitle>Seleccionar Cliente</DialogTitle>
-                                <DialogDescription>Busque y seleccione un cliente para ver y gestionar sus artículos.</DialogDescription>
+                                <DialogTitle>Seleccionar Cliente(s)</DialogTitle>
+                                <DialogDescription>Busque y seleccione los clientes a consultar.</DialogDescription>
                             </DialogHeader>
                             <div className="p-4">
                                 <Input
@@ -479,32 +502,70 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
                                 />
                                 <ScrollArea className="h-72">
                                     <div className="space-y-1">
-                                        {filteredConsultClients.map((client) => (
-                                            <Button
-                                                key={client.id}
-                                                variant="ghost"
-                                                className="w-full justify-start"
-                                                onClick={() => {
-                                                    handleClientSelect(client.razonSocial);
-                                                    setConsultClientDialogOpen(false);
-                                                    setConsultClientSearch('');
-                                                }}
-                                            >
-                                                {client.razonSocial}
-                                            </Button>
-                                        ))}
-                                        {filteredConsultClients.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron clientes.</p>}
+                                      <div className="flex items-center space-x-2 rounded-md p-2 hover:bg-accent">
+                                        <Checkbox
+                                          id="select-all-clients"
+                                          checked={selectedClients.length === clients.length}
+                                          onCheckedChange={(checked) => {
+                                            setSelectedClients(checked ? clients.map(c => c.razonSocial) : []);
+                                          }}
+                                        />
+                                        <Label htmlFor="select-all-clients" className="w-full cursor-pointer font-semibold">Seleccionar Todos</Label>
+                                      </div>
+                                      {filteredConsultClients.map((client) => (
+                                        <div key={client.id} className="flex items-center space-x-2 rounded-md p-2 hover:bg-accent">
+                                          <Checkbox
+                                            id={`client-${client.id}`}
+                                            checked={selectedClients.includes(client.razonSocial)}
+                                            onCheckedChange={(checked) => {
+                                              setSelectedClients(prev => 
+                                                checked 
+                                                  ? [...prev, client.razonSocial] 
+                                                  : prev.filter(c => c !== client.razonSocial)
+                                              );
+                                            }}
+                                          />
+                                          <Label htmlFor={`client-${client.id}`} className="w-full cursor-pointer">{client.razonSocial}</Label>
+                                        </div>
+                                      ))}
                                     </div>
                                 </ScrollArea>
                             </div>
+                            <DialogFooter>
+                              <Button onClick={() => setConsultClientDialogOpen(false)}>Cerrar</Button>
+                            </DialogFooter>
                         </DialogContent>
                     </Dialog>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                    <div className="space-y-1">
+                        <Label htmlFor="filter-code">Buscar por Código</Label>
+                        <div className="relative">
+                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                            <Input id="filter-code" placeholder="Filtrar por código..." value={filterCode} onChange={(e) => setFilterCode(e.target.value)} className="pl-8"/>
+                        </div>
+                    </div>
+                    <div className="space-y-1">
+                        <Label htmlFor="filter-session">Filtrar por Sesión</Label>
+                        <Select value={filterSession} onValueChange={setFilterSession}>
+                            <SelectTrigger id="filter-session">
+                                <SelectValue placeholder="Todas las sesiones" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="">Todas las sesiones</SelectItem>
+                                <SelectItem value="CO">CO - Congelados</SelectItem>
+                                <SelectItem value="RE">RE - Refrigerado</SelectItem>
+                                <SelectItem value="SE">SE - Seco</SelectItem>
+                            </SelectContent>
+                        </Select>
+                    </div>
                 </div>
 
                 <ScrollArea className="h-96">
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead>Cliente</TableHead>
                         <TableHead>Código</TableHead>
                         <TableHead>Descripción del Artículo</TableHead>
                         <TableHead>Sesión</TableHead>
@@ -514,14 +575,15 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
                     <TableBody>
                       {isLoadingArticles ? (
                         <TableRow>
-                          <TableCell colSpan={4} className="h-24 text-center">
+                          <TableCell colSpan={5} className="h-24 text-center">
                             <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
                             <p className="text-muted-foreground">Buscando artículos...</p>
                           </TableCell>
                         </TableRow>
-                      ) : articles.length > 0 ? (
-                        articles.map((article) => (
+                      ) : filteredArticles.length > 0 ? (
+                        filteredArticles.map((article) => (
                           <TableRow key={article.id}>
+                            <TableCell>{article.razonSocial}</TableCell>
                             <TableCell className="font-mono">{article.codigoProducto}</TableCell>
                             <TableCell>{article.denominacionArticulo}</TableCell>
                             <TableCell>{article.sesion}</TableCell>
@@ -539,8 +601,8 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
                         ))
                       ) : (
                         <TableRow>
-                          <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
-                            {selectedClient ? "Este cliente no tiene artículos registrados." : "Seleccione un cliente para ver sus artículos."}
+                          <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                            {selectedClients.length === 0 ? "Seleccione uno o más clientes para ver sus artículos." : "No se encontraron artículos para la selección actual."}
                           </TableCell>
                         </TableRow>
                       )}
