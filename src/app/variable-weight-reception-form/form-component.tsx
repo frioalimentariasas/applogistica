@@ -126,10 +126,10 @@ const formSchema = z.object({
     ),
     contenedor: z.string().min(1, "El contenedor es obligatorio.").max(20, "Máximo 20 caracteres."),
     items: z.array(itemSchema).min(1, "Debe agregar al menos un item."),
-    summary: z.array(summaryItemSchema).optional(),
+    summary: z.array(summaryItemSchema).nullable(),
     horaInicio: z.string().min(1, "La hora de inicio es obligatoria.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
     horaFin: z.string().min(1, "La hora de fin es obligatoria.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
-    observaciones: z.string().max(250, "Máximo 250 caracteres.").optional(),
+    observaciones: z.string().max(250, "Máximo 250 caracteres.").nullable(),
     coordinador: z.string().min(1, "Seleccione un coordinador."),
 }).refine((data) => {
     return data.horaInicio !== data.horaFin;
@@ -368,57 +368,33 @@ export default function VariableWeightReceptionFormComponent() {
         const submission = await getSubmissionById(submissionId);
         if (submission) {
           setOriginalSubmission(submission);
-          const formData = submission.formData;
+          let formData = submission.formData;
           
-          // Sanitize top-level fields
-          formData.pedidoSislog = formData.pedidoSislog ?? '';
-          formData.cliente = formData.cliente ?? '';
-          formData.conductor = formData.conductor ?? '';
-          formData.cedulaConductor = formData.cedulaConductor ?? '';
-          formData.placa = formData.placa ?? '';
-          formData.precinto = formData.precinto ?? '';
-          formData.setPoint = formData.setPoint ?? null;
-          formData.contenedor = formData.contenedor ?? '';
-          formData.horaInicio = formData.horaInicio ?? '';
-          formData.horaFin = formData.horaFin ?? '';
-          formData.observaciones = formData.observaciones ?? '';
-          formData.coordinador = formData.coordinador ?? '';
-
-          // Sanitize items array
-          if (formData.items && Array.isArray(formData.items)) {
-              formData.items.forEach((item: any) => {
-                  item.paleta = item.paleta ?? null;
-                  item.descripcion = item.descripcion ?? '';
-                  item.lote = item.lote ?? '';
-                  item.presentacion = item.presentacion ?? '';
-                  item.cantidadPorPaleta = item.cantidadPorPaleta ?? null;
-                  item.pesoBruto = item.pesoBruto ?? null;
-                  item.taraEstiba = item.taraEstiba ?? null;
-                  item.taraCaja = item.taraCaja ?? null;
-                  item.totalTaraCaja = item.totalTaraCaja ?? null;
-                  item.pesoNeto = item.pesoNeto ?? null;
-              });
-          } else {
-            formData.items = [];
-          }
-          
-          // Sanitize summary array
-          if (formData.summary && Array.isArray(formData.summary)) {
-              formData.summary.forEach((item: any) => {
-                  item.descripcion = item.descripcion ?? '';
-                  if (item.temperatura !== undefined && item.temperatura1 === undefined) {
-                      item.temperatura1 = item.temperatura;
-                  }
-                  item.temperatura1 = item.temperatura1 ?? null;
-                  item.temperatura2 = item.temperatura2 ?? null;
-                  item.temperatura3 = item.temperatura3 ?? null;
-                  item.totalPeso = item.totalPeso ?? 0;
-                  item.totalCantidad = item.totalCantidad ?? 0;
-                  item.totalPaletas = item.totalPaletas ?? 0;
-              });
-          } else {
-            formData.summary = [];
-          }
+          // Ensure all optional fields have a default value to prevent uncontrolled -> controlled error
+          formData = {
+            ...originalDefaultValues,
+            ...formData,
+            observaciones: formData.observaciones ?? null,
+            setPoint: formData.setPoint ?? null,
+            summary: (formData.summary || []).map((s: any) => ({
+                ...s,
+                temperatura1: s.temperatura1 ?? s.temperatura ?? null,
+                temperatura2: s.temperatura2 ?? null,
+                temperatura3: s.temperatura3 ?? null,
+            })),
+            items: (formData.items || []).map((item: any) => ({
+                ...item,
+                paleta: item.paleta ?? null,
+                lote: item.lote ?? '',
+                presentacion: item.presentacion ?? '',
+                cantidadPorPaleta: item.cantidadPorPaleta ?? null,
+                pesoBruto: item.pesoBruto ?? null,
+                taraEstiba: item.taraEstiba ?? null,
+                taraCaja: item.taraCaja ?? null,
+                totalTaraCaja: item.totalTaraCaja ?? null,
+                pesoNeto: item.pesoNeto ?? null,
+            }))
+          };
 
           // Convert date string back to Date object for the form
           if (formData.fecha && typeof formData.fecha === 'string') {
@@ -711,9 +687,7 @@ export default function VariableWeightReceptionFormComponent() {
 
         if (result.success) {
             toast({ title: "Formulario Guardado", description: `La recepción de peso variable ha sido ${submissionId ? 'actualizada' : 'guardada'}.` });
-            if (!submissionId) { // Only clear draft for new forms
-                await clearDraft();
-            }
+            await clearDraft();
             router.push('/');
         } else {
             throw new Error(result.message);

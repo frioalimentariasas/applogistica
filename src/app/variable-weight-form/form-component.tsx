@@ -69,7 +69,7 @@ const itemSchema = z.object({
       }).int({ message: "La paleta debe ser un número entero." }).min(0, "Debe ser un número no negativo.").nullable()
     ),
     descripcion: z.string().min(1, "La descripción es requerida."),
-    lote: z.string().max(15, "Máximo 15 caracteres").optional(),
+    lote: z.string().max(15, "Máximo 15 caracteres").nullable(),
     presentacion: z.string().min(1, "Seleccione una presentación."),
     // Conditional fields for individual pallets (paleta > 0)
     cantidadPorPaleta: z.preprocess(
@@ -93,8 +93,8 @@ const itemSchema = z.object({
           .min(0, "Debe ser un número no negativo.").nullable()
     ),
     // Calculated fields
-    totalTaraCaja: z.number().optional(),
-    pesoNeto: z.number().optional(),
+    totalTaraCaja: z.number().nullable(),
+    pesoNeto: z.number().nullable(),
     // Conditional fields for summary row (paleta === 0)
     totalCantidad: z.preprocess(
         (val) => (val === "" || val === null ? null : val),
@@ -170,10 +170,10 @@ const formSchema = z.object({
     ),
     contenedor: z.string().min(1, "El contenedor es obligatorio.").max(20, "Máximo 20 caracteres."),
     items: z.array(itemSchema).min(1, "Debe agregar al menos un item."),
-    summary: z.array(summaryItemSchema).optional(),
+    summary: z.array(summaryItemSchema).nullable(),
     horaInicio: z.string().min(1, "La hora de inicio es obligatoria.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
     horaFin: z.string().min(1, "La hora de fin es obligatoria.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
-    observaciones: z.string().max(250, "Máximo 250 caracteres.").optional(),
+    observaciones: z.string().max(250, "Máximo 250 caracteres.").nullable(),
     coordinador: z.string().min(1, "Seleccione un coordinador."),
 }).refine((data) => {
     return data.horaInicio !== data.horaFin;
@@ -203,8 +203,8 @@ const originalDefaultValues: FormValues = {
     pesoBruto: null,
     taraEstiba: null,
     taraCaja: null,
-    totalTaraCaja: NaN,
-    pesoNeto: NaN,
+    totalTaraCaja: null,
+    pesoNeto: null,
     totalCantidad: null, 
     totalPaletas: null, 
     totalPesoNeto: null 
@@ -404,8 +404,8 @@ export default function VariableWeightFormComponent() {
         pesoBruto: null,
         taraEstiba: lastItem?.taraEstiba || null,
         taraCaja: lastItem?.taraCaja || null,
-        totalTaraCaja: NaN,
-        pesoNeto: NaN,
+        totalTaraCaja: null,
+        pesoNeto: null,
         totalCantidad: null,
         totalPaletas: null,
         totalPesoNeto: null,
@@ -435,55 +435,30 @@ export default function VariableWeightFormComponent() {
         const submission = await getSubmissionById(submissionId);
         if (submission) {
           setOriginalSubmission(submission);
-          const formData = submission.formData;
+          let formData = submission.formData;
 
           // Sanitize top-level fields
-          formData.pedidoSislog = formData.pedidoSislog ?? '';
-          formData.cliente = formData.cliente ?? '';
-          formData.conductor = formData.conductor ?? '';
-          formData.cedulaConductor = formData.cedulaConductor ?? '';
-          formData.placa = formData.placa ?? '';
-          formData.precinto = formData.precinto ?? '';
-          formData.setPoint = formData.setPoint ?? null;
-          formData.contenedor = formData.contenedor ?? '';
-          formData.horaInicio = formData.horaInicio ?? '';
-          formData.horaFin = formData.horaFin ?? '';
-          formData.observaciones = formData.observaciones ?? '';
-          formData.coordinador = formData.coordinador ?? '';
-
-          // Sanitize items array
-          if (formData.items && Array.isArray(formData.items)) {
-            formData.items.forEach((item: any) => {
-                item.paleta = item.paleta ?? null;
-                item.descripcion = item.descripcion ?? '';
-                item.lote = item.lote ?? '';
-                item.presentacion = item.presentacion ?? '';
-                item.cantidadPorPaleta = item.cantidadPorPaleta ?? null;
-                item.pesoBruto = item.pesoBruto ?? null;
-                item.taraEstiba = item.taraEstiba ?? null;
-                item.taraCaja = item.taraCaja ?? null;
-                item.totalTaraCaja = item.totalTaraCaja ?? null;
-                item.pesoNeto = item.pesoNeto ?? null;
-                item.totalCantidad = item.totalCantidad ?? null;
-                item.totalPaletas = item.totalPaletas ?? null;
-                item.totalPesoNeto = item.totalPesoNeto ?? null;
-            });
-          } else {
-            formData.items = [];
-          }
-
-          // Sanitize summary array
-          if (formData.summary && Array.isArray(formData.summary)) {
-              formData.summary.forEach((item: any) => {
-                  item.descripcion = item.descripcion ?? '';
-                  item.temperatura = item.temperatura ?? null;
-                  item.totalPeso = item.totalPeso ?? 0;
-                  item.totalCantidad = item.totalCantidad ?? 0;
-                  item.totalPaletas = item.totalPaletas ?? 0;
-              });
-          } else {
-             formData.summary = [];
-          }
+          formData = {
+            ...originalDefaultValues,
+            ...formData,
+            lote: formData.lote ?? null,
+            observaciones: formData.observaciones ?? null,
+            summary: formData.summary ?? [],
+            items: (formData.items || []).map((item: any) => ({
+                ...item,
+                paleta: item.paleta ?? null,
+                lote: item.lote ?? null,
+                cantidadPorPaleta: item.cantidadPorPaleta ?? null,
+                pesoBruto: item.pesoBruto ?? null,
+                taraEstiba: item.taraEstiba ?? null,
+                taraCaja: item.taraCaja ?? null,
+                totalTaraCaja: item.totalTaraCaja ?? null,
+                pesoNeto: item.pesoNeto ?? null,
+                totalCantidad: item.totalCantidad ?? null,
+                totalPaletas: item.totalPaletas ?? null,
+                totalPesoNeto: item.totalPesoNeto ?? null,
+            }))
+          };
 
           // Convert date string back to Date object for the form
           if (formData.fecha && typeof formData.fecha === 'string') {
@@ -776,9 +751,7 @@ export default function VariableWeightFormComponent() {
 
         if (result.success) {
             toast({ title: "Formulario Guardado", description: `El formato de ${operation} ha sido ${submissionId ? 'actualizado' : 'guardado'} correctamente.` });
-            if (!submissionId) { // Only clear draft for new forms
-              await clearDraft();
-            }
+            await clearDraft();
             router.push('/');
         } else {
             throw new Error(result.message);
@@ -891,7 +864,7 @@ export default function VariableWeightFormComponent() {
                                                                 setClientDialogOpen(false);
                                                                 setClientSearch('');
                                                                 
-                                                                form.setValue('items', [{ paleta: null, descripcion: '', lote: '', presentacion: '', cantidadPorPaleta: null, pesoBruto: null, taraEstiba: null, taraCaja: null, totalTaraCaja: NaN, pesoNeto: NaN, totalCantidad: null, totalPaletas: null, totalPesoNeto: null }]);
+                                                                form.setValue('items', [{ paleta: null, descripcion: '', lote: '', presentacion: '', cantidadPorPaleta: null, pesoBruto: null, taraEstiba: null, taraCaja: null, totalTaraCaja: null, pesoNeto: null, totalCantidad: null, totalPaletas: null, totalPesoNeto: null }]);
                                                                 setArticulos([]);
                                                                 setIsLoadingArticulos(true);
                                                                 try {

@@ -85,14 +85,14 @@ const formSchema = z.object({
   precinto: z.string()
     .min(1, "El precinto es obligatorio.")
     .max(40, "Máximo 40 caracteres."),
-    documentoTransporte: z.string().max(15, "Máximo 15 caracteres.").optional(),
-    facturaRemision: z.string().max(15, "Máximo 15 caracteres.").optional(),
+    documentoTransporte: z.string().max(15, "Máximo 15 caracteres.").nullable(),
+    facturaRemision: z.string().max(15, "Máximo 15 caracteres.").nullable(),
   productos: z.array(productSchema).min(1, "Debe agregar al menos un producto."),
   nombreConductor: z.string().min(1, "El nombre del conductor es obligatorio."),
   cedulaConductor: z.string().min(1, "La cédula del conductor es obligatoria.").regex(/^[0-9]*$/, "La cédula solo puede contener números."),
   placa: z.string().min(1, "La placa es obligatoria.").regex(/^[A-Z]{3}[0-9]{3}$/, "Formato inválido. Deben ser 3 letras y 3 números (ej: ABC123)."),
   muelle: z.string().min(1, "Seleccione un muelle."),
-  contenedor: z.string().optional(),
+  contenedor: z.string().nullable(),
   setPoint: z.preprocess(
       (val) => (val === "" || val === null ? null : val),
       z.coerce.number({ invalid_type_error: "Set Point debe ser un número."})
@@ -101,7 +101,7 @@ const formSchema = z.object({
   condicionesHigiene: z.enum(["limpio", "sucio"], { required_error: "Seleccione una condición." }),
   termoregistrador: z.enum(["si", "no"], { required_error: "Seleccione una opción." }),
   clienteRequiereTermoregistro: z.enum(["si", "no"], { required_error: "Seleccione una opción." }),
-  observaciones: z.string().max(150, "Máximo 150 caracteres.").optional(),
+  observaciones: z.string().max(150, "Máximo 150 caracteres.").nullable(),
   coordinador: z.string().min(1, "Seleccione un coordinador."),
 }).refine((data) => {
     return data.horaInicio !== data.horaFin;
@@ -262,41 +262,22 @@ export default function FixedWeightFormComponent() {
         const submission = await getSubmissionById(submissionId);
         if (submission) {
           setOriginalSubmission(submission);
-          const formData = submission.formData;
+          let formData = submission.formData;
           
-          // Sanitize top-level fields
-          formData.pedidoSislog = formData.pedidoSislog ?? '';
-          formData.nombreCliente = formData.nombreCliente ?? '';
-          formData.horaInicio = formData.horaInicio ?? '';
-          formData.horaFin = formData.horaFin ?? '';
-          formData.precinto = formData.precinto ?? '';
-          formData.documentoTransporte = formData.documentoTransporte ?? '';
-          formData.facturaRemision = formData.facturaRemision ?? '';
-          formData.nombreConductor = formData.nombreConductor ?? '';
-          formData.cedulaConductor = formData.cedulaConductor ?? '';
-          formData.placa = formData.placa ?? '';
-          formData.muelle = formData.muelle ?? '';
-          formData.contenedor = formData.contenedor ?? '';
-          formData.setPoint = formData.setPoint ?? null;
-          formData.condicionesHigiene = formData.condicionesHigiene ?? undefined;
-          formData.termoregistrador = formData.termoregistrador ?? undefined;
-          formData.clienteRequiereTermoregistro = formData.clienteRequiereTermoregistro ?? undefined;
-          formData.observaciones = formData.observaciones ?? '';
-          formData.coordinador = formData.coordinador ?? '';
-
-          // Sanitize productos array
-          if (formData.productos && Array.isArray(formData.productos)) {
-              formData.productos.forEach((p: any) => {
-                  p.codigo = p.codigo ?? '';
-                  p.descripcion = p.descripcion ?? '';
-                  p.cajas = p.cajas ?? null;
-                  p.totalPaletas = p.totalPaletas ?? p.paletas ?? null;
-                  p.cantidadKg = p.cantidadKg ?? null;
-                  p.temperatura = p.temperatura ?? null;
-              });
-          } else {
-              formData.productos = [];
-          }
+          // Ensure all optional fields have a default value to prevent uncontrolled -> controlled error
+          formData = {
+            ...originalDefaultValues,
+            ...formData,
+            documentoTransporte: formData.documentoTransporte ?? null,
+            facturaRemision: formData.facturaRemision ?? null,
+            contenedor: formData.contenedor ?? null,
+            setPoint: formData.setPoint ?? null,
+            observaciones: formData.observaciones ?? null,
+            productos: (formData.productos || []).map((p: any) => ({
+                ...p,
+                cantidadKg: p.cantidadKg ?? null,
+            })),
+          };
 
           // Convert date string back to Date object for the form
           if (formData.fecha && typeof formData.fecha === 'string') {
@@ -580,9 +561,7 @@ export default function FixedWeightFormComponent() {
 
         if (result.success) {
             toast({ title: "Formato Guardado", description: `El formato ha sido ${submissionId ? 'actualizado' : 'guardado'} correctamente.` });
-            if (!submissionId) { // Only clear draft for new forms
-                await clearDraft();
-            }
+            await clearDraft();
             router.push('/');
         } else {
             throw new Error(result.message);
