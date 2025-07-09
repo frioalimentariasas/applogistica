@@ -626,9 +626,9 @@ export default function VariableWeightReceptionFormComponent() {
             const formItem = (data.summary || []).find(s => s.descripcion === summaryItem.descripcion);
             return {
                 ...summaryItem,
-                temperatura1: formItem?.temperatura1,
-                temperatura2: formItem?.temperatura2,
-                temperatura3: formItem?.temperatura3,
+                temperatura1: formItem?.temperatura1 ?? null,
+                temperatura2: formItem?.temperatura2 ?? null,
+                temperatura3: formItem?.temperatura3 ?? null,
             }
         });
         const dataWithFinalSummary = { ...data, summary: finalSummary };
@@ -1212,3 +1212,5 @@ export default function VariableWeightReceptionFormComponent() {
       </div>
   );
 }
+
+    
