@@ -8,6 +8,7 @@ interface ArticleData {
   razonSocial: string;
   codigoProducto: string;
   denominacionArticulo: string;
+  sesion: 'CO' | 'RE' | 'SE';
 }
 
 export async function addArticle(data: ArticleData): Promise<{ success: boolean; message: string }> {
@@ -15,9 +16,9 @@ export async function addArticle(data: ArticleData): Promise<{ success: boolean;
     return { success: false, message: 'Error de configuración del servidor.' };
   }
 
-  const { razonSocial, codigoProducto, denominacionArticulo } = data;
+  const { razonSocial, codigoProducto, denominacionArticulo, sesion } = data;
 
-  if (!razonSocial || !codigoProducto || !denominacionArticulo) {
+  if (!razonSocial || !codigoProducto || !denominacionArticulo || !sesion) {
     return { success: false, message: 'Todos los campos son obligatorios.' };
   }
   
@@ -42,6 +43,7 @@ export async function addArticle(data: ArticleData): Promise<{ success: boolean;
       razonSocial,
       codigoProducto: trimmedCode,
       denominacionArticulo: trimmedName,
+      sesion,
     });
     
     revalidatePath(`/gestion-articulos`);
@@ -56,16 +58,16 @@ export async function addArticle(data: ArticleData): Promise<{ success: boolean;
 
 export async function updateArticle(
   id: string,
-  data: { codigoProducto: string; denominacionArticulo: string }
+  data: { codigoProducto: string; denominacionArticulo: string, sesion: 'CO' | 'RE' | 'SE' }
 ): Promise<{ success: boolean; message: string }> {
   if (!firestore) {
     return { success: false, message: 'Error de configuración del servidor.' };
   }
 
-  const { codigoProducto, denominacionArticulo } = data;
+  const { codigoProducto, denominacionArticulo, sesion } = data;
 
-  if (!codigoProducto || !denominacionArticulo) {
-    return { success: false, message: 'El código y la descripción son obligatorios.' };
+  if (!codigoProducto || !denominacionArticulo || !sesion) {
+    return { success: false, message: 'El código, la descripción y la sesión son obligatorios.' };
   }
   
   const trimmedCode = codigoProducto.trim();
@@ -93,6 +95,7 @@ export async function updateArticle(
     await articleRef.update({
       codigoProducto: trimmedCode,
       denominacionArticulo: trimmedName,
+      sesion: sesion,
     });
 
     revalidatePath('/gestion-articulos');

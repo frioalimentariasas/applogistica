@@ -154,7 +154,6 @@ const formSchema = z.object({
       .min(1, "El pedido SISLOG es obligatorio.")
       .max(15, "El pedido SISLOG no puede exceder los 15 caracteres."),
     cliente: z.string().min(1, "Seleccione un cliente."),
-    sesion: z.enum(['CO', 'RE', 'SE'], { required_error: "Debe seleccionar una sesión." }),
     fecha: z.date({ required_error: "La fecha es obligatoria." }),
     conductor: z.string()
       .min(1, "El nombre del conductor es obligatorio."),
@@ -188,7 +187,6 @@ type FormValues = z.infer<typeof formSchema>;
 const originalDefaultValues: FormValues = {
   pedidoSislog: "",
   cliente: "",
-  sesion: undefined,
   fecha: new Date(),
   cedulaConductor: "",
   conductor: "",
@@ -443,7 +441,6 @@ export default function VariableWeightFormComponent() {
           formData = {
             ...originalDefaultValues,
             ...formData,
-            sesion: formData.sesion ?? undefined,
             lote: formData.lote ?? null,
             observaciones: formData.observaciones ?? null,
             summary: formData.summary ?? [],
@@ -895,28 +892,6 @@ export default function VariableWeightFormComponent() {
                               <FormMessage />
                             </FormItem>
                           )}
-                        />
-                        <FormField
-                            control={form.control}
-                            name="sesion"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Sesión</FormLabel>
-                                    <Select onValueChange={field.onChange} value={field.value}>
-                                        <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Seleccione una sesión" />
-                                            </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            <SelectItem value="CO">CO - Congelados</SelectItem>
-                                            <SelectItem value="RE">RE - Refrigerado</SelectItem>
-                                            <SelectItem value="SE">SE - Seco</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
                         />
                       <FormItem>
                           <FormLabel>Operario Logístico</FormLabel>

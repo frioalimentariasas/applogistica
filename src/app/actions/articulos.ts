@@ -7,6 +7,7 @@ export interface ArticuloData {
   codigoProducto: string;
   denominacionArticulo: string;
   razonSocial: string;
+  sesion: 'CO' | 'RE' | 'SE';
 }
 
 // Define the structure returned by the action
@@ -14,6 +15,7 @@ export interface ArticuloInfo {
     id: string; // Document ID from Firestore
     codigoProducto: string;
     denominacionArticulo: string;
+    sesion: 'CO' | 'RE' | 'SE';
 }
 
 export async function getArticulosByClient(clientName: string): Promise<ArticuloInfo[]> {
@@ -39,6 +41,7 @@ export async function getArticulosByClient(clientName: string): Promise<Articulo
                 id: doc.id,
                 codigoProducto: data.codigoProducto,
                 denominacionArticulo: data.denominacionArticulo,
+                sesion: data.sesion,
             };
         });
 

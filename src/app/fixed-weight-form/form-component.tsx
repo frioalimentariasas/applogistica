@@ -79,7 +79,6 @@ const formSchema = z.object({
     .min(1, "El pedido SISLOG es obligatorio.")
     .max(15, "El pedido SISLOG no puede exceder los 15 caracteres."),
   nombreCliente: z.string().min(1, "Seleccione un cliente."),
-  sesion: z.enum(['CO', 'RE', 'SE'], { required_error: "Debe seleccionar una sesión." }),
   fecha: z.date({ required_error: "La fecha es obligatoria." }),
   horaInicio: z.string().min(1, "La hora de inicio es obligatoria.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
   horaFin: z.string().min(1, "La hora de fin es obligatoria.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
@@ -116,7 +115,6 @@ type FormValues = z.infer<typeof formSchema>;
 const originalDefaultValues: FormValues = {
   pedidoSislog: "",
   nombreCliente: "",
-  sesion: undefined,
   fecha: new Date(),
   horaInicio: "",
   horaFin: "",
@@ -270,7 +268,6 @@ export default function FixedWeightFormComponent() {
           formData = {
             ...originalDefaultValues,
             ...formData,
-            sesion: formData.sesion ?? undefined,
             documentoTransporte: formData.documentoTransporte ?? null,
             facturaRemision: formData.facturaRemision ?? null,
             contenedor: formData.contenedor ?? null,
@@ -707,28 +704,6 @@ export default function FixedWeightFormComponent() {
                           <FormMessage />
                         </FormItem>
                       )}
-                    />
-                    <FormField
-                        control={form.control}
-                        name="sesion"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Sesión</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value}>
-                                    <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Seleccione una sesión" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        <SelectItem value="CO">CO - Congelados</SelectItem>
-                                        <SelectItem value="RE">RE - Refrigerado</SelectItem>
-                                        <SelectItem value="SE">SE - Seco</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                            </FormItem>
-                        )}
                     />
                     <FormField control={form.control} name="fecha" render={({ field }) => (
                       <FormItem>

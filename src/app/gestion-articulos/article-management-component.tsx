@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -6,6 +7,8 @@ import { useFormStatus } from 'react-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useRouter } from 'next/navigation';
+import * as XLSX from 'xlsx';
+
 import { useToast } from '@/hooks/use-toast';
 import { addArticle, updateArticle, deleteArticle } from './actions';
 import { getArticulosByClient, ArticuloInfo } from '@/app/actions/articulos';
@@ -13,7 +16,7 @@ import { uploadArticulos } from '../upload-articulos/actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Loader2, Box, PlusCircle, Edit, Trash2, ChevronsUpDown, FileUp } from 'lucide-react';
+import { ArrowLeft, Loader2, Box, PlusCircle, Edit, Trash2, ChevronsUpDown, FileUp, Download } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -30,6 +33,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import type { ClientInfo } from '@/app/actions/clients';
 
 
@@ -37,12 +41,14 @@ const articleSchema = z.object({
   razonSocial: z.string().min(1, { message: 'Debe seleccionar un cliente.' }),
   codigoProducto: z.string().min(1, { message: 'El código es obligatorio.' }),
   denominacionArticulo: z.string().min(3, { message: 'La descripción es obligatoria.' }),
+  sesion: z.enum(['CO', 'RE', 'SE'], { required_error: 'Debe seleccionar una sesión.' }),
 });
 type ArticleFormValues = z.infer<typeof articleSchema>;
 
 const editArticleSchema = z.object({
   codigoProducto: z.string().min(1, { message: 'El código es obligatorio.' }),
   denominacionArticulo: z.string().min(3, { message: 'La descripción es obligatoria.' }),
+  sesion: z.enum(['CO', 'RE', 'SE'], { required_error: 'Debe seleccionar una sesión.' }),
 });
 type EditArticleFormValues = z.infer<typeof editArticleSchema>;
 
@@ -103,6 +109,7 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
       razonSocial: '',
       codigoProducto: '',
       denominacionArticulo: '',
+      sesion: undefined
     },
   });
 
@@ -111,6 +118,7 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
     defaultValues: {
       codigoProducto: '',
       denominacionArticulo: '',
+      sesion: undefined,
     },
   });
 
@@ -190,6 +198,7 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
     editForm.reset({
       codigoProducto: article.codigoProducto,
       denominacionArticulo: article.denominacionArticulo,
+      sesion: article.sesion,
     });
   };
 
@@ -234,6 +243,38 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
       });
     }
   }
+
+  const handleExportArticles = () => {
+    if (!selectedClient) {
+        toast({
+            variant: "destructive",
+            title: "Seleccione un cliente",
+            description: "Debe seleccionar un cliente para poder exportar sus artículos."
+        });
+        return;
+    }
+
+    if (articles.length === 0) {
+        toast({
+            title: "Sin datos",
+            description: "El cliente seleccionado no tiene artículos para exportar."
+        });
+        return;
+    }
+
+    const dataToExport = articles.map(article => ({
+      'Cliente': selectedClient,
+      'Codigo Producto': article.codigoProducto,
+      'Denominacion Articulo': article.denominacionArticulo,
+      'Sesion': article.sesion
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Articulos');
+    const fileName = `Maestro_Articulos_${selectedClient.replace(/\s/g, '_')}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+  };
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
@@ -314,6 +355,28 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
                         </FormItem>
                       )}
                     />
+                     <FormField
+                        control={addForm.control}
+                        name="sesion"
+                        render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Sesión</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                    <FormControl>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Seleccione una sesión" />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="CO">CO - Congelados</SelectItem>
+                                        <SelectItem value="RE">RE - Refrigerado</SelectItem>
+                                        <SelectItem value="SE">SE - Seco</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                        )}
+                    />
                     <FormField
                       control={addForm.control}
                       name="codigoProducto"
@@ -354,7 +417,7 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
                 <Alert className="mb-4 border-blue-500 bg-blue-50 text-blue-800 [&>svg]:text-blue-600">
                     <AlertTitle className="text-blue-700">Formato del Archivo</AlertTitle>
                     <AlertDescription>
-                        El archivo debe tener las columnas: <strong>Razón Social</strong>, <strong>Codigo Producto</strong>, y <strong>Denominación articulo</strong>.
+                        El archivo debe tener las columnas: <strong>Razón Social</strong>, <strong>Codigo Producto</strong>, <strong>Denominación articulo</strong> y <strong>Sesion</strong>.
                     </AlertDescription>
                 </Alert>
                 <form id="upload-articles-form" action={handleUploadFormAction} className="space-y-4">
@@ -382,8 +445,16 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
           <div>
             <Card>
               <CardHeader>
-                <CardTitle>Consultar Artículos por Cliente</CardTitle>
-                <CardDescription>Seleccione un cliente para ver y gestionar sus artículos asociados.</CardDescription>
+                <div className="flex justify-between items-center">
+                    <div>
+                        <CardTitle>Consultar Artículos por Cliente</CardTitle>
+                        <CardDescription>Seleccione un cliente para ver y gestionar sus artículos.</CardDescription>
+                    </div>
+                    <Button onClick={handleExportArticles} variant="outline" size="sm" disabled={articles.length === 0}>
+                        <Download className="mr-2 h-4 w-4" />
+                        Exportar
+                    </Button>
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="mb-4">
@@ -436,13 +507,14 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
                       <TableRow>
                         <TableHead>Código</TableHead>
                         <TableHead>Descripción del Artículo</TableHead>
+                        <TableHead>Sesión</TableHead>
                         <TableHead className="text-right">Acciones</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {isLoadingArticles ? (
                         <TableRow>
-                          <TableCell colSpan={3} className="h-24 text-center">
+                          <TableCell colSpan={4} className="h-24 text-center">
                             <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
                             <p className="text-muted-foreground">Buscando artículos...</p>
                           </TableCell>
@@ -452,6 +524,7 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
                           <TableRow key={article.id}>
                             <TableCell className="font-mono">{article.codigoProducto}</TableCell>
                             <TableCell>{article.denominacionArticulo}</TableCell>
+                            <TableCell>{article.sesion}</TableCell>
                             <TableCell className="text-right">
                                 <div className="flex items-center justify-end gap-2">
                                     <Button variant="ghost" size="icon" title="Editar" onClick={() => openEditDialog(article)}>
@@ -466,7 +539,7 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
                         ))
                       ) : (
                         <TableRow>
-                          <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
+                          <TableCell colSpan={4} className="h-24 text-center text-muted-foreground">
                             {selectedClient ? "Este cliente no tiene artículos registrados." : "Seleccione un cliente para ver sus artículos."}
                           </TableCell>
                         </TableRow>
@@ -491,6 +564,28 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
           </DialogHeader>
           <Form {...editForm}>
             <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4 pt-4">
+               <FormField
+                  control={editForm.control}
+                  name="sesion"
+                  render={({ field }) => (
+                      <FormItem>
+                          <FormLabel>Sesión</FormLabel>
+                          <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                  <SelectTrigger>
+                                      <SelectValue placeholder="Seleccione una sesión" />
+                                  </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                  <SelectItem value="CO">CO - Congelados</SelectItem>
+                                  <SelectItem value="RE">RE - Refrigerado</SelectItem>
+                                  <SelectItem value="SE">SE - Seco</SelectItem>
+                              </SelectContent>
+                          </Select>
+                          <FormMessage />
+                      </FormItem>
+                  )}
+              />
               <FormField
                 control={editForm.control}
                 name="codigoProducto"
@@ -554,5 +649,3 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
     </div>
   );
 }
-
-    

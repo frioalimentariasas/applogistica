@@ -10,6 +10,7 @@ interface Articulo {
   'Razón Social': string;
   'Codigo Producto': string;
   'Denominación articulo': string;
+  'Sesion': 'CO' | 'RE' | 'SE';
 }
 
 export async function uploadArticulos(formData: FormData): Promise<{ success: boolean; message: string; count?: number }> {
@@ -38,8 +39,8 @@ export async function uploadArticulos(formData: FormData): Promise<{ success: bo
     
     // Validate first row to ensure correct columns
     const firstRow = data[0];
-    if (!('Razón Social' in firstRow && 'Codigo Producto' in firstRow && 'Denominación articulo' in firstRow)) {
-        return { success: false, message: 'Las columnas del archivo Excel no coinciden con el formato esperado (Razón Social, Codigo Producto, Denominación articulo).' };
+    if (!('Razón Social' in firstRow && 'Codigo Producto' in firstRow && 'Denominación articulo' in firstRow && 'Sesion' in firstRow)) {
+        return { success: false, message: 'Las columnas del archivo Excel no coinciden con el formato esperado (Razón Social, Codigo Producto, Denominación articulo, Sesion).' };
     }
 
     const articulosCollection = firestore.collection('articulos');
@@ -48,12 +49,13 @@ export async function uploadArticulos(formData: FormData): Promise<{ success: bo
     const writeBatch = firestore.batch();
     data.forEach((row) => {
       // Basic validation to skip empty rows
-      if (row['Razón Social'] && row['Codigo Producto'] && row['Denominación articulo']) {
+      if (row['Razón Social'] && row['Codigo Producto'] && row['Denominación articulo'] && row['Sesion']) {
         const docRef = articulosCollection.doc(); // Firestore will auto-generate an ID
         writeBatch.set(docRef, {
           razonSocial: row['Razón Social'],
           codigoProducto: row['Codigo Producto'],
           denominacionArticulo: row['Denominación articulo'],
+          sesion: row['Sesion'],
         });
       }
     });

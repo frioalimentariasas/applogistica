@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -6,13 +7,15 @@ import { useFormStatus } from 'react-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useRouter } from 'next/navigation';
+import * as XLSX from 'xlsx';
+
 import { useToast } from '@/hooks/use-toast';
 import { addClient, updateClient, deleteClient } from './actions';
 import { uploadClientes } from '../upload-clientes/actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Loader2, Users2, UserPlus, Edit, Trash2, FileUp } from 'lucide-react';
+import { ArrowLeft, Loader2, Users2, UserPlus, Edit, Trash2, FileUp, Download } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -181,6 +184,17 @@ export default function ClientManagementComponent({ initialClients }: ClientMana
     }
   }
 
+  const handleExportClients = () => {
+    const dataToExport = clients.map(client => ({
+      'Razón Social': client.razonSocial
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Clientes');
+    XLSX.writeFile(workbook, 'Maestro_Clientes.xlsx');
+  };
+
   const filteredClients = clients.filter(client => 
     client.razonSocial.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -272,8 +286,16 @@ export default function ClientManagementComponent({ initialClients }: ClientMana
           
           <Card>
             <CardHeader>
-              <CardTitle>Listado de Clientes</CardTitle>
-               <CardDescription>Clientes actualmente registrados en el sistema.</CardDescription>
+                <div className="flex justify-between items-center">
+                    <div>
+                        <CardTitle>Listado de Clientes</CardTitle>
+                        <CardDescription>Clientes actualmente registrados en el sistema.</CardDescription>
+                    </div>
+                    <Button onClick={handleExportClients} variant="outline" size="sm" disabled={clients.length === 0}>
+                        <Download className="mr-2 h-4 w-4" />
+                        Exportar
+                    </Button>
+                </div>
             </CardHeader>
             <CardContent>
                <Input 
@@ -384,5 +406,3 @@ export default function ClientManagementComponent({ initialClients }: ClientMana
     </div>
   );
 }
-
-    

@@ -3,6 +3,7 @@
 
 import admin from 'firebase-admin';
 import { firestore } from '@/lib/firebase-admin';
+import type { ArticuloData } from './articulos';
 
 // Helper to get a YYYY-MM-DD string adjusted for a specific timezone (e.g., UTC-5 for Colombia)
 const getLocalGroupingDate = (isoString: string): string => {
@@ -61,7 +62,19 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
     }
 
     try {
-        const snapshot = await firestore.collection('submissions').get();
+        const submissionsSnapshot = await firestore.collection('submissions').get();
+        
+        // Fetch all articles for the client to create a session lookup map
+        const articlesSnapshot = await firestore.collection('articulos')
+            .where('razonSocial', '==', criteria.clientName)
+            .get();
+
+        const articleSessionMap = new Map<string, 'CO' | 'RE' | 'SE'>();
+        articlesSnapshot.forEach(doc => {
+            const article = doc.data() as ArticuloData;
+            // Use description as key as it's more consistently available
+            articleSessionMap.set(article.denominacionArticulo.toLowerCase(), article.sesion);
+        });
 
         const dailyDataMap = new Map<string, {
             fixedRecibidas: number;
@@ -72,17 +85,12 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
             varDespachadasSummary: number;
         }>();
 
-        snapshot.docs.forEach(doc => {
+        submissionsSnapshot.docs.forEach(doc => {
             const submission = serializeTimestamps(doc.data());
             
             const clientField = submission.formData.nombreCliente || submission.formData.cliente;
             
             if (!clientField || clientField.trim().toLowerCase() !== criteria.clientName.trim().toLowerCase()) {
-                return;
-            }
-
-            // Filter by session if provided
-            if (criteria.sesion && submission.formData.sesion !== criteria.sesion) {
                 return;
             }
 
@@ -108,48 +116,63 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
             const dailyData = dailyDataMap.get(groupingDate)!;
             const formType = submission.formType;
             const items = submission.formData.items || [];
+            const productos = submission.formData.productos || [];
+
+            // Helper to check if a product belongs to the selected session
+            const isInSession = (descripcion: string) => {
+                if (!criteria.sesion) return true; // No session filter, include all
+                if (!descripcion) return false;
+                const session = articleSessionMap.get(descripcion.toLowerCase());
+                return session === criteria.sesion;
+            };
 
             if (formType === 'fixed-weight-recepcion') {
-                const receivedFixedPallets = (submission.formData.productos || []).reduce((sum: number, p: any) => {
-                    return sum + (Number(p.totalPaletas ?? p.paletas) || 0);
+                const receivedFixedPallets = productos.reduce((sum: number, p: any) => {
+                    return isInSession(p.descripcion) ? sum + (Number(p.totalPaletas ?? p.paletas) || 0) : sum;
                 }, 0);
                 dailyData.fixedRecibidas += receivedFixedPallets;
 
             } else if (formType === 'fixed-weight-despacho') {
-                const dispatchedFixedPallets = (submission.formData.productos || []).reduce((sum: number, p: any) => {
-                    return sum + (Number(p.totalPaletas ?? p.paletas) || 0);
+                const dispatchedFixedPallets = productos.reduce((sum: number, p: any) => {
+                    return isInSession(p.descripcion) ? sum + (Number(p.totalPaletas ?? p.paletas) || 0) : sum;
                 }, 0);
                 dailyData.fixedDespachadas += dispatchedFixedPallets;
 
             } else if (formType === 'variable-weight-recepcion' || formType === 'variable-weight-reception') {
+                const uniquePalletsInSession = new Set<number>();
                 items.forEach((item: any) => {
                     const paletaValue = Number(item.paleta);
-                    if (!isNaN(paletaValue) && paletaValue > 0) {
-                        dailyData.varRecibidasItemized.add(paletaValue);
+                    if (isInSession(item.descripcion) && !isNaN(paletaValue) && paletaValue > 0) {
+                        uniquePalletsInSession.add(paletaValue);
                     }
                 });
+                dailyData.fixedRecibidas += uniquePalletsInSession.size; // Using fixedRecibidas for simplicity
+
             } else if (formType === 'variable-weight-despacho') {
+                 const uniquePalletsInSession = new Set<number>();
+                 let summaryPallets = 0;
                  items.forEach((item: any) => {
                     const paletaValue = Number(item.paleta);
-                    if (paletaValue === 0) {
-                        dailyData.varDespachadasSummary += (Number(item.totalPaletas) || 0);
-                    } else if (!isNaN(paletaValue) && paletaValue > 0) {
-                        dailyData.varDespachadasItemized.add(paletaValue);
+                    if(isInSession(item.descripcion)){
+                        if (paletaValue === 0) { // Summary row
+                            summaryPallets += (Number(item.totalPaletas) || 0);
+                        } else if (!isNaN(paletaValue) && paletaValue > 0) { // Itemized row
+                            uniquePalletsInSession.add(paletaValue);
+                        }
                     }
                 });
+                dailyData.fixedDespachadas += uniquePalletsInSession.size + summaryPallets; // Using fixedDespachadas
             }
         });
         
         const reporteFinal: DailyReportData[] = [];
         for (const [date, movements] of dailyDataMap.entries()) {
-            const totalRecibidas = movements.fixedRecibidas + movements.varRecibidasItemized.size;
-            const totalDespachadas = movements.fixedDespachadas + movements.varDespachadasItemized.size + movements.varDespachadasSummary;
-            
-            if (totalRecibidas > 0 || totalDespachadas > 0) {
+            // Totals are already calculated and added to fixedRecibidas/fixedDespachadas
+            if (movements.fixedRecibidas > 0 || movements.fixedDespachadas > 0) {
                 reporteFinal.push({
                     date,
-                    paletasRecibidas: totalRecibidas,
-                    paletasDespachadas: totalDespachadas,
+                    paletasRecibidas: movements.fixedRecibidas,
+                    paletasDespachadas: movements.fixedDespachadas,
                 });
             }
         }
