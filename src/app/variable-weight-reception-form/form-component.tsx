@@ -316,9 +316,9 @@ export default function VariableWeightReceptionFormComponent() {
           const existingItem = currentSummaryInForm.find(oldItem => oldItem.descripcion === newItem.descripcion);
           return {
               ...newItem,
-              temperatura1: existingItem?.temperatura1,
-              temperatura2: existingItem?.temperatura2,
-              temperatura3: existingItem?.temperatura3,
+              temperatura1: existingItem?.temperatura1 ?? null,
+              temperatura2: existingItem?.temperatura2 ?? null,
+              temperatura3: existingItem?.temperatura3 ?? null,
           };
       });
       if (JSON.stringify(newSummaryState) !== JSON.stringify(currentSummaryInForm)) {
