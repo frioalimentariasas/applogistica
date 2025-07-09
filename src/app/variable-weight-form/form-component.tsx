@@ -12,13 +12,13 @@ import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 import { useAuth } from "@/hooks/use-auth";
 import { getClients, type ClientInfo } from "@/app/actions/clients";
-import { getArticulosByClient, ArticuloInfo } from "@/app/actions/articulos";
+import { getArticulosByClients, type ArticuloInfo } from "@/app/actions/articulos";
 import { useFormPersistence } from "@/hooks/use-form-persistence";
 import { saveForm } from "@/app/actions/save-form";
 import { storage } from "@/lib/firebase";
 import { ref, uploadString, getDownloadURL } from "firebase/storage";
 import { optimizeImage } from "@/lib/image-optimizer";
-import { getSubmissionById, SubmissionResult } from "@/app/actions/consultar-formatos";
+import { getSubmissionById, type SubmissionResult } from "@/app/actions/consultar-formatos";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -438,40 +438,44 @@ export default function VariableWeightFormComponent() {
           let formData = submission.formData;
 
           // Sanitize top-level fields
-          formData = {
-            ...originalDefaultValues,
-            ...formData,
-            lote: formData.lote ?? null,
-            observaciones: formData.observaciones ?? null,
-            summary: formData.summary ?? [],
-            items: (formData.items || []).map((item: any) => ({
-                ...item,
-                paleta: item.paleta ?? null,
-                lote: item.lote ?? null,
-                cantidadPorPaleta: item.cantidadPorPaleta ?? null,
-                pesoBruto: item.pesoBruto ?? null,
-                taraEstiba: item.taraEstiba ?? null,
-                taraCaja: item.taraCaja ?? null,
-                totalTaraCaja: item.totalTaraCaja ?? null,
-                pesoNeto: item.pesoNeto ?? null,
-                totalCantidad: item.totalCantidad ?? null,
-                totalPaletas: item.totalPaletas ?? null,
-                totalPesoNeto: item.totalPesoNeto ?? null,
-            }))
+          const sanitizedFormData = {
+              ...originalDefaultValues,
+              ...formData,
+              lote: formData.lote ?? null,
+              observaciones: formData.observaciones ?? null,
+              summary: (formData.summary || []).map((s: any) => ({
+                ...s,
+                temperatura: s.temperatura ?? null
+              })),
+              items: (formData.items || []).map((item: any) => ({
+                  ...originalDefaultValues.items[0],
+                  ...item,
+                  paleta: item.paleta ?? null,
+                  lote: item.lote ?? null,
+                  cantidadPorPaleta: item.cantidadPorPaleta ?? null,
+                  pesoBruto: item.pesoBruto ?? null,
+                  taraEstiba: item.taraEstiba ?? null,
+                  taraCaja: item.taraCaja ?? null,
+                  totalTaraCaja: item.totalTaraCaja ?? null,
+                  pesoNeto: item.pesoNeto ?? null,
+                  totalCantidad: item.totalCantidad ?? null,
+                  totalPaletas: item.totalPaletas ?? null,
+                  totalPesoNeto: item.totalPesoNeto ?? null,
+              }))
           };
 
           // Convert date string back to Date object for the form
-          if (formData.fecha && typeof formData.fecha === 'string') {
-            formData.fecha = new Date(formData.fecha);
+          if (sanitizedFormData.fecha && typeof sanitizedFormData.fecha === 'string') {
+            sanitizedFormData.fecha = new Date(sanitizedFormData.fecha);
           }
-          form.reset(formData);
+          form.reset(sanitizedFormData);
           // Set attachments, which are URLs in this case
           setAttachments(submission.attachmentUrls);
 
           // Pre-load articulos for the client
-          if (formData.cliente) {
+          if (sanitizedFormData.cliente) {
             setIsLoadingArticulos(true);
-            const fetchedArticulos = await getArticulosByClient(formData.cliente);
+            const fetchedArticulos = await getArticulosByClients([sanitizedFormData.cliente]);
             setArticulos(fetchedArticulos.map(a => ({ value: a.codigoProducto, label: a.denominacionArticulo })));
             setIsLoadingArticulos(false);
           }
@@ -717,8 +721,8 @@ export default function VariableWeightFormComponent() {
             const formItem = (data.summary || []).find(s => s.descripcion === summaryItem.descripcion);
             return {
                 ...summaryItem,
-                temperatura: formItem?.temperatura,
-            }
+                temperatura: formItem?.temperatura ?? null, // Ensure temperature is saved
+            };
         });
   
         const dataWithFinalSummary = { ...data, summary: finalSummary };
@@ -868,7 +872,7 @@ export default function VariableWeightFormComponent() {
                                                                 setArticulos([]);
                                                                 setIsLoadingArticulos(true);
                                                                 try {
-                                                                    const fetchedArticulos = await getArticulosByClient(cliente.razonSocial);
+                                                                    const fetchedArticulos = await getArticulosByClients([cliente.razonSocial]);
                                                                     setArticulos(fetchedArticulos.map(a => ({
                                                                         value: a.codigoProducto,
                                                                         label: a.denominacionArticulo

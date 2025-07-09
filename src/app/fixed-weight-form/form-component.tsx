@@ -12,13 +12,13 @@ import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 import { useAuth } from "@/hooks/use-auth";
 import { getClients, type ClientInfo } from "@/app/actions/clients";
-import { getArticulosByClient, ArticuloInfo } from "@/app/actions/articulos";
+import { getArticulosByClients, type ArticuloInfo } from "@/app/actions/articulos";
 import { useFormPersistence } from "@/hooks/use-form-persistence";
 import { saveForm } from "@/app/actions/save-form";
 import { storage } from "@/lib/firebase";
 import { ref, uploadString, getDownloadURL } from "firebase/storage";
 import { optimizeImage } from "@/lib/image-optimizer";
-import { getSubmissionById, SubmissionResult } from "@/app/actions/consultar-formatos";
+import { getSubmissionById, type SubmissionResult } from "@/app/actions/consultar-formatos";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -121,7 +121,7 @@ const originalDefaultValues: FormValues = {
   precinto: "",
   documentoTransporte: "",
   facturaRemision: "",
-  productos: [{ codigo: '', descripcion: '', cajas: null, totalPaletas: null, cantidadKg: null, temperatura: null }],
+  productos: [{ codigo: '', descripcion: '', cajas: 0, totalPaletas: 0, cantidadKg: null, temperatura: 0 }],
   nombreConductor: "",
   cedulaConductor: "",
   placa: "",
@@ -265,32 +265,33 @@ export default function FixedWeightFormComponent() {
           let formData = submission.formData;
           
           // Ensure all optional fields have a default value to prevent uncontrolled -> controlled error
-          formData = {
-            ...originalDefaultValues,
-            ...formData,
-            documentoTransporte: formData.documentoTransporte ?? null,
-            facturaRemision: formData.facturaRemision ?? null,
-            contenedor: formData.contenedor ?? null,
-            setPoint: formData.setPoint ?? null,
-            observaciones: formData.observaciones ?? null,
-            productos: (formData.productos || []).map((p: any) => ({
-                ...p,
-                cantidadKg: p.cantidadKg ?? null,
-            })),
+          const sanitizedFormData = {
+              ...originalDefaultValues,
+              ...formData,
+              documentoTransporte: formData.documentoTransporte ?? null,
+              facturaRemision: formData.facturaRemision ?? null,
+              contenedor: formData.contenedor ?? null,
+              setPoint: formData.setPoint ?? null,
+              observaciones: formData.observaciones ?? null,
+              productos: (formData.productos || []).map((p: any) => ({
+                  ...originalDefaultValues.productos[0],
+                  ...p,
+                  cantidadKg: p.cantidadKg ?? null,
+              })),
           };
 
           // Convert date string back to Date object for the form
-          if (formData.fecha && typeof formData.fecha === 'string') {
-            formData.fecha = new Date(formData.fecha);
+          if (sanitizedFormData.fecha && typeof sanitizedFormData.fecha === 'string') {
+            sanitizedFormData.fecha = new Date(sanitizedFormData.fecha);
           }
-          form.reset(formData);
+          form.reset(sanitizedFormData);
           // Set attachments, which are URLs in this case
           setAttachments(submission.attachmentUrls);
 
           // Pre-load articulos for the client
-          if (formData.nombreCliente) {
+          if (sanitizedFormData.nombreCliente) {
             setIsLoadingArticulos(true);
-            const fetchedArticulos = await getArticulosByClient(formData.nombreCliente);
+            const fetchedArticulos = await getArticulosByClients([sanitizedFormData.nombreCliente]);
             setArticulos(fetchedArticulos.map(a => ({ value: a.codigoProducto, label: a.denominacionArticulo })));
             setIsLoadingArticulos(false);
           }
@@ -676,11 +677,11 @@ export default function FixedWeightFormComponent() {
                                                             setClientDialogOpen(false);
                                                             setClientSearch('');
                                                             
-                                                            form.setValue('productos', [{ codigo: '', descripcion: '', cajas: null, totalPaletas: null, cantidadKg: null, temperatura: null }]);
+                                                            form.setValue('productos', [{ codigo: '', descripcion: '', cajas: 0, totalPaletas: 0, cantidadKg: null, temperatura: 0 }]);
                                                             setArticulos([]);
                                                             setIsLoadingArticulos(true);
                                                             try {
-                                                                const fetchedArticulos = await getArticulosByClient(cliente.razonSocial);
+                                                                const fetchedArticulos = await getArticulosByClients([cliente.razonSocial]);
                                                                 setArticulos(fetchedArticulos.map(a => ({
                                                                     value: a.codigoProducto,
                                                                     label: a.denominacionArticulo
@@ -868,14 +869,14 @@ export default function FixedWeightFormComponent() {
                                 <FormField control={form.control} name={`productos.${index}.cajas`} render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>No. de Cajas</FormLabel>
-                                        <FormControl><Input type="text" inputMode="numeric" min="1" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl>
+                                        <FormControl><Input type="text" inputMode="numeric" min="1" placeholder="0" {...field} onChange={e => field.onChange(e.target.value)} value={field.value ?? ''} /></FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}/>
                                 <FormField control={form.control} name={`productos.${index}.totalPaletas`} render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Total Paletas</FormLabel>
-                                        <FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" min="1" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl>
+                                        <FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" min="1" placeholder="0" {...field} onChange={e => field.onChange(e.target.value)} value={field.value ?? ''} /></FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}/>
@@ -889,7 +890,7 @@ export default function FixedWeightFormComponent() {
                                 <FormField control={form.control} name={`productos.${index}.temperatura`} render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Temperatura (°C)</FormLabel>
-                                        <FormControl><Input type="text" inputMode="decimal" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl>
+                                        <FormControl><Input type="text" inputMode="decimal" placeholder="0" {...field} onChange={e => field.onChange(e.target.value)} value={field.value ?? ''} /></FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}/>
@@ -897,7 +898,7 @@ export default function FixedWeightFormComponent() {
                         </div>
                     </div>
                 ))}
-                <Button type="button" variant="outline" onClick={() => append({ codigo: '', descripcion: '', cajas: null, totalPaletas: null, cantidadKg: null, temperatura: null })}>
+                <Button type="button" variant="outline" onClick={() => append({ codigo: '', descripcion: '', cajas: 0, totalPaletas: 0, cantidadKg: null, temperatura: 0 })}>
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Agregar Producto
                 </Button>

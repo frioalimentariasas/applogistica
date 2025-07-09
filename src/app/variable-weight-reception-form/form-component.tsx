@@ -12,13 +12,13 @@ import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
 import { useAuth } from "@/hooks/use-auth";
 import { getClients, type ClientInfo } from "@/app/actions/clients";
-import { getArticulosByClient } from "@/app/actions/articulos";
+import { getArticulosByClients } from "@/app/actions/articulos";
 import { useFormPersistence } from "@/hooks/use-form-persistence";
 import { saveForm } from "@/app/actions/save-form";
 import { storage } from "@/lib/firebase";
 import { ref, uploadString, getDownloadURL } from "firebase/storage";
 import { optimizeImage } from "@/lib/image-optimizer";
-import { getSubmissionById, SubmissionResult } from "@/app/actions/consultar-formatos";
+import { getSubmissionById, type SubmissionResult } from "@/app/actions/consultar-formatos";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -373,44 +373,45 @@ export default function VariableWeightReceptionFormComponent() {
           let formData = submission.formData;
           
           // Ensure all optional fields have a default value to prevent uncontrolled -> controlled error
-          formData = {
-            ...originalDefaultValues,
-            ...formData,
-            sesion: formData.sesion ?? undefined,
-            observaciones: formData.observaciones ?? null,
-            setPoint: formData.setPoint ?? null,
-            summary: (formData.summary || []).map((s: any) => ({
-                ...s,
-                temperatura1: s.temperatura1 ?? s.temperatura ?? null,
-                temperatura2: s.temperatura2 ?? null,
-                temperatura3: s.temperatura3 ?? null,
-            })),
-            items: (formData.items || []).map((item: any) => ({
-                ...item,
-                paleta: item.paleta ?? null,
-                lote: item.lote ?? '',
-                presentacion: item.presentacion ?? '',
-                cantidadPorPaleta: item.cantidadPorPaleta ?? null,
-                pesoBruto: item.pesoBruto ?? null,
-                taraEstiba: item.taraEstiba ?? null,
-                taraCaja: item.taraCaja ?? null,
-                totalTaraCaja: item.totalTaraCaja ?? null,
-                pesoNeto: item.pesoNeto ?? null,
-            }))
+          const sanitizedFormData = {
+              ...originalDefaultValues,
+              ...formData,
+              sesion: formData.sesion ?? undefined,
+              observaciones: formData.observaciones ?? null,
+              setPoint: formData.setPoint ?? null,
+              summary: (formData.summary || []).map((s: any) => ({
+                  ...s,
+                  temperatura1: s.temperatura1 ?? s.temperatura ?? null,
+                  temperatura2: s.temperatura2 ?? null,
+                  temperatura3: s.temperatura3 ?? null,
+              })),
+              items: (formData.items || []).map((item: any) => ({
+                  ...originalDefaultValues.items[0],
+                  ...item,
+                  paleta: item.paleta ?? null,
+                  lote: item.lote ?? '',
+                  presentacion: item.presentacion ?? '',
+                  cantidadPorPaleta: item.cantidadPorPaleta ?? null,
+                  pesoBruto: item.pesoBruto ?? null,
+                  taraEstiba: item.taraEstiba ?? null,
+                  taraCaja: item.taraCaja ?? null,
+                  totalTaraCaja: item.totalTaraCaja ?? null,
+                  pesoNeto: item.pesoNeto ?? null,
+              }))
           };
 
           // Convert date string back to Date object for the form
-          if (formData.fecha && typeof formData.fecha === 'string') {
-            formData.fecha = new Date(formData.fecha);
+          if (sanitizedFormData.fecha && typeof sanitizedFormData.fecha === 'string') {
+            sanitizedFormData.fecha = new Date(sanitizedFormData.fecha);
           }
-          form.reset(formData);
+          form.reset(sanitizedFormData);
           // Set attachments, which are URLs in this case
           setAttachments(submission.attachmentUrls);
 
           // Pre-load articulos for the client
-          if (formData.cliente) {
+          if (sanitizedFormData.cliente) {
             setIsLoadingArticulos(true);
-            const fetchedArticulos = await getArticulosByClient(formData.cliente);
+            const fetchedArticulos = await getArticulosByClients([sanitizedFormData.cliente]);
             setArticulos(fetchedArticulos.map(a => ({ value: a.codigoProducto, label: a.denominacionArticulo })));
             setIsLoadingArticulos(false);
           }
@@ -800,7 +801,7 @@ export default function VariableWeightReceptionFormComponent() {
                                                                   setArticulos([]);
                                                                   setIsLoadingArticulos(true);
                                                                   try {
-                                                                      const fetchedArticulos = await getArticulosByClient(cliente.razonSocial);
+                                                                      const fetchedArticulos = await getArticulosByClients([cliente.razonSocial]);
                                                                       setArticulos(fetchedArticulos.map(a => ({
                                                                           value: a.codigoProducto,
                                                                           label: a.denominacionArticulo
