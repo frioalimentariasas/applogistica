@@ -88,7 +88,7 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
   const [articles, setArticles] = useState<ArticuloInfo[]>([]);
   const [isLoadingArticles, setIsLoadingArticles] = useState(false);
   const [filterCode, setFilterCode] = useState('');
-  const [filterSession, setFilterSession] = useState('');
+  const [filterSession, setFilterSession] = useState('all');
 
   // State for edit and delete operations
   const [articleToEdit, setArticleToEdit] = useState<ArticuloInfo | null>(null);
@@ -144,7 +144,7 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
   const filteredArticles = useMemo(() => {
     return articles.filter(article => {
       const codeMatch = filterCode ? article.codigoProducto.toLowerCase().includes(filterCode.toLowerCase()) : true;
-      const sessionMatch = filterSession ? article.sesion === filterSession : true;
+      const sessionMatch = filterSession !== 'all' ? article.sesion === filterSession : true;
       return codeMatch && sessionMatch;
     });
   }, [articles, filterCode, filterSession]);
@@ -552,7 +552,7 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
                                 <SelectValue placeholder="Todas las sesiones" />
                             </SelectTrigger>
                             <SelectContent>
-                                <SelectItem value="">Todas las sesiones</SelectItem>
+                                <SelectItem value="all">Todas las sesiones</SelectItem>
                                 <SelectItem value="CO">CO - Congelados</SelectItem>
                                 <SelectItem value="RE">RE - Refrigerado</SelectItem>
                                 <SelectItem value="SE">SE - Seco</SelectItem>
