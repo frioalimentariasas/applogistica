@@ -231,7 +231,10 @@ export async function getDetailedReport(criteria: DetailedReportCriteria): Promi
         results = results.filter(row => row.cliente.toLowerCase().trim() === criteria.clientName!.toLowerCase().trim());
     }
     if (criteria.operationType) {
-        results = results.filter(row => row.tipoPedido.toLowerCase() === criteria.operationType);
+        // Use localeCompare for case-insensitive and accent-insensitive comparison
+        results = results.filter(row => 
+            row.tipoPedido.localeCompare(criteria.operationType!, 'es', { sensitivity: 'base' }) === 0
+        );
     }
     if (criteria.containerNumber && criteria.containerNumber.trim()) {
         results = results.filter(row => row.contenedor.toLowerCase().includes(criteria.containerNumber!.trim().toLowerCase()));
