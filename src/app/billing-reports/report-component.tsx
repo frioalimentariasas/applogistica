@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from 'react';
@@ -13,6 +12,7 @@ import * as XLSX from 'xlsx';
 import { getBillingReport, DailyReportData } from '@/app/actions/billing-report';
 import { getDetailedReport, type DetailedReportRow } from '@/app/actions/detailed-report';
 import { getInventoryReport, uploadInventoryCsv, type InventoryPivotReport, getClientsWithInventory, getInventoryIdsByDateRange, deleteSingleInventoryDoc } from '@/app/actions/inventory-report';
+import { getConsolidatedMovementReport, type ConsolidatedReportRow } from '@/app/actions/consolidated-movement-report';
 import type { ClientInfo } from '@/app/actions/clients';
 import { useToast } from '@/hooks/use-toast';
 
@@ -150,6 +150,17 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const [availableInventoryClients, setAvailableInventoryClients] = useState<string[]>([]);
     const [isLoadingInventoryClients, setIsLoadingInventoryClients] = useState(false);
 
+    // State for consolidated report
+    const [consolidatedReportData, setConsolidatedReportData] = useState<ConsolidatedReportRow[]>([]);
+    const [isConsolidatedLoading, setIsConsolidatedLoading] = useState(false);
+    const [consolidatedSearched, setConsolidatedSearched] = useState(false);
+    const [consolidatedClient, setConsolidatedClient] = useState<string | undefined>(undefined);
+    const [consolidatedDateRange, setConsolidatedDateRange] = useState<DateRange | undefined>(undefined);
+    const [consolidatedSesion, setConsolidatedSesion] = useState<string>('');
+    const [isConsolidatedClientDialogOpen, setConsolidatedClientDialogOpen] = useState(false);
+    const [consolidatedClientSearch, setConsolidatedClientSearch] = useState("");
+
+
     // State for deleting inventory
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
     const [isDeleteConfirmOpen, setIsDeleteConfirmOpen] = useState(false);
@@ -224,6 +235,11 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         if (!detailedClientSearch) return clients;
         return clients.filter(c => c.razonSocial.toLowerCase().includes(detailedClientSearch.toLowerCase()));
     }, [detailedClientSearch, clients]);
+
+    const filteredConsolidatedClients = useMemo(() => {
+        if (!consolidatedClientSearch) return clients;
+        return clients.filter(c => c.razonSocial.toLowerCase().includes(consolidatedClientSearch.toLowerCase()));
+    }, [consolidatedClientSearch, clients]);
     
     const filteredAvailableInventoryClients = useMemo(() => {
         if (!inventoryClientSearch) return availableInventoryClients;
@@ -253,6 +269,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             };
 
             const results = await getBillingReport(criteria);
+            results.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
             setReportData(results);
             
             if (results.length === 0) {
@@ -365,6 +382,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             };
 
             const results = await getDetailedReport(criteria);
+            results.sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
             setDetailedReportData(results);
             if (results.length === 0) {
                  toast({ title: "Sin resultados", description: "No se encontraron operaciones para los filtros seleccionados." });
@@ -765,6 +783,106 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         }
     };
 
+    const handleConsolidatedSearch = async () => {
+        if (!consolidatedClient || !consolidatedDateRange?.from || !consolidatedDateRange?.to || !consolidatedSesion) {
+            toast({ variant: 'destructive', title: 'Filtros incompletos', description: 'Por favor, seleccione cliente, rango de fechas y sesión para generar el reporte.' });
+            return;
+        }
+
+        setIsConsolidatedLoading(true);
+        setConsolidatedSearched(true);
+        setConsolidatedReportData([]);
+
+        try {
+            const criteria = {
+                clientName: consolidatedClient,
+                startDate: format(consolidatedDateRange.from, 'yyyy-MM-dd'),
+                endDate: format(consolidatedDateRange.to, 'yyyy-MM-dd'),
+                sesion: consolidatedSesion,
+            };
+            const results = await getConsolidatedMovementReport(criteria);
+            setConsolidatedReportData(results);
+            if (results.length === 0) {
+                toast({ title: 'Sin resultados', description: 'No se encontraron movimientos o inventario para los filtros seleccionados.' });
+            }
+        } catch (error) {
+            const errorMessage = error instanceof Error ? error.message : "Ocurrió un error desconocido.";
+            toast({ variant: 'destructive', title: 'Error al generar el reporte consolidado', description: errorMessage });
+        } finally {
+            setIsConsolidatedLoading(false);
+        }
+    };
+    
+    const handleConsolidatedClear = () => {
+        setConsolidatedClient(undefined);
+        setConsolidatedDateRange(undefined);
+        setConsolidatedSesion('');
+        setConsolidatedReportData([]);
+        setConsolidatedSearched(false);
+    };
+
+    const handleConsolidatedExportExcel = () => {
+        if (!consolidatedClient || consolidatedReportData.length === 0) return;
+
+        const dataToExport = consolidatedReportData.map(row => ({
+            'Fecha': format(new Date(row.date.replace(/-/g, '/')), 'dd/MM/yyyy'),
+            'Cliente': consolidatedClient,
+            'Paletas Recibidas': row.paletasRecibidas,
+            'Paletas Despachadas': row.paletasDespachadas,
+            'Inventario Final Día': row.inventarioFinalDia,
+        }));
+
+        const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Reporte Consolidado');
+        const fileName = `Reporte_Consolidado_${consolidatedClient.replace(/\s/g, '_')}_${format(consolidatedDateRange!.from!, 'yyyy-MM-dd')}_a_${format(consolidatedDateRange!.to!, 'yyyy-MM-dd')}.xlsx`;
+        XLSX.writeFile(workbook, fileName);
+    };
+
+    const handleConsolidatedExportPDF = () => {
+        if (!consolidatedClient || consolidatedReportData.length === 0 || !logoBase64 || !logoDimensions) return;
+        
+        const doc = new jsPDF();
+        const pageWidth = doc.internal.pageSize.getWidth();
+        
+        const logoWidth = 70;
+        const aspectRatio = logoDimensions.width / logoDimensions.height;
+        const logoHeight = logoWidth / aspectRatio;
+        
+        const logoX = (pageWidth - logoWidth) / 2;
+        const logoY = 15;
+        doc.addImage(logoBase64, 'PNG', logoX, logoY, logoWidth, logoHeight);
+
+        const titleY = logoY + logoHeight + 16;
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text(`Informe Consolidado de Movimientos e Inventario`, pageWidth / 2, titleY, { align: 'center' });
+        
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Frio Alimentaria SAS Nit: 900736914-0', pageWidth / 2, titleY + 8, { align: 'center' });
+
+        const clientY = titleY + 22;
+        doc.setFontSize(10);
+        doc.setFont('helvetica', 'normal');
+        doc.text(`Cliente: ${consolidatedClient}`, 14, clientY);
+        doc.text(`Periodo: ${format(consolidatedDateRange!.from!, 'dd/MM/yyyy')} - ${format(consolidatedDateRange!.to!, 'dd/MM/yyyy')}`, pageWidth - 14, clientY, { align: 'right' });
+
+        autoTable(doc, {
+            startY: clientY + 10,
+            head: [['Fecha', 'Paletas Recibidas', 'Paletas Despachadas', 'Inventario Final']],
+            body: consolidatedReportData.map(row => [
+                format(new Date(row.date.replace(/-/g, '/')), 'dd/MM/yyyy'),
+                row.paletasRecibidas,
+                row.paletasDespachadas,
+                row.inventarioFinalDia
+            ]),
+            headStyles: { fillColor: [33, 150, 243] },
+        });
+
+        const fileName = `Reporte_Consolidado_${consolidatedClient.replace(/\s/g, '_')}_${format(consolidatedDateRange!.from!, 'yyyy-MM-dd')}_a_${format(consolidatedDateRange!.to!, 'yyyy-MM-dd')}.pdf`;
+        doc.save(fileName);
+    };
 
     return (
         <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
@@ -791,10 +909,11 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 </header>
 
                 <Tabs defaultValue="daily-movements" className="w-full">
-                    <TabsList className="grid w-full grid-cols-3 mb-6">
-                        <TabsTrigger value="daily-movements">Movimientos Diarios Paletas</TabsTrigger>
+                    <TabsList className="grid w-full grid-cols-4 mb-6">
+                        <TabsTrigger value="daily-movements">Movimientos Diarios</TabsTrigger>
                         <TabsTrigger value="detailed-operation">Operaciones Detalladas</TabsTrigger>
                         <TabsTrigger value="inventory">Inventario por Día</TabsTrigger>
+                        <TabsTrigger value="consolidated-report">Consolidado Movimientos/Inventario</TabsTrigger>
                     </TabsList>
                     
                     <TabsContent value="daily-movements" className="space-y-6">
@@ -1381,6 +1500,126 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                             </CardContent>
                         </Card>
                     </TabsContent>
+
+                    <TabsContent value="consolidated-report">
+                        <Card>
+                             <CardHeader>
+                                <CardTitle>Filtros del Reporte Consolidado</CardTitle>
+                                <CardDescription>Seleccione cliente, rango de fechas y sesión para ver el informe consolidado.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end mb-6">
+                                    <div className="space-y-2">
+                                        <Label>Cliente</Label>
+                                         <Dialog open={isConsolidatedClientDialogOpen} onOpenChange={setConsolidatedClientDialogOpen}>
+                                            <DialogTrigger asChild>
+                                                <Button variant="outline" className="w-full justify-between text-left font-normal">
+                                                    {consolidatedClient || "Seleccione un cliente"}
+                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                </Button>
+                                            </DialogTrigger>
+                                            <DialogContent className="sm:max-w-[425px]">
+                                                <DialogHeader><DialogTitle>Seleccionar Cliente</DialogTitle></DialogHeader>
+                                                <div className="p-4">
+                                                    <Input placeholder="Buscar cliente..." value={consolidatedClientSearch} onChange={(e) => setConsolidatedClientSearch(e.target.value)} className="mb-4" />
+                                                    <ScrollArea className="h-72"><div className="space-y-1">
+                                                        {filteredConsolidatedClients.map((client) => (
+                                                            <Button key={client.id} variant="ghost" className="w-full justify-start" onClick={() => { setConsolidatedClient(client.razonSocial); setConsolidatedClientDialogOpen(false); setConsolidatedClientSearch(''); }}>{client.razonSocial}</Button>
+                                                        ))}
+                                                    </div></ScrollArea>
+                                                </div>
+                                            </DialogContent>
+                                        </Dialog>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Rango de Fechas</Label>
+                                        <Popover>
+                                            <PopoverTrigger asChild>
+                                                <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !consolidatedDateRange && "text-muted-foreground")}>
+                                                    <CalendarIcon className="mr-2 h-4 w-4" />
+                                                    {consolidatedDateRange?.from ? (consolidatedDateRange.to ? (<>{format(consolidatedDateRange.from, "LLL dd, y", { locale: es })} - {format(consolidatedDateRange.to, "LLL dd, y", { locale: es })}</>) : (format(consolidatedDateRange.from, "LLL dd, y", { locale: es }))) : (<span>Seleccione un rango</span>)}
+                                                </Button>
+                                            </PopoverTrigger>
+                                            <PopoverContent className="w-auto p-0" align="start">
+                                                <Calendar initialFocus mode="range" defaultMonth={consolidatedDateRange?.from} selected={consolidatedDateRange} onSelect={setConsolidatedDateRange} numberOfMonths={2} locale={es} />
+                                            </PopoverContent>
+                                        </Popover>
+                                    </div>
+                                     <div className="space-y-2">
+                                        <Label>Sesión</Label>
+                                        <Select value={consolidatedSesion} onValueChange={setConsolidatedSesion}>
+                                            <SelectTrigger><SelectValue placeholder="Seleccione una sesión" /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="CO">CO - Congelados</SelectItem>
+                                                <SelectItem value="RE">RE - Refrigerado</SelectItem>
+                                                <SelectItem value="SE">SE - Seco</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <Button onClick={handleConsolidatedSearch} className="w-full" disabled={isConsolidatedLoading}>
+                                            {isConsolidatedLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+                                            Buscar
+                                        </Button>
+                                        <Button onClick={handleConsolidatedClear} variant="outline" className="w-full">
+                                            <XCircle className="mr-2 h-4 w-4" />
+                                            Limpiar
+                                        </Button>
+                                    </div>
+                                </div>
+                                
+                                <div className="flex justify-between items-center flex-wrap gap-4 my-4">
+                                    <div>
+                                        <h3 className="text-lg font-semibold">Resultados del Informe Consolidado</h3>
+                                        <p className="text-sm text-muted-foreground">{isConsolidatedLoading ? "Cargando resultados..." : `Mostrando ${consolidatedReportData.length} días.`}</p>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <Button onClick={handleConsolidatedExportExcel} disabled={isConsolidatedLoading || consolidatedReportData.length === 0} variant="outline">
+                                            <File className="mr-2 h-4 w-4" /> Exportar a Excel
+                                        </Button>
+                                        <Button onClick={handleConsolidatedExportPDF} disabled={isConsolidatedLoading || consolidatedReportData.length === 0 || isLogoLoading} variant="outline">
+                                            {isLogoLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />}
+                                            Exportar a PDF
+                                        </Button>
+                                    </div>
+                                </div>
+
+                                <div className="rounded-md border">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Fecha</TableHead>
+                                                <TableHead className="text-right">Paletas Recibidas</TableHead>
+                                                <TableHead className="text-right">Paletas Despachadas</TableHead>
+                                                <TableHead className="text-right">Inventario Final</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {isConsolidatedLoading ? (
+                                                <ResultsSkeleton />
+                                            ) : consolidatedReportData.length > 0 ? (
+                                                consolidatedReportData.map((row) => (
+                                                    <TableRow key={row.date}>
+                                                        <TableCell className="font-medium">{format(new Date(row.date.replace(/-/g, '/')), 'dd/MM/yyyy')}</TableCell>
+                                                        <TableCell className="text-right">{row.paletasRecibidas}</TableCell>
+                                                        <TableCell className="text-right">{row.paletasDespachadas}</TableCell>
+                                                        <TableCell className="text-right">{row.inventarioFinalDia}</TableCell>
+                                                    </TableRow>
+                                                ))
+                                            ) : (
+                                                <EmptyState
+                                                    searched={consolidatedSearched}
+                                                    title="No se encontraron datos"
+                                                    emptyDescription="No hay datos para el cliente y los filtros seleccionados."
+                                                    description="Seleccione los filtros para ver el informe."
+                                                />
+                                            )}
+                                        </TableBody>
+                                    </Table>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
                 </Tabs>
             </div>
             
@@ -1420,5 +1659,3 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         </div>
     );
 }
-
-    
