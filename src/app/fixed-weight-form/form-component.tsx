@@ -67,9 +67,9 @@ const productSchema = z.object({
   cajas: z.coerce.number({required_error: "El No. de cajas es requerido.", invalid_type_error: "El No. de cajas es requerido."}).int().positive("El No. de Cajas debe ser mayor a 0."),
   totalPaletas: z.coerce.number({required_error: "El Total Paletas es requerido.", invalid_type_error: "El Total Paletas es requerido."}).int("El Total Paletas debe ser un número entero.").positive("El Total Paletas debe ser un número positivo."),
   cantidadKg: z.preprocess(
-      (val) => (val === "" || val === null || (typeof val === 'number' && Number.isNaN(val)) ? undefined : val),
+      (val) => (val === "" || (typeof val === 'number' && Number.isNaN(val)) ? null : val),
       z.coerce.number({ invalid_type_error: "Cantidad (kg) debe ser un número."})
-        .positive("Cantidad (kg) debe ser un número positivo.").optional()
+        .positive("Cantidad (kg) debe ser un número positivo.").nullable().optional()
   ),
   temperatura: z.coerce.number({ required_error: "La temperatura es requerida.", invalid_type_error: "La temperatura es requerida." }).min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99."),
 });
@@ -94,9 +94,9 @@ const formSchema = z.object({
   muelle: z.string().min(1, "Seleccione un muelle."),
   contenedor: z.string().optional(),
   setPoint: z.preprocess(
-      (val) => (val === "" || val === null || (typeof val === 'number' && Number.isNaN(val)) ? undefined : val),
+      (val) => (val === "" || (typeof val === 'number' && Number.isNaN(val)) ? null : val),
       z.coerce.number({ invalid_type_error: "Set Point debe ser un número."})
-        .min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99.").optional()
+        .min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99.").nullable().optional()
   ),
   condicionesHigiene: z.enum(["limpio", "sucio"], { required_error: "Seleccione una condición." }),
   termoregistrador: z.enum(["si", "no"], { required_error: "Seleccione una opción." }),
@@ -121,13 +121,13 @@ const originalDefaultValues: FormValues = {
   precinto: "",
   documentoTransporte: "",
   facturaRemision: "",
-  productos: [{ codigo: '', descripcion: '', cajas: NaN, totalPaletas: NaN, cantidadKg: NaN, temperatura: NaN }],
+  productos: [{ codigo: '', descripcion: '', cajas: NaN, totalPaletas: NaN, cantidadKg: null, temperatura: NaN }],
   nombreConductor: "",
   cedulaConductor: "",
   placa: "",
   muelle: "",
   contenedor: "",
-  setPoint: NaN,
+  setPoint: null,
   condicionesHigiene: undefined,
   termoregistrador: undefined,
   clienteRequiereTermoregistro: undefined,
@@ -672,7 +672,7 @@ export default function FixedWeightFormComponent() {
                                                             setClientDialogOpen(false);
                                                             setClientSearch('');
                                                             
-                                                            form.setValue('productos', [{ codigo: '', descripcion: '', cajas: NaN, totalPaletas: NaN, cantidadKg: NaN, temperatura: NaN }]);
+                                                            form.setValue('productos', [{ codigo: '', descripcion: '', cajas: NaN, totalPaletas: NaN, cantidadKg: null, temperatura: NaN }]);
                                                             setArticulos([]);
                                                             setIsLoadingArticulos(true);
                                                             try {
@@ -878,7 +878,7 @@ export default function FixedWeightFormComponent() {
                                 <FormField control={form.control} name={`productos.${index}.cantidadKg`} render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Cantidad (kg) (Opcional)</FormLabel>
-                                        <FormControl><Input type="text" inputMode="decimal" step="0.01" min="0" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl>
+                                        <FormControl><Input type="text" inputMode="decimal" step="0.01" min="0" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}/>
@@ -893,7 +893,7 @@ export default function FixedWeightFormComponent() {
                         </div>
                     </div>
                 ))}
-                <Button type="button" variant="outline" onClick={() => append({ codigo: '', descripcion: '', cajas: NaN, totalPaletas: NaN, cantidadKg: NaN, temperatura: NaN })}>
+                <Button type="button" variant="outline" onClick={() => append({ codigo: '', descripcion: '', cajas: NaN, totalPaletas: NaN, cantidadKg: null, temperatura: NaN })}>
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Agregar Producto
                 </Button>
@@ -951,7 +951,7 @@ export default function FixedWeightFormComponent() {
                         <FormItem>
                             <FormLabel>Set Point (°C)</FormLabel>
                             <FormControl>
-                                <Input type="text" inputMode="decimal" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} />
+                                <Input type="text" inputMode="decimal" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} />
                             </FormControl>
                             <FormMessage />
                         </FormItem>

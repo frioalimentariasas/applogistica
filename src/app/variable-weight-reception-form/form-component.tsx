@@ -73,10 +73,11 @@ const itemSchema = z.object({
 });
   
 const tempSchema = z.preprocess(
-    (val) => (val === "" || val === null || (typeof val === 'number' && Number.isNaN(val)) ? undefined : val),
+    (val) => (val === "" || (typeof val === 'number' && Number.isNaN(val)) ? null : val),
     z.coerce.number({ invalid_type_error: "Temperatura debe ser un número."})
       .min(-99, "El valor debe estar entre -99 y 99.")
       .max(99, "El valor debe estar entre -99 y 99.")
+      .nullable()
       .optional()
 );
 
@@ -105,9 +106,9 @@ const formSchema = z.object({
       .regex(/^[A-Z]{3}[0-9]{3}$/, "Formato inválido. Deben ser 3 letras y 3 números (ej: ABC123)."),
     precinto: z.string().min(1, "El precinto es obligatorio."),
     setPoint: z.preprocess(
-      (val) => (val === "" || val === null || (typeof val === 'number' && Number.isNaN(val)) ? undefined : val),
+      (val) => (val === "" || (typeof val === 'number' && Number.isNaN(val)) ? null : val),
       z.coerce.number({ invalid_type_error: "Set Point debe ser un número."})
-        .min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99.").optional()
+        .min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99.").nullable().optional()
     ),
     contenedor: z.string().min(1, "El contenedor es obligatorio.").max(20, "Máximo 20 caracteres."),
     items: z.array(itemSchema).min(1, "Debe agregar al menos un item."),
@@ -133,7 +134,7 @@ const originalDefaultValues: FormValues = {
   conductor: "",
   placa: "",
   precinto: "",
-  setPoint: NaN,
+  setPoint: null,
   contenedor: "",
   items: [{ paleta: NaN, descripcion: "", lote: "", presentacion: "", cantidadPorPaleta: NaN, pesoBruto: NaN, taraEstiba: NaN, taraCaja: NaN, totalTaraCaja: NaN, pesoNeto: NaN }],
   summary: [],
@@ -824,7 +825,7 @@ export default function VariableWeightReceptionFormComponent() {
                         <FormField control={form.control} name="setPoint" render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Set Point (°C)</FormLabel>
-                                <FormControl><Input type="text" inputMode="decimal" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl>
+                                <FormControl><Input type="text" inputMode="decimal" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl>
                                 <FormMessage />
                             </FormItem>
                         )}/>
@@ -856,7 +857,7 @@ export default function VariableWeightReceptionFormComponent() {
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <FormField control={form.control} name={`items.${index}.paleta`} render={({ field }) => (
-                                        <FormItem><FormLabel>Paleta</FormLabel><FormControl><Input type="text" inputMode="numeric" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl><FormMessage /></FormItem>
+                                        <FormItem><FormLabel>Paleta</FormLabel><FormControl><Input type="text" inputMode="numeric" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                                     )}/>
                                     <FormField control={form.control} name={`items.${index}.descripcion`} render={({ field: controllerField }) => (
                                         <FormItem className="md:col-span-2">
@@ -910,18 +911,18 @@ export default function VariableWeightReceptionFormComponent() {
                                         <FormItem><FormLabel>Presentación</FormLabel><Select onValueChange={field.onChange} defaultValue={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione presentación" /></SelectTrigger></FormControl><SelectContent>{presentaciones.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                                     )}/>
                                     <FormField control={form.control} name={`items.${index}.cantidadPorPaleta`} render={({ field }) => (
-                                        <FormItem><FormLabel>Cantidad Por Paleta</FormLabel><FormControl><Input type="text" inputMode="numeric" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl><FormMessage /></FormItem>
+                                        <FormItem><FormLabel>Cantidad Por Paleta</FormLabel><FormControl><Input type="text" inputMode="numeric" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                                     )}/>
                                 </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
                                     <FormField control={form.control} name={`items.${index}.pesoBruto`} render={({ field }) => (
-                                        <FormItem><FormLabel>Peso Bruto (kg)</FormLabel><FormControl><Input type="text" inputMode="decimal" min="0" step="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl><FormMessage /></FormItem>
+                                        <FormItem><FormLabel>Peso Bruto (kg)</FormLabel><FormControl><Input type="text" inputMode="decimal" min="0" step="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                                     )}/>
                                     <FormField control={form.control} name={`items.${index}.taraEstiba`} render={({ field }) => (
-                                        <FormItem><FormLabel>Tara Estiba (kg)</FormLabel><FormControl><Input type="text" inputMode="decimal" min="0" step="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl><FormMessage /></FormItem>
+                                        <FormItem><FormLabel>Tara Estiba (kg)</FormLabel><FormControl><Input type="text" inputMode="decimal" min="0" step="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                                     )}/>
                                     <FormField control={form.control} name={`items.${index}.taraCaja`} render={({ field }) => (
-                                        <FormItem><FormLabel>Tara Caja (kg)</FormLabel><FormControl><Input type="text" inputMode="decimal" min="0" step="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} /></FormControl><FormMessage /></FormItem>
+                                        <FormItem><FormLabel>Tara Caja (kg)</FormLabel><FormControl><Input type="text" inputMode="decimal" min="0" step="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                                     )}/>
                                     <FormItem><FormLabel>Total Tara Caja (kg)</FormLabel><FormControl><Input disabled readOnly value={totalTaraCaja != null && !isNaN(totalTaraCaja) ? totalTaraCaja.toFixed(2) : '0.00'} /></FormControl></FormItem>
                                     <FormItem><FormLabel>Peso Neto (kg)</FormLabel><FormControl><Input disabled readOnly value={pesoNeto != null && !isNaN(pesoNeto) ? pesoNeto.toFixed(2) : '0.00'} /></FormControl></FormItem>
@@ -965,8 +966,8 @@ export default function VariableWeightReceptionFormComponent() {
                                                               render={({ field }) => (
                                                                 <FormItem>
                                                                   <FormControl><Input type="text" inputMode="decimal" placeholder="T1" {...field} 
-                                                                          onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} 
-                                                                          value={field.value == null || Number.isNaN(field.value) ? '' : field.value}
+                                                                          onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} 
+                                                                          value={field.value ?? ''}
                                                                       className="w-20 h-9 text-center" /></FormControl>
                                                                   <FormMessage className="text-xs"/>
                                                                 </FormItem>
@@ -976,7 +977,7 @@ export default function VariableWeightReceptionFormComponent() {
                                                               name={`summary.${summaryIndex}.temperatura2`}
                                                               render={({ field }) => (
                                                                 <FormItem>
-                                                                  <FormControl><Input type="text" inputMode="decimal" placeholder="T2" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} className="w-20 h-9 text-center" /></FormControl>
+                                                                  <FormControl><Input type="text" inputMode="decimal" placeholder="T2" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} className="w-20 h-9 text-center" /></FormControl>
                                                                   <FormMessage className="text-xs"/>
                                                                 </FormItem>
                                                               )} />
@@ -985,7 +986,7 @@ export default function VariableWeightReceptionFormComponent() {
                                                               name={`summary.${summaryIndex}.temperatura3`}
                                                               render={({ field }) => (
                                                                 <FormItem>
-                                                                  <FormControl><Input type="text" inputMode="decimal" placeholder="T3" {...field} onChange={e => field.onChange(e.target.value === '' ? NaN : e.target.value)} value={field.value == null || Number.isNaN(field.value) ? '' : field.value} className="w-20 h-9 text-center" /></FormControl>
+                                                                  <FormControl><Input type="text" inputMode="decimal" placeholder="T3" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} className="w-20 h-9 text-center" /></FormControl>
                                                                   <FormMessage className="text-xs"/>
                                                                 </FormItem>
                                                               )} />
