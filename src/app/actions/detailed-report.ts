@@ -108,6 +108,7 @@ export interface DetailedReportCriteria {
     endDate?: string;
     operationType?: 'recepcion' | 'despacho';
     containerNumber?: string;
+    sesion?: string;
 }
 
 export interface DetailedReportRow {
@@ -123,6 +124,7 @@ export interface DetailedReportRow {
     tipoPedido: string;
     pedidoSislog: string;
     operacionLogistica: string;
+    sesion: string;
 }
 
 const calculateTotalPallets = (formType: string, formData: any): number => {
@@ -223,6 +225,7 @@ export async function getDetailedReport(criteria: DetailedReportCriteria): Promi
             tipoPedido,
             pedidoSislog: formData.pedidoSislog || 'N/A',
             operacionLogistica,
+            sesion: formData.sesion || 'N/A',
         };
     });
 
@@ -239,6 +242,10 @@ export async function getDetailedReport(criteria: DetailedReportCriteria): Promi
     if (criteria.containerNumber && criteria.containerNumber.trim()) {
         results = results.filter(row => row.contenedor.toLowerCase().includes(criteria.containerNumber!.trim().toLowerCase()));
     }
+    if (criteria.sesion) {
+        results = results.filter(row => row.sesion === criteria.sesion);
+    }
+
 
     results.sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
 

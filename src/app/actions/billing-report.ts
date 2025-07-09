@@ -42,6 +42,7 @@ export interface BillingReportCriteria {
   clientName: string; // Must be provided for this report
   startDate: string;
   endDate: string;
+  sesion?: 'CO' | 'RE' | 'SE';
 }
 
 export interface DailyReportData {
@@ -77,6 +78,11 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
             const clientField = submission.formData.nombreCliente || submission.formData.cliente;
             
             if (!clientField || clientField.trim().toLowerCase() !== criteria.clientName.trim().toLowerCase()) {
+                return;
+            }
+
+            // Filter by session if provided
+            if (criteria.sesion && submission.formData.sesion !== criteria.sesion) {
                 return;
             }
 

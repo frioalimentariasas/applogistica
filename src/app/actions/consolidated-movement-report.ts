@@ -29,10 +29,12 @@ export async function getConsolidatedMovementReport(
   }
 
   // 1. Get daily movements (received and dispatched)
+  // Pass session criteria to billing report
   const billingData = await getBillingReport({
     clientName: criteria.clientName,
     startDate: criteria.startDate,
     endDate: criteria.endDate,
+    sesion: criteria.sesion,
   });
 
   // 2. Get daily inventory stock
