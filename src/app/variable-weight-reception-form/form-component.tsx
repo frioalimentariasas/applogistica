@@ -60,16 +60,31 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 
 
 const itemSchema = z.object({
-    paleta: z.coerce.number({ required_error: "La paleta es requerida.", invalid_type_error: "La paleta es requerida."}).int().min(1, "El número de paleta debe ser 1 o mayor."),
+    paleta: z.preprocess(
+      (val) => (val === "" || val == null ? undefined : val),
+      z.coerce.number({ required_error: "La paleta es requerida.", invalid_type_error: "La paleta es requerida."}).int().min(1, "El número de paleta debe ser 1 o mayor.")
+    ),
     descripcion: z.string().min(1, "La descripción es requerida."),
     lote: z.string().min(1, "El lote es requerido.").max(15, "Máx 15 caracteres"),
     presentacion: z.string().min(1, "La presentación es requerida."),
-    cantidadPorPaleta: z.coerce.number({ required_error: "La cantidad es requerida.", invalid_type_error: "La cantidad es requerida." }).int().min(0, "Debe ser un número no negativo."),
-    pesoBruto: z.coerce.number({ required_error: "El peso bruto es requerido.", invalid_type_error: "El peso bruto es requerido." }).min(0, "Debe ser un número no negativo."),
-    taraEstiba: z.coerce.number({ required_error: "La tara estiba es requerida.", invalid_type_error: "La tara estiba es requerida." }).min(0, "Debe ser un número no negativo."),
-    taraCaja: z.coerce.number({ required_error: "La tara caja es requerida.", invalid_type_error: "La tara caja es requerida." }).min(0, "Debe ser un número no negativo."),
-    totalTaraCaja: z.coerce.number().optional(), 
-    pesoNeto: z.coerce.number().optional(), 
+    cantidadPorPaleta: z.preprocess(
+      (val) => (val === "" || val == null ? undefined : val),
+      z.coerce.number({ required_error: "La cantidad es requerida.", invalid_type_error: "La cantidad es requerida." }).int().min(0, "Debe ser un número no negativo.")
+    ),
+    pesoBruto: z.preprocess(
+      (val) => (val === "" || val == null ? undefined : val),
+      z.coerce.number({ required_error: "El peso bruto es requerido.", invalid_type_error: "El peso bruto es requerido." }).min(0, "Debe ser un número no negativo.")
+    ),
+    taraEstiba: z.preprocess(
+      (val) => (val === "" || val == null ? undefined : val),
+      z.coerce.number({ required_error: "La tara estiba es requerida.", invalid_type_error: "La tara estiba es requerida." }).min(0, "Debe ser un número no negativo.")
+    ),
+    taraCaja: z.preprocess(
+      (val) => (val === "" || val == null ? undefined : val),
+      z.coerce.number({ required_error: "La tara caja es requerida.", invalid_type_error: "La tara caja es requerida." }).min(0, "Debe ser un número no negativo.")
+    ),
+    totalTaraCaja: z.coerce.number().optional().nullable(), 
+    pesoNeto: z.coerce.number().optional().nullable(), 
 });
   
 const tempSchema = z.preprocess(
@@ -120,7 +135,7 @@ const formSchema = z.object({
 }).refine((data) => {
     return data.horaInicio !== data.horaFin;
 }, {
-    message: "La hora de fin no puede ser igual a la hora de inicio.",
+    message: "La hora de fin no puede ser igual a la de inicio.",
     path: ["horaFin"],
 });
 
@@ -136,7 +151,7 @@ const originalDefaultValues: FormValues = {
   precinto: "",
   setPoint: null,
   contenedor: "",
-  items: [{ paleta: NaN, descripcion: "", lote: "", presentacion: "", cantidadPorPaleta: NaN, pesoBruto: NaN, taraEstiba: NaN, taraCaja: NaN, totalTaraCaja: NaN, pesoNeto: NaN }],
+  items: [{ paleta: null, descripcion: "", lote: "", presentacion: "", cantidadPorPaleta: null, pesoBruto: null, taraEstiba: null, taraCaja: null, totalTaraCaja: null, pesoNeto: null }],
   summary: [],
   horaInicio: "",
   horaFin: "",
@@ -190,7 +205,7 @@ export default function VariableWeightReceptionFormComponent() {
   const [originalSubmission, setOriginalSubmission] = useState<SubmissionResult | null>(null);
 
   const filteredClients = useMemo(() => {
-    if (!clientSearch) return clientes;
+    if (!clientSearch) return clients;
     return clientes.filter(c => c.razonSocial.toLowerCase().includes(clientSearch.toLowerCase()));
   }, [clientSearch, clientes]);
   
@@ -318,16 +333,16 @@ export default function VariableWeightReceptionFormComponent() {
     const lastItem = items.length > 0 ? items[items.length - 1] : null;
 
     append({
-        paleta: NaN,
+        paleta: null,
         descripcion: lastItem?.descripcion || '',
         lote: lastItem?.lote || '',
         presentacion: lastItem?.presentacion || '',
-        cantidadPorPaleta: lastItem?.cantidadPorPaleta || NaN,
-        pesoBruto: NaN,
-        taraEstiba: NaN,
-        taraCaja: lastItem?.taraCaja || NaN,
-        totalTaraCaja: NaN,
-        pesoNeto: NaN,
+        cantidadPorPaleta: lastItem?.cantidadPorPaleta || null,
+        pesoBruto: null,
+        taraEstiba: null,
+        taraCaja: lastItem?.taraCaja || null,
+        totalTaraCaja: null,
+        pesoNeto: null,
     });
   };
 
@@ -754,7 +769,7 @@ export default function VariableWeightReceptionFormComponent() {
                                                                   setClientDialogOpen(false);
                                                                   setClientSearch('');
                                                                   
-                                                                  form.setValue('items', [{ paleta: NaN, descripcion: "", lote: "", presentacion: "", cantidadPorPaleta: NaN, pesoBruto: NaN, taraEstiba: NaN, taraCaja: NaN, totalTaraCaja: NaN, pesoNeto: NaN }]);
+                                                                  form.setValue('items', [{ paleta: null, descripcion: "", lote: "", presentacion: "", cantidadPorPaleta: null, pesoBruto: null, taraEstiba: null, taraCaja: null, totalTaraCaja: null, pesoNeto: null }]);
                                                                   setArticulos([]);
                                                                   setIsLoadingArticulos(true);
                                                                   try {
