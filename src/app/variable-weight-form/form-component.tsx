@@ -66,7 +66,8 @@ const itemSchema = z.object({
     paleta: z.preprocess(
       (val) => (val === "" || val === null ? null : val),
       z.coerce.number({
-          invalid_type_error: "La paleta debe ser un número.",
+          required_error: "La paleta es requerida.",
+          invalid_type_error: "La paleta es requerida.",
       }).int({ message: "La paleta debe ser un número entero." }).min(0, "Debe ser un número no negativo.").nullable()
     ),
     descripcion: z.string().min(1, "La descripción es requerida."),
@@ -113,6 +114,12 @@ const itemSchema = z.object({
           .min(0, "Debe ser un número no negativo.").nullable()
     ),
   }).superRefine((data, ctx) => {
+    // Paleta is always required.
+    if (data.paleta === null || data.paleta === undefined) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La paleta es requerida.", path: ["paleta"] });
+        return;
+    }
+    
     // If it's a summary row (paleta is exactly 0)
     if (data.paleta === 0) {
       if (data.totalCantidad === undefined || data.totalCantidad === null) {
@@ -125,11 +132,8 @@ const itemSchema = z.object({
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El Total Peso Neto es requerido.", path: ["totalPesoNeto"] });
       }
     } 
-    // Otherwise, it's an individual pallet row (paleta is > 0 or paleta is undefined/null)
+    // Otherwise, it's an individual pallet row
     else {
-      if (data.paleta === null) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La paleta es requerida.", path: ["paleta"] });
-      }
       if (data.cantidadPorPaleta === undefined || data.cantidadPorPaleta === null) {
           ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La Cantidad Por Paleta es requerida.", path: ["cantidadPorPaleta"] });
       }
