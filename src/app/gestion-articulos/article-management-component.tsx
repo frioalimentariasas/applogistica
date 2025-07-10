@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -87,7 +87,7 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
   // State for upload form
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const uploadInputRef = useState<HTMLInputElement | null>(null);
+  const uploadInputRef = useRef<HTMLInputElement | null>(null);
 
   const addForm = useForm<ArticleFormValues>({
     resolver: zodResolver(articleSchema),
@@ -273,6 +273,22 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
     if (selectedClients.length === clients.length) return "Todos los clientes seleccionados";
     if (selectedClients.length === 1) return selectedClients[0];
     return `${selectedClients.length} clientes seleccionados`;
+  };
+
+  const handleExportArticles = () => {
+    if (filteredArticles.length === 0) return;
+
+    const dataToExport = filteredArticles.map(article => ({
+      'Razón Social': article.razonSocial,
+      'Código Producto': article.codigoProducto,
+      'Descripción Artículo': article.denominacionArticulo,
+      'Sesión': article.sesion,
+    }));
+
+    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Artículos');
+    XLSX.writeFile(workbook, 'Maestro_Articulos.xlsx');
   };
 
   return (
