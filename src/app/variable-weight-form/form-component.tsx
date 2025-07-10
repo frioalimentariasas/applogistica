@@ -957,7 +957,15 @@ export default function VariableWeightFormComponent() {
             <Card>
               <CardHeader>
                 <CardTitle>Detalle del Despacho</CardTitle>
-                <FormMessage>{form.formState.errors.items?.message}</FormMessage>
+                <FormField
+                  control={form.control}
+                  name="items"
+                  render={() => (
+                    <FormItem>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
               </CardHeader>
               <CardContent className="space-y-4">
                 {fields.map((item, index) => {
