@@ -57,6 +57,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { RestoreDialog } from "@/components/app/restore-dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDialogDesc, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 
 const itemSchema = z.object({
@@ -188,6 +189,7 @@ export default function VariableWeightReceptionFormComponent() {
 
   const [articulos, setArticulos] = useState<{ value: string; label: string }[]>([]);
   const [isLoadingArticulos, setIsLoadingArticulos] = useState(false);
+
   const [isProductDialogOpen, setProductDialogOpen] = useState(false);
   const [productDialogIndex, setProductDialogIndex] = useState<number | null>(null);
 
@@ -221,6 +223,10 @@ export default function VariableWeightReceptionFormComponent() {
   });
   
   const watchedItems = useWatch({ control: form.control, name: "items" });
+
+  const isClientChangeDisabled = useMemo(() => {
+    return watchedItems.length > 1 || (watchedItems.length === 1 && !!watchedItems[0].descripcion);
+  }, [watchedItems]);
   
   useEffect(() => {
     if (!watchedItems) return;
@@ -266,6 +272,7 @@ export default function VariableWeightReceptionFormComponent() {
         form.reset(originalDefaultValues);
         setAttachments([]);
     }
+    setDiscardAlertOpen(false);
   };
 
 
@@ -727,6 +734,7 @@ export default function VariableWeightReceptionFormComponent() {
                     form.setValue(`items.${productDialogIndex}.descripcion`, articulo.label);
                 }
             }}
+            productDialogIndex={productDialogIndex}
         />
         <div className="max-w-6xl mx-auto">
           <header className="mb-8">
@@ -765,67 +773,83 @@ export default function VariableWeightReceptionFormComponent() {
                           render={({ field }) => (
                               <FormItem className="flex flex-col">
                                   <FormLabel>Cliente</FormLabel>
-                                  <Dialog open={isClientDialogOpen} onOpenChange={(isOpen) => {
-                                      if (!isOpen) setClientSearch('');
-                                      setClientDialogOpen(isOpen);
-                                  }}>
-                                      <DialogTrigger asChild>
-                                          <FormControl>
-                                              <Button variant="outline" role="combobox" className="w-full justify-between text-left font-normal">
-                                                  {field.value || "Seleccione un cliente..."}
-                                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                              </Button>
-                                          </FormControl>
-                                      </DialogTrigger>
-                                      <DialogContent className="sm:max-w-[425px]">
-                                          <DialogHeader>
-                                              <DialogTitle>Seleccionar Cliente</DialogTitle>
-                                              <DialogDescription>Busque y seleccione un cliente de la lista. Esto cargará los productos asociados.</DialogDescription>
-                                          </DialogHeader>
-                                          <div className="p-4">
-                                              <Input
-                                                  placeholder="Buscar cliente..."
-                                                  value={clientSearch}
-                                                  onChange={(e) => setClientSearch(e.target.value)}
-                                                  className="mb-4"
-                                              />
-                                              <ScrollArea className="h-72">
-                                                  <div className="space-y-1">
-                                                      {filteredClients.map((cliente) => (
-                                                          <Button
-                                                              key={cliente.id}
-                                                              variant="ghost"
-                                                              className="w-full justify-start"
-                                                              onClick={async () => {
-                                                                  field.onChange(cliente.razonSocial);
-                                                                  setClientDialogOpen(false);
-                                                                  setClientSearch('');
-                                                                  
-                                                                  form.setValue('items', [{ paleta: null, descripcion: "", lote: "", presentacion: "", cantidadPorPaleta: null, pesoBruto: null, taraEstiba: null, taraCaja: null, totalTaraCaja: null, pesoNeto: null }]);
-                                                                  setArticulos([]);
-                                                                  setIsLoadingArticulos(true);
-                                                                  try {
-                                                                      const fetchedArticulos = await getArticulosByClients([cliente.razonSocial]);
-                                                                      setArticulos(fetchedArticulos.map(a => ({
-                                                                          value: a.codigoProducto,
-                                                                          label: a.denominacionArticulo
-                                                                      })));
-                                                                  } catch (error) {
-                                                                      toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los productos." });
-                                                                  } finally {
-                                                                      setIsLoadingArticulos(false);
-                                                                  }
-                                                              }}
-                                                          >
-                                                              {cliente.razonSocial}
-                                                          </Button>
-                                                      ))}
-                                                      {filteredClients.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron clientes.</p>}
+                                  <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Dialog open={isClientDialogOpen} onOpenChange={(isOpen) => {
+                                              if (!isOpen) setClientSearch('');
+                                              setClientDialogOpen(isOpen);
+                                          }}>
+                                              <DialogTrigger asChild>
+                                                  <FormControl>
+                                                      <Button
+                                                        variant="outline"
+                                                        role="combobox"
+                                                        className="w-full justify-between text-left font-normal"
+                                                        disabled={isClientChangeDisabled}
+                                                      >
+                                                          {field.value || "Seleccione un cliente..."}
+                                                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                      </Button>
+                                                  </FormControl>
+                                              </DialogTrigger>
+                                              <DialogContent className="sm:max-w-[425px]">
+                                                  <DialogHeader>
+                                                      <DialogTitle>Seleccionar Cliente</DialogTitle>
+                                                      <DialogDescription>Busque y seleccione un cliente de la lista. Esto cargará los productos asociados.</DialogDescription>
+                                                  </DialogHeader>
+                                                  <div className="p-4">
+                                                      <Input
+                                                          placeholder="Buscar cliente..."
+                                                          value={clientSearch}
+                                                          onChange={(e) => setClientSearch(e.target.value)}
+                                                          className="mb-4"
+                                                      />
+                                                      <ScrollArea className="h-72">
+                                                          <div className="space-y-1">
+                                                              {filteredClients.map((cliente) => (
+                                                                  <Button
+                                                                      key={cliente.id}
+                                                                      variant="ghost"
+                                                                      className="w-full justify-start"
+                                                                      onClick={async () => {
+                                                                          field.onChange(cliente.razonSocial);
+                                                                          setClientDialogOpen(false);
+                                                                          setClientSearch('');
+                                                                          
+                                                                          form.setValue('items', [{ paleta: null, descripcion: "", lote: "", presentacion: "", cantidadPorPaleta: null, pesoBruto: null, taraEstiba: null, taraCaja: null, totalTaraCaja: null, pesoNeto: null }]);
+                                                                          setArticulos([]);
+                                                                          setIsLoadingArticulos(true);
+                                                                          try {
+                                                                              const fetchedArticulos = await getArticulosByClients([cliente.razonSocial]);
+                                                                              setArticulos(fetchedArticulos.map(a => ({
+                                                                                  value: a.codigoProducto,
+                                                                                  label: a.denominacionArticulo
+                                                                              })));
+                                                                          } catch (error) {
+                                                                              toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los productos." });
+                                                                          } finally {
+                                                                              setIsLoadingArticulos(false);
+                                                                          }
+                                                                      }}
+                                                                  >
+                                                                      {cliente.razonSocial}
+                                                                  </Button>
+                                                              ))}
+                                                              {filteredClients.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron clientes.</p>}
+                                                          </div>
+                                                      </ScrollArea>
                                                   </div>
-                                              </ScrollArea>
-                                          </div>
-                                      </DialogContent>
-                                  </Dialog>
+                                              </DialogContent>
+                                          </Dialog>
+                                        </TooltipTrigger>
+                                        {isClientChangeDisabled && (
+                                          <TooltipContent>
+                                            <p>Para cambiar de cliente, primero elimine todos los ítems.</p>
+                                          </TooltipContent>
+                                        )}
+                                      </Tooltip>
+                                  </TooltipProvider>
                                   <FormMessage />
                               </FormItem>
                           )}
@@ -1229,7 +1253,8 @@ function ProductSelectorDialog({
     articulos,
     isLoading,
     clientSelected,
-    onSelect
+    onSelect,
+    productDialogIndex
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -1237,6 +1262,7 @@ function ProductSelectorDialog({
     isLoading: boolean;
     clientSelected: boolean;
     onSelect: (articulo: { value: string; label: string }) => void;
+    productDialogIndex: number | null;
 }) {
     const [search, setSearch] = useState("");
 
