@@ -256,8 +256,6 @@ export default function VariableWeightFormComponent() {
 
   const [articulos, setArticulos] = useState<{ value: string; label: string }[]>([]);
   const [isLoadingArticulos, setIsLoadingArticulos] = useState(false);
-  const [productDialogIndex, setProductDialogIndex] = useState<number | null>(null);
-  const [productSearch, setProductSearch] = useState("");
 
   const [attachments, setAttachments] = useState<string[]>([]);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
@@ -277,12 +275,6 @@ export default function VariableWeightFormComponent() {
     return clientes.filter(c => c.razonSocial.toLowerCase().includes(clientSearch.toLowerCase()));
   }, [clientSearch, clientes]);
   
-  const filteredArticulos = useMemo(() => {
-    if (!productSearch) return articulos;
-    return articulos.filter(a => a.label.toLowerCase().includes(productSearch.toLowerCase()));
-  }, [productSearch, articulos]);
-
-
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: originalDefaultValues,
@@ -995,61 +987,17 @@ export default function VariableWeightFormComponent() {
                                     )}/>
                                     <FormField control={form.control} name={`items.${index}.descripcion`} render={({ field }) => (
                                         <FormItem className="md:col-span-2">
-                                        <FormLabel>Descripción del Producto</FormLabel>
-                                            <Dialog open={productDialogIndex === index} onOpenChange={(isOpen) => {
-                                                if (!isOpen) {
-                                                    setProductSearch("");
-                                                }
-                                                setProductDialogIndex(isOpen ? index : null)
-                                            }}>
-                                                <DialogTrigger asChild>
-                                                    <Button variant="outline" className="w-full justify-between text-left font-normal">
-                                                        {field.value || "Seleccionar producto..."}
-                                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                                    </Button>
-                                                </DialogTrigger>
-                                                <DialogContent>
-                                                    <DialogHeader>
-                                                        <DialogTitle>Seleccionar Producto</DialogTitle>
-                                                        <DialogDescription>Busque y seleccione un producto de la lista del cliente.</DialogDescription>
-                                                    </DialogHeader>
-                                                    {!form.getValues('cliente') ? (
-                                                        <div className="p-4 text-center text-muted-foreground">
-                                                            Debe escoger primero un cliente.
-                                                        </div>
-                                                    ) : (
-                                                        <>
-                                                            <Input
-                                                                placeholder="Buscar producto..."
-                                                                value={productSearch}
-                                                                onChange={(e) => setProductSearch(e.target.value)}
-                                                                className="mb-4"
-                                                            />
-                                                            <ScrollArea className="h-72">
-                                                                <div className="space-y-1">
-                                                                    {isLoadingArticulos && <p className="text-center text-sm text-muted-foreground">Cargando...</p>}
-                                                                    {!isLoadingArticulos && filteredArticulos.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron productos.</p>}
-                                                                    {filteredArticulos.map((p, i) => (
-                                                                        <Button
-                                                                            key={`${p.value}-${i}`}
-                                                                            variant="ghost"
-                                                                            className="w-full justify-start h-auto text-wrap"
-                                                                            onClick={() => {
-                                                                                field.onChange(p.label);
-                                                                                setProductDialogIndex(null);
-                                                                                setProductSearch("");
-                                                                            }}
-                                                                        >
-                                                                            {p.label}
-                                                                        </Button>
-                                                                    ))}
-                                                                </div>
-                                                            </ScrollArea>
-                                                        </>
-                                                    )}
-                                                </DialogContent>
-                                            </Dialog>
-                                        <FormMessage />
+                                            <FormLabel>Descripción del Producto</FormLabel>
+                                            <ProductSelectorDialog
+                                                field={field}
+                                                articulos={articulos}
+                                                onSelect={(articulo) => {
+                                                    form.setValue(`items.${index}.descripcion`, articulo.label);
+                                                }}
+                                                clientSelected={!!form.getValues('cliente')}
+                                                isLoading={isLoadingArticulos}
+                                            />
+                                            <FormMessage />
                                         </FormItem>
                                     )}/>
                                 </div>
@@ -1252,7 +1200,7 @@ export default function VariableWeightFormComponent() {
                         <FormItem><FormLabel>Coordinador Responsable</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                     )}/>
                     <FormItem>
-                        <FormLabel>Operario Responsable ({submissionId ? 'Creador' : 'Actual'})</FormLabel>
+                        <FormLabel>Operario Responsable (Creador)</FormLabel>
                         <FormControl><Input disabled value={submissionId ? originalSubmission?.userDisplayName : displayName || ''} /></FormControl>
                     </FormItem>
                     {submissionId && (
@@ -1386,4 +1334,74 @@ export default function VariableWeightFormComponent() {
       </AlertDialog>
     </div>
   );
+}
+
+
+// Component for the product selector dialog
+function ProductSelectorDialog({ field, articulos, onSelect, clientSelected, isLoading }: {
+    field: any;
+    articulos: { value: string; label: string }[];
+    onSelect: (articulo: { value: string; label: string }) => void;
+    clientSelected: boolean;
+    isLoading: boolean;
+}) {
+    const [open, setOpen] = useState(false);
+    const [search, setSearch] = useState("");
+
+    const filteredArticulos = useMemo(() => {
+        if (!search) return articulos;
+        return articulos.filter(a => a.label.toLowerCase().includes(search.toLowerCase()));
+    }, [search, articulos]);
+
+    return (
+        <Dialog open={open} onOpenChange={(isOpen) => {
+            if (!isOpen) setSearch("");
+            setOpen(isOpen);
+        }}>
+            <DialogTrigger asChild>
+                <Button variant="outline" className="w-full justify-between text-left font-normal h-10">
+                    <span className="truncate">{field.value || "Seleccionar producto..."}</span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+            </DialogTrigger>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Seleccionar Producto</DialogTitle>
+                    <DialogDescription>Busque y seleccione un producto de la lista del cliente.</DialogDescription>
+                </DialogHeader>
+                {!clientSelected ? (
+                    <div className="p-4 text-center text-muted-foreground">Debe escoger primero un cliente.</div>
+                ) : (
+                    <>
+                        <Input
+                            placeholder="Buscar producto..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="mb-4"
+                        />
+                        <ScrollArea className="h-72">
+                            <div className="space-y-1">
+                                {isLoading && <p className="text-center text-sm text-muted-foreground">Cargando...</p>}
+                                {!isLoading && filteredArticulos.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron productos.</p>}
+                                {filteredArticulos.map((p, i) => (
+                                    <Button
+                                        key={`${p.value}-${i}`}
+                                        variant="ghost"
+                                        className="w-full justify-start h-auto text-wrap"
+                                        onClick={() => {
+                                            onSelect(p);
+                                            setOpen(false);
+                                            setSearch("");
+                                        }}
+                                    >
+                                        {p.label}
+                                    </Button>
+                                ))}
+                            </div>
+                        </ScrollArea>
+                    </>
+                )}
+            </DialogContent>
+        </Dialog>
+    );
 }
