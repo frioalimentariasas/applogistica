@@ -2,7 +2,6 @@
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
-import * as xlsx from 'xlsx';
 import { revalidatePath } from 'next/cache';
 
 // Define the structure of an article based on the Excel columns
@@ -13,89 +12,93 @@ interface Articulo {
   'Sesion': 'CO' | 'RE' | 'SE';
 }
 
-export async function uploadArticulos(formData: FormData): Promise<{ success: boolean; message: string; count?: number }> {
-  const file = formData.get('file') as File;
-  if (!file) {
-    return { success: false, message: 'No se encontró el archivo.' };
-  }
+export interface UploadResult {
+    success: boolean;
+    message: string;
+    processedCount?: number;
+    errorCount?: number;
+    errors?: string[];
+}
 
+export async function uploadArticulos(rows: any[]): Promise<UploadResult> {
   if (!firestore) {
     return { 
       success: false, 
-      message: 'Error de configuración del servidor: Firebase Admin no está inicializado. Verifique la variable de entorno FIREBASE_SERVICE_ACCOUNT_KEY.' 
+      message: 'Error de configuración del servidor: Firebase Admin no está inicializado.' 
     };
   }
 
-  try {
-    const buffer = await file.arrayBuffer();
-    const workbook = xlsx.read(buffer, { type: 'buffer' });
-    const sheetName = workbook.SheetNames[0];
-    const sheet = workbook.Sheets[sheetName];
-    const data = xlsx.utils.sheet_to_json<Articulo>(sheet);
+  let processedCount = 0;
+  let errorCount = 0;
+  const errors: string[] = [];
+  const validSessions = ['CO', 'RE', 'SE'];
 
-    if (!data.length) {
-        return { success: false, message: 'El archivo Excel está vacío o no tiene el formato correcto.' };
+  for (const row of rows) {
+    const razonSocial = row['Razón Social']?.trim();
+    const codigoProducto = String(row['Codigo Producto'] || '').trim();
+    const denominacionArticulo = row['Denominación articulo']?.trim();
+    const sesion = row['Sesion']?.trim().toUpperCase();
+
+    if (!razonSocial || !codigoProducto || !denominacionArticulo || !sesion) {
+        errorCount++;
+        errors.push(`Fila con código "${codigoProducto}" omitida por tener campos vacíos.`);
+        continue;
     }
     
-    // Validate first row to ensure correct columns
-    const firstRow = data[0];
-    if (!('Razón Social' in firstRow && 'Codigo Producto' in firstRow && 'Denominación articulo' in firstRow && 'Sesion' in firstRow)) {
-        return { success: false, message: 'Las columnas del archivo Excel no coinciden con el formato esperado (Razón Social, Codigo Producto, Denominación articulo, Sesion).' };
+    if (!validSessions.includes(sesion)) {
+        errorCount++;
+        errors.push(`Fila con código "${codigoProducto}" tiene una sesión inválida: "${sesion}".`);
+        continue;
     }
 
-    const articulosCollection = firestore.collection('articulos');
-    const writeBatch = firestore.batch();
-    let processedCount = 0;
-
-    for (const row of data) {
-      // Basic validation to skip empty rows
-      if (row['Razón Social'] && row['Codigo Producto'] && row['Denominación articulo'] && row['Sesion']) {
-        const razonSocial = row['Razón Social'].trim();
-        const codigoProducto = String(row['Codigo Producto']).trim();
-
-        // Find existing article to update, or prepare a new one to create
-        const querySnapshot = await articulosCollection
+    try {
+        const querySnapshot = await firestore.collection('articulos')
             .where('razonSocial', '==', razonSocial)
             .where('codigoProducto', '==', codigoProducto)
             .limit(1)
             .get();
-        
-        const updateData = {
-          denominacionArticulo: row['Denominación articulo'].trim(),
-          sesion: row['Sesion'],
-        };
 
+        const dataToSave = {
+            razonSocial,
+            codigoProducto,
+            denominacionArticulo,
+            sesion,
+        };
+        
         if (!querySnapshot.empty) {
-            // Update existing document
             const docRef = querySnapshot.docs[0].ref;
-            writeBatch.update(docRef, updateData);
+            await docRef.update(dataToSave);
         } else {
-            // Create new document
-            const docRef = articulosCollection.doc();
-            writeBatch.set(docRef, {
-                razonSocial: razonSocial,
-                codigoProducto: codigoProducto,
-                ...updateData
-            });
+            await firestore.collection('articulos').add(dataToSave);
         }
         processedCount++;
-      }
-    }
 
-    if (processedCount === 0) {
-      return { success: false, message: 'No se encontraron filas válidas para procesar en el archivo.' };
+    } catch(e) {
+        errorCount++;
+        const errorMessage = e instanceof Error ? e.message : 'Error desconocido';
+        errors.push(`Error al procesar fila con código "${codigoProducto}": ${errorMessage}`);
     }
-
-    await writeBatch.commit();
-    
-    revalidatePath('/gestion-articulos');
-
-    return { success: true, message: `Se procesaron ${processedCount} artículos (actualizados o creados) correctamente.`, count: processedCount };
-  } catch (error) {
-    console.error('Error al procesar el archivo:', error);
-    if (error instanceof Error) {
-        return { success: false, message: `Error del servidor: ${error.message}` };
-    }
-    return { success: false, message: 'Ocurrió un error desconocido al procesar el archivo.' };
   }
+
+  if (processedCount > 0) {
+      revalidatePath('/gestion-articulos');
+  }
+
+  if (errorCount > 0) {
+      return {
+          success: false,
+          message: `Proceso completado con ${errorCount} errores.`,
+          processedCount,
+          errorCount,
+          errors
+      };
+  }
+  
+  return { 
+      success: true, 
+      message: `Se procesaron ${processedCount} artículos correctamente.`,
+      processedCount,
+      errorCount,
+      errors
+  };
 }

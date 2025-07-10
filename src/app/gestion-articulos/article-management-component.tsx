@@ -3,7 +3,6 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useForm, SubmitHandler } from 'react-hook-form';
-import { useFormStatus } from 'react-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useRouter } from 'next/navigation';
@@ -12,7 +11,7 @@ import * as XLSX from 'xlsx';
 import { useToast } from '@/hooks/use-toast';
 import { addArticle, updateArticle, deleteArticle } from './actions';
 import { getArticulosByClients, ArticuloInfo } from '@/app/actions/articulos';
-import { uploadArticulos } from '../upload-articulos/actions';
+import { uploadArticulos, type UploadResult } from '../upload-articulos/actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -35,6 +34,7 @@ import {
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Progress } from '@/components/ui/progress';
 import type { ClientInfo } from '@/app/actions/clients';
 
 
@@ -56,26 +56,6 @@ type EditArticleFormValues = z.infer<typeof editArticleSchema>;
 
 interface ArticleManagementComponentProps {
   clients: ClientInfo[];
-}
-
-function UploadSubmitButton() {
-  const { pending } = useFormStatus();
-
-  return (
-    <Button type="submit" disabled={pending} className="w-full">
-      {pending ? (
-        <>
-          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          Cargando...
-        </>
-      ) : (
-        <>
-          <FileUp className="mr-2 h-4 w-4" />
-          Cargar y Procesar Archivo
-        </>
-      )}
-    </Button>
-  );
 }
 
 export default function ArticleManagementComponent({ clients }: ArticleManagementComponentProps) {
@@ -105,8 +85,9 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
   const [consultClientSearch, setConsultClientSearch] = useState('');
 
   // State for upload form
-  const [uploadFileName, setUploadFileName] = useState('');
-  const [uploadFormError, setUploadFormError] = useState<string | null>(null);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const uploadInputRef = useState<HTMLInputElement | null>(null);
 
   const addForm = useForm<ArticleFormValues>({
     resolver: zodResolver(articleSchema),
@@ -223,72 +204,68 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
     });
   };
 
-  const handleUploadFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleUploadFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setUploadFileName(file.name);
-      setUploadFormError(null);
+    if (!file) return;
+
+    setIsUploading(true);
+    setUploadProgress(0);
+
+    const data = await file.arrayBuffer();
+    const workbook = XLSX.read(data);
+    const sheetName = workbook.SheetNames[0];
+    const worksheet = workbook.Sheets[sheetName];
+    const json = XLSX.utils.sheet_to_json(worksheet);
+
+    let result: UploadResult = { success: false, message: 'No se procesaron filas.', processedCount: 0, errorCount: 0, errors: [] };
+
+    if (json.length > 0) {
+      const chunkSize = 10;
+      for (let i = 0; i < json.length; i += chunkSize) {
+          const chunk = json.slice(i, i + chunkSize);
+          try {
+              const chunkResult = await uploadArticulos(chunk);
+              result.processedCount = (result.processedCount || 0) + (chunkResult.processedCount || 0);
+              result.errorCount = (result.errorCount || 0) + (chunkResult.errorCount || 0);
+              result.errors = [...(result.errors || []), ...(chunkResult.errors || [])];
+
+          } catch (e) {
+              console.error(e);
+              result.errorCount = (result.errorCount || 0) + chunk.length;
+              result.errors = [...(result.errors || []), `Error en el servidor al procesar el lote que comienza en la fila ${i + 2}.`];
+          }
+          setUploadProgress(((i + chunk.length) / json.length) * 100);
+      }
+    }
+    
+    if (result.errorCount > 0) {
+        toast({
+            variant: "destructive",
+            title: `Carga completada con ${result.errorCount} errores`,
+            description: `Se procesaron ${result.processedCount} artículos. Errores: ${result.errors?.slice(0, 2).join(', ')}...`,
+            duration: 9000
+        });
     } else {
-      setUploadFileName('');
+        toast({
+            title: "Carga completada",
+            description: `Se han procesado ${result.processedCount} artículos exitosamente.`
+        });
     }
-  };
-
-  async function handleUploadFormAction(formData: FormData) {
-    const file = formData.get('file') as File;
-    if (!file || file.size === 0) {
-      setUploadFormError('Por favor, seleccione un archivo para cargar.');
-      return;
-    }
-
-    const result = await uploadArticulos(formData);
-
-    if (result.success) {
-      toast({
-        title: "¡Éxito!",
-        description: `${result.message} Si los artículos pertenecen al cliente seleccionado, la lista se actualizará.`,
-      });
-      setUploadFileName('');
-      const form = document.getElementById('upload-articles-form') as HTMLFormElement;
-      form?.reset();
-      
-      // If upload affects current client, refresh list
-      if (selectedClients.length > 0) {
+    
+    if (selectedClients.length > 0) {
         setIsLoadingArticles(true);
         const fetchedArticles = await getArticulosByClients(selectedClients);
         setArticles(fetchedArticles);
         setIsLoadingArticles(false);
-      }
-
-    } else {
-      toast({
-        variant: "destructive",
-        title: "Error en la Carga",
-        description: result.message,
-      });
     }
-  }
-
-  const handleExportArticles = () => {
-    if (articles.length === 0) {
-        toast({
-            title: "Sin datos",
-            description: "No hay artículos para exportar con los filtros actuales."
-        });
-        return;
+    
+    // Reset file input
+    if (e.target) {
+        e.target.value = '';
     }
 
-    const dataToExport = filteredArticles.map(article => ({
-      'Cliente': article.razonSocial,
-      'Codigo Producto': article.codigoProducto,
-      'Denominacion Articulo': article.denominacionArticulo,
-      'Sesion': article.sesion
-    }));
-
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Articulos');
-    const fileName = `Maestro_Articulos_Export.xlsx`;
-    XLSX.writeFile(workbook, fileName);
+    setIsUploading(false);
+    setTimeout(() => setUploadProgress(0), 1000);
   };
   
   const getSelectedClientsText = () => {
@@ -433,7 +410,7 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
             <Card>
               <CardHeader>
                 <CardTitle className="flex items-center gap-2"><FileUp /> Cargar Artículos desde Excel</CardTitle>
-                <CardDescription>Suba un archivo (.xlsx, .xls) para agregar múltiples artículos.</CardDescription>
+                <CardDescription>Suba un archivo (.xlsx, .xls) para agregar o actualizar múltiples artículos.</CardDescription>
               </CardHeader>
               <CardContent>
                 <Alert className="mb-4 border-blue-500 bg-blue-50 text-blue-800 [&>svg]:text-blue-600">
@@ -442,23 +419,28 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
                         El archivo debe tener las columnas: <strong>Razón Social</strong>, <strong>Codigo Producto</strong>, <strong>Denominación articulo</strong> y <strong>Sesion</strong>.
                     </AlertDescription>
                 </Alert>
-                <form id="upload-articles-form" action={handleUploadFormAction} className="space-y-4">
-                  <div className="space-y-1">
-                      <Label htmlFor="file-upload">Archivo Excel</Label>
-                      <Input 
-                          id="file-upload" 
-                          name="file" 
-                          type="file" 
-                          required 
-                          accept=".xlsx, .xls"
-                          onChange={handleUploadFileChange}
-                          className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
-                      />
-                      {uploadFileName && <p className="text-xs text-muted-foreground">Archivo seleccionado: {uploadFileName}</p>}
-                      {uploadFormError && <p className="text-sm font-medium text-destructive">{uploadFormError}</p>}
-                  </div>
-                  <UploadSubmitButton />
-                </form>
+                <div className="space-y-4">
+                    <div className="space-y-1">
+                        <Label htmlFor="file-upload">Archivo Excel</Label>
+                        <Input 
+                            id="file-upload" 
+                            name="file" 
+                            type="file" 
+                            required 
+                            accept=".xlsx, .xls"
+                            onChange={handleUploadFileChange}
+                            ref={uploadInputRef}
+                            disabled={isUploading}
+                            className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+                        />
+                    </div>
+                    {isUploading && (
+                        <div className="space-y-2">
+                            <Progress value={uploadProgress} className="w-full" />
+                            <p className="text-sm text-center text-muted-foreground">Procesando... {Math.round(uploadProgress)}%</p>
+                        </div>
+                    )}
+                </div>
               </CardContent>
             </Card>
 
