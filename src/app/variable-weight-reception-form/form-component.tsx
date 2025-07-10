@@ -188,6 +188,8 @@ export default function VariableWeightReceptionFormComponent() {
 
   const [articulos, setArticulos] = useState<{ value: string; label: string }[]>([]);
   const [isLoadingArticulos, setIsLoadingArticulos] = useState(false);
+  const [isProductDialogOpen, setProductDialogOpen] = useState(false);
+  const [productDialogIndex, setProductDialogIndex] = useState<number | null>(null);
 
   const [attachments, setAttachments] = useState<string[]>([]);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
@@ -714,6 +716,18 @@ export default function VariableWeightReceptionFormComponent() {
             onRestore={onRestore}
             onDiscard={handleDiscard}
         />
+        <ProductSelectorDialog
+            open={isProductDialogOpen}
+            onOpenChange={setProductDialogOpen}
+            articulos={articulos}
+            isLoading={isLoadingArticulos}
+            clientSelected={!!form.getValues('cliente')}
+            onSelect={(articulo) => {
+                if (productDialogIndex !== null) {
+                    form.setValue(`items.${productDialogIndex}.descripcion`, articulo.label);
+                }
+            }}
+        />
         <div className="max-w-6xl mx-auto">
           <header className="mb-8">
             <div className="relative flex items-center justify-center text-center">
@@ -891,15 +905,18 @@ export default function VariableWeightReceptionFormComponent() {
                                     <FormField control={form.control} name={`items.${index}.descripcion`} render={({ field: controllerField }) => (
                                         <FormItem className="md:col-span-2">
                                             <FormLabel>Descripción del Producto</FormLabel>
-                                            <ProductSelectorDialog
-                                                field={controllerField}
-                                                articulos={articulos}
-                                                onSelect={(articulo) => {
-                                                    form.setValue(`items.${index}.descripcion`, articulo.label);
-                                                }}
-                                                clientSelected={!!form.getValues('cliente')}
-                                                isLoading={isLoadingArticulos}
-                                            />
+                                             <Button
+                                                  type="button"
+                                                  variant="outline"
+                                                  className="w-full justify-between text-left font-normal h-10"
+                                                  onClick={() => {
+                                                    setProductDialogIndex(index);
+                                                    setProductDialogOpen(true);
+                                                  }}
+                                                >
+                                                  <span className="truncate">{controllerField.value || "Seleccionar producto..."}</span>
+                                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                            </Button>
                                             <FormMessage />
                                         </FormItem>
                                     )}/>
@@ -1206,32 +1223,36 @@ export default function VariableWeightReceptionFormComponent() {
 }
 
 // Component for the product selector dialog
-function ProductSelectorDialog({ field, articulos, onSelect, clientSelected, isLoading }: {
-    field: any;
+function ProductSelectorDialog({
+    open,
+    onOpenChange,
+    articulos,
+    isLoading,
+    clientSelected,
+    onSelect
+}: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
     articulos: { value: string; label: string }[];
-    onSelect: (articulo: { value: string; label: string }) => void;
-    clientSelected: boolean;
     isLoading: boolean;
+    clientSelected: boolean;
+    onSelect: (articulo: { value: string; label: string }) => void;
 }) {
-    const [open, setOpen] = useState(false);
     const [search, setSearch] = useState("");
 
     const filteredArticulos = useMemo(() => {
         if (!search) return articulos;
         return articulos.filter(a => a.label.toLowerCase().includes(search.toLowerCase()));
     }, [search, articulos]);
+    
+    useEffect(() => {
+        if (!open) {
+            setSearch("");
+        }
+    }, [open]);
 
     return (
-        <Dialog open={open} onOpenChange={(isOpen) => {
-            if (!isOpen) setSearch("");
-            setOpen(isOpen);
-        }}>
-            <DialogTrigger asChild>
-                <Button variant="outline" className="w-full justify-between text-left font-normal h-10">
-                    <span className="truncate">{field.value || "Seleccionar producto..."}</span>
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-            </DialogTrigger>
+        <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>Seleccionar Producto</DialogTitle>
@@ -1258,8 +1279,7 @@ function ProductSelectorDialog({ field, articulos, onSelect, clientSelected, isL
                                         className="w-full justify-start h-auto text-wrap"
                                         onClick={() => {
                                             onSelect(p);
-                                            setOpen(false);
-                                            setSearch("");
+                                            onOpenChange(false);
                                         }}
                                     >
                                         {p.label}
