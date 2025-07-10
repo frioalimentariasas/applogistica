@@ -502,7 +502,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         detailHead = [['Descripción', 'Lote', 'Presentación', 'Total Cant.', 'Total Paletas', 'Total P. Neto']];
                         detailBody = formData.items.map((p: any) => {
                             return [
-                                `${p.descripcion} (${p.totalPaletas || 'N/A'} paletas)`,
+                                `${p.descripcion}`,
                                 p.lote,
                                 p.presentacion,
                                 p.totalCantidad,

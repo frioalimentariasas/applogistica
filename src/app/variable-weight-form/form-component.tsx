@@ -180,6 +180,17 @@ const formSchema = z.object({
 }, {
     message: "La hora de fin no puede ser igual a la hora de inicio.",
     path: ["horaFin"],
+}).superRefine((data, ctx) => {
+    const hasSummaryRow = data.items.some(item => item.paleta === 0);
+    const hasDetailRow = data.items.some(item => item.paleta !== 0 && item.paleta !== null);
+
+    if (hasSummaryRow && hasDetailRow) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "No se pueden mezclar ítems de resumen (Paleta 0) con ítems de paletas individuales. Por favor, use solo un método.",
+            path: ["items"],
+        });
+    }
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -958,6 +969,7 @@ export default function VariableWeightFormComponent() {
             <Card>
               <CardHeader>
                 <CardTitle>Detalle del Despacho</CardTitle>
+                <FormMessage>{form.formState.errors.items?.message}</FormMessage>
               </CardHeader>
               <CardContent className="space-y-4">
                 {fields.map((item, index) => {

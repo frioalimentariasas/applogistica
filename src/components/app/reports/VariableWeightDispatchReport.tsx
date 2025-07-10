@@ -67,6 +67,7 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
     const operationTerm = 'Cargue';
     const fieldCellStyle: React.CSSProperties = { padding: '2px', fontSize: '11px', lineHeight: '1.4', verticalAlign: 'top' };
     
+    // A form is in "summary format" if ANY item has a value for totalCantidad, totalPaletas, or totalPesoNeto.
     const isSummaryFormat = formData.items.some((p: any) => 
         p.totalCantidad != null || p.totalPaletas != null || p.totalPesoNeto != null
     );
@@ -136,7 +137,7 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                                 if (isSummaryFormat) {
                                     return (
                                         <tr key={i} style={{ borderBottom: '1px solid #ddd' }}>
-                                            <td style={{ padding: '4px' }}>{`${p.descripcion} (${p.totalPaletas || 'N/A'} paletas)`}</td>
+                                            <td style={{ padding: '4px' }}>{`${p.descripcion}`}</td>
                                             <td style={{ padding: '4px' }}>{p.lote}</td>
                                             <td style={{ padding: '4px' }}>{p.presentacion}</td>
                                             <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalCantidad}</td>
