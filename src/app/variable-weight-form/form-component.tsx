@@ -125,8 +125,11 @@ const itemSchema = z.object({
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El Total Peso Neto es requerido.", path: ["totalPesoNeto"] });
       }
     } 
-    // Otherwise, it's an individual pallet row (paleta > 0 or paleta is undefined/null)
+    // Otherwise, it's an individual pallet row (paleta is > 0 or paleta is undefined/null)
     else {
+      if (data.paleta === null) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La paleta es requerida.", path: ["paleta"] });
+      }
       if (data.cantidadPorPaleta === undefined || data.cantidadPorPaleta === null) {
           ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La Cantidad Por Paleta es requerida.", path: ["cantidadPorPaleta"] });
       }
@@ -998,7 +1001,7 @@ export default function VariableWeightFormComponent() {
                   control={form.control}
                   name="items"
                   render={({ fieldState }) => (
-                    fieldState.error ? <p className="text-sm font-medium text-destructive">{fieldState.error.message}</p> : null
+                    fieldState.error?.message && <p className="text-sm font-medium text-destructive">{fieldState.error.message}</p>
                   )}
                 />
               </CardHeader>
