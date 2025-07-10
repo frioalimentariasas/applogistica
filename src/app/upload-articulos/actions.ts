@@ -44,27 +44,53 @@ export async function uploadArticulos(formData: FormData): Promise<{ success: bo
     }
 
     const articulosCollection = firestore.collection('articulos');
-
-    // Create a new batch for writing
     const writeBatch = firestore.batch();
-    data.forEach((row) => {
+    let processedCount = 0;
+
+    for (const row of data) {
       // Basic validation to skip empty rows
       if (row['Razón Social'] && row['Codigo Producto'] && row['Denominación articulo'] && row['Sesion']) {
-        const docRef = articulosCollection.doc(); // Firestore will auto-generate an ID
-        writeBatch.set(docRef, {
-          razonSocial: row['Razón Social'],
-          codigoProducto: row['Codigo Producto'],
-          denominacionArticulo: row['Denominación articulo'],
+        const razonSocial = row['Razón Social'].trim();
+        const codigoProducto = String(row['Codigo Producto']).trim();
+
+        // Find existing article to update, or prepare a new one to create
+        const querySnapshot = await articulosCollection
+            .where('razonSocial', '==', razonSocial)
+            .where('codigoProducto', '==', codigoProducto)
+            .limit(1)
+            .get();
+        
+        const updateData = {
+          denominacionArticulo: row['Denominación articulo'].trim(),
           sesion: row['Sesion'],
-        });
+        };
+
+        if (!querySnapshot.empty) {
+            // Update existing document
+            const docRef = querySnapshot.docs[0].ref;
+            writeBatch.update(docRef, updateData);
+        } else {
+            // Create new document
+            const docRef = articulosCollection.doc();
+            writeBatch.set(docRef, {
+                razonSocial: razonSocial,
+                codigoProducto: codigoProducto,
+                ...updateData
+            });
+        }
+        processedCount++;
       }
-    });
+    }
+
+    if (processedCount === 0) {
+      return { success: false, message: 'No se encontraron filas válidas para procesar en el archivo.' };
+    }
 
     await writeBatch.commit();
     
     revalidatePath('/gestion-articulos');
 
-    return { success: true, message: `Se agregaron ${data.length} nuevos artículos correctamente.`, count: data.length };
+    return { success: true, message: `Se procesaron ${processedCount} artículos (actualizados o creados) correctamente.`, count: processedCount };
   } catch (error) {
     console.error('Error al procesar el archivo:', error);
     if (error instanceof Error) {
