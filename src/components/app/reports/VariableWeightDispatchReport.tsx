@@ -67,7 +67,10 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
     const operationTerm = 'Cargue';
     const fieldCellStyle: React.CSSProperties = { padding: '2px', fontSize: '11px', lineHeight: '1.4', verticalAlign: 'top' };
     
-    const isUsingSummaryRows = formData.items.some((p: any) => Number(p.paleta) === 0);
+    const isSummaryFormat = formData.items.some((p: any) => 
+        p.totalCantidad != null || p.totalPaletas != null || p.totalPesoNeto != null
+    );
+
 
     return (
         <>
@@ -103,7 +106,7 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                     <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse', tableLayout: 'auto' }}>
                         <thead>
                             <tr style={{ borderBottom: '1px solid #aaa' }}>
-                                {isUsingSummaryRows ? (
+                                {isSummaryFormat ? (
                                     <>
                                         <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Descripción</th>
                                         <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Lote</th>
@@ -130,16 +133,15 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                         </thead>
                         <tbody>
                             {formData.items.map((p: any, i: number) => {
-                                if (isUsingSummaryRows) {
-                                    const isSummaryRow = Number(p.paleta) === 0;
+                                if (isSummaryFormat) {
                                     return (
                                         <tr key={i} style={{ borderBottom: '1px solid #ddd' }}>
-                                            <td style={{ padding: '4px' }}>{isSummaryRow ? `${p.descripcion} (${p.totalPaletas || 'N/A'} paletas)` : p.descripcion}</td>
+                                            <td style={{ padding: '4px' }}>{`${p.descripcion} (${p.totalPaletas || 'N/A'} paletas)`}</td>
                                             <td style={{ padding: '4px' }}>{p.lote}</td>
                                             <td style={{ padding: '4px' }}>{p.presentacion}</td>
-                                            <td style={{ textAlign: 'right', padding: '4px' }}>{isSummaryRow ? p.totalCantidad : p.cantidadPorPaleta}</td>
-                                            <td style={{ textAlign: 'right', padding: '4px' }}>{isSummaryRow ? p.totalPaletas : 1}</td>
-                                            <td style={{ textAlign: 'right', padding: '4px' }}>{isSummaryRow ? p.totalPesoNeto?.toFixed(2) : p.pesoNeto?.toFixed(2)}</td>
+                                            <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalCantidad}</td>
+                                            <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPaletas}</td>
+                                            <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPesoNeto?.toFixed(2)}</td>
                                         </tr>
                                     );
                                 } else {

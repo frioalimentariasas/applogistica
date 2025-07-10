@@ -494,19 +494,20 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     detailBody = formData.items.map((p: any) => [ p.paleta, p.descripcion, p.lote, p.cantidadPorPaleta, p.pesoBruto?.toFixed(2), p.taraEstiba?.toFixed(2), p.taraCaja?.toFixed(2), p.totalTaraCaja?.toFixed(2), p.pesoNeto?.toFixed(2) ]);
                     detailColSpan = 9;
                 } else { // This is dispatch
-                    const isUsingSummaryRows = formData.items.some((p: any) => Number(p.paleta) === 0);
+                    const isSummaryFormat = formData.items.some((p: any) => 
+                        p.totalCantidad != null || p.totalPaletas != null || p.totalPesoNeto != null
+                    );
 
-                    if (isUsingSummaryRows) {
+                    if (isSummaryFormat) {
                         detailHead = [['Descripción', 'Lote', 'Presentación', 'Total Cant.', 'Total Paletas', 'Total P. Neto']];
                         detailBody = formData.items.map((p: any) => {
-                            const isSummaryRow = Number(p.paleta) === 0;
                             return [
-                                isSummaryRow ? `${p.descripcion} (${p.totalPaletas || 'N/A'} paletas)` : p.descripcion,
+                                `${p.descripcion} (${p.totalPaletas || 'N/A'} paletas)`,
                                 p.lote,
                                 p.presentacion,
-                                isSummaryRow ? p.totalCantidad : p.cantidadPorPaleta,
-                                isSummaryRow ? p.totalPaletas : 1,
-                                isSummaryRow ? p.totalPesoNeto?.toFixed(2) : p.pesoNeto?.toFixed(2)
+                                p.totalCantidad,
+                                p.totalPaletas,
+                                p.totalPesoNeto?.toFixed(2)
                             ];
                         });
                         detailColSpan = 6;
