@@ -908,10 +908,6 @@ export default function VariableWeightFormComponent() {
                             </FormItem>
                           )}
                         />
-                      <FormItem>
-                          <FormLabel>Operario Logístico</FormLabel>
-                          <FormControl><Input disabled value={displayName || ''} /></FormControl>
-                      </FormItem>
                       <FormField control={form.control} name="fecha" render={({ field }) => (
                           <FormItem>
                             <FormLabel>Fecha</FormLabel>
@@ -1250,15 +1246,21 @@ export default function VariableWeightFormComponent() {
 
              {/* Responsible Person Card */}
              <Card>
-                <CardHeader><CardTitle>Coordinador y Operario Responsables de la Operación</CardTitle></CardHeader>
+                <CardHeader><CardTitle>Responsables de la Operación</CardTitle></CardHeader>
                 <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField control={form.control} name="coordinador" render={({ field }) => (
-                        <FormItem><FormLabel>Coordinador Responsable de la Operación</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Coordinador Responsable</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                     )}/>
-                     <FormItem>
-                        <FormLabel>Operario Logístico Responsable</FormLabel>
-                        <FormControl><Input disabled value={displayName || ''} /></FormControl>
+                    <FormItem>
+                        <FormLabel>Operario Responsable ({submissionId ? 'Creador' : 'Actual'})</FormLabel>
+                        <FormControl><Input disabled value={submissionId ? originalSubmission?.userDisplayName : displayName || ''} /></FormControl>
                     </FormItem>
+                    {submissionId && (
+                        <FormItem>
+                           <FormLabel>Operario Logístico (Editor)</FormLabel>
+                           <FormControl><Input disabled value={displayName || ''} /></FormControl>
+                        </FormItem>
+                    )}
                 </CardContent>
              </Card>
 
