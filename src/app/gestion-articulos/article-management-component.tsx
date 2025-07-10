@@ -207,65 +207,80 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
   const handleUploadFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-
+  
     setIsUploading(true);
     setUploadProgress(0);
-
-    const data = await file.arrayBuffer();
-    const workbook = XLSX.read(data);
-    const sheetName = workbook.SheetNames[0];
-    const worksheet = workbook.Sheets[sheetName];
-    const json = XLSX.utils.sheet_to_json(worksheet);
-
-    let result: UploadResult = { success: false, message: 'No se procesaron filas.', processedCount: 0, errorCount: 0, errors: [] };
-
-    if (json.length > 0) {
-      const chunkSize = 10;
-      for (let i = 0; i < json.length; i += chunkSize) {
-          const chunk = json.slice(i, i + chunkSize);
+  
+    try {
+      const data = await file.arrayBuffer();
+      const workbook = XLSX.read(data);
+      const sheetName = workbook.SheetNames[0];
+      const worksheet = workbook.Sheets[sheetName];
+      const json = XLSX.utils.sheet_to_json<any>(worksheet);
+  
+      let result: UploadResult = { success: false, message: 'No se procesaron filas.', processedCount: 0, errorCount: 0, errors: [] };
+  
+      if (json.length > 0) {
+        // Ensure the data is plain objects before sending to the server action
+        const plainObjects = json.map(row => ({
+          'Razón Social': row['Razón Social'],
+          'Codigo Producto': row['Codigo Producto'],
+          'Denominación articulo': row['Denominación articulo'],
+          'Sesion': row['Sesion']
+        }));
+  
+        const chunkSize = 10;
+        for (let i = 0; i < plainObjects.length; i += chunkSize) {
+          const chunk = plainObjects.slice(i, i + chunkSize);
           try {
-              const chunkResult = await uploadArticulos(chunk);
-              result.processedCount = (result.processedCount || 0) + (chunkResult.processedCount || 0);
-              result.errorCount = (result.errorCount || 0) + (chunkResult.errorCount || 0);
-              result.errors = [...(result.errors || []), ...(chunkResult.errors || [])];
-
+            const chunkResult = await uploadArticulos(chunk);
+            result.processedCount = (result.processedCount || 0) + (chunkResult.processedCount || 0);
+            result.errorCount = (result.errorCount || 0) + (chunkResult.errorCount || 0);
+            result.errors = [...(result.errors || []), ...(chunkResult.errors || [])];
           } catch (e) {
-              console.error(e);
-              result.errorCount = (result.errorCount || 0) + chunk.length;
-              result.errors = [...(result.errors || []), `Error en el servidor al procesar el lote que comienza en la fila ${i + 2}.`];
+            console.error(e);
+            result.errorCount = (result.errorCount || 0) + chunk.length;
+            result.errors = [...(result.errors || []), `Error en el servidor al procesar el lote que comienza en la fila ${i + 2}.`];
           }
-          setUploadProgress(((i + chunk.length) / json.length) * 100);
+          setUploadProgress(((i + chunk.length) / plainObjects.length) * 100);
+        }
       }
+      
+      if (result.errorCount > 0) {
+          toast({
+              variant: "destructive",
+              title: `Carga completada con ${result.errorCount} errores`,
+              description: `Se procesaron ${result.processedCount} artículos. Errores: ${result.errors?.slice(0, 2).join(', ')}...`,
+              duration: 9000
+          });
+      } else {
+          toast({
+              title: "Carga completada",
+              description: `Se han procesado ${result.processedCount} artículos exitosamente.`
+          });
+      }
+      
+      if (selectedClients.length > 0) {
+          setIsLoadingArticles(true);
+          const fetchedArticles = await getArticulosByClients(selectedClients);
+          setArticles(fetchedArticles);
+          setIsLoadingArticles(false);
+      }
+    } catch (error) {
+      console.error("File processing error:", error);
+      toast({
+        variant: "destructive",
+        title: "Error de Archivo",
+        description: "No se pudo leer o procesar el archivo Excel.",
+      });
+    } finally {
+      // Reset file input
+      if (e.target) {
+          e.target.value = '';
+      }
+      setIsUploading(false);
+      setTimeout(() => setUploadProgress(0), 1000);
     }
-    
-    if (result.errorCount > 0) {
-        toast({
-            variant: "destructive",
-            title: `Carga completada con ${result.errorCount} errores`,
-            description: `Se procesaron ${result.processedCount} artículos. Errores: ${result.errors?.slice(0, 2).join(', ')}...`,
-            duration: 9000
-        });
-    } else {
-        toast({
-            title: "Carga completada",
-            description: `Se han procesado ${result.processedCount} artículos exitosamente.`
-        });
-    }
-    
-    if (selectedClients.length > 0) {
-        setIsLoadingArticles(true);
-        const fetchedArticles = await getArticulosByClients(selectedClients);
-        setArticles(fetchedArticles);
-        setIsLoadingArticles(false);
-    }
-    
-    // Reset file input
-    if (e.target) {
-        e.target.value = '';
-    }
-
-    setIsUploading(false);
-    setTimeout(() => setUploadProgress(0), 1000);
   };
   
   const getSelectedClientsText = () => {
