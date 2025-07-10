@@ -37,7 +37,7 @@ export async function uploadArticulos(rows: any[]): Promise<UploadResult> {
     const razonSocial = row['Razón Social']?.trim();
     const codigoProducto = String(row['Codigo Producto'] || '').trim();
     const denominacionArticulo = row['Denominación articulo']?.trim();
-    const sesion = row['Sesion']?.trim().toUpperCase();
+    const sesion = String(row['Sesion'] || '').trim().toUpperCase();
 
     if (!razonSocial || !codigoProducto || !denominacionArticulo || !sesion) {
         errorCount++;
