@@ -1257,7 +1257,7 @@ export default function VariableWeightFormComponent() {
                     </FormItem>
                     {submissionId && (
                         <FormItem>
-                           <FormLabel>Operario Logístico (Editor)</FormLabel>
+                           <FormLabel>Usuario (Editor)</FormLabel>
                            <FormControl><Input disabled value={displayName || ''} /></FormControl>
                         </FormItem>
                     )}
