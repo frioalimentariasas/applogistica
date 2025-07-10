@@ -66,9 +66,19 @@ export async function uploadArticulos(rows: any[]): Promise<UploadResult> {
         };
         
         if (!querySnapshot.empty) {
-            const docRef = querySnapshot.docs[0].ref;
-            await docRef.update(dataToSave);
+            const doc = querySnapshot.docs[0];
+            const existingData = doc.data();
+
+            // Compare existing data with data from Excel file
+            if (existingData.denominacionArticulo === dataToSave.denominacionArticulo && existingData.sesion === dataToSave.sesion) {
+                // Data is the same, skip update
+                continue;
+            } else {
+                // Data is different, update it
+                await doc.ref.update(dataToSave);
+            }
         } else {
+            // Document doesn't exist, create it
             await firestore.collection('articulos').add(dataToSave);
         }
         processedCount++;
@@ -96,7 +106,7 @@ export async function uploadArticulos(rows: any[]): Promise<UploadResult> {
   
   return { 
       success: true, 
-      message: `Se procesaron ${processedCount} artículos correctamente.`,
+      message: `Se procesaron (agregaron o actualizaron) ${processedCount} artículos correctamente.`,
       processedCount,
       errorCount,
       errors
