@@ -494,24 +494,11 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     detailBody = formData.items.map((p: any) => [ p.paleta, p.descripcion, p.lote, p.cantidadPorPaleta, p.pesoBruto?.toFixed(2), p.taraEstiba?.toFixed(2), p.taraCaja?.toFixed(2), p.totalTaraCaja?.toFixed(2), p.pesoNeto?.toFixed(2) ]);
                     detailColSpan = 9;
                 } else { // This is dispatch
-                    const isSummaryFormat = formData.items.some((p: any) => 
-                        p.totalCantidad != null || p.totalPaletas != null || p.totalPesoNeto != null
+                    const isDetailedFormat = formData.items.some((p: any) => 
+                        p.pesoBruto != null || p.taraEstiba != null || p.taraCaja != null
                     );
 
-                    if (isSummaryFormat) {
-                        detailHead = [['Descripción', 'Lote', 'Presentación', 'Total Cant.', 'Total Paletas', 'Total P. Neto']];
-                        detailBody = formData.items.map((p: any) => {
-                            return [
-                                `${p.descripcion}`,
-                                p.lote,
-                                p.presentacion,
-                                p.totalCantidad,
-                                p.totalPaletas,
-                                p.totalPesoNeto?.toFixed(2)
-                            ];
-                        });
-                        detailColSpan = 6;
-                    } else {
+                    if (isDetailedFormat) {
                         detailHead = [['Paleta', 'Descripción', 'Lote', 'Presentación', 'Cant.', 'P. Bruto', 'T. Estiba', 'T. Caja', 'Total Tara', 'P. Neto']];
                         detailBody = formData.items.map((p: any) => [
                             p.paleta,
@@ -526,6 +513,19 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             p.pesoNeto?.toFixed(2)
                         ]);
                         detailColSpan = 10;
+                    } else { // Fallback to summary format if no detailed weight data is present
+                        detailHead = [['Descripción', 'Lote', 'Presentación', 'Total Cant.', 'Total Paletas', 'Total P. Neto']];
+                        detailBody = formData.items.map((p: any) => {
+                            return [
+                                `${p.descripcion}`,
+                                p.lote,
+                                p.presentacion,
+                                p.totalCantidad,
+                                p.totalPaletas,
+                                p.totalPesoNeto?.toFixed(2)
+                            ];
+                        });
+                        detailColSpan = 6;
                     }
                 }
                 

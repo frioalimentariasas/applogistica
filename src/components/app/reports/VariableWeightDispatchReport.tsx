@@ -67,9 +67,10 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
     const operationTerm = 'Cargue';
     const fieldCellStyle: React.CSSProperties = { padding: '2px', fontSize: '11px', lineHeight: '1.4', verticalAlign: 'top' };
     
-    // A form is in "summary format" if ANY item has a value for totalCantidad, totalPaletas, or totalPesoNeto.
-    const isSummaryFormat = formData.items.some((p: any) => 
-        p.totalCantidad != null || p.totalPaletas != null || p.totalPesoNeto != null
+    // A form is in "detailed format" if ANY item has a value for pesoBruto, taraEstiba, or taraCaja.
+    // This is more robust than checking for summary fields, especially with old/dirty data.
+    const isDetailedFormat = formData.items.some((p: any) => 
+        p.pesoBruto != null || p.taraEstiba != null || p.taraCaja != null
     );
 
 
@@ -107,16 +108,7 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                     <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse', tableLayout: 'auto' }}>
                         <thead>
                             <tr style={{ borderBottom: '1px solid #aaa' }}>
-                                {isSummaryFormat ? (
-                                    <>
-                                        <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Descripción</th>
-                                        <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Lote</th>
-                                        <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Presentación</th>
-                                        <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Cant.</th>
-                                        <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Paletas</th>
-                                        <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total P. Neto</th>
-                                    </>
-                                ) : (
+                                {isDetailedFormat ? (
                                     <>
                                         <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Paleta</th>
                                         <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Descripción</th>
@@ -129,24 +121,22 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                                         <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Tara</th>
                                         <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>P. Neto</th>
                                     </>
+                                ) : (
+                                    <>
+                                        <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Descripción</th>
+                                        <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Lote</th>
+                                        <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Presentación</th>
+                                        <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Cant.</th>
+                                        <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Paletas</th>
+                                        <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total P. Neto</th>
+                                    </>
                                 )}
                             </tr>
                         </thead>
                         <tbody>
                             {formData.items.map((p: any, i: number) => {
-                                if (isSummaryFormat) {
-                                    return (
-                                        <tr key={i} style={{ borderBottom: '1px solid #ddd' }}>
-                                            <td style={{ padding: '4px' }}>{`${p.descripcion}`}</td>
-                                            <td style={{ padding: '4px' }}>{p.lote}</td>
-                                            <td style={{ padding: '4px' }}>{p.presentacion}</td>
-                                            <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalCantidad}</td>
-                                            <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPaletas}</td>
-                                            <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPesoNeto?.toFixed(2)}</td>
-                                        </tr>
-                                    );
-                                } else {
-                                    return (
+                                if (isDetailedFormat) {
+                                     return (
                                         <tr key={i} style={{ borderBottom: '1px solid #ddd' }}>
                                             <td style={{ padding: '4px' }}>{p.paleta}</td>
                                             <td style={{ padding: '4px' }}>{p.descripcion}</td>
@@ -158,6 +148,17 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                                             <td style={{ textAlign: 'right', padding: '4px' }}>{p.taraCaja?.toFixed(2)}</td>
                                             <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalTaraCaja?.toFixed(2)}</td>
                                             <td style={{ textAlign: 'right', padding: '4px' }}>{p.pesoNeto?.toFixed(2)}</td>
+                                        </tr>
+                                    );
+                                } else {
+                                   return (
+                                        <tr key={i} style={{ borderBottom: '1px solid #ddd' }}>
+                                            <td style={{ padding: '4px' }}>{`${p.descripcion}`}</td>
+                                            <td style={{ padding: '4px' }}>{p.lote}</td>
+                                            <td style={{ padding: '4px' }}>{p.presentacion}</td>
+                                            <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalCantidad}</td>
+                                            <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPaletas}</td>
+                                            <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPesoNeto?.toFixed(2)}</td>
                                         </tr>
                                     );
                                 }
