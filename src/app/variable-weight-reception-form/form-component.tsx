@@ -110,7 +110,6 @@ const formSchema = z.object({
       .min(1, "El pedido SISLOG es obligatorio.")
       .max(15, "El pedido SISLOG no puede exceder los 15 caracteres."),
     cliente: z.string().min(1, "Seleccione un cliente."),
-    sesion: z.enum(['CO', 'RE', 'SE'], { required_error: "Debe seleccionar una sesión." }),
     fecha: z.date({ required_error: "La fecha es obligatoria." }),
     conductor: z.string()
       .min(1, "El nombre del conductor es obligatorio."),
@@ -144,7 +143,6 @@ type FormValues = z.infer<typeof formSchema>;
 const originalDefaultValues: FormValues = {
   pedidoSislog: "",
   cliente: "",
-  sesion: undefined,
   fecha: new Date(),
   cedulaConductor: "",
   conductor: "",
@@ -376,7 +374,6 @@ export default function VariableWeightReceptionFormComponent() {
           const sanitizedFormData = {
               ...originalDefaultValues,
               ...formData,
-              sesion: formData.sesion ?? undefined,
               observaciones: formData.observaciones ?? null,
               setPoint: formData.setPoint ?? null,
               summary: (formData.summary || []).map((s: any) => ({
@@ -826,28 +823,6 @@ export default function VariableWeightReceptionFormComponent() {
                               </FormItem>
                           )}
                           />
-                        <FormField
-                            control={form.control}
-                            name="sesion"
-                            render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Sesión</FormLabel>
-                                    <Select onValueChange={field.onChange} value={field.value}>
-                                        <FormControl>
-                                            <SelectTrigger>
-                                                <SelectValue placeholder="Seleccione una sesión" />
-                                            </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            <SelectItem value="CO">CO - Congelados</SelectItem>
-                                            <SelectItem value="RE">RE - Refrigerado</SelectItem>
-                                            <SelectItem value="SE">SE - Seco</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
                         <FormField control={form.control} name="fecha" render={({ field }) => (
                             <FormItem>
                               <FormLabel>Fecha</FormLabel>
