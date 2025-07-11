@@ -58,9 +58,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { RestoreDialog } from "@/components/app/restore-dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDialogDesc, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 
 const itemSchema = z.object({
+    codigo: z.string().optional(),
     paleta: z.preprocess(
       (val) => (val === "" || val == null ? null : val),
       z.coerce.number({ required_error: "La paleta es requerida.", invalid_type_error: "La paleta es requerida."}).int().min(1, "El número de paleta debe ser 1 o mayor.").nullable()
@@ -151,7 +153,7 @@ const originalDefaultValues: FormValues = {
   precinto: "",
   setPoint: null,
   contenedor: "",
-  items: [{ paleta: null, descripcion: "", lote: "", presentacion: "", cantidadPorPaleta: null, pesoBruto: null, taraEstiba: null, taraCaja: null, totalTaraCaja: null, pesoNeto: null }],
+  items: [{ codigo: '', paleta: null, descripcion: "", lote: "", presentacion: "", cantidadPorPaleta: null, pesoBruto: null, taraEstiba: null, taraCaja: null, totalTaraCaja: null, pesoNeto: null }],
   summary: [],
   horaInicio: "",
   horaFin: "",
@@ -334,6 +336,7 @@ export default function VariableWeightReceptionFormComponent() {
     const lastItem = items.length > 0 ? items[items.length - 1] : null;
 
     append({
+        codigo: '',
         paleta: null,
         descripcion: lastItem?.descripcion || '',
         lote: lastItem?.lote || '',
@@ -732,9 +735,9 @@ export default function VariableWeightReceptionFormComponent() {
             onSelect={(articulo) => {
                 if (productDialogIndex !== null) {
                     form.setValue(`items.${productDialogIndex}.descripcion`, articulo.label);
+                    form.setValue(`items.${productDialogIndex}.codigo`, articulo.value);
                 }
             }}
-            productDialogIndex={productDialogIndex}
         />
         <div className="max-w-6xl mx-auto">
           <header className="mb-8">
@@ -773,74 +776,80 @@ export default function VariableWeightReceptionFormComponent() {
                           render={({ field }) => (
                               <FormItem className="flex flex-col">
                                   <FormLabel>Cliente</FormLabel>
-                                  <Dialog open={isClientDialogOpen} onOpenChange={(isOpen) => {
-                                      if (!isOpen) setClientSearch('');
-                                      setClientDialogOpen(isOpen);
-                                  }}>
-                                    <DialogTrigger asChild>
-                                        <Button
-                                            variant="outline"
-                                            className="w-full justify-between text-left font-normal"
-                                            disabled={isClientChangeDisabled}
-                                        >
-                                            {field.value || "Seleccione un cliente..."}
-                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                        </Button>
-                                    </DialogTrigger>
-                                      <DialogContent className="sm:max-w-[425px]">
-                                          <DialogHeader>
-                                              <DialogTitle>Seleccionar Cliente</DialogTitle>
-                                              <DialogDescription>Busque y seleccione un cliente de la lista. Esto cargará los productos asociados.</DialogDescription>
-                                          </DialogHeader>
-                                          <div className="p-4">
-                                              <Input
-                                                  placeholder="Buscar cliente..."
-                                                  value={clientSearch}
-                                                  onChange={(e) => setClientSearch(e.target.value)}
-                                                  className="mb-4"
-                                              />
-                                              <ScrollArea className="h-72">
-                                                  <div className="space-y-1">
-                                                      {filteredClients.map((cliente) => (
-                                                          <Button
-                                                              key={cliente.id}
-                                                              variant="ghost"
-                                                              className="w-full justify-start"
-                                                              onClick={async () => {
-                                                                  field.onChange(cliente.razonSocial);
-                                                                  setClientDialogOpen(false);
-                                                                  setClientSearch('');
-                                                                  
-                                                                  form.setValue('items', [{ paleta: null, descripcion: "", lote: "", presentacion: "", cantidadPorPaleta: null, pesoBruto: null, taraEstiba: null, taraCaja: null, totalTaraCaja: null, pesoNeto: null }]);
-                                                                  setArticulos([]);
-                                                                  setIsLoadingArticulos(true);
-                                                                  try {
-                                                                      const fetchedArticulos = await getArticulosByClients([cliente.razonSocial]);
-                                                                      setArticulos(fetchedArticulos.map(a => ({
-                                                                          value: a.codigoProducto,
-                                                                          label: a.denominacionArticulo
-                                                                      })));
-                                                                  } catch (error) {
-                                                                      toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los productos." });
-                                                                  } finally {
-                                                                      setIsLoadingArticulos(false);
-                                                                  }
-                                                              }}
-                                                          >
-                                                              {cliente.razonSocial}
-                                                          </Button>
-                                                      ))}
-                                                      {filteredClients.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron clientes.</p>}
-                                                  </div>
-                                              </ScrollArea>
-                                          </div>
-                                      </DialogContent>
-                                  </Dialog>
-                                  {isClientChangeDisabled && (
-                                    <FormDescription>
-                                      Para cambiar de cliente, elimine todos los ítems.
-                                    </FormDescription>
-                                  )}
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                        <TooltipTrigger asChild>
+                                            <Dialog open={isClientDialogOpen} onOpenChange={(isOpen) => {
+                                                if (!isOpen) setClientSearch('');
+                                                setClientDialogOpen(isOpen);
+                                            }}>
+                                                <DialogTrigger asChild>
+                                                    <Button
+                                                        variant="outline"
+                                                        className="w-full justify-between text-left font-normal"
+                                                        disabled={isClientChangeDisabled}
+                                                    >
+                                                        {field.value || "Seleccione un cliente..."}
+                                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                    </Button>
+                                                </DialogTrigger>
+                                                <DialogContent className="sm:max-w-[425px]">
+                                                    <DialogHeader>
+                                                        <DialogTitle>Seleccionar Cliente</DialogTitle>
+                                                        <DialogDescription>Busque y seleccione un cliente de la lista. Esto cargará los productos asociados.</DialogDescription>
+                                                    </DialogHeader>
+                                                    <div className="p-4">
+                                                        <Input
+                                                            placeholder="Buscar cliente..."
+                                                            value={clientSearch}
+                                                            onChange={(e) => setClientSearch(e.target.value)}
+                                                            className="mb-4"
+                                                        />
+                                                        <ScrollArea className="h-72">
+                                                            <div className="space-y-1">
+                                                                {filteredClients.map((cliente) => (
+                                                                    <Button
+                                                                        key={cliente.id}
+                                                                        variant="ghost"
+                                                                        className="w-full justify-start"
+                                                                        onClick={async () => {
+                                                                            field.onChange(cliente.razonSocial);
+                                                                            setClientDialogOpen(false);
+                                                                            setClientSearch('');
+                                                                            
+                                                                            form.setValue('items', [{ codigo: '', paleta: null, descripcion: "", lote: "", presentacion: "", cantidadPorPaleta: null, pesoBruto: null, taraEstiba: null, taraCaja: null, totalTaraCaja: null, pesoNeto: null }]);
+                                                                            setArticulos([]);
+                                                                            setIsLoadingArticulos(true);
+                                                                            try {
+                                                                                const fetchedArticulos = await getArticulosByClients([cliente.razonSocial]);
+                                                                                setArticulos(fetchedArticulos.map(a => ({
+                                                                                    value: a.codigoProducto,
+                                                                                    label: a.denominacionArticulo
+                                                                                })));
+                                                                            } catch (error) {
+                                                                                toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los productos." });
+                                                                            } finally {
+                                                                                setIsLoadingArticulos(false);
+                                                                            }
+                                                                        }}
+                                                                    >
+                                                                        {cliente.razonSocial}
+                                                                    </Button>
+                                                                ))}
+                                                                {filteredClients.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron clientes.</p>}
+                                                            </div>
+                                                        </ScrollArea>
+                                                    </div>
+                                                </DialogContent>
+                                            </Dialog>
+                                        </TooltipTrigger>
+                                        {isClientChangeDisabled && (
+                                            <TooltipContent>
+                                                <p>Para cambiar de cliente, primero elimine todos los ítems.</p>
+                                            </TooltipContent>
+                                        )}
+                                    </Tooltip>
+                                  </TooltipProvider>
                                   <FormMessage />
                               </FormItem>
                           )}
@@ -914,8 +923,26 @@ export default function VariableWeightReceptionFormComponent() {
                                     <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => remove(index)}><Trash2 className="h-4 w-4" /></Button>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <FormField control={form.control} name={`items.${index}.paleta`} render={({ field }) => (
-                                        <FormItem><FormLabel>Paleta</FormLabel><FormControl><Input type="text" inputMode="numeric" placeholder="Número de paleta" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                                     <FormField control={form.control} name={`items.${index}.codigo`} render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Código</FormLabel>
+                                            <FormControl>
+                                                <Input 
+                                                    placeholder="Código del producto"
+                                                    {...field}
+                                                    onBlur={() => {
+                                                        const code = field.value;
+                                                        if (code) {
+                                                            const articulo = articulos.find(a => a.value === code);
+                                                            if (articulo) {
+                                                                form.setValue(`items.${index}.descripcion`, articulo.label, { shouldValidate: true });
+                                                            }
+                                                        }
+                                                    }}
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
                                     )}/>
                                     <FormField control={form.control} name={`items.${index}.descripcion`} render={({ field: controllerField }) => (
                                         <FormItem className="md:col-span-2">
@@ -937,17 +964,20 @@ export default function VariableWeightReceptionFormComponent() {
                                     )}/>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <FormField control={form.control} name={`items.${index}.paleta`} render={({ field }) => (
+                                        <FormItem><FormLabel>Paleta</FormLabel><FormControl><Input type="text" inputMode="numeric" placeholder="Número de paleta" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                                    )}/>
                                     <FormField control={form.control} name={`items.${index}.lote`} render={({ field }) => (
                                         <FormItem><FormLabel>Lote</FormLabel><FormControl><Input placeholder="Lote (máx. 15 caracteres)" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>
                                     )}/>
                                     <FormField control={form.control} name={`items.${index}.presentacion`} render={({ field }) => (
                                         <FormItem><FormLabel>Presentación</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione presentación" /></SelectTrigger></FormControl><SelectContent>{presentaciones.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                                     )}/>
-                                    <FormField control={form.control} name={`items.${index}.cantidadPorPaleta`} render={({ field }) => (
-                                        <FormItem><FormLabel>Cantidad Por Paleta</FormLabel><FormControl><Input type="text" inputMode="numeric" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                                    )}/>
                                 </div>
                                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
+                                     <FormField control={form.control} name={`items.${index}.cantidadPorPaleta`} render={({ field }) => (
+                                        <FormItem><FormLabel>Cantidad Por Paleta</FormLabel><FormControl><Input type="text" inputMode="numeric" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                                    )}/>
                                     <FormField control={form.control} name={`items.${index}.pesoBruto`} render={({ field }) => (
                                         <FormItem><FormLabel>Peso Bruto (kg)</FormLabel><FormControl><Input type="text" inputMode="decimal" step="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                                     )}/>
@@ -957,7 +987,6 @@ export default function VariableWeightReceptionFormComponent() {
                                     <FormField control={form.control} name={`items.${index}.taraCaja`} render={({ field }) => (
                                         <FormItem><FormLabel>Tara Caja (kg)</FormLabel><FormControl><Input type="text" inputMode="decimal" step="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                                     )}/>
-                                    <FormItem><FormLabel>Total Tara Caja (kg)</FormLabel><FormControl><Input disabled readOnly value={totalTaraCaja != null && !isNaN(totalTaraCaja) ? totalTaraCaja.toFixed(2) : '0.00'} /></FormControl></FormItem>
                                     <FormItem><FormLabel>Peso Neto (kg)</FormLabel><FormControl><Input disabled readOnly value={pesoNeto != null && !isNaN(pesoNeto) ? pesoNeto.toFixed(2) : '0.00'} /></FormControl></FormItem>
                                 </div>
                             </div>
@@ -1245,7 +1274,6 @@ function ProductSelectorDialog({
     isLoading,
     clientSelected,
     onSelect,
-    productDialogIndex
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -1253,13 +1281,12 @@ function ProductSelectorDialog({
     isLoading: boolean;
     clientSelected: boolean;
     onSelect: (articulo: { value: string; label: string }) => void;
-    productDialogIndex: number | null;
 }) {
     const [search, setSearch] = useState("");
 
     const filteredArticulos = useMemo(() => {
         if (!search) return articulos;
-        return articulos.filter(a => a.label.toLowerCase().includes(search.toLowerCase()));
+        return articulos.filter(a => a.label.toLowerCase().includes(search.toLowerCase()) || a.value.toLowerCase().includes(search.toLowerCase()));
     }, [search, articulos]);
     
     useEffect(() => {
@@ -1280,7 +1307,7 @@ function ProductSelectorDialog({
                 ) : (
                     <>
                         <Input
-                            placeholder="Buscar producto..."
+                            placeholder="Buscar producto por código o descripción..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                             className="mb-4"
@@ -1299,7 +1326,10 @@ function ProductSelectorDialog({
                                             onOpenChange(false);
                                         }}
                                     >
-                                        {p.label}
+                                        <div className="flex flex-col items-start">
+                                            <span>{p.label}</span>
+                                            <span className="text-xs text-muted-foreground">{p.value}</span>
+                                        </div>
                                     </Button>
                                 ))}
                             </div>
