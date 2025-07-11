@@ -58,33 +58,32 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { RestoreDialog } from "@/components/app/restore-dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDialogDesc, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 
 const itemSchema = z.object({
-    codigo: z.string().optional(),
+    codigo: z.string().min(1, "El código es requerido."),
     paleta: z.preprocess(
       (val) => (val === "" || val == null ? null : val),
-      z.coerce.number({ required_error: "La paleta es requerida.", invalid_type_error: "La paleta es requerida."}).int().min(1, "El número de paleta debe ser 1 o mayor.").nullable()
+      z.coerce.number({ required_error: "La paleta es requerida.", invalid_type_error: "La paleta es requerida."}).int().min(1, "El número de paleta debe ser 1 o mayor.")
     ),
     descripcion: z.string().min(1, "La descripción es requerida."),
     lote: z.string().min(1, "El lote es requerido.").max(15, "Máx 15 caracteres"),
     presentacion: z.string().min(1, "La presentación es requerida."),
     cantidadPorPaleta: z.preprocess(
       (val) => (val === "" || val == null ? null : val),
-      z.coerce.number({ required_error: "La cantidad es requerida.", invalid_type_error: "La cantidad es requerida." }).int().min(0, "Debe ser un número no negativo.").nullable()
+      z.coerce.number({ required_error: "La cantidad es requerida.", invalid_type_error: "La cantidad es requerida." }).int().min(0, "Debe ser un número no negativo.")
     ),
     pesoBruto: z.preprocess(
       (val) => (val === "" || val == null ? null : val),
-      z.coerce.number({ required_error: "El peso bruto es requerido.", invalid_type_error: "El peso bruto es requerido." }).min(0, "Debe ser un número no negativo.").nullable()
+      z.coerce.number({ required_error: "El peso bruto es requerido.", invalid_type_error: "El peso bruto es requerido." }).min(0, "Debe ser un número no negativo.")
     ),
     taraEstiba: z.preprocess(
       (val) => (val === "" || val == null ? null : val),
-      z.coerce.number({ required_error: "La tara estiba es requerida.", invalid_type_error: "La tara estiba es requerida." }).min(0, "Debe ser un número no negativo.").nullable()
+      z.coerce.number({ required_error: "La tara estiba es requerida.", invalid_type_error: "La tara estiba es requerida." }).min(0, "Debe ser un número no negativo.")
     ),
     taraCaja: z.preprocess(
       (val) => (val === "" || val == null ? null : val),
-      z.coerce.number({ required_error: "La tara caja es requerida.", invalid_type_error: "La tara caja es requerida." }).min(0, "Debe ser un número no negativo.").nullable()
+      z.coerce.number({ required_error: "La tara caja es requerida.", invalid_type_error: "La tara caja es requerida." }).min(0, "Debe ser un número no negativo.")
     ),
     totalTaraCaja: z.coerce.number().nullable(), 
     pesoNeto: z.coerce.number().nullable(), 
@@ -738,6 +737,7 @@ export default function VariableWeightReceptionFormComponent() {
                     form.setValue(`items.${productDialogIndex}.codigo`, articulo.value);
                 }
             }}
+            productDialogIndex={productDialogIndex}
         />
         <div className="max-w-6xl mx-auto">
           <header className="mb-8">
@@ -776,80 +776,74 @@ export default function VariableWeightReceptionFormComponent() {
                           render={({ field }) => (
                               <FormItem className="flex flex-col">
                                   <FormLabel>Cliente</FormLabel>
-                                  <TooltipProvider>
-                                    <Tooltip>
-                                        <TooltipTrigger asChild>
-                                            <Dialog open={isClientDialogOpen} onOpenChange={(isOpen) => {
-                                                if (!isOpen) setClientSearch('');
-                                                setClientDialogOpen(isOpen);
-                                            }}>
-                                                <DialogTrigger asChild>
-                                                    <Button
-                                                        variant="outline"
-                                                        className="w-full justify-between text-left font-normal"
-                                                        disabled={isClientChangeDisabled}
-                                                    >
-                                                        {field.value || "Seleccione un cliente..."}
-                                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                                    </Button>
-                                                </DialogTrigger>
-                                                <DialogContent className="sm:max-w-[425px]">
-                                                    <DialogHeader>
-                                                        <DialogTitle>Seleccionar Cliente</DialogTitle>
-                                                        <DialogDescription>Busque y seleccione un cliente de la lista. Esto cargará los productos asociados.</DialogDescription>
-                                                    </DialogHeader>
-                                                    <div className="p-4">
-                                                        <Input
-                                                            placeholder="Buscar cliente..."
-                                                            value={clientSearch}
-                                                            onChange={(e) => setClientSearch(e.target.value)}
-                                                            className="mb-4"
-                                                        />
-                                                        <ScrollArea className="h-72">
-                                                            <div className="space-y-1">
-                                                                {filteredClients.map((cliente) => (
-                                                                    <Button
-                                                                        key={cliente.id}
-                                                                        variant="ghost"
-                                                                        className="w-full justify-start"
-                                                                        onClick={async () => {
-                                                                            field.onChange(cliente.razonSocial);
-                                                                            setClientDialogOpen(false);
-                                                                            setClientSearch('');
-                                                                            
-                                                                            form.setValue('items', [{ codigo: '', paleta: null, descripcion: "", lote: "", presentacion: "", cantidadPorPaleta: null, pesoBruto: null, taraEstiba: null, taraCaja: null, totalTaraCaja: null, pesoNeto: null }]);
-                                                                            setArticulos([]);
-                                                                            setIsLoadingArticulos(true);
-                                                                            try {
-                                                                                const fetchedArticulos = await getArticulosByClients([cliente.razonSocial]);
-                                                                                setArticulos(fetchedArticulos.map(a => ({
-                                                                                    value: a.codigoProducto,
-                                                                                    label: a.denominacionArticulo
-                                                                                })));
-                                                                            } catch (error) {
-                                                                                toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los productos." });
-                                                                            } finally {
-                                                                                setIsLoadingArticulos(false);
-                                                                            }
-                                                                        }}
-                                                                    >
-                                                                        {cliente.razonSocial}
-                                                                    </Button>
-                                                                ))}
-                                                                {filteredClients.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron clientes.</p>}
-                                                            </div>
-                                                        </ScrollArea>
-                                                    </div>
-                                                </DialogContent>
-                                            </Dialog>
-                                        </TooltipTrigger>
-                                        {isClientChangeDisabled && (
-                                            <TooltipContent>
-                                                <p>Para cambiar de cliente, primero elimine todos los ítems.</p>
-                                            </TooltipContent>
-                                        )}
-                                    </Tooltip>
-                                  </TooltipProvider>
+                                  <Dialog open={isClientDialogOpen} onOpenChange={(isOpen) => {
+                                      if (!isOpen) setClientSearch('');
+                                      setClientDialogOpen(isOpen);
+                                  }}>
+                                      <DialogTrigger asChild>
+                                          <Button
+                                              variant="outline"
+                                              className="w-full justify-between text-left font-normal"
+                                              disabled={isClientChangeDisabled}
+                                          >
+                                              {field.value || "Seleccione un cliente..."}
+                                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                          </Button>
+                                      </DialogTrigger>
+                                      <DialogContent className="sm:max-w-[425px]">
+                                          <DialogHeader>
+                                              <DialogTitle>Seleccionar Cliente</DialogTitle>
+                                              <DialogDescription>Busque y seleccione un cliente de la lista. Esto cargará los productos asociados.</DialogDescription>
+                                          </DialogHeader>
+                                          <div className="p-4">
+                                              <Input
+                                                  placeholder="Buscar cliente..."
+                                                  value={clientSearch}
+                                                  onChange={(e) => setClientSearch(e.target.value)}
+                                                  className="mb-4"
+                                              />
+                                              <ScrollArea className="h-72">
+                                                  <div className="space-y-1">
+                                                      {filteredClients.map((cliente) => (
+                                                          <Button
+                                                              key={cliente.id}
+                                                              variant="ghost"
+                                                              className="w-full justify-start"
+                                                              onClick={async () => {
+                                                                  field.onChange(cliente.razonSocial);
+                                                                  setClientDialogOpen(false);
+                                                                  setClientSearch('');
+                                                                  
+                                                                  form.setValue('items', [{ codigo: '', paleta: null, descripcion: "", lote: "", presentacion: "", cantidadPorPaleta: null, pesoBruto: null, taraEstiba: null, taraCaja: null, totalTaraCaja: null, pesoNeto: null }]);
+                                                                  setArticulos([]);
+                                                                  setIsLoadingArticulos(true);
+                                                                  try {
+                                                                      const fetchedArticulos = await getArticulosByClients([cliente.razonSocial]);
+                                                                      setArticulos(fetchedArticulos.map(a => ({
+                                                                          value: a.codigoProducto,
+                                                                          label: a.denominacionArticulo
+                                                                      })));
+                                                                  } catch (error) {
+                                                                      toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los productos." });
+                                                                  } finally {
+                                                                      setIsLoadingArticulos(false);
+                                                                  }
+                                                              }}
+                                                          >
+                                                              {cliente.razonSocial}
+                                                          </Button>
+                                                      ))}
+                                                      {filteredClients.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron clientes.</p>}
+                                                  </div>
+                                              </ScrollArea>
+                                          </div>
+                                      </DialogContent>
+                                  </Dialog>
+                                    {isClientChangeDisabled && (
+                                      <FormDescription>
+                                        Para cambiar de cliente, elimine todos los ítems.
+                                      </FormDescription>
+                                    )}
                                   <FormMessage />
                               </FormItem>
                           )}
@@ -1274,6 +1268,7 @@ function ProductSelectorDialog({
     isLoading,
     clientSelected,
     onSelect,
+    productDialogIndex,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
@@ -1281,6 +1276,7 @@ function ProductSelectorDialog({
     isLoading: boolean;
     clientSelected: boolean;
     onSelect: (articulo: { value: string; label: string }) => void;
+    productDialogIndex: number | null;
 }) {
     const [search, setSearch] = useState("");
 
