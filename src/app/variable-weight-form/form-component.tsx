@@ -68,7 +68,7 @@ const itemSchema = z.object({
       z.coerce.number({
           required_error: "La paleta es requerida.",
           invalid_type_error: "La paleta es requerida.",
-      }).int({ message: "La paleta debe ser un número entero." }).min(0, "Debe ser un número no negativo.").nullable()
+      }).int({ message: "La paleta debe ser un número entero." }).min(0, "Debe ser un número no negativo.")
     ),
     descripcion: z.string().min(1, "La descripción es requerida."),
     lote: z.string().max(15, "Máximo 15 caracteres").nullable(),
@@ -864,82 +864,80 @@ export default function VariableWeightFormComponent() {
                           render={({ field }) => (
                               <FormItem className="flex flex-col">
                                 <FormLabel>Cliente</FormLabel>
-                                <TooltipProvider>
-                                  <Tooltip>
-                                    <TooltipTrigger asChild>
-                                      <Dialog open={isClientDialogOpen} onOpenChange={(isOpen) => {
-                                          if (!isOpen) {
-                                              setClientSearch("");
-                                          }
-                                          setClientDialogOpen(isOpen);
-                                      }}>
-                                          <DialogTrigger asChild>
-                                              <Button
-                                                variant="outline"
-                                                className="w-full justify-between text-left font-normal"
-                                                disabled={isClientChangeDisabled}
-                                              >
-                                                  {field.value || "Seleccione un cliente..."}
-                                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                              </Button>
-                                          </DialogTrigger>
-                                          <DialogContent className="sm:max-w-[425px]">
-                                              <DialogHeader>
-                                                  <DialogTitle>Seleccionar Cliente</DialogTitle>
-                                                  <DialogDescription>Busque y seleccione un cliente de la lista. Esto cargará los productos asociados.</DialogDescription>
-                                              </DialogHeader>
-                                              <div className="p-4">
-                                                  <Input
-                                                      placeholder="Buscar cliente..."
-                                                      value={clientSearch}
-                                                      onChange={(e) => setClientSearch(e.target.value)}
-                                                      className="mb-4"
-                                                  />
-                                                  <ScrollArea className="h-72">
-                                                      <div className="space-y-1">
-                                                          {filteredClients.map((cliente) => (
-                                                              <Button
-                                                                  key={cliente.id}
-                                                                  variant="ghost"
-                                                                  className="w-full justify-start"
-                                                                  onClick={async () => {
-                                                                      form.setValue('cliente', cliente.razonSocial);
-                                                                      setClientDialogOpen(false);
-                                                                      setClientSearch('');
-                                                                      
-                                                                      form.setValue('items', [{ paleta: null, descripcion: '', lote: '', presentacion: '', cantidadPorPaleta: null, pesoBruto: null, taraEstiba: null, taraCaja: null, totalTaraCaja: null, pesoNeto: null, totalCantidad: null, totalPaletas: null, totalPesoNeto: null }]);
-                                                                      setArticulos([]);
-                                                                      setIsLoadingArticulos(true);
-                                                                      try {
-                                                                          const fetchedArticulos = await getArticulosByClients([cliente.razonSocial]);
-                                                                          setArticulos(fetchedArticulos.map(a => ({
-                                                                              value: a.codigoProducto,
-                                                                              label: a.denominacionArticulo
-                                                                          })));
-                                                                      } catch (error) {
-                                                                          toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los productos." });
-                                                                      } finally {
-                                                                          setIsLoadingArticulos(false);
-                                                                      }
-                                                                  }}
-                                                              >
-                                                                  {cliente.razonSocial}
-                                                              </Button>
-                                                          ))}
-                                                          {filteredClients.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron clientes.</p>}
-                                                      </div>
-                                                  </ScrollArea>
-                                              </div>
-                                          </DialogContent>
-                                      </Dialog>
-                                    </TooltipTrigger>
-                                    {isClientChangeDisabled && (
-                                      <TooltipContent>
-                                        <p>Para cambiar de cliente, primero elimine todos los ítems.</p>
-                                      </TooltipContent>
-                                    )}
-                                  </Tooltip>
-                                </TooltipProvider>
+                                <Dialog open={isClientDialogOpen} onOpenChange={(isOpen) => {
+                                    if (!isOpen) setClientSearch("");
+                                    setClientDialogOpen(isOpen);
+                                }}>
+                                    <TooltipProvider>
+                                        <Tooltip>
+                                            <TooltipTrigger asChild>
+                                                <DialogTrigger asChild>
+                                                    <Button
+                                                        variant="outline"
+                                                        className="w-full justify-between text-left font-normal"
+                                                        disabled={isClientChangeDisabled}
+                                                    >
+                                                        {field.value || "Seleccione un cliente..."}
+                                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                    </Button>
+                                                </DialogTrigger>
+                                            </TooltipTrigger>
+                                            {isClientChangeDisabled && (
+                                                <TooltipContent>
+                                                    <p>Para cambiar de cliente, primero elimine todos los ítems.</p>
+                                                </TooltipContent>
+                                            )}
+                                        </Tooltip>
+                                    </TooltipProvider>
+                                    <DialogContent className="sm:max-w-[425px]">
+                                        <DialogHeader>
+                                            <DialogTitle>Seleccionar Cliente</DialogTitle>
+                                            <DialogDescription>Busque y seleccione un cliente de la lista. Esto cargará los productos asociados.</DialogDescription>
+                                        </DialogHeader>
+                                        <div className="p-4">
+                                            <Input
+                                                placeholder="Buscar cliente..."
+                                                value={clientSearch}
+                                                onChange={(e) => setClientSearch(e.target.value)}
+                                                className="mb-4"
+                                            />
+                                            <ScrollArea className="h-72">
+                                                <div className="space-y-1">
+                                                    {filteredClients.map((cliente) => (
+                                                        <Button
+                                                            key={cliente.id}
+                                                            variant="ghost"
+                                                            className="w-full justify-start"
+                                                            onClick={async () => {
+                                                                form.setValue('cliente', cliente.razonSocial);
+                                                                setClientDialogOpen(false);
+                                                                setClientSearch('');
+                                                                
+                                                                form.setValue('items', [{ paleta: null, descripcion: '', lote: '', presentacion: '', cantidadPorPaleta: null, pesoBruto: null, taraEstiba: null, taraCaja: null, totalTaraCaja: null, pesoNeto: null, totalCantidad: null, totalPaletas: null, totalPesoNeto: null }]);
+                                                                setArticulos([]);
+                                                                setIsLoadingArticulos(true);
+                                                                try {
+                                                                    const fetchedArticulos = await getArticulosByClients([cliente.razonSocial]);
+                                                                    setArticulos(fetchedArticulos.map(a => ({
+                                                                        value: a.codigoProducto,
+                                                                        label: a.denominacionArticulo
+                                                                    })));
+                                                                } catch (error) {
+                                                                    toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los productos." });
+                                                                } finally {
+                                                                    setIsLoadingArticulos(false);
+                                                                }
+                                                            }}
+                                                        >
+                                                            {cliente.razonSocial}
+                                                        </Button>
+                                                    ))}
+                                                    {filteredClients.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron clientes.</p>}
+                                                </div>
+                                            </ScrollArea>
+                                        </div>
+                                    </DialogContent>
+                                </Dialog>
                               <FormMessage />
                             </FormItem>
                           )}
@@ -1031,7 +1029,7 @@ export default function VariableWeightFormComponent() {
                                     <FormField control={form.control} name={`items.${index}.paleta`} render={({ field }) => (
                                         <FormItem>
                                             <FormLabel>Paleta</FormLabel>
-                                            <FormControl><Input type="text" inputMode="numeric" min="0" placeholder="0 (para resumen)" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl>
+                                            <FormControl><Input type="text" inputMode="numeric" placeholder="0 (para resumen)" {...field} onChange={e => field.onChange(e.target.value)} value={field.value ?? ''} /></FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )}/>
