@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -57,7 +58,6 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { RestoreDialog } from "@/components/app/restore-dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDialogDesc, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 
 const itemSchema = z.object({
@@ -184,14 +184,14 @@ export default function VariableWeightReceptionFormComponent() {
   const { user, displayName } = useAuth();
 
   const [clientes, setClientes] = useState<ClientInfo[]>([]);
-  const [isClientDialogOpen, setClientDialogOpen] = useState(false);
-  const [clientSearch, setClientSearch] = useState("");
-
+  
   const [articulos, setArticulos] = useState<{ value: string; label: string }[]>([]);
   const [isLoadingArticulos, setIsLoadingArticulos] = useState(false);
 
   const [isProductDialogOpen, setProductDialogOpen] = useState(false);
   const [productDialogIndex, setProductDialogIndex] = useState<number | null>(null);
+  const [isClientDialogOpen, setClientDialogOpen] = useState(false);
+  const [clientSearch, setClientSearch] = useState("");
 
   const [attachments, setAttachments] = useState<string[]>([]);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
@@ -646,7 +646,7 @@ export default function VariableWeightReceptionFormComponent() {
 
   async function onSubmit(data: FormValues) {
     if (!user || !storage) {
-        toast({ variant: "destructive", title: "Error", description: "Debe iniciar sesión para guardar el formulario." });
+        toast({ variant: "destructive", title: "Error", description: "Debe iniciar sesión para guardar el formato." });
         return;
     }
     setIsSubmitting(true);
@@ -777,30 +777,16 @@ export default function VariableWeightReceptionFormComponent() {
                                       if (!isOpen) setClientSearch('');
                                       setClientDialogOpen(isOpen);
                                   }}>
-                                    <TooltipProvider>
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <DialogTrigger asChild>
-                                            <FormControl>
-                                                <Button
-                                                  variant="outline"
-                                                  role="combobox"
-                                                  className="w-full justify-between text-left font-normal"
-                                                  disabled={isClientChangeDisabled}
-                                                >
-                                                    {field.value || "Seleccione un cliente..."}
-                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                                </Button>
-                                            </FormControl>
-                                          </DialogTrigger>
-                                        </TooltipTrigger>
-                                        {isClientChangeDisabled && (
-                                          <TooltipContent>
-                                            <p>Para cambiar de cliente, primero elimine todos los ítems.</p>
-                                          </TooltipContent>
-                                        )}
-                                      </Tooltip>
-                                    </TooltipProvider>
+                                    <DialogTrigger asChild>
+                                        <Button
+                                            variant="outline"
+                                            className="w-full justify-between text-left font-normal"
+                                            disabled={isClientChangeDisabled}
+                                        >
+                                            {field.value || "Seleccione un cliente..."}
+                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                        </Button>
+                                    </DialogTrigger>
                                       <DialogContent className="sm:max-w-[425px]">
                                           <DialogHeader>
                                               <DialogTitle>Seleccionar Cliente</DialogTitle>
@@ -850,6 +836,11 @@ export default function VariableWeightReceptionFormComponent() {
                                           </div>
                                       </DialogContent>
                                   </Dialog>
+                                  {isClientChangeDisabled && (
+                                    <FormDescription>
+                                      Para cambiar de cliente, elimine todos los ítems.
+                                    </FormDescription>
+                                  )}
                                   <FormMessage />
                               </FormItem>
                           )}
