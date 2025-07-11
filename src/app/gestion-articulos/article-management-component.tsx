@@ -66,8 +66,13 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
   // State for article consultation
   const [selectedClients, setSelectedClients] = useState<string[]>([]);
   const [articles, setArticles] = useState<ArticuloInfo[]>([]);
+  const [displayedArticles, setDisplayedArticles] = useState<ArticuloInfo[]>([]);
   const [isLoadingArticles, setIsLoadingArticles] = useState(false);
+  const [searched, setSearched] = useState(false);
+
+  // Filter states
   const [filterCode, setFilterCode] = useState('');
+  const [filterDescription, setFilterDescription] = useState('');
   const [filterSession, setFilterSession] = useState('all');
 
   // State for edit and delete operations
@@ -112,23 +117,38 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
     const fetchArticles = async () => {
       if (selectedClients.length > 0) {
         setIsLoadingArticles(true);
+        setDisplayedArticles([]); // Clear previous results when clients change
+        setSearched(false);
         const fetchedArticles = await getArticulosByClients(selectedClients);
         setArticles(fetchedArticles);
         setIsLoadingArticles(false);
       } else {
         setArticles([]);
+        setDisplayedArticles([]);
+        setSearched(false);
       }
     };
     fetchArticles();
   }, [selectedClients]);
 
-  const filteredArticles = useMemo(() => {
-    return articles.filter(article => {
-      const codeMatch = filterCode ? article.codigoProducto.toLowerCase().includes(filterCode.toLowerCase()) : true;
-      const sessionMatch = filterSession !== 'all' ? article.sesion === filterSession : true;
-      return codeMatch && sessionMatch;
-    });
-  }, [articles, filterCode, filterSession]);
+  const handleSearch = () => {
+      setSearched(true);
+      const results = articles.filter(article => {
+        const codeMatch = filterCode ? article.codigoProducto.toLowerCase().includes(filterCode.toLowerCase()) : true;
+        const descriptionMatch = filterDescription ? article.denominacionArticulo.toLowerCase().includes(filterDescription.toLowerCase()) : true;
+        const sessionMatch = filterSession !== 'all' ? article.sesion === filterSession : true;
+        return codeMatch && descriptionMatch && sessionMatch;
+      });
+      setDisplayedArticles(results);
+  };
+  
+  const handleClearFilters = () => {
+      setFilterCode('');
+      setFilterDescription('');
+      setFilterSession('all');
+      setDisplayedArticles([]);
+      setSearched(false);
+  };
 
   const filteredClients = useMemo(() => {
     if (!clientSearch) return clients;
@@ -172,6 +192,15 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
       setIsLoadingArticles(true);
       const fetchedArticles = await getArticulosByClients(selectedClients);
       setArticles(fetchedArticles);
+      setDisplayedArticles(prev => {
+        const newDisplayed = prev.map(a => a.id === articleToEdit.id ? { ...a, ...data } : a);
+        return newDisplayed.filter(article => {
+          const codeMatch = filterCode ? article.codigoProducto.toLowerCase().includes(filterCode.toLowerCase()) : true;
+          const descriptionMatch = filterDescription ? article.denominacionArticulo.toLowerCase().includes(filterDescription.toLowerCase()) : true;
+          const sessionMatch = filterSession !== 'all' ? article.sesion === filterSession : true;
+          return codeMatch && descriptionMatch && sessionMatch;
+        });
+      });
       setIsLoadingArticles(false);
     } else {
       toast({ variant: 'destructive', title: 'Error', description: result.message });
@@ -188,6 +217,7 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
     if (result.success) {
       toast({ title: 'Éxito', description: result.message });
       setArticles(prev => prev.filter(a => a.id !== articleToDelete.id)); // Optimistic UI update
+      setDisplayedArticles(prev => prev.filter(a => a.id !== articleToDelete.id));
     } else {
       toast({ variant: 'destructive', title: 'Error', description: result.message });
     }
@@ -291,9 +321,9 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
   };
 
   const handleExportArticles = () => {
-    if (filteredArticles.length === 0) return;
+    if (displayedArticles.length === 0) return;
 
-    const dataToExport = filteredArticles.map(article => ({
+    const dataToExport = displayedArticles.map(article => ({
       'Razón Social': article.razonSocial,
       'Código Producto': article.codigoProducto,
       'Descripción Artículo': article.denominacionArticulo,
@@ -485,7 +515,7 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
                         <CardTitle>Consultar Artículos por Cliente</CardTitle>
                         <CardDescription>Seleccione clientes y filtre para ver y gestionar sus artículos.</CardDescription>
                     </div>
-                    <Button onClick={handleExportArticles} variant="outline" size="sm" disabled={filteredArticles.length === 0}>
+                    <Button onClick={handleExportArticles} variant="outline" size="sm" disabled={displayedArticles.length === 0}>
                         <Download className="mr-2 h-4 w-4" />
                         Exportar
                     </Button>
@@ -553,10 +583,11 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
                     <div className="space-y-1">
                         <Label htmlFor="filter-code">Buscar por Código</Label>
-                        <div className="relative">
-                            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-                            <Input id="filter-code" placeholder="Filtrar por código..." value={filterCode} onChange={(e) => setFilterCode(e.target.value)} className="pl-8"/>
-                        </div>
+                        <Input id="filter-code" placeholder="Filtrar por código..." value={filterCode} onChange={(e) => setFilterCode(e.target.value)} />
+                    </div>
+                     <div className="space-y-1">
+                        <Label htmlFor="filter-description">Buscar por Descripción</Label>
+                        <Input id="filter-description" placeholder="Filtrar por descripción..." value={filterDescription} onChange={(e) => setFilterDescription(e.target.value)} />
                     </div>
                     <div className="space-y-1">
                         <Label htmlFor="filter-session">Filtrar por Sesión</Label>
@@ -571,6 +602,16 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
                                 <SelectItem value="SE">SE - Seco</SelectItem>
                             </SelectContent>
                         </Select>
+                    </div>
+                     <div className="flex items-end gap-2">
+                        <Button onClick={handleSearch} className="w-full" disabled={selectedClients.length === 0}>
+                            <Search className="mr-2 h-4 w-4" />
+                            Buscar
+                        </Button>
+                        <Button onClick={handleClearFilters} variant="outline" className="w-full">
+                            <XCircle className="mr-2 h-4 w-4" />
+                            Limpiar
+                        </Button>
                     </div>
                 </div>
 
@@ -590,11 +631,11 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
                         <TableRow>
                           <TableCell colSpan={5} className="h-24 text-center">
                             <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
-                            <p className="text-muted-foreground">Buscando artículos...</p>
+                            <p className="text-muted-foreground">Cargando artículos...</p>
                           </TableCell>
                         </TableRow>
-                      ) : filteredArticles.length > 0 ? (
-                        filteredArticles.map((article) => (
+                      ) : displayedArticles.length > 0 ? (
+                        displayedArticles.map((article) => (
                           <TableRow key={article.id}>
                             <TableCell>{article.razonSocial}</TableCell>
                             <TableCell className="font-mono">{article.codigoProducto}</TableCell>
@@ -615,7 +656,11 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
                       ) : (
                         <TableRow>
                           <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                            {selectedClients.length === 0 ? "Seleccione uno o más clientes para ver sus artículos." : "No se encontraron artículos para la selección actual."}
+                            {selectedClients.length === 0 
+                                ? "Seleccione uno o más clientes para ver sus artículos." 
+                                : searched 
+                                ? "No se encontraron artículos para los filtros seleccionados."
+                                : "Haga clic en 'Buscar' para mostrar los artículos."}
                           </TableCell>
                         </TableRow>
                       )}
