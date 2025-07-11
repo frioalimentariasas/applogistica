@@ -354,160 +354,158 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
           </div>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <div className="space-y-8">
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2"><PlusCircle /> Agregar Nuevo Artículo</CardTitle>
-                <CardDescription>Complete el formulario para añadir un nuevo artículo a un cliente.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Form {...addForm}>
-                  <form onSubmit={addForm.handleSubmit(onAddSubmit)} className="space-y-4">
-                    <FormField
-                      control={addForm.control}
-                      name="razonSocial"
-                      render={({ field }) => (
-                        <FormItem className="flex flex-col">
-                          <FormLabel>Cliente</FormLabel>
-                            <Dialog open={isClientDialogOpen} onOpenChange={setClientDialogOpen}>
-                                <DialogTrigger asChild>
-                                    <Button variant="outline" className="w-full justify-between text-left font-normal">
-                                        {field.value || "Seleccione un cliente..."}
-                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                    </Button>
-                                </DialogTrigger>
-                                <DialogContent className="sm:max-w-[425px]">
-                                    <DialogHeader>
-                                        <DialogTitle>Seleccionar Cliente</DialogTitle>
-                                        <DialogDescription>Busque y seleccione el cliente al que pertenecerá el nuevo artículo.</DialogDescription>
-                                    </DialogHeader>
-                                    <div className="p-4">
-                                        <Input
-                                            placeholder="Buscar cliente..."
-                                            value={clientSearch}
-                                            onChange={(e) => setClientSearch(e.target.value)}
-                                            className="mb-4"
-                                        />
-                                        <ScrollArea className="h-72">
-                                            <div className="space-y-1">
-                                                {filteredClients.map((client) => (
-                                                    <Button
-                                                        key={client.id}
-                                                        variant="ghost"
-                                                        className="w-full justify-start"
-                                                        onClick={() => {
-                                                            field.onChange(client.razonSocial);
-                                                            setClientDialogOpen(false);
-                                                            setClientSearch('');
-                                                        }}
-                                                    >
-                                                        {client.razonSocial}
-                                                    </Button>
-                                                ))}
-                                                {filteredClients.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron clientes.</p>}
+        <div className="space-y-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2"><PlusCircle /> Agregar Nuevo Artículo</CardTitle>
+                        <CardDescription>Complete el formulario para añadir un nuevo artículo a un cliente.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Form {...addForm}>
+                        <form onSubmit={addForm.handleSubmit(onAddSubmit)} className="space-y-4">
+                            <FormField
+                            control={addForm.control}
+                            name="razonSocial"
+                            render={({ field }) => (
+                                <FormItem className="flex flex-col">
+                                <FormLabel>Cliente</FormLabel>
+                                    <Dialog open={isClientDialogOpen} onOpenChange={setClientDialogOpen}>
+                                        <DialogTrigger asChild>
+                                            <Button variant="outline" className="w-full justify-between text-left font-normal">
+                                                {field.value || "Seleccione un cliente..."}
+                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                            </Button>
+                                        </DialogTrigger>
+                                        <DialogContent className="sm:max-w-[425px]">
+                                            <DialogHeader>
+                                                <DialogTitle>Seleccionar Cliente</DialogTitle>
+                                                <DialogDescription>Busque y seleccione el cliente al que pertenecerá el nuevo artículo.</DialogDescription>
+                                            </DialogHeader>
+                                            <div className="p-4">
+                                                <Input
+                                                    placeholder="Buscar cliente..."
+                                                    value={clientSearch}
+                                                    onChange={(e) => setClientSearch(e.target.value)}
+                                                    className="mb-4"
+                                                />
+                                                <ScrollArea className="h-72">
+                                                    <div className="space-y-1">
+                                                        {filteredClients.map((client) => (
+                                                            <Button
+                                                                key={client.id}
+                                                                variant="ghost"
+                                                                className="w-full justify-start"
+                                                                onClick={() => {
+                                                                    field.onChange(client.razonSocial);
+                                                                    setClientDialogOpen(false);
+                                                                    setClientSearch('');
+                                                                }}
+                                                            >
+                                                                {client.razonSocial}
+                                                            </Button>
+                                                        ))}
+                                                        {filteredClients.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron clientes.</p>}
+                                                    </div>
+                                                </ScrollArea>
                                             </div>
-                                        </ScrollArea>
-                                    </div>
-                                </DialogContent>
-                            </Dialog>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                     <FormField
-                        control={addForm.control}
-                        name="sesion"
-                        render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Sesión</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value}>
-                                    <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Seleccione una sesión" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        <SelectItem value="CO">CO - Congelados</SelectItem>
-                                        <SelectItem value="RE">RE - Refrigerado</SelectItem>
-                                        <SelectItem value="SE">SE - Seco</SelectItem>
-                                    </SelectContent>
-                                </Select>
+                                        </DialogContent>
+                                    </Dialog>
                                 <FormMessage />
-                            </FormItem>
-                        )}
-                    />
-                    <FormField
-                      control={addForm.control}
-                      name="codigoProducto"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Código del Producto</FormLabel>
-                          <FormControl><Input placeholder="Colocar Cod. Externo de SISLOG" {...field} /></FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={addForm.control}
-                      name="denominacionArticulo"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Descripción del Artículo</FormLabel>
-                          <FormControl><Input placeholder="Colocar Descripción de Artículo SISLOG" {...field} /></FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <Button type="submit" disabled={isSubmitting} className="w-full">
-                      {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
-                      Agregar Artículo
-                    </Button>
-                  </form>
-                </Form>
-              </CardContent>
-            </Card>
+                                </FormItem>
+                            )}
+                            />
+                            <FormField
+                                control={addForm.control}
+                                name="sesion"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Sesión</FormLabel>
+                                        <Select onValueChange={field.onChange} value={field.value}>
+                                            <FormControl>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Seleccione una sesión" />
+                                                </SelectTrigger>
+                                            </FormControl>
+                                            <SelectContent>
+                                                <SelectItem value="CO">CO - Congelados</SelectItem>
+                                                <SelectItem value="RE">RE - Refrigerado</SelectItem>
+                                                <SelectItem value="SE">SE - Seco</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                            <FormField
+                            control={addForm.control}
+                            name="codigoProducto"
+                            render={({ field }) => (
+                                <FormItem>
+                                <FormLabel>Código del Producto</FormLabel>
+                                <FormControl><Input placeholder="Colocar Cod. Externo de SISLOG" {...field} /></FormControl>
+                                <FormMessage />
+                                </FormItem>
+                            )}
+                            />
+                            <FormField
+                            control={addForm.control}
+                            name="denominacionArticulo"
+                            render={({ field }) => (
+                                <FormItem>
+                                <FormLabel>Descripción del Artículo</FormLabel>
+                                <FormControl><Input placeholder="Colocar Descripción de Artículo SISLOG" {...field} /></FormControl>
+                                <FormMessage />
+                                </FormItem>
+                            )}
+                            />
+                            <Button type="submit" disabled={isSubmitting} className="w-full">
+                            {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
+                            Agregar Artículo
+                            </Button>
+                        </form>
+                        </Form>
+                    </CardContent>
+                </Card>
 
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2"><FileUp /> Cargar Artículos desde Excel</CardTitle>
-                <CardDescription>Suba un archivo (.xlsx, .xls) para agregar o actualizar múltiples artículos.</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Alert className="mb-4 border-blue-500 bg-blue-50 text-blue-800 [&>svg]:text-blue-600">
-                    <AlertTitle className="text-blue-700">Formato del Archivo</AlertTitle>
-                    <AlertDescription>
-                        El archivo debe tener las columnas: <strong>Razón Social</strong>, <strong>Codigo Producto</strong>, <strong>Denominación articulo</strong> y <strong>Sesion</strong>.
-                    </AlertDescription>
-                </Alert>
-                <div className="space-y-4">
-                    <div className="space-y-1">
-                        <Label htmlFor="file-upload">Archivo Excel</Label>
-                        <Input 
-                            id="file-upload" 
-                            name="file" 
-                            type="file" 
-                            required 
-                            accept=".xlsx, .xls"
-                            onChange={handleUploadFileChange}
-                            ref={uploadInputRef}
-                            disabled={isUploading}
-                            className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
-                        />
-                    </div>
-                    {isUploading && (
-                        <div className="space-y-2">
-                            <Progress value={uploadProgress} className="w-full" />
-                            <p className="text-sm text-center text-muted-foreground">Procesando... {Math.round(uploadProgress)}%</p>
+                <Card>
+                    <CardHeader>
+                        <CardTitle className="flex items-center gap-2"><FileUp /> Cargar Artículos desde Excel</CardTitle>
+                        <CardDescription>Suba un archivo (.xlsx, .xls) para agregar o actualizar múltiples artículos.</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Alert className="mb-4 border-blue-500 bg-blue-50 text-blue-800 [&>svg]:text-blue-600">
+                            <AlertTitle className="text-blue-700">Formato del Archivo</AlertTitle>
+                            <AlertDescription>
+                                El archivo debe tener las columnas: <strong>Razón Social</strong>, <strong>Codigo Producto</strong>, <strong>Denominación articulo</strong> y <strong>Sesion</strong>.
+                            </AlertDescription>
+                        </Alert>
+                        <div className="space-y-4">
+                            <div className="space-y-1">
+                                <Label htmlFor="file-upload">Archivo Excel</Label>
+                                <Input 
+                                    id="file-upload" 
+                                    name="file" 
+                                    type="file" 
+                                    required 
+                                    accept=".xlsx, .xls"
+                                    onChange={handleUploadFileChange}
+                                    ref={uploadInputRef}
+                                    disabled={isUploading}
+                                    className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+                                />
+                            </div>
+                            {isUploading && (
+                                <div className="space-y-2">
+                                    <Progress value={uploadProgress} className="w-full" />
+                                    <p className="text-sm text-center text-muted-foreground">Procesando... {Math.round(uploadProgress)}%</p>
+                                </div>
+                            )}
                         </div>
-                    )}
-                </div>
-              </CardContent>
-            </Card>
-
-          </div>
-          
-          <div>
+                    </CardContent>
+                </Card>
+            </div>
+            
             <Card>
               <CardHeader>
                 <div className="flex justify-between items-center">
@@ -669,7 +667,6 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
                 </ScrollArea>
               </CardContent>
             </Card>
-          </div>
         </div>
       </div>
       
