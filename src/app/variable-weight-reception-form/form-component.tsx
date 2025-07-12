@@ -343,7 +343,7 @@ export default function VariableWeightReceptionFormComponent() {
     const lastItem = items.length > 0 ? items[items.length - 1] : null;
 
     append({
-        codigo: '',
+        codigo: lastItem?.codigo || '',
         paleta: null,
         descripcion: lastItem?.descripcion || '',
         lote: lastItem?.lote || '',
