@@ -65,10 +65,15 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
   
   // State for article consultation
   const [selectedClients, setSelectedClients] = useState<string[]>([]);
-  const [articles, setArticles] = useState<ArticuloInfo[]>([]);
-  const [displayedArticles, setDisplayedArticles] = useState<ArticuloInfo[]>([]);
+  const [allFetchedArticles, setAllFetchedArticles] = useState<ArticuloInfo[]>([]);
+  const [filteredArticles, setFilteredArticles] = useState<ArticuloInfo[]>([]);
   const [isLoadingArticles, setIsLoadingArticles] = useState(false);
   const [searched, setSearched] = useState(false);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage, setItemsPerPage] = useState(10);
+
 
   // Filter states
   const [filterCode, setFilterCode] = useState('');
@@ -117,19 +122,30 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
     },
   });
 
+  // Derived state for pagination
+  const totalPages = Math.ceil(filteredArticles.length / itemsPerPage);
+  const displayedArticles = useMemo(() => {
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    return filteredArticles.slice(startIndex, endIndex);
+  }, [filteredArticles, currentPage, itemsPerPage]);
+
+
   useEffect(() => {
     const fetchArticles = async () => {
       if (selectedClients.length > 0) {
         setIsLoadingArticles(true);
-        setDisplayedArticles([]); // Clear previous results when clients change
+        setFilteredArticles([]);
         setSearched(false);
+        setCurrentPage(1);
         const fetchedArticles = await getArticulosByClients(selectedClients);
-        setArticles(fetchedArticles);
+        setAllFetchedArticles(fetchedArticles);
+        setFilteredArticles(fetchedArticles); // Initially, show all fetched articles
         setIsLoadingArticles(false);
         setSelectedArticleIds(new Set());
       } else {
-        setArticles([]);
-        setDisplayedArticles([]);
+        setAllFetchedArticles([]);
+        setFilteredArticles([]);
         setSearched(false);
         setSelectedArticleIds(new Set());
       }
@@ -143,13 +159,14 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
           return;
       }
       setSearched(true);
-      const results = articles.filter(article => {
+      setCurrentPage(1); // Reset to first page on new search
+      const results = allFetchedArticles.filter(article => {
         const codeMatch = filterCode ? article.codigoProducto.toLowerCase().includes(filterCode.toLowerCase()) : true;
         const descriptionMatch = filterDescription ? article.denominacionArticulo.toLowerCase().includes(filterDescription.toLowerCase()) : true;
         const sessionMatch = filterSession !== 'all' ? article.sesion === filterSession : true;
         return codeMatch && descriptionMatch && sessionMatch;
       });
-      setDisplayedArticles(results);
+      setFilteredArticles(results);
       setSelectedArticleIds(new Set()); // Clear selection on new search
   };
   
@@ -157,8 +174,9 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
       setFilterCode('');
       setFilterDescription('');
       setFilterSession('all');
-      setDisplayedArticles([]);
+      setFilteredArticles(allFetchedArticles); // Reset to all fetched articles for the client
       setSearched(false);
+      setCurrentPage(1);
       setSelectedArticleIds(new Set());
   };
 
@@ -183,7 +201,8 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
       if (selectedClients.includes(data.razonSocial)) {
         setIsLoadingArticles(true);
         const fetchedArticles = await getArticulosByClients(selectedClients);
-        setArticles(fetchedArticles);
+        setAllFetchedArticles(fetchedArticles);
+        setFilteredArticles(fetchedArticles);
         setIsLoadingArticles(false);
       }
     } else {
@@ -203,16 +222,15 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
       setArticleToEdit(null); // Close dialog on success
       setIsLoadingArticles(true);
       const fetchedArticles = await getArticulosByClients(selectedClients);
-      setArticles(fetchedArticles);
-      setDisplayedArticles(prev => {
-        const newDisplayed = prev.map(a => a.id === articleToEdit.id ? { ...a, ...data } : a);
-        return newDisplayed.filter(article => {
+      setAllFetchedArticles(fetchedArticles);
+      // Re-apply filters after updating
+      const results = fetchedArticles.filter(article => {
           const codeMatch = filterCode ? article.codigoProducto.toLowerCase().includes(filterCode.toLowerCase()) : true;
           const descriptionMatch = filterDescription ? article.denominacionArticulo.toLowerCase().includes(filterDescription.toLowerCase()) : true;
           const sessionMatch = filterSession !== 'all' ? article.sesion === filterSession : true;
           return codeMatch && descriptionMatch && sessionMatch;
         });
-      });
+      setFilteredArticles(results);
       setIsLoadingArticles(false);
     } else {
       toast({ variant: 'destructive', title: 'Error', description: result.message });
@@ -228,8 +246,8 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
 
     if (result.success) {
       toast({ title: 'Éxito', description: result.message });
-      setArticles(prev => prev.filter(a => a.id !== articleToDelete.id)); // Optimistic UI update
-      setDisplayedArticles(prev => prev.filter(a => a.id !== articleToDelete.id));
+      setAllFetchedArticles(prev => prev.filter(a => a.id !== articleToDelete.id)); 
+      setFilteredArticles(prev => prev.filter(a => a.id !== articleToDelete.id));
     } else {
       toast({ variant: 'destructive', title: 'Error', description: result.message });
     }
@@ -247,8 +265,8 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
     if (result.success) {
       toast({ title: 'Éxito', description: result.message });
       // Remove deleted items from local state
-      setArticles(prev => prev.filter(a => !selectedArticleIds.has(a.id)));
-      setDisplayedArticles(prev => prev.filter(a => !selectedArticleIds.has(a.id)));
+      setAllFetchedArticles(prev => prev.filter(a => !selectedArticleIds.has(a.id)));
+      setFilteredArticles(prev => prev.filter(a => !selectedArticleIds.has(a.id)));
       setSelectedArticleIds(new Set()); // Clear selection
     } else {
       toast({ variant: 'destructive', title: 'Error', description: result.message });
@@ -332,7 +350,7 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
       
       if (selectedClients.length > 0) {
         const fetchedArticles = await getArticulosByClients(selectedClients);
-        setArticles(fetchedArticles);
+        setAllFetchedArticles(fetchedArticles);
         handleSearch();
       }
   
@@ -360,9 +378,9 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
   };
 
   const handleExportArticles = () => {
-    if (displayedArticles.length === 0) return;
+    if (filteredArticles.length === 0) return;
 
-    const dataToExport = displayedArticles.map(article => ({
+    const dataToExport = filteredArticles.map(article => ({
       'Razón Social': article.razonSocial,
       'Código Producto': article.codigoProducto,
       'Descripción Artículo': article.denominacionArticulo,
@@ -375,16 +393,19 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
     XLSX.writeFile(workbook, 'Maestro_Articulos.xlsx');
   };
 
-  const isAllSelected = useMemo(() => {
-    return displayedArticles.length > 0 && selectedArticleIds.size === displayedArticles.length;
+  const isAllDisplayedSelected = useMemo(() => {
+    if (displayedArticles.length === 0) return false;
+    return displayedArticles.every(a => selectedArticleIds.has(a.id));
   }, [selectedArticleIds, displayedArticles]);
 
-  const handleSelectAll = (checked: boolean) => {
+  const handleSelectAllOnPage = (checked: boolean) => {
+    const newSet = new Set(selectedArticleIds);
     if (checked) {
-      setSelectedArticleIds(new Set(displayedArticles.map(a => a.id)));
+      displayedArticles.forEach(a => newSet.add(a.id));
     } else {
-      setSelectedArticleIds(new Set());
+      displayedArticles.forEach(a => newSet.delete(a.id));
     }
+    setSelectedArticleIds(newSet);
   };
 
   const handleRowSelect = (id: string, checked: boolean) => {
@@ -585,7 +606,7 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
                         <CardTitle>Consultar Artículos por Cliente</CardTitle>
                         <CardDescription>
                             {searched 
-                                ? `Se encontraron ${displayedArticles.length} artículos para los filtros seleccionados.`
+                                ? `Se encontraron ${filteredArticles.length} artículos para los filtros seleccionados.`
                                 : "Seleccione clientes y filtre para ver y gestionar sus artículos."
                             }
                         </CardDescription>
@@ -597,7 +618,7 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
                                 Eliminar ({selectedArticleIds.size})
                             </Button>
                         )}
-                        <Button onClick={handleExportArticles} variant="outline" size="sm" disabled={displayedArticles.length === 0}>
+                        <Button onClick={handleExportArticles} variant="outline" size="sm" disabled={filteredArticles.length === 0}>
                             <Download className="mr-2 h-4 w-4" />
                             Exportar
                         </Button>
@@ -697,74 +718,122 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
                         </Button>
                     </div>
                 </div>
-
-                <ScrollArea className="h-96">
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-12">
-                          <Checkbox
-                              checked={isAllSelected}
-                              onCheckedChange={(checked) => handleSelectAll(checked === true)}
-                              aria-label="Seleccionar todas las filas"
-                              disabled={displayedArticles.length === 0}
-                          />
-                        </TableHead>
-                        <TableHead>Cliente</TableHead>
-                        <TableHead>Código</TableHead>
-                        <TableHead>Descripción del Artículo</TableHead>
-                        <TableHead>Sesión</TableHead>
-                        <TableHead className="text-right">Acciones</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {isLoadingArticles ? (
+                <div className="rounded-md border">
+                    <ScrollArea className="h-96">
+                    <Table>
+                        <TableHeader className="sticky top-0 bg-background z-10">
                         <TableRow>
-                          <TableCell colSpan={6} className="h-24 text-center">
-                            <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
-                            <p className="text-muted-foreground">Cargando artículos...</p>
-                          </TableCell>
+                            <TableHead className="w-12">
+                            <Checkbox
+                                checked={isAllDisplayedSelected}
+                                onCheckedChange={(checked) => handleSelectAllOnPage(checked === true)}
+                                aria-label="Seleccionar todos los artículos en esta página"
+                                disabled={displayedArticles.length === 0}
+                            />
+                            </TableHead>
+                            <TableHead>Cliente</TableHead>
+                            <TableHead>Código</TableHead>
+                            <TableHead>Descripción del Artículo</TableHead>
+                            <TableHead>Sesión</TableHead>
+                            <TableHead className="text-right">Acciones</TableHead>
                         </TableRow>
-                      ) : displayedArticles.length > 0 ? (
-                        displayedArticles.map((article) => (
-                          <TableRow key={article.id} data-state={selectedArticleIds.has(article.id) && "selected"}>
-                            <TableCell>
-                                <Checkbox
-                                    checked={selectedArticleIds.has(article.id)}
-                                    onCheckedChange={(checked) => handleRowSelect(article.id, checked === true)}
-                                    aria-label={`Seleccionar fila ${article.codigoProducto}`}
-                                />
+                        </TableHeader>
+                        <TableBody>
+                        {isLoadingArticles ? (
+                            <TableRow>
+                            <TableCell colSpan={6} className="h-24 text-center">
+                                <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
+                                <p className="text-muted-foreground">Cargando artículos...</p>
                             </TableCell>
-                            <TableCell>{article.razonSocial}</TableCell>
-                            <TableCell className="font-mono">{article.codigoProducto}</TableCell>
-                            <TableCell>{article.denominacionArticulo}</TableCell>
-                            <TableCell>{article.sesion}</TableCell>
-                            <TableCell className="text-right">
-                                <div className="flex items-center justify-end gap-2">
-                                    <Button variant="ghost" size="icon" title="Editar" onClick={() => openEditDialog(article)}>
-                                        <Edit className="h-4 w-4 text-blue-600" />
-                                    </Button>
-                                    <Button variant="ghost" size="icon" title="Eliminar" onClick={() => setArticleToDelete(article)}>
-                                        <Trash2 className="h-4 w-4 text-destructive" />
-                                    </Button>
-                                </div>
+                            </TableRow>
+                        ) : displayedArticles.length > 0 ? (
+                            displayedArticles.map((article) => (
+                            <TableRow key={article.id} data-state={selectedArticleIds.has(article.id) && "selected"}>
+                                <TableCell>
+                                    <Checkbox
+                                        checked={selectedArticleIds.has(article.id)}
+                                        onCheckedChange={(checked) => handleRowSelect(article.id, checked === true)}
+                                        aria-label={`Seleccionar fila ${article.codigoProducto}`}
+                                    />
+                                </TableCell>
+                                <TableCell>{article.razonSocial}</TableCell>
+                                <TableCell className="font-mono">{article.codigoProducto}</TableCell>
+                                <TableCell>{article.denominacionArticulo}</TableCell>
+                                <TableCell>{article.sesion}</TableCell>
+                                <TableCell className="text-right">
+                                    <div className="flex items-center justify-end gap-2">
+                                        <Button variant="ghost" size="icon" title="Editar" onClick={() => openEditDialog(article)}>
+                                            <Edit className="h-4 w-4 text-blue-600" />
+                                        </Button>
+                                        <Button variant="ghost" size="icon" title="Eliminar" onClick={() => setArticleToDelete(article)}>
+                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                        </Button>
+                                    </div>
+                                </TableCell>
+                            </TableRow>
+                            ))
+                        ) : (
+                            <TableRow>
+                            <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
+                                {selectedClients.length === 0 
+                                    ? "Seleccione uno o más clientes para ver sus artículos." 
+                                    : searched 
+                                    ? "No se encontraron artículos para los filtros seleccionados."
+                                    : "Haga clic en 'Buscar' para mostrar los artículos."}
                             </TableCell>
-                          </TableRow>
-                        ))
-                      ) : (
-                        <TableRow>
-                          <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
-                            {selectedClients.length === 0 
-                                ? "Seleccione uno o más clientes para ver sus artículos." 
-                                : searched 
-                                ? "No se encontraron artículos para los filtros seleccionados."
-                                : "Haga clic en 'Buscar' para mostrar los artículos."}
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </ScrollArea>
+                            </TableRow>
+                        )}
+                        </TableBody>
+                    </Table>
+                    </ScrollArea>
+                </div>
+                 <div className="flex items-center justify-between space-x-2 py-4">
+                    <div className="flex-1 text-sm text-muted-foreground">
+                        {selectedArticleIds.size} de {filteredArticles.length} fila(s) seleccionadas.
+                    </div>
+                    <div className="flex items-center space-x-2">
+                        <p className="text-sm font-medium">Filas por página</p>
+                        <Select
+                            value={`${itemsPerPage}`}
+                            onValueChange={(value) => {
+                                setItemsPerPage(Number(value));
+                                setCurrentPage(1);
+                            }}
+                        >
+                            <SelectTrigger className="h-8 w-[70px]">
+                                <SelectValue placeholder={itemsPerPage} />
+                            </SelectTrigger>
+                            <SelectContent side="top">
+                                {[10, 20, 50, 100].map((pageSize) => (
+                                    <SelectItem key={pageSize} value={`${pageSize}`}>
+                                        {pageSize}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
+                    </div>
+                    <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+                        Página {currentPage} de {totalPages}
+                    </div>
+                    <div className="flex items-center space-x-2">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage((prev) => prev - 1)}
+                            disabled={currentPage === 1}
+                        >
+                            Anterior
+                        </Button>
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setCurrentPage((prev) => prev + 1)}
+                            disabled={currentPage === totalPages || totalPages === 0}
+                        >
+                            Siguiente
+                        </Button>
+                    </div>
+                </div>
               </CardContent>
             </Card>
         </div>
