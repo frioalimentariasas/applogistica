@@ -94,6 +94,7 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
 
   // State for upload form
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const uploadFormRef = useRef<HTMLFormElement>(null);
 
   const addForm = useForm<ArticleFormValues>({
@@ -265,43 +266,74 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
   };
 
   const handleUploadFormAction = async (formData: FormData) => {
-      const file = formData.get('file') as File;
-      if (!file || file.size === 0) {
-        toast({
-          variant: 'destructive',
-          title: 'Archivo no seleccionado',
-          description: 'Por favor, seleccione un archivo para cargar.',
-        });
-        return;
+    const file = formData.get('file') as File;
+    if (!file || file.size === 0) {
+      toast({ variant: 'destructive', title: 'Error', description: 'Por favor, seleccione un archivo para cargar.' });
+      return;
+    }
+  
+    setIsUploading(true);
+    setUploadProgress(0);
+    let totalErrors = 0;
+  
+    try {
+      const buffer = await file.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: 'buffer' });
+      const sheetName = workbook.SheetNames[0];
+      const sheet = workbook.Sheets[sheetName];
+      const rows: any[] = XLSX.utils.sheet_to_json(sheet);
+  
+      if (rows.length === 0) {
+        throw new Error("El archivo está vacío o no tiene un formato válido.");
+      }
+  
+      const chunkSize = 50; // Process 50 rows at a time
+      for (let i = 0; i < rows.length; i += chunkSize) {
+        const chunk = rows.slice(i, i + chunkSize);
+        
+        const result = await uploadArticulos(chunk);
+  
+        if (!result.success) {
+          totalErrors += result.errorCount || chunk.length; // Assume all failed if no count
+          if (result.errors) {
+            console.error("Errores de carga:", result.errors.join('\n'));
+          }
+        }
+  
+        const progress = ((i + chunkSize) / rows.length) * 100;
+        setUploadProgress(Math.min(progress, 100));
       }
       
-      setIsUploading(true);
-      const result = await uploadArticulos(formData);
-      
-      if (result.success) {
+      if (totalErrors > 0) {
         toast({
-          title: 'Carga Exitosa',
-          description: result.message,
-        });
-        if (selectedClients.length > 0) {
-          setIsLoadingArticles(true);
-          const fetchedArticles = await getArticulosByClients(selectedClients);
-          setArticles(fetchedArticles);
-          setIsLoadingArticles(false);
-        }
-      } else {
-         toast({
           variant: 'destructive',
-          title: 'Error en la Carga',
-          description: `${result.message} ${result.errors?.slice(0, 3).join(', ')}`,
+          title: 'Carga Completada con Errores',
+          description: `Se procesaron ${rows.length} filas con un total de ${totalErrors} errores.`,
           duration: 9000,
         });
+      } else {
+        toast({
+          title: 'Carga Exitosa',
+          description: `Se procesaron ${rows.length} artículos con éxito.`,
+        });
       }
       
+      // Refresh list if any clients are currently selected
+      if (selectedClients.length > 0) {
+        const fetchedArticles = await getArticulosByClients(selectedClients);
+        setArticles(fetchedArticles);
+        handleSearch(); // Re-apply current filters
+      }
+  
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "Error desconocido al procesar el archivo.";
+      toast({ variant: 'destructive', title: 'Error Crítico', description: msg });
+    } finally {
       if (uploadFormRef.current) {
         uploadFormRef.current.reset();
       }
       setIsUploading(false);
+    }
   };
   
   const getSelectedClientsText = () => {
@@ -512,6 +544,12 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
                                 {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileUp className="mr-2 h-4 w-4" />}
                                 Cargar Archivo
                               </Button>
+                              {isUploading && (
+                                <div className="mt-4 space-y-2">
+                                    <Progress value={uploadProgress} className="w-full" />
+                                    <p className="text-sm text-center text-muted-foreground">Procesando... {Math.round(uploadProgress)}%</p>
+                                </div>
+                              )}
                           </div>
                         </form>
                     </CardContent>
@@ -829,4 +867,3 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
     </div>
   );
 }
-
