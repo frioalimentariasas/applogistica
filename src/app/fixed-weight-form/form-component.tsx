@@ -582,6 +582,28 @@ export default function FixedWeightFormComponent() {
         setIsSubmitting(false);
     }
   }
+  
+  const handleClientSelection = async (clientName: string) => {
+      form.setValue('nombreCliente', clientName);
+      setClientDialogOpen(false);
+      setClientSearch('');
+  
+      // Reset dependent fields
+      form.setValue('productos', [{ codigo: '', descripcion: '', cajas: 0, totalPaletas: 0, cantidadKg: null, temperatura: null }]);
+      setArticulos([]);
+      setIsLoadingArticulos(true);
+      try {
+          const fetchedArticulos = await getArticulosByClients([clientName]);
+          setArticulos(fetchedArticulos.map(a => ({
+              value: a.codigoProducto,
+              label: a.denominacionArticulo
+          })));
+      } catch (error) {
+          toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los productos." });
+      } finally {
+          setIsLoadingArticulos(false);
+      }
+  };
 
   const title = `${submissionId ? 'Editando' : 'Formato de'} ${operation.charAt(0).toUpperCase() + operation.slice(1)} - Peso Fijo`;
 
@@ -695,26 +717,7 @@ export default function FixedWeightFormComponent() {
                                                         key={cliente.id}
                                                         variant="ghost"
                                                         className="w-full justify-start"
-                                                        onClick={async () => {
-                                                            field.onChange(cliente.razonSocial);
-                                                            setClientDialogOpen(false);
-                                                            setClientSearch('');
-                                                            
-                                                            form.setValue('productos', [{ codigo: '', descripcion: '', cajas: 0, totalPaletas: 0, cantidadKg: null, temperatura: null }]);
-                                                            setArticulos([]);
-                                                            setIsLoadingArticulos(true);
-                                                            try {
-                                                                const fetchedArticulos = await getArticulosByClients([cliente.razonSocial]);
-                                                                setArticulos(fetchedArticulos.map(a => ({
-                                                                    value: a.codigoProducto,
-                                                                    label: a.denominacionArticulo
-                                                                })));
-                                                            } catch (error) {
-                                                                toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los productos." });
-                                                            } finally {
-                                                                setIsLoadingArticulos(false);
-                                                            }
-                                                        }}
+                                                        onClick={() => handleClientSelection(cliente.razonSocial)}
                                                     >
                                                         {cliente.razonSocial}
                                                     </Button>

@@ -733,6 +733,28 @@ export default function VariableWeightReceptionFormComponent() {
     }
   }
   
+  const handleClientSelection = async (clientName: string) => {
+    form.setValue('cliente', clientName);
+    setClientDialogOpen(false);
+    setClientSearch('');
+  
+    // Reset dependent fields
+    form.setValue('items', [{ codigo: '', paleta: null, descripcion: "", lote: "", presentacion: "", cantidadPorPaleta: null, pesoBruto: null, taraEstiba: null, taraCaja: null, totalTaraCaja: null, pesoNeto: null }]);
+    setArticulos([]);
+    setIsLoadingArticulos(true);
+    try {
+        const fetchedArticulos = await getArticulosByClients([clientName]);
+        setArticulos(fetchedArticulos.map(a => ({
+            value: a.codigoProducto,
+            label: a.denominacionArticulo
+        })));
+    } catch (error) {
+        toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los productos." });
+    } finally {
+        setIsLoadingArticulos(false);
+    }
+  };
+  
   const title = `${submissionId ? 'Editando' : 'Formato de'} Recepción - Peso Variable`;
 
   if (isLoadingForm) {
@@ -836,26 +858,7 @@ export default function VariableWeightReceptionFormComponent() {
                                                               key={cliente.id}
                                                               variant="ghost"
                                                               className="w-full justify-start"
-                                                              onClick={async () => {
-                                                                  field.onChange(cliente.razonSocial);
-                                                                  setClientDialogOpen(false);
-                                                                  setClientSearch('');
-                                                                  
-                                                                  form.setValue('items', [{ codigo: '', paleta: null, descripcion: "", lote: "", presentacion: "", cantidadPorPaleta: null, pesoBruto: null, taraEstiba: null, taraCaja: null, totalTaraCaja: null, pesoNeto: null }]);
-                                                                  setArticulos([]);
-                                                                  setIsLoadingArticulos(true);
-                                                                  try {
-                                                                      const fetchedArticulos = await getArticulosByClients([cliente.razonSocial]);
-                                                                      setArticulos(fetchedArticulos.map(a => ({
-                                                                          value: a.codigoProducto,
-                                                                          label: a.denominacionArticulo
-                                                                      })));
-                                                                  } catch (error) {
-                                                                      toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los productos." });
-                                                                  } finally {
-                                                                      setIsLoadingArticulos(false);
-                                                                  }
-                                                              }}
+                                                              onClick={() => handleClientSelection(cliente.razonSocial)}
                                                           >
                                                               {cliente.razonSocial}
                                                           </Button>
