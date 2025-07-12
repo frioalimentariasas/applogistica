@@ -152,11 +152,11 @@ const itemSchema = z.object({
 const summaryItemSchema = z.object({
     descripcion: z.string(),
     temperatura: z.preprocess(
-      (val) => (val === "" ? null : val),
+      (val) => (val === "" || val === null ? null : val),
       z.coerce.number({ 
           required_error: "La temperatura es requerida.", 
           invalid_type_error: "La temperatura es requerida." 
-      })
+      }).min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99.")
     ),
     totalPeso: z.number(),
     totalCantidad: z.number(),
@@ -1032,21 +1032,18 @@ export default function VariableWeightFormComponent() {
                                      <FormField control={form.control} name={`items.${index}.codigo`} render={({ field }) => (
                                         <FormItem>
                                             <FormLabel>Código</FormLabel>
-                                            <FormControl>
-                                                <Input 
-                                                    placeholder="Código del producto"
-                                                    {...field}
-                                                    onBlur={() => {
-                                                        const code = field.value;
-                                                        if (code) {
-                                                            const articulo = articulos.find(a => a.value === code);
-                                                            if (articulo) {
-                                                                form.setValue(`items.${index}.descripcion`, articulo.label, { shouldValidate: true });
-                                                            }
-                                                        }
-                                                    }}
-                                                />
-                                            </FormControl>
+                                            <Button
+                                              type="button"
+                                              variant="outline"
+                                              className="w-full justify-between text-left font-normal h-10"
+                                              onClick={() => {
+                                                setProductDialogIndex(index);
+                                                setProductDialogOpen(true);
+                                              }}
+                                            >
+                                              <span className="truncate">{field.value || "Seleccionar código..."}</span>
+                                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                            </Button>
                                             <FormMessage />
                                         </FormItem>
                                     )}/>
@@ -1482,4 +1479,3 @@ function ProductSelectorDialog({
         </Dialog>
     );
 }
-

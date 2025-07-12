@@ -72,7 +72,7 @@ const productSchema = z.object({
         .positive("Cantidad (kg) debe ser un número positivo.").nullable()
   ),
   temperatura: z.preprocess(
-    (val) => (val === "" ? null : val), // Treat empty string as null
+    (val) => (val === "" || val === null ? null : val),
     z.coerce.number({ 
         required_error: "La temperatura es requerida.", 
         invalid_type_error: "La temperatura es requerida." 
@@ -450,7 +450,7 @@ export default function FixedWeightFormComponent() {
                     .filter(a => a.startsWith('data:image'))
                     .reduce((sum, base64) => sum + getByteSizeFromBase64(base64.split(',')[1]), 0);
 
-                if (existingImagesSize + newImagesSize > MAX_TOTAL_SIZE_BYTES) {
+                if (existingImagesSize + newImageSize > MAX_TOTAL_SIZE_BYTES) {
                     toast({
                         variant: "destructive",
                         title: "Límite de tamaño excedido",
@@ -810,21 +810,18 @@ export default function FixedWeightFormComponent() {
                                 <FormField control={form.control} name={`productos.${index}.codigo`} render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Código</FormLabel>
-                                        <FormControl>
-                                            <Input 
-                                                placeholder="Código del producto"
-                                                {...field}
-                                                onBlur={() => {
-                                                    const code = field.value;
-                                                    if (code) {
-                                                        const articulo = articulos.find(a => a.value === code);
-                                                        if (articulo) {
-                                                            form.setValue(`productos.${index}.descripcion`, articulo.label, { shouldValidate: true });
-                                                        }
-                                                    }
-                                                }}
-                                            />
-                                        </FormControl>
+                                         <Button
+                                          type="button"
+                                          variant="outline"
+                                          className="w-full justify-between text-left font-normal h-10"
+                                          onClick={() => {
+                                            setProductDialogIndex(index);
+                                            setProductDialogOpen(true);
+                                          }}
+                                        >
+                                          <span className="truncate">{field.value || "Seleccionar código..."}</span>
+                                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                        </Button>
                                         <FormMessage />
                                     </FormItem>
                                 )}/>
