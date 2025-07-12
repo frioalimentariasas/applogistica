@@ -343,8 +343,8 @@ export default function VariableWeightReceptionFormComponent() {
     const lastItem = items.length > 0 ? items[items.length - 1] : null;
     const currentClient = form.getValues('cliente');
 
-    // Exception for AVICOLA EL MADROÑO
-    if (currentClient === 'AVICOLA EL MADROÑO') {
+    // Exception for AVICOLA EL MADROÑO S.A.
+    if (currentClient === 'AVICOLA EL MADROÑO S.A.') {
         append({
             codigo: '',
             paleta: null,
