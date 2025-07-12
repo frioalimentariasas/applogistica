@@ -1117,7 +1117,7 @@ function ProductSelectorDialog({
 
     const filteredArticulos = useMemo(() => {
         if (!search) return articulos;
-        return articulos.filter(a => a.label.toLowerCase().includes(search.toLowerCase()));
+        return articulos.filter(a => a.label.toLowerCase().includes(search.toLowerCase()) || a.value.toLowerCase().includes(search.toLowerCase()));
     }, [search, articulos]);
     
     useEffect(() => {
@@ -1138,7 +1138,7 @@ function ProductSelectorDialog({
                 ) : (
                     <>
                         <Input
-                            placeholder="Buscar producto..."
+                            placeholder="Buscar producto por código o descripción..."
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
                             className="mb-4"
@@ -1157,7 +1157,10 @@ function ProductSelectorDialog({
                                             onOpenChange(false);
                                         }}
                                     >
-                                        {p.label}
+                                        <div className="flex flex-col items-start">
+                                            <span>{p.label}</span>
+                                            <span className="text-xs text-muted-foreground">{p.value}</span>
+                                        </div>
                                     </Button>
                                 ))}
                             </div>

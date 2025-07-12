@@ -105,7 +105,7 @@ const itemSchema = z.object({
     ),
     totalPaletas: z.preprocess(
         (val) => (val === "" || val === null ? null : val),
-        z.coerce.number({ invalid_type_error: "El total de paletas es requerido.", invalid_type_error: "El total de paletas debe ser requerido." })
+        z.coerce.number({ required_error: "El total de paletas es requerido.", invalid_type_error: "El total de paletas debe ser requerido." })
           .int("El Total Paletas debe ser un número entero.").min(0, "Debe ser un número no negativo.").nullable()
     ),
     totalPesoNeto: z.preprocess(
@@ -1067,7 +1067,7 @@ export default function VariableWeightFormComponent() {
                                      <FormField control={form.control} name={`items.${index}.paleta`} render={({ field }) => (
                                         <FormItem>
                                             <FormLabel>Paleta</FormLabel>
-                                            <FormControl><Input type="text" inputMode="numeric" placeholder="0 (para resumen)" {...field} onChange={e => field.onChange(e.target.value)} value={field.value ?? ''} /></FormControl>
+                                            <FormControl><Input type="text" inputMode="numeric" placeholder="0 (para resumen)" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )}/>
