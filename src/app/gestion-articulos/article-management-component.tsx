@@ -131,43 +131,29 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
   }, [filteredArticles, currentPage, itemsPerPage]);
 
 
-  useEffect(() => {
-    const fetchArticles = async () => {
-      if (selectedClients.length > 0) {
-        setIsLoadingArticles(true);
-        setFilteredArticles([]);
-        setSearched(false);
-        setCurrentPage(1);
-        const fetchedArticles = await getArticulosByClients(selectedClients);
-        setAllFetchedArticles(fetchedArticles);
-        setFilteredArticles(fetchedArticles); // Initially, show all fetched articles
-        setIsLoadingArticles(false);
-        setSelectedArticleIds(new Set());
-      } else {
-        setAllFetchedArticles([]);
-        setFilteredArticles([]);
-        setSearched(false);
-        setSelectedArticleIds(new Set());
-      }
-    };
-    fetchArticles();
-  }, [selectedClients]);
-
-  const handleSearch = () => {
+  const handleSearch = async () => {
       if (selectedClients.length === 0) {
           toast({ variant: 'destructive', title: 'Error', description: 'Debe seleccionar al menos un cliente para buscar.' });
           return;
       }
+      setIsLoadingArticles(true);
       setSearched(true);
-      setCurrentPage(1); // Reset to first page on new search
-      const results = allFetchedArticles.filter(article => {
+      setCurrentPage(1);
+      setSelectedArticleIds(new Set());
+      setAllFetchedArticles([]);
+      setFilteredArticles([]);
+      
+      const fetchedArticles = await getArticulosByClients(selectedClients);
+      setAllFetchedArticles(fetchedArticles);
+
+      const results = fetchedArticles.filter(article => {
         const codeMatch = filterCode ? article.codigoProducto.toLowerCase().includes(filterCode.toLowerCase()) : true;
         const descriptionMatch = filterDescription ? article.denominacionArticulo.toLowerCase().includes(filterDescription.toLowerCase()) : true;
         const sessionMatch = filterSession !== 'all' ? article.sesion === filterSession : true;
         return codeMatch && descriptionMatch && sessionMatch;
       });
       setFilteredArticles(results);
-      setSelectedArticleIds(new Set()); // Clear selection on new search
+      setIsLoadingArticles(false);
   };
   
   const handleClearFilters = () => {
@@ -199,11 +185,7 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
       addForm.reset();
       // If the new article belongs to the currently viewed client, refresh the list
       if (selectedClients.includes(data.razonSocial)) {
-        setIsLoadingArticles(true);
-        const fetchedArticles = await getArticulosByClients(selectedClients);
-        setAllFetchedArticles(fetchedArticles);
-        setFilteredArticles(fetchedArticles);
-        setIsLoadingArticles(false);
+        await handleSearch(); // Refresh the search results
       }
     } else {
       toast({ variant: 'destructive', title: 'Error', description: result.message });
@@ -220,18 +202,7 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
     if (result.success) {
       toast({ title: 'Éxito', description: result.message });
       setArticleToEdit(null); // Close dialog on success
-      setIsLoadingArticles(true);
-      const fetchedArticles = await getArticulosByClients(selectedClients);
-      setAllFetchedArticles(fetchedArticles);
-      // Re-apply filters after updating
-      const results = fetchedArticles.filter(article => {
-          const codeMatch = filterCode ? article.codigoProducto.toLowerCase().includes(filterCode.toLowerCase()) : true;
-          const descriptionMatch = filterDescription ? article.denominacionArticulo.toLowerCase().includes(filterDescription.toLowerCase()) : true;
-          const sessionMatch = filterSession !== 'all' ? article.sesion === filterSession : true;
-          return codeMatch && descriptionMatch && sessionMatch;
-        });
-      setFilteredArticles(results);
-      setIsLoadingArticles(false);
+      await handleSearch(); // Refresh the search to show updated data
     } else {
       toast({ variant: 'destructive', title: 'Error', description: result.message });
     }
@@ -349,9 +320,7 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
       }
       
       if (selectedClients.length > 0) {
-        const fetchedArticles = await getArticulosByClients(selectedClients);
-        setAllFetchedArticles(fetchedArticles);
-        handleSearch();
+        await handleSearch();
       }
   
     } catch (error) {
@@ -605,7 +574,8 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
                     <div>
                         <CardTitle>Consultar Artículos por Cliente</CardTitle>
                         <CardDescription>
-                            {searched 
+                            {isLoadingArticles ? "Consultando..." : 
+                             searched 
                                 ? `Se encontraron ${filteredArticles.length} artículos para los filtros seleccionados.`
                                 : "Seleccione clientes y filtre para ver y gestionar sus artículos."
                             }
@@ -708,7 +678,7 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
                         </Select>
                     </div>
                      <div className="flex items-end gap-2 lg:col-span-3">
-                        <Button onClick={handleSearch} className="w-full" disabled={selectedClients.length === 0}>
+                        <Button onClick={handleSearch} className="w-full" disabled={selectedClients.length === 0 || isLoadingArticles}>
                             <Search className="mr-2 h-4 w-4" />
                             Buscar
                         </Button>
