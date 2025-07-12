@@ -124,3 +124,33 @@ export async function deleteArticle(id: string): Promise<{ success: boolean; mes
     return { success: false, message: `Error del servidor: ${errorMessage}` };
   }
 }
+
+export async function deleteMultipleArticles(ids: string[]): Promise<{ success: boolean; message: string }> {
+    if (!firestore) {
+        return { success: false, message: 'Error de configuración del servidor.' };
+    }
+    if (!ids || ids.length === 0) {
+        return { success: false, message: 'No se proporcionaron artículos para eliminar.' };
+    }
+
+    try {
+        const batchSize = 500;
+        for (let i = 0; i < ids.length; i += batchSize) {
+            const batch = firestore.batch();
+            const chunk = ids.slice(i, i + batchSize);
+            chunk.forEach(id => {
+                const docRef = firestore.collection('articulos').doc(id);
+                batch.delete(docRef);
+            });
+            await batch.commit();
+        }
+        
+        revalidatePath('/gestion-articulos');
+        return { success: true, message: `${ids.length} artículo(s) eliminado(s) con éxito.` };
+
+    } catch (error) {
+        console.error('Error al eliminar artículos en lote:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Ocurrió un error desconocido.';
+        return { success: false, message: `Error del servidor: ${errorMessage}` };
+    }
+}

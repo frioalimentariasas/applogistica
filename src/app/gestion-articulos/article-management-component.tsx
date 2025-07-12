@@ -9,7 +9,7 @@ import { useRouter } from 'next/navigation';
 import * as XLSX from 'xlsx';
 
 import { useToast } from '@/hooks/use-toast';
-import { addArticle, updateArticle, deleteArticle } from './actions';
+import { addArticle, updateArticle, deleteArticle, deleteMultipleArticles } from './actions';
 import { getArticulosByClients, ArticuloInfo } from '@/app/actions/articulos';
 import { uploadArticulos, type UploadResult } from '../upload-articulos/actions';
 import { Button } from '@/components/ui/button';
@@ -74,12 +74,15 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
   const [filterCode, setFilterCode] = useState('');
   const [filterDescription, setFilterDescription] = useState('');
   const [filterSession, setFilterSession] = useState('all');
+  const [selectedArticleIds, setSelectedArticleIds] = useState<Set<string>>(new Set());
 
   // State for edit and delete operations
   const [articleToEdit, setArticleToEdit] = useState<ArticuloInfo | null>(null);
   const [isEditing, setIsEditing] = useState(false);
   const [articleToDelete, setArticleToDelete] = useState<ArticuloInfo | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [isConfirmBulkDeleteOpen, setIsConfirmBulkDeleteOpen] = useState(false);
 
   // State for add form client dialog
   const [isClientDialogOpen, setClientDialogOpen] = useState(false);
@@ -122,10 +125,12 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
         const fetchedArticles = await getArticulosByClients(selectedClients);
         setArticles(fetchedArticles);
         setIsLoadingArticles(false);
+        setSelectedArticleIds(new Set());
       } else {
         setArticles([]);
         setDisplayedArticles([]);
         setSearched(false);
+        setSelectedArticleIds(new Set());
       }
     };
     fetchArticles();
@@ -140,6 +145,7 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
         return codeMatch && descriptionMatch && sessionMatch;
       });
       setDisplayedArticles(results);
+      setSelectedArticleIds(new Set()); // Clear selection on new search
   };
   
   const handleClearFilters = () => {
@@ -148,6 +154,7 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
       setFilterSession('all');
       setDisplayedArticles([]);
       setSearched(false);
+      setSelectedArticleIds(new Set());
   };
 
   const filteredClients = useMemo(() => {
@@ -223,6 +230,26 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
     }
     setArticleToDelete(null); // Close dialog
     setIsDeleting(false);
+  };
+
+  const handleBulkDeleteConfirm = async () => {
+    if (selectedArticleIds.size === 0) return;
+    
+    setIsBulkDeleting(true);
+    const idsToDelete = Array.from(selectedArticleIds);
+    const result = await deleteMultipleArticles(idsToDelete);
+
+    if (result.success) {
+      toast({ title: 'Éxito', description: result.message });
+      // Remove deleted items from local state
+      setArticles(prev => prev.filter(a => !selectedArticleIds.has(a.id)));
+      setDisplayedArticles(prev => prev.filter(a => !selectedArticleIds.has(a.id)));
+      setSelectedArticleIds(new Set()); // Clear selection
+    } else {
+      toast({ variant: 'destructive', title: 'Error', description: result.message });
+    }
+    setIsConfirmBulkDeleteOpen(false);
+    setIsBulkDeleting(false);
   };
 
   const openEditDialog = (article: ArticuloInfo) => {
@@ -335,6 +362,29 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
     XLSX.utils.book_append_sheet(workbook, worksheet, 'Artículos');
     XLSX.writeFile(workbook, 'Maestro_Articulos.xlsx');
   };
+
+  const isAllSelected = useMemo(() => {
+    return displayedArticles.length > 0 && selectedArticleIds.size === displayedArticles.length;
+  }, [selectedArticleIds, displayedArticles]);
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedArticleIds(new Set(displayedArticles.map(a => a.id)));
+    } else {
+      setSelectedArticleIds(new Set());
+    }
+  };
+
+  const handleRowSelect = (id: string, checked: boolean) => {
+    const newSet = new Set(selectedArticleIds);
+    if (checked) {
+      newSet.add(id);
+    } else {
+      newSet.delete(id);
+    }
+    setSelectedArticleIds(newSet);
+  };
+
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
@@ -508,15 +558,23 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
             
             <Card>
               <CardHeader>
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center gap-4 flex-wrap">
                     <div>
                         <CardTitle>Consultar Artículos por Cliente</CardTitle>
                         <CardDescription>Seleccione clientes y filtre para ver y gestionar sus artículos.</CardDescription>
                     </div>
-                    <Button onClick={handleExportArticles} variant="outline" size="sm" disabled={displayedArticles.length === 0}>
-                        <Download className="mr-2 h-4 w-4" />
-                        Exportar
-                    </Button>
+                     <div className="flex gap-2">
+                        {selectedArticleIds.size > 0 && (
+                            <Button onClick={() => setIsConfirmBulkDeleteOpen(true)} variant="destructive" size="sm" disabled={isBulkDeleting}>
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Eliminar ({selectedArticleIds.size})
+                            </Button>
+                        )}
+                        <Button onClick={handleExportArticles} variant="outline" size="sm" disabled={displayedArticles.length === 0}>
+                            <Download className="mr-2 h-4 w-4" />
+                            Exportar
+                        </Button>
+                    </div>
                 </div>
               </CardHeader>
               <CardContent>
@@ -617,6 +675,13 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
                   <Table>
                     <TableHeader>
                       <TableRow>
+                        <TableHead className="w-12">
+                          <Checkbox
+                              checked={isAllSelected}
+                              onCheckedChange={(checked) => handleSelectAll(checked === true)}
+                              aria-label="Seleccionar todas las filas"
+                          />
+                        </TableHead>
                         <TableHead>Cliente</TableHead>
                         <TableHead>Código</TableHead>
                         <TableHead>Descripción del Artículo</TableHead>
@@ -627,14 +692,21 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
                     <TableBody>
                       {isLoadingArticles ? (
                         <TableRow>
-                          <TableCell colSpan={5} className="h-24 text-center">
+                          <TableCell colSpan={6} className="h-24 text-center">
                             <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
                             <p className="text-muted-foreground">Cargando artículos...</p>
                           </TableCell>
                         </TableRow>
                       ) : displayedArticles.length > 0 ? (
                         displayedArticles.map((article) => (
-                          <TableRow key={article.id}>
+                          <TableRow key={article.id} data-state={selectedArticleIds.has(article.id) && "selected"}>
+                            <TableCell>
+                                <Checkbox
+                                    checked={selectedArticleIds.has(article.id)}
+                                    onCheckedChange={(checked) => handleRowSelect(article.id, checked === true)}
+                                    aria-label={`Seleccionar fila ${article.codigoProducto}`}
+                                />
+                            </TableCell>
                             <TableCell>{article.razonSocial}</TableCell>
                             <TableCell className="font-mono">{article.codigoProducto}</TableCell>
                             <TableCell>{article.denominacionArticulo}</TableCell>
@@ -653,7 +725,7 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
                         ))
                       ) : (
                         <TableRow>
-                          <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                          <TableCell colSpan={6} className="h-24 text-center text-muted-foreground">
                             {selectedClients.length === 0 
                                 ? "Seleccione uno o más clientes para ver sus artículos." 
                                 : searched 
@@ -760,6 +832,29 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
                   {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                   Eliminar
               </AlertDialogAction>
+              </AlertDialogFooter>
+          </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Bulk Delete Alert Dialog */}
+      <AlertDialog open={isConfirmBulkDeleteOpen} onOpenChange={setIsConfirmBulkDeleteOpen}>
+          <AlertDialogContent>
+              <AlertDialogHeader>
+                  <AlertDialogTitle>¿Confirmar eliminación masiva?</AlertDialogTitle>
+                  <AlertDialogDescription>
+                      Esta acción no se puede deshacer. Se eliminarán permanentemente <strong>{selectedArticleIds.size}</strong> artículo(s) seleccionados.
+                  </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                  <AlertDialogAction 
+                      onClick={handleBulkDeleteConfirm} 
+                      disabled={isBulkDeleting}
+                      className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                  >
+                      {isBulkDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                      Sí, eliminar seleccionados
+                  </AlertDialogAction>
               </AlertDialogFooter>
           </AlertDialogContent>
       </AlertDialog>
