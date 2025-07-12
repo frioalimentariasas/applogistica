@@ -1,9 +1,10 @@
+
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { DateRange } from 'react-day-picker';
-import { format, addDays, differenceInDays } from 'date-fns';
+import { format, addDays, differenceInDays, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -115,6 +116,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const router = useRouter();
     const { toast } = useToast();
     const uploadFormRef = useRef<HTMLFormElement>(null);
+    const today = new Date();
+    const sixtyTwoDaysAgo = subDays(today, 62);
     
     // State for billing report
     const [selectedClient, setSelectedClient] = useState<string | undefined>(undefined);
@@ -886,7 +889,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
     return (
         <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
-            <div className="max-w-7xl mx-auto">
+            <div className="max-w-screen-2xl mx-auto">
                 <header className="mb-8">
                     <div className="relative flex items-center justify-center text-center">
                          <Button 
@@ -1004,6 +1007,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                     onSelect={setDateRange}
                                                     numberOfMonths={2}
                                                     locale={es}
+                                                    disabled={{ after: today, before: sixtyTwoDaysAgo }}
                                                 />
                                             </PopoverContent>
                                         </Popover>
@@ -1098,7 +1102,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                 </Button>
                                             </PopoverTrigger>
                                             <PopoverContent className="w-auto p-0" align="start">
-                                                <Calendar initialFocus mode="range" defaultMonth={detailedReportDateRange?.from} selected={detailedReportDateRange} onSelect={setDetailedReportDateRange} numberOfMonths={2} locale={es} />
+                                                <Calendar initialFocus mode="range" defaultMonth={detailedReportDateRange?.from} selected={detailedReportDateRange} onSelect={setDetailedReportDateRange} numberOfMonths={2} locale={es} disabled={{ after: today, before: sixtyTwoDaysAgo }} />
                                             </PopoverContent>
                                         </Popover>
                                     </div>
@@ -1271,6 +1275,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                             selected={dateRangeToDelete}
                                                             onSelect={setDateRangeToDelete}
                                                             locale={es}
+                                                            disabled={{ after: today, before: sixtyTwoDaysAgo }}
                                                         />
                                                     </div>
                                                     <DialogFooter>
@@ -1328,6 +1333,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                         defaultMonth={inventoryDateRange?.from}
                                                         numberOfMonths={2}
                                                         locale={es}
+                                                        disabled={{ after: today, before: sixtyTwoDaysAgo }}
                                                     />
                                                 </PopoverContent>
                                             </Popover>
@@ -1466,9 +1472,9 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                             <Table>
                                                 <TableHeader>
                                                     <TableRow>
-                                                        <TableHead className="sticky left-0 z-10 bg-background/95 backdrop-blur-sm px-2 py-2 text-left font-normal text-xs">Fecha</TableHead>
+                                                        <TableHead className="sticky left-0 z-10 bg-background/95 backdrop-blur-sm px-2 py-2 text-left font-medium text-xs">Fecha</TableHead>
                                                         {inventoryReportData?.clientHeaders.map(client => (
-                                                            <TableHead key={client} className="text-right px-2 py-2 font-normal text-xs">{client}</TableHead>
+                                                            <TableHead key={client} className="text-right px-2 py-2 font-medium text-xs">{client}</TableHead>
                                                         ))}
                                                     </TableRow>
                                                 </TableHeader>
@@ -1541,7 +1547,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                 </Button>
                                             </PopoverTrigger>
                                             <PopoverContent className="w-auto p-0" align="start">
-                                                <Calendar initialFocus mode="range" defaultMonth={consolidatedDateRange?.from} selected={consolidatedDateRange} onSelect={setConsolidatedDateRange} numberOfMonths={2} locale={es} />
+                                                <Calendar initialFocus mode="range" defaultMonth={consolidatedDateRange?.from} selected={consolidatedDateRange} onSelect={setConsolidatedDateRange} numberOfMonths={2} locale={es} disabled={{ after: today, before: sixtyTwoDaysAgo }} />
                                             </PopoverContent>
                                         </Popover>
                                     </div>
@@ -1659,3 +1665,5 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         </div>
     );
 }
+
+    
