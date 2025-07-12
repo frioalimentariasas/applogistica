@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useForm, useFieldArray, useWatch, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -194,7 +194,7 @@ export default function VariableWeightReceptionFormComponent() {
 
   const [clientes, setClientes] = useState<ClientInfo[]>([]);
   
-  const [articulos, setArticulos] = useState<{ value: string; label: string }[]>([]);
+  const [articulos, setArticulos] = useState<ArticuloInfo[]>([]);
   const [isLoadingArticulos, setIsLoadingArticulos] = useState(false);
 
   const [isProductDialogOpen, setProductDialogOpen] = useState(false);
@@ -440,7 +440,7 @@ export default function VariableWeightReceptionFormComponent() {
           if (sanitizedFormData.cliente) {
             setIsLoadingArticulos(true);
             const fetchedArticulos = await getArticulosByClients([sanitizedFormData.cliente]);
-            setArticulos(fetchedArticulos.map(a => ({ value: a.codigoProducto, label: a.denominacionArticulo })));
+            setArticulos(fetchedArticulos);
             setIsLoadingArticulos(false);
           }
         } else {
@@ -741,19 +741,28 @@ export default function VariableWeightReceptionFormComponent() {
     // Reset dependent fields
     form.setValue('items', [{ codigo: '', paleta: null, descripcion: "", lote: "", presentacion: "", cantidadPorPaleta: null, pesoBruto: null, taraEstiba: null, taraCaja: null, totalTaraCaja: null, pesoNeto: null }]);
     setArticulos([]);
-    setIsLoadingArticulos(true);
-    try {
-        const fetchedArticulos = await getArticulosByClients([clientName]);
-        setArticulos(fetchedArticulos.map(a => ({
-            value: a.codigoProducto,
-            label: a.denominacionArticulo
-        })));
-    } catch (error) {
-        toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los productos." });
-    } finally {
-        setIsLoadingArticulos(false);
-    }
   };
+
+  const handleProductDialogOpening = async (index: number) => {
+      setProductDialogIndex(index);
+      const clientName = form.getValues('cliente');
+      if (!clientName) {
+          toast({ variant: 'destructive', title: 'Error', description: 'Por favor, seleccione un cliente primero.' });
+          return;
+      }
+      setIsLoadingArticulos(true);
+      setProductDialogOpen(true);
+      try {
+          const fetchedArticulos = await getArticulosByClients([clientName]);
+          setArticulos(fetchedArticulos);
+      } catch (error) {
+          toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los productos." });
+          setProductDialogOpen(false);
+      } finally {
+          setIsLoadingArticulos(false);
+      }
+  };
+
   
   const title = `${submissionId ? 'Editando' : 'Formato de'} Recepción - Peso Variable`;
 
@@ -782,11 +791,10 @@ export default function VariableWeightReceptionFormComponent() {
             clientSelected={!!form.getValues('cliente')}
             onSelect={(articulo) => {
                 if (productDialogIndex !== null) {
-                    form.setValue(`items.${productDialogIndex}.descripcion`, articulo.label);
-                    form.setValue(`items.${productDialogIndex}.codigo`, articulo.value);
+                    form.setValue(`items.${productDialogIndex}.descripcion`, articulo.denominacionArticulo);
+                    form.setValue(`items.${productDialogIndex}.codigo`, articulo.codigoProducto);
                 }
             }}
-            productDialogIndex={productDialogIndex}
         />
         <div className="max-w-6xl mx-auto">
           <header className="mb-8">
@@ -954,10 +962,7 @@ export default function VariableWeightReceptionFormComponent() {
                                               type="button"
                                               variant="outline"
                                               className="w-full justify-between text-left font-normal h-10"
-                                              onClick={() => {
-                                                setProductDialogIndex(index);
-                                                setProductDialogOpen(true);
-                                              }}
+                                              onClick={() => handleProductDialogOpening(index)}
                                             >
                                               <span className="truncate">{field.value || "Seleccionar código..."}</span>
                                               <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -972,10 +977,7 @@ export default function VariableWeightReceptionFormComponent() {
                                                   type="button"
                                                   variant="outline"
                                                   className="w-full justify-between text-left font-normal h-10"
-                                                  onClick={() => {
-                                                    setProductDialogIndex(index);
-                                                    setProductDialogOpen(true);
-                                                  }}
+                                                  onClick={() => handleProductDialogOpening(index)}
                                                 >
                                                   <span className="truncate">{controllerField.value || "Seleccionar producto..."}</span>
                                                   <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -1295,21 +1297,19 @@ function ProductSelectorDialog({
     isLoading,
     clientSelected,
     onSelect,
-    productDialogIndex,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    articulos: { value: string; label: string }[];
+    articulos: ArticuloInfo[];
     isLoading: boolean;
     clientSelected: boolean;
-    onSelect: (articulo: { value: string; label: string }) => void;
-    productDialogIndex: number | null;
+    onSelect: (articulo: ArticuloInfo) => void;
 }) {
     const [search, setSearch] = useState("");
 
     const filteredArticulos = useMemo(() => {
         if (!search) return articulos;
-        return articulos.filter(a => a.label.toLowerCase().includes(search.toLowerCase()) || a.value.toLowerCase().includes(search.toLowerCase()));
+        return articulos.filter(a => a.denominacionArticulo.toLowerCase().includes(search.toLowerCase()) || a.codigoProducto.toLowerCase().includes(search.toLowerCase()));
     }, [search, articulos]);
     
     useEffect(() => {
@@ -1341,7 +1341,7 @@ function ProductSelectorDialog({
                                 {!isLoading && filteredArticulos.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron productos.</p>}
                                 {filteredArticulos.map((p, i) => (
                                     <Button
-                                        key={`${p.value}-${i}`}
+                                        key={`${p.id}-${i}`}
                                         variant="ghost"
                                         className="w-full justify-start h-auto text-wrap"
                                         onClick={() => {
@@ -1350,8 +1350,8 @@ function ProductSelectorDialog({
                                         }}
                                     >
                                         <div className="flex flex-col items-start">
-                                            <span>{p.label}</span>
-                                            <span className="text-xs text-muted-foreground">{p.value}</span>
+                                            <span>{p.denominacionArticulo}</span>
+                                            <span className="text-xs text-muted-foreground">{p.codigoProducto}</span>
                                         </div>
                                     </Button>
                                 ))}

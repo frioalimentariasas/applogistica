@@ -165,7 +165,7 @@ export default function FixedWeightFormComponent() {
   
   const [clientes, setClientes] = useState<ClientInfo[]>([]);
   
-  const [articulos, setArticulos] = useState<{ value: string; label: string }[]>([]);
+  const [articulos, setArticulos] = useState<ArticuloInfo[]>([]);
   const [isLoadingArticulos, setIsLoadingArticulos] = useState(false);
   
   const [isProductDialogOpen, setProductDialogOpen] = useState(false);
@@ -299,7 +299,7 @@ export default function FixedWeightFormComponent() {
           if (sanitizedFormData.nombreCliente) {
             setIsLoadingArticulos(true);
             const fetchedArticulos = await getArticulosByClients([sanitizedFormData.nombreCliente]);
-            setArticulos(fetchedArticulos.map(a => ({ value: a.codigoProducto, label: a.denominacionArticulo })));
+            setArticulos(fetchedArticulos);
             setIsLoadingArticulos(false);
           }
         } else {
@@ -591,19 +591,28 @@ export default function FixedWeightFormComponent() {
       // Reset dependent fields
       form.setValue('productos', [{ codigo: '', descripcion: '', cajas: 0, totalPaletas: 0, cantidadKg: null, temperatura: null }]);
       setArticulos([]);
+  };
+
+  const handleProductDialogOpening = async (index: number) => {
+      setProductDialogIndex(index);
+      const clientName = form.getValues('nombreCliente');
+      if (!clientName) {
+          toast({ variant: 'destructive', title: 'Error', description: 'Por favor, seleccione un cliente primero.' });
+          return;
+      }
       setIsLoadingArticulos(true);
+      setProductDialogOpen(true);
       try {
           const fetchedArticulos = await getArticulosByClients([clientName]);
-          setArticulos(fetchedArticulos.map(a => ({
-              value: a.codigoProducto,
-              label: a.denominacionArticulo
-          })));
+          setArticulos(fetchedArticulos);
       } catch (error) {
           toast({ variant: "destructive", title: "Error", description: "No se pudieron cargar los productos." });
+          setProductDialogOpen(false);
       } finally {
           setIsLoadingArticulos(false);
       }
   };
+
 
   const title = `${submissionId ? 'Editando' : 'Formato de'} ${operation.charAt(0).toUpperCase() + operation.slice(1)} - Peso Fijo`;
 
@@ -632,11 +641,10 @@ export default function FixedWeightFormComponent() {
         clientSelected={!!form.getValues('nombreCliente')}
         onSelect={(articulo) => {
             if (productDialogIndex !== null) {
-                form.setValue(`productos.${productDialogIndex}.descripcion`, articulo.label);
-                form.setValue(`productos.${productDialogIndex}.codigo`, articulo.value);
+                form.setValue(`productos.${productDialogIndex}.descripcion`, articulo.denominacionArticulo);
+                form.setValue(`productos.${productDialogIndex}.codigo`, articulo.codigoProducto);
             }
         }}
-        productDialogIndex={productDialogIndex}
       />
       <div className="max-w-6xl mx-auto">
         <header className="mb-8">
@@ -817,10 +825,7 @@ export default function FixedWeightFormComponent() {
                                           type="button"
                                           variant="outline"
                                           className="w-full justify-between text-left font-normal h-10"
-                                          onClick={() => {
-                                            setProductDialogIndex(index);
-                                            setProductDialogOpen(true);
-                                          }}
+                                          onClick={() => handleProductDialogOpening(index)}
                                         >
                                           <span className="truncate">{field.value || "Seleccionar código..."}</span>
                                           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -835,10 +840,7 @@ export default function FixedWeightFormComponent() {
                                           type="button"
                                           variant="outline"
                                           className="w-full justify-between text-left font-normal h-10"
-                                          onClick={() => {
-                                            setProductDialogIndex(index);
-                                            setProductDialogOpen(true);
-                                          }}
+                                          onClick={() => handleProductDialogOpening(index)}
                                         >
                                           <span className="truncate">{field.value || "Seleccionar producto..."}</span>
                                           <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -1110,21 +1112,19 @@ function ProductSelectorDialog({
     isLoading,
     clientSelected,
     onSelect,
-    productDialogIndex,
 }: {
     open: boolean;
     onOpenChange: (open: boolean) => void;
-    articulos: { value: string; label: string }[];
+    articulos: ArticuloInfo[];
     isLoading: boolean;
     clientSelected: boolean;
-    onSelect: (articulo: { value: string; label: string }) => void;
-    productDialogIndex: number | null;
+    onSelect: (articulo: ArticuloInfo) => void;
 }) {
     const [search, setSearch] = useState("");
 
     const filteredArticulos = useMemo(() => {
         if (!search) return articulos;
-        return articulos.filter(a => a.label.toLowerCase().includes(search.toLowerCase()) || a.value.toLowerCase().includes(search.toLowerCase()));
+        return articulos.filter(a => a.denominacionArticulo.toLowerCase().includes(search.toLowerCase()) || a.codigoProducto.toLowerCase().includes(search.toLowerCase()));
     }, [search, articulos]);
     
     useEffect(() => {
@@ -1156,7 +1156,7 @@ function ProductSelectorDialog({
                                 {!isLoading && filteredArticulos.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron productos.</p>}
                                 {filteredArticulos.map((p, i) => (
                                     <Button
-                                        key={`${p.value}-${i}`}
+                                        key={`${p.id}-${i}`}
                                         variant="ghost"
                                         className="w-full justify-start h-auto text-wrap"
                                         onClick={() => {
@@ -1165,8 +1165,8 @@ function ProductSelectorDialog({
                                         }}
                                     >
                                         <div className="flex flex-col items-start">
-                                            <span>{p.label}</span>
-                                            <span className="text-xs text-muted-foreground">{p.value}</span>
+                                            <span>{p.denominacionArticulo}</span>
+                                            <span className="text-xs text-muted-foreground">{p.codigoProducto}</span>
                                         </div>
                                     </Button>
                                 ))}
