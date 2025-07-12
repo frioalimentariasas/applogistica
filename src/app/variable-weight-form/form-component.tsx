@@ -420,6 +420,28 @@ export default function VariableWeightFormComponent() {
   const handleAddItem = () => {
     const items = form.getValues('items');
     const lastItem = items.length > 0 ? items[items.length - 1] : null;
+    const currentClient = form.getValues('cliente');
+    
+    // Exception for AVICOLA EL MADROÑO
+    if (currentClient === 'AVICOLA EL MADROÑO') {
+        append({
+            codigo: '',
+            paleta: null,
+            descripcion: '',
+            lote: '',
+            presentacion: '',
+            cantidadPorPaleta: null,
+            pesoBruto: null,
+            taraEstiba: null,
+            taraCaja: null,
+            totalTaraCaja: null,
+            pesoNeto: null,
+            totalCantidad: null,
+            totalPaletas: null,
+            totalPesoNeto: null,
+        });
+        return;
+    }
 
     append({
         codigo: lastItem?.codigo || '',
@@ -1047,7 +1069,7 @@ export default function VariableWeightFormComponent() {
                                             <FormMessage />
                                         </FormItem>
                                     )}/>
-                                    <FormField control={form.control} name={`items.${index}.descripcion`} render={({ field }) => (
+                                    <FormField control={form.control} name={`items.${index}.descripcion`} render={({ field: controllerField }) => (
                                         <FormItem className="md:col-span-2">
                                             <FormLabel>Descripción del Producto</FormLabel>
                                             <Button
@@ -1055,11 +1077,11 @@ export default function VariableWeightFormComponent() {
                                                 variant="outline"
                                                 className="w-full justify-between text-left font-normal h-10"
                                                 onClick={() => {
-                                                  setProductDialogIndex(index);
-                                                  setProductDialogOpen(true);
+                                                    setProductDialogIndex(index);
+                                                    setProductDialogOpen(true);
                                                 }}
                                             >
-                                                <span className="truncate">{field.value || "Seleccionar producto..."}</span>
+                                                <span className="truncate">{controllerField.value || "Seleccionar producto..."}</span>
                                                 <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                             </Button>
                                             <FormMessage />
