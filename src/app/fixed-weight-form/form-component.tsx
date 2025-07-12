@@ -71,7 +71,13 @@ const productSchema = z.object({
       z.coerce.number({ invalid_type_error: "Cantidad (kg) debe ser un número."})
         .positive("Cantidad (kg) debe ser un número positivo.").nullable()
   ),
-  temperatura: z.coerce.number({ required_error: "La temperatura es requerida.", invalid_type_error: "La temperatura es requerida." }).min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99."),
+  temperatura: z.preprocess(
+    (val) => (val === "" ? null : val), // Treat empty string as null
+    z.coerce.number({ 
+        required_error: "La temperatura es requerida.", 
+        invalid_type_error: "La temperatura es requerida." 
+    }).min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99.")
+  ),
 });
 
 const formSchema = z.object({
@@ -121,7 +127,7 @@ const originalDefaultValues: FormValues = {
   precinto: "",
   documentoTransporte: "",
   facturaRemision: "",
-  productos: [{ codigo: '', descripcion: '', cajas: 0, totalPaletas: 0, cantidadKg: null, temperatura: 0 }],
+  productos: [{ codigo: '', descripcion: '', cajas: 0, totalPaletas: 0, cantidadKg: null, temperatura: null }],
   nombreConductor: "",
   cedulaConductor: "",
   placa: "",
@@ -277,6 +283,7 @@ export default function FixedWeightFormComponent() {
                   ...originalDefaultValues.productos[0],
                   ...p,
                   cantidadKg: p.cantidadKg ?? null,
+                  temperatura: p.temperatura ?? null,
               })),
           };
 
@@ -443,7 +450,7 @@ export default function FixedWeightFormComponent() {
                     .filter(a => a.startsWith('data:image'))
                     .reduce((sum, base64) => sum + getByteSizeFromBase64(base64.split(',')[1]), 0);
 
-                if (existingImagesSize + newImageSize > MAX_TOTAL_SIZE_BYTES) {
+                if (existingImagesSize + newImagesSize > MAX_TOTAL_SIZE_BYTES) {
                     toast({
                         variant: "destructive",
                         title: "Límite de tamaño excedido",
@@ -693,7 +700,7 @@ export default function FixedWeightFormComponent() {
                                                             setClientDialogOpen(false);
                                                             setClientSearch('');
                                                             
-                                                            form.setValue('productos', [{ codigo: '', descripcion: '', cajas: 0, totalPaletas: 0, cantidadKg: null, temperatura: 0 }]);
+                                                            form.setValue('productos', [{ codigo: '', descripcion: '', cajas: 0, totalPaletas: 0, cantidadKg: null, temperatura: null }]);
                                                             setArticulos([]);
                                                             setIsLoadingArticulos(true);
                                                             try {
@@ -873,7 +880,7 @@ export default function FixedWeightFormComponent() {
                         </div>
                     </div>
                 ))}
-                <Button type="button" variant="outline" onClick={() => append({ codigo: '', descripcion: '', cajas: 0, totalPaletas: 0, cantidadKg: null, temperatura: 0 })}>
+                <Button type="button" variant="outline" onClick={() => append({ codigo: '', descripcion: '', cajas: 0, totalPaletas: 0, cantidadKg: null, temperatura: null })}>
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Agregar Producto
                 </Button>

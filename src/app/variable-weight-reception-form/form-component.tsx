@@ -90,8 +90,11 @@ const itemSchema = z.object({
 });
   
 const tempSchema = z.preprocess(
-    (val) => (val === "" || val === null ? null : val),
-    z.coerce.number({ invalid_type_error: "Temperatura debe ser un número."})
+    (val) => (val === "" ? null : val),
+    z.coerce.number({ 
+        required_error: "La temperatura es requerida.", 
+        invalid_type_error: "La temperatura es requerida."
+    })
       .min(-99, "El valor debe estar entre -99 y 99.")
       .max(99, "El valor debe estar entre -99 y 99.")
       .nullable()
@@ -105,6 +108,12 @@ const summaryItemSchema = z.object({
   totalPeso: z.number(),
   totalCantidad: z.number(),
   totalPaletas: z.number(),
+}).refine(data => {
+    // Al menos una temperatura es requerida.
+    return data.temperatura1 !== null || data.temperatura2 !== null || data.temperatura3 !== null;
+}, {
+    message: "Debe ingresar al menos una temperatura para el producto.",
+    path: ["temperatura1"], // report error on the first temperature field
 });
 
 const formSchema = z.object({

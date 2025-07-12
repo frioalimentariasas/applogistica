@@ -151,7 +151,13 @@ const itemSchema = z.object({
 
 const summaryItemSchema = z.object({
     descripcion: z.string(),
-    temperatura: z.coerce.number({ required_error: "La temperatura es requerida.", invalid_type_error: "La temperatura es requerida." }).nullable(),
+    temperatura: z.preprocess(
+      (val) => (val === "" ? null : val),
+      z.coerce.number({ 
+          required_error: "La temperatura es requerida.", 
+          invalid_type_error: "La temperatura es requerida." 
+      })
+    ),
     totalPeso: z.number(),
     totalCantidad: z.number(),
     totalPaletas: z.number(),
