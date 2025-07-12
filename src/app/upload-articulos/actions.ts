@@ -2,6 +2,7 @@
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
+import * as xlsx from 'xlsx';
 import { revalidatePath } from 'next/cache';
 
 // Define the structure of an article based on the Excel columns
@@ -20,7 +21,7 @@ export interface UploadResult {
     errors?: string[];
 }
 
-export async function uploadArticulos(rows: any[]): Promise<UploadResult> {
+export async function uploadArticulos(formData: FormData): Promise<UploadResult> {
   if (!firestore) {
     return { 
       success: false, 
@@ -28,67 +29,94 @@ export async function uploadArticulos(rows: any[]): Promise<UploadResult> {
     };
   }
 
+  const file = formData.get('file') as File;
+  if (!file) {
+    return { success: false, message: 'No se encontró el archivo.' };
+  }
+
   let processedCount = 0;
   let errorCount = 0;
   const errors: string[] = [];
   const validSessions = ['CO', 'RE', 'SE'];
+  
+  try {
+    const buffer = await file.arrayBuffer();
+    const workbook = xlsx.read(buffer, { type: 'buffer' });
+    const sheetName = workbook.SheetNames[0];
+    const sheet = workbook.Sheets[sheetName];
+    const rows = xlsx.utils.sheet_to_json<any>(sheet);
 
-  for (const row of rows) {
-    const razonSocial = row['Razón Social']?.trim();
-    const codigoProducto = String(row['Codigo Producto'] || '').trim();
-    const denominacionArticulo = row['Denominación articulo']?.trim();
-    const sesion = String(row['Sesion'] || '').trim().toUpperCase();
-
-    if (!razonSocial || !codigoProducto || !denominacionArticulo || !sesion) {
-        errorCount++;
-        errors.push(`Fila con código "${codigoProducto}" omitida por tener campos vacíos.`);
-        continue;
-    }
-    
-    if (!validSessions.includes(sesion)) {
-        errorCount++;
-        errors.push(`Fila con código "${codigoProducto}" tiene una sesión inválida: "${sesion}".`);
-        continue;
+    if (rows.length === 0) {
+      return { success: false, message: 'El archivo está vacío o no tiene el formato correcto.' };
     }
 
-    try {
-        const querySnapshot = await firestore.collection('articulos')
-            .where('razonSocial', '==', razonSocial)
-            .where('codigoProducto', '==', codigoProducto)
-            .limit(1)
-            .get();
+    const dataToProcess: Articulo[] = [];
+    // First, validate all rows and build a clean list to process
+    for (const [index, row] of rows.entries()) {
+      const razonSocial = row['Razón Social']?.trim();
+      const codigoProducto = String(row['Codigo Producto'] || '').trim();
+      const denominacionArticulo = row['Denominación articulo']?.trim();
+      const sesion = String(row['Sesion'] || '').trim().toUpperCase();
+      const rowIndex = index + 2; // For user-friendly error messages (1-based index + header)
 
-        const dataToSave = {
-            razonSocial,
-            codigoProducto,
-            denominacionArticulo,
-            sesion,
-        };
-        
-        if (!querySnapshot.empty) {
-            const doc = querySnapshot.docs[0];
-            const existingData = doc.data();
+      if (!razonSocial || !codigoProducto || !denominacionArticulo || !sesion) {
+          errorCount++;
+          errors.push(`Fila ${rowIndex} omitida por tener campos vacíos.`);
+          continue;
+      }
+      
+      if (!validSessions.includes(sesion)) {
+          errorCount++;
+          errors.push(`Fila ${rowIndex} (código "${codigoProducto}") tiene una sesión inválida: "${sesion}".`);
+          continue;
+      }
 
-            // Compare existing data with data from Excel file
-            if (existingData.denominacionArticulo === dataToSave.denominacionArticulo && existingData.sesion === dataToSave.sesion) {
-                // Data is the same, skip update
-                continue;
+      dataToProcess.push({
+        'Razón Social': razonSocial,
+        'Codigo Producto': codigoProducto,
+        'Denominación articulo': denominacionArticulo,
+        'Sesion': sesion as 'CO' | 'RE' | 'SE',
+      });
+    }
+
+    // Now, process the clean data in batches
+    const chunkSize = 500; // Firestore batch writes can handle up to 500 operations
+    for (let i = 0; i < dataToProcess.length; i += chunkSize) {
+        const chunk = dataToProcess.slice(i, i + chunkSize);
+        const batch = firestore.batch();
+
+        for (const item of chunk) {
+            const querySnapshot = await firestore.collection('articulos')
+                .where('razonSocial', '==', item['Razón Social'])
+                .where('codigoProducto', '==', item['Codigo Producto'])
+                .limit(1)
+                .get();
+
+            const dataToSave = {
+                razonSocial: item['Razón Social'],
+                codigoProducto: item['Codigo Producto'],
+                denominacionArticulo: item['Denominación articulo'],
+                sesion: item['Sesion'],
+            };
+            
+            if (!querySnapshot.empty) {
+                const docRef = querySnapshot.docs[0].ref;
+                batch.update(docRef, dataToSave);
             } else {
-                // Data is different, update it
-                await doc.ref.update(dataToSave);
+                const docRef = firestore.collection('articulos').doc();
+                batch.set(docRef, dataToSave);
             }
-        } else {
-            // Document doesn't exist, create it
-            await firestore.collection('articulos').add(dataToSave);
         }
-        processedCount++;
-
-    } catch(e) {
-        errorCount++;
-        const errorMessage = e instanceof Error ? e.message : 'Error desconocido';
-        errors.push(`Error al procesar fila con código "${codigoProducto}": ${errorMessage}`);
+        await batch.commit();
+        processedCount += chunk.length;
     }
+
+  } catch (e) {
+    const errorMessage = e instanceof Error ? e.message : 'Error desconocido';
+    errors.push(`Error al procesar el archivo: ${errorMessage}`);
+    errorCount++;
   }
+
 
   if (processedCount > 0) {
       revalidatePath('/gestion-articulos');
@@ -97,7 +125,7 @@ export async function uploadArticulos(rows: any[]): Promise<UploadResult> {
   if (errorCount > 0) {
       return {
           success: false,
-          message: `Proceso completado con ${errorCount} errores.`,
+          message: `Proceso completado con ${errorCount} errores. Se procesaron ${processedCount} artículos.`,
           processedCount,
           errorCount,
           errors
@@ -108,7 +136,8 @@ export async function uploadArticulos(rows: any[]): Promise<UploadResult> {
       success: true, 
       message: `Se procesaron (agregaron o actualizaron) ${processedCount} artículos correctamente.`,
       processedCount,
-      errorCount,
-      errors
+      errorCount: 0,
+      errors: []
   };
 }
+

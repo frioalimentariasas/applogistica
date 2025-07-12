@@ -94,8 +94,7 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
 
   // State for upload form
   const [isUploading, setIsUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const uploadInputRef = useRef<HTMLInputElement | null>(null);
+  const uploadFormRef = useRef<HTMLFormElement>(null);
 
   const addForm = useForm<ArticleFormValues>({
     resolver: zodResolver(articleSchema),
@@ -265,83 +264,44 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
     });
   };
 
-  const handleUploadFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-  
-    setIsUploading(true);
-    setUploadProgress(0);
-  
-    try {
-      const data = await file.arrayBuffer();
-      const workbook = XLSX.read(data);
-      const sheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[sheetName];
-      const json = XLSX.utils.sheet_to_json<any>(worksheet);
-  
-      let result: UploadResult = { success: false, message: 'No se procesaron filas.', processedCount: 0, errorCount: 0, errors: [] };
-  
-      if (json.length > 0) {
-        // Ensure the data is plain objects before sending to the server action
-        const plainObjects = json.map(row => ({
-          'Razón Social': row['Razón Social'],
-          'Codigo Producto': row['Codigo Producto'],
-          'Denominación articulo': row['Denominación articulo'],
-          'Sesion': row['Sesion']
-        }));
-  
-        const chunkSize = 10;
-        for (let i = 0; i < plainObjects.length; i += chunkSize) {
-          const chunk = plainObjects.slice(i, i + chunkSize);
-          try {
-            const chunkResult = await uploadArticulos(chunk);
-            result.processedCount = (result.processedCount || 0) + (chunkResult.processedCount || 0);
-            result.errorCount = (result.errorCount || 0) + (chunkResult.errorCount || 0);
-            result.errors = [...(result.errors || []), ...(chunkResult.errors || [])];
-          } catch (e) {
-            console.error(e);
-            result.errorCount = (result.errorCount || 0) + chunk.length;
-            result.errors = [...(result.errors || []), `Error en el servidor al procesar el lote que comienza en la fila ${i + 2}.`];
-          }
-          setUploadProgress(((i + chunk.length) / plainObjects.length) * 100);
-        }
+  const handleUploadFormAction = async (formData: FormData) => {
+      const file = formData.get('file') as File;
+      if (!file || file.size === 0) {
+        toast({
+          variant: 'destructive',
+          title: 'Archivo no seleccionado',
+          description: 'Por favor, seleccione un archivo para cargar.',
+        });
+        return;
       }
       
-      if (result.errorCount > 0) {
-          toast({
-              variant: "destructive",
-              title: `Carga completada con ${result.errorCount} errores`,
-              description: `Se procesaron ${result.processedCount} artículos. Errores: ${result.errors?.slice(0, 2).join(', ')}...`,
-              duration: 9000
-          });
-      } else {
-          toast({
-              title: "Carga completada",
-              description: `Se han procesado ${result.processedCount} artículos exitosamente.`
-          });
-      }
+      setIsUploading(true);
+      const result = await uploadArticulos(formData);
       
-      if (selectedClients.length > 0) {
+      if (result.success) {
+        toast({
+          title: 'Carga Exitosa',
+          description: result.message,
+        });
+        if (selectedClients.length > 0) {
           setIsLoadingArticles(true);
           const fetchedArticles = await getArticulosByClients(selectedClients);
           setArticles(fetchedArticles);
           setIsLoadingArticles(false);
+        }
+      } else {
+         toast({
+          variant: 'destructive',
+          title: 'Error en la Carga',
+          description: `${result.message} ${result.errors?.slice(0, 3).join(', ')}`,
+          duration: 9000,
+        });
       }
-    } catch (error) {
-      console.error("File processing error:", error);
-      toast({
-        variant: "destructive",
-        title: "Error de Archivo",
-        description: "No se pudo leer o procesar el archivo Excel.",
-      });
-    } finally {
-      // Reset file input
-      if (e.target) {
-          e.target.value = '';
+      
+      if (uploadFormRef.current) {
+        uploadFormRef.current.reset();
       }
       setIsUploading(false);
-      setTimeout(() => setUploadProgress(0), 1000);
-    }
   };
   
   const getSelectedClientsText = () => {
@@ -534,28 +494,26 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
                                 El archivo debe tener las columnas: <strong>Razón Social</strong>, <strong>Codigo Producto</strong>, <strong>Denominación articulo</strong> y <strong>Sesion</strong>.
                             </AlertDescription>
                         </Alert>
-                        <div className="space-y-4">
-                            <div className="space-y-1">
-                                <Label htmlFor="file-upload">Archivo Excel</Label>
-                                <Input 
-                                    id="file-upload" 
-                                    name="file" 
-                                    type="file" 
-                                    required 
-                                    accept=".xlsx, .xls"
-                                    onChange={handleUploadFileChange}
-                                    ref={uploadInputRef}
-                                    disabled={isUploading}
-                                    className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
-                                />
-                            </div>
-                            {isUploading && (
-                                <div className="space-y-2">
-                                    <Progress value={uploadProgress} className="w-full" />
-                                    <p className="text-sm text-center text-muted-foreground">Procesando... {Math.round(uploadProgress)}%</p>
-                                </div>
-                            )}
-                        </div>
+                        <form onSubmit={(e) => { e.preventDefault(); handleUploadFormAction(new FormData(e.currentTarget)); }} ref={uploadFormRef}>
+                          <div className="space-y-4">
+                              <div className="space-y-1">
+                                  <Label htmlFor="file-upload">Archivo Excel</Label>
+                                  <Input 
+                                      id="file-upload" 
+                                      name="file" 
+                                      type="file" 
+                                      required 
+                                      accept=".xlsx, .xls"
+                                      disabled={isUploading}
+                                      className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
+                                  />
+                              </div>
+                              <Button type="submit" disabled={isUploading} className="w-full">
+                                {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileUp className="mr-2 h-4 w-4" />}
+                                Cargar Archivo
+                              </Button>
+                          </div>
+                        </form>
                     </CardContent>
                 </Card>
             </div>
@@ -871,3 +829,4 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
     </div>
   );
 }
+
