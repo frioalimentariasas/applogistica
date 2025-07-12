@@ -137,6 +137,10 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
   }, [selectedClients]);
 
   const handleSearch = () => {
+      if (selectedClients.length === 0) {
+          toast({ variant: 'destructive', title: 'Error', description: 'Debe seleccionar al menos un cliente para buscar.' });
+          return;
+      }
       setSearched(true);
       const results = articles.filter(article => {
         const codeMatch = filterCode ? article.codigoProducto.toLowerCase().includes(filterCode.toLowerCase()) : true;
@@ -388,7 +392,7 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         <header className="mb-8">
           <div className="relative flex items-center justify-center text-center">
             <Button variant="ghost" size="icon" className="absolute left-0 top-1/2 -translate-y-1/2" onClick={() => router.push('/')}>
@@ -561,7 +565,12 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
                 <div className="flex justify-between items-center gap-4 flex-wrap">
                     <div>
                         <CardTitle>Consultar Artículos por Cliente</CardTitle>
-                        <CardDescription>Seleccione clientes y filtre para ver y gestionar sus artículos.</CardDescription>
+                        <CardDescription>
+                            {searched 
+                                ? `Se encontraron ${displayedArticles.length} artículos para los filtros seleccionados.`
+                                : "Seleccione clientes y filtre para ver y gestionar sus artículos."
+                            }
+                        </CardDescription>
                     </div>
                      <div className="flex gap-2">
                         {selectedArticleIds.size > 0 && (
@@ -636,7 +645,7 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
                         </DialogContent>
                     </Dialog>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-4">
                     <div className="space-y-1">
                         <Label htmlFor="filter-code">Buscar por Código</Label>
                         <Input id="filter-code" placeholder="Filtrar por código..." value={filterCode} onChange={(e) => setFilterCode(e.target.value)} />
@@ -659,14 +668,14 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
                             </SelectContent>
                         </Select>
                     </div>
-                     <div className="flex items-end gap-2">
+                     <div className="flex items-end gap-2 lg:col-span-3">
                         <Button onClick={handleSearch} className="w-full" disabled={selectedClients.length === 0}>
                             <Search className="mr-2 h-4 w-4" />
                             Buscar
                         </Button>
                         <Button onClick={handleClearFilters} variant="outline" className="w-full">
                             <XCircle className="mr-2 h-4 w-4" />
-                            Limpiar
+                            Limpiar Filtros
                         </Button>
                     </div>
                 </div>
@@ -680,6 +689,7 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
                               checked={isAllSelected}
                               onCheckedChange={(checked) => handleSelectAll(checked === true)}
                               aria-label="Seleccionar todas las filas"
+                              disabled={displayedArticles.length === 0}
                           />
                         </TableHead>
                         <TableHead>Cliente</TableHead>
