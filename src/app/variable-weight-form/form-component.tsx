@@ -194,17 +194,6 @@ const formSchema = z.object({
 }, {
     message: "La hora de fin no puede ser igual a la hora de inicio.",
     path: ["horaFin"],
-}).superRefine((data, ctx) => {
-    const hasSummaryRow = data.items.some(item => item.paleta === 0);
-    const hasDetailRow = data.items.some(item => item.paleta !== 0 && item.paleta !== null);
-
-    if (hasSummaryRow && hasDetailRow) {
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: "No se pueden mezclar ítems de resumen (Paleta 0) con ítems de paletas individuales. Por favor, use solo un método.",
-            path: ["items"],
-        });
-    }
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -286,6 +275,7 @@ export default function VariableWeightFormComponent() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isLoadingForm, setIsLoadingForm] = useState(!!submissionId);
   const [originalSubmission, setOriginalSubmission] = useState<SubmissionResult | null>(null);
+  const [isMixErrorDialogOpen, setMixErrorDialogOpen] = useState(false);
 
 
   const filteredClients = useMemo(() => {
@@ -764,6 +754,15 @@ export default function VariableWeightFormComponent() {
         toast({ variant: "destructive", title: "Error", description: "Debe iniciar sesión para guardar el formato." });
         return;
     }
+
+    const hasSummaryRow = data.items.some(item => Number(item.paleta) === 0);
+    const hasDetailRow = data.items.some(item => Number(item.paleta) > 0);
+
+    if (hasSummaryRow && hasDetailRow) {
+        setMixErrorDialogOpen(true);
+        return;
+    }
+
     setIsSubmitting(true);
     try {
         const finalSummary = calculatedSummaryForDisplay.map(summaryItem => {
@@ -1419,6 +1418,20 @@ export default function VariableWeightFormComponent() {
                   <AlertDialogAction onClick={handleDiscard} className="bg-destructive hover:bg-destructive/90">Limpiar Formato</AlertDialogAction>
               </AlertDialogFooter>
           </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={isMixErrorDialogOpen} onOpenChange={setMixErrorDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Error de Validación</AlertDialogTitle>
+            <AlertDialogDesc>
+              No se pueden mezclar ítems de resumen (Paleta 0) con ítems de paletas individuales. Por favor, use solo un método.
+            </AlertDialogDesc>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction onClick={() => setMixErrorDialogOpen(false)}>Entendido</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
       </AlertDialog>
     </div>
   );
