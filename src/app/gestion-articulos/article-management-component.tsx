@@ -308,9 +308,6 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
   
         if (!result.success) {
           totalErrors += result.errorCount || chunk.length;
-          if (result.errors) {
-            console.error("Errores de carga:", result.errors.join('\n'));
-          }
         }
   
         const progress = ((i + chunkSize) / rows.length) * 100;
