@@ -281,11 +281,19 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
       const workbook = XLSX.read(buffer, { type: 'buffer' });
       const sheetName = workbook.SheetNames[0];
       const sheet = workbook.Sheets[sheetName];
-      const rows: any[] = XLSX.utils.sheet_to_json(sheet);
+      const jsonFromSheet: any[] = XLSX.utils.sheet_to_json(sheet);
   
-      if (rows.length === 0) {
+      if (jsonFromSheet.length === 0) {
         throw new Error("El archivo está vacío o no tiene un formato válido.");
       }
+      
+      // Convert to plain objects to avoid serialization issues with Server Actions
+      const rows = jsonFromSheet.map(row => ({
+        'Razón Social': row['Razón Social'],
+        'Codigo Producto': row['Codigo Producto'],
+        'Denominación articulo': row['Denominación articulo'],
+        'Sesion': row['Sesion']
+      }));
   
       const chunkSize = 50; // Process 50 rows at a time
       for (let i = 0; i < rows.length; i += chunkSize) {
