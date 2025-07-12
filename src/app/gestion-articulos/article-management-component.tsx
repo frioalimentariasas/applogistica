@@ -15,7 +15,7 @@ import { uploadArticulos, type UploadResult } from '../upload-articulos/actions'
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Loader2, Box, PlusCircle, Edit, Trash2, ChevronsUpDown, FileUp, Download, Search, XCircle } from 'lucide-react';
+import { ArrowLeft, Loader2, Box, PlusCircle, Edit, Trash2, ChevronsUpDown, FileUp, Download, Search, XCircle, X } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -96,6 +96,7 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const uploadFormRef = useRef<HTMLFormElement>(null);
+  const isCancelledRef = useRef(false);
 
   const addForm = useForm<ArticleFormValues>({
     resolver: zodResolver(articleSchema),
@@ -274,6 +275,7 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
   
     setIsUploading(true);
     setUploadProgress(0);
+    isCancelledRef.current = false;
     let totalErrors = 0;
   
     try {
@@ -287,7 +289,6 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
         throw new Error("El archivo está vacío o no tiene un formato válido.");
       }
       
-      // Convert to plain objects to avoid serialization issues with Server Actions
       const rows = jsonFromSheet.map(row => ({
         'Razón Social': row['Razón Social'],
         'Codigo Producto': row['Codigo Producto'],
@@ -295,14 +296,18 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
         'Sesion': row['Sesion']
       }));
   
-      const chunkSize = 50; // Process 50 rows at a time
+      const chunkSize = 50; 
       for (let i = 0; i < rows.length; i += chunkSize) {
+        if (isCancelledRef.current) {
+          toast({ title: 'Carga Cancelada', description: 'La carga de archivos ha sido cancelada por el usuario.' });
+          break;
+        }
+
         const chunk = rows.slice(i, i + chunkSize);
-        
         const result = await uploadArticulos(chunk);
   
         if (!result.success) {
-          totalErrors += result.errorCount || chunk.length; // Assume all failed if no count
+          totalErrors += result.errorCount || chunk.length;
           if (result.errors) {
             console.error("Errores de carga:", result.errors.join('\n'));
           }
@@ -312,25 +317,26 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
         setUploadProgress(Math.min(progress, 100));
       }
       
-      if (totalErrors > 0) {
-        toast({
-          variant: 'destructive',
-          title: 'Carga Completada con Errores',
-          description: `Se procesaron ${rows.length} filas con un total de ${totalErrors} errores.`,
-          duration: 9000,
-        });
-      } else {
-        toast({
-          title: 'Carga Exitosa',
-          description: `Se procesaron ${rows.length} artículos con éxito.`,
-        });
+      if (!isCancelledRef.current) {
+        if (totalErrors > 0) {
+          toast({
+            variant: 'destructive',
+            title: 'Carga Completada con Errores',
+            description: `Se procesaron ${rows.length} filas con un total de ${totalErrors} errores.`,
+            duration: 9000,
+          });
+        } else {
+          toast({
+            title: 'Carga Exitosa',
+            description: `Se procesaron ${rows.length} artículos con éxito.`,
+          });
+        }
       }
       
-      // Refresh list if any clients are currently selected
       if (selectedClients.length > 0) {
         const fetchedArticles = await getArticulosByClients(selectedClients);
         setArticles(fetchedArticles);
-        handleSearch(); // Re-apply current filters
+        handleSearch();
       }
   
     } catch (error) {
@@ -342,6 +348,11 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
       }
       setIsUploading(false);
     }
+  };
+
+  const handleCancelUpload = () => {
+    isCancelledRef.current = true;
+    setIsUploading(false);
   };
   
   const getSelectedClientsText = () => {
@@ -549,13 +560,19 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
                                   />
                               </div>
                               <Button type="submit" disabled={isUploading} className="w-full">
-                                {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileUp className="mr-2 h-4 w-4" />}
+                                <FileUp className="mr-2 h-4 w-4" />
                                 Cargar Archivo
                               </Button>
                               {isUploading && (
                                 <div className="mt-4 space-y-2">
                                     <Progress value={uploadProgress} className="w-full" />
-                                    <p className="text-sm text-center text-muted-foreground">Procesando... {Math.round(uploadProgress)}%</p>
+                                    <div className="flex justify-between items-center">
+                                      <p className="text-sm text-center text-muted-foreground">Procesando... {Math.round(uploadProgress)}%</p>
+                                      <Button type="button" variant="ghost" size="sm" onClick={handleCancelUpload}>
+                                        <X className="mr-2 h-4 w-4" />
+                                        Cancelar
+                                      </Button>
+                                    </div>
                                 </div>
                               )}
                           </div>
