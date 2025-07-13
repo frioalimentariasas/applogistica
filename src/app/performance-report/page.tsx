@@ -119,7 +119,7 @@ export default function PerformanceReportPage() {
     const today = new Date();
     const sixtyTwoDaysAgo = subDays(today, 62);
     
-    const { user, isAdmin, loading: authLoading } = useAuth();
+    const { permissions, loading: authLoading } = useAuth();
     
     const [dateRange, setDateRange] = useState<DateRange | undefined>({ from: subDays(today, 7), to: today });
     const [selectedOperario, setSelectedOperario] = useState<string>('all');
@@ -325,7 +325,7 @@ export default function PerformanceReportPage() {
         )
     }
 
-    if (!isAdmin) {
+    if (!permissions.canViewPerformanceReport) {
         return (
             <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8 flex items-center justify-center">
                 <div className="max-w-xl mx-auto text-center">
@@ -484,3 +484,4 @@ export default function PerformanceReportPage() {
         </div>
     );
 }
+
