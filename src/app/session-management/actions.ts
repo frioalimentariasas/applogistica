@@ -98,6 +98,20 @@ export async function getUserPermissions(email: string): Promise<AppPermissions>
     if (!firestore) {
         throw new Error('Firestore no está inicializado.');
     }
+
+    // Special override for the super admin user
+    if (email === 'sistemas@frioalimentaria.com.co') {
+        return {
+            canGenerateForms: true,
+            canConsultForms: true,
+            canViewPerformanceReport: true,
+            canManageArticles: true,
+            canManageClients: true,
+            canViewBillingReports: true,
+            canManageSessions: true,
+        };
+    }
+
     const docRef = firestore.collection('user_permissions').doc(email);
     const doc = await docRef.get();
     if (!doc.exists) {
