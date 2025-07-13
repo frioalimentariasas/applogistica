@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm, Controller } from 'react-hook-form';
-import { useAuth } from '@/hooks/use-auth';
+import { useAuth, type AppPermissions, defaultPermissions } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -14,9 +14,7 @@ import {
     revokeUserSession, 
     getAllUserPermissions,
     setUserPermissions,
-    type ActiveUser, 
-    type AppPermissions,
-    defaultPermissions
+    type ActiveUser
 } from './actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
