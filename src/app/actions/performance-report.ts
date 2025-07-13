@@ -146,8 +146,10 @@ export async function getPerformanceReport(criteria: PerformanceReportCriteria):
     } catch (error) {
         console.error('Error fetching performance report:', error);
         if (error instanceof Error && error.message.includes('requires an index')) {
+            // Throw a more user-friendly error that the client can display
             throw new Error('La consulta requiere un índice compuesto en Firestore. Por favor, revise los registros del servidor para crear el índice necesario.');
         }
+        // Re-throw the original error to ensure it's logged in the server logs
         throw error;
     }
 }
