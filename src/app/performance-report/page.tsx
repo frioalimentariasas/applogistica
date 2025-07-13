@@ -4,7 +4,7 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { DateRange } from 'react-day-picker';
-import { format, subDays } from 'date-fns';
+import { format, subDays, addDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -53,6 +53,20 @@ const formatTime12Hour = (time24: string | undefined): string => {
     h = h ? h : 12; // the hour '0' should be '12'
     return `${h}:${minutes} ${ampm}`;
 };
+
+const formatDuration = (totalMinutes: number | null): string => {
+    if (totalMinutes === null || totalMinutes < 0) return 'N/A';
+    if (totalMinutes < 60) {
+        return `${totalMinutes} min`;
+    }
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    if (minutes === 0) {
+        return `${hours}h`;
+    }
+    return `${hours}h ${minutes}m`;
+};
+
 
 export default function PerformanceReportPage() {
     const router = useRouter();
@@ -122,9 +136,8 @@ export default function PerformanceReportPage() {
                     description: "No se encontraron operaciones para los filtros seleccionados.",
                 });
             }
-        } catch (error) {
+        } catch (error: any) {
             const errorMessage = error instanceof Error ? error.message : "Ocurrió un error desconocido.";
-            // Log the full error to the console for debugging
             console.error("Error generating performance report:", error);
             
             toast({
@@ -185,7 +198,7 @@ export default function PerformanceReportPage() {
 
         autoTable(doc, {
             startY: 40,
-            head: [['Fecha', 'Operario', 'Cliente', 'Tipo Op.', 'Pedido', 'H. Inicio', 'H. Fin', 'Duración (Min)']],
+            head: [['Fecha', 'Operario', 'Cliente', 'Tipo Op.', 'Pedido', 'H. Inicio', 'H. Fin', 'Duración']],
             body: reportData.map(row => [
                 format(new Date(row.fecha), 'dd/MM/yy'),
                 row.operario,
@@ -194,7 +207,7 @@ export default function PerformanceReportPage() {
                 row.pedidoSislog,
                 formatTime12Hour(row.horaInicio),
                 formatTime12Hour(row.horaFin),
-                row.duracionMinutos ?? 'N/A'
+                formatDuration(row.duracionMinutos)
             ]),
             headStyles: { fillColor: [33, 150, 243] },
             theme: 'grid',
@@ -302,7 +315,7 @@ export default function PerformanceReportPage() {
                                     }
                                     {reportData.length > 0 && (
                                         <span className="ml-2 font-semibold text-foreground">
-                                            Duración total: {totalDuration} minutos.
+                                            Duración total: {formatDuration(totalDuration)}.
                                         </span>
                                     )}
                                 </CardDescription>
@@ -329,7 +342,7 @@ export default function PerformanceReportPage() {
                                         <TableHead>Pedido</TableHead>
                                         <TableHead>H. Inicio</TableHead>
                                         <TableHead>H. Fin</TableHead>
-                                        <TableHead className="text-right">Duración (Minutos)</TableHead>
+                                        <TableHead className="text-right">Duración</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -345,7 +358,7 @@ export default function PerformanceReportPage() {
                                                 <TableCell>{row.pedidoSislog}</TableCell>
                                                 <TableCell>{formatTime12Hour(row.horaInicio)}</TableCell>
                                                 <TableCell>{formatTime12Hour(row.horaFin)}</TableCell>
-                                                <TableCell className="text-right font-medium">{row.duracionMinutos ?? 'N/A'}</TableCell>
+                                                <TableCell className="text-right font-medium">{formatDuration(row.duracionMinutos)}</TableCell>
                                             </TableRow>
                                         ))
                                     ) : (
