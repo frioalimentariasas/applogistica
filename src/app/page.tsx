@@ -217,16 +217,16 @@ export default function Home() {
                 <span>Consultar Formatos Guardados</span>
               </DropdownMenuItem>
               {(canViewBilling || isAdmin) && (
-                <>
-                    <DropdownMenuItem onSelect={() => router.push('/billing-reports')}>
-                      <BookCopy className="mr-2 h-4 w-4" />
-                      <span>Informes para Facturación</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onSelect={() => router.push('/performance-report')}>
-                        <Timer className="mr-2 h-4 w-4" />
-                        <span>Informe de Desempeño</span>
-                    </DropdownMenuItem>
-                </>
+                <DropdownMenuItem onSelect={() => router.push('/billing-reports')}>
+                    <BookCopy className="mr-2 h-4 w-4" />
+                    <span>Informes para Facturación</span>
+                </DropdownMenuItem>
+              )}
+              {isAdmin && (
+                <DropdownMenuItem onSelect={() => router.push('/performance-report')}>
+                    <Timer className="mr-2 h-4 w-4" />
+                    <span>Informe de Desempeño</span>
+                </DropdownMenuItem>
               )}
               {!isOperario && !isViewer && (
                 <>

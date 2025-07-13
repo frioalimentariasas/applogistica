@@ -21,7 +21,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, File, FileDown, FolderSearch, Timer, ChevronsUpDown } from 'lucide-react';
+import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, File, FileDown, FolderSearch, Timer, ChevronsUpDown, ShieldAlert } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -43,6 +43,19 @@ const EmptyState = ({ searched }: { searched: boolean; }) => (
         </TableCell>
     </TableRow>
 );
+
+const AccessDenied = () => (
+    <div className="flex flex-col items-center justify-center text-center gap-4">
+        <div className="rounded-full bg-destructive/10 p-4">
+            <ShieldAlert className="h-12 w-12 text-destructive" />
+        </div>
+        <h3 className="text-xl font-semibold">Acceso Denegado</h3>
+        <p className="text-muted-foreground">
+            No tiene permisos para acceder a esta página.
+        </p>
+    </div>
+);
+
 
 const getImageWithDimensions = (src: string): Promise<{ width: number; height: number }> => {
     return new Promise((resolve, reject) => {
@@ -106,7 +119,7 @@ export default function PerformanceReportPage() {
     const today = new Date();
     const sixtyTwoDaysAgo = subDays(today, 62);
     
-    const { user, isAdmin } = useAuth();
+    const { user, isAdmin, loading: authLoading } = useAuth();
     
     const [dateRange, setDateRange] = useState<DateRange | undefined>({ from: subDays(today, 7), to: today });
     const [selectedOperario, setSelectedOperario] = useState<string>('all');
@@ -194,8 +207,8 @@ export default function PerformanceReportPage() {
                 });
             }
         } catch (error: any) {
+            console.error("Performance Report Error:", error);
             const errorMessage = error instanceof Error ? error.message : "Ocurrió un error desconocido.";
-            console.error(errorMessage);
             
             toast({
                 variant: 'destructive',
@@ -304,12 +317,26 @@ export default function PerformanceReportPage() {
         doc.save(fileName);
     };
 
-    if (!isAdmin && !user) {
-        // user object might not be loaded yet, so wait. If it's loaded and not admin, then deny.
-        return null; 
+    if (authLoading) {
+        return (
+             <div className="flex min-h-screen w-full items-center justify-center">
+                <Loader2 className="h-12 w-12 animate-spin text-primary" />
+             </div>
+        )
     }
-    if (user && !isAdmin) {
-        return <div className="p-8 text-center">Acceso denegado.</div>;
+
+    if (!isAdmin) {
+        return (
+            <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8 flex items-center justify-center">
+                <div className="max-w-xl mx-auto text-center">
+                    <AccessDenied />
+                     <Button onClick={() => router.push('/')} className="mt-6">
+                        <ArrowLeft className="mr-2 h-4 w-4" />
+                        Volver al Inicio
+                    </Button>
+                </div>
+            </div>
+        );
     }
 
     return (
