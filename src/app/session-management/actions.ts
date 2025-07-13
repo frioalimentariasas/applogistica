@@ -16,17 +16,15 @@ export interface ActiveUser {
     tokensValidAfterTime?: string;
 }
 
-const userDisplayNameMap: Record<string, string> = {
-    'frioal.operario1@gmail.com': 'Andres Blanco',
-    'frioal.operario2@gmail.com': 'Estefany Olier',
-    'frioal.operario3@gmail.com': 'Fabian Espitia',
-    'frioal.operario4@gmail.com': 'Rumir Pajaro',
-    'planta@frioalimentaria.com.co': 'Coordinador Logístico',
-    'logistica@frioalimentaria.com.co': 'Flor Simanca',
-    'facturacion@frioalimentaria.com.co': 'Daniela Díaz',
-    'procesos@frioalimentaria.com.co': 'Suri Lambraño',
-    'sistemas@frioalimentaria.com.co': 'Cristian Jaramillo',
-};
+async function getUserDisplayNameMap(): Promise<Record<string, string>> {
+    if (!firestore) return {};
+    const snapshot = await firestore.collection('user_display_names').get();
+    const map: Record<string, string> = {};
+    snapshot.forEach(doc => {
+        map[doc.id] = doc.data().displayName;
+    });
+    return map;
+}
 
 export async function listActiveUsers(): Promise<ActiveUser[]> {
     if (!auth) {
@@ -34,18 +32,15 @@ export async function listActiveUsers(): Promise<ActiveUser[]> {
     }
 
     try {
-        const userRecords: UserRecord[] = [];
-        let nextPageToken;
-        do {
-            const listUsersResult = await auth.listUsers(1000, nextPageToken);
-            userRecords.push(...listUsersResult.users);
-            nextPageToken = listUsersResult.pageToken;
-        } while (nextPageToken);
+        const [userRecordsResult, displayNameMap] = await Promise.all([
+            auth.listUsers(1000),
+            getUserDisplayNameMap()
+        ]);
         
-        const users = userRecords.map((user) => ({
+        const users = userRecordsResult.users.map((user) => ({
             uid: user.uid,
             email: user.email,
-            displayName: user.email ? userDisplayNameMap[user.email] || user.displayName || user.email : 'N/A',
+            displayName: user.email ? displayNameMap[user.email] || user.displayName || user.email : 'N/A',
             lastSignInTime: user.metadata.lastSignInTime,
             creationTime: user.metadata.creationTime,
             lastRefreshTime: user.metadata.lastRefreshTime,
@@ -92,7 +87,6 @@ export async function revokeUserSession(uid: string): Promise<{ success: boolean
     }
 }
 
-// ---- New Permission Management Actions ----
 
 export async function getUserPermissions(email: string): Promise<AppPermissions> {
     if (!firestore) {
@@ -144,4 +138,54 @@ export async function getAllUserPermissions(): Promise<Record<string, AppPermiss
         permissions[doc.id] = { ...defaultPermissions, ...doc.data() } as AppPermissions;
     });
     return permissions;
+}
+
+// ---- New User Management Actions ----
+
+export async function createUser(data: { email: string; password_1: string; displayName: string }): Promise<{ success: boolean; message: string }> {
+    if (!auth || !firestore) {
+        return { success: false, message: 'El servidor no está configurado correctamente.' };
+    }
+    try {
+        const { email, password_1: password, displayName } = data;
+        const userRecord = await auth.createUser({
+            email,
+            password,
+            displayName, // This sets the native Firebase Auth display name as a fallback
+        });
+        
+        // Also save the display name to our custom collection for consistency
+        await firestore.collection('user_display_names').doc(email).set({ displayName });
+
+        return { success: true, message: `Usuario ${email} creado con éxito.` };
+    } catch (error: any) {
+        console.error('Error creating user:', error);
+        return { success: false, message: `Error al crear el usuario: ${error.message}` };
+    }
+}
+
+export async function updateUserPassword(uid: string, password_1: string): Promise<{ success: boolean; message: string }> {
+    if (!auth) {
+        return { success: false, message: 'El servidor no está configurado correctamente.' };
+    }
+    try {
+        await auth.updateUser(uid, { password: password_1 });
+        return { success: true, message: 'Contraseña actualizada con éxito.' };
+    } catch (error: any) {
+        console.error('Error updating password:', error);
+        return { success: false, message: `Error al actualizar la contraseña: ${error.message}` };
+    }
+}
+
+export async function updateUserDisplayName(email: string, displayName: string): Promise<{ success: boolean; message: string }> {
+    if (!firestore) {
+        return { success: false, message: 'El servidor no está configurado correctamente.' };
+    }
+    try {
+        await firestore.collection('user_display_names').doc(email).set({ displayName });
+        return { success: true, message: 'Nombre de usuario actualizado con éxito.' };
+    } catch (error: any) {
+        console.error('Error updating display name:', error);
+        return { success: false, message: `Error al actualizar el nombre: ${error.message}` };
+    }
 }

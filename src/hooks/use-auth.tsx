@@ -3,8 +3,9 @@
 
 import React, { type ReactNode, useEffect, useState, useContext, useCallback } from 'react';
 import { onAuthStateChanged, User } from 'firebase/auth';
-import { auth } from '@/lib/firebase';
+import { auth, app } from '@/lib/firebase';
 import { getUserPermissions } from '@/app/session-management/actions';
+import { getFirestore, doc, getDoc } from 'firebase/firestore';
 
 export interface AppPermissions {
   canGenerateForms: boolean;
@@ -27,18 +28,6 @@ export const defaultPermissions: AppPermissions = {
 };
 
 
-const userDisplayNameMap: Record<string, string> = {
-  'frioal.operario1@gmail.com': 'Andres Blanco',
-  'frioal.operario2@gmail.com': 'Estefany Olier',
-  'frioal.operario3@gmail.com': 'Fabian Espitia',
-  'frioal.operario4@gmail.com': 'Rumir Pajaro',
-  'planta@frioalimentaria.com.co': 'Coordinador Logístico',
-  'logistica@frioalimentaria.com.co': 'Flor Simanca',
-  'facturacion@frioalimentaria.com.co': 'Daniela Díaz',
-  'procesos@frioalimentaria.com.co': 'Suri Lambraño',
-  'sistemas@frioalimentaria.com.co': 'Cristian Jaramillo',
-};
-
 type AuthContextType = {
   user: User | null;
   loading: boolean;
@@ -60,7 +49,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [permissions, setPermissions] = useState<AppPermissions>(defaultPermissions);
   
   useEffect(() => {
-    if (!auth) {
+    if (!auth || !app) {
       setUser(null);
       setDisplayName(null);
       setPermissions(defaultPermissions);
@@ -70,7 +59,16 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user);
       if (user && user.email) {
-        setDisplayName(userDisplayNameMap[user.email] || user.email);
+        const db = getFirestore(app);
+        const nameDocRef = doc(db, 'user_display_names', user.email);
+        const nameDoc = await getDoc(nameDocRef);
+        
+        if (nameDoc.exists()) {
+          setDisplayName(nameDoc.data().displayName);
+        } else {
+          setDisplayName(user.displayName || user.email);
+        }
+        
         try {
           const userPerms = await getUserPermissions(user.email);
           setPermissions(userPerms);

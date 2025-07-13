@@ -4,6 +4,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm, Controller } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
 import { useAuth, type AppPermissions, defaultPermissions } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
@@ -14,6 +16,9 @@ import {
     revokeUserSession, 
     getAllUserPermissions,
     setUserPermissions,
+    createUser,
+    updateUserPassword,
+    updateUserDisplayName,
     type ActiveUser
 } from './actions';
 import { Button } from '@/components/ui/button';
@@ -30,8 +35,10 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, RefreshCw, ShieldAlert, ShieldCheck, UserX, Loader2, KeyRound } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { ArrowLeft, RefreshCw, ShieldAlert, ShieldCheck, UserX, Loader2, KeyRound, UserPlus, Pencil, KeySquare } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
@@ -70,6 +77,25 @@ const permissionLabels: { key: keyof AppPermissions; label: string }[] = [
     { key: 'canManageSessions', label: 'Gestionar Sesiones y Permisos' },
 ];
 
+const addUserSchema = z.object({
+  email: z.string().email({ message: 'Debe ser un correo válido.' }),
+  password_1: z.string().min(6, { message: 'La contraseña debe tener al menos 6 caracteres.' }),
+  displayName: z.string().min(3, { message: 'El nombre debe tener al menos 3 caracteres.' }),
+});
+
+const changePasswordSchema = z.object({
+  password_1: z.string().min(6, 'La nueva contraseña debe tener al menos 6 caracteres.'),
+  password_2: z.string(),
+}).refine(data => data.password_1 === data.password_2, {
+  message: 'Las contraseñas no coinciden.',
+  path: ['password_2'],
+});
+
+const editNameSchema = z.object({
+    displayName: z.string().min(3, { message: 'El nombre debe tener al menos 3 caracteres.' }),
+});
+
+
 export default function SessionManagementComponent() {
     const router = useRouter();
     const { user, permissions, loading: authLoading } = useAuth();
@@ -87,7 +113,17 @@ export default function SessionManagementComponent() {
     const [isPermissionsDialogOpen, setIsPermissionsDialogOpen] = useState(false);
     const [isSavingPermissions, setIsSavingPermissions] = useState(false);
     
-    const { control, handleSubmit, reset } = useForm<AppPermissions>();
+    // State for user management dialogs
+    const [isAddUserOpen, setIsAddUserOpen] = useState(false);
+    const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+    const [isEditNameOpen, setIsEditNameOpen] = useState(false);
+
+    // Forms
+    const permissionsForm = useForm<AppPermissions>();
+    const addUserForm = useForm<z.infer<typeof addUserSchema>>({ resolver: zodResolver(addUserSchema) });
+    const changePasswordForm = useForm<z.infer<typeof changePasswordSchema>>({ resolver: zodResolver(changePasswordSchema) });
+    const editNameForm = useForm<z.infer<typeof editNameSchema>>({ resolver: zodResolver(editNameSchema) });
+
 
     const fetchAllData = async () => {
         setIsLoading(true);
@@ -141,7 +177,7 @@ export default function SessionManagementComponent() {
         setUserToEdit(userToManage);
         const userEmail = userToManage.email || '';
         const currentPerms = allPermissions[userEmail] || defaultPermissions;
-        reset(currentPerms);
+        permissionsForm.reset(currentPerms);
         setIsPermissionsDialogOpen(true);
     };
 
@@ -158,6 +194,43 @@ export default function SessionManagementComponent() {
             toast({ variant: 'destructive', title: 'Error', description: result.message });
         }
         setIsSavingPermissions(false);
+    };
+
+    const handleAddUser = async (data: z.infer<typeof addUserSchema>) => {
+        const result = await createUser(data);
+        if (result.success) {
+            toast({ title: 'Éxito', description: result.message });
+            setIsAddUserOpen(false);
+            addUserForm.reset();
+            await fetchAllData();
+        } else {
+            toast({ variant: 'destructive', title: 'Error', description: result.message });
+        }
+    };
+
+    const handleChangePassword = async (data: z.infer<typeof changePasswordSchema>) => {
+        if (!userToEdit) return;
+        const result = await updateUserPassword(userToEdit.uid, data.password_1);
+        if (result.success) {
+            toast({ title: 'Éxito', description: result.message });
+            setIsChangePasswordOpen(false);
+            changePasswordForm.reset();
+        } else {
+            toast({ variant: 'destructive', title: 'Error', description: result.message });
+        }
+    };
+    
+    const handleEditName = async (data: z.infer<typeof editNameSchema>) => {
+        if (!userToEdit || !userToEdit.email) return;
+        const result = await updateUserDisplayName(userToEdit.email, data.displayName);
+        if (result.success) {
+            toast({ title: 'Éxito', description: result.message });
+            setIsEditNameOpen(false);
+            editNameForm.reset();
+            await fetchAllData();
+        } else {
+            toast({ variant: 'destructive', title: 'Error', description: result.message });
+        }
     };
 
     if (authLoading) {
@@ -184,7 +257,7 @@ export default function SessionManagementComponent() {
     
     return (
         <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
-            <div className="max-w-4xl mx-auto">
+            <div className="max-w-6xl mx-auto">
                 <header className="mb-8">
                   <div className="relative flex items-center justify-center text-center">
                     <Button variant="ghost" size="icon" className="absolute left-0 top-1/2 -translate-y-1/2" onClick={() => router.push('/')}>
@@ -207,10 +280,13 @@ export default function SessionManagementComponent() {
                                 <CardTitle>Usuarios del Sistema</CardTitle>
                                 <CardDescription>Listado de todos los usuarios, su última actividad y sus roles.</CardDescription>
                             </div>
-                             <Button variant="outline" onClick={fetchAllData} disabled={isLoading}>
-                                <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-                                Refrescar
-                            </Button>
+                            <div className="flex gap-2">
+                                <Button onClick={() => setIsAddUserOpen(true)}><UserPlus className="mr-2 h-4 w-4" />Agregar Usuario</Button>
+                                <Button variant="outline" onClick={fetchAllData} disabled={isLoading}>
+                                    <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                                    Refrescar
+                                </Button>
+                            </div>
                         </div>
                     </CardHeader>
                     <CardContent>
@@ -251,6 +327,7 @@ export default function SessionManagementComponent() {
                                             
                                             const isEffectivelyRevoked = tokensValidAfter ? tokensValidAfter.getTime() > lastActivityDate.getTime() : false;
                                             const isRevoked = wasJustRevokedInUI || isEffectivelyRevoked;
+                                            const isSuperAdmin = u.email === 'sistemas@frioalimentaria.com.co';
 
                                             return (
                                                 <TableRow key={u.uid} className={u.uid === user?.uid ? 'bg-blue-50' : ''}>
@@ -265,25 +342,15 @@ export default function SessionManagementComponent() {
                                                     </TableCell>
                                                     <TableCell className="text-right">
                                                         <div className="flex items-center justify-end gap-1">
-                                                            <Button
-                                                                variant="outline"
-                                                                size="sm"
-                                                                onClick={() => handleOpenPermissionsDialog(u)}
-                                                                disabled={u.email === 'sistemas@frioalimentaria.com.co'}
-                                                            >
-                                                                <KeyRound className="mr-2 h-4 w-4" />
-                                                                Permisos
-                                                            </Button>
+                                                            <Button variant="outline" size="sm" onClick={() => { setUserToEdit(u); editNameForm.setValue("displayName", u.displayName || ""); setIsEditNameOpen(true); }}><Pencil className="mr-2 h-4 w-4" />Nombre</Button>
+                                                            <Button variant="outline" size="sm" onClick={() => { setUserToEdit(u); setIsChangePasswordOpen(true); }}><KeySquare className="mr-2 h-4 w-4" />Contraseña</Button>
+                                                            <Button variant="outline" size="sm" onClick={() => handleOpenPermissionsDialog(u)} disabled={isSuperAdmin}><KeyRound className="mr-2 h-4 w-4" />Permisos</Button>
                                                             <Button 
                                                                 variant={isRevoked ? "secondary" : "destructive"}
                                                                 size="sm"
                                                                 onClick={() => setUserToRevoke(u)}
-                                                                disabled={u.uid === user?.uid || isRevoked}
-                                                                title={
-                                                                    u.uid === user?.uid ? 'No puede revocar su propia sesión' 
-                                                                    : isRevoked ? 'La sesión ya está revocada. El usuario debe volver a iniciar sesión.'
-                                                                    : 'Revocar sesión'
-                                                                }
+                                                                disabled={u.uid === user?.uid || isRevoked || isSuperAdmin}
+                                                                title={isSuperAdmin ? 'No se puede revocar al Super Admin' : u.uid === user?.uid ? 'No puede revocar su propia sesión' : isRevoked ? 'La sesión ya está revocada.' : 'Revocar sesión'}
                                                             >
                                                                 <UserX className="mr-2 h-4 w-4" />
                                                                 {isRevoked ? "Revocada" : "Revocar"}
@@ -332,38 +399,101 @@ export default function SessionManagementComponent() {
                             Asigne o revoque accesos para el usuario <strong>{userToEdit?.displayName}</strong>.
                         </DialogDescription>
                     </DialogHeader>
-                    <form onSubmit={handleSubmit(handleSavePermissions)}>
-                        <div className="space-y-4 py-4">
-                            {permissionLabels.map(({ key, label }) => (
-                                <Controller
-                                    key={key}
-                                    name={key}
-                                    control={control}
-                                    render={({ field }) => (
-                                        <div className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                                            <div className="space-y-0.5">
-                                                <Label htmlFor={key} className="text-base">{label}</Label>
+                    <Form {...permissionsForm}>
+                        <form onSubmit={permissionsForm.handleSubmit(handleSavePermissions)}>
+                            <div className="space-y-4 py-4">
+                                {permissionLabels.map(({ key, label }) => (
+                                    <Controller
+                                        key={key}
+                                        name={key}
+                                        control={permissionsForm.control}
+                                        render={({ field }) => (
+                                            <div className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                                                <div className="space-y-0.5">
+                                                    <Label htmlFor={key} className="text-base">{label}</Label>
+                                                </div>
+                                                <Checkbox
+                                                    id={key}
+                                                    checked={field.value}
+                                                    onCheckedChange={field.onChange}
+                                                />
                                             </div>
-                                            <Checkbox
-                                                id={key}
-                                                checked={field.value}
-                                                onCheckedChange={field.onChange}
-                                            />
-                                        </div>
-                                    )}
-                                />
-                            ))}
-                        </div>
-                        <DialogFooter>
-                            <Button type="button" variant="outline" onClick={() => setIsPermissionsDialogOpen(false)}>Cancelar</Button>
-                            <Button type="submit" disabled={isSavingPermissions}>
-                                {isSavingPermissions && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                Guardar Permisos
-                            </Button>
-                        </DialogFooter>
-                    </form>
+                                        )}
+                                    />
+                                ))}
+                            </div>
+                            <DialogFooter>
+                                <Button type="button" variant="outline" onClick={() => setIsPermissionsDialogOpen(false)}>Cancelar</Button>
+                                <Button type="submit" disabled={isSavingPermissions}>
+                                    {isSavingPermissions && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    Guardar Permisos
+                                </Button>
+                            </DialogFooter>
+                        </form>
+                    </Form>
                 </DialogContent>
             </Dialog>
+
+            <Dialog open={isAddUserOpen} onOpenChange={setIsAddUserOpen}>
+                <DialogContent>
+                    <DialogHeader><DialogTitle>Agregar Nuevo Usuario</DialogTitle></DialogHeader>
+                    <Form {...addUserForm}>
+                        <form onSubmit={addUserForm.handleSubmit(handleAddUser)} className="space-y-4">
+                            <FormField name="email" control={addUserForm.control} render={({ field }) => (
+                                <FormItem><FormLabel>Correo Electrónico</FormLabel><FormControl><Input placeholder="usuario@ejemplo.com" {...field} /></FormControl><FormMessage /></FormItem>
+                            )}/>
+                            <FormField name="password_1" control={addUserForm.control} render={({ field }) => (
+                                <FormItem><FormLabel>Contraseña</FormLabel><FormControl><Input type="password" placeholder="Mínimo 6 caracteres" {...field} /></FormControl><FormMessage /></FormItem>
+                            )}/>
+                            <FormField name="displayName" control={addUserForm.control} render={({ field }) => (
+                                <FormItem><FormLabel>Nombre para Mostrar</FormLabel><FormControl><Input placeholder="Nombre Apellido" {...field} /></FormControl><FormMessage /></FormItem>
+                            )}/>
+                            <DialogFooter>
+                                <Button type="button" variant="outline" onClick={() => setIsAddUserOpen(false)}>Cancelar</Button>
+                                <Button type="submit" disabled={addUserForm.formState.isSubmitting}><UserPlus className="mr-2 h-4 w-4"/>Crear Usuario</Button>
+                            </DialogFooter>
+                        </form>
+                    </Form>
+                </DialogContent>
+            </Dialog>
+            
+            <Dialog open={isChangePasswordOpen} onOpenChange={setIsChangePasswordOpen}>
+                <DialogContent>
+                    <DialogHeader><DialogTitle>Cambiar Contraseña</DialogTitle><DialogDescription>Establezca una nueva contraseña para {userToEdit?.displayName}.</DialogDescription></DialogHeader>
+                    <Form {...changePasswordForm}>
+                        <form onSubmit={changePasswordForm.handleSubmit(handleChangePassword)} className="space-y-4">
+                            <FormField name="password_1" control={changePasswordForm.control} render={({ field }) => (
+                                <FormItem><FormLabel>Nueva Contraseña</FormLabel><FormControl><Input type="password" placeholder="Mínimo 6 caracteres" {...field} /></FormControl><FormMessage /></FormItem>
+                            )}/>
+                             <FormField name="password_2" control={changePasswordForm.control} render={({ field }) => (
+                                <FormItem><FormLabel>Confirmar Contraseña</FormLabel><FormControl><Input type="password" placeholder="Repita la contraseña" {...field} /></FormControl><FormMessage /></FormItem>
+                            )}/>
+                            <DialogFooter>
+                                <Button type="button" variant="outline" onClick={() => setIsChangePasswordOpen(false)}>Cancelar</Button>
+                                <Button type="submit" disabled={changePasswordForm.formState.isSubmitting}>Actualizar Contraseña</Button>
+                            </DialogFooter>
+                        </form>
+                    </Form>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={isEditNameOpen} onOpenChange={setIsEditNameOpen}>
+                <DialogContent>
+                    <DialogHeader><DialogTitle>Editar Nombre</DialogTitle><DialogDescription>Cambie el nombre que se muestra para {userToEdit?.email}.</DialogDescription></DialogHeader>
+                    <Form {...editNameForm}>
+                        <form onSubmit={editNameForm.handleSubmit(handleEditName)} className="space-y-4">
+                            <FormField name="displayName" control={editNameForm.control} render={({ field }) => (
+                                <FormItem><FormLabel>Nuevo Nombre</FormLabel><FormControl><Input placeholder="Nombre Apellido" {...field} /></FormControl><FormMessage /></FormItem>
+                            )}/>
+                            <DialogFooter>
+                                <Button type="button" variant="outline" onClick={() => setIsEditNameOpen(false)}>Cancelar</Button>
+                                <Button type="submit" disabled={editNameForm.formState.isSubmitting}>Actualizar Nombre</Button>
+                            </DialogFooter>
+                        </form>
+                    </Form>
+                </DialogContent>
+            </Dialog>
+
         </div>
     )
 }
