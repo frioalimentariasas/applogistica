@@ -92,6 +92,11 @@ export async function getPerformanceReport(criteria: PerformanceReportCriteria):
 
     query = query.where('createdAt', '>=', serverQueryStartDate.toISOString().split('T')[0])
                  .where('createdAt', '<', serverQueryEndDate.toISOString().split('T')[0]);
+
+    // Apply operario filter at the query level. This might require a composite index.
+    if (criteria.operario) {
+        query = query.where('userDisplayName', '==', criteria.operario);
+    }
     
     const snapshot = await query.get();
     
@@ -104,16 +109,14 @@ export async function getPerformanceReport(criteria: PerformanceReportCriteria):
     });
 
     // Then, filter the serialized documents by the correct local date
-    const dateFilteredSubmissions = allSubmissions.filter(submission => {
+    let results = allSubmissions.filter(submission => {
         const formIsoDate = submission.formData?.fecha;
         if (!formIsoDate || typeof formIsoDate !== 'string') {
             return false;
         }
         const formDatePart = getLocalGroupingDate(formIsoDate);
         return formDatePart >= criteria.startDate! && formDatePart <= criteria.endDate!;
-    });
-    
-    let results = dateFilteredSubmissions.map(submission => {
+    }).map(submission => {
         const { id, formType, formData, userDisplayName } = submission;
 
         let tipoOperacion = 'N/A';
@@ -135,11 +138,6 @@ export async function getPerformanceReport(criteria: PerformanceReportCriteria):
             duracionMinutos: calculateDuration(formData.horaInicio, formData.horaFin),
         };
     });
-
-    // Now, apply the operario filter in memory
-    if (criteria.operario) {
-        results = results.filter(row => row.operario === criteria.operario);
-    }
     
     results.sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
 
