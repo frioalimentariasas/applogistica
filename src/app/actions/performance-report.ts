@@ -83,6 +83,11 @@ export async function getPerformanceReport(criteria: PerformanceReportCriteria):
     
     let query: admin.firestore.Query = firestore.collection('submissions');
     
+    // Apply operario filter at the query level. This might require a composite index.
+    if (criteria.operario) {
+        query = query.where('userDisplayName', '==', criteria.operario);
+    }
+    
     // Widen the server query to account for timezone differences
     const serverQueryStartDate = new Date(criteria.startDate);
     serverQueryStartDate.setDate(serverQueryStartDate.getDate() - 1);
@@ -93,55 +98,58 @@ export async function getPerformanceReport(criteria: PerformanceReportCriteria):
     query = query.where('createdAt', '>=', serverQueryStartDate.toISOString().split('T')[0])
                  .where('createdAt', '<', serverQueryEndDate.toISOString().split('T')[0]);
 
-    // Apply operario filter at the query level. This might require a composite index.
-    if (criteria.operario) {
-        query = query.where('userDisplayName', '==', criteria.operario);
-    }
-    
-    const snapshot = await query.get();
-    
-    // First, serialize all documents from Firestore
-    const allSubmissions = snapshot.docs.map(doc => {
-        return {
-            id: doc.id,
-            ...serializeTimestamps(doc.data())
-        };
-    });
-
-    // Then, filter the serialized documents by the correct local date
-    let results = allSubmissions.filter(submission => {
-        const formIsoDate = submission.formData?.fecha;
-        if (!formIsoDate || typeof formIsoDate !== 'string') {
-            return false;
-        }
-        const formDatePart = getLocalGroupingDate(formIsoDate);
-        return formDatePart >= criteria.startDate! && formDatePart <= criteria.endDate!;
-    }).map(submission => {
-        const { id, formType, formData, userDisplayName } = submission;
-
-        let tipoOperacion = 'N/A';
-        if (formType.includes('recepcion') || formType.includes('reception')) {
-            tipoOperacion = 'Recepción';
-        } else if (formType.includes('despacho')) {
-            tipoOperacion = 'Despacho';
-        }
+    try {
+        const snapshot = await query.get();
         
-        return {
-            id,
-            fecha: formData.fecha,
-            operario: userDisplayName || 'N/A',
-            cliente: formData.nombreCliente || formData.cliente || 'N/A',
-            tipoOperacion,
-            pedidoSislog: formData.pedidoSislog || 'N/A',
-            horaInicio: formData.horaInicio || 'N/A',
-            horaFin: formData.horaFin || 'N/A',
-            duracionMinutos: calculateDuration(formData.horaInicio, formData.horaFin),
-        };
-    });
-    
-    results.sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
+        // First, serialize all documents from Firestore
+        const allSubmissions = snapshot.docs.map(doc => {
+            return {
+                id: doc.id,
+                ...serializeTimestamps(doc.data())
+            };
+        });
 
-    return results;
+        // Then, filter the serialized documents by the correct local date
+        let results = allSubmissions.filter(submission => {
+            const formIsoDate = submission.formData?.fecha;
+            if (!formIsoDate || typeof formIsoDate !== 'string') {
+                return false;
+            }
+            const formDatePart = getLocalGroupingDate(formIsoDate);
+            return formDatePart >= criteria.startDate! && formDatePart <= criteria.endDate!;
+        }).map(submission => {
+            const { id, formType, formData, userDisplayName } = submission;
+
+            let tipoOperacion = 'N/A';
+            if (formType.includes('recepcion') || formType.includes('reception')) {
+                tipoOperacion = 'Recepción';
+            } else if (formType.includes('despacho')) {
+                tipoOperacion = 'Despacho';
+            }
+            
+            return {
+                id,
+                fecha: formData.fecha,
+                operario: userDisplayName || 'N/A',
+                cliente: formData.nombreCliente || formData.cliente || 'N/A',
+                tipoOperacion,
+                pedidoSislog: formData.pedidoSislog || 'N/A',
+                horaInicio: formData.horaInicio || 'N/A',
+                horaFin: formData.horaFin || 'N/A',
+                duracionMinutos: calculateDuration(formData.horaInicio, formData.horaFin),
+            };
+        });
+        
+        results.sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
+
+        return results;
+    } catch (error) {
+        console.error('Error fetching performance report:', error);
+        if (error instanceof Error && error.message.includes('requires an index')) {
+            throw new Error('La consulta requiere un índice compuesto en Firestore. Por favor, revise los registros del servidor para crear el índice necesario.');
+        }
+        throw error;
+    }
 }
 
 
