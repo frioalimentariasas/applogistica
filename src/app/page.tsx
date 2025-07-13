@@ -14,6 +14,7 @@ import { FirebaseChecker } from '@/components/app/firebase-checker';
 import { useAuth, type AppPermissions } from '@/hooks/use-auth';
 import { auth } from '@/lib/firebase';
 import { signOut } from 'firebase/auth';
+import { cn } from '@/lib/utils';
 
 
 const Logo = () => (
@@ -173,38 +174,36 @@ export default function Home() {
                 </Card>
             )}
 
-            <Card className="flex flex-col">
-                <CardHeader>
-                    <CardTitle className="text-xl">Herramientas y Consultas</CardTitle>
-                </CardHeader>
-                 <CardContent className="flex-grow">
-                    {availableMenuItems.length > 0 ? (
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            {availableMenuItems.map((item) => (
-                                <button
-                                    key={item.href}
-                                    onClick={() => router.push(item.href)}
-                                    className="group text-left p-4 rounded-lg border bg-card hover:bg-primary/5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary"
-                                >
-                                    <div className="flex items-center justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <div className="bg-primary/10 p-2 rounded-full">
-                                                <item.icon className="h-6 w-6 text-primary" />
-                                            </div>
-                                            <span className="font-semibold text-card-foreground">{item.label}</span>
-                                        </div>
-                                        <ArrowRight className="h-5 w-5 text-muted-foreground opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-200" />
-                                    </div>
-                                </button>
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="text-center text-muted-foreground pt-10">
-                            <p>No tiene herramientas asignadas.</p>
-                        </div>
-                    )}
-                </CardContent>
-            </Card>
+            <div className={cn(!permissions.canGenerateForms && "md:col-span-2 flex justify-center")}>
+              {availableMenuItems.length > 0 && (
+                  <Card className={cn(!permissions.canGenerateForms && "w-full max-w-md")}>
+                      <CardHeader>
+                          <CardTitle className="text-xl">Herramientas y Consultas</CardTitle>
+                      </CardHeader>
+                      <CardContent>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                              {availableMenuItems.map((item) => (
+                                  <button
+                                      key={item.href}
+                                      onClick={() => router.push(item.href)}
+                                      className="group text-left p-4 rounded-lg border bg-card hover:bg-primary/5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary"
+                                  >
+                                      <div className="flex items-center justify-between">
+                                          <div className="flex items-center gap-3">
+                                              <div className="bg-primary/10 p-2 rounded-full">
+                                                  <item.icon className="h-6 w-6 text-primary" />
+                                              </div>
+                                              <span className="font-semibold text-card-foreground">{item.label}</span>
+                                          </div>
+                                          <ArrowRight className="h-5 w-5 text-muted-foreground opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-200" />
+                                      </div>
+                                  </button>
+                              ))}
+                          </div>
+                      </CardContent>
+                  </Card>
+              )}
+            </div>
         </div>
 
         <div className="pt-4 max-w-xl mx-auto">
