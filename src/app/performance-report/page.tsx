@@ -127,15 +127,10 @@ export default function PerformanceReportPage() {
             // Log the full error to the console for debugging
             console.error("Error generating performance report:", error);
             
-            let displayMessage = errorMessage;
-            if (errorMessage.includes('requires an index')) {
-                displayMessage = 'La consulta requiere un índice compuesto en Firestore. Por favor, revise la consola de desarrollador para obtener el enlace de creación.';
-            }
-            
             toast({
                 variant: 'destructive',
                 title: 'Error al generar el reporte',
-                description: displayMessage,
+                description: errorMessage,
                 duration: 9000
             });
         } finally {
@@ -209,6 +204,10 @@ export default function PerformanceReportPage() {
         const fileName = `Reporte_Desempeño_${format(dateRange!.from!, 'yyyy-MM-dd')}_a_${format(dateRange!.to!, 'yyyy-MM-dd')}.pdf`;
         doc.save(fileName);
     };
+
+    const totalDuration = useMemo(() => {
+        return reportData.reduce((acc, row) => acc + (row.duracionMinutos || 0), 0);
+    }, [reportData]);
 
     if (!isAdmin && !user) {
         // user object might not be loaded yet, so wait. If it's loaded and not admin, then deny.
@@ -297,7 +296,15 @@ export default function PerformanceReportPage() {
                             <div>
                                 <CardTitle>Resultados del Informe</CardTitle>
                                 <CardDescription>
-                                    {isLoading ? "Cargando resultados..." : `Mostrando ${reportData.length} operaciones.`}
+                                    {isLoading 
+                                        ? "Cargando resultados..." 
+                                        : `Mostrando ${reportData.length} operaciones.`
+                                    }
+                                    {reportData.length > 0 && (
+                                        <span className="ml-2 font-semibold text-foreground">
+                                            Duración total: {totalDuration} minutos.
+                                        </span>
+                                    )}
                                 </CardDescription>
                             </div>
                             <div className="flex gap-2">
