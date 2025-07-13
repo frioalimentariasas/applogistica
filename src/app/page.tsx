@@ -4,22 +4,16 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { FileText, LogOut, Users2, Box, ScrollText, BookCopy, ShieldCheck, Settings, Timer } from 'lucide-react';
+import { FileText, LogOut, Users2, Box, ScrollText, BookCopy, ShieldCheck, Settings, Timer, ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
 import { useToast } from "@/hooks/use-toast";
 import { FirebaseChecker } from '@/components/app/firebase-checker';
-import { useAuth } from '@/hooks/use-auth';
+import { useAuth, type AppPermissions } from '@/hooks/use-auth';
 import { auth } from '@/lib/firebase';
 import { signOut } from 'firebase/auth';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
 
 
 const Logo = () => (
@@ -93,6 +87,18 @@ export default function Home() {
     });
   };
 
+  const menuItems: { label: string; href: string; icon: React.FC<any>; permission: keyof AppPermissions }[] = [
+    { label: 'Consultar Formatos Guardados', href: '/consultar-formatos', icon: ScrollText, permission: 'canConsultForms' },
+    { label: 'Informes para Facturación', href: '/billing-reports', icon: BookCopy, permission: 'canViewBillingReports' },
+    { label: 'Informe de Desempeño', href: '/performance-report', icon: Timer, permission: 'canViewPerformanceReport' },
+    { label: 'Gestión de Artículos', href: '/gestion-articulos', icon: Box, permission: 'canManageArticles' },
+    { label: 'Gestión de Clientes', href: '/gestion-clientes', icon: Users2, permission: 'canManageClients' },
+    { label: 'Gestionar Sesiones', href: '/session-management', icon: ShieldCheck, permission: 'canManageSessions' },
+  ];
+
+  const availableMenuItems = menuItems.filter(item => permissions[item.permission]);
+
+
   if (loading || !user) {
     return (
       <div className="flex min-h-screen w-full items-center justify-center bg-white">
@@ -102,8 +108,8 @@ export default function Home() {
   }
 
   return (
-    <div className="flex min-h-screen w-full items-center justify-center bg-white p-4">
-      <div className="w-full max-w-xl space-y-8 relative">
+    <div className="flex min-h-screen w-full items-center justify-center bg-gray-50 p-4">
+      <div className="w-full max-w-4xl space-y-8 relative">
         <Button
           variant="outline"
           size="sm"
@@ -121,120 +127,87 @@ export default function Home() {
                 <p className="text-lg text-gray-800">Bienvenido, <span className="font-semibold">{displayName}</span></p>
             </div>
         )}
-
-        <div className="text-center">
-          <h2 className="text-xl font-bold uppercase text-[#3588CC]">
-            Control de Operaciones Logísticas
-          </h2>
-          <p className="mt-2 text-sm text-gray-600">
-            {permissions.canGenerateForms
-              ? 'Seleccione las opciones para generar el formato correspondiente o consulte las herramientas disponibles.'
-              : 'Seleccione una opción de consulta en el menú de herramientas.'}
-          </p>
-        </div>
         
-        {permissions.canGenerateForms && (
-            <>
-                <form onSubmit={handleSubmit} className="space-y-6">
-                    <fieldset>
-                        <legend className="text-base font-semibold text-gray-900 mb-4">Tipo de Operación</legend>
-                        <RadioGroup value={operationType} onValueChange={setOperationType} className="grid grid-cols-2 gap-4">
-                            <Label htmlFor="recepcion" className={`flex cursor-pointer items-center space-x-3 rounded-md border bg-white p-4 transition-colors ${operationType === 'recepcion' ? 'border-primary ring-2 ring-primary' : 'border-gray-200'}`}>
-                                <RadioGroupItem value="recepcion" id="recepcion" />
-                                <span className="font-medium">Recepción</span>
-                            </Label>
-                            <Label htmlFor="despacho" className={`flex cursor-pointer items-center space-x-3 rounded-md border bg-white p-4 transition-colors ${operationType === 'despacho' ? 'border-primary ring-2 ring-primary' : 'border-gray-200'}`}>
-                                <RadioGroupItem value="despacho" id="despacho" />
-                                <span className="font-medium">Despacho</span>
-                            </Label>
-                        </RadioGroup>
-                    </fieldset>
-                    
-                    <fieldset>
-                        <legend className="text-base font-semibold text-gray-900 mb-4">Tipo de Producto</legend>
-                        <RadioGroup value={productType} onValueChange={setProductType} className="grid grid-cols-2 gap-4">
-                            <Label htmlFor="fijo" className={`flex cursor-pointer items-center space-x-3 rounded-md border bg-white p-4 transition-colors ${productType === 'fijo' ? 'border-primary ring-2 ring-primary' : 'border-gray-200'}`}>
-                                <RadioGroupItem value="fijo" id="fijo" />
-                                <span className="font-medium">Peso Fijo</span>
-                            </Label>
-                            <Label htmlFor="variable" className={`flex cursor-pointer items-center space-x-3 rounded-md border bg-white p-4 transition-colors ${productType === 'variable' ? 'border-primary ring-2 ring-primary' : 'border-gray-200'}`}>
-                                <RadioGroupItem value="variable" id="variable" />
-                                <span className="font-medium">Peso Variable</span>
-                            </Label>
-                        </RadioGroup>
-                    </fieldset>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {permissions.canGenerateForms && (
+                <Card className="flex flex-col">
+                    <CardHeader>
+                        <CardTitle className="text-xl">Control de Operaciones Logísticas</CardTitle>
+                    </CardHeader>
+                    <CardContent className="flex-grow flex flex-col justify-between">
+                        <form onSubmit={handleSubmit} className="space-y-6">
+                            <fieldset>
+                                <legend className="text-base font-semibold text-gray-900 mb-4">Tipo de Operación</legend>
+                                <RadioGroup value={operationType} onValueChange={setOperationType} className="grid grid-cols-2 gap-4">
+                                    <Label htmlFor="recepcion" className={`flex cursor-pointer items-center space-x-3 rounded-md border bg-white p-4 transition-colors ${operationType === 'recepcion' ? 'border-primary ring-2 ring-primary' : 'border-gray-200'}`}>
+                                        <RadioGroupItem value="recepcion" id="recepcion" />
+                                        <span className="font-medium">Recepción</span>
+                                    </Label>
+                                    <Label htmlFor="despacho" className={`flex cursor-pointer items-center space-x-3 rounded-md border bg-white p-4 transition-colors ${operationType === 'despacho' ? 'border-primary ring-2 ring-primary' : 'border-gray-200'}`}>
+                                        <RadioGroupItem value="despacho" id="despacho" />
+                                        <span className="font-medium">Despacho</span>
+                                    </Label>
+                                </RadioGroup>
+                            </fieldset>
+                            
+                            <fieldset>
+                                <legend className="text-base font-semibold text-gray-900 mb-4">Tipo de Producto</legend>
+                                <RadioGroup value={productType} onValueChange={setProductType} className="grid grid-cols-2 gap-4">
+                                    <Label htmlFor="fijo" className={`flex cursor-pointer items-center space-x-3 rounded-md border bg-white p-4 transition-colors ${productType === 'fijo' ? 'border-primary ring-2 ring-primary' : 'border-gray-200'}`}>
+                                        <RadioGroupItem value="fijo" id="fijo" />
+                                        <span className="font-medium">Peso Fijo</span>
+                                    </Label>
+                                    <Label htmlFor="variable" className={`flex cursor-pointer items-center space-x-3 rounded-md border bg-white p-4 transition-colors ${productType === 'variable' ? 'border-primary ring-2 ring-primary' : 'border-gray-200'}`}>
+                                        <RadioGroupItem value="variable" id="variable" />
+                                        <span className="font-medium">Peso Variable</span>
+                                    </Label>
+                                </RadioGroup>
+                            </fieldset>
 
-                    <Button type="submit" size="lg" className="w-full h-12 text-base" disabled={!operationType || !productType}>
-                        <FileText className="mr-2 h-5 w-5" />
-                        Generar Formato
-                    </Button>
-                </form>
-                
-                <div className="relative my-4">
-                    <div className="absolute inset-0 flex items-center">
-                        <span className="w-full border-t" />
-                    </div>
-                    <div className="relative flex justify-center text-xs uppercase">
-                        <span className="bg-white px-2 text-muted-foreground">Otras Acciones</span>
-                    </div>
-                </div>
-            </>
-        )}
-        
-        <div className="space-y-4">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button size="lg" className="w-full h-12 text-base bg-[#3588CC] text-white hover:bg-[#3588CC]/90">
-                <Settings className="mr-2 h-5 w-5" />
-                Herramientas y Consultas
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]" align="center">
-              {permissions.canConsultForms && (
-                <DropdownMenuItem onSelect={() => router.push('/consultar-formatos')}>
-                    <ScrollText className="mr-2 h-4 w-4" />
-                    <span>Consultar Formatos Guardados</span>
-                </DropdownMenuItem>
-              )}
-              {permissions.canViewBillingReports && (
-                <DropdownMenuItem onSelect={() => router.push('/billing-reports')}>
-                    <BookCopy className="mr-2 h-4 w-4" />
-                    <span>Informes para Facturación</span>
-                </DropdownMenuItem>
-              )}
-              {permissions.canViewPerformanceReport && (
-                <DropdownMenuItem onSelect={() => router.push('/performance-report')}>
-                    <Timer className="mr-2 h-4 w-4" />
-                    <span>Informe de Desempeño</span>
-                </DropdownMenuItem>
-              )}
-              {(permissions.canManageArticles || permissions.canManageClients) && <DropdownMenuSeparator />}
-              {permissions.canManageArticles && (
-                  <DropdownMenuItem onSelect={() => router.push('/gestion-articulos')}>
-                    <Box className="mr-2 h-4 w-4" />
-                    <span>Gestión de Artículos</span>
-                  </DropdownMenuItem>
-              )}
-               {permissions.canManageClients && (
-                  <DropdownMenuItem onSelect={() => router.push('/gestion-clientes')}>
-                    <Users2 className="mr-2 h-4 w-4" />
-                    <span>Gestión de Clientes</span>
-                  </DropdownMenuItem>
-              )}
-              {permissions.canManageSessions && (
-                <>
-                  <DropdownMenuSeparator />
-                  <DropdownMenuItem onSelect={() => router.push('/session-management')}>
-                    <ShieldCheck className="mr-2 h-4 w-4" />
-                    <span>Gestionar Sesiones de Usuarios</span>
-                  </DropdownMenuItem>
-                </>
-              )}
-            </DropdownMenuContent>
-          </DropdownMenu>
+                            <Button type="submit" size="lg" className="w-full h-12 text-base" disabled={!operationType || !productType}>
+                                <FileText className="mr-2 h-5 w-5" />
+                                Generar Formato
+                            </Button>
+                        </form>
+                    </CardContent>
+                </Card>
+            )}
+
+            <Card className="flex flex-col">
+                <CardHeader>
+                    <CardTitle className="text-xl">Herramientas y Consultas</CardTitle>
+                </CardHeader>
+                 <CardContent className="flex-grow">
+                    {availableMenuItems.length > 0 ? (
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            {availableMenuItems.map((item) => (
+                                <button
+                                    key={item.href}
+                                    onClick={() => router.push(item.href)}
+                                    className="group text-left p-4 rounded-lg border bg-card hover:bg-primary/5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary"
+                                >
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-3">
+                                            <div className="bg-primary/10 p-2 rounded-full">
+                                                <item.icon className="h-6 w-6 text-primary" />
+                                            </div>
+                                            <span className="font-semibold text-card-foreground">{item.label}</span>
+                                        </div>
+                                        <ArrowRight className="h-5 w-5 text-muted-foreground opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-200" />
+                                    </div>
+                                </button>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="text-center text-muted-foreground pt-10">
+                            <p>No tiene herramientas asignadas.</p>
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
         </div>
 
-        <div className="pt-4">
+        <div className="pt-4 max-w-xl mx-auto">
             <FirebaseChecker />
         </div>
 
