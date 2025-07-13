@@ -1,13 +1,23 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { useForm, Controller } from 'react-hook-form';
 import { useAuth } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
 
-import { listActiveUsers, revokeUserSession, ActiveUser } from './actions';
+import { 
+    listActiveUsers, 
+    revokeUserSession, 
+    getAllUserPermissions,
+    setUserPermissions,
+    type ActiveUser, 
+    type AppPermissions,
+    defaultPermissions
+} from './actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -20,10 +30,13 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog"
+} from "@/components/ui/alert-dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowLeft, RefreshCw, ShieldAlert, ShieldCheck, UserX, Loader2 } from 'lucide-react';
+import { ArrowLeft, RefreshCw, ShieldAlert, ShieldCheck, UserX, Loader2, KeyRound } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Label } from '@/components/ui/label';
 
 const AccessDenied = () => (
     <div className="flex flex-col items-center justify-center text-center gap-4">
@@ -44,33 +57,54 @@ const UserSkeleton = () => (
             <TableCell><Skeleton className="h-5 w-48 rounded-md" /></TableCell>
             <TableCell><Skeleton className="h-5 w-40 rounded-md" /></TableCell>
             <TableCell><Skeleton className="h-5 w-24 rounded-md" /></TableCell>
-            <TableCell className="text-right"><Skeleton className="h-8 w-24 rounded-md float-right" /></TableCell>
+            <TableCell className="text-right"><Skeleton className="h-8 w-48 rounded-md float-right" /></TableCell>
         </TableRow>
     ))
 );
 
+const permissionLabels: { key: keyof AppPermissions; label: string }[] = [
+    { key: 'canGenerateForms', label: 'Generar Formatos' },
+    { key: 'canConsultForms', label: 'Consultar Formatos' },
+    { key: 'canViewBillingReports', label: 'Ver Informes de Facturación' },
+    { key: 'canViewPerformanceReport', label: 'Ver Informe de Desempeño' },
+    { key: 'canManageClients', label: 'Gestionar Clientes' },
+    { key: 'canManageArticles', label: 'Gestionar Artículos' },
+    { key: 'canManageSessions', label: 'Gestionar Sesiones y Permisos' },
+];
 
 export default function SessionManagementComponent() {
     const router = useRouter();
-    const { user, isAdmin, loading: authLoading } = useAuth();
+    const { user, permissions, loading: authLoading } = useAuth();
     const { toast } = useToast();
 
     const [users, setUsers] = useState<ActiveUser[]>([]);
+    const [allPermissions, setAllPermissions] = useState<Record<string, AppPermissions>>({});
     const [isLoading, setIsLoading] = useState(true);
     const [userToRevoke, setUserToRevoke] = useState<ActiveUser | null>(null);
     const [isRevoking, setIsRevoking] = useState(false);
     const [revokedUids, setRevokedUids] = useState<string[]>([]);
+    
+    // State for permissions dialog
+    const [userToEdit, setUserToEdit] = useState<ActiveUser | null>(null);
+    const [isPermissionsDialogOpen, setIsPermissionsDialogOpen] = useState(false);
+    const [isSavingPermissions, setIsSavingPermissions] = useState(false);
+    
+    const { control, handleSubmit, reset } = useForm<AppPermissions>();
 
-    const fetchUsers = async () => {
+    const fetchAllData = async () => {
         setIsLoading(true);
         setRevokedUids([]);
         try {
-            const activeUsers = await listActiveUsers();
+            const [activeUsers, permissionsData] = await Promise.all([
+                listActiveUsers(),
+                getAllUserPermissions()
+            ]);
             setUsers(activeUsers);
+            setAllPermissions(permissionsData);
         } catch (error) {
             toast({
                 variant: 'destructive',
-                title: 'Error al cargar usuarios',
+                title: 'Error al cargar datos',
                 description: error instanceof Error ? error.message : 'Ocurrió un error inesperado.',
             });
         } finally {
@@ -79,11 +113,10 @@ export default function SessionManagementComponent() {
     };
 
     useEffect(() => {
-        if (!authLoading && isAdmin) {
-            fetchUsers();
+        if (!authLoading && permissions.canManageSessions) {
+            fetchAllData();
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [isAdmin, authLoading]);
+    }, [permissions, authLoading]);
 
     const handleRevoke = async () => {
         if (!userToRevoke) return;
@@ -105,6 +138,29 @@ export default function SessionManagementComponent() {
         setIsRevoking(false);
         setUserToRevoke(null);
     };
+    
+    const handleOpenPermissionsDialog = (userToManage: ActiveUser) => {
+        setUserToEdit(userToManage);
+        const userEmail = userToManage.email || '';
+        const currentPerms = allPermissions[userEmail] || defaultPermissions;
+        reset(currentPerms);
+        setIsPermissionsDialogOpen(true);
+    };
+
+    const handleSavePermissions = async (data: AppPermissions) => {
+        if (!userToEdit || !userToEdit.email) return;
+        
+        setIsSavingPermissions(true);
+        const result = await setUserPermissions(userToEdit.email, data);
+        if (result.success) {
+            toast({ title: 'Éxito', description: result.message });
+            setAllPermissions(prev => ({ ...prev, [userToEdit.email!]: data }));
+            setIsPermissionsDialogOpen(false);
+        } else {
+            toast({ variant: 'destructive', title: 'Error', description: result.message });
+        }
+        setIsSavingPermissions(false);
+    };
 
     if (authLoading) {
         return (
@@ -114,7 +170,7 @@ export default function SessionManagementComponent() {
         )
     }
 
-    if (!isAdmin) {
+    if (!permissions.canManageSessions) {
         return (
             <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8 flex items-center justify-center">
                 <div className="max-w-xl mx-auto text-center">
@@ -139,9 +195,9 @@ export default function SessionManagementComponent() {
                     <div>
                       <div className="flex items-center justify-center gap-2">
                         <ShieldCheck className="h-8 w-8 text-primary" />
-                        <h1 className="text-2xl font-bold text-primary">Gestión de Sesiones</h1>
+                        <h1 className="text-2xl font-bold text-primary">Gestión de Sesiones y Permisos</h1>
                       </div>
-                      <p className="text-sm text-gray-500">Vea y revoque las sesiones activas de los usuarios.</p>
+                      <p className="text-sm text-gray-500">Vea sesiones activas y gestione los permisos de los usuarios.</p>
                     </div>
                   </div>
                 </header>
@@ -150,10 +206,10 @@ export default function SessionManagementComponent() {
                     <CardHeader>
                         <div className="flex justify-between items-center">
                             <div>
-                                <CardTitle>Usuarios Activos</CardTitle>
-                                <CardDescription>Listado de todos los usuarios y su última actividad.</CardDescription>
+                                <CardTitle>Usuarios del Sistema</CardTitle>
+                                <CardDescription>Listado de todos los usuarios, su última actividad y sus roles.</CardDescription>
                             </div>
-                             <Button variant="outline" onClick={fetchUsers} disabled={isLoading}>
+                             <Button variant="outline" onClick={fetchAllData} disabled={isLoading}>
                                 <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
                                 Refrescar
                             </Button>
@@ -195,10 +251,7 @@ export default function SessionManagementComponent() {
                                             const wasJustRevokedInUI = revokedUids.includes(u.uid);
                                             const tokensValidAfter = u.tokensValidAfterTime ? new Date(u.tokensValidAfterTime) : null;
                                             
-                                            // A session is programmatically revoked if a revocation timestamp exists and it's newer than the last known activity.
-                                            // This means the user has not logged back in since the revocation.
                                             const isEffectivelyRevoked = tokensValidAfter ? tokensValidAfter.getTime() > lastActivityDate.getTime() : false;
-
                                             const isRevoked = wasJustRevokedInUI || isEffectivelyRevoked;
 
                                             return (
@@ -213,20 +266,31 @@ export default function SessionManagementComponent() {
                                                         </div>
                                                     </TableCell>
                                                     <TableCell className="text-right">
-                                                        <Button 
-                                                            variant={isRevoked ? "secondary" : "destructive"}
-                                                            size="sm"
-                                                            onClick={() => setUserToRevoke(u)}
-                                                            disabled={u.uid === user?.uid || isRevoked}
-                                                            title={
-                                                                u.uid === user?.uid ? 'No puede revocar su propia sesión' 
-                                                                : isRevoked ? 'La sesión ya está revocada. El usuario debe volver a iniciar sesión.'
-                                                                : 'Revocar sesión'
-                                                            }
-                                                        >
-                                                            <UserX className="mr-2 h-4 w-4" />
-                                                            {isRevoked ? "Revocada" : "Revocar"}
-                                                        </Button>
+                                                        <div className="flex items-center justify-end gap-1">
+                                                            <Button
+                                                                variant="outline"
+                                                                size="sm"
+                                                                onClick={() => handleOpenPermissionsDialog(u)}
+                                                                disabled={u.email === 'sistemas@frioalimentaria.com.co'}
+                                                            >
+                                                                <KeyRound className="mr-2 h-4 w-4" />
+                                                                Permisos
+                                                            </Button>
+                                                            <Button 
+                                                                variant={isRevoked ? "secondary" : "destructive"}
+                                                                size="sm"
+                                                                onClick={() => setUserToRevoke(u)}
+                                                                disabled={u.uid === user?.uid || isRevoked}
+                                                                title={
+                                                                    u.uid === user?.uid ? 'No puede revocar su propia sesión' 
+                                                                    : isRevoked ? 'La sesión ya está revocada. El usuario debe volver a iniciar sesión.'
+                                                                    : 'Revocar sesión'
+                                                                }
+                                                            >
+                                                                <UserX className="mr-2 h-4 w-4" />
+                                                                {isRevoked ? "Revocada" : "Revocar"}
+                                                            </Button>
+                                                        </div>
                                                     </TableCell>
                                                 </TableRow>
                                             );
@@ -261,6 +325,47 @@ export default function SessionManagementComponent() {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            <Dialog open={isPermissionsDialogOpen} onOpenChange={setIsPermissionsDialogOpen}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>Gestionar Permisos</DialogTitle>
+                        <DialogDescription>
+                            Asigne o revoque accesos para el usuario <strong>{userToEdit?.displayName}</strong>.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <form onSubmit={handleSubmit(handleSavePermissions)}>
+                        <div className="space-y-4 py-4">
+                            {permissionLabels.map(({ key, label }) => (
+                                <Controller
+                                    key={key}
+                                    name={key}
+                                    control={control}
+                                    render={({ field }) => (
+                                        <div className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                                            <div className="space-y-0.5">
+                                                <Label htmlFor={key} className="text-base">{label}</Label>
+                                            </div>
+                                            <Checkbox
+                                                id={key}
+                                                checked={field.value}
+                                                onCheckedChange={field.onChange}
+                                            />
+                                        </div>
+                                    )}
+                                />
+                            ))}
+                        </div>
+                        <DialogFooter>
+                            <Button type="button" variant="outline" onClick={() => setIsPermissionsDialogOpen(false)}>Cancelar</Button>
+                            <Button type="submit" disabled={isSavingPermissions}>
+                                {isSavingPermissions && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                Guardar Permisos
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }

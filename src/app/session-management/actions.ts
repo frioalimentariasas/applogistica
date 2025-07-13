@@ -1,7 +1,10 @@
+
 'use server';
 
-import { auth } from '@/lib/firebase-admin';
+import { auth, firestore } from '@/lib/firebase-admin';
 import { UserRecord } from 'firebase-admin/auth';
+import type { AppPermissions } from '@/hooks/use-auth';
+import { defaultPermissions } from '@/hooks/use-auth';
 
 export interface ActiveUser {
     uid: string;
@@ -87,4 +90,44 @@ export async function revokeUserSession(uid: string): Promise<{ success: boolean
         console.error('Error revoking session for user:', uid, error);
         return { success: false, message: `Error al revocar la sesión: ${error.message}` };
     }
+}
+
+// ---- New Permission Management Actions ----
+
+export async function getUserPermissions(email: string): Promise<AppPermissions> {
+    if (!firestore) {
+        throw new Error('Firestore no está inicializado.');
+    }
+    const docRef = firestore.collection('user_permissions').doc(email);
+    const doc = await docRef.get();
+    if (!doc.exists) {
+        return defaultPermissions;
+    }
+    return { ...defaultPermissions, ...doc.data() } as AppPermissions;
+}
+
+export async function setUserPermissions(email: string, permissions: AppPermissions): Promise<{ success: boolean; message: string }> {
+    if (!firestore) {
+        return { success: false, message: 'Firestore no está inicializado.' };
+    }
+    try {
+        const docRef = firestore.collection('user_permissions').doc(email);
+        await docRef.set(permissions, { merge: true });
+        return { success: true, message: `Permisos para ${email} actualizados.` };
+    } catch (error: any) {
+        console.error(`Error al actualizar permisos para ${email}:`, error);
+        return { success: false, message: `Error al actualizar permisos: ${error.message}` };
+    }
+}
+
+export async function getAllUserPermissions(): Promise<Record<string, AppPermissions>> {
+     if (!firestore) {
+        throw new Error('Firestore no está inicializado.');
+    }
+    const snapshot = await firestore.collection('user_permissions').get();
+    const permissions: Record<string, AppPermissions> = {};
+    snapshot.forEach(doc => {
+        permissions[doc.id] = { ...defaultPermissions, ...doc.data() } as AppPermissions;
+    });
+    return permissions;
 }
