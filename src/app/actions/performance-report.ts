@@ -3,7 +3,7 @@
 
 import admin from 'firebase-admin';
 import { firestore } from '@/lib/firebase-admin';
-import { parse, differenceInMinutes } from 'date-fns';
+import { parse, differenceInMinutes, addDays } from 'date-fns';
 
 // Helper to serialize Firestore Timestamps
 const serializeTimestamps = (data: any): any => {
@@ -88,8 +88,12 @@ export async function getPerformanceReport(criteria: PerformanceReportCriteria):
         query = query.where('userDisplayName', '==', criteria.operario);
     }
     
+    // To include results from the end date, we need to query up to the start of the next day.
+    const endDatePlusOne = addDays(new Date(criteria.endDate), 1);
+    const endDateString = endDatePlusOne.toISOString().split('T')[0];
+
     query = query.where('createdAt', '>=', criteria.startDate)
-                 .where('createdAt', '<=', criteria.endDate);
+                 .where('createdAt', '<', endDateString);
 
     try {
         const snapshot = await query.get();
@@ -143,10 +147,9 @@ export async function getAvailableOperarios(startDate: string, endDate: string):
     }
 
     const serverQueryStartDate = new Date(startDate);
-    serverQueryStartDate.setDate(serverQueryStartDate.getDate() - 1);
     
     const serverQueryEndDate = new Date(endDate);
-    serverQueryEndDate.setDate(serverQueryEndDate.getDate() + 2);
+    serverQueryEndDate.setDate(serverQueryEndDate.getDate() + 1);
 
     const snapshot = await firestore.collection('submissions')
         .where('createdAt', '>=', serverQueryStartDate.toISOString().split('T')[0])
