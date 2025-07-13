@@ -124,7 +124,7 @@ export default function Home() {
 
         <div className="text-center">
           <h2 className="text-xl font-bold uppercase text-[#3588CC]">
-            {permissions.canGenerateForms ? 'Control de Operaciones Logísticas' : 'Consulta de Formatos'}
+            Control de Operaciones Logísticas
           </h2>
           <p className="mt-2 text-sm text-gray-600">
             {permissions.canGenerateForms
