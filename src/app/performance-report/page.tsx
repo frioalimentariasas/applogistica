@@ -258,28 +258,28 @@ export default function PerformanceReportPage() {
         const pageWidth = doc.internal.pageSize.getWidth();
 
         // --- HEADER ---
-        const logoWidth = 70;
+        const logoWidth = 60;
         const aspectRatio = logoDimensions.width / logoDimensions.height;
         const logoHeight = logoWidth / aspectRatio;
         const logoX = (pageWidth - logoWidth) / 2;
-        doc.addImage(logoBase64, 'PNG', logoX, 15, logoWidth, logoHeight);
+        doc.addImage(logoBase64, 'PNG', logoX, 10, logoWidth, logoHeight);
 
-        const titleY = 15 + logoHeight + 8;
+        const titleY = 10 + logoHeight + 5;
         
-        doc.setFontSize(12);
+        doc.setFontSize(11);
         doc.setFont('helvetica', 'bold');
         doc.text(`Informe de Desempeño por Operario`, pageWidth / 2, titleY, { align: 'center' });
         
-        doc.setFontSize(10);
+        doc.setFontSize(9);
         doc.setFont('helvetica', 'normal');
-        doc.text(`Periodo: ${format(dateRange!.from!, 'dd/MM/yyyy')} - ${format(dateRange!.to!, 'dd/MM/yyyy')}`, 14, titleY + 12);
+        doc.text(`Periodo: ${format(dateRange!.from!, 'dd/MM/yyyy')} - ${format(dateRange!.to!, 'dd/MM/yyyy')}`, 14, titleY + 10);
         if (selectedOperario !== 'all') {
-            doc.text(`Operario: ${selectedOperario}`, pageWidth - 14, titleY + 12, { align: 'right' });
+            doc.text(`Operario: ${selectedOperario}`, pageWidth - 14, titleY + 10, { align: 'right' });
         }
 
 
         autoTable(doc, {
-            startY: titleY + 22,
+            startY: titleY + 15,
             head: [['Fecha', 'Operario', 'Cliente', 'Tipo Op.', 'Pedido', 'H. Inicio', 'H. Fin', 'Duración']],
             body: reportData.map(row => [
                 format(new Date(row.fecha), 'dd/MM/yy'),
@@ -294,10 +294,10 @@ export default function PerformanceReportPage() {
             foot: [
                 [{ content: 'Duración Total:', colSpan: 7, styles: { halign: 'right', fontStyle: 'bold' } }, { content: formatDuration(totalDuration), styles: { halign: 'right', fontStyle: 'bold' } }]
             ],
-            headStyles: { fillColor: [33, 150, 243] },
+            headStyles: { fillColor: [33, 150, 243], fontSize: 7 },
             footStyles: { fillColor: [33, 150, 243], textColor: '#ffffff' },
             theme: 'grid',
-            styles: { fontSize: 8, cellPadding: 2 },
+            styles: { fontSize: 7, cellPadding: 1.5 },
         });
 
         const fileName = `Reporte_Desempeño_${format(dateRange!.from!, 'yyyy-MM-dd')}_a_${format(dateRange!.to!, 'yyyy-MM-dd')}.pdf`;
