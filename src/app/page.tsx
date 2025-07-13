@@ -94,7 +94,7 @@ export default function Home() {
     { label: 'Informe de Desempeño', href: '/performance-report', icon: Timer, permission: 'canViewPerformanceReport' },
     { label: 'Gestión de Artículos', href: '/gestion-articulos', icon: Box, permission: 'canManageArticles' },
     { label: 'Gestión de Clientes', href: '/gestion-clientes', icon: Users2, permission: 'canManageClients' },
-    { label: 'Gestionar Sesiones', href: '/session-management', icon: ShieldCheck, permission: 'canManageSessions' },
+    { label: 'Gestión de Usuarios', href: '/session-management', icon: ShieldCheck, permission: 'canManageSessions' },
   ];
 
   const availableMenuItems = menuItems.filter(item => permissions[item.permission]);
@@ -176,9 +176,9 @@ export default function Home() {
 
             <div className={cn(!permissions.canGenerateForms && "md:col-span-2 flex justify-center")}>
               {availableMenuItems.length > 0 && (
-                  <Card className={cn(!permissions.canGenerateForms && "w-full max-w-lg")}>
+                  <Card className={cn("w-full", !permissions.canGenerateForms && "max-w-lg")}>
                       <CardHeader>
-                          <CardTitle className="text-xl">Herramientas y Consultas</CardTitle>
+                          <CardTitle className="text-xl">Consultas y Herramientas</CardTitle>
                       </CardHeader>
                       <CardContent>
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
