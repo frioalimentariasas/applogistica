@@ -17,7 +17,9 @@ const userDisplayNameMap: Record<string, string> = {
 };
 
 const adminEmails = [
-    'sistemas@frioalimentaria.com.co'
+    'sistemas@frioalimentaria.com.co',
+    'planta@frioalimentaria.com.co',
+    'logistica@frioalimentaria.com.co'
 ];
 
 type AuthContextType = {
