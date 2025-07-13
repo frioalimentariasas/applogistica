@@ -83,41 +83,22 @@ export async function getPerformanceReport(criteria: PerformanceReportCriteria):
     
     let query: admin.firestore.Query = firestore.collection('submissions');
     
-    // Apply operario filter at the query level. This might require a composite index.
+    // Apply operario filter at the query level. This will require a composite index.
     if (criteria.operario) {
         query = query.where('userDisplayName', '==', criteria.operario);
     }
     
-    // Widen the server query to account for timezone differences
-    const serverQueryStartDate = new Date(criteria.startDate);
-    serverQueryStartDate.setDate(serverQueryStartDate.getDate() - 1);
-    
-    const serverQueryEndDate = new Date(criteria.endDate);
-    serverQueryEndDate.setDate(serverQueryEndDate.getDate() + 2);
-
-    query = query.where('createdAt', '>=', serverQueryStartDate.toISOString().split('T')[0])
-                 .where('createdAt', '<', serverQueryEndDate.toISOString().split('T')[0]);
+    query = query.where('createdAt', '>=', criteria.startDate)
+                 .where('createdAt', '<=', criteria.endDate);
 
     try {
         const snapshot = await query.get();
         
-        // First, serialize all documents from Firestore
-        const allSubmissions = snapshot.docs.map(doc => {
-            return {
-                id: doc.id,
-                ...serializeTimestamps(doc.data())
+        const results = snapshot.docs.map(submissionDoc => {
+            const submission = {
+                id: submissionDoc.id,
+                ...serializeTimestamps(submissionDoc.data())
             };
-        });
-
-        // Then, filter the serialized documents by the correct local date
-        let results = allSubmissions.filter(submission => {
-            const formIsoDate = submission.formData?.fecha;
-            if (!formIsoDate || typeof formIsoDate !== 'string') {
-                return false;
-            }
-            const formDatePart = getLocalGroupingDate(formIsoDate);
-            return formDatePart >= criteria.startDate! && formDatePart <= criteria.endDate!;
-        }).map(submission => {
             const { id, formType, formData, userDisplayName } = submission;
 
             let tipoOperacion = 'N/A';
@@ -144,12 +125,13 @@ export async function getPerformanceReport(criteria: PerformanceReportCriteria):
 
         return results;
     } catch (error) {
-        console.error('Error fetching performance report:', error);
         if (error instanceof Error && error.message.includes('requires an index')) {
-            // Throw a more user-friendly error that the client can display
+            // Explicitly log the error to ensure it appears in Google Cloud Logging
+            console.error("Firestore composite index required. See the full error log for the creation link.", error);
             throw new Error('La consulta requiere un índice compuesto en Firestore. Por favor, revise los registros del servidor para crear el índice necesario.');
         }
-        // Re-throw the original error to ensure it's logged in the server logs
+        // Re-throw other errors to ensure they are logged.
+        console.error('Error fetching performance report:', error);
         throw error;
     }
 }
