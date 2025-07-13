@@ -1292,7 +1292,7 @@ export default function VariableWeightFormComponent() {
                         <FormItem><FormLabel>Coordinador Responsable</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                     )}/>
                     <FormItem>
-                        <FormLabel>Operario Responsable (Creador)</FormLabel>
+                        <FormLabel>Operario Responsable</FormLabel>
                         <FormControl><Input disabled value={submissionId ? originalSubmission?.userDisplayName : displayName || ''} /></FormControl>
                     </FormItem>
                     {submissionId && (

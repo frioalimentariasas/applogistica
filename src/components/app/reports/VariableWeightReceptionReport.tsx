@@ -215,7 +215,7 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                 </ReportSection>
             )}
 
-            <ReportSection title="Coordinador y Operario Responsables de la Operación">
+            <ReportSection title="Responsables de la Operación">
                  <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                      <tbody>
                         <tr>
