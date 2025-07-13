@@ -158,6 +158,10 @@ export default function PerformanceReportPage() {
         setSearched(false);
     };
 
+    const totalDuration = useMemo(() => {
+        return reportData.reduce((acc, row) => acc + (row.duracionMinutos || 0), 0);
+    }, [reportData]);
+    
     const handleExportExcel = () => {
         if (reportData.length === 0) return;
 
@@ -172,7 +176,18 @@ export default function PerformanceReportPage() {
             'Duración (Minutos)': row.duracionMinutos ?? 'N/A',
         }));
 
-        const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+        const totalRow = {
+            'Fecha': '',
+            'Operario': '',
+            'Cliente': '',
+            'Tipo Operación': '',
+            'No. Pedido (SISLOG)': '',
+            'Hora Inicio': '',
+            'Hora Fin': 'Duración Total:',
+            'Duración (Minutos)': totalDuration
+        };
+
+        const worksheet = XLSX.utils.json_to_sheet([...dataToExport, totalRow]);
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, 'Reporte Desempeño');
         const fileName = `Reporte_Desempeño_${format(dateRange!.from!, 'yyyy-MM-dd')}_a_${format(dateRange!.to!, 'yyyy-MM-dd')}.xlsx`;
@@ -209,7 +224,11 @@ export default function PerformanceReportPage() {
                 formatTime12Hour(row.horaFin),
                 formatDuration(row.duracionMinutos)
             ]),
+            foot: [
+                [{ content: 'Duración Total:', colSpan: 7, styles: { halign: 'right', fontStyle: 'bold' } }, { content: formatDuration(totalDuration), styles: { halign: 'right', fontStyle: 'bold' } }]
+            ],
             headStyles: { fillColor: [33, 150, 243] },
+            footStyles: { fillColor: [226, 232, 240] },
             theme: 'grid',
             styles: { fontSize: 8, cellPadding: 2 },
         });
@@ -217,10 +236,6 @@ export default function PerformanceReportPage() {
         const fileName = `Reporte_Desempeño_${format(dateRange!.from!, 'yyyy-MM-dd')}_a_${format(dateRange!.to!, 'yyyy-MM-dd')}.pdf`;
         doc.save(fileName);
     };
-
-    const totalDuration = useMemo(() => {
-        return reportData.reduce((acc, row) => acc + (row.duracionMinutos || 0), 0);
-    }, [reportData]);
 
     if (!isAdmin && !user) {
         // user object might not be loaded yet, so wait. If it's loaded and not admin, then deny.
