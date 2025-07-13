@@ -176,7 +176,7 @@ export default function Home() {
 
             <div className={cn(!permissions.canGenerateForms && "md:col-span-2 flex justify-center")}>
               {availableMenuItems.length > 0 && (
-                  <Card className={cn(!permissions.canGenerateForms && "w-full max-w-md")}>
+                  <Card className={cn(!permissions.canGenerateForms && "w-full max-w-lg")}>
                       <CardHeader>
                           <CardTitle className="text-xl">Herramientas y Consultas</CardTitle>
                       </CardHeader>
