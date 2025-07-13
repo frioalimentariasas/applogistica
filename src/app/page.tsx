@@ -40,29 +40,7 @@ export default function Home() {
   const [productType, setProductType] = useState<string>();
   const router = useRouter();
   const { toast } = useToast();
-  const { user, loading, displayName, isAdmin } = useAuth();
-
-  // Define roles based on email
-  const operarioEmails = [
-    'frioal.operario1@gmail.com',
-    'frioal.operario2@gmail.com',
-    'frioal.operario3@gmail.com',
-    'frioal.operario4@gmail.com'
-  ];
-  const viewerEmails = [
-      'facturacion@frioalimentaria.com.co',
-      'procesos@frioalimentaria.com.co'
-  ];
-  const billingUsersEmails = [
-    'facturacion@frioalimentaria.com.co', // Daniela Díaz
-    'logistica@frioalimentaria.com.co',   // Flor Simanca
-    'sistemas@frioalimentaria.com.co'    // Cristian Jaramillo
-  ];
-
-  const isOperario = user && operarioEmails.includes(user.email || '');
-  const isViewer = user && viewerEmails.includes(user.email || '');
-  const canViewBilling = user && billingUsersEmails.includes(user.email || '');
-
+  const { user, loading, displayName, permissions } = useAuth();
 
   useEffect(() => {
     if (!loading && !user) {
@@ -146,16 +124,16 @@ export default function Home() {
 
         <div className="text-center">
           <h2 className="text-xl font-bold uppercase text-[#3588CC]">
-             {isViewer ? 'CONSULTA DE FORMATOS' : 'Control de Operaciones Logísticas'}
+            {permissions.canGenerateForms ? 'Control de Operaciones Logísticas' : 'Consulta de Formatos'}
           </h2>
           <p className="mt-2 text-sm text-gray-600">
-            {isViewer
-              ? 'Seleccione el botón para consultar los formatos guardados.'
-              : 'Seleccione las opciones para generar el formato correspondiente o consulte los formatos guardados.'}
+            {permissions.canGenerateForms
+              ? 'Seleccione las opciones para generar el formato correspondiente o consulte las herramientas disponibles.'
+              : 'Seleccione una opción de consulta en el menú de herramientas.'}
           </p>
         </div>
         
-        {!isViewer && (
+        {permissions.canGenerateForms && (
             <>
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <fieldset>
@@ -212,36 +190,38 @@ export default function Home() {
               </Button>
             </DropdownMenuTrigger>
             <DropdownMenuContent className="w-[var(--radix-dropdown-menu-trigger-width)]" align="center">
-              <DropdownMenuItem onSelect={() => router.push('/consultar-formatos')}>
-                <ScrollText className="mr-2 h-4 w-4" />
-                <span>Consultar Formatos Guardados</span>
-              </DropdownMenuItem>
-              {(canViewBilling || isAdmin) && (
+              {permissions.canConsultForms && (
+                <DropdownMenuItem onSelect={() => router.push('/consultar-formatos')}>
+                    <ScrollText className="mr-2 h-4 w-4" />
+                    <span>Consultar Formatos Guardados</span>
+                </DropdownMenuItem>
+              )}
+              {permissions.canViewBillingReports && (
                 <DropdownMenuItem onSelect={() => router.push('/billing-reports')}>
                     <BookCopy className="mr-2 h-4 w-4" />
                     <span>Informes para Facturación</span>
                 </DropdownMenuItem>
               )}
-              {isAdmin && (
+              {permissions.canViewPerformanceReport && (
                 <DropdownMenuItem onSelect={() => router.push('/performance-report')}>
                     <Timer className="mr-2 h-4 w-4" />
                     <span>Informe de Desempeño</span>
                 </DropdownMenuItem>
               )}
-              {!isOperario && !isViewer && (
-                <>
-                  <DropdownMenuSeparator />
+              {(permissions.canManageArticles || permissions.canManageClients) && <DropdownMenuSeparator />}
+              {permissions.canManageArticles && (
                   <DropdownMenuItem onSelect={() => router.push('/gestion-articulos')}>
                     <Box className="mr-2 h-4 w-4" />
                     <span>Gestión de Artículos</span>
                   </DropdownMenuItem>
+              )}
+               {permissions.canManageClients && (
                   <DropdownMenuItem onSelect={() => router.push('/gestion-clientes')}>
                     <Users2 className="mr-2 h-4 w-4" />
                     <span>Gestión de Clientes</span>
                   </DropdownMenuItem>
-                </>
               )}
-              {isAdmin && (
+              {permissions.canManageSessions && (
                 <>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem onSelect={() => router.push('/session-management')}>

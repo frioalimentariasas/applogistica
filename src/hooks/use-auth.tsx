@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { type ReactNode, useEffect, useState, useContext } from 'react';
@@ -16,43 +17,122 @@ const userDisplayNameMap: Record<string, string> = {
   'sistemas@frioalimentaria.com.co': 'Cristian Jaramillo',
 };
 
-const adminEmails = [
-    'sistemas@frioalimentaria.com.co',
-    'planta@frioalimentaria.com.co',
-    'logistica@frioalimentaria.com.co'
-];
+// Define permissions for each role
+const userPermissions: Record<string, AppPermissions> = {
+    // Super Admin
+    'sistemas@frioalimentaria.com.co': {
+        canGenerateForms: true,
+        canConsultForms: true,
+        canViewPerformanceReport: true,
+        canManageArticles: true,
+        canManageClients: true,
+        canViewBillingReports: true,
+        canManageSessions: true,
+    },
+    // Coordinador Logístico
+    'planta@frioalimentaria.com.co': {
+        canGenerateForms: true,
+        canConsultForms: true,
+        canViewPerformanceReport: true,
+        canManageArticles: true,
+        canManageClients: true,
+        canViewBillingReports: false,
+        canManageSessions: false,
+    },
+    // Flor Simanca
+    'logistica@frioalimentaria.com.co': {
+        canGenerateForms: false,
+        canConsultForms: true,
+        canViewPerformanceReport: true,
+        canManageArticles: false,
+        canManageClients: false,
+        canViewBillingReports: true,
+        canManageSessions: false,
+    },
+    // Daniela Díaz
+    'facturacion@frioalimentaria.com.co': {
+        canGenerateForms: false,
+        canConsultForms: true,
+        canViewPerformanceReport: false,
+        canManageArticles: false,
+        canManageClients: false,
+        canViewBillingReports: true,
+        canManageSessions: false,
+    },
+    // Suri Lambraño (Procesos)
+    'procesos@frioalimentaria.com.co': {
+        canGenerateForms: false,
+        canConsultForms: true,
+        canViewPerformanceReport: false,
+        canManageArticles: false,
+        canManageClients: false,
+        canViewBillingReports: false,
+        canManageSessions: false,
+    },
+    // Operario
+    'frioal.operario1@gmail.com': { canGenerateForms: true, canConsultForms: true, canViewPerformanceReport: false, canManageArticles: false, canManageClients: false, canViewBillingReports: false, canManageSessions: false },
+    'frioal.operario2@gmail.com': { canGenerateForms: true, canConsultForms: true, canViewPerformanceReport: false, canManageArticles: false, canManageClients: false, canViewBillingReports: false, canManageSessions: false },
+    'frioal.operario3@gmail.com': { canGenerateForms: true, canConsultForms: true, canViewPerformanceReport: false, canManageArticles: false, canManageClients: false, canViewBillingReports: false, canManageSessions: false },
+    'frioal.operario4@gmail.com': { canGenerateForms: true, canConsultForms: true, canViewPerformanceReport: false, canManageArticles: false, canManageClients: false, canViewBillingReports: false, canManageSessions: false },
+};
+
+const defaultPermissions: AppPermissions = {
+  canGenerateForms: false,
+  canConsultForms: false,
+  canViewPerformanceReport: false,
+  canManageArticles: false,
+  canManageClients: false,
+  canViewBillingReports: false,
+  canManageSessions: false,
+};
+
+
+type AppPermissions = {
+  canGenerateForms: boolean;
+  canConsultForms: boolean;
+  canViewPerformanceReport: boolean;
+  canManageArticles: boolean;
+  canManageClients: boolean;
+  canViewBillingReports: boolean;
+  canManageSessions: boolean;
+};
 
 type AuthContextType = {
   user: User | null;
   loading: boolean;
   displayName: string | null;
-  isAdmin: boolean;
+  permissions: AppPermissions;
 };
 
-const AuthContext = React.createContext<AuthContextType>({ user: null, loading: true, displayName: null, isAdmin: false });
+const AuthContext = React.createContext<AuthContextType>({
+  user: null,
+  loading: true,
+  displayName: null,
+  permissions: defaultPermissions,
+});
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = React.useState<User | null>(null);
   const [displayName, setDisplayName] = React.useState<string | null>(null);
   const [loading, setLoading] = React.useState(true);
-  const [isAdmin, setIsAdmin] = React.useState(false);
+  const [permissions, setPermissions] = React.useState<AppPermissions>(defaultPermissions);
   
   useEffect(() => {
     if (!auth) {
       setUser(null);
       setDisplayName(null);
+      setPermissions(defaultPermissions);
       setLoading(false);
-      setIsAdmin(false);
       return;
     }
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       setUser(user);
       if (user && user.email) {
         setDisplayName(userDisplayNameMap[user.email] || user.email);
-        setIsAdmin(adminEmails.includes(user.email));
+        setPermissions(userPermissions[user.email] || defaultPermissions);
       } else {
         setDisplayName(null);
-        setIsAdmin(false);
+        setPermissions(defaultPermissions);
       }
       setLoading(false);
     });
@@ -61,7 +141,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
   
   return (
-    <AuthContext.Provider value={{ user, loading, displayName, isAdmin }}>
+    <AuthContext.Provider value={{ user, loading, displayName, permissions }}>
       {children}
     </AuthContext.Provider>
   );

@@ -10,12 +10,13 @@ import { useRouter } from 'next/navigation';
 import * as XLSX from 'xlsx';
 
 import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/hooks/use-auth';
 import { addClient, updateClient, deleteClient } from './actions';
 import { uploadClientes } from '../upload-clientes/actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Loader2, Users2, UserPlus, Edit, Trash2, FileUp, Download } from 'lucide-react';
+import { ArrowLeft, Loader2, Users2, UserPlus, Edit, Trash2, FileUp, Download, ShieldAlert } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -49,6 +50,18 @@ interface ClientManagementComponentProps {
   initialClients: ClientInfo[];
 }
 
+const AccessDenied = () => (
+    <div className="flex flex-col items-center justify-center text-center gap-4">
+        <div className="rounded-full bg-destructive/10 p-4">
+            <ShieldAlert className="h-12 w-12 text-destructive" />
+        </div>
+        <h3 className="text-xl font-semibold">Acceso Denegado</h3>
+        <p className="text-muted-foreground">
+            No tiene permisos para acceder a esta página.
+        </p>
+    </div>
+);
+
 function UploadSubmitButton() {
   const { pending } = useFormStatus();
 
@@ -72,6 +85,7 @@ function UploadSubmitButton() {
 export default function ClientManagementComponent({ initialClients }: ClientManagementComponentProps) {
   const router = useRouter();
   const { toast } = useToast();
+  const { permissions, loading: authLoading } = useAuth();
   const [clients, setClients] = useState(initialClients);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -198,6 +212,28 @@ export default function ClientManagementComponent({ initialClients }: ClientMana
   const filteredClients = clients.filter(client => 
     client.razonSocial.toLowerCase().includes(searchTerm.toLowerCase())
   );
+  
+  if (authLoading) {
+      return (
+           <div className="flex min-h-screen w-full items-center justify-center">
+              <Loader2 className="h-12 w-12 animate-spin text-primary" />
+           </div>
+      )
+  }
+
+  if (!permissions.canManageClients) {
+      return (
+          <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8 flex items-center justify-center">
+              <div className="max-w-xl mx-auto text-center">
+                  <AccessDenied />
+                   <Button onClick={() => router.push('/')} className="mt-6">
+                      <ArrowLeft className="mr-2 h-4 w-4" />
+                      Volver al Inicio
+                  </Button>
+              </div>
+          </div>
+      );
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
