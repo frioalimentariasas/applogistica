@@ -44,6 +44,38 @@ const EmptyState = ({ searched }: { searched: boolean; }) => (
     </TableRow>
 );
 
+const getImageWithDimensions = (src: string): Promise<{ width: number; height: number }> => {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+            resolve({ width: img.width, height: img.height });
+        };
+        img.onerror = reject;
+        img.src = src;
+    });
+};
+
+const getImageAsBase64Client = async (url: string): Promise<string> => {
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+        }
+        const blob = await response.blob();
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onerror = reject;
+            reader.onload = () => {
+                resolve(reader.result as string);
+            };
+            reader.readAsDataURL(blob);
+        });
+    } catch(e) {
+        console.error("Error fetching client image", e);
+        return ""; // Return empty string on failure
+    }
+};
+
 const formatTime12Hour = (time24: string | undefined): string => {
     if (!time24 || !time24.includes(':')) return 'N/A';
     const [hours, minutes] = time24.split(':');
@@ -84,6 +116,31 @@ export default function PerformanceReportPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [isLoadingOperarios, setIsLoadingOperarios] = useState(false);
     const [searched, setSearched] = useState(false);
+
+    // State for PDF logo
+    const [logoBase64, setLogoBase64] = useState<string | null>(null);
+    const [logoDimensions, setLogoDimensions] = useState<{ width: number, height: number } | null>(null);
+    const [isLogoLoading, setIsLogoLoading] = useState(true);
+
+    useEffect(() => {
+        const fetchLogo = async () => {
+            setIsLogoLoading(true);
+            const logoUrl = new URL('/images/company-logo.png', window.location.origin).href;
+            try {
+                const data = await getImageAsBase64Client(logoUrl);
+                if (data) {
+                    const dims = await getImageWithDimensions(data);
+                    setLogoDimensions(dims);
+                    setLogoBase64(data);
+                }
+            } catch (error) {
+                console.error("Failed to load logo for PDF:", error);
+            } finally {
+                setIsLogoLoading(false);
+            }
+        };
+        fetchLogo();
+    }, []);
 
     useEffect(() => {
         const fetchOperarios = async () => {
@@ -195,24 +252,34 @@ export default function PerformanceReportPage() {
     };
 
     const handleExportPDF = async () => {
-        if (reportData.length === 0) return;
+        if (reportData.length === 0 || !logoBase64 || !logoDimensions) return;
         
         const doc = new jsPDF({ orientation: 'landscape' });
+        const pageWidth = doc.internal.pageSize.getWidth();
+
+        // --- HEADER ---
+        const logoWidth = 70;
+        const aspectRatio = logoDimensions.width / logoDimensions.height;
+        const logoHeight = logoWidth / aspectRatio;
+        const logoX = (pageWidth - logoWidth) / 2;
+        doc.addImage(logoBase64, 'PNG', logoX, 15, logoWidth, logoHeight);
+
+        const titleY = 15 + logoHeight + 8;
         
         doc.setFontSize(12);
         doc.setFont('helvetica', 'bold');
-        doc.text(`Informe de Desempeño por Operario`, doc.internal.pageSize.getWidth() / 2, 20, { align: 'center' });
+        doc.text(`Informe de Desempeño por Operario`, pageWidth / 2, titleY, { align: 'center' });
         
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
-        doc.text(`Periodo: ${format(dateRange!.from!, 'dd/MM/yyyy')} - ${format(dateRange!.to!, 'dd/MM/yyyy')}`, 14, 30);
+        doc.text(`Periodo: ${format(dateRange!.from!, 'dd/MM/yyyy')} - ${format(dateRange!.to!, 'dd/MM/yyyy')}`, 14, titleY + 12);
         if (selectedOperario !== 'all') {
-            doc.text(`Operario: ${selectedOperario}`, doc.internal.pageSize.getWidth() - 14, 30, { align: 'right' });
+            doc.text(`Operario: ${selectedOperario}`, pageWidth - 14, titleY + 12, { align: 'right' });
         }
 
 
         autoTable(doc, {
-            startY: 40,
+            startY: titleY + 22,
             head: [['Fecha', 'Operario', 'Cliente', 'Tipo Op.', 'Pedido', 'H. Inicio', 'H. Fin', 'Duración']],
             body: reportData.map(row => [
                 format(new Date(row.fecha), 'dd/MM/yy'),
@@ -339,8 +406,9 @@ export default function PerformanceReportPage() {
                                 <Button onClick={handleExportExcel} disabled={isLoading || reportData.length === 0} variant="outline">
                                     <File className="mr-2 h-4 w-4" /> Exportar a Excel
                                 </Button>
-                                <Button onClick={handleExportPDF} disabled={isLoading || reportData.length === 0} variant="outline">
-                                    <FileDown className="mr-2 h-4 w-4" /> Exportar a PDF
+                                <Button onClick={handleExportPDF} disabled={isLoading || reportData.length === 0 || isLogoLoading} variant="outline">
+                                    {isLogoLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />}
+                                    Exportar a PDF
                                 </Button>
                             </div>
                         </div>
