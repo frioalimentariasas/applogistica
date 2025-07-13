@@ -124,11 +124,11 @@ export async function getPerformanceReport(criteria: PerformanceReportCriteria):
         results.sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
 
         return results;
-    } catch (error) {
+    } catch (error: any) {
         if (error instanceof Error && error.message.includes('requires an index')) {
-            // Explicitly log the error to ensure it appears in Google Cloud Logging
             console.error("Firestore composite index required. See the full error log for the creation link.", error);
-            throw new Error('La consulta requiere un índice compuesto en Firestore. Por favor, revise los registros del servidor para crear el índice necesario.');
+            // Re-throw the original error to pass the link to the client for debugging
+            throw new Error(error.message);
         }
         // Re-throw other errors to ensure they are logged.
         console.error('Error fetching performance report:', error);

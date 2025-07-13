@@ -124,10 +124,19 @@ export default function PerformanceReportPage() {
             }
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "Ocurrió un error desconocido.";
+            // Log the full error to the console for debugging
+            console.error("Error generating performance report:", error);
+            
+            let displayMessage = errorMessage;
+            if (errorMessage.includes('requires an index')) {
+                displayMessage = 'La consulta requiere un índice compuesto en Firestore. Por favor, revise la consola de desarrollador para obtener el enlace de creación.';
+            }
+            
             toast({
                 variant: 'destructive',
                 title: 'Error al generar el reporte',
-                description: errorMessage,
+                description: displayMessage,
+                duration: 9000
             });
         } finally {
             setIsLoading(false);
