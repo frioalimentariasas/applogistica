@@ -24,7 +24,7 @@ import {
     type ActiveUser
 } from './actions';
 import type { AppPermissions } from '@/hooks/use-auth';
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import {
@@ -573,3 +573,5 @@ export default function SessionManagementComponent() {
         </div>
     )
 }
+
+    
