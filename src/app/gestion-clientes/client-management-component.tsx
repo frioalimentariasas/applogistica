@@ -12,11 +12,12 @@ import * as XLSX from 'xlsx';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import { addClient, updateClient, deleteClient } from './actions';
+import { getClients } from '@/app/actions/clients';
 import { uploadClientes } from '../upload-clientes/actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Loader2, Users2, UserPlus, Edit, Trash2, FileUp, Download, ShieldAlert } from 'lucide-react';
+import { ArrowLeft, Loader2, Users2, UserPlus, Edit, Trash2, FileUp, Download, ShieldAlert, Search } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -47,7 +48,6 @@ const editClientSchema = z.object({
 type EditClientFormValues = z.infer<typeof editClientSchema>;
 
 interface ClientManagementComponentProps {
-  initialClients: ClientInfo[];
 }
 
 const AccessDenied = () => (
@@ -82,12 +82,14 @@ function UploadSubmitButton() {
   );
 }
 
-export default function ClientManagementComponent({ initialClients }: ClientManagementComponentProps) {
+export default function ClientManagementComponent({ }: ClientManagementComponentProps) {
   const router = useRouter();
   const { toast } = useToast();
   const { permissions, loading: authLoading } = useAuth();
-  const [clients, setClients] = useState(initialClients);
+  const [clients, setClients] = useState<ClientInfo[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  const [searched, setSearched] = useState(false);
 
   // Add state
   const [isSubmittingAdd, setIsSubmittingAdd] = useState(false);
@@ -115,6 +117,23 @@ export default function ClientManagementComponent({ initialClients }: ClientMana
   });
 
   // Handlers
+  const handleSearch = async () => {
+    setIsLoading(true);
+    setSearched(true);
+    try {
+        const fetchedClients = await getClients();
+        setClients(fetchedClients);
+        if(fetchedClients.length === 0) {
+            toast({ title: "Sin Resultados", description: "No se encontraron clientes registrados."});
+        }
+    } catch (error) {
+        toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar los clientes.' });
+    } finally {
+        setIsLoading(false);
+    }
+  };
+
+
   const onAddSubmit: SubmitHandler<AddClientFormValues> = async (data) => {
     setIsSubmittingAdd(true);
     const result = await addClient(data.razonSocial);
@@ -188,7 +207,10 @@ export default function ClientManagementComponent({ initialClients }: ClientMana
       setUploadFileName('');
       const form = document.getElementById('upload-clients-form') as HTMLFormElement;
       form?.reset();
-      router.refresh();
+      // Refresh the list if it's already being shown
+      if (searched) {
+          await handleSearch();
+      }
     } else {
       toast({
         variant: "destructive",
@@ -334,12 +356,19 @@ export default function ClientManagementComponent({ initialClients }: ClientMana
                 </div>
             </CardHeader>
             <CardContent>
-               <Input 
-                placeholder="Buscar cliente..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="mb-4"
-              />
+                <div className="flex gap-2 mb-4">
+                    <Input 
+                        placeholder="Buscar en la lista..."
+                        value={searchTerm}
+                        onChange={(e) => setSearchTerm(e.target.value)}
+                        disabled={!searched || clients.length === 0}
+                    />
+                     <Button onClick={handleSearch} disabled={isLoading}>
+                        {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+                        {searched ? "Refrescar" : "Buscar Todos"}
+                    </Button>
+                </div>
+
               <ScrollArea className="h-96">
                 <Table>
                   <TableHeader>
@@ -349,7 +378,14 @@ export default function ClientManagementComponent({ initialClients }: ClientMana
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {filteredClients.length > 0 ? (
+                    {isLoading ? (
+                         <TableRow>
+                            <TableCell colSpan={2} className="h-24 text-center">
+                                <Loader2 className="mx-auto h-6 w-6 animate-spin text-primary" />
+                                <p className="text-muted-foreground">Cargando...</p>
+                            </TableCell>
+                        </TableRow>
+                    ) : searched && filteredClients.length > 0 ? (
                       filteredClients.map((client) => (
                         <TableRow key={client.id}>
                           <TableCell>{client.razonSocial}</TableCell>
@@ -368,7 +404,7 @@ export default function ClientManagementComponent({ initialClients }: ClientMana
                     ) : (
                       <TableRow>
                         <TableCell colSpan={2} className="h-24 text-center text-muted-foreground">
-                          {clients.length === 0 ? "No hay clientes registrados." : "No se encontraron clientes."}
+                          {searched ? "No se encontraron clientes." : "Haga clic en 'Buscar' para ver los clientes."}
                         </TableCell>
                       </TableRow>
                     )}
