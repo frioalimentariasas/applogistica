@@ -1,9 +1,10 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { FileText, LogOut, Users2, Box, ScrollText, BookCopy, ShieldCheck, Settings } from 'lucide-react';
+import { FileText, LogOut, Users2, Box, ScrollText, BookCopy, ShieldCheck, Settings, Timer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Label } from '@/components/ui/label';
@@ -215,11 +216,17 @@ export default function Home() {
                 <ScrollText className="mr-2 h-4 w-4" />
                 <span>Consultar Formatos Guardados</span>
               </DropdownMenuItem>
-              {canViewBilling && (
-                <DropdownMenuItem onSelect={() => router.push('/billing-reports')}>
-                  <BookCopy className="mr-2 h-4 w-4" />
-                  <span>Informes para Facturación</span>
-                </DropdownMenuItem>
+              {(canViewBilling || isAdmin) && (
+                <>
+                    <DropdownMenuItem onSelect={() => router.push('/billing-reports')}>
+                      <BookCopy className="mr-2 h-4 w-4" />
+                      <span>Informes para Facturación</span>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onSelect={() => router.push('/performance-report')}>
+                        <Timer className="mr-2 h-4 w-4" />
+                        <span>Informe de Desempeño</span>
+                    </DropdownMenuItem>
+                </>
               )}
               {!isOperario && !isViewer && (
                 <>
