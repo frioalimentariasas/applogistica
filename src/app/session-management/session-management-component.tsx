@@ -6,7 +6,8 @@ import { useRouter } from 'next/navigation';
 import { useForm, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { useAuth, type AppPermissions, defaultPermissions } from '@/hooks/use-auth';
+import { useAuth } from '@/hooks/use-auth';
+import { defaultPermissions } from '@/hooks/use-auth';
 import { useToast } from '@/hooks/use-toast';
 import { formatDistanceToNow } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -19,8 +20,10 @@ import {
     createUser,
     updateUserPassword,
     updateUserDisplayName,
+    purgeOldSubmissions,
     type ActiveUser
 } from './actions';
+import type { AppPermissions } from '@/hooks/use-auth';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
@@ -38,7 +41,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, RefreshCw, ShieldAlert, ShieldCheck, UserX, Loader2, KeyRound, UserPlus, Pencil, KeySquare } from 'lucide-react';
+import { ArrowLeft, RefreshCw, ShieldAlert, ShieldCheck, UserX, Loader2, KeyRound, UserPlus, Pencil, KeySquare, Trash2, DatabaseZap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
@@ -74,7 +77,7 @@ const permissionLabels: { key: keyof AppPermissions; label: string }[] = [
     { key: 'canViewPerformanceReport', label: 'Ver Informe de Desempeño' },
     { key: 'canManageClients', label: 'Gestionar Clientes' },
     { key: 'canManageArticles', label: 'Gestionar Artículos' },
-    { key: 'canManageSessions', label: 'Gestionar Sesiones y Permisos' },
+    { key: 'canManageSessions', label: 'Gestionar Usuarios' },
 ];
 
 const addUserSchema = z.object({
@@ -117,6 +120,11 @@ export default function SessionManagementComponent() {
     const [isAddUserOpen, setIsAddUserOpen] = useState(false);
     const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
     const [isEditNameOpen, setIsEditNameOpen] = useState(false);
+    
+    // State for data purge
+    const [isPurgeConfirmOpen, setIsPurgeConfirmOpen] = useState(false);
+    const [isPurging, setIsPurging] = useState(false);
+
 
     // Forms
     const permissionsForm = useForm<AppPermissions>();
@@ -233,6 +241,30 @@ export default function SessionManagementComponent() {
         }
     };
 
+    const handlePurge = async () => {
+        setIsPurging(true);
+        try {
+            const result = await purgeOldSubmissions();
+            if (result.success) {
+                toast({
+                    title: 'Purga Completada',
+                    description: result.message,
+                });
+            } else {
+                throw new Error(result.message);
+            }
+        } catch(error) {
+            toast({
+                variant: 'destructive',
+                title: 'Error en la Purga',
+                description: error instanceof Error ? error.message : 'Ocurrió un error inesperado.',
+            });
+        } finally {
+            setIsPurging(false);
+            setIsPurgeConfirmOpen(false);
+        }
+    };
+
     if (authLoading) {
         return (
              <div className="flex min-h-screen w-full items-center justify-center">
@@ -266,110 +298,136 @@ export default function SessionManagementComponent() {
                     <div>
                       <div className="flex items-center justify-center gap-2">
                         <ShieldCheck className="h-8 w-8 text-primary" />
-                        <h1 className="text-2xl font-bold text-primary">Gestión de Sesiones y Permisos</h1>
+                        <h1 className="text-2xl font-bold text-primary">Gestión de Usuarios</h1>
                       </div>
-                      <p className="text-sm text-gray-500">Vea sesiones activas y gestione los permisos de los usuarios.</p>
+                      <p className="text-sm text-gray-500">Vea sesiones activas, gestione usuarios y sus permisos.</p>
                     </div>
                   </div>
                 </header>
-
-                <Card>
-                    <CardHeader>
-                        <div className="flex justify-between items-center">
-                            <div>
-                                <CardTitle>Usuarios del Sistema</CardTitle>
-                                <CardDescription>Listado de todos los usuarios, su última actividad y sus roles.</CardDescription>
+                
+                <div className="space-y-8">
+                    <Card>
+                        <CardHeader>
+                            <div className="flex justify-between items-center">
+                                <div>
+                                    <CardTitle>Usuarios del Sistema</CardTitle>
+                                    <CardDescription>Listado de todos los usuarios, su última actividad y sus roles.</CardDescription>
+                                </div>
+                                <div className="flex gap-2">
+                                    <Button onClick={() => setIsAddUserOpen(true)}><UserPlus className="mr-2 h-4 w-4" />Agregar Usuario</Button>
+                                    <Button variant="outline" onClick={fetchAllData} disabled={isLoading}>
+                                        <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
+                                        Refrescar
+                                    </Button>
+                                </div>
                             </div>
-                            <div className="flex gap-2">
-                                <Button onClick={() => setIsAddUserOpen(true)}><UserPlus className="mr-2 h-4 w-4" />Agregar Usuario</Button>
-                                <Button variant="outline" onClick={fetchAllData} disabled={isLoading}>
-                                    <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
-                                    Refrescar
+                        </CardHeader>
+                        <CardContent>
+                            <div className="rounded-md border">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Nombre</TableHead>
+                                            <TableHead>Email</TableHead>
+                                            <TableHead>Última Actividad</TableHead>
+                                            <TableHead>Estado</TableHead>
+                                            <TableHead className="text-right">Acciones</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {isLoading ? (
+                                            <UserSkeleton />
+                                        ) : users.length > 0 ? (
+                                            users.map((u) => {
+                                                const lastActivityDate = new Date(Math.max(
+                                                    new Date(u.lastSignInTime || 0).getTime(),
+                                                    new Date(u.lastRefreshTime || 0).getTime()
+                                                ));
+                                                
+                                                const hasEverBeenActive = lastActivityDate.getFullYear() > 1970;
+
+                                                const lastActivityDisplay = hasEverBeenActive
+                                                    ? formatDistanceToNow(lastActivityDate, { addSuffix: true, locale: es })
+                                                    : "Nunca";
+
+                                                const FIVE_MINUTES_IN_MS = 5 * 60 * 1000;
+                                                const now = new Date();
+                                                const timeDifference = now.getTime() - lastActivityDate.getTime();
+                                                const isActive = hasEverBeenActive && timeDifference < FIVE_MINUTES_IN_MS;
+                                                
+                                                const wasJustRevokedInUI = revokedUids.includes(u.uid);
+                                                const tokensValidAfter = u.tokensValidAfterTime ? new Date(u.tokensValidAfterTime) : null;
+                                                
+                                                const isEffectivelyRevoked = tokensValidAfter ? tokensValidAfter.getTime() > lastActivityDate.getTime() : false;
+                                                const isRevoked = wasJustRevokedInUI || isEffectivelyRevoked;
+                                                const isSuperAdmin = u.email === 'sistemas@frioalimentaria.com.co';
+
+                                                return (
+                                                    <TableRow key={u.uid} className={u.uid === user?.uid ? 'bg-blue-50' : ''}>
+                                                        <TableCell className="font-medium">{u.displayName}</TableCell>
+                                                        <TableCell>{u.email}</TableCell>
+                                                        <TableCell>{lastActivityDisplay}</TableCell>
+                                                        <TableCell>
+                                                            <div className="flex items-center gap-2">
+                                                                <span className={cn('h-2.5 w-2.5 rounded-full', isActive ? 'bg-green-500' : 'bg-gray-400')} />
+                                                                <span className="text-sm">{isActive ? 'Activo' : 'Inactivo'}</span>
+                                                            </div>
+                                                        </TableCell>
+                                                        <TableCell className="text-right">
+                                                            <div className="flex items-center justify-end gap-1">
+                                                                <Button variant="outline" size="sm" onClick={() => { setUserToEdit(u); editNameForm.setValue("displayName", u.displayName || ""); setIsEditNameOpen(true); }}><Pencil className="mr-2 h-4 w-4" />Nombre</Button>
+                                                                <Button variant="outline" size="sm" onClick={() => { setUserToEdit(u); setIsChangePasswordOpen(true); }}><KeySquare className="mr-2 h-4 w-4" />Contraseña</Button>
+                                                                <Button variant="outline" size="sm" onClick={() => handleOpenPermissionsDialog(u)} disabled={isSuperAdmin}><KeyRound className="mr-2 h-4 w-4" />Permisos</Button>
+                                                                <Button 
+                                                                    variant={isRevoked ? "secondary" : "destructive"}
+                                                                    size="sm"
+                                                                    onClick={() => setUserToRevoke(u)}
+                                                                    disabled={u.uid === user?.uid || isRevoked || isSuperAdmin}
+                                                                    title={isSuperAdmin ? 'No se puede revocar al Super Admin' : u.uid === user?.uid ? 'No puede revocar su propia sesión' : isRevoked ? 'La sesión ya está revocada.' : 'Revocar sesión'}
+                                                                >
+                                                                    <UserX className="mr-2 h-4 w-4" />
+                                                                    {isRevoked ? "Revocada" : "Revocar"}
+                                                                </Button>
+                                                            </div>
+                                                        </TableCell>
+                                                    </TableRow>
+                                                );
+                                            })
+                                        ) : (
+                                            <TableRow>
+                                                <TableCell colSpan={5} className="h-24 text-center">No se encontraron usuarios.</TableCell>
+                                            </TableRow>
+                                        )}
+                                    </TableBody>
+                                </Table>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Mantenimiento de Datos</CardTitle>
+                            <CardDescription>
+                                Elimine registros antiguos para mantener la base de datos optimizada. Esta acción es irreversible.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="flex items-center justify-between rounded-lg border p-4">
+                                <div>
+                                    <h4 className="font-semibold">Purgar Formatos Antiguos</h4>
+                                    <p className="text-sm text-muted-foreground">
+                                        Elimina permanentemente los formatos guardados con más de 3 meses de antigüedad.
+                                    </p>
+                                </div>
+                                <Button variant="destructive" onClick={() => setIsPurgeConfirmOpen(true)} disabled={isPurging}>
+                                    {isPurging ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DatabaseZap className="mr-2 h-4 w-4" />}
+                                    {isPurging ? "Purgando..." : "Purgar Ahora"}
                                 </Button>
                             </div>
-                        </div>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="rounded-md border">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Nombre</TableHead>
-                                        <TableHead>Email</TableHead>
-                                        <TableHead>Última Actividad</TableHead>
-                                        <TableHead>Estado</TableHead>
-                                        <TableHead className="text-right">Acciones</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {isLoading ? (
-                                        <UserSkeleton />
-                                    ) : users.length > 0 ? (
-                                        users.map((u) => {
-                                            const lastActivityDate = new Date(Math.max(
-                                                new Date(u.lastSignInTime || 0).getTime(),
-                                                new Date(u.lastRefreshTime || 0).getTime()
-                                            ));
-                                            
-                                            const hasEverBeenActive = lastActivityDate.getFullYear() > 1970;
+                        </CardContent>
+                    </Card>
 
-                                            const lastActivityDisplay = hasEverBeenActive
-                                                ? formatDistanceToNow(lastActivityDate, { addSuffix: true, locale: es })
-                                                : "Nunca";
-
-                                            const FIVE_MINUTES_IN_MS = 5 * 60 * 1000;
-                                            const now = new Date();
-                                            const timeDifference = now.getTime() - lastActivityDate.getTime();
-                                            const isActive = hasEverBeenActive && timeDifference < FIVE_MINUTES_IN_MS;
-                                            
-                                            const wasJustRevokedInUI = revokedUids.includes(u.uid);
-                                            const tokensValidAfter = u.tokensValidAfterTime ? new Date(u.tokensValidAfterTime) : null;
-                                            
-                                            const isEffectivelyRevoked = tokensValidAfter ? tokensValidAfter.getTime() > lastActivityDate.getTime() : false;
-                                            const isRevoked = wasJustRevokedInUI || isEffectivelyRevoked;
-                                            const isSuperAdmin = u.email === 'sistemas@frioalimentaria.com.co';
-
-                                            return (
-                                                <TableRow key={u.uid} className={u.uid === user?.uid ? 'bg-blue-50' : ''}>
-                                                    <TableCell className="font-medium">{u.displayName}</TableCell>
-                                                    <TableCell>{u.email}</TableCell>
-                                                    <TableCell>{lastActivityDisplay}</TableCell>
-                                                    <TableCell>
-                                                        <div className="flex items-center gap-2">
-                                                            <span className={cn('h-2.5 w-2.5 rounded-full', isActive ? 'bg-green-500' : 'bg-gray-400')} />
-                                                            <span className="text-sm">{isActive ? 'Activo' : 'Inactivo'}</span>
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell className="text-right">
-                                                        <div className="flex items-center justify-end gap-1">
-                                                            <Button variant="outline" size="sm" onClick={() => { setUserToEdit(u); editNameForm.setValue("displayName", u.displayName || ""); setIsEditNameOpen(true); }}><Pencil className="mr-2 h-4 w-4" />Nombre</Button>
-                                                            <Button variant="outline" size="sm" onClick={() => { setUserToEdit(u); setIsChangePasswordOpen(true); }}><KeySquare className="mr-2 h-4 w-4" />Contraseña</Button>
-                                                            <Button variant="outline" size="sm" onClick={() => handleOpenPermissionsDialog(u)} disabled={isSuperAdmin}><KeyRound className="mr-2 h-4 w-4" />Permisos</Button>
-                                                            <Button 
-                                                                variant={isRevoked ? "secondary" : "destructive"}
-                                                                size="sm"
-                                                                onClick={() => setUserToRevoke(u)}
-                                                                disabled={u.uid === user?.uid || isRevoked || isSuperAdmin}
-                                                                title={isSuperAdmin ? 'No se puede revocar al Super Admin' : u.uid === user?.uid ? 'No puede revocar su propia sesión' : isRevoked ? 'La sesión ya está revocada.' : 'Revocar sesión'}
-                                                            >
-                                                                <UserX className="mr-2 h-4 w-4" />
-                                                                {isRevoked ? "Revocada" : "Revocar"}
-                                                            </Button>
-                                                        </div>
-                                                    </TableCell>
-                                                </TableRow>
-                                            );
-                                        })
-                                    ) : (
-                                        <TableRow>
-                                            <TableCell colSpan={5} className="h-24 text-center">No se encontraron usuarios.</TableCell>
-                                        </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
-                        </div>
-                    </CardContent>
-                </Card>
+                </div>
             </div>
             
             <AlertDialog open={!!userToRevoke} onOpenChange={() => setUserToRevoke(null)}>
@@ -493,6 +551,24 @@ export default function SessionManagementComponent() {
                     </Form>
                 </DialogContent>
             </Dialog>
+
+             <AlertDialog open={isPurgeConfirmOpen} onOpenChange={setIsPurgeConfirmOpen}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>¿Está absolutamente seguro?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Esta acción es irreversible y eliminará permanentemente todos los formatos con más de 3 meses de antigüedad, incluyendo sus archivos adjuntos.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel disabled={isPurging}>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction onClick={handlePurge} disabled={isPurging} className={buttonVariants({ variant: 'destructive' })}>
+                            {isPurging ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            Sí, Purgar Datos
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
 
         </div>
     )

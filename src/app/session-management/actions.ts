@@ -1,10 +1,10 @@
 
 'use server';
 
-import { auth, firestore } from '@/lib/firebase-admin';
-import { UserRecord } from 'firebase-admin/auth';
+import { auth, firestore, storage } from '@/lib/firebase-admin';
 import type { AppPermissions } from '@/hooks/use-auth';
 import { defaultPermissions } from '@/hooks/use-auth';
+import { subMonths, startOfMonth } from 'date-fns';
 
 export interface ActiveUser {
     uid: string;
@@ -187,5 +187,79 @@ export async function updateUserDisplayName(email: string, displayName: string):
     } catch (error: any) {
         console.error('Error updating display name:', error);
         return { success: false, message: `Error al actualizar el nombre: ${error.message}` };
+    }
+}
+
+
+export async function purgeOldSubmissions(): Promise<{ success: boolean; message: string; count: number }> {
+    if (!firestore || !storage) {
+        return { success: false, message: 'El servidor no está configurado correctamente.', count: 0 };
+    }
+
+    try {
+        const now = new Date();
+        // Go back 3 months from the current date and get the start of that month.
+        // e.g., if today is June 15, it goes to March 15, then gets March 1.
+        const cutoffDate = startOfMonth(subMonths(now, 3));
+        const cutoffDateString = cutoffDate.toISOString().split('T')[0];
+
+        // Query for documents older than the cutoff date based on the form's date field.
+        const oldSubmissionsSnapshot = await firestore.collection('submissions')
+            .where('formData.fecha', '<', cutoffDateString)
+            .get();
+
+        if (oldSubmissionsSnapshot.empty) {
+            return { success: true, message: 'No se encontraron formatos antiguos para purgar.', count: 0 };
+        }
+
+        const submissionsToDelete = oldSubmissionsSnapshot.docs;
+        let deletedCount = 0;
+        const batchSize = 400; // Firestore batch limit is 500 operations
+
+        for (let i = 0; i < submissionsToDelete.length; i += batchSize) {
+            const batch = firestore.batch();
+            const chunk = submissionsToDelete.slice(i, i + batchSize);
+
+            for (const doc of chunk) {
+                const submissionData = doc.data();
+                const attachmentUrls: string[] = submissionData?.attachmentUrls || [];
+
+                // Delete attachments from Storage
+                for (const url of attachmentUrls) {
+                    try {
+                        const decodedUrl = decodeURIComponent(url);
+                        const pathStartIndex = decodedUrl.indexOf('/o/') + 3;
+                        if (pathStartIndex > 2) {
+                            const pathEndIndex = decodedUrl.indexOf('?');
+                            const filePath = pathEndIndex === -1 ? decodedUrl.substring(pathStartIndex) : decodedUrl.substring(pathStartIndex, pathEndIndex);
+                            if (filePath) {
+                                // This deletion is async but we don't need to wait for it to complete
+                                // before deleting the Firestore doc. It's best-effort.
+                                storage.bucket().file(filePath).delete().catch(err => {
+                                    if (err.code !== 404) {
+                                        console.error(`Failed to delete old attachment ${filePath}:`, err.message);
+                                    }
+                                });
+                            }
+                        }
+                    } catch (e) {
+                        console.error(`Could not process attachment URL ${url} for deletion:`, e);
+                    }
+                }
+
+                // Add Firestore document deletion to the batch
+                batch.delete(doc.ref);
+            }
+            
+            await batch.commit();
+            deletedCount += chunk.length;
+        }
+
+        return { success: true, message: `Se purgaron ${deletedCount} formatos antiguos.`, count: deletedCount };
+
+    } catch (error) {
+        console.error('Error purging old submissions:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Ocurrió un error desconocido.';
+        return { success: false, message: `Error del servidor: ${errorMessage}`, count: 0 };
     }
 }
