@@ -129,6 +129,18 @@ export default function PerformanceReportPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [isLoadingOperarios, setIsLoadingOperarios] = useState(false);
     const [searched, setSearched] = useState(false);
+    
+    // Pagination state
+    const [currentPage, setCurrentPage] = useState(1);
+    const [itemsPerPage, setItemsPerPage] = useState(10);
+
+    // Derived state for pagination
+    const totalPages = Math.ceil(reportData.length / itemsPerPage);
+    const displayedData = useMemo(() => {
+        const startIndex = (currentPage - 1) * itemsPerPage;
+        const endIndex = startIndex + itemsPerPage;
+        return reportData.slice(startIndex, endIndex);
+    }, [reportData, currentPage, itemsPerPage]);
 
     // State for PDF logo
     const [logoBase64, setLogoBase64] = useState<string | null>(null);
@@ -189,6 +201,7 @@ export default function PerformanceReportPage() {
         setIsLoading(true);
         setSearched(true);
         setReportData([]);
+        setCurrentPage(1);
 
         try {
             const criteria = {
@@ -226,6 +239,7 @@ export default function PerformanceReportPage() {
         setSelectedOperario('all');
         setReportData([]);
         setSearched(false);
+        setCurrentPage(1);
     };
 
     const totalDuration = useMemo(() => {
@@ -458,8 +472,8 @@ export default function PerformanceReportPage() {
                                 <TableBody>
                                     {isLoading ? (
                                         <TableRow><TableCell colSpan={8}><Skeleton className="h-20 w-full" /></TableCell></TableRow>
-                                    ) : reportData.length > 0 ? (
-                                        reportData.map((row) => (
+                                    ) : displayedData.length > 0 ? (
+                                        displayedData.map((row) => (
                                             <TableRow key={row.id}>
                                                 <TableCell>{format(new Date(row.fecha), 'dd/MM/yyyy')}</TableCell>
                                                 <TableCell>{row.operario}</TableCell>
@@ -478,6 +492,53 @@ export default function PerformanceReportPage() {
                             </Table>
                             <ScrollBar orientation="horizontal" />
                         </ScrollArea>
+                         <div className="flex items-center justify-between space-x-2 py-4">
+                            <div className="flex-1 text-sm text-muted-foreground">
+                                {reportData.length} fila(s) en total.
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <p className="text-sm font-medium">Filas por página</p>
+                                <Select
+                                    value={`${itemsPerPage}`}
+                                    onValueChange={(value) => {
+                                        setItemsPerPage(Number(value));
+                                        setCurrentPage(1);
+                                    }}
+                                >
+                                    <SelectTrigger className="h-8 w-[70px]">
+                                        <SelectValue placeholder={itemsPerPage} />
+                                    </SelectTrigger>
+                                    <SelectContent side="top">
+                                        {[10, 20, 50, 100].map((pageSize) => (
+                                            <SelectItem key={pageSize} value={`${pageSize}`}>
+                                                {pageSize}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="flex w-[100px] items-center justify-center text-sm font-medium">
+                                Página {currentPage} de {totalPages}
+                            </div>
+                            <div className="flex items-center space-x-2">
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setCurrentPage((prev) => prev - 1)}
+                                    disabled={currentPage === 1}
+                                >
+                                    Anterior
+                                </Button>
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setCurrentPage((prev) => prev + 1)}
+                                    disabled={currentPage === totalPages || totalPages === 0}
+                                >
+                                    Siguiente
+                                </Button>
+                            </div>
+                        </div>
                     </CardContent>
                 </Card>
             </div>
