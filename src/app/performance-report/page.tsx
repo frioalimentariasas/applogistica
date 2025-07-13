@@ -138,7 +138,7 @@ export default function PerformanceReportPage() {
             }
         } catch (error: any) {
             const errorMessage = error instanceof Error ? error.message : "Ocurrió un error desconocido.";
-            console.error("Error generating performance report:", error);
+            console.error(errorMessage);
             
             toast({
                 variant: 'destructive',
@@ -228,7 +228,7 @@ export default function PerformanceReportPage() {
                 [{ content: 'Duración Total:', colSpan: 7, styles: { halign: 'right', fontStyle: 'bold' } }, { content: formatDuration(totalDuration), styles: { halign: 'right', fontStyle: 'bold' } }]
             ],
             headStyles: { fillColor: [33, 150, 243] },
-            footStyles: { fillColor: [226, 232, 240] },
+            footStyles: { fillColor: [33, 150, 243], textColor: '#ffffff' },
             theme: 'grid',
             styles: { fontSize: 8, cellPadding: 2 },
         });
