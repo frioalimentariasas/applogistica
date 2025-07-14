@@ -246,21 +246,17 @@ function getByteSizeFromBase64(base64: string): number {
 
 // Sub-component for a single item row to handle its own state and logic
 const FormItemRow = ({ index, control, remove, handleProductDialogOpening }: { index: number, control: any, remove: (index: number) => void, handleProductDialogOpening: (index: number) => void }) => {
-    // Watch the 'paleta' field for this specific item to trigger re-renders
-    const paletaValue = useWatch({
-        control,
-        name: `items.${index}.paleta`,
-    });
-    
+    const paletaValue = useWatch({ control, name: `items.${index}.paleta` });
     const watchedItem = useWatch({ control, name: `items.${index}` });
-
+    
+    // This is the crucial fix: the rendering logic is now simple and directly tied to the watched value.
     const isSummaryRow = Number(paletaValue) === 0;
     const pesoNeto = watchedItem?.pesoNeto;
 
     return (
         <div className="p-4 border rounded-lg relative bg-white space-y-4">
             <div className="flex justify-between items-center">
-                <h4 className="font-semibold text-lg md:text-base">Ítem #{index + 1}</h4>
+                <h4 className="text-lg font-semibold md:text-base">Ítem #{index + 1}</h4>
                 <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => remove(index)}><Trash2 className="h-4 w-4" /></Button>
             </div>
             <div className="space-y-4">
@@ -271,7 +267,7 @@ const FormItemRow = ({ index, control, remove, handleProductDialogOpening }: { i
                             <Button
                                 type="button"
                                 variant="outline"
-                                className="w-full justify-between text-left font-normal h-10"
+                                className="w-full justify-between h-10 text-left font-normal"
                                 onClick={() => handleProductDialogOpening(index)}
                             >
                                 <span className="truncate">{field.value || "Seleccionar código..."}</span>
@@ -286,7 +282,7 @@ const FormItemRow = ({ index, control, remove, handleProductDialogOpening }: { i
                             <Button
                                 type="button"
                                 variant="outline"
-                                className="w-full justify-between text-left font-normal h-10"
+                                className="w-full justify-between h-10 text-left font-normal"
                                 onClick={() => handleProductDialogOpening(index)}
                             >
                                 <span className="truncate">{controllerField.value || "Seleccionar producto..."}</span>
@@ -1020,7 +1016,7 @@ export default function VariableWeightFormComponent() {
             }
         }}
       />
-      <div className="max-w-6xl mx-auto">
+      <div className="mx-auto max-w-6xl">
         <header className="mb-6 md:mb-8">
             <div className="relative flex items-center justify-center text-center">
                  <Button 
@@ -1034,10 +1030,10 @@ export default function VariableWeightFormComponent() {
                 </Button>
                 <div>
                     <div className="flex items-center justify-center gap-2">
-                        <FileText className="h-7 w-7 md:h-8 md:w-8 text-primary"/>
-                        <h1 className="text-xl md:text-2xl font-bold text-primary">{title}</h1>
+                        <FileText className="h-7 w-7 text-primary md:h-8 md:w-8"/>
+                        <h1 className="text-xl font-bold text-primary md:text-2xl">{title}</h1>
                     </div>
-                    <p className="text-xs md:text-sm text-gray-500">Complete todos los campos requeridos para registrar la operación.</p>
+                    <p className="text-xs text-gray-500 md:text-sm">Complete todos los campos requeridos para registrar la operación.</p>
                 </div>
             </div>
         </header>
@@ -1050,7 +1046,7 @@ export default function VariableWeightFormComponent() {
                 <CardTitle>Información General</CardTitle>
               </CardHeader>
               <CardContent>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
                       <FormField control={form.control} name="pedidoSislog" render={({ field }) => (
                           <FormItem className="md:col-span-3">
                             <FormLabel>Pedido SISLOG</FormLabel>
@@ -1244,22 +1240,22 @@ export default function VariableWeightFormComponent() {
                                                   )}
                                               </TableCell>
                                               <TableCell className="font-medium">
-                                                <div className="bg-muted/50 p-2 rounded-md flex items-center h-10">
+                                                <div className="flex h-10 items-center rounded-md bg-muted/50 p-2">
                                                   {summaryItem.descripcion}
                                                 </div>
                                               </TableCell>
                                               <TableCell className="text-right">
-                                                  <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
+                                                  <div className="flex h-10 items-center justify-end rounded-md bg-muted/50 p-2">
                                                     {summaryItem.totalCantidad || 0}
                                                   </div>
                                               </TableCell>
                                               <TableCell className="text-right">
-                                                  <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
+                                                  <div className="flex h-10 items-center justify-end rounded-md bg-muted/50 p-2">
                                                     {summaryItem.totalPaletas || 0}
                                                   </div>
                                               </TableCell>
                                               <TableCell className="text-right">
-                                                <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
+                                                <div className="flex h-10 items-center justify-end rounded-md bg-muted/50 p-2">
                                                   {(summaryItem.totalPeso || 0).toFixed(2)}
                                                 </div>
                                               </TableCell>
@@ -1284,7 +1280,7 @@ export default function VariableWeightFormComponent() {
                 <CardHeader>
                     <CardTitle>Tiempo y Observaciones de la Operación</CardTitle>
                 </CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <FormField control={form.control} name="horaInicio" render={({ field }) => (
                     <FormItem>
                         <FormLabel>Hora de Inicio</FormLabel>
@@ -1304,10 +1300,10 @@ export default function VariableWeightFormComponent() {
                     </FormItem>
                     )}/>
                     <FormField control={form.control} name="observaciones" render={({ field }) => (
-                        <FormItem className="md:col-span-2 relative">
+                        <FormItem className="relative md:col-span-2">
                             <FormLabel>Observaciones</FormLabel>
                             <FormControl><Textarea placeholder="Observaciones (opcional)" {...field} value={field.value ?? ''} className="pr-10" /></FormControl>
-                            <Edit2 className="absolute right-3 bottom-3 h-4 w-4 text-muted-foreground" />
+                            <Edit2 className="absolute bottom-3 right-3 h-4 w-4 text-muted-foreground" />
                             <FormMessage />
                         </FormItem>
                     )}/>
@@ -1317,7 +1313,7 @@ export default function VariableWeightFormComponent() {
              {/* Responsible Person Card */}
              <Card>
                 <CardHeader><CardTitle>Responsables de la Operación</CardTitle></CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
                     <FormField control={form.control} name="coordinador" render={({ field }) => (
                         <FormItem><FormLabel>Coordinador Responsable</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                     )}/>
@@ -1332,32 +1328,32 @@ export default function VariableWeightFormComponent() {
              <Card>
                 <CardHeader><CardTitle>Anexos</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                         <div 
-                            className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-lg cursor-pointer hover:bg-gray-100"
+                            className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 hover:bg-gray-100"
                             onClick={() => fileInputRef.current?.click()}
                         >
-                            <UploadCloud className="w-10 h-10 text-gray-400 mb-2"/>
-                            <p className="text-sm text-gray-600 font-semibold">Subir archivos o arrastre y suelte</p>
+                            <UploadCloud className="mb-2 h-10 w-10 text-gray-400"/>
+                            <p className="text-sm font-semibold text-gray-600">Subir archivos o arrastre y suelte</p>
                             <p className="text-xs text-gray-500">Max. de 30 imágenes / 10MB Total</p>
                             <Input type="file" ref={fileInputRef} className="hidden" multiple accept="image/*" onChange={handleFileChange} />
                         </div>
                         <div 
-                            className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-lg cursor-pointer hover:bg-gray-100"
+                            className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 hover:bg-gray-100"
                             onClick={handleOpenCamera}
                         >
-                            <Camera className="w-10 h-10 text-gray-400 mb-2"/>
-                            <p className="text-sm text-gray-600 font-semibold">Tomar Foto</p>
+                            <Camera className="mb-2 h-10 w-10 text-gray-400"/>
+                            <p className="text-sm font-semibold text-gray-600">Tomar Foto</p>
                             <p className="text-xs text-gray-500">Usar la cámara del dispositivo</p>
                         </div>
                     </div>
                     {attachments.length > 0 && (
                         <div>
-                            <div className="flex justify-between items-center mb-2">
+                            <div className="mb-2 flex items-center justify-between">
                                 <h4 className="text-sm font-medium">Archivos Adjuntos ({attachments.length}/{MAX_ATTACHMENTS}):</h4>
                                 <AlertDialog open={isDeleteAllAlertOpen} onOpenChange={setDeleteAllAlertOpen}>
                                     <AlertDialogTrigger asChild>
-                                        <Button type="button" variant="outline" size="sm" className="text-destructive hover:text-destructive border-destructive/50 hover:bg-destructive/10">
+                                        <Button type="button" variant="outline" size="sm" className="border-destructive/50 text-destructive hover:bg-destructive/10 hover:text-destructive">
                                             <Trash2 className="mr-2 h-3 w-3" />
                                             Eliminar Todos
                                         </Button>
@@ -1378,15 +1374,15 @@ export default function VariableWeightFormComponent() {
                                     </AlertDialogContent>
                                 </AlertDialog>
                             </div>
-                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
                                 {attachments.map((src, index) => (
-                                    <div key={index} className="relative group aspect-square">
+                                    <div key={index} className="group relative aspect-square">
                                         <Image src={src} alt={`Anexo ${index + 1}`} fill className="rounded-md object-cover" />
                                         <Button
                                             type="button"
                                             variant="destructive"
                                             size="icon"
-                                            className="absolute top-1 right-1 h-6 w-6"
+                                            className="absolute right-1 top-1 h-6 w-6"
                                             onClick={() => handleRemoveAttachment(index)}
                                         >
                                             <Trash2 className="h-4 w-4" />
@@ -1400,7 +1396,7 @@ export default function VariableWeightFormComponent() {
                 </CardContent>
             </Card>
             
-            <footer className="flex flex-col sm:flex-row items-center justify-end gap-4 pt-4">
+            <footer className="flex flex-col items-center justify-end gap-4 pt-4 sm:flex-row">
                 <Button type="button" variant="outline" onClick={() => setDiscardAlertOpen(true)} className="w-full sm:w-auto">
                     <RotateCcw className="mr-2 h-4 w-4"/>
                     Limpiar Formato
