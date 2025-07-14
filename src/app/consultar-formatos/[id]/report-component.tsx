@@ -494,11 +494,9 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     detailBody = formData.items.map((p: any) => [ p.paleta, p.descripcion, p.lote, p.cantidadPorPaleta, p.pesoBruto?.toFixed(2), p.taraEstiba?.toFixed(2), p.taraCaja?.toFixed(2), p.totalTaraCaja?.toFixed(2), p.pesoNeto?.toFixed(2) ]);
                     detailColSpan = 9;
                 } else { // This is dispatch
-                    const isDetailedFormat = formData.items.some((p: any) => 
-                        p.pesoBruto != null || p.taraEstiba != null || p.taraCaja != null
-                    );
+                    const isSummaryFormat = formData.items.some((p: any) => Number(p.paleta) === 0);
 
-                    if (isDetailedFormat) {
+                    if (!isSummaryFormat) { // Detailed Format
                         detailHead = [['Paleta', 'Descripción', 'Lote', 'Presentación', 'Cant.', 'P. Bruto', 'T. Estiba', 'T. Caja', 'Total Tara', 'P. Neto']];
                         detailBody = formData.items.map((p: any) => [
                             p.paleta,
@@ -513,7 +511,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             p.pesoNeto?.toFixed(2)
                         ]);
                         detailColSpan = 10;
-                    } else { // Fallback to summary format if no detailed weight data is present
+                    } else { // Summary Format
                         detailHead = [['Descripción', 'Lote', 'Presentación', 'Total Cant.', 'Total Paletas', 'Total P. Neto']];
                         detailBody = formData.items.map((p: any) => {
                             return [
