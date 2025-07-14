@@ -260,7 +260,7 @@ const FormItemRow = ({ index, control, remove, handleProductDialogOpening }: { i
     return (
         <div className="p-4 border rounded-lg relative bg-white space-y-4">
             <div className="flex justify-between items-center">
-                <h4 className="font-semibold text-lg">Ítem #{index + 1}</h4>
+                <h4 className="font-semibold text-lg md:text-base">Ítem #{index + 1}</h4>
                 <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => remove(index)}><Trash2 className="h-4 w-4" /></Button>
             </div>
             <div className="space-y-4">
@@ -548,7 +548,6 @@ export default function VariableWeightFormComponent() {
     const lastItem = items.length > 0 ? items[items.length - 1] : null;
 
     if (!lastItem) {
-        // This is the first item, append a blank individual item form
         append(originalDefaultValues.items[0]);
         return;
     }
@@ -556,7 +555,6 @@ export default function VariableWeightFormComponent() {
     const isLastItemSummary = Number(lastItem.paleta) === 0;
 
     if (isLastItemSummary) {
-        // Append a new summary row, copying relevant data
         append({
             codigo: lastItem.codigo,
             paleta: 0,
@@ -569,20 +567,19 @@ export default function VariableWeightFormComponent() {
             taraCaja: null,
             totalTaraCaja: null,
             pesoNeto: null,
-            totalCantidad: null, // User fills this
-            totalPaletas: null, // User fills this
-            totalPesoNeto: null, // User fills this
+            totalCantidad: null, 
+            totalPaletas: null, 
+            totalPesoNeto: null, 
         });
     } else {
-        // Append a new individual pallet row
         append({
             codigo: lastItem.codigo,
-            paleta: null, // Needs new pallet number
+            paleta: null,
             descripcion: lastItem.descripcion,
             lote: lastItem.lote,
             presentacion: lastItem.presentacion,
             cantidadPorPaleta: lastItem.cantidadPorPaleta,
-            pesoBruto: null, // Needs new weight
+            pesoBruto: null,
             taraEstiba: lastItem.taraEstiba,
             taraCaja: lastItem.taraCaja,
             totalTaraCaja: null,
