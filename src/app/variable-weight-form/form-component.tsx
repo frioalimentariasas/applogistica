@@ -411,22 +411,51 @@ export default function VariableWeightFormComponent() {
     const items = form.getValues('items');
     const lastItem = items.length > 0 ? items[items.length - 1] : null;
 
-    append({
-        codigo: lastItem?.codigo || '',
-        paleta: null,
-        descripcion: lastItem?.descripcion || '',
-        lote: lastItem?.lote || '',
-        presentacion: lastItem?.presentacion || '',
-        cantidadPorPaleta: lastItem?.cantidadPorPaleta || null,
-        pesoBruto: null,
-        taraEstiba: lastItem?.taraEstiba || null,
-        taraCaja: lastItem?.taraCaja || null,
-        totalTaraCaja: null,
-        pesoNeto: null,
-        totalCantidad: null,
-        totalPaletas: null,
-        totalPesoNeto: null,
-    });
+    if (!lastItem) {
+        // This is the first item, append a blank individual item form
+        append(originalDefaultValues.items[0]);
+        return;
+    }
+
+    const isLastItemSummary = Number(lastItem.paleta) === 0;
+
+    if (isLastItemSummary) {
+        // Append a new summary row, copying relevant data
+        append({
+            codigo: lastItem.codigo,
+            paleta: 0,
+            descripcion: lastItem.descripcion,
+            lote: lastItem.lote,
+            presentacion: lastItem.presentacion,
+            cantidadPorPaleta: null,
+            pesoBruto: null,
+            taraEstiba: null,
+            taraCaja: null,
+            totalTaraCaja: null,
+            pesoNeto: null,
+            totalCantidad: null, // User fills this
+            totalPaletas: null, // User fills this
+            totalPesoNeto: null, // User fills this
+        });
+    } else {
+        // Append a new individual pallet row
+        append({
+            codigo: lastItem.codigo,
+            paleta: null, // Needs new pallet number
+            descripcion: lastItem.descripcion,
+            lote: lastItem.lote,
+            presentacion: lastItem.presentacion,
+            cantidadPorPaleta: lastItem.cantidadPorPaleta,
+            pesoBruto: null, // Needs new weight
+            taraEstiba: lastItem.taraEstiba,
+            taraCaja: lastItem.taraCaja,
+            totalTaraCaja: null,
+            pesoNeto: null,
+            totalCantidad: null,
+            totalPaletas: null,
+            totalPesoNeto: null,
+        });
+    }
   };
 
   useEffect(() => {
