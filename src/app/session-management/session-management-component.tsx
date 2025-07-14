@@ -138,7 +138,7 @@ export default function SessionManagementComponent() {
         setRevokedUids([]);
         try {
             const [activeUsers, permissionsData] = await Promise.all([
-                listActiveUsers(),
+                listActiveUsers(user?.uid),
                 getAllUserPermissions()
             ]);
             setUsers(activeUsers);
@@ -350,10 +350,10 @@ export default function SessionManagementComponent() {
                                                     ? formatDistanceToNow(lastActivityDate, { addSuffix: true, locale: es })
                                                     : "Nunca";
 
-                                                const FIVE_MINUTES_IN_MS = 5 * 60 * 1000;
+                                                const FIFTEEN_MINUTES_IN_MS = 15 * 60 * 1000;
                                                 const now = new Date();
                                                 const timeDifference = now.getTime() - lastActivityDate.getTime();
-                                                const isActive = hasEverBeenActive && timeDifference < FIVE_MINUTES_IN_MS;
+                                                const isActive = hasEverBeenActive && timeDifference < FIFTEEN_MINUTES_IN_MS;
                                                 
                                                 const wasJustRevokedInUI = revokedUids.includes(u.uid);
                                                 const tokensValidAfter = u.tokensValidAfterTime ? new Date(u.tokensValidAfterTime) : null;

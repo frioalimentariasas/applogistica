@@ -4,7 +4,7 @@
 import { auth, firestore, storage } from '@/lib/firebase-admin';
 import type { AppPermissions } from '@/hooks/use-auth';
 import { defaultPermissions } from '@/hooks/use-auth';
-import { subMonths, startOfMonth } from 'date-fns';
+import { subMonths, startOfMonth, differenceInHours } from 'date-fns';
 
 export interface ActiveUser {
     uid: string;
@@ -26,7 +26,7 @@ async function getUserDisplayNameMap(): Promise<Record<string, string>> {
     return map;
 }
 
-export async function listActiveUsers(): Promise<ActiveUser[]> {
+export async function listActiveUsers(requestingAdminUid?: string): Promise<ActiveUser[]> {
     if (!auth) {
         throw new Error('La autenticación del administrador no está inicializada.');
     }
@@ -37,17 +37,44 @@ export async function listActiveUsers(): Promise<ActiveUser[]> {
             getUserDisplayNameMap()
         ]);
         
-        const users = userRecordsResult.users.map((user) => ({
-            uid: user.uid,
-            email: user.email,
-            displayName: user.email ? displayNameMap[user.email] || user.displayName || user.email : 'N/A',
-            lastSignInTime: user.metadata.lastSignInTime,
-            creationTime: user.metadata.creationTime,
-            lastRefreshTime: user.metadata.lastRefreshTime,
-            tokensValidAfterTime: user.tokensValidAfterTime,
-        }));
+        const now = new Date();
+        const superAdminEmail = 'sistemas@frioalimentaria.com.co';
 
-        // Sort by the most recent activity (either sign-in or token refresh)
+        const revokePromises: Promise<void>[] = [];
+
+        const users = userRecordsResult.users.map((user) => {
+            const lastActivityTime = new Date(Math.max(
+                new Date(user.metadata.lastSignInTime || 0).getTime(),
+                new Date(user.metadata.lastRefreshTime || 0).getTime()
+            ));
+
+            const hoursSinceLastActivity = differenceInHours(now, lastActivityTime);
+            
+            // Auto-revoke session if inactive for more than 19 hours
+            if (
+                hoursSinceLastActivity > 19 &&
+                user.uid !== requestingAdminUid && // Don't revoke the current admin
+                user.email !== superAdminEmail     // Don't revoke the super admin
+            ) {
+                 console.log(`Auto-revoking session for user ${user.email} due to inactivity (${hoursSinceLastActivity} hours).`);
+                 // We don't await here, just fire and forget the revocations
+                 auth.revokeRefreshTokens(user.uid).catch(err => {
+                     console.error(`Failed to auto-revoke session for ${user.email}:`, err);
+                 });
+            }
+
+            return {
+                uid: user.uid,
+                email: user.email,
+                displayName: user.email ? displayNameMap[user.email] || user.displayName || user.email : 'N/A',
+                lastSignInTime: user.metadata.lastSignInTime,
+                creationTime: user.metadata.creationTime,
+                lastRefreshTime: user.metadata.lastRefreshTime,
+                tokensValidAfterTime: user.tokensValidAfterTime,
+            };
+        });
+
+        // Sort by the most recent activity
         users.sort((a, b) => {
             const timeA = Math.max(
                 new Date(a.lastSignInTime || 0).getTime(),
