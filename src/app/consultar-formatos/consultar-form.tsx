@@ -76,7 +76,7 @@ const SESSION_STORAGE_KEY = 'consultarFormatosCriteria';
 export default function ConsultarFormatosComponent({ clients }: { clients: ClientInfo[] }) {
     const router = useRouter();
     const { toast } = useToast();
-    const { user } = useAuth();
+    const { user, permissions } = useAuth();
     
     const [criteria, setCriteria] = useState<Omit<SearchCriteria, 'requestingUser' | 'searchDateStart' | 'searchDateEnd'>>({
         pedidoSislog: '',
@@ -86,25 +86,15 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
     const [date, setDate] = useState<Date | undefined>(undefined);
     const [results, setResults] = useState<SubmissionResult[]>([]);
     const [isLoading, setIsLoading] = useState(false);
-    const [isDeleting, setIsDeleting] = useState(isDeleting);
+    const [isDeleting, setIsDeleting] = useState(false);
     const [searched, setSearched] = useState(false);
     const [submissionToDelete, setSubmissionToDelete] = useState<SubmissionResult | null>(null);
     const [isClientDialogOpen, setClientDialogOpen] = useState(false);
     const [clientSearch, setClientSearch] = useState("");
 
-    const operarioEmails = [
-        'frioal.operario1@gmail.com',
-        'frioal.operario2@gmail.com',
-        'frioal.operario3@gmail.com',
-        'frioal.operario4@gmail.com'
-    ];
-    const viewerEmails = [
-        'facturacion@frioalimentaria.com.co',
-        'procesos@frioalimentaria.com.co'
-    ];
-    const isOperario = user && operarioEmails.includes(user.email || '');
-    const isViewer = user && viewerEmails.includes(user.email || '');
-
+    const isOperario = permissions.canGenerateForms && !permissions.canManageClients;
+    const isViewer = !permissions.canGenerateForms && permissions.canConsultForms;
+    
     const filteredClients = useMemo(() => {
         if (!clientSearch) return clients;
         return clients.filter(c => c.razonSocial.toLowerCase().includes(clientSearch.toLowerCase()));
