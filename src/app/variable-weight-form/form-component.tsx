@@ -249,8 +249,7 @@ const FormItemRow = ({ index, control, remove, handleProductDialogOpening }: { i
     const paletaValue = useWatch({ control, name: `items.${index}.paleta` });
     const watchedItem = useWatch({ control, name: `items.${index}` });
     
-    // This is the crucial fix: the rendering logic is now simple and directly tied to the watched value.
-    const isSummaryRow = Number(paletaValue) === 0;
+    const isSummaryRow = paletaValue === 0;
     const pesoNeto = watchedItem?.pesoNeto;
 
     return (
@@ -305,7 +304,7 @@ const FormItemRow = ({ index, control, remove, handleProductDialogOpening }: { i
                                     onChange={e => {
                                         const value = e.target.value;
                                         const numericValue = value.replace(/[^0-9]/g, '');
-                                        field.onChange(numericValue === '' ? null : numericValue);
+                                        field.onChange(numericValue === '' ? null : Number(numericValue));
                                     }} 
                                     value={field.value ?? ''} 
                                 />
@@ -547,30 +546,31 @@ export default function VariableWeightFormComponent() {
         append(originalDefaultValues.items[0]);
         return;
     }
-
-    const isLastItemSummary = Number(lastItem.paleta) === 0;
-
-    if (isLastItemSummary) {
+    
+    // Check if the last item was explicitly a summary row (paleta === 0)
+    if (lastItem.paleta === 0) {
+        // Add a new summary row, copying relevant data.
         append({
             codigo: lastItem.codigo,
             paleta: 0,
             descripcion: lastItem.descripcion,
             lote: lastItem.lote,
             presentacion: lastItem.presentacion,
+            totalCantidad: null, 
+            totalPaletas: null, 
+            totalPesoNeto: null, 
             cantidadPorPaleta: null,
             pesoBruto: null,
             taraEstiba: null,
             taraCaja: null,
             totalTaraCaja: null,
             pesoNeto: null,
-            totalCantidad: null, 
-            totalPaletas: null, 
-            totalPesoNeto: null, 
         });
     } else {
+        // Add a new individual pallet row.
         append({
             codigo: lastItem.codigo,
-            paleta: null,
+            paleta: null, // New pallet number should be entered by user
             descripcion: lastItem.descripcion,
             lote: lastItem.lote,
             presentacion: lastItem.presentacion,
