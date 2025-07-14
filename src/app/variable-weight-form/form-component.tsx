@@ -1051,10 +1051,7 @@ export default function VariableWeightFormComponent() {
               </CardHeader>
               <CardContent className="space-y-4">
                 {fields.map((item, index) => {
-                    const itemData = watchedItems?.[index];
-                    const isSummaryRow = Number(itemData?.paleta) === 0;
-                    const totalTaraCaja = itemData?.totalTaraCaja;
-                    const pesoNeto = itemData?.pesoNeto;
+                    const isSummaryRow = watchedItems[index]?.paleta === 0;
 
                     return (
                         <div key={item.id} className="p-4 border rounded-md relative space-y-4">
@@ -1161,7 +1158,7 @@ export default function VariableWeightFormComponent() {
                                         )}/>
                                         <FormItem>
                                             <FormLabel>Peso Neto (kg)</FormLabel>
-                                            <FormControl><Input disabled readOnly value={pesoNeto != null && !isNaN(pesoNeto) ? pesoNeto.toFixed(2) : '0.00'} /></FormControl>
+                                            <FormControl><Input disabled readOnly value={watchedItems[index]?.pesoNeto != null && !isNaN(watchedItems[index].pesoNeto) ? watchedItems[index].pesoNeto.toFixed(2) : '0.00'} /></FormControl>
                                         </FormItem>
                                     </div>
                                 )}
