@@ -21,7 +21,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ArrowLeft, Search, XCircle, Loader2, FileSearch, Eye, Edit, Trash2, CalendarIcon, FolderSearch, ChevronsUpDown, ShieldAlert } from 'lucide-react';
+import { ArrowLeft, Search, XCircle, Loader2, FileSearch, Eye, Edit, Trash2, CalendarIcon, FolderSearch, ChevronsUpDown } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -70,25 +70,13 @@ const EmptyState = ({ searched }: { searched: boolean }) => (
     </TableRow>
 );
 
-const AccessDenied = () => (
-    <div className="flex flex-col items-center justify-center text-center gap-4">
-        <div className="rounded-full bg-destructive/10 p-4">
-            <ShieldAlert className="h-12 w-12 text-destructive" />
-        </div>
-        <h3 className="text-xl font-semibold">Acceso Denegado</h3>
-        <p className="text-muted-foreground">
-            No tiene permisos para acceder a esta página.
-        </p>
-    </div>
-);
-
 
 const SESSION_STORAGE_KEY = 'consultarFormatosCriteria';
 
 export default function ConsultarFormatosComponent({ clients }: { clients: ClientInfo[] }) {
     const router = useRouter();
     const { toast } = useToast();
-    const { user, permissions, loading: authLoading } = useAuth();
+    const { user, permissions } = useAuth();
     
     const [criteria, setCriteria] = useState<Omit<SearchCriteria, 'requestingUser' | 'searchDateStart' | 'searchDateEnd'>>({
         pedidoSislog: '',
@@ -98,7 +86,7 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
     const [date, setDate] = useState<Date | undefined>(undefined);
     const [results, setResults] = useState<SubmissionResult[]>([]);
     const [isLoading, setIsLoading] = useState(false);
-    const [isDeleting, setIsDeleting] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(isDeleting);
     const [searched, setSearched] = useState(false);
     const [submissionToDelete, setSubmissionToDelete] = useState<SubmissionResult | null>(null);
     const [isClientDialogOpen, setClientDialogOpen] = useState(false);
@@ -275,28 +263,6 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
         
         return `/consultar-formatos`;
     };
-
-    if (authLoading) {
-        return (
-             <div className="flex min-h-screen w-full items-center justify-center">
-                <Loader2 className="h-12 w-12 animate-spin text-primary" />
-             </div>
-        )
-    }
-
-    if (!permissions.canConsultForms) {
-        return (
-            <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8 flex items-center justify-center">
-                <div className="max-w-xl mx-auto text-center">
-                    <AccessDenied />
-                     <Button onClick={() => router.push('/')} className="mt-6">
-                        <ArrowLeft className="mr-2 h-4 w-4" />
-                        Volver al Inicio
-                    </Button>
-                </div>
-            </div>
-        );
-    }
 
     return (
         <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">

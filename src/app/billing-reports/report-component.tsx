@@ -16,7 +16,6 @@ import { getInventoryReport, uploadInventoryCsv, type InventoryPivotReport, getC
 import { getConsolidatedMovementReport, type ConsolidatedReportRow } from '@/app/actions/consolidated-movement-report';
 import type { ClientInfo } from '@/app/actions/clients';
 import { useToast } from '@/hooks/use-toast';
-import { useAuth } from '@/hooks/use-auth';
 
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -28,7 +27,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, ChevronsUpDown, BookCopy, FileDown, File, Upload, FolderSearch, Trash2, ShieldAlert } from 'lucide-react';
+import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, ChevronsUpDown, BookCopy, FileDown, File, Upload, FolderSearch, Trash2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
@@ -66,18 +65,6 @@ const EmptyState = ({ searched, title, description, emptyDescription }: { search
             </div>
         </TableCell>
     </TableRow>
-);
-
-const AccessDenied = () => (
-    <div className="flex flex-col items-center justify-center text-center gap-4">
-        <div className="rounded-full bg-destructive/10 p-4">
-            <ShieldAlert className="h-12 w-12 text-destructive" />
-        </div>
-        <h3 className="text-xl font-semibold">Acceso Denegado</h3>
-        <p className="text-muted-foreground">
-            No tiene permisos para acceder a esta página.
-        </p>
-    </div>
 );
 
 const getImageWithDimensions = (src: string): Promise<{ width: number; height: number }> => {
@@ -128,7 +115,6 @@ const MAX_DATE_RANGE_DAYS = 31;
 export default function BillingReportComponent({ clients }: { clients: ClientInfo[] }) {
     const router = useRouter();
     const { toast } = useToast();
-    const { permissions, loading: authLoading } = useAuth();
     const uploadFormRef = useRef<HTMLFormElement>(null);
     const today = new Date();
     const sixtyTwoDaysAgo = subDays(today, 62);
@@ -900,28 +886,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const fileName = `Reporte_Consolidado_${consolidatedClient.replace(/\s/g, '_')}_${format(consolidatedDateRange!.from!, 'yyyy-MM-dd')}_a_${format(consolidatedDateRange!.to!, 'yyyy-MM-dd')}.pdf`;
         doc.save(fileName);
     };
-
-    if (authLoading) {
-        return (
-             <div className="flex min-h-screen w-full items-center justify-center">
-                <Loader2 className="h-12 w-12 animate-spin text-primary" />
-             </div>
-        )
-    }
-
-    if (!permissions.canViewBillingReports) {
-        return (
-            <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8 flex items-center justify-center">
-                <div className="max-w-xl mx-auto text-center">
-                    <AccessDenied />
-                     <Button onClick={() => router.push('/')} className="mt-6">
-                        <ArrowLeft className="mr-2 h-4 w-4" />
-                        Volver al Inicio
-                    </Button>
-                </div>
-            </div>
-        );
-    }
 
     return (
         <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
