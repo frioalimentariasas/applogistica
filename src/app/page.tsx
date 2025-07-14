@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { FileText, LogOut, Users2, Box, ScrollText, BookCopy, ShieldCheck, Settings, Timer, ArrowRight } from 'lucide-react';
+import { FileText, LogOut, Users2, Box, ScrollText, BookCopy, ShieldCheck, Settings, Timer, ArrowRight, ArrowDownCircle, ArrowUpCircle, Boxes } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -142,10 +142,12 @@ export default function Home() {
                                 <RadioGroup value={operationType} onValueChange={setOperationType} className="grid grid-cols-2 gap-4">
                                     <Label htmlFor="recepcion" className={`flex cursor-pointer items-center space-x-3 rounded-md border bg-white p-4 transition-colors ${operationType === 'recepcion' ? 'border-primary ring-2 ring-primary' : 'border-gray-200'}`}>
                                         <RadioGroupItem value="recepcion" id="recepcion" />
+                                        <ArrowDownCircle className="h-5 w-5 text-gray-600" />
                                         <span className="font-medium">Recepción</span>
                                     </Label>
                                     <Label htmlFor="despacho" className={`flex cursor-pointer items-center space-x-3 rounded-md border bg-white p-4 transition-colors ${operationType === 'despacho' ? 'border-primary ring-2 ring-primary' : 'border-gray-200'}`}>
                                         <RadioGroupItem value="despacho" id="despacho" />
+                                        <ArrowUpCircle className="h-5 w-5 text-gray-600" />
                                         <span className="font-medium">Despacho</span>
                                     </Label>
                                 </RadioGroup>
@@ -156,10 +158,12 @@ export default function Home() {
                                 <RadioGroup value={productType} onValueChange={setProductType} className="grid grid-cols-2 gap-4">
                                     <Label htmlFor="fijo" className={`flex cursor-pointer items-center space-x-3 rounded-md border bg-white p-4 transition-colors ${productType === 'fijo' ? 'border-primary ring-2 ring-primary' : 'border-gray-200'}`}>
                                         <RadioGroupItem value="fijo" id="fijo" />
+                                        <Box className="h-5 w-5 text-gray-600" />
                                         <span className="font-medium">Peso Fijo</span>
                                     </Label>
                                     <Label htmlFor="variable" className={`flex cursor-pointer items-center space-x-3 rounded-md border bg-white p-4 transition-colors ${productType === 'variable' ? 'border-primary ring-2 ring-primary' : 'border-gray-200'}`}>
                                         <RadioGroupItem value="variable" id="variable" />
+                                        <Boxes className="h-5 w-5 text-gray-600" />
                                         <span className="font-medium">Peso Variable</span>
                                     </Label>
                                 </RadioGroup>
