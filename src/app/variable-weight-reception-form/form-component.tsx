@@ -969,7 +969,18 @@ export default function VariableWeightReceptionFormComponent() {
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                     <FormField control={form.control} name={`items.${index}.paleta`} render={({ field }) => (
-                                        <FormItem><FormLabel>Paleta</FormLabel><FormControl><Input type="text" inputMode="numeric" placeholder="Número de paleta" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                                        <FormItem><FormLabel>Paleta</FormLabel><FormControl><Input 
+                                            type="text" 
+                                            inputMode="numeric" 
+                                            placeholder="Número de paleta" 
+                                            {...field} 
+                                            onChange={e => {
+                                                const value = e.target.value;
+                                                const numericValue = value.replace(/[^0-9]/g, '');
+                                                field.onChange(numericValue === '' ? null : numericValue);
+                                            }} 
+                                            value={field.value ?? ''} 
+                                        /></FormControl><FormMessage /></FormItem>
                                     )}/>
                                     <FormField control={form.control} name={`items.${index}.lote`} render={({ field }) => (
                                         <FormItem><FormLabel>Lote</FormLabel><FormControl><Input placeholder="Lote (máx. 15 caracteres)" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>
