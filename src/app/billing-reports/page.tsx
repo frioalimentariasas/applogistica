@@ -1,11 +1,11 @@
 
 "use client";
 
-import { getClients } from '@/app/actions/clients';
-import type { ClientInfo } from '@/app/actions/clients';
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
+import { getClients } from '@/app/actions/clients';
+import type { ClientInfo } from '@/app/actions/clients';
 import { Loader2, ArrowLeft, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import BillingReportComponent from './report-component';
@@ -21,7 +21,6 @@ const AccessDenied = () => (
         </p>
     </div>
 );
-
 
 export default function BillingReportsPage() {
     const { user, permissions, loading: authLoading } = useAuth();
@@ -41,19 +40,21 @@ export default function BillingReportsPage() {
                 setClients(data);
                 setClientsLoading(false);
             });
+        } else if (user && !permissions.canViewBillingReports) {
+            // If user is logged in but has no permissions, stop loading.
+            setClientsLoading(false);
         }
     }, [user, permissions.canViewBillingReports]);
 
-
-    if (authLoading || clientsLoading) {
-         return (
+    if (authLoading || (user && permissions.canViewBillingReports && clientsLoading)) {
+        return (
             <div className="flex min-h-screen w-full items-center justify-center">
                 <Loader2 className="h-12 w-12 animate-spin text-primary" />
-             </div>
-        )
+            </div>
+        );
     }
 
-    if (!permissions.canViewBillingReports) {
+    if (!user || !permissions.canViewBillingReports) {
         return (
             <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8 flex items-center justify-center">
                 <div className="max-w-xl mx-auto text-center">

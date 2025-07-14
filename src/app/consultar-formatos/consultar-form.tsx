@@ -76,7 +76,7 @@ const SESSION_STORAGE_KEY = 'consultarFormatosCriteria';
 export default function ConsultarFormatosComponent({ clients }: { clients: ClientInfo[] }) {
     const router = useRouter();
     const { toast } = useToast();
-    const { user, permissions } = useAuth();
+    const { user } = useAuth();
     
     const [criteria, setCriteria] = useState<Omit<SearchCriteria, 'requestingUser' | 'searchDateStart' | 'searchDateEnd'>>({
         pedidoSislog: '',

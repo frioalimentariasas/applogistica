@@ -1,23 +1,14 @@
 
 'use client';
 
-import { Suspense, useEffect } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/use-auth';
 import ConsultarFormatosComponent from './consultar-form';
 import { getClients } from '@/app/actions/clients';
 import { Loader2, ArrowLeft, ShieldAlert } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-
-// This component fetches data on the server but is wrapped in a client component
-// to handle auth logic.
-function ConsultarFormatosDataFetcher({ clients }: { clients: any[] }) {
-    return (
-        <Suspense fallback={<div className="flex min-h-screen items-center justify-center">Cargando...</div>}>
-            <ConsultarFormatosComponent clients={clients} />
-        </Suspense>
-    );
-}
+import type { ClientInfo } from '@/app/actions/clients';
 
 const AccessDenied = () => (
     <div className="flex flex-col items-center justify-center text-center gap-4">
@@ -31,13 +22,11 @@ const AccessDenied = () => (
     </div>
 );
 
-// We create a new Server-Component-in-Client-Component pattern
-// to fetch data on the server but protect the route on the client.
 export default function ConsultarFormatosPage() {
     const { user, permissions, loading: authLoading } = useAuth();
     const router = useRouter();
-    const [clients, setClients] = React.useState([]);
-    const [clientsLoading, setClientsLoading] = React.useState(true);
+    const [clients, setClients] = useState<ClientInfo[]>([]);
+    const [clientsLoading, setClientsLoading] = useState(true);
 
     useEffect(() => {
         if (!authLoading && !user) {
@@ -51,10 +40,13 @@ export default function ConsultarFormatosPage() {
                 setClients(data);
                 setClientsLoading(false);
             });
+        } else if (user && !permissions.canConsultForms) {
+            // If user is logged in but has no permissions, stop loading.
+            setClientsLoading(false);
         }
     }, [user, permissions.canConsultForms]);
 
-    if (authLoading || (permissions.canConsultForms && clientsLoading)) {
+    if (authLoading || (user && permissions.canConsultForms && clientsLoading)) {
         return (
             <div className="flex min-h-screen w-full items-center justify-center">
                 <Loader2 className="h-12 w-12 animate-spin text-primary" />
@@ -62,7 +54,7 @@ export default function ConsultarFormatosPage() {
         );
     }
 
-    if (!permissions.canConsultForms) {
+    if (!user || !permissions.canConsultForms) {
         return (
             <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8 flex items-center justify-center">
                 <div className="max-w-xl mx-auto text-center">
@@ -76,5 +68,9 @@ export default function ConsultarFormatosPage() {
         );
     }
 
-    return <ConsultarFormatosDataFetcher clients={clients} />;
+    return (
+        <Suspense fallback={<div className="flex min-h-screen items-center justify-center">Cargando...</div>}>
+            <ConsultarFormatosComponent clients={clients} />
+        </Suspense>
+    );
 }
