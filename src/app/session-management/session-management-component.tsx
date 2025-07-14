@@ -290,17 +290,17 @@ export default function SessionManagementComponent() {
     return (
         <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
             <div className="max-w-6xl mx-auto">
-                <header className="mb-8">
+                <header className="mb-6 md:mb-8">
                   <div className="relative flex items-center justify-center text-center">
                     <Button variant="ghost" size="icon" className="absolute left-0 top-1/2 -translate-y-1/2" onClick={() => router.push('/')}>
                       <ArrowLeft className="h-6 w-6" />
                     </Button>
                     <div>
                       <div className="flex items-center justify-center gap-2">
-                        <ShieldCheck className="h-8 w-8 text-primary" />
-                        <h1 className="text-2xl font-bold text-primary">Gestión de Usuarios</h1>
+                        <ShieldCheck className="h-7 w-7 md:h-8 md:w-8 text-primary" />
+                        <h1 className="text-xl md:text-2xl font-bold text-primary">Gestión de Usuarios</h1>
                       </div>
-                      <p className="text-sm text-gray-500">Vea sesiones activas, gestione usuarios y sus permisos.</p>
+                      <p className="text-xs md:text-sm text-gray-500">Vea sesiones activas, gestione usuarios y sus permisos.</p>
                     </div>
                   </div>
                 </header>
@@ -308,14 +308,14 @@ export default function SessionManagementComponent() {
                 <div className="space-y-8">
                     <Card>
                         <CardHeader>
-                            <div className="flex justify-between items-center">
+                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
                                 <div>
                                     <CardTitle>Usuarios del Sistema</CardTitle>
                                     <CardDescription>Listado de todos los usuarios, su última actividad y sus roles.</CardDescription>
                                 </div>
-                                <div className="flex gap-2">
-                                    <Button onClick={() => setIsAddUserOpen(true)}><UserPlus className="mr-2 h-4 w-4" />Agregar Usuario</Button>
-                                    <Button variant="outline" onClick={fetchAllData} disabled={isLoading}>
+                                <div className="flex gap-2 w-full sm:w-auto">
+                                    <Button onClick={() => setIsAddUserOpen(true)} className="w-full sm:w-auto"><UserPlus className="mr-2 h-4 w-4" />Agregar Usuario</Button>
+                                    <Button variant="outline" onClick={fetchAllData} disabled={isLoading} className="w-full sm:w-auto">
                                         <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
                                         Refrescar
                                     </Button>
@@ -374,7 +374,7 @@ export default function SessionManagementComponent() {
                                                             </div>
                                                         </TableCell>
                                                         <TableCell className="text-right">
-                                                            <div className="flex items-center justify-end gap-1">
+                                                            <div className="flex flex-wrap items-center justify-end gap-1">
                                                                 <Button variant="outline" size="sm" onClick={() => { setUserToEdit(u); editNameForm.setValue("displayName", u.displayName || ""); setIsEditNameOpen(true); }}><Pencil className="mr-2 h-4 w-4" />Nombre</Button>
                                                                 <Button variant="outline" size="sm" onClick={() => { setUserToEdit(u); setIsChangePasswordOpen(true); }}><KeySquare className="mr-2 h-4 w-4" />Contraseña</Button>
                                                                 <Button variant="outline" size="sm" onClick={() => handleOpenPermissionsDialog(u)} disabled={isSuperAdmin}><KeyRound className="mr-2 h-4 w-4" />Permisos</Button>
@@ -412,14 +412,14 @@ export default function SessionManagementComponent() {
                             </CardDescription>
                         </CardHeader>
                         <CardContent>
-                            <div className="flex items-center justify-between rounded-lg border p-4">
+                            <div className="flex flex-col sm:flex-row items-center justify-between rounded-lg border p-4 gap-4">
                                 <div>
                                     <h4 className="font-semibold">Purgar Formatos Antiguos</h4>
                                     <p className="text-sm text-muted-foreground">
                                         Elimina permanentemente los formatos guardados con más de 3 meses de antigüedad.
                                     </p>
                                 </div>
-                                <Button variant="destructive" onClick={() => setIsPurgeConfirmOpen(true)} disabled={isPurging}>
+                                <Button variant="destructive" onClick={() => setIsPurgeConfirmOpen(true)} disabled={isPurging} className="w-full sm:w-auto">
                                     {isPurging ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <DatabaseZap className="mr-2 h-4 w-4" />}
                                     {isPurging ? "Purgando..." : "Purgar Ahora"}
                                 </Button>

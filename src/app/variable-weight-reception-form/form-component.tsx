@@ -797,17 +797,17 @@ export default function VariableWeightReceptionFormComponent() {
             }}
         />
         <div className="max-w-6xl mx-auto">
-          <header className="mb-8">
+          <header className="mb-6 md:mb-8">
             <div className="relative flex items-center justify-center text-center">
               <Button variant="ghost" size="icon" className="absolute left-0 top-1/2 -translate-y-1/2" onClick={() => router.push(submissionId ? '/consultar-formatos' : '/')}>
                 <ArrowLeft className="h-6 w-6" />
               </Button>
               <div>
                 <div className="flex items-center justify-center gap-2">
-                    <FileText className="h-8 w-8 text-primary"/>
-                    <h1 className="text-2xl font-bold text-primary">{title}</h1>
+                    <FileText className="h-7 w-7 md:h-8 md:w-8 text-primary"/>
+                    <h1 className="text-xl md:text-2xl font-bold text-primary">{title}</h1>
                 </div>
-                <p className="text-sm text-gray-500">Complete todos los campos requeridos para registrar la operación.</p>
+                <p className="text-xs md:text-sm text-gray-500">Complete todos los campos requeridos para registrar la operación.</p>
               </div>
             </div>
           </header>
@@ -1240,9 +1240,9 @@ export default function VariableWeightReceptionFormComponent() {
                   </CardContent>
                 </Card>
 
-                <footer className="flex items-center justify-end gap-4 pt-4">
-                    <Button type="button" variant="outline" onClick={() => setDiscardAlertOpen(true)}><RotateCcw className="mr-2 h-4 w-4"/>Limpiar Formato</Button>
-                    <Button type="submit" disabled={isSubmitting}>
+                <footer className="flex flex-col sm:flex-row items-center justify-end gap-4 pt-4">
+                    <Button type="button" variant="outline" onClick={() => setDiscardAlertOpen(true)} className="w-full sm:w-auto"><RotateCcw className="mr-2 h-4 w-4"/>Limpiar Formato</Button>
+                    <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto">
                         {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4"/>}
                         {isSubmitting ? 'Guardando...' : 'Guardar y Enviar'}
                     </Button>

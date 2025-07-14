@@ -257,7 +257,7 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
     return (
         <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
             <div className="max-w-7xl mx-auto">
-                <header className="mb-8">
+                <header className="mb-6 md:mb-8">
                     <div className="relative flex items-center justify-center text-center">
                          <Button 
                             variant="ghost" 
@@ -270,10 +270,10 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
                         </Button>
                         <div>
                             <div className="flex items-center justify-center gap-2">
-                                <FileSearch className="h-8 w-8 text-primary" />
-                                <h1 className="text-2xl font-bold text-primary">Consultar Formatos Guardados</h1>
+                                <FileSearch className="h-7 w-7 md:h-8 md:w-8 text-primary" />
+                                <h1 className="text-xl md:text-2xl font-bold text-primary">Consultar Formatos Guardados</h1>
                             </div>
-                             <p className="text-sm text-gray-500">Busque y visualice los formatos que han sido enviados.</p>
+                             <p className="text-xs md:text-sm text-gray-500">Busque y visualice los formatos que han sido enviados.</p>
                         </div>
                     </div>
                 </header>
@@ -377,7 +377,7 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
                                     </SelectContent>
                                 </Select>
                             </div>
-                            <div className="flex gap-2">
+                            <div className="flex flex-col sm:flex-row gap-2 lg:col-span-1">
                                 <Button onClick={handleSearch} className="w-full" disabled={isLoading}>
                                     {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
                                     Buscar

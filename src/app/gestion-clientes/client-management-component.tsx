@@ -261,17 +261,17 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
       <div className="max-w-6xl mx-auto">
         {/* Header */}
-        <header className="mb-8">
+        <header className="mb-6 md:mb-8">
           <div className="relative flex items-center justify-center text-center">
             <Button variant="ghost" size="icon" className="absolute left-0 top-1/2 -translate-y-1/2" onClick={() => router.push('/')}>
               <ArrowLeft className="h-6 w-6" />
             </Button>
             <div>
               <div className="flex items-center justify-center gap-2">
-                <Users2 className="h-8 w-8 text-primary" />
-                <h1 className="text-2xl font-bold text-primary">Gestión de Clientes</h1>
+                <Users2 className="h-7 w-7 md:h-8 md:w-8 text-primary" />
+                <h1 className="text-xl md:text-2xl font-bold text-primary">Gestión de Clientes</h1>
               </div>
-              <p className="text-sm text-gray-500">Agregue nuevos clientes, cargue desde un archivo, o consulte los existentes.</p>
+              <p className="text-xs md:text-sm text-gray-500">Agregue nuevos clientes, cargue desde un archivo, o consulte los existentes.</p>
             </div>
           </div>
         </header>
@@ -344,7 +344,7 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
           
           <Card>
             <CardHeader>
-                <div className="flex justify-between items-center">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <div>
                         <CardTitle>Listado de Clientes</CardTitle>
                         <CardDescription>Clientes actualmente registrados en el sistema.</CardDescription>
@@ -356,14 +356,14 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
                 </div>
             </CardHeader>
             <CardContent>
-                <div className="flex gap-2 mb-4">
+                <div className="flex flex-col sm:flex-row gap-2 mb-4">
                     <Input 
                         placeholder="Buscar en la lista..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
                         disabled={!searched || clients.length === 0}
                     />
-                     <Button onClick={handleSearch} disabled={isLoading}>
+                     <Button onClick={handleSearch} disabled={isLoading} className="w-full sm:w-auto">
                         {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
                         {searched ? "Refrescar" : "Buscar Todos"}
                     </Button>

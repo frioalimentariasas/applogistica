@@ -78,7 +78,7 @@ export default function UploaderForm() {
     return (
         <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
             <div className="max-w-2xl mx-auto">
-                <header className="mb-8">
+                <header className="mb-6 md:mb-8">
                     <div className="relative flex items-center justify-center text-center">
                          <Button 
                             variant="ghost" 
@@ -91,10 +91,10 @@ export default function UploaderForm() {
                         </Button>
                         <div>
                             <div className="flex items-center justify-center gap-2">
-                                <Users2 className="h-8 w-8 text-primary" />
-                                <h1 className="text-2xl font-bold text-primary">Cargar Clientes desde Excel</h1>
+                                <Users2 className="h-7 w-7 md:h-8 md:w-8 text-primary" />
+                                <h1 className="text-xl md:text-2xl font-bold text-primary">Cargar Clientes desde Excel</h1>
                             </div>
-                             <p className="text-sm text-gray-500">Cargue un archivo .xlsx o .xls con los datos de los clientes.</p>
+                             <p className="text-xs md:text-sm text-gray-500">Cargue un archivo .xlsx o .xls con los datos de los clientes.</p>
                         </div>
                     </div>
                 </header>
