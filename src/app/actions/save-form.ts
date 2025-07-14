@@ -1,3 +1,4 @@
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -31,12 +32,14 @@ export async function saveForm(
 
   try {
     if (formIdToUpdate) {
-        // This is an update. We must not change the original creator (userId, userDisplayName) or createdAt.
+        // This is an update. We must not change the original creator (userId) or createdAt.
         // We will update the form data, attachments, and add an 'updatedAt' timestamp.
         const { userId, userDisplayName, createdAt, ...restOfData } = data;
 
         const updatePayload = {
             ...restOfData,
+            // Also update the main userDisplayName to reflect the last editor as the responsible operator
+            userDisplayName: userDisplayName,
             updatedAt: new Date().toISOString(),
             lastUpdatedBy: {
                 userId: userId, // This is the current user making the edit
@@ -46,7 +49,7 @@ export async function saveForm(
         
         const docRef = firestore.collection('submissions').doc(formIdToUpdate);
         // Using `update` ensures we only modify the fields in the payload,
-        // leaving the original `userId`, `userDisplayName`, and `createdAt` untouched.
+        // leaving the original `userId` and `createdAt` untouched.
         await docRef.update(updatePayload);
         return { success: true, message: 'Formulario actualizado con éxito.', formId: formIdToUpdate };
 
