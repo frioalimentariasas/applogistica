@@ -410,28 +410,6 @@ export default function VariableWeightFormComponent() {
   const handleAddItem = () => {
     const items = form.getValues('items');
     const lastItem = items.length > 0 ? items[items.length - 1] : null;
-    const currentClient = form.getValues('cliente');
-    
-    // Exception for AVICOLA EL MADROÑO S.A.
-    if (currentClient === 'AVICOLA EL MADROÑO S.A.') {
-        append({
-            codigo: '',
-            paleta: null,
-            descripcion: '',
-            lote: '',
-            presentacion: '',
-            cantidadPorPaleta: null,
-            pesoBruto: null,
-            taraEstiba: null,
-            taraCaja: null,
-            totalTaraCaja: null,
-            pesoNeto: null,
-            totalCantidad: null,
-            totalPaletas: null,
-            totalPesoNeto: null,
-        });
-        return;
-    }
 
     append({
         codigo: lastItem?.codigo || '',
