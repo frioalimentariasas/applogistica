@@ -1160,12 +1160,6 @@ export default function VariableWeightReceptionFormComponent() {
                           <FormLabel>Operario Responsable</FormLabel>
                           <FormControl><Input disabled value={submissionId ? originalSubmission?.userDisplayName : displayName || ''} /></FormControl>
                       </FormItem>
-                      {submissionId && (
-                          <FormItem>
-                            <FormLabel>Usuario (Editor)</FormLabel>
-                            <FormControl><Input disabled value={displayName || ''} /></FormControl>
-                          </FormItem>
-                      )}
                   </CardContent>
                 </Card>
 

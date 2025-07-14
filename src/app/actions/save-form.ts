@@ -34,16 +34,14 @@ export async function saveForm(
     if (formIdToUpdate) {
         // This is an update. We must not change the original creator (userId) or createdAt.
         // We will update the form data, attachments, and add an 'updatedAt' timestamp.
-        const { userId, userDisplayName, createdAt, ...restOfData } = data;
+        const { userId: editorUserId, userDisplayName: editorDisplayName, createdAt, ...restOfData } = data;
 
         const updatePayload = {
             ...restOfData,
-            // Also update the main userDisplayName to reflect the last editor as the responsible operator
-            userDisplayName: userDisplayName,
             updatedAt: new Date().toISOString(),
             lastUpdatedBy: {
-                userId: userId, // This is the current user making the edit
-                userDisplayName: userDisplayName
+                userId: editorUserId, // This is the current user making the edit
+                userDisplayName: editorDisplayName
             }
         };
         
