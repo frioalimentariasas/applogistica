@@ -246,10 +246,8 @@ function getByteSizeFromBase64(base64: string): number {
 
 // Sub-component for a single item row to handle its own state and logic
 const FormItemRow = ({ index, control, remove, handleProductDialogOpening }: { index: number, control: any, remove: (index: number) => void, handleProductDialogOpening: (index: number) => void }) => {
-    const paletaValue = useWatch({ control, name: `items.${index}.paleta` });
     const watchedItem = useWatch({ control, name: `items.${index}` });
-    
-    const isSummaryRow = paletaValue === 0;
+    const isSummaryRow = watchedItem?.paleta === 0;
     const pesoNeto = watchedItem?.pesoNeto;
 
     return (
@@ -475,20 +473,35 @@ export default function VariableWeightFormComponent() {
         
         let totalPeso = 0;
         let totalCantidad = 0;
+        
+        if (isGroupInSummaryMode) {
+             const summaryItem = itemsInGroup.find(item => Number(item.paleta) === 0);
+             totalPeso = Number(summaryItem?.totalPesoNeto) || 0;
+             totalCantidad = Number(summaryItem?.totalCantidad) || 0;
+        } else {
+             itemsInGroup.forEach(item => {
+                totalPeso += Number(item.pesoNeto) || 0;
+                totalCantidad += Number(item.cantidadPorPaleta) || 0;
+            });
+        }
+        
         let totalPaletas = 0;
-
-        itemsInGroup.forEach(item => {
-            totalPeso += (Number(item.paleta) === 0 ? Number(item.totalPesoNeto) : Number(item.pesoNeto)) || 0;
-            totalCantidad += (Number(item.paleta) === 0 ? Number(item.totalCantidad) : Number(item.cantidadPorPaleta)) || 0;
-
-            if (isGroupInSummaryMode) {
+        if (isGroupInSummaryMode) {
+            itemsInGroup.forEach(item => {
                 if (Number(item.paleta) === 0) {
                     totalPaletas += Number(item.totalPaletas) || 0;
                 }
-            } else {
-                totalPaletas += 1;
-            }
-        });
+            });
+        } else {
+            const uniquePallets = new Set<number>();
+            itemsInGroup.forEach(item => {
+                const paletaNum = Number(item.paleta);
+                if (!isNaN(paletaNum) && paletaNum > 0) {
+                    uniquePallets.add(paletaNum);
+                }
+            });
+            totalPaletas = uniquePallets.size;
+        }
 
         return {
             descripcion: itemsInGroup[0].descripcion,
