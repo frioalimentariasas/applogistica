@@ -565,7 +565,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 clientNames: inventoryClients,
                 startDate: format(inventoryDateRange.from, 'yyyy-MM-dd'),
                 endDate: format(inventoryDateRange.to, 'yyyy-MM-dd'),
-                sesion: inventorySesion,
+                sesion: inventorySesion === 'TODAS' ? undefined : inventorySesion,
             });
             setInventoryReportData(results);
             if (results.rows.length === 0) {
@@ -587,7 +587,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const sessionMap: { [key: string]: string } = {
             'CO': 'Congelados',
             'RE': 'Refrigerado',
-            'SE': 'Seco'
+            'SE': 'Seco',
+            'TODAS': 'Todas'
         };
         const sessionText = `Sesión: ${sessionMap[inventorySesion] || inventorySesion}`;
     
@@ -657,7 +658,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             ? `Periodo: ${format(inventoryDateRange.from, 'dd/MM/yyyy')} - ${format(inventoryDateRange.to, 'dd/MM/yyyy')}`
             : '';
         const sessionMap: { [key: string]: string } = {
-            'CO': 'Congelados', 'RE': 'Refrigerado', 'SE': 'Seco'
+            'CO': 'Congelados', 'RE': 'Refrigerado', 'SE': 'Seco', 'TODAS': 'Todas'
         };
         const sessionText = `Sesión: ${sessionMap[inventorySesion] || inventorySesion}`;
         
@@ -1376,6 +1377,20 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                 </div>
                                                             ) : (
                                                                 <div className="space-y-1">
+                                                                    <div className="flex items-center space-x-2 rounded-md p-2 hover:bg-accent border-b">
+                                                                        <Checkbox
+                                                                            id="select-all-inv-clients"
+                                                                            checked={availableInventoryClients.length > 0 && inventoryClients.length === availableInventoryClients.length}
+                                                                            onCheckedChange={(checked) => {
+                                                                                if (checked) {
+                                                                                    setInventoryClients(availableInventoryClients);
+                                                                                } else {
+                                                                                    setInventoryClients([]);
+                                                                                }
+                                                                            }}
+                                                                        />
+                                                                        <Label htmlFor="select-all-inv-clients" className="w-full cursor-pointer font-semibold">Seleccionar Todos</Label>
+                                                                    </div>
                                                                     {filteredAvailableInventoryClients.map((clientName) => (
                                                                         <div key={clientName} className="flex items-center space-x-2 rounded-md p-2 hover:bg-accent">
                                                                             <Checkbox
@@ -1424,6 +1439,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                     <SelectValue placeholder="Seleccione una sesión" />
                                                 </SelectTrigger>
                                                 <SelectContent>
+                                                    <SelectItem value="TODAS">TODAS - Todas las sesiones</SelectItem>
                                                     <SelectItem value="CO">CO - Congelados</SelectItem>
                                                     <SelectItem value="RE">RE - Refrigerado</SelectItem>
                                                     <SelectItem value="SE">SE - Seco</SelectItem>
