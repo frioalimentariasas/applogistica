@@ -14,6 +14,7 @@ export interface ActiveUser {
     creationTime: string;
     lastRefreshTime: string;
     tokensValidAfterTime?: string;
+    isRevoked: boolean;
 }
 
 async function getUserDisplayNameMap(): Promise<Record<string, string>> {
@@ -40,8 +41,6 @@ export async function listActiveUsers(requestingAdminUid?: string): Promise<Acti
         const now = new Date();
         const superAdminEmail = 'sistemas@frioalimentaria.com.co';
 
-        const revokePromises: Promise<void>[] = [];
-
         const users = userRecordsResult.users.map((user) => {
             const lastActivityTime = new Date(Math.max(
                 new Date(user.metadata.lastSignInTime || 0).getTime(),
@@ -56,12 +55,18 @@ export async function listActiveUsers(requestingAdminUid?: string): Promise<Acti
                 user.uid !== requestingAdminUid && // Don't revoke the current admin
                 user.email !== superAdminEmail     // Don't revoke the super admin
             ) {
-                 console.log(`Auto-revoking session for user ${user.email} due to inactivity (${hoursSinceLastActivity} hours).`);
-                 // We don't await here, just fire and forget the revocations
-                 auth.revokeRefreshTokens(user.uid).catch(err => {
-                     console.error(`Failed to auto-revoke session for ${user.email}:`, err);
-                 });
+                 // Check if it's already revoked before logging/revoking again
+                 const tokensValidAfterTime = user.tokensValidAfterTime ? new Date(user.tokensValidAfterTime).getTime() : 0;
+                 if (tokensValidAfterTime < lastActivityTime.getTime()) {
+                    console.log(`Auto-revoking session for user ${user.email} due to inactivity (${hoursSinceLastActivity} hours).`);
+                    auth.revokeRefreshTokens(user.uid).catch(err => {
+                        console.error(`Failed to auto-revoke session for ${user.email}:`, err);
+                    });
+                 }
             }
+            
+            const tokensValidAfter = user.tokensValidAfterTime ? new Date(user.tokensValidAfterTime) : null;
+            const isEffectivelyRevoked = tokensValidAfter ? tokensValidAfter.getTime() > lastActivityTime.getTime() : false;
 
             return {
                 uid: user.uid,
@@ -71,6 +76,7 @@ export async function listActiveUsers(requestingAdminUid?: string): Promise<Acti
                 creationTime: user.metadata.creationTime,
                 lastRefreshTime: user.metadata.lastRefreshTime,
                 tokensValidAfterTime: user.tokensValidAfterTime,
+                isRevoked: isEffectivelyRevoked,
             };
         });
 

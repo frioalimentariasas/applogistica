@@ -169,7 +169,10 @@ export default function SessionManagementComponent() {
                 title: 'Éxito',
                 description: result.message,
             });
-            setRevokedUids(prev => [...prev, userToRevoke.uid]);
+            // Immediately update the local state to reflect revocation
+            setUsers(prevUsers => prevUsers.map(u => 
+                u.uid === userToRevoke.uid ? { ...u, isRevoked: true } : u
+            ));
         } else {
             toast({
                 variant: 'destructive',
@@ -349,17 +352,9 @@ export default function SessionManagementComponent() {
                                                 const lastActivityDisplay = hasEverBeenActive
                                                     ? formatDistanceToNow(lastActivityDate, { addSuffix: true, locale: es })
                                                     : "Nunca";
-
-                                                const FIFTEEN_MINUTES_IN_MS = 15 * 60 * 1000;
-                                                const now = new Date();
-                                                const timeDifference = now.getTime() - lastActivityDate.getTime();
-                                                const isActive = hasEverBeenActive && timeDifference < FIFTEEN_MINUTES_IN_MS;
                                                 
-                                                const wasJustRevokedInUI = revokedUids.includes(u.uid);
-                                                const tokensValidAfter = u.tokensValidAfterTime ? new Date(u.tokensValidAfterTime) : null;
-                                                
-                                                const isEffectivelyRevoked = tokensValidAfter ? tokensValidAfter.getTime() > lastActivityDate.getTime() : false;
-                                                const isRevoked = wasJustRevokedInUI || isEffectivelyRevoked;
+                                                const isRevoked = u.isRevoked;
+                                                const isActive = !isRevoked;
                                                 const isSuperAdmin = u.email === 'sistemas@frioalimentaria.com.co';
 
                                                 return (
