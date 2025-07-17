@@ -64,7 +64,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 const productSchema = z.object({
   codigo: z.string().min(1, "El código es requerido."),
   descripcion: z.string().min(1, "La descripción es requerida."),
-  cajas: z.coerce.number({required_error: "El No. de cajas es requerido.", invalid_type_error: "El No. de cajas es requerido."}).int().positive("El No. de Cajas debe ser mayor a 0."),
+  cajas: z.coerce.number({required_error: "El No. de cajas es requerido.", invalid_type_error: "El No. de cajas es requerido."}).int().min(0, "El No. de Cajas debe ser 0 o mayor."),
   totalPaletas: z.coerce.number({required_error: "El Total Paletas es requerido.", invalid_type_error: "El Total Paletas es requerido."}).int("El Total Paletas debe ser un número entero.").positive("El Total Paletas debe ser un número positivo."),
   cantidadKg: z.preprocess(
       (val) => (val === "" || val === null ? null : val),
@@ -853,7 +853,7 @@ export default function FixedWeightFormComponent() {
                                 <FormField control={form.control} name={`productos.${index}.cajas`} render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>No. de Cajas</FormLabel>
-                                        <FormControl><Input type="text" inputMode="numeric" min="1" placeholder="0" {...field} onChange={e => field.onChange(e.target.value)} value={field.value ?? ''} /></FormControl>
+                                        <FormControl><Input type="text" inputMode="numeric" placeholder="0" {...field} onChange={e => field.onChange(e.target.value)} value={field.value ?? ''} /></FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}/>
