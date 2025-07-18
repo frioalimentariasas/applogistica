@@ -157,6 +157,7 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                             <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Paleta</th>
                             <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Descripción</th>
                             <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Lote</th>
+                            <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Presentación</th>
                             <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Cant.</th>
                             <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Peso Bruto</th>
                             <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Tara Estiba</th>
@@ -171,6 +172,7 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                                 <td style={{ padding: '4px' }}>{p.paleta}</td>
                                 <td style={{ padding: '4px' }}>{p.descripcion}</td>
                                 <td style={{ padding: '4px' }}>{p.lote}</td>
+                                <td style={{ padding: '4px' }}>{p.presentacion}</td>
                                 <td style={{ textAlign: 'right', padding: '4px' }}>{p.cantidadPorPaleta}</td>
                                 <td style={{ textAlign: 'right', padding: '4px' }}>{p.pesoBruto?.toFixed(2)}</td>
                                 <td style={{ textAlign: 'right', padding: '4px' }}>{p.taraEstiba?.toFixed(2)}</td>

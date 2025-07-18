@@ -306,14 +306,14 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             formData.documentoTransporte || 'N/A',
                             {content: 'Factura/Remisión:', styles: {fontStyle: 'bold'}},
                             formData.facturaRemision || 'N/A',
-                            {content: 'Tipo Pedido:', styles: {fontStyle: 'bold'}},
-                            isReception ? (formData.tipoPedido || 'N/A') : ''
+                            isReception ? {content: 'Tipo Pedido:', styles: {fontStyle: 'bold'}} : {content: '', styles: {}},
+                            isReception ? formData.tipoPedido || 'N/A' : {content: '', styles: {}}
                         ],
                         isReception && formData.tipoPedido === 'MAQUILA' ? [
                             {content: 'Tipo Empaque (Maquila):', styles: {fontStyle: 'bold'}, colSpan: 2},
                             {content: formData.tipoEmpaqueMaquila || 'N/A', colSpan: 4}
                         ] : []
-                    ].filter(row => row.length > 0), // Filter out empty array for non-reception
+                    ].filter(row => row.length > 0 && row.some(cell => typeof cell === 'string' ? cell.length > 0 : (cell as any).content.length > 0)), // Filter out empty array for non-reception and all empty content
                     theme: 'grid', 
                     styles: { fontSize: 8, cellPadding: 4, valign: 'middle' },
                     columnStyles: {
@@ -436,14 +436,14 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             formData.coordinador || 'N/A',
                             {content: 'Operario:', styles: {fontStyle: 'bold'}},
                             userDisplayName || 'N/A',
-                             {content: 'Operación por Cuadrilla:', styles: {fontStyle: 'bold'}},
+                             {content: 'Operación Realizada por Cuadrilla:', styles: {fontStyle: 'bold'}},
                             formData.aplicaCuadrilla ? formData.aplicaCuadrilla.charAt(0).toUpperCase() + formData.aplicaCuadrilla.slice(1) : 'N/A'
                         ],
-                        formData.aplicaCuadrilla === 'si' && formData.numeroOperariosCuadrilla ? [
+                        formData.aplicaCuadrilla === 'si' && formData.tipoPedido === 'MAQUILA' && formData.numeroOperariosCuadrilla ? [
                             {content: 'No. Operarios Cuadrilla:', styles: {fontStyle: 'bold'}, colSpan: 2},
                             {content: formData.numeroOperariosCuadrilla, colSpan: 4}
                         ] : []
-                    ].filter(row => row.length > 0),
+                    ].filter(row => row.length > 0 && row.some(cell => typeof cell === 'string' ? cell.length > 0 : (cell as any).content.length > 0)),
                     theme: 'grid', 
                     styles: { fontSize: 8, cellPadding: 4, valign: 'middle' },
                     columnStyles: {
@@ -487,14 +487,14 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                          {content: 'Tipo Pedido:', styles: {fontStyle: 'bold'}}, formData.tipoPedido || 'N/A',
                          {content: 'Tipo Empaque (Maquila):', styles: {fontStyle: 'bold'}}, (formData.tipoPedido === 'MAQUILA' ? formData.tipoEmpaqueMaquila : 'N/A') || 'N/A',
                          {content: '', styles: {}}, {content: '', styles: {}}
-                     ]);
+                     ].filter(c => (c as any).content !== ''));
                  }
 
 
                  autoTable(doc, {
                     startY: yPos,
                     head: [[{ content: `Datos de ${isReception ? 'Recepción' : 'Despacho'}`, colSpan: 6, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]],
-                    body: generalInfoBody,
+                    body: generalInfoBody.filter(row => row.length > 0 && row.some(cell => (cell as any).content && (cell as any).content.length > 0)),
                     theme: 'grid',
                     styles: { fontSize: 8, cellPadding: 4, valign: 'middle' },
                     columnStyles: {
@@ -511,9 +511,9 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 let detailColSpan: number;
 
                 if (isReception) {
-                    detailHead = [['Paleta', 'Descripción', 'Lote', 'Cant.', 'Peso Bruto', 'Tara Estiba', 'Tara Caja', 'Total Tara', 'Peso Neto']];
-                    detailBody = formData.items.map((p: any) => [ p.paleta, p.descripcion, p.lote, p.cantidadPorPaleta, p.pesoBruto?.toFixed(2), p.taraEstiba?.toFixed(2), p.taraCaja?.toFixed(2), p.totalTaraCaja?.toFixed(2), p.pesoNeto?.toFixed(2) ]);
-                    detailColSpan = 9;
+                    detailHead = [['Paleta', 'Descripción', 'Lote', 'Presentación', 'Cant.', 'Peso Bruto', 'Tara Estiba', 'Tara Caja', 'Total Tara', 'Peso Neto']];
+                    detailBody = formData.items.map((p: any) => [ p.paleta, p.descripcion, p.lote, p.presentacion, p.cantidadPorPaleta, p.pesoBruto?.toFixed(2), p.taraEstiba?.toFixed(2), p.taraCaja?.toFixed(2), p.totalTaraCaja?.toFixed(2), p.pesoNeto?.toFixed(2) ]);
+                    detailColSpan = 10;
                 } else { // This is dispatch
                     const isSummaryFormat = formData.items.some((p: any) => Number(p.paleta) === 0);
 
@@ -661,14 +661,14 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             formData.coordinador || 'N/A',
                             {content: 'Operario:', styles: {fontStyle: 'bold'}},
                             userDisplayName || 'N/A',
-                             {content: 'Operación por Cuadrilla:', styles: {fontStyle: 'bold'}},
+                             {content: 'Operación Realizada por Cuadrilla:', styles: {fontStyle: 'bold'}},
                             formData.aplicaCuadrilla ? formData.aplicaCuadrilla.charAt(0).toUpperCase() + formData.aplicaCuadrilla.slice(1) : 'N/A'
                         ],
-                        formData.aplicaCuadrilla === 'si' && formData.numeroOperariosCuadrilla ? [
+                         isReception && formData.aplicaCuadrilla === 'si' && formData.tipoPedido === 'MAQUILA' && formData.numeroOperariosCuadrilla ? [
                             {content: 'No. Operarios Cuadrilla:', styles: {fontStyle: 'bold'}, colSpan: 2},
                             {content: formData.numeroOperariosCuadrilla, colSpan: 4}
                         ] : []
-                    ].filter(row => row.length > 0), 
+                    ].filter(row => row.length > 0 && row.some(cell => typeof cell === 'string' ? cell.length > 0 : (cell as any).content.length > 0)), 
                     theme: 'grid', 
                     styles: { fontSize: 8, cellPadding: 4, valign: 'middle' },
                     columnStyles: {
