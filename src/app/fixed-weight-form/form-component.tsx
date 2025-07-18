@@ -66,11 +66,10 @@ const productSchema = z.object({
   descripcion: z.string().min(1, "La descripción es requerida."),
   cajas: z.coerce.number({required_error: "El No. de cajas es requerido.", invalid_type_error: "El No. de cajas es requerido."}).int().min(0, "El No. de Cajas debe ser 0 o mayor."),
   totalPaletas: z.coerce.number({required_error: "El Total Paletas es requerido.", invalid_type_error: "El Total Paletas es requerido."}).int("El Total Paletas debe ser un número entero.").min(0, "El total de paletas no puede ser negativo."),
-  cantidadKg: z.preprocess(
-      (val) => (val === "" || val === null ? null : val),
-      z.coerce.number({ invalid_type_error: "Cantidad (kg) debe ser un número."})
-        .positive("Cantidad (kg) debe ser un número positivo.").nullable()
-  ),
+  pesoBrutoKg: z.coerce.number({ required_error: "El peso bruto es requerido.", invalid_type_error: "Peso Bruto (kg) debe ser un número."})
+    .min(0, "Peso Bruto (kg) debe ser un número no negativo."),
+  pesoNetoKg: z.coerce.number({ required_error: "El peso neto es requerido.", invalid_type_error: "Peso Neto (kg) debe ser un número."})
+    .min(0, "Peso Neto (kg) debe ser un número no negativo."),
   temperatura: z.preprocess(
     (val) => (val === "" || val === null ? null : val),
     z.coerce.number({ 
@@ -155,7 +154,7 @@ const originalDefaultValues: FormValues = {
   precinto: "",
   documentoTransporte: "",
   facturaRemision: "",
-  productos: [{ codigo: '', descripcion: '', cajas: 0, totalPaletas: 0, cantidadKg: null, temperatura: null }],
+  productos: [{ codigo: '', descripcion: '', cajas: 0, totalPaletas: 0, pesoBrutoKg: 0, pesoNetoKg: 0, temperatura: null }],
   nombreConductor: "",
   cedulaConductor: "",
   placa: "",
@@ -255,9 +254,14 @@ export default function FixedWeightFormComponent() {
     return Math.floor((productos || []).reduce((acc, p) => acc + (Number(p.totalPaletas) || 0), 0));
   }, [productos]);
   
-  const totalCantidadKg = useMemo(() => {
-      return (productos || []).reduce((acc, p) => acc + (Number(p.cantidadKg) || 0), 0);
+  const totalPesoNetoKg = useMemo(() => {
+      return (productos || []).reduce((acc, p) => acc + (Number(p.pesoNetoKg) || 0), 0);
   }, [productos]);
+  
+  const totalPesoBrutoKg = useMemo(() => {
+      return (productos || []).reduce((acc, p) => acc + (Number(p.pesoBrutoKg) || 0), 0);
+  }, [productos]);
+
 
   const formIdentifier = submissionId ? `fixed-weight-edit-${submissionId}` : `fixed-weight-${operation}`;
   const { isRestoreDialogOpen, onRestore, onDiscard: onDiscardFromHook, onOpenChange, clearDraft } = useFormPersistence(formIdentifier, form, originalDefaultValues, attachments, setAttachments, !!submissionId);
@@ -322,7 +326,9 @@ export default function FixedWeightFormComponent() {
               productos: (formData.productos || []).map((p: any) => ({
                   ...originalDefaultValues.productos[0],
                   ...p,
-                  cantidadKg: p.cantidadKg ?? null,
+                  // Handle old 'cantidadKg' field for backward compatibility
+                  pesoNetoKg: p.pesoNetoKg ?? p.cantidadKg ?? 0,
+                  pesoBrutoKg: p.pesoBrutoKg ?? 0,
                   temperatura: p.temperatura ?? null,
               })),
           };
@@ -629,7 +635,7 @@ export default function FixedWeightFormComponent() {
       setClientSearch('');
   
       // Reset dependent fields
-      form.setValue('productos', [{ codigo: '', descripcion: '', cajas: 0, totalPaletas: 0, cantidadKg: null, temperatura: null }]);
+      form.setValue('productos', [{ codigo: '', descripcion: '', cajas: 0, totalPaletas: 0, pesoBrutoKg: 0, pesoNetoKg: 0, temperatura: null }]);
       setArticulos([]);
   };
 
@@ -828,13 +834,27 @@ export default function FixedWeightFormComponent() {
                     </FormItem>
                     )}/>
                     
-                    <FormField control={form.control} name="facturaRemision" render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Factura/Remisión</FormLabel>
-                            <FormControl><Input placeholder="Máx 15 caracteres" {...field} value={field.value ?? ''} /></FormControl>
-                            <FormMessage />
+                    <FormField
+                      control={form.control}
+                      name="facturaRemision"
+                      render={({ field }) => (
+                        <FormItem
+                          className={cn(
+                            operation === 'recepcion' && watchedTipoPedido === 'MAQUILA' ? 'lg:col-span-1' : 'lg:col-span-1'
+                          )}
+                        >
+                          <FormLabel>Factura/Remisión</FormLabel>
+                          <FormControl>
+                            <Input
+                              placeholder="Máx 15 caracteres"
+                              {...field}
+                              value={field.value ?? ''}
+                            />
+                          </FormControl>
+                          <FormMessage />
                         </FormItem>
-                    )}/>
+                      )}
+                    />
 
                     {operation === 'recepcion' && (
                         <>
@@ -939,7 +959,7 @@ export default function FixedWeightFormComponent() {
                                     </FormItem>
                                 )}/>
                             </div>
-                            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
                                 <FormField control={form.control} name={`productos.${index}.cajas`} render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>No. de Cajas</FormLabel>
@@ -954,9 +974,16 @@ export default function FixedWeightFormComponent() {
                                         <FormMessage />
                                     </FormItem>
                                 )}/>
-                                <FormField control={form.control} name={`productos.${index}.cantidadKg`} render={({ field }) => (
+                                <FormField control={form.control} name={`productos.${index}.pesoBrutoKg`} render={({ field }) => (
                                     <FormItem>
-                                        <FormLabel>Cantidad (kg) (Opcional)</FormLabel>
+                                        <FormLabel>Peso Bruto (kg)</FormLabel>
+                                        <FormControl><Input type="text" inputMode="decimal" step="0.01" min="0" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}/>
+                                <FormField control={form.control} name={`productos.${index}.pesoNetoKg`} render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Peso Neto (kg)</FormLabel>
                                         <FormControl><Input type="text" inputMode="decimal" step="0.01" min="0" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -972,7 +999,7 @@ export default function FixedWeightFormComponent() {
                         </div>
                     </div>
                 ))}
-                <Button type="button" variant="outline" onClick={() => append({ codigo: '', descripcion: '', cajas: 0, totalPaletas: 0, cantidadKg: null, temperatura: null })}>
+                <Button type="button" variant="outline" onClick={() => append({ codigo: '', descripcion: '', cajas: 0, totalPaletas: 0, pesoBrutoKg: 0, pesoNetoKg: 0, temperatura: null })}>
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Agregar Producto
                 </Button>
@@ -989,8 +1016,12 @@ export default function FixedWeightFormComponent() {
                         <Input className="w-28" disabled value={totalPaletas} />
                     </div>
                     <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm">Totales Cantidad (kg)</span>
-                        <Input className="w-28" disabled value={totalCantidadKg % 1 === 0 ? totalCantidadKg : totalCantidadKg.toFixed(2)} />
+                        <span className="font-medium text-sm">Total Peso Bruto (kg)</span>
+                        <Input className="w-28" disabled value={totalPesoBrutoKg % 1 === 0 ? totalPesoBrutoKg : totalPesoBrutoKg.toFixed(2)} />
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm">Total Peso Neto (kg)</span>
+                        <Input className="w-28" disabled value={totalPesoNetoKg % 1 === 0 ? totalPesoNetoKg : totalPesoNetoKg.toFixed(2)} />
                     </div>
                 </div>
               </CardContent>

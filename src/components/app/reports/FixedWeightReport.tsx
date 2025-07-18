@@ -75,10 +75,10 @@ interface FixedWeightReportProps {
 }
 
 export function FixedWeightReport({ formData, userDisplayName, attachments, formType }: FixedWeightReportProps) {
-    const hasCantidadKg = formData.productos.some((p: any) => p.cantidadKg != null && !isNaN(Number(p.cantidadKg)) && Number(p.cantidadKg) > 0);
+    const hasPesoNetoKg = formData.productos.some((p: any) => p.pesoNetoKg != null && !isNaN(Number(p.pesoNetoKg)));
     const totalCajas = formData.productos.reduce((acc: any, p: any) => acc + (Number(p.cajas) || 0), 0);
     const totalPaletas = formData.productos.reduce((acc: any, p: any) => acc + (Number(p.totalPaletas ?? p.paletas) || 0), 0);
-    const totalCantidadKg = formData.productos.reduce((acc: any, p: any) => acc + (Number(p.cantidadKg) || 0), 0);
+    const totalPesoNetoKg = formData.productos.reduce((acc: any, p: any) => acc + (Number(p.pesoNetoKg) || 0), 0);
 
     const isReception = formType.includes('recepcion');
     const operationTerm = isReception ? 'Descargue' : 'Cargue';
@@ -128,7 +128,7 @@ export function FixedWeightReport({ formData, userDisplayName, attachments, form
                             <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Descripción</th>
                             <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>No. Cajas</th>
                             <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Paletas</th>
-                            {hasCantidadKg && <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Cant. (kg)</th>}
+                            {hasPesoNetoKg && <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Peso Neto (kg)</th>}
                             <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Temp(°C)</th>
                         </tr>
                     </thead>
@@ -139,7 +139,7 @@ export function FixedWeightReport({ formData, userDisplayName, attachments, form
                                 <td style={{ padding: '4px' }}>{p.descripcion}</td>
                                 <td style={{ textAlign: 'right', padding: '4px' }}>{p.cajas}</td>
                                 <td style={{ textAlign: 'right', padding: '4px' }}>{formatPaletas(p.totalPaletas ?? p.paletas)}</td>
-                                {hasCantidadKg && <td style={{ textAlign: 'right', padding: '4px' }}>{p.cantidadKg ? Number(p.cantidadKg).toFixed(2) : ''}</td>}
+                                {hasPesoNetoKg && <td style={{ textAlign: 'right', padding: '4px' }}>{p.pesoNetoKg ? Number(p.pesoNetoKg).toFixed(2) : ''}</td>}
                                 <td style={{ textAlign: 'right', padding: '4px' }}>{p.temperatura}</td>
                             </tr>
                         ))}
@@ -147,7 +147,7 @@ export function FixedWeightReport({ formData, userDisplayName, attachments, form
                             <td style={{ padding: '4px', textAlign: 'right' }} colSpan={2}>TOTALES:</td>
                             <td style={{ textAlign: 'right', padding: '4px' }}>{totalCajas}</td>
                             <td style={{ textAlign: 'right', padding: '4px' }}>{formatPaletas(totalPaletas)}</td>
-                            {hasCantidadKg && <td style={{ textAlign: 'right', padding: '4px' }}>{totalCantidadKg.toFixed(2)}</td>}
+                            {hasPesoNetoKg && <td style={{ textAlign: 'right', padding: '4px' }}>{totalPesoNetoKg.toFixed(2)}</td>}
                             <td style={{ padding: '4px' }}></td>
                         </tr>
                     </tbody>

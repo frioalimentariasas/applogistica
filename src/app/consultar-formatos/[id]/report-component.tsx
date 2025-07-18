@@ -325,16 +325,16 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 });
                 yPos = (doc as any).autoTable.previous.finalY + 15;
     
-                const hasCantidadKg = formData.productos.some((p: any) => p.cantidadKg != null && !isNaN(Number(p.cantidadKg)) && Number(p.cantidadKg) > 0);
+                const hasPesoNetoKg = formData.productos.some((p: any) => p.pesoNetoKg != null && !isNaN(Number(p.pesoNetoKg)));
 
                 const productHead = [['Código', 'Descripción', 'No. Cajas', 'Total Paletas']];
-                if (hasCantidadKg) productHead[0].push('Cant. (kg)');
+                if (hasPesoNetoKg) productHead[0].push('Peso Neto (kg)');
                 productHead[0].push('Temp(°C)');
 
                 const productBody = formData.productos.map((p: any) => {
                     const row = [ p.codigo, p.descripcion, p.cajas, formatPaletas(p.totalPaletas ?? p.paletas) ];
-                    if (hasCantidadKg) {
-                        row.push(p.cantidadKg ? Number(p.cantidadKg).toFixed(2) : '');
+                    if (hasPesoNetoKg) {
+                        row.push(p.pesoNetoKg ? Number(p.pesoNetoKg).toFixed(2) : '0.00');
                     }
                     row.push(p.temperatura);
                     return row;
@@ -342,11 +342,11 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 
                 const totalCajas = formData.productos.reduce((acc: any, p: any) => acc + (Number(p.cajas) || 0), 0);
                 const totalPaletas = formData.productos.reduce((acc: any, p: any) => acc + (Number(p.totalPaletas ?? p.paletas) || 0), 0);
-                const totalCantidadKg = formData.productos.reduce((acc: any, p: any) => acc + (Number(p.cantidadKg) || 0), 0);
+                const totalPesoNetoKg = formData.productos.reduce((acc: any, p: any) => acc + (Number(p.pesoNetoKg) || 0), 0);
 
                 const footRow = [{ content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }, totalCajas, formatPaletas(totalPaletas)];
-                if (hasCantidadKg) {
-                    footRow.push(totalCantidadKg.toFixed(2));
+                if (hasPesoNetoKg) {
+                    footRow.push(totalPesoNetoKg.toFixed(2));
                 }
                 footRow.push(''); // For temperature column
     
