@@ -59,6 +59,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { RestoreDialog } from "@/components/app/restore-dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDialogDesc, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
 
 const itemSchema = z.object({
     codigo: z.string().min(1, "El código es requerido."),
