@@ -109,6 +109,7 @@ const formSchema = z.object({
   clienteRequiereTermoregistro: z.enum(["si", "no"], { required_error: "Seleccione una opción." }),
   observaciones: z.string().max(150, "Máximo 150 caracteres.").nullable(),
   coordinador: z.string().min(1, "Seleccione un coordinador."),
+  aplicaCuadrilla: z.enum(["si", "no"], { required_error: "Seleccione una opción." }),
 }).refine((data) => {
     return data.horaInicio !== data.horaFin;
 }, {
@@ -139,6 +140,7 @@ const originalDefaultValues: FormValues = {
   clienteRequiereTermoregistro: undefined,
   observaciones: "",
   coordinador: "",
+  aplicaCuadrilla: undefined,
 };
 
 // Mock data for selects
@@ -963,7 +965,7 @@ export default function FixedWeightFormComponent() {
              {/* Responsible Person Card */}
              <Card>
                 <CardHeader><CardTitle>Responsables de la Operación</CardTitle></CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <FormField control={form.control} name="coordinador" render={({ field }) => (
                         <FormItem><FormLabel>Coordinador Responsable</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                     )}/>
@@ -971,6 +973,13 @@ export default function FixedWeightFormComponent() {
                         <FormLabel>Operario Responsable</FormLabel>
                         <FormControl><Input disabled value={submissionId ? originalSubmission?.userDisplayName : displayName || ''} /></FormControl>
                     </FormItem>
+                    <FormField
+                        control={form.control}
+                        name="aplicaCuadrilla"
+                        render={({ field }) => (
+                            <FormItem className="space-y-3"><FormLabel>Aplica Cuadrilla</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="cuadrilla-si" /><Label htmlFor="cuadrilla-si">Sí</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="cuadrilla-no" /><Label htmlFor="cuadrilla-no">No</Label></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>
+                        )}
+                    />
                 </CardContent>
              </Card>
 

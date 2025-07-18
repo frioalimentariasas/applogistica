@@ -259,8 +259,9 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                 <table style={{ width: '100%', borderCollapse: 'collapse' }}>
                      <tbody>
                         <tr>
-                            <td style={{...fieldCellStyle, width: '50%'}}><ReportField label="Coordinador Responsable" value={formData.coordinador} /></td>
-                            <td style={{...fieldCellStyle, width: '50%'}}><ReportField label="Operario Responsable" value={userDisplayName} /></td>
+                            <td style={{...fieldCellStyle, width: '33.33%'}}><ReportField label="Coordinador" value={formData.coordinador} /></td>
+                            <td style={{...fieldCellStyle, width: '33.33%'}}><ReportField label="Operario" value={userDisplayName} /></td>
+                            <td style={{...fieldCellStyle, width: '33.33%'}}><ReportField label="Aplica Cuadrilla" value={formData.aplicaCuadrilla ? formData.aplicaCuadrilla.charAt(0).toUpperCase() + formData.aplicaCuadrilla.slice(1) : 'N/A'} /></td>
                         </tr>
                     </tbody>
                 </table>

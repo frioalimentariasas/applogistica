@@ -426,13 +426,15 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
     
                 autoTable(doc, { 
                     startY: yPos, 
-                    head: [[{ content: 'Responsables de la Operación', colSpan: 4, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]], 
+                    head: [[{ content: 'Responsables de la Operación', colSpan: 6, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]], 
                     body: [
                         [
                             {content: 'Coordinador:', styles: {fontStyle: 'bold'}},
                             formData.coordinador || 'N/A',
                             {content: 'Operario:', styles: {fontStyle: 'bold'}},
-                            userDisplayName || 'N/A'
+                            userDisplayName || 'N/A',
+                            {content: 'Aplica Cuadrilla:', styles: {fontStyle: 'bold'}},
+                            formData.aplicaCuadrilla ? formData.aplicaCuadrilla.charAt(0).toUpperCase() + formData.aplicaCuadrilla.slice(1) : 'N/A'
                         ]
                     ], 
                     theme: 'grid', 
@@ -440,6 +442,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     columnStyles: {
                         0: { cellWidth: 'auto' }, 1: { cellWidth: '*' },
                         2: { cellWidth: 'auto' }, 3: { cellWidth: '*' },
+                        4: { cellWidth: 'auto' }, 5: { cellWidth: '*' },
                     },
                     margin: { horizontal: margin },
                 });
@@ -633,13 +636,15 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
     
                 autoTable(doc, { 
                     startY: yPos, 
-                    head: [[{ content: 'Responsables de la Operación', colSpan: 4, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]], 
+                    head: [[{ content: 'Responsables de la Operación', colSpan: 6, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]], 
                     body: [
                         [
                            {content: 'Coordinador:', styles: {fontStyle: 'bold'}},
                             formData.coordinador || 'N/A',
                             {content: 'Operario:', styles: {fontStyle: 'bold'}},
-                            userDisplayName || 'N/A'
+                            userDisplayName || 'N/A',
+                             {content: 'Aplica Cuadrilla:', styles: {fontStyle: 'bold'}},
+                            formData.aplicaCuadrilla ? formData.aplicaCuadrilla.charAt(0).toUpperCase() + formData.aplicaCuadrilla.slice(1) : 'N/A'
                         ]
                     ], 
                     theme: 'grid', 
@@ -647,6 +652,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     columnStyles: {
                         0: { cellWidth: 'auto' }, 1: { cellWidth: '*' },
                         2: { cellWidth: 'auto' }, 3: { cellWidth: '*' },
+                        4: { cellWidth: 'auto' }, 5: { cellWidth: '*' },
                     },
                     margin: { horizontal: margin },
                 });
