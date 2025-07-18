@@ -110,7 +110,6 @@ const formSchema = z.object({
   observaciones: z.string().max(150, "Máximo 150 caracteres.").nullable(),
   coordinador: z.string().min(1, "Seleccione un coordinador."),
   aplicaCuadrilla: z.enum(["si", "no"], { required_error: "Seleccione una opción para 'Operación Realizada por Cuadrilla'." }),
-  // New fields for recepcion
   tipoPedido: z.enum(['GENERICO', 'MAQUILA', 'TUNEL', 'INGRESO DE SALDO']).optional(),
   tipoEmpaqueMaquila: z.enum(['EMPAQUE DE SACOS', 'EMPAQUE DE CAJAS']).optional(),
   numeroOperariosCuadrilla: z.coerce.number().int().min(1, "Debe ser al menos 1.").optional(),
@@ -837,57 +836,57 @@ export default function FixedWeightFormComponent() {
                         <FormMessage />
                     </FormItem>
                     )}/>
+                    {operation === 'recepcion' && (
+                        <>
+                            <FormField
+                                control={form.control}
+                                name="tipoPedido"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Tipo de Pedido</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value}>
+                                    <FormControl>
+                                        <SelectTrigger>
+                                        <SelectValue placeholder="Seleccione un tipo de pedido" />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="GENERICO">GENERICO</SelectItem>
+                                        <SelectItem value="MAQUILA">MAQUILA</SelectItem>
+                                        <SelectItem value="TUNEL">TUNEL</SelectItem>
+                                        <SelectItem value="INGRESO DE SALDO">INGRESO DE SALDO</SelectItem>
+                                    </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                            {watchedTipoPedido === 'MAQUILA' && (
+                                <FormField
+                                control={form.control}
+                                name="tipoEmpaqueMaquila"
+                                render={({ field }) => (
+                                    <FormItem>
+                                    <FormLabel>Tipo de Empaque (Maquila)</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value}>
+                                        <FormControl>
+                                        <SelectTrigger>
+                                            <SelectValue placeholder="Seleccione tipo de empaque" />
+                                        </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                        <SelectItem value="EMPAQUE DE SACOS">EMPAQUE DE SACOS</SelectItem>
+                                        <SelectItem value="EMPAQUE DE CAJAS">EMPAQUE DE CAJAS</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                    </FormItem>
+                                )}
+                                />
+                            )}
+                        </>
+                    )}
                 </div>
-                 {operation === 'recepcion' && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
-                     <FormField
-                        control={form.control}
-                        name="tipoPedido"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Tipo de Pedido</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value}>
-                              <FormControl>
-                                <SelectTrigger>
-                                  <SelectValue placeholder="Seleccione un tipo de pedido" />
-                                </SelectTrigger>
-                              </FormControl>
-                              <SelectContent>
-                                <SelectItem value="GENERICO">GENERICO</SelectItem>
-                                <SelectItem value="MAQUILA">MAQUILA</SelectItem>
-                                <SelectItem value="TUNEL">TUNEL</SelectItem>
-                                <SelectItem value="INGRESO DE SALDO">INGRESO DE SALDO</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      {watchedTipoPedido === 'MAQUILA' && (
-                        <FormField
-                          control={form.control}
-                          name="tipoEmpaqueMaquila"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Tipo de Empaque (Maquila)</FormLabel>
-                              <Select onValueChange={field.onChange} value={field.value}>
-                                <FormControl>
-                                  <SelectTrigger>
-                                    <SelectValue placeholder="Seleccione tipo de empaque" />
-                                  </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                  <SelectItem value="EMPAQUE DE SACOS">EMPAQUE DE SACOS</SelectItem>
-                                  <SelectItem value="EMPAQUE DE CAJAS">EMPAQUE DE CAJAS</SelectItem>
-                                </SelectContent>
-                              </Select>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      )}
-                  </div>
-                 )}
               </CardContent>
             </Card>
 
@@ -1055,7 +1054,7 @@ export default function FixedWeightFormComponent() {
              <Card>
                 <CardHeader><CardTitle>Responsables de la Operación</CardTitle></CardHeader>
                 <CardContent>
-                    <div className={cn("grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4", operation !== 'recepcion' && "lg:grid-cols-3")}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                         <FormField control={form.control} name="coordinador" render={({ field }) => (
                             <FormItem><FormLabel>Coordinador Responsable</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                         )}/>
