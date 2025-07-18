@@ -109,7 +109,7 @@ const formSchema = z.object({
   clienteRequiereTermoregistro: z.enum(["si", "no"], { required_error: "Seleccione una opción." }),
   observaciones: z.string().max(150, "Máximo 150 caracteres.").nullable(),
   coordinador: z.string().min(1, "Seleccione un coordinador."),
-  aplicaCuadrilla: z.enum(["si", "no"], { required_error: "Seleccione una opción para 'Aplica Cuadrilla'." }),
+  aplicaCuadrilla: z.enum(["si", "no"], { required_error: "Seleccione una opción para 'Operación Realizada por Cuadrilla'." }),
   // New fields for recepcion
   tipoPedido: z.enum(['GENERICO', 'MAQUILA', 'TUNEL', 'INGRESO DE SALDO']).optional(),
   tipoEmpaqueMaquila: z.enum(['EMPAQUE DE SACOS', 'EMPAQUE DE CAJAS']).optional(),
@@ -137,10 +137,11 @@ const formSchema = z.object({
     message: "El tipo de empaque es obligatorio para maquila.",
     path: ['tipoEmpaqueMaquila'],
 }).refine(data => {
-    if (data.aplicaCuadrilla !== 'si') return true;
+    const isReception = window.location.search.includes('operation=recepcion');
+    if (!isReception || data.aplicaCuadrilla !== 'si' || data.tipoPedido !== 'MAQUILA') return true;
     return data.numeroOperariosCuadrilla !== undefined && data.numeroOperariosCuadrilla > 0;
 }, {
-    message: "El número de operarios es obligatorio si aplica cuadrilla.",
+    message: "El número de operarios es obligatorio.",
     path: ['numeroOperariosCuadrilla'],
 });
 
@@ -1053,43 +1054,45 @@ export default function FixedWeightFormComponent() {
              {/* Responsible Person Card */}
              <Card>
                 <CardHeader><CardTitle>Responsables de la Operación</CardTitle></CardHeader>
-                <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <FormField control={form.control} name="coordinador" render={({ field }) => (
-                        <FormItem><FormLabel>Coordinador Responsable</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
-                    )}/>
-                     <FormItem>
-                        <FormLabel>Operario Responsable</FormLabel>
-                        <FormControl><Input disabled value={submissionId ? originalSubmission?.userDisplayName : displayName || ''} /></FormControl>
-                    </FormItem>
-                    <FormField
-                        control={form.control}
-                        name="aplicaCuadrilla"
-                        render={({ field }) => (
-                            <FormItem className="space-y-3"><FormLabel>Aplica Cuadrilla</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="cuadrilla-si" /><Label htmlFor="cuadrilla-si">Sí</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="cuadrilla-no" /><Label htmlFor="cuadrilla-no">No</Label></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>
-                        )}
-                    />
-                    {watchedAplicaCuadrilla === 'si' && (
+                <CardContent>
+                    <div className={cn("grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4", operation !== 'recepcion' && "lg:grid-cols-3")}>
+                        <FormField control={form.control} name="coordinador" render={({ field }) => (
+                            <FormItem><FormLabel>Coordinador Responsable</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                        )}/>
+                        <FormItem>
+                            <FormLabel>Operario Responsable</FormLabel>
+                            <FormControl><Input disabled value={submissionId ? originalSubmission?.userDisplayName : displayName || ''} /></FormControl>
+                        </FormItem>
                         <FormField
                             control={form.control}
-                            name="numeroOperariosCuadrilla"
+                            name="aplicaCuadrilla"
                             render={({ field }) => (
-                                <FormItem>
-                                <FormLabel>No. de Operarios de Cuadrilla</FormLabel>
-                                <FormControl>
-                                    <Input 
-                                        type="number"
-                                        min="1"
-                                        placeholder="Ej: 3" 
-                                        {...field} 
-                                        value={field.value ?? ''}
-                                        onChange={e => field.onChange(parseInt(e.target.value, 10) || undefined)}
-                                    />
-                                </FormControl>
-                                <FormMessage />
-                                </FormItem>
+                                <FormItem className="space-y-3"><FormLabel>Operación Realizada por Cuadrilla</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-2"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="cuadrilla-si" /><Label htmlFor="cuadrilla-si">Sí</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="cuadrilla-no" /><Label htmlFor="cuadrilla-no">No</Label></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>
                             )}
                         />
-                    )}
+                        {operation === 'recepcion' && watchedAplicaCuadrilla === 'si' && watchedTipoPedido === 'MAQUILA' && (
+                            <FormField
+                                control={form.control}
+                                name="numeroOperariosCuadrilla"
+                                render={({ field }) => (
+                                    <FormItem>
+                                    <FormLabel>No. de Operarios de Cuadrilla</FormLabel>
+                                    <FormControl>
+                                        <Input 
+                                            type="number"
+                                            min="1"
+                                            placeholder="Ej: 3" 
+                                            {...field} 
+                                            value={field.value ?? ''}
+                                            onChange={e => field.onChange(parseInt(e.target.value, 10) || undefined)}
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        )}
+                    </div>
                 </CardContent>
              </Card>
 
