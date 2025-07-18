@@ -143,11 +143,26 @@ const formSchema = z.object({
     observaciones: z.string().max(250, "Máximo 250 caracteres.").nullable(),
     coordinador: z.string().min(1, "Seleccione un coordinador."),
     aplicaCuadrilla: z.enum(["si", "no"], { required_error: "Seleccione una opción para 'Aplica Cuadrilla'." }),
+    tipoPedido: z.enum(['GENERICO', 'MAQUILA', 'TUNEL', 'INGRESO DE SALDO'], { required_error: "El tipo de pedido es obligatorio." }),
+    tipoEmpaqueMaquila: z.enum(['EMPAQUE DE SACOS', 'EMPAQUE DE CAJAS']).optional(),
+    numeroOperariosCuadrilla: z.coerce.number().int().min(1, "Debe ser al menos 1.").optional(),
 }).refine((data) => {
     return data.horaInicio !== data.horaFin;
 }, {
     message: "La hora de fin no puede ser igual a la de inicio.",
     path: ["horaFin"],
+}).refine(data => {
+    if (data.tipoPedido !== 'MAQUILA') return true;
+    return !!data.tipoEmpaqueMaquila;
+}, {
+    message: "El tipo de empaque es obligatorio para maquila.",
+    path: ['tipoEmpaqueMaquila'],
+}).refine(data => {
+    if (data.aplicaCuadrilla !== 'si') return true;
+    return data.numeroOperariosCuadrilla !== undefined && data.numeroOperariosCuadrilla > 0;
+}, {
+    message: "El número de operarios es obligatorio si aplica cuadrilla.",
+    path: ['numeroOperariosCuadrilla'],
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -169,6 +184,9 @@ const originalDefaultValues: FormValues = {
   observaciones: "",
   coordinador: "",
   aplicaCuadrilla: undefined,
+  tipoPedido: undefined,
+  tipoEmpaqueMaquila: undefined,
+  numeroOperariosCuadrilla: undefined,
 };
 
 
@@ -228,6 +246,10 @@ export default function VariableWeightReceptionFormComponent() {
     mode: "onSubmit",
     reValidateMode: "onSubmit"
   });
+  
+  const watchedTipoPedido = useWatch({ control: form.control, name: 'tipoPedido' });
+  const watchedAplicaCuadrilla = useWatch({ control: form.control, name: 'aplicaCuadrilla' });
+
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
@@ -392,6 +414,9 @@ export default function VariableWeightReceptionFormComponent() {
               observaciones: formData.observaciones ?? null,
               setPoint: formData.setPoint ?? null,
               aplicaCuadrilla: formData.aplicaCuadrilla ?? undefined,
+              tipoPedido: formData.tipoPedido ?? undefined,
+              tipoEmpaqueMaquila: formData.tipoEmpaqueMaquila ?? undefined,
+              numeroOperariosCuadrilla: formData.numeroOperariosCuadrilla ?? undefined,
               summary: (formData.summary || []).map((s: any) => ({
                   ...s,
                   temperatura1: s.temperatura1 ?? s.temperatura ?? null,
@@ -878,6 +903,52 @@ export default function VariableWeightReceptionFormComponent() {
                               <FormMessage />
                             </FormItem>
                         )}/>
+                        <FormField
+                            control={form.control}
+                            name="tipoPedido"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Tipo de Pedido</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                  <FormControl>
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Seleccione un tipo de pedido" />
+                                    </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                    <SelectItem value="GENERICO">GENERICO</SelectItem>
+                                    <SelectItem value="MAQUILA">MAQUILA</SelectItem>
+                                    <SelectItem value="TUNEL">TUNEL</SelectItem>
+                                    <SelectItem value="INGRESO DE SALDO">INGRESO DE SALDO</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          {watchedTipoPedido === 'MAQUILA' && (
+                            <FormField
+                              control={form.control}
+                              name="tipoEmpaqueMaquila"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Tipo de Empaque (Maquila)</FormLabel>
+                                  <Select onValueChange={field.onChange} value={field.value}>
+                                    <FormControl>
+                                      <SelectTrigger>
+                                        <SelectValue placeholder="Seleccione tipo de empaque" />
+                                      </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                      <SelectItem value="EMPAQUE DE SACOS">EMPAQUE DE SACOS</SelectItem>
+                                      <SelectItem value="EMPAQUE DE CAJAS">EMPAQUE DE CAJAS</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          )}
                         <FormField control={form.control} name="conductor" render={({ field }) => (
                             <FormItem>
                               <FormLabel>Conductor</FormLabel>
@@ -1163,6 +1234,28 @@ export default function VariableWeightReceptionFormComponent() {
                               <FormItem className="space-y-3"><FormLabel>Aplica Cuadrilla</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="cuadrilla-si" /><Label htmlFor="cuadrilla-si">Sí</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="cuadrilla-no" /><Label htmlFor="cuadrilla-no">No</Label></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>
                           )}
                       />
+                       {watchedAplicaCuadrilla === 'si' && (
+                        <FormField
+                            control={form.control}
+                            name="numeroOperariosCuadrilla"
+                            render={({ field }) => (
+                                <FormItem>
+                                <FormLabel>No. de Operarios de Cuadrilla</FormLabel>
+                                <FormControl>
+                                    <Input
+                                        type="number"
+                                        min="1"
+                                        placeholder="Ej: 3"
+                                        {...field}
+                                        value={field.value ?? ''}
+                                        onChange={e => field.onChange(parseInt(e.target.value, 10) || undefined)}
+                                    />
+                                </FormControl>
+                                <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    )}
                   </CardContent>
                 </Card>
 

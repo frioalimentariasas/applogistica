@@ -110,11 +110,38 @@ const formSchema = z.object({
   observaciones: z.string().max(150, "Máximo 150 caracteres.").nullable(),
   coordinador: z.string().min(1, "Seleccione un coordinador."),
   aplicaCuadrilla: z.enum(["si", "no"], { required_error: "Seleccione una opción para 'Aplica Cuadrilla'." }),
+  // New fields for recepcion
+  tipoPedido: z.enum(['GENERICO', 'MAQUILA', 'TUNEL', 'INGRESO DE SALDO']).optional(),
+  tipoEmpaqueMaquila: z.enum(['EMPAQUE DE SACOS', 'EMPAQUE DE CAJAS']).optional(),
+  numeroOperariosCuadrilla: z.coerce.number().int().min(1, "Debe ser al menos 1.").optional(),
 }).refine((data) => {
     return data.horaInicio !== data.horaFin;
 }, {
     message: "La hora de fin no puede ser igual a la hora de inicio.",
     path: ["horaFin"],
+}).refine(data => {
+    const isReception = window.location.search.includes('operation=recepcion');
+    if (!isReception) return true;
+    if (!data.tipoPedido) {
+        return false; // This makes tipoPedido required for reception
+    }
+    return true;
+}, {
+    message: "El tipo de pedido es obligatorio.",
+    path: ['tipoPedido'],
+}).refine(data => {
+    const isReception = window.location.search.includes('operation=recepcion');
+    if (!isReception || data.tipoPedido !== 'MAQUILA') return true;
+    return !!data.tipoEmpaqueMaquila;
+}, {
+    message: "El tipo de empaque es obligatorio para maquila.",
+    path: ['tipoEmpaqueMaquila'],
+}).refine(data => {
+    if (data.aplicaCuadrilla !== 'si') return true;
+    return data.numeroOperariosCuadrilla !== undefined && data.numeroOperariosCuadrilla > 0;
+}, {
+    message: "El número de operarios es obligatorio si aplica cuadrilla.",
+    path: ['numeroOperariosCuadrilla'],
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -141,6 +168,9 @@ const originalDefaultValues: FormValues = {
   observaciones: "",
   coordinador: "",
   aplicaCuadrilla: undefined,
+  tipoPedido: undefined,
+  tipoEmpaqueMaquila: undefined,
+  numeroOperariosCuadrilla: undefined,
 };
 
 // Mock data for selects
@@ -208,6 +238,10 @@ export default function FixedWeightFormComponent() {
     name: 'productos',
     defaultValue: [],
   });
+  
+  const watchedTipoPedido = useWatch({ control: form.control, name: 'tipoPedido' });
+  const watchedAplicaCuadrilla = useWatch({ control: form.control, name: 'aplicaCuadrilla' });
+
 
   const isClientChangeDisabled = useMemo(() => {
     return productos.length > 1 || (productos.length === 1 && !!productos[0].descripcion);
@@ -282,6 +316,9 @@ export default function FixedWeightFormComponent() {
               setPoint: formData.setPoint ?? null,
               observaciones: formData.observaciones ?? null,
               aplicaCuadrilla: formData.aplicaCuadrilla ?? undefined,
+              tipoPedido: formData.tipoPedido ?? undefined,
+              tipoEmpaqueMaquila: formData.tipoEmpaqueMaquila ?? undefined,
+              numeroOperariosCuadrilla: formData.numeroOperariosCuadrilla ?? undefined,
               productos: (formData.productos || []).map((p: any) => ({
                   ...originalDefaultValues.productos[0],
                   ...p,
@@ -800,6 +837,56 @@ export default function FixedWeightFormComponent() {
                     </FormItem>
                     )}/>
                 </div>
+                 {operation === 'recepcion' && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4">
+                     <FormField
+                        control={form.control}
+                        name="tipoPedido"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Tipo de Pedido</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                              <FormControl>
+                                <SelectTrigger>
+                                  <SelectValue placeholder="Seleccione un tipo de pedido" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="GENERICO">GENERICO</SelectItem>
+                                <SelectItem value="MAQUILA">MAQUILA</SelectItem>
+                                <SelectItem value="TUNEL">TUNEL</SelectItem>
+                                <SelectItem value="INGRESO DE SALDO">INGRESO DE SALDO</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      {watchedTipoPedido === 'MAQUILA' && (
+                        <FormField
+                          control={form.control}
+                          name="tipoEmpaqueMaquila"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Tipo de Empaque (Maquila)</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Seleccione tipo de empaque" />
+                                  </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                  <SelectItem value="EMPAQUE DE SACOS">EMPAQUE DE SACOS</SelectItem>
+                                  <SelectItem value="EMPAQUE DE CAJAS">EMPAQUE DE CAJAS</SelectItem>
+                                </SelectContent>
+                              </Select>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      )}
+                  </div>
+                 )}
               </CardContent>
             </Card>
 
@@ -981,6 +1068,28 @@ export default function FixedWeightFormComponent() {
                             <FormItem className="space-y-3"><FormLabel>Aplica Cuadrilla</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="cuadrilla-si" /><Label htmlFor="cuadrilla-si">Sí</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="cuadrilla-no" /><Label htmlFor="cuadrilla-no">No</Label></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>
                         )}
                     />
+                    {watchedAplicaCuadrilla === 'si' && (
+                        <FormField
+                            control={form.control}
+                            name="numeroOperariosCuadrilla"
+                            render={({ field }) => (
+                                <FormItem>
+                                <FormLabel>No. de Operarios de Cuadrilla</FormLabel>
+                                <FormControl>
+                                    <Input 
+                                        type="number"
+                                        min="1"
+                                        placeholder="Ej: 3" 
+                                        {...field} 
+                                        value={field.value ?? ''}
+                                        onChange={e => field.onChange(parseInt(e.target.value, 10) || undefined)}
+                                    />
+                                </FormControl>
+                                <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    )}
                 </CardContent>
              </Card>
 

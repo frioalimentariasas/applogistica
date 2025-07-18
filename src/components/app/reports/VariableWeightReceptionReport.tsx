@@ -121,6 +121,14 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                             <td style={{...fieldCellStyle, width: '33.33%'}}><ReportField label="Cliente" value={formData.cliente} /></td>
                             <td style={{...fieldCellStyle, width: '33.33%'}}><ReportField label="Fecha" value={formatDateLocal(formData.fecha)} /></td>
                         </tr>
+                         <tr>
+                            <td style={fieldCellStyle}><ReportField label="Tipo Pedido" value={formData.tipoPedido} /></td>
+                            <td colSpan={2} style={fieldCellStyle}>
+                                {formData.tipoPedido === 'MAQUILA' && formData.tipoEmpaqueMaquila && (
+                                    <ReportField label="Tipo Empaque" value={formData.tipoEmpaqueMaquila} />
+                                )}
+                            </td>
+                        </tr>
                         <tr>
                            <td style={fieldCellStyle}><ReportField label="Conductor" value={formData.conductor} /></td>
                            <td style={fieldCellStyle}><ReportField label="Cédula" value={formData.cedulaConductor} /></td>
@@ -221,7 +229,14 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                         <tr>
                             <td style={{...fieldCellStyle, width: '33.33%'}}><ReportField label="Coordinador" value={formData.coordinador} /></td>
                             <td style={{...fieldCellStyle, width: '33.33%'}}><ReportField label="Operario" value={userDisplayName} /></td>
-                            <td style={{...fieldCellStyle, width: '33.33%'}}><ReportField label="Aplica Cuadrilla" value={formData.aplicaCuadrilla ? formData.aplicaCuadrilla.charAt(0).toUpperCase() + formData.aplicaCuadrilla.slice(1) : 'N/A'} /></td>
+                            <td style={{...fieldCellStyle, width: '33.33%'}}>
+                                <ReportField label="Aplica Cuadrilla" value={formData.aplicaCuadrilla ? formData.aplicaCuadrilla.charAt(0).toUpperCase() + formData.aplicaCuadrilla.slice(1) : 'N/A'} />
+                                {formData.aplicaCuadrilla === 'si' && formData.numeroOperariosCuadrilla && (
+                                    <div style={{ marginLeft: '8px', fontSize: '10px' }}>
+                                        ↳ No. Operarios: {formData.numeroOperariosCuadrilla}
+                                    </div>
+                                )}
+                            </td>
                         </tr>
                     </tbody>
                 </table>
