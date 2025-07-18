@@ -65,7 +65,7 @@ const productSchema = z.object({
   codigo: z.string().min(1, "El código es requerido."),
   descripcion: z.string().min(1, "La descripción es requerida."),
   cajas: z.coerce.number({required_error: "El No. de cajas es requerido.", invalid_type_error: "El No. de cajas es requerido."}).int().min(0, "El No. de Cajas debe ser 0 o mayor."),
-  totalPaletas: z.coerce.number({required_error: "El Total Paletas es requerido.", invalid_type_error: "El Total Paletas es requerido."}).int("El Total Paletas debe ser un número entero.").positive("El Total Paletas debe ser un número positivo."),
+  totalPaletas: z.coerce.number({required_error: "El Total Paletas es requerido.", invalid_type_error: "El Total Paletas es requerido."}).int("El Total Paletas debe ser un número entero.").min(0, "El total de paletas no puede ser negativo."),
   cantidadKg: z.preprocess(
       (val) => (val === "" || val === null ? null : val),
       z.coerce.number({ invalid_type_error: "Cantidad (kg) debe ser un número."})
@@ -109,7 +109,7 @@ const formSchema = z.object({
   clienteRequiereTermoregistro: z.enum(["si", "no"], { required_error: "Seleccione una opción." }),
   observaciones: z.string().max(150, "Máximo 150 caracteres.").nullable(),
   coordinador: z.string().min(1, "Seleccione un coordinador."),
-  aplicaCuadrilla: z.enum(["si", "no"], { required_error: "Seleccione una opción." }),
+  aplicaCuadrilla: z.enum(["si", "no"], { required_error: "Seleccione una opción para 'Aplica Cuadrilla'." }),
 }).refine((data) => {
     return data.horaInicio !== data.horaFin;
 }, {
@@ -281,6 +281,7 @@ export default function FixedWeightFormComponent() {
               contenedor: formData.contenedor ?? null,
               setPoint: formData.setPoint ?? null,
               observaciones: formData.observaciones ?? null,
+              aplicaCuadrilla: formData.aplicaCuadrilla ?? undefined,
               productos: (formData.productos || []).map((p: any) => ({
                   ...originalDefaultValues.productos[0],
                   ...p,
@@ -862,7 +863,7 @@ export default function FixedWeightFormComponent() {
                                 <FormField control={form.control} name={`productos.${index}.totalPaletas`} render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Total Paletas</FormLabel>
-                                        <FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" min="1" placeholder="0" {...field} onChange={e => field.onChange(e.target.value)} value={field.value ?? ''} /></FormControl>
+                                        <FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value)} value={field.value ?? ''} /></FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}/>

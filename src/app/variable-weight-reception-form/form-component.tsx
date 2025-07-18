@@ -58,7 +58,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { RestoreDialog } from "@/components/app/restore-dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDialogDesc, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 
 const itemSchema = z.object({
     codigo: z.string().min(1, "El código es requerido."),
@@ -141,6 +141,7 @@ const formSchema = z.object({
     horaFin: z.string().min(1, "La hora de fin es obligatoria.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
     observaciones: z.string().max(250, "Máximo 250 caracteres.").nullable(),
     coordinador: z.string().min(1, "Seleccione un coordinador."),
+    aplicaCuadrilla: z.enum(["si", "no"], { required_error: "Seleccione una opción para 'Aplica Cuadrilla'." }),
 }).refine((data) => {
     return data.horaInicio !== data.horaFin;
 }, {
@@ -166,6 +167,7 @@ const originalDefaultValues: FormValues = {
   horaFin: "",
   observaciones: "",
   coordinador: "",
+  aplicaCuadrilla: undefined,
 };
 
 
@@ -388,6 +390,7 @@ export default function VariableWeightReceptionFormComponent() {
               ...formData,
               observaciones: formData.observaciones ?? null,
               setPoint: formData.setPoint ?? null,
+              aplicaCuadrilla: formData.aplicaCuadrilla ?? undefined,
               summary: (formData.summary || []).map((s: any) => ({
                   ...s,
                   temperatura1: s.temperatura1 ?? s.temperatura ?? null,
@@ -1144,7 +1147,7 @@ export default function VariableWeightReceptionFormComponent() {
 
                 <Card>
                   <CardHeader><CardTitle>Responsables de la Operación</CardTitle></CardHeader>
-                  <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <FormField control={form.control} name="coordinador" render={({ field }) => (
                           <FormItem><FormLabel>Coordinador Responsable</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                       )}/>
@@ -1152,6 +1155,13 @@ export default function VariableWeightReceptionFormComponent() {
                           <FormLabel>Operario Responsable</FormLabel>
                           <FormControl><Input disabled value={submissionId ? originalSubmission?.userDisplayName : displayName || ''} /></FormControl>
                       </FormItem>
+                       <FormField
+                          control={form.control}
+                          name="aplicaCuadrilla"
+                          render={({ field }) => (
+                              <FormItem className="space-y-3"><FormLabel>Aplica Cuadrilla</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="cuadrilla-si" /><Label htmlFor="cuadrilla-si">Sí</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="cuadrilla-no" /><Label htmlFor="cuadrilla-no">No</Label></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>
+                          )}
+                      />
                   </CardContent>
                 </Card>
 
