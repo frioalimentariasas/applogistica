@@ -42,6 +42,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -79,6 +80,21 @@ const productSchema = z.object({
   ),
 });
 
+const observationSchema = z.object({
+  type: z.string().min(1, "Debe seleccionar un tipo de observación."),
+  customType: z.string().optional(),
+  quantity: z.coerce.number({invalid_type_error: "La cantidad debe ser un número."}).min(0, "La cantidad no puede ser negativa.").optional(),
+  executedByGrupoRosales: z.boolean().default(false),
+}).refine(data => {
+    if (data.type === 'Otra' && !data.customType?.trim()) {
+        return false;
+    }
+    return true;
+}, {
+    message: "La descripción para 'Otra' observación es obligatoria.",
+    path: ['customType']
+});
+
 const formSchema = z.object({
   pedidoSislog: z.string()
     .min(1, "El pedido SISLOG es obligatorio.")
@@ -106,7 +122,7 @@ const formSchema = z.object({
   condicionesHigiene: z.enum(["limpio", "sucio"], { required_error: "Seleccione una condición." }),
   termoregistrador: z.enum(["si", "no"], { required_error: "Seleccione una opción." }),
   clienteRequiereTermoregistro: z.enum(["si", "no"], { required_error: "Seleccione una opción." }),
-  observaciones: z.string().max(150, "Máximo 150 caracteres.").nullable(),
+  observaciones: z.array(observationSchema).optional(),
   coordinador: z.string().min(1, "Seleccione un coordinador."),
   aplicaCuadrilla: z.enum(["si", "no"], { required_error: "Seleccione una opción para 'Operación Realizada por Cuadrilla'." }),
   tipoPedido: z.enum(['GENERICO', 'MAQUILA', 'TUNEL', 'INGRESO DE SALDO']).optional(),
@@ -164,7 +180,7 @@ const originalDefaultValues: FormValues = {
   condicionesHigiene: undefined,
   termoregistrador: undefined,
   clienteRequiereTermoregistro: undefined,
-  observaciones: "",
+  observaciones: [],
   coordinador: "",
   aplicaCuadrilla: undefined,
   tipoPedido: undefined,
@@ -175,6 +191,8 @@ const originalDefaultValues: FormValues = {
 // Mock data for selects
 const muelles = ["Muelle 1", "Muelle 2", "Muelle 3", "Muelle 4", "Muelle 5", "Muelle 6"];
 const coordinadores = ["Cristian Acuña", "Sergio Padilla"];
+const observationTypes = ["Restibado", "Otra"];
+
 
 // Attachment Constants
 const MAX_ATTACHMENTS = 30;
@@ -232,6 +250,11 @@ export default function FixedWeightFormComponent() {
     name: "productos",
   });
 
+  const { fields: observationFields, append: appendObservation, remove: removeObservation } = useFieldArray({
+    control: form.control,
+    name: "observaciones",
+  });
+
   const productos = useWatch({
     control: form.control,
     name: 'productos',
@@ -240,6 +263,7 @@ export default function FixedWeightFormComponent() {
   
   const watchedTipoPedido = useWatch({ control: form.control, name: 'tipoPedido' });
   const watchedAplicaCuadrilla = useWatch({ control: form.control, name: 'aplicaCuadrilla' });
+  const watchedObservations = useWatch({ control: form.control, name: 'observaciones' });
 
 
   const isClientChangeDisabled = useMemo(() => {
@@ -318,7 +342,7 @@ export default function FixedWeightFormComponent() {
               facturaRemision: formData.facturaRemision ?? null,
               contenedor: formData.contenedor ?? null,
               setPoint: formData.setPoint ?? null,
-              observaciones: formData.observaciones ?? null,
+              observaciones: formData.observaciones ?? [],
               aplicaCuadrilla: formData.aplicaCuadrilla ?? undefined,
               tipoPedido: formData.tipoPedido ?? undefined,
               tipoEmpaqueMaquila: formData.tipoEmpaqueMaquila ?? undefined,
@@ -1075,9 +1099,110 @@ export default function FixedWeightFormComponent() {
                     <FormField control={form.control} name="clienteRequiereTermoregistro" render={({ field }) => (
                         <FormItem className="space-y-3"><FormLabel>Cliente Requiere Termoregistro</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="req-termo-si" /><Label htmlFor="req-termo-si">Sí</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="req-termo-no" /><Label htmlFor="req-termo-no">No</Label></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>
                     )}/>
-                    <FormField control={form.control} name="observaciones" render={({ field }) => (
-                        <FormItem className="md:col-span-3"><FormLabel>Observaciones</FormLabel><FormControl><Textarea placeholder="Observaciones Generales del Pedido (opcional, máx. 150 caracteres)" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                    )}/>
+                </CardContent>
+            </Card>
+
+             {/* Observations Card */}
+            <Card>
+                <CardHeader>
+                    <CardTitle>Observaciones</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    {observationFields.map((field, index) => (
+                        <div key={field.id} className="p-4 border rounded-lg relative bg-white space-y-4">
+                            <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="absolute top-2 right-2 text-destructive hover:bg-destructive/10"
+                                onClick={() => removeObservation(index)}
+                            >
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                                <FormField
+                                    control={form.control}
+                                    name={`observaciones.${index}.type`}
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Tipo de Observación</FormLabel>
+                                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                <FormControl>
+                                                    <SelectTrigger>
+                                                        <SelectValue placeholder="Seleccione un tipo" />
+                                                    </SelectTrigger>
+                                                </FormControl>
+                                                <SelectContent>
+                                                    {observationTypes.map(type => (
+                                                        <SelectItem key={type} value={type}>{type}</SelectItem>
+                                                    ))}
+                                                </SelectContent>
+                                            </Select>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                {watchedObservations?.[index]?.type === 'Otra' ? (
+                                    <FormField
+                                        control={form.control}
+                                        name={`observaciones.${index}.customType`}
+                                        render={({ field }) => (
+                                            <FormItem className="lg:col-span-3">
+                                                <FormLabel>Descripción</FormLabel>
+                                                <FormControl>
+                                                    <Textarea placeholder="Describa la observación" {...field} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                ) : (
+                                <>
+                                    <FormField
+                                        control={form.control}
+                                        name={`observaciones.${index}.quantity`}
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Cantidad</FormLabel>
+                                                <FormControl>
+                                                    <Input type="number" placeholder="Paletas/Unidades" {...field} />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                    <FormField
+                                        control={form.control}
+                                        name={`observaciones.${index}.executedByGrupoRosales`}
+                                        render={({ field }) => (
+                                            <FormItem className="flex flex-row items-end space-x-2 pb-2">
+                                                <FormControl>
+                                                    <Checkbox
+                                                        checked={field.value}
+                                                        onCheckedChange={field.onChange}
+                                                    />
+                                                </FormControl>
+                                                <div className="space-y-1 leading-none">
+                                                    <FormLabel>
+                                                        Ejecutado por Grupo Rosales
+                                                    </FormLabel>
+                                                </div>
+                                            </FormItem>
+                                        )}
+                                    />
+                                </>
+                                )}
+                            </div>
+                        </div>
+                    ))}
+                    <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => appendObservation({ type: '', quantity: 0, executedByGrupoRosales: false, customType: '' })}
+                    >
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        Agregar Observación
+                    </Button>
                 </CardContent>
             </Card>
 

@@ -41,6 +41,7 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import {
     ArrowLeft,
@@ -163,6 +164,21 @@ const summaryItemSchema = z.object({
     totalPaletas: z.number(),
   });
 
+const observationSchema = z.object({
+  type: z.string().min(1, "Debe seleccionar un tipo de observación."),
+  customType: z.string().optional(),
+  quantity: z.coerce.number({invalid_type_error: "La cantidad debe ser un número."}).min(0, "La cantidad no puede ser negativa.").optional(),
+  executedByGrupoRosales: z.boolean().default(false),
+}).refine(data => {
+    if (data.type === 'Otra' && !data.customType?.trim()) {
+        return false;
+    }
+    return true;
+}, {
+    message: "La descripción para 'Otra' observación es obligatoria.",
+    path: ['customType']
+});
+
 const formSchema = z.object({
     pedidoSislog: z.string()
       .min(1, "El pedido SISLOG es obligatorio.")
@@ -187,7 +203,7 @@ const formSchema = z.object({
     summary: z.array(summaryItemSchema).nullable(),
     horaInicio: z.string().min(1, "La hora de inicio es obligatoria.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
     horaFin: z.string().min(1, "La hora de fin es obligatoria.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
-    observaciones: z.string().max(250, "Máximo 250 caracteres.").nullable(),
+    observaciones: z.array(observationSchema).optional(),
     coordinador: z.string().min(1, "Seleccione un coordinador."),
     aplicaCuadrilla: z.enum(["si", "no"], { required_error: "Seleccione una opción para 'Aplica Cuadrilla'." }),
 }).refine((data) => {
@@ -228,7 +244,7 @@ const originalDefaultValues: FormValues = {
   summary: [],
   horaInicio: "",
   horaFin: "",
-  observaciones: "",
+  observaciones: [],
   coordinador: "",
   aplicaCuadrilla: undefined,
 };
@@ -236,6 +252,7 @@ const originalDefaultValues: FormValues = {
 // Mock data
 const coordinadores = ["Cristian Acuña", "Sergio Padilla"];
 const presentaciones = ["Cajas", "Sacos", "Canastillas"];
+const observationTypes = ["Restibado", "Otra"];
 
 // Attachment Constants
 const MAX_ATTACHMENTS = 30;
@@ -429,7 +446,14 @@ export default function VariableWeightFormComponent() {
     name: "summary"
   });
 
+  const { fields: observationFields, append: appendObservation, remove: removeObservation } = useFieldArray({
+    control: form.control,
+    name: "observaciones",
+  });
+
   const watchedItems = useWatch({ control: form.control, name: "items" });
+  const watchedObservations = useWatch({ control: form.control, name: 'observaciones' });
+
 
   const isClientChangeDisabled = useMemo(() => {
     return watchedItems.length > 1 || (watchedItems.length === 1 && !!watchedItems[0].descripcion);
@@ -632,7 +656,7 @@ export default function VariableWeightFormComponent() {
               ...originalDefaultValues,
               ...formData,
               lote: formData.lote ?? null,
-              observaciones: formData.observaciones ?? null,
+              observaciones: formData.observaciones ?? [],
               aplicaCuadrilla: formData.aplicaCuadrilla ?? undefined,
               summary: (formData.summary || []).map((s: any) => ({
                 ...s,
@@ -1296,33 +1320,128 @@ export default function VariableWeightFormComponent() {
                 <CardHeader>
                     <CardTitle>Tiempo y Observaciones de la Operación</CardTitle>
                 </CardHeader>
-                <CardContent className="grid grid-cols-1 gap-4 md:grid-cols-2">
-                    <FormField control={form.control} name="horaInicio" render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Hora de Inicio</FormLabel>
-                        <FormControl>
-                            <Input type="time" placeholder="HH:MM" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                    </FormItem>
-                    )}/>
-                    <FormField control={form.control} name="horaFin" render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Hora Fin</FormLabel>
-                        <FormControl>
-                            <Input type="time" placeholder="HH:MM" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                    </FormItem>
-                    )}/>
-                    <FormField control={form.control} name="observaciones" render={({ field }) => (
-                        <FormItem className="relative md:col-span-2">
-                            <FormLabel>Observaciones</FormLabel>
-                            <FormControl><Textarea placeholder="Observaciones (opcional)" {...field} value={field.value ?? ''} className="pr-10" /></FormControl>
-                            <Edit2 className="absolute bottom-3 right-3 h-4 w-4 text-muted-foreground" />
+                <CardContent className="space-y-6">
+                    <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                        <FormField control={form.control} name="horaInicio" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Hora de Inicio</FormLabel>
+                            <FormControl>
+                                <Input type="time" placeholder="HH:MM" {...field} />
+                            </FormControl>
                             <FormMessage />
                         </FormItem>
-                    )}/>
+                        )}/>
+                        <FormField control={form.control} name="horaFin" render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Hora Fin</FormLabel>
+                            <FormControl>
+                                <Input type="time" placeholder="HH:MM" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                        )}/>
+                    </div>
+                    <div>
+                        <Label>Observaciones</Label>
+                        <div className="space-y-4 mt-2">
+                            {observationFields.map((field, index) => (
+                                <div key={field.id} className="p-4 border rounded-lg relative bg-white space-y-4">
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="absolute top-2 right-2 text-destructive hover:bg-destructive/10"
+                                        onClick={() => removeObservation(index)}
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                                        <FormField
+                                            control={form.control}
+                                            name={`observaciones.${index}.type`}
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Tipo de Observación</FormLabel>
+                                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                        <FormControl>
+                                                            <SelectTrigger>
+                                                                <SelectValue placeholder="Seleccione un tipo" />
+                                                            </SelectTrigger>
+                                                        </FormControl>
+                                                        <SelectContent>
+                                                            {observationTypes.map(type => (
+                                                                <SelectItem key={type} value={type}>{type}</SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        {watchedObservations?.[index]?.type === 'Otra' ? (
+                                            <FormField
+                                                control={form.control}
+                                                name={`observaciones.${index}.customType`}
+                                                render={({ field }) => (
+                                                    <FormItem className="lg:col-span-3">
+                                                        <FormLabel>Descripción</FormLabel>
+                                                        <FormControl>
+                                                            <Textarea placeholder="Describa la observación" {...field} />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        ) : (
+                                        <>
+                                            <FormField
+                                                control={form.control}
+                                                name={`observaciones.${index}.quantity`}
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>Cantidad</FormLabel>
+                                                        <FormControl>
+                                                            <Input type="number" placeholder="Paletas/Unidades" {...field} />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            <FormField
+                                                control={form.control}
+                                                name={`observaciones.${index}.executedByGrupoRosales`}
+                                                render={({ field }) => (
+                                                    <FormItem className="flex flex-row items-end space-x-2 pb-2">
+                                                        <FormControl>
+                                                            <Checkbox
+                                                                checked={field.value}
+                                                                onCheckedChange={field.onChange}
+                                                            />
+                                                        </FormControl>
+                                                        <div className="space-y-1 leading-none">
+                                                            <FormLabel>
+                                                                Ejecutado por Grupo Rosales
+                                                            </FormLabel>
+                                                        </div>
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        </>
+                                        )}
+                                    </div>
+                                </div>
+                            ))}
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => appendObservation({ type: '', quantity: 0, executedByGrupoRosales: false, customType: '' })}
+                                className="mt-4"
+                            >
+                                <PlusCircle className="mr-2 h-4 w-4" />
+                                Agregar Observación
+                            </Button>
+                        </div>
+                    </div>
                 </CardContent>
             </Card>
 
