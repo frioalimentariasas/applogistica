@@ -298,11 +298,17 @@ export default function FixedWeightFormComponent() {
         if (formData.fecha && typeof formData.fecha === 'string') {
             formData.fecha = new Date(formData.fecha);
         }
-        form.reset(formData);
+        form.reset({
+            ...formData,
+            aplicaCuadrilla: formData.aplicaCuadrilla || undefined,
+        });
         setAttachments(originalSubmission.attachmentUrls);
     } else {
         // In new form mode, reset to blank
-        form.reset(originalDefaultValues);
+        form.reset({
+            ...originalDefaultValues,
+            aplicaCuadrilla: undefined,
+        });
         setAttachments([]);
     }
     setDiscardAlertOpen(false);
@@ -864,7 +870,7 @@ export default function FixedWeightFormComponent() {
                       render={({ field }) => (
                         <FormItem
                           className={cn(
-                            operation === 'recepcion' && watchedTipoPedido === 'MAQUILA' ? 'lg:col-span-1' : 'lg:col-span-1'
+                            "lg:col-span-1"
                           )}
                         >
                           <FormLabel>Factura/Remisión</FormLabel>

@@ -550,11 +550,17 @@ export default function VariableWeightFormComponent() {
         if (formData.fecha && typeof formData.fecha === 'string') {
             formData.fecha = new Date(formData.fecha);
         }
-        form.reset(formData);
+        form.reset({
+            ...formData,
+            aplicaCuadrilla: formData.aplicaCuadrilla || undefined,
+        });
         setAttachments(originalSubmission.attachmentUrls);
     } else {
         // In new form mode, reset to blank
-        form.reset(originalDefaultValues);
+        form.reset({
+            ...originalDefaultValues,
+            aplicaCuadrilla: undefined,
+        });
         setAttachments([]);
     }
     setDiscardAlertOpen(false);

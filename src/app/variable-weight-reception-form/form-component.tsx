@@ -324,11 +324,17 @@ export default function VariableWeightReceptionFormComponent() {
         if (formData.fecha && typeof formData.fecha === 'string') {
             formData.fecha = new Date(formData.fecha);
         }
-        form.reset(formData);
+        form.reset({
+            ...formData,
+            aplicaCuadrilla: formData.aplicaCuadrilla || undefined,
+        });
         setAttachments(originalSubmission.attachmentUrls);
     } else {
         // In new form mode, reset to blank
-        form.reset(originalDefaultValues);
+        form.reset({
+            ...originalDefaultValues,
+            aplicaCuadrilla: undefined,
+        });
         setAttachments([]);
     }
     setDiscardAlertOpen(false);
@@ -975,7 +981,7 @@ export default function VariableWeightReceptionFormComponent() {
                             control={form.control}
                             name="facturaRemision"
                             render={({ field }) => (
-                                <FormItem className={cn(watchedTipoPedido === 'MAQUILA' ? 'lg:col-span-1' : 'lg:col-span-1' )}>
+                                <FormItem className={cn("lg:col-span-1" )}>
                                     <FormLabel>Factura/Remisión</FormLabel>
                                     <FormControl><Input placeholder="Máx 15 caracteres" {...field} value={field.value ?? ''} /></FormControl>
                                     <FormMessage />
