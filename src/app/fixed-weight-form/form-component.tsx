@@ -716,7 +716,7 @@ export default function FixedWeightFormComponent() {
                 <CardTitle>Información General</CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                   <FormField control={form.control} name="pedidoSislog" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Pedido SISLOG</FormLabel>
@@ -724,9 +724,7 @@ export default function FixedWeightFormComponent() {
                       <FormMessage />
                     </FormItem>
                   )}/>
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <FormField
+                  <FormField
                       control={form.control}
                       name="nombreCliente"
                       render={({ field }) => (
@@ -829,13 +827,15 @@ export default function FixedWeightFormComponent() {
                         <FormMessage />
                     </FormItem>
                     )}/>
+                    
                     <FormField control={form.control} name="facturaRemision" render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Factura/Remisión</FormLabel>
-                        <FormControl><Input placeholder="Máx 15 caracteres" {...field} value={field.value ?? ''} /></FormControl>
-                        <FormMessage />
-                    </FormItem>
+                        <FormItem>
+                            <FormLabel>Factura/Remisión</FormLabel>
+                            <FormControl><Input placeholder="Máx 15 caracteres" {...field} value={field.value ?? ''} /></FormControl>
+                            <FormMessage />
+                        </FormItem>
                     )}/>
+
                     {operation === 'recepcion' && (
                         <>
                             <FormField
@@ -1054,7 +1054,7 @@ export default function FixedWeightFormComponent() {
              <Card>
                 <CardHeader><CardTitle>Responsables de la Operación</CardTitle></CardHeader>
                 <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-center">
                         <FormField control={form.control} name="coordinador" render={({ field }) => (
                             <FormItem><FormLabel>Coordinador Responsable</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                         )}/>

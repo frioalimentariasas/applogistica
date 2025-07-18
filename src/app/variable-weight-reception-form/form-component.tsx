@@ -832,9 +832,9 @@ export default function VariableWeightReceptionFormComponent() {
                       <CardTitle>Información General</CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         <FormField control={form.control} name="pedidoSislog" render={({ field }) => (
-                            <FormItem className="md:col-span-3">
+                            <FormItem>
                               <FormLabel>Pedido SISLOG</FormLabel>
                               <FormControl><Input placeholder="Máximo 15 caracteres" {...field} /></FormControl>
                               <FormMessage />
@@ -1230,7 +1230,7 @@ export default function VariableWeightReceptionFormComponent() {
                 <Card>
                   <CardHeader><CardTitle>Responsables de la Operación</CardTitle></CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-center">
                         <FormField control={form.control} name="coordinador" render={({ field }) => (
                             <FormItem><FormLabel>Coordinador Responsable</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                         )}/>

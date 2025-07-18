@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -291,8 +290,8 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             formData.pedidoSislog || 'N/A',
                             {content: 'Nombre Cliente:', styles: {fontStyle: 'bold'}},
                             formData.nombreCliente || 'N/A',
-                             {content: 'Factura/Remisión:', styles: {fontStyle: 'bold'}},
-                            formData.facturaRemision || 'N/A'
+                             {content: 'Precinto/Sello:', styles: {fontStyle: 'bold'}},
+                            formData.precinto || 'N/A'
                         ],
                         [
                             {content: 'Fecha:', styles: {fontStyle: 'bold'}},
@@ -303,14 +302,18 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             formatTime12Hour(formData.horaFin)
                         ],
                         [
-                            {content: 'Precinto/Sello:', styles: {fontStyle: 'bold'}},
-                            formData.precinto || 'N/A',
                             {content: 'Doc. Transp.:', styles: {fontStyle: 'bold'}},
                             formData.documentoTransporte || 'N/A',
-                            {content: 'Operario:', styles: {fontStyle: 'bold'}},
-                            userDisplayName || 'N/A'
-                        ]
-                    ],
+                            {content: 'Factura/Remisión:', styles: {fontStyle: 'bold'}},
+                            formData.facturaRemision || 'N/A',
+                            {content: 'Tipo Pedido:', styles: {fontStyle: 'bold'}},
+                            isReception ? (formData.tipoPedido || 'N/A') : ''
+                        ],
+                        isReception && formData.tipoPedido === 'MAQUILA' ? [
+                            {content: 'Tipo Empaque (Maquila):', styles: {fontStyle: 'bold'}, colSpan: 2},
+                            {content: formData.tipoEmpaqueMaquila || 'N/A', colSpan: 4}
+                        ] : []
+                    ].filter(row => row.length > 0), // Filter out empty array for non-reception
                     theme: 'grid', 
                     styles: { fontSize: 8, cellPadding: 4, valign: 'middle' },
                     columnStyles: {
@@ -433,10 +436,14 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             formData.coordinador || 'N/A',
                             {content: 'Operario:', styles: {fontStyle: 'bold'}},
                             userDisplayName || 'N/A',
-                            {content: 'Aplica Cuadrilla:', styles: {fontStyle: 'bold'}},
+                             {content: 'Operación por Cuadrilla:', styles: {fontStyle: 'bold'}},
                             formData.aplicaCuadrilla ? formData.aplicaCuadrilla.charAt(0).toUpperCase() + formData.aplicaCuadrilla.slice(1) : 'N/A'
-                        ]
-                    ], 
+                        ],
+                        formData.aplicaCuadrilla === 'si' && formData.numeroOperariosCuadrilla ? [
+                            {content: 'No. Operarios Cuadrilla:', styles: {fontStyle: 'bold'}, colSpan: 2},
+                            {content: formData.numeroOperariosCuadrilla, colSpan: 4}
+                        ] : []
+                    ].filter(row => row.length > 0),
                     theme: 'grid', 
                     styles: { fontSize: 8, cellPadding: 4, valign: 'middle' },
                     columnStyles: {
@@ -452,31 +459,42 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                  const isReception = formType.includes('recepcion') || formType.includes('reception');
                  const operationTerm = isReception ? 'Descargue' : 'Cargue';
                  
+                 const generalInfoBody = [
+                     [
+                        {content: 'Pedido SISLOG:', styles: {fontStyle: 'bold'}}, formData.pedidoSislog || 'N/A',
+                        {content: 'Cliente:', styles: {fontStyle: 'bold'}}, formData.cliente || 'N/A',
+                        {content: 'Fecha:', styles: {fontStyle: 'bold'}}, formData.fecha ? format(new Date(formData.fecha), "dd/MM/yyyy") : 'N/A'
+                     ],
+                     [
+                        {content: 'Conductor:', styles: {fontStyle: 'bold'}}, formData.conductor || 'N/A',
+                        {content: 'Cédula:', styles: {fontStyle: 'bold'}}, formData.cedulaConductor || 'N/A',
+                        {content: 'Placa:', styles: {fontStyle: 'bold'}}, formData.placa || 'N/A'
+                     ],
+                     [
+                        {content: 'Precinto:', styles: {fontStyle: 'bold'}}, formData.precinto || 'N/A',
+                        {content: 'Set Point (°C):', styles: {fontStyle: 'bold'}}, formatOptionalNumber(formData.setPoint),
+                        {content: 'Contenedor:', styles: {fontStyle: 'bold'}}, formData.contenedor || 'N/A'
+                     ],
+                     [
+                        {content: `H. Inicio ${operationTerm}:`, styles: {fontStyle: 'bold'}}, formatTime12Hour(formData.horaInicio),
+                        {content: `H. Fin ${operationTerm}:`, styles: {fontStyle: 'bold'}}, formatTime12Hour(formData.horaFin),
+                        {content: 'Factura/Remisión:', styles: {fontStyle: 'bold'}}, formData.facturaRemision || 'N/A'
+                     ]
+                 ];
+                 
+                 if (isReception) {
+                     generalInfoBody.push([
+                         {content: 'Tipo Pedido:', styles: {fontStyle: 'bold'}}, formData.tipoPedido || 'N/A',
+                         {content: 'Tipo Empaque (Maquila):', styles: {fontStyle: 'bold'}}, (formData.tipoPedido === 'MAQUILA' ? formData.tipoEmpaqueMaquila : 'N/A') || 'N/A',
+                         {content: '', styles: {}}, {content: '', styles: {}}
+                     ]);
+                 }
+
+
                  autoTable(doc, {
                     startY: yPos,
                     head: [[{ content: `Datos de ${isReception ? 'Recepción' : 'Despacho'}`, colSpan: 6, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]],
-                    body: [
-                        [
-                           {content: 'Pedido SISLOG:', styles: {fontStyle: 'bold'}}, formData.pedidoSislog || 'N/A',
-                           {content: 'Cliente:', styles: {fontStyle: 'bold'}}, formData.cliente || 'N/A',
-                           {content: 'Fecha:', styles: {fontStyle: 'bold'}}, formData.fecha ? format(new Date(formData.fecha), "dd/MM/yyyy") : 'N/A'
-                        ],
-                        [
-                           {content: 'Conductor:', styles: {fontStyle: 'bold'}}, formData.conductor || 'N/A',
-                           {content: 'Cédula:', styles: {fontStyle: 'bold'}}, formData.cedulaConductor || 'N/A',
-                           {content: 'Placa:', styles: {fontStyle: 'bold'}}, formData.placa || 'N/A'
-                        ],
-                        [
-                           {content: 'Precinto:', styles: {fontStyle: 'bold'}}, formData.precinto || 'N/A',
-                           {content: 'Set Point (°C):', styles: {fontStyle: 'bold'}}, formatOptionalNumber(formData.setPoint),
-                           {content: 'Contenedor:', styles: {fontStyle: 'bold'}}, formData.contenedor || 'N/A'
-                        ],
-                        [
-                           {content: `H. Inicio ${operationTerm}:`, styles: {fontStyle: 'bold'}}, formatTime12Hour(formData.horaInicio),
-                           {content: `H. Fin ${operationTerm}:`, styles: {fontStyle: 'bold'}}, formatTime12Hour(formData.horaFin),
-                           {content: '', styles: {}}, {content: '', styles: {}}
-                        ]
-                    ],
+                    body: generalInfoBody,
                     theme: 'grid',
                     styles: { fontSize: 8, cellPadding: 4, valign: 'middle' },
                     columnStyles: {
@@ -575,7 +593,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             row.push(p.temperatura);
                             row.push(p.totalCantidad, p.totalPaletas || 0);
                         } else { // Reception
-                            const temps = [p.temperatura1, p.temperatura2, p.temperatura3, p.temperatura]
+                            const temps = [p.temperatura1, p.temperatura2, p.temperatura3]
                                 .filter(t => t != null && !isNaN(Number(t)));
                             const uniqueTemps = [...new Set(temps)];
                             const tempString = uniqueTemps.join(' / ');
@@ -643,10 +661,14 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             formData.coordinador || 'N/A',
                             {content: 'Operario:', styles: {fontStyle: 'bold'}},
                             userDisplayName || 'N/A',
-                             {content: 'Aplica Cuadrilla:', styles: {fontStyle: 'bold'}},
+                             {content: 'Operación por Cuadrilla:', styles: {fontStyle: 'bold'}},
                             formData.aplicaCuadrilla ? formData.aplicaCuadrilla.charAt(0).toUpperCase() + formData.aplicaCuadrilla.slice(1) : 'N/A'
-                        ]
-                    ], 
+                        ],
+                        formData.aplicaCuadrilla === 'si' && formData.numeroOperariosCuadrilla ? [
+                            {content: 'No. Operarios Cuadrilla:', styles: {fontStyle: 'bold'}, colSpan: 2},
+                            {content: formData.numeroOperariosCuadrilla, colSpan: 4}
+                        ] : []
+                    ].filter(row => row.length > 0), 
                     theme: 'grid', 
                     styles: { fontSize: 8, cellPadding: 4, valign: 'middle' },
                     columnStyles: {

@@ -93,16 +93,18 @@ export function FixedWeightReport({ formData, userDisplayName, attachments, form
                         <tr>
                             <td style={{...fieldCellStyle, width: '33.33%'}}><ReportField label="Pedido SISLOG" value={formData.pedidoSislog} /></td>
                             <td style={{...fieldCellStyle, width: '33.33%'}}><ReportField label="Nombre Cliente" value={formData.nombreCliente} /></td>
-                            <td style={{...fieldCellStyle, width: '33.33%'}}><ReportField label="Factura/Remisión" value={formData.facturaRemision} /></td>
+                            <td style={{...fieldCellStyle, width: '33.33%'}}><ReportField label="Precinto/Sello" value={formData.precinto} /></td>
                         </tr>
                         <tr>
                             <td style={fieldCellStyle}><ReportField label="Fecha" value={formatDateLocal(formData.fecha)} /></td>
                             <td style={fieldCellStyle}><ReportField label={`Hora Inicio ${operationTerm}`} value={formatTime12Hour(formData.horaInicio)} /></td>
                             <td style={fieldCellStyle}><ReportField label={`Hora Fin ${operationTerm}`} value={formatTime12Hour(formData.horaFin)} /></td>
                         </tr>
-                        <tr>
-                            <td style={fieldCellStyle}><ReportField label="Precinto/Sello" value={formData.precinto} /></td>
+                         <tr>
                             <td style={fieldCellStyle}><ReportField label="Doc. Transp." value={formData.documentoTransporte} /></td>
+                            <td style={fieldCellStyle}>
+                                <ReportField label="Factura/Remisión" value={formData.facturaRemision} />
+                            </td>
                             {isReception && (
                                 <td style={fieldCellStyle}>
                                     <ReportField label="Tipo Pedido" value={formData.tipoPedido} />
@@ -187,7 +189,7 @@ export function FixedWeightReport({ formData, userDisplayName, attachments, form
                             <td style={{...fieldCellStyle, width: '33.33%'}}><ReportField label="Coordinador" value={formData.coordinador} /></td>
                             <td style={{...fieldCellStyle, width: '33.33%'}}><ReportField label="Operario" value={userDisplayName} /></td>
                             <td style={{...fieldCellStyle, width: '33.33%'}}>
-                                <ReportField label="Aplica Cuadrilla" value={formData.aplicaCuadrilla ? formData.aplicaCuadrilla.charAt(0).toUpperCase() + formData.aplicaCuadrilla.slice(1) : 'N/A'} />
+                                <ReportField label="Operación Realizada por Cuadrilla" value={formData.aplicaCuadrilla ? formData.aplicaCuadrilla.charAt(0).toUpperCase() + formData.aplicaCuadrilla.slice(1) : 'N/A'} />
                                 {formData.aplicaCuadrilla === 'si' && formData.numeroOperariosCuadrilla && (
                                     <div style={{ marginLeft: '8px', fontSize: '10px' }}>
                                         ↳ No. Operarios: {formData.numeroOperariosCuadrilla}
