@@ -22,14 +22,16 @@ import { Calendar } from '@/components/ui/calendar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, File, FileDown, FolderSearch, Users, ShieldAlert } from 'lucide-react';
+import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, File, FileDown, FolderSearch, Users, ShieldAlert, TrendingUp, Circle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
+
 
 const EmptyState = ({ searched }: { searched: boolean; }) => (
     <TableRow>
-        <TableCell colSpan={9} className="py-20 text-center">
+        <TableCell colSpan={10} className="py-20 text-center">
             <div className="flex flex-col items-center gap-4">
                 <div className="rounded-full bg-primary/10 p-4">
                     <FolderSearch className="h-12 w-12 text-primary" />
@@ -111,6 +113,32 @@ const formatDuration = (totalMinutes: number | null): string => {
         return `${hours}h`;
     }
     return `${hours}h ${minutes}m`;
+};
+
+// Placeholder for performance calculation
+const getPerformanceIndicator = (row: CrewPerformanceReportRow): {
+  status: 'Óptimo' | 'Normal' | 'Lento' | 'N/A',
+  color: string,
+  tooltip: string
+} => {
+  const { duracionMinutos, kilos } = row;
+  if (duracionMinutos === null || duracionMinutos <= 0 || kilos <= 0) {
+    return { status: 'N/A', color: 'text-gray-400', tooltip: 'Datos insuficientes para calcular.' };
+  }
+  const toneladas = kilos / 1000;
+  
+  // Placeholder standard: 25 minutes per ton
+  const standardTime = toneladas * 25; 
+  const lowerBound = standardTime * 0.9;
+  const upperBound = standardTime * 1.1;
+
+  if (duracionMinutos < lowerBound) {
+    return { status: 'Óptimo', color: 'text-green-600', tooltip: `Más rápido que el estándar de ${formatDuration(standardTime)}.` };
+  }
+  if (duracionMinutos > upperBound) {
+    return { status: 'Lento', color: 'text-red-600', tooltip: `Más lento que el estándar de ${formatDuration(standardTime)}.` };
+  }
+  return { status: 'Normal', color: 'text-yellow-600', tooltip: `Dentro del estándar de ${formatDuration(standardTime)}.` };
 };
 
 
@@ -258,6 +286,7 @@ export default function CrewPerformanceReportPage() {
             'Cliente': row.cliente,
             'Tipo Operación': row.tipoOperacion,
             'Pedido SISLOG': row.pedidoSislog,
+            'Indicador': getPerformanceIndicator(row).status,
             'Toneladas': (row.kilos / 1000).toFixed(2),
             'Hora Inicio': formatTime12Hour(row.horaInicio),
             'Hora Fin': formatTime12Hour(row.horaFin),
@@ -270,6 +299,7 @@ export default function CrewPerformanceReportPage() {
             'Cliente': '',
             'Tipo Operación': '',
             'Pedido SISLOG': 'TOTALES:',
+            'Indicador': '',
             'Toneladas': totalToneladas.toFixed(2),
             'Hora Inicio': '',
             'Hora Fin': '',
@@ -307,7 +337,7 @@ export default function CrewPerformanceReportPage() {
 
         autoTable(doc, {
             startY: titleY + 15,
-            head: [['Fecha', 'Operario', 'Cliente', 'Tipo Op.', 'Pedido', 'Toneladas', 'H. Inicio', 'H. Fin', 'Duración']],
+            head: [['Fecha', 'Operario', 'Cliente', 'Tipo Op.', 'Pedido', 'Toneladas', 'Duración', 'Indicador']],
             body: reportData.map(row => [
                 format(new Date(row.fecha), 'dd/MM/yy'),
                 row.operario,
@@ -315,16 +345,15 @@ export default function CrewPerformanceReportPage() {
                 row.tipoOperacion,
                 row.pedidoSislog,
                 (row.kilos / 1000).toFixed(2),
-                formatTime12Hour(row.horaInicio),
-                formatTime12Hour(row.horaFin),
-                formatDuration(row.duracionMinutos)
+                formatDuration(row.duracionMinutos),
+                getPerformanceIndicator(row).status
             ]),
             foot: [
                 [
                     { content: 'TOTALES:', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold' } }, 
                     { content: totalToneladas.toFixed(2), styles: { halign: 'left', fontStyle: 'bold' } },
-                    '', '',
-                    { content: formatDuration(totalDuration), styles: { halign: 'left', fontStyle: 'bold' } }
+                    { content: formatDuration(totalDuration), styles: { halign: 'left', fontStyle: 'bold' } },
+                    ''
                 ]
             ],
             headStyles: { fillColor: [33, 150, 243], fontSize: 7 },
@@ -470,34 +499,49 @@ export default function CrewPerformanceReportPage() {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
+                                        <TableHead>Indicador</TableHead>
                                         <TableHead>Fecha</TableHead>
                                         <TableHead>Operario</TableHead>
                                         <TableHead>Cliente</TableHead>
                                         <TableHead>Tipo Op.</TableHead>
                                         <TableHead>Pedido SISLOG</TableHead>
                                         <TableHead className="text-right">Toneladas</TableHead>
-                                        <TableHead>H. Inicio</TableHead>
-                                        <TableHead>H. Fin</TableHead>
                                         <TableHead className="text-right">Duración</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {isLoading ? (
-                                        <TableRow><TableCell colSpan={9}><Skeleton className="h-20 w-full" /></TableCell></TableRow>
+                                        <TableRow><TableCell colSpan={8}><Skeleton className="h-20 w-full" /></TableCell></TableRow>
                                     ) : displayedData.length > 0 ? (
-                                        displayedData.map((row) => (
-                                            <TableRow key={row.id}>
-                                                <TableCell>{format(new Date(row.fecha), 'dd/MM/yyyy')}</TableCell>
-                                                <TableCell>{row.operario}</TableCell>
-                                                <TableCell className="max-w-[150px] truncate" title={row.cliente}>{row.cliente}</TableCell>
-                                                <TableCell>{row.tipoOperacion}</TableCell>
-                                                <TableCell>{row.pedidoSislog}</TableCell>
-                                                <TableCell className="text-right font-mono">{(row.kilos / 1000).toFixed(2)}</TableCell>
-                                                <TableCell>{formatTime12Hour(row.horaInicio)}</TableCell>
-                                                <TableCell>{formatTime12Hour(row.horaFin)}</TableCell>
-                                                <TableCell className="text-right font-medium">{formatDuration(row.duracionMinutos)}</TableCell>
-                                            </TableRow>
-                                        ))
+                                        displayedData.map((row) => {
+                                            const indicator = getPerformanceIndicator(row);
+                                            return (
+                                                <TableRow key={row.id}>
+                                                    <TableCell>
+                                                        <TooltipProvider>
+                                                            <Tooltip>
+                                                                <TooltipTrigger>
+                                                                    <div className="flex items-center gap-2">
+                                                                        <Circle className={cn("h-3 w-3", indicator.color)} fill="currentColor" />
+                                                                        {indicator.status}
+                                                                    </div>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent>
+                                                                    <p>{indicator.tooltip}</p>
+                                                                </TooltipContent>
+                                                            </Tooltip>
+                                                        </TooltipProvider>
+                                                    </TableCell>
+                                                    <TableCell>{format(new Date(row.fecha), 'dd/MM/yyyy')}</TableCell>
+                                                    <TableCell>{row.operario}</TableCell>
+                                                    <TableCell className="max-w-[150px] truncate" title={row.cliente}>{row.cliente}</TableCell>
+                                                    <TableCell>{row.tipoOperacion}</TableCell>
+                                                    <TableCell>{row.pedidoSislog}</TableCell>
+                                                    <TableCell className="text-right font-mono">{(row.kilos / 1000).toFixed(2)}</TableCell>
+                                                    <TableCell className="text-right font-medium">{formatDuration(row.duracionMinutos)}</TableCell>
+                                                </TableRow>
+                                            )
+                                        })
                                     ) : (
                                         <EmptyState searched={searched} />
                                     )}
@@ -528,4 +572,3 @@ export default function CrewPerformanceReportPage() {
         </div>
     );
 }
-
