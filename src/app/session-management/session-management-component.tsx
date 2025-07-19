@@ -74,7 +74,8 @@ const permissionLabels: { key: keyof AppPermissions; label: string }[] = [
     { key: 'canGenerateForms', label: 'Generar Formatos' },
     { key: 'canConsultForms', label: 'Consultar Formatos' },
     { key: 'canViewBillingReports', label: 'Ver Informes de Facturación' },
-    { key: 'canViewPerformanceReport', label: 'Ver Informe de Desempeño' },
+    { key: 'canViewPerformanceReport', label: 'Ver Informe Desempeño Operaciones' },
+    { key: 'canViewCrewPerformanceReport', label: 'Ver Informe Desempeño Cuadrilla' },
     { key: 'canManageClients', label: 'Gestionar Clientes' },
     { key: 'canManageArticles', label: 'Gestionar Artículos' },
     { key: 'canManageSessions', label: 'Gestionar Usuarios' },
@@ -568,5 +569,3 @@ export default function SessionManagementComponent() {
         </div>
     )
 }
-
-    

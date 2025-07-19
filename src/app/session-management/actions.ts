@@ -132,6 +132,7 @@ export async function getUserPermissions(email: string): Promise<AppPermissions>
             canGenerateForms: true,
             canConsultForms: true,
             canViewPerformanceReport: true,
+            canViewCrewPerformanceReport: true,
             canManageArticles: true,
             canManageClients: true,
             canViewBillingReports: true,

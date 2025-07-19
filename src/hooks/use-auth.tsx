@@ -11,6 +11,7 @@ export interface AppPermissions {
   canGenerateForms: boolean;
   canConsultForms: boolean;
   canViewPerformanceReport: boolean;
+  canViewCrewPerformanceReport: boolean;
   canManageArticles: boolean;
   canManageClients: boolean;
   canViewBillingReports: boolean;
@@ -21,6 +22,7 @@ export const defaultPermissions: AppPermissions = {
   canGenerateForms: false,
   canConsultForms: false,
   canViewPerformanceReport: false,
+  canViewCrewPerformanceReport: false,
   canManageArticles: false,
   canManageClients: false,
   canViewBillingReports: false,
