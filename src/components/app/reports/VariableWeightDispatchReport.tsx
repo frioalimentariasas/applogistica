@@ -145,7 +145,7 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                         <tr>
                             <td style={fieldCellStyle}><ReportField label={`Hora Inicio ${operationTerm}`} value={formatTime12Hour(formData.horaInicio)} /></td>
                             <td style={fieldCellStyle}><ReportField label={`Hora Fin ${operationTerm}`} value={formatTime12Hour(formData.horaFin)} /></td>
-                             <td style={fieldCellStyle}></td>
+                            <td style={fieldCellStyle}><ReportField label="Tipo Pedido" value={formData.tipoPedido} /></td>
                         </tr>
                     </tbody>
                 </table>

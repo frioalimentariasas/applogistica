@@ -101,19 +101,15 @@ export function FixedWeightReport({ formData, userDisplayName, attachments, form
                         </tr>
                          <tr>
                             <td style={fieldCellStyle}><ReportField label="Doc. Transp." value={formData.documentoTransporte} /></td>
-                            <td style={fieldCellStyle} colSpan={isReception ? 1 : 2}>
-                                <ReportField label="Factura/Remisión" value={formData.facturaRemision} />
+                             <td style={fieldCellStyle}><ReportField label="Factura/Remisión" value={formData.facturaRemision} /></td>
+                             <td style={fieldCellStyle}>
+                                <ReportField label="Tipo Pedido" value={formData.tipoPedido} />
+                                {isReception && formData.tipoPedido === 'MAQUILA' && formData.tipoEmpaqueMaquila && (
+                                    <div style={{ marginLeft: '8px', fontSize: '10px' }}>
+                                        ↳ {formData.tipoEmpaqueMaquila}
+                                    </div>
+                                )}
                             </td>
-                            {isReception && (
-                                <td style={fieldCellStyle}>
-                                    <ReportField label="Tipo Pedido" value={formData.tipoPedido} />
-                                    {formData.tipoPedido === 'MAQUILA' && formData.tipoEmpaqueMaquila && (
-                                        <div style={{ marginLeft: '8px', fontSize: '10px' }}>
-                                            ↳ {formData.tipoEmpaqueMaquila}
-                                        </div>
-                                    )}
-                                </td>
-                            )}
                         </tr>
                     </tbody>
                 </table>
