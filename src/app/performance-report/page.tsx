@@ -295,7 +295,7 @@ export default function PerformanceReportPage() {
         
         doc.setFontSize(11);
         doc.setFont('helvetica', 'bold');
-        doc.text(`Informe de Desempeño por Operario`, pageWidth / 2, titleY, { align: 'center' });
+        doc.text(`Informe de Desempeño Operaciones`, pageWidth / 2, titleY, { align: 'center' });
         
         doc.setFontSize(9);
         doc.setFont('helvetica', 'normal');
@@ -370,7 +370,7 @@ export default function PerformanceReportPage() {
                         <div>
                             <div className="flex items-center justify-center gap-2">
                                 <Timer className="h-8 w-8 text-primary" />
-                                <h1 className="text-2xl font-bold text-primary">Informe de Desempeño</h1>
+                                <h1 className="text-2xl font-bold text-primary">Informe de Desempeño Operaciones</h1>
                             </div>
                              <p className="text-sm text-gray-500">Analice los tiempos de operación de los formularios por operario.</p>
                         </div>
@@ -545,4 +545,5 @@ export default function PerformanceReportPage() {
         </div>
     );
 }
+
 

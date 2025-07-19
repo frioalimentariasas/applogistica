@@ -91,7 +91,7 @@ export default function Home() {
   const menuItems: { label: string; href: string; icon: React.FC<any>; permission: keyof AppPermissions }[] = [
     { label: 'Consultar Formatos Guardados', href: '/consultar-formatos', icon: ScrollText, permission: 'canConsultForms' },
     { label: 'Informes para Facturación', href: '/billing-reports', icon: BookCopy, permission: 'canViewBillingReports' },
-    { label: 'Informe de Desempeño', href: '/performance-report', icon: Timer, permission: 'canViewPerformanceReport' },
+    { label: 'Informe de Desempeño Operaciones', href: '/performance-report', icon: Timer, permission: 'canViewPerformanceReport' },
     { label: 'Gestión de Artículos', href: '/gestion-articulos', icon: Box, permission: 'canManageArticles' },
     { label: 'Gestión de Clientes', href: '/gestion-clientes', icon: Users2, permission: 'canManageClients' },
     { label: 'Gestión de Observaciones', href: '/gestion-observaciones', icon: ClipboardList, permission: 'canManageArticles' }, // Reuse article permission
