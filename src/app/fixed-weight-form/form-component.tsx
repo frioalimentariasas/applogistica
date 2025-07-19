@@ -238,7 +238,7 @@ export default function FixedWeightFormComponent() {
 
 
   const filteredClients = useMemo(() => {
-    if (!clientSearch) return clients;
+    if (!clientSearch) return clientes;
     return clientes.filter(c => c.razonSocial.toLowerCase().includes(clientSearch.toLowerCase()));
   }, [clientSearch, clientes]);
   
