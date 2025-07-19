@@ -281,9 +281,9 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         const isOther = obs.type === 'OTRAS OBSERVACIONES';
                         if (isOther) {
                             return [{ 
-                                content: [{text: "OTRAS OBSERVACIONES: ", styles: {fontStyle: 'bold'}}, {text: obs.customType || ''}],
+                                content: `OTRAS OBSERVACIONES: ${obs.customType || ''}`,
                                 colSpan: 3,
-                                styles: { fontStyle: 'normal' } 
+                                styles: { fontStyle: 'normal', halign: 'left' } 
                             }];
                         } else {
                             const typeText = { content: obs.type, styles: { fontStyle: 'bold' } };
