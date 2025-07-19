@@ -44,6 +44,9 @@ export interface BillingReportCriteria {
   startDate: string;
   endDate: string;
   sesion?: 'CO' | 'RE' | 'SE';
+  tipoOperacion?: 'recepcion' | 'despacho';
+  tipoPedido?: string;
+  pedidoSislog?: string;
 }
 
 export interface DailyReportData {
@@ -101,6 +104,24 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
             if (!groupingDate) return;
 
             if (groupingDate < criteria.startDate || groupingDate > criteria.endDate) return;
+
+            // Apply new filters
+            if (criteria.pedidoSislog && submission.formData.pedidoSislog !== criteria.pedidoSislog) {
+                return;
+            }
+            if (criteria.tipoPedido && submission.formData.tipoPedido !== criteria.tipoPedido) {
+                return;
+            }
+            if (criteria.tipoOperacion) {
+                const formType = submission.formType;
+                if (criteria.tipoOperacion === 'recepcion' && !(formType.includes('recepcion') || formType.includes('reception'))) {
+                    return;
+                }
+                if (criteria.tipoOperacion === 'despacho' && !formType.includes('despacho')) {
+                    return;
+                }
+            }
+
 
             if (!dailyDataMap.has(groupingDate)) {
                 dailyDataMap.set(groupingDate, {

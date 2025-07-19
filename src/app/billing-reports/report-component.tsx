@@ -135,6 +135,10 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     // State for billing report
     const [selectedClient, setSelectedClient] = useState<string | undefined>(undefined);
     const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+    const [billingSesion, setBillingSesion] = useState<string>('');
+    const [billingTipoOperacion, setBillingTipoOperacion] = useState<string>('');
+    const [billingTipoPedido, setBillingTipoPedido] = useState<string>('');
+    const [billingPedidoSislog, setBillingPedidoSislog] = useState<string>('');
     const [reportData, setReportData] = useState<DailyReportData[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [searched, setSearched] = useState(false);
@@ -282,6 +286,10 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 clientName: selectedClient,
                 startDate: format(dateRange.from, 'yyyy-MM-dd'),
                 endDate: format(dateRange.to, 'yyyy-MM-dd'),
+                sesion: billingSesion === 'all' ? undefined : (billingSesion as 'CO' | 'RE' | 'SE'),
+                tipoOperacion: billingTipoOperacion === 'all' ? undefined : (billingTipoOperacion as 'recepcion' | 'despacho'),
+                tipoPedido: billingTipoPedido === 'all' ? undefined : billingTipoPedido,
+                pedidoSislog: billingPedidoSislog.trim() || undefined,
             };
 
             const results = await getBillingReport(criteria);
@@ -374,6 +382,10 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const handleClear = () => {
         setSelectedClient(undefined);
         setDateRange(undefined);
+        setBillingSesion('');
+        setBillingTipoOperacion('');
+        setBillingTipoPedido('');
+        setBillingPedidoSislog('');
         setReportData([]);
         setSearched(false);
     };
@@ -969,7 +981,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                 <CardDescription>Seleccione un cliente y un rango de fechas para generar el informe.</CardDescription>
                             </CardHeader>
                             <CardContent>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-end">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
                                     <div className="space-y-2">
                                         <Label>Cliente</Label>
                                         <Dialog open={isClientDialogOpen} onOpenChange={setClientDialogOpen}>
@@ -1055,7 +1067,47 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                             </PopoverContent>
                                         </Popover>
                                     </div>
-                                    <div className="flex gap-2">
+                                    <div className="space-y-2">
+                                        <Label>Sesión</Label>
+                                        <Select value={billingSesion} onValueChange={setBillingSesion}>
+                                            <SelectTrigger><SelectValue placeholder="Todas" /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">Todas</SelectItem>
+                                                <SelectItem value="CO">CO - Congelados</SelectItem>
+                                                <SelectItem value="RE">RE - Refrigerado</SelectItem>
+                                                <SelectItem value="SE">SE - Seco</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Tipo de Operación</Label>
+                                        <Select value={billingTipoOperacion} onValueChange={setBillingTipoOperacion}>
+                                            <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">Todos</SelectItem>
+                                                <SelectItem value="recepcion">Recepción</SelectItem>
+                                                <SelectItem value="despacho">Despacho</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Tipo de Pedido</Label>
+                                        <Select value={billingTipoPedido} onValueChange={setBillingTipoPedido}>
+                                            <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">Todos</SelectItem>
+                                                <SelectItem value="GENERICO">GENERICO</SelectItem>
+                                                <SelectItem value="MAQUILA">MAQUILA</SelectItem>
+                                                <SelectItem value="TUNEL">TUNEL</SelectItem>
+                                                <SelectItem value="INGRESO DE SALDO">INGRESO DE SALDO</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Pedido SISLOG</Label>
+                                        <Input placeholder="Opcional" value={billingPedidoSislog} onChange={(e) => setBillingPedidoSislog(e.target.value)} />
+                                    </div>
+                                    <div className="flex gap-2 lg:col-start-4">
                                         <Button onClick={handleSearch} className="w-full" disabled={isLoading}>
                                             {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
                                             Generar
