@@ -200,7 +200,11 @@ const formSchema = z.object({
       z.coerce.number({ invalid_type_error: "Set Point debe ser un número."})
         .min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99.").nullable()
     ),
-    contenedor: z.string().min(1, "El contenedor es obligatorio.").max(20, "Máximo 20 caracteres."),
+    contenedor: z.string()
+      .regex(/^[A-Z]{4}[0-9]{7}$/, { message: "Formato inválido. Deben ser 4 letras y 7 números." })
+      .length(11, "Debe tener 11 caracteres.")
+      .nullable()
+      .or(z.literal('')),
     items: z.array(itemSchema).min(1, "Debe agregar al menos un item."),
     summary: z.array(summaryItemSchema).nullable(),
     horaInicio: z.string().min(1, "La hora de inicio es obligatoria.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
@@ -1211,7 +1215,13 @@ export default function VariableWeightFormComponent() {
                       <FormField control={form.control} name="contenedor" render={({ field }) => (
                           <FormItem>
                               <FormLabel>Contenedor</FormLabel>
-                              <FormControl><Input placeholder="Número de contenedor" {...field} /></FormControl>
+                              <FormControl><Input
+                                    placeholder="ABCD1234567"
+                                    {...field}
+                                    onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                                    maxLength={11}
+                                    value={field.value ?? ''}
+                                /></FormControl>
                               <FormMessage />
                           </FormItem>
                       )}/>

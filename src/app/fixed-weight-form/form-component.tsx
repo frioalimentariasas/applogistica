@@ -115,7 +115,11 @@ const formSchema = z.object({
   cedulaConductor: z.string().min(1, "La cédula del conductor es obligatoria.").regex(/^[0-9]*$/, "La cédula solo puede contener números."),
   placa: z.string().min(1, "La placa es obligatoria.").regex(/^[A-Z]{3}[0-9]{3}$/, "Formato inválido. Deben ser 3 letras y 3 números (ej: ABC123)."),
   muelle: z.string().min(1, "Seleccione un muelle."),
-  contenedor: z.string().nullable(),
+  contenedor: z.string()
+    .regex(/^[A-Z]{4}[0-9]{7}$/, { message: "Formato inválido. Deben ser 4 letras y 7 números." })
+    .length(11, "Debe tener 11 caracteres.")
+    .nullable()
+    .or(z.literal('')),
   setPoint: z.preprocess(
       (val) => (val === "" || val === null ? null : val),
       z.coerce.number({ invalid_type_error: "Set Point debe ser un número."})
@@ -127,7 +131,7 @@ const formSchema = z.object({
   observaciones: z.array(observationSchema).optional(),
   coordinador: z.string().min(1, "Seleccione un coordinador."),
   aplicaCuadrilla: z.enum(["si", "no"], { required_error: "Seleccione una opción para 'Operación Realizada por Cuadrilla'." }),
-  tipoPedido: z.enum(['GENERICO', 'MAQUILA', 'TUNEL', 'INGRESO DE SALDO', 'DESPACHO GENERICO', 'DESPACHO TUNEL']).optional(),
+  tipoPedido: z.enum(['GENERICO', 'MAQUILA', 'TUNEL', 'INGRESO DE SALDO', 'DESPACHO GENERICO']).optional(),
   tipoEmpaqueMaquila: z.enum(['EMPAQUE DE SACOS', 'EMPAQUE DE CAJAS']).optional(),
   numeroOperariosCuadrilla: z.coerce.number().int().min(1, "Debe ser al menos 1.").optional(),
 }).refine((data) => {
@@ -350,7 +354,7 @@ export default function FixedWeightFormComponent() {
               ...formData,
               documentoTransporte: formData.documentoTransporte ?? null,
               facturaRemision: formData.facturaRemision ?? null,
-              contenedor: formData.contenedor ?? null,
+              contenedor: formData.contenedor ?? '',
               setPoint: formData.setPoint ?? null,
               observaciones: formData.observaciones ?? [],
               aplicaCuadrilla: formData.aplicaCuadrilla ?? undefined,
@@ -1114,7 +1118,13 @@ export default function FixedWeightFormComponent() {
                         <FormItem><FormLabel>Muelle</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un muelle" /></SelectTrigger></FormControl><SelectContent>{muelles.map(m => <SelectItem key={m} value={m}>{m}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                     )}/>
                     <FormField control={form.control} name="contenedor" render={({ field }) => (
-                        <FormItem><FormLabel>Contenedor</FormLabel><FormControl><Input placeholder="Número de contenedor" {...field} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Contenedor</FormLabel><FormControl><Input
+                                    placeholder="ABCD1234567"
+                                    {...field}
+                                    onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                                    maxLength={11}
+                                    value={field.value ?? ''}
+                                /></FormControl><FormMessage /></FormItem>
                     )}/>
                     <FormField control={form.control} name="setPoint" render={({ field }) => (
                         <FormItem>
