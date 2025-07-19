@@ -447,47 +447,47 @@ export default function SessionManagementComponent() {
             </AlertDialog>
 
             <Dialog open={isPermissionsDialogOpen} onOpenChange={setIsPermissionsDialogOpen}>
-                <DialogContent className="sm:max-w-md">
+                 <DialogContent className="sm:max-w-md flex flex-col max-h-[90vh]">
                     <DialogHeader>
                         <DialogTitle>Gestionar Permisos</DialogTitle>
                         <DialogDescription>
-                            Asigne o revoque accesos para el usuario <strong>{userToEdit?.displayName}</strong>.
+                            Asigne o revoque accesos para <strong>{userToEdit?.displayName}</strong>.
                         </DialogDescription>
                     </DialogHeader>
-                    <Form {...permissionsForm}>
-                        <form onSubmit={permissionsForm.handleSubmit(handleSavePermissions)}>
-                            <ScrollArea className="max-h-[50vh] pr-6">
-                                <div className="space-y-4 py-4">
-                                    {permissionLabels.map(({ key, label }) => (
-                                        <Controller
-                                            key={key}
-                                            name={key}
-                                            control={permissionsForm.control}
-                                            render={({ field }) => (
-                                                <div className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                                                    <div className="space-y-0.5">
-                                                        <Label htmlFor={key} className="text-base">{label}</Label>
+                    <div className="flex-1 min-h-0">
+                         <ScrollArea className="h-full pr-6">
+                            <Form {...permissionsForm}>
+                                <form id="permissions-form" onSubmit={permissionsForm.handleSubmit(handleSavePermissions)} className="space-y-4 py-4">
+                                        {permissionLabels.map(({ key, label }) => (
+                                            <Controller
+                                                key={key}
+                                                name={key}
+                                                control={permissionsForm.control}
+                                                render={({ field }) => (
+                                                    <div className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                                                        <div className="space-y-0.5">
+                                                            <Label htmlFor={key} className="text-base">{label}</Label>
+                                                        </div>
+                                                        <Checkbox
+                                                            id={key}
+                                                            checked={field.value}
+                                                            onCheckedChange={field.onChange}
+                                                        />
                                                     </div>
-                                                    <Checkbox
-                                                        id={key}
-                                                        checked={field.value}
-                                                        onCheckedChange={field.onChange}
-                                                    />
-                                                </div>
-                                            )}
-                                        />
-                                    ))}
-                                </div>
-                            </ScrollArea>
-                            <DialogFooter className="pt-4">
-                                <Button type="button" variant="outline" onClick={() => setIsPermissionsDialogOpen(false)}>Cancelar</Button>
-                                <Button type="submit" disabled={isSavingPermissions}>
-                                    {isSavingPermissions && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                                    Guardar Permisos
-                                </Button>
-                            </DialogFooter>
-                        </form>
-                    </Form>
+                                                )}
+                                            />
+                                        ))}
+                                </form>
+                            </Form>
+                         </ScrollArea>
+                    </div>
+                    <DialogFooter className="pt-4 border-t">
+                        <Button type="button" variant="outline" onClick={() => setIsPermissionsDialogOpen(false)}>Cancelar</Button>
+                        <Button type="submit" form="permissions-form" disabled={isSavingPermissions}>
+                            {isSavingPermissions && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Guardar Permisos
+                        </Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
 
