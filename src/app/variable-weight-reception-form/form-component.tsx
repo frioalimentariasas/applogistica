@@ -257,7 +257,7 @@ export default function VariableWeightReceptionFormComponent() {
   const [standardObservations, setStandardObservations] = useState<StandardObservation[]>([]);
 
   const filteredClients = useMemo(() => {
-    if (!clientSearch) return clients;
+    if (!clientSearch) return clientes;
     return clientes.filter(c => c.razonSocial.toLowerCase().includes(clientSearch.toLowerCase()));
   }, [clientSearch, clientes]);
   
@@ -1261,6 +1261,7 @@ export default function VariableWeightReceptionFormComponent() {
                             {observationFields.map((field, index) => {
                                 const selectedObservation = watchedObservations?.[index];
                                 const stdObsData = standardObservations.find(obs => obs.name === selectedObservation?.type);
+                                const isOtherType = selectedObservation?.type === 'OTRAS OBSERVACIONES';
                                 return (
                                 <div key={field.id} className="p-4 border rounded-lg relative bg-white space-y-4">
                                     <Button
@@ -1300,7 +1301,7 @@ export default function VariableWeightReceptionFormComponent() {
                                                 </FormItem>
                                             )}
                                         />
-                                        {selectedObservation?.type === 'OTRAS OBSERVACIONES' ? (
+                                        {isOtherType ? (
                                             <FormField
                                                 control={form.control}
                                                 name={`observaciones.${index}.customType`}
@@ -1308,7 +1309,11 @@ export default function VariableWeightReceptionFormComponent() {
                                                     <FormItem className="lg:col-span-3">
                                                         <FormLabel>Descripción</FormLabel>
                                                         <FormControl>
-                                                            <Textarea placeholder="Describa la observación" {...field} />
+                                                            <Textarea 
+                                                              placeholder="Describa la observación" 
+                                                              {...field}
+                                                              onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                                                            />
                                                         </FormControl>
                                                         <FormMessage />
                                                     </FormItem>
