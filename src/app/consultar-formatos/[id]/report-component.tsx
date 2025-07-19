@@ -281,9 +281,9 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         const isOther = obs.type === 'OTRAS OBSERVACIONES';
                         if (isOther) {
                             return [{ 
-                                content: `OTRAS OBSERVACIONES: ${obs.customType || ''}`,
+                                content: 'OTRAS OBSERVACIONES: ' + (obs.customType || ''),
                                 colSpan: 3,
-                                styles: { fontStyle: 'normal', halign: 'left' } 
+                                styles: { halign: 'left' } 
                             }];
                         } else {
                             const typeText = { content: obs.type, styles: { fontStyle: 'bold' } };
@@ -292,7 +292,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             return [
                                 typeText,
                                 { content: quantityText, styles: { halign: 'right' } },
-                                { content: executedText }
+                                { content: executedText, styles: { halign: 'center' } }
                             ];
                         }
                     });
@@ -316,8 +316,8 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         headStyles: { fillColor: '#f8fafc', textColor: '#334155' },
                         columnStyles: {
                             0: { cellWidth: '*' },
-                            1: { cellWidth: 'auto' },
-                            2: { cellWidth: 'auto' },
+                            1: { cellWidth: 'auto', halign: 'right' },
+                            2: { cellWidth: 'auto', halign: 'center' },
                         },
                     });
 
@@ -487,7 +487,35 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                  const isReception = formType.includes('recepcion') || formType.includes('reception');
                  const operationTerm = isReception ? 'Descargue' : 'Cargue';
                  
-                 const generalInfoBody = [
+                 const generalInfoBody = isReception ? [
+                     [
+                        {content: 'Pedido SISLOG:', styles: {fontStyle: 'bold'}}, formData.pedidoSislog || 'N/A',
+                        {content: 'Cliente:', styles: {fontStyle: 'bold'}}, formData.cliente || 'N/A',
+                        {content: 'Fecha:', styles: {fontStyle: 'bold'}}, formData.fecha ? format(new Date(formData.fecha), "dd/MM/yyyy") : 'N/A'
+                     ],
+                     [
+                        {content: 'Conductor:', styles: {fontStyle: 'bold'}}, formData.conductor || 'N/A',
+                        {content: 'Cédula:', styles: {fontStyle: 'bold'}}, formData.cedulaConductor || 'N/A',
+                        {content: 'Placa:', styles: {fontStyle: 'bold'}}, formData.placa || 'N/A'
+                     ],
+                     [
+                        {content: 'Precinto:', styles: {fontStyle: 'bold'}}, formData.precinto || 'N/A',
+                        {content: 'Set Point (°C):', styles: {fontStyle: 'bold'}}, formatOptionalNumber(formData.setPoint),
+                        {content: 'Contenedor:', styles: {fontStyle: 'bold'}}, formData.contenedor || 'N/A'
+                     ],
+                      [
+                        {content: `H. Inicio ${operationTerm}:`, styles: {fontStyle: 'bold'}}, formatTime12Hour(formData.horaInicio),
+                        {content: `H. Fin ${operationTerm}:`, styles: {fontStyle: 'bold'}}, formatTime12Hour(formData.horaFin),
+                        {content: 'Factura/Remisión:', styles: {fontStyle: 'bold'}}, formData.facturaRemision || 'N/A'
+                      ],
+                      [
+                          {
+                              content: `Tipo Pedido: ${formData.tipoPedido || 'N/A'}${formData.tipoPedido === 'MAQUILA' ? ` (${formData.tipoEmpaqueMaquila || 'N/A'})` : ''}`,
+                              styles: {fontStyle: 'bold'},
+                              colSpan: 6
+                          }
+                      ]
+                 ] : [ // Dispatch Body
                      [
                         {content: 'Pedido SISLOG:', styles: {fontStyle: 'bold'}}, formData.pedidoSislog || 'N/A',
                         {content: 'Cliente:', styles: {fontStyle: 'bold'}}, formData.cliente || 'N/A',
@@ -509,14 +537,6 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         {content: 'Factura/Remisión:', styles: {fontStyle: 'bold'}}, formData.facturaRemision || 'N/A'
                      ]
                  ];
-                 
-                 if (isReception) {
-                     generalInfoBody.push([
-                         {content: 'Tipo Pedido:', styles: {fontStyle: 'bold'}},
-                         `${formData.tipoPedido || 'N/A'}${formData.tipoPedido === 'MAQUILA' ? ` (${formData.tipoEmpaqueMaquila || 'N/A'})` : ''}`,
-                         {content: '', styles: {}}, {content: '', styles: {}}, {content: '', styles: {}}, {content: '', styles: {}}
-                     ]);
-                 }
 
 
                  autoTable(doc, {
