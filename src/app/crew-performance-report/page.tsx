@@ -258,7 +258,7 @@ export default function CrewPerformanceReportPage() {
             'Cliente': row.cliente,
             'Tipo Operación': row.tipoOperacion,
             'Pedido SISLOG': row.pedidoSislog,
-            'Toneladas': (row.kilos / 1000).toFixed(3),
+            'Toneladas': (row.kilos / 1000).toFixed(2),
             'Hora Inicio': formatTime12Hour(row.horaInicio),
             'Hora Fin': formatTime12Hour(row.horaFin),
             'Duración': formatDuration(row.duracionMinutos),
@@ -270,7 +270,7 @@ export default function CrewPerformanceReportPage() {
             'Cliente': '',
             'Tipo Operación': '',
             'Pedido SISLOG': 'TOTALES:',
-            'Toneladas': totalToneladas.toFixed(3),
+            'Toneladas': totalToneladas.toFixed(2),
             'Hora Inicio': '',
             'Hora Fin': '',
             'Duración': formatDuration(totalDuration)
@@ -314,7 +314,7 @@ export default function CrewPerformanceReportPage() {
                 row.cliente,
                 row.tipoOperacion,
                 row.pedidoSislog,
-                (row.kilos / 1000).toFixed(3),
+                (row.kilos / 1000).toFixed(2),
                 formatTime12Hour(row.horaInicio),
                 formatTime12Hour(row.horaFin),
                 formatDuration(row.duracionMinutos)
@@ -322,7 +322,7 @@ export default function CrewPerformanceReportPage() {
             foot: [
                 [
                     { content: 'TOTALES:', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold' } }, 
-                    { content: totalToneladas.toFixed(3), styles: { halign: 'left', fontStyle: 'bold' } },
+                    { content: totalToneladas.toFixed(2), styles: { halign: 'left', fontStyle: 'bold' } },
                     '', '',
                     { content: formatDuration(totalDuration), styles: { halign: 'left', fontStyle: 'bold' } }
                 ]
@@ -492,7 +492,7 @@ export default function CrewPerformanceReportPage() {
                                                 <TableCell className="max-w-[150px] truncate" title={row.cliente}>{row.cliente}</TableCell>
                                                 <TableCell>{row.tipoOperacion}</TableCell>
                                                 <TableCell>{row.pedidoSislog}</TableCell>
-                                                <TableCell className="text-right font-mono">{(row.kilos / 1000).toFixed(3)}</TableCell>
+                                                <TableCell className="text-right font-mono">{(row.kilos / 1000).toFixed(2)}</TableCell>
                                                 <TableCell>{formatTime12Hour(row.horaInicio)}</TableCell>
                                                 <TableCell>{formatTime12Hour(row.horaFin)}</TableCell>
                                                 <TableCell className="text-right font-medium">{formatDuration(row.duracionMinutos)}</TableCell>
@@ -528,3 +528,4 @@ export default function CrewPerformanceReportPage() {
         </div>
     );
 }
+
