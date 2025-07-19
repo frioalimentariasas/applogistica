@@ -1309,11 +1309,7 @@ export default function VariableWeightReceptionFormComponent() {
                                                     <FormItem className="lg:col-span-3">
                                                         <FormLabel>Descripción</FormLabel>
                                                         <FormControl>
-                                                            <Textarea 
-                                                              placeholder="Describa la observación" 
-                                                              {...field}
-                                                              onChange={(e) => field.onChange(e.target.value.toUpperCase())}
-                                                            />
+                                                            <Textarea placeholder="Describa la observación" {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} />
                                                         </FormControl>
                                                         <FormMessage />
                                                     </FormItem>

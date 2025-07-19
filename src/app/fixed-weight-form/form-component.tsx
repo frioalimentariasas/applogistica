@@ -954,8 +954,8 @@ export default function FixedWeightFormComponent() {
                                     </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                    <SelectItem value="DESPACHO GENERICO">GENERICO</SelectItem>
-                                    <SelectItem value="DESPACHO TUNEL">TUNEL</SelectItem>
+                                    <SelectItem value="GENERICO">GENERICO</SelectItem>
+                                    <SelectItem value="TUNEL">TUNEL</SelectItem>
                                 </SelectContent>
                                 </Select>
                                 <FormMessage />
