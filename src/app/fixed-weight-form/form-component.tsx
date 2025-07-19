@@ -1035,6 +1035,7 @@ export default function FixedWeightFormComponent() {
                                     <FormItem>
                                         <FormLabel>Peso Bruto (kg)</FormLabel>
                                         <FormControl><Input type="text" inputMode="decimal" step="0.01" min="0" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl>
+                                        <FormDescription>Si no aplica, ingrese 0.</FormDescription>
                                         <FormMessage />
                                     </FormItem>
                                 )}/>
@@ -1042,6 +1043,7 @@ export default function FixedWeightFormComponent() {
                                     <FormItem>
                                         <FormLabel>Peso Neto (kg)</FormLabel>
                                         <FormControl><Input type="text" inputMode="decimal" step="0.01" min="0" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl>
+                                        <FormDescription>Si no aplica, ingrese 0.</FormDescription>
                                         <FormMessage />
                                     </FormItem>
                                 )}/>
