@@ -1209,11 +1209,11 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                     </Button>
                                 </div>
 
-                                <ScrollArea className="w-full whitespace-nowrap rounded-md border">
+                                <ScrollArea className="w-full whitespace-nowrap rounded-md border h-[60vh] relative">
                                     <Table>
-                                        <TableHeader>
+                                        <TableHeader className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm">
                                             <TableRow>
-                                                <TableHead>Fecha</TableHead>
+                                                <TableHead className="sticky left-0 z-20 bg-background/95 backdrop-blur-sm">Fecha</TableHead>
                                                 <TableHead>Op. Logística</TableHead>
                                                 <TableHead>Duración</TableHead>
                                                 <TableHead>Hora Inicio</TableHead>
@@ -1237,7 +1237,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                             ) : detailedReportData.length > 0 ? (
                                                 detailedReportData.map((row) => (
                                                     <TableRow key={row.id}>
-                                                        <TableCell>{format(new Date(row.fecha), 'dd/MM/yyyy')}</TableCell>
+                                                        <TableCell className="sticky left-0 z-10 bg-background/95 backdrop-blur-sm">{format(new Date(row.fecha), 'dd/MM/yyyy')}</TableCell>
                                                         <TableCell>{row.operacionLogistica}</TableCell>
                                                         <TableCell>{formatDuration(row.duracionMinutos)}</TableCell>
                                                         <TableCell>{formatTime12Hour(row.horaInicio)}</TableCell>
@@ -1733,3 +1733,5 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         </div>
     );
 }
+
+    
