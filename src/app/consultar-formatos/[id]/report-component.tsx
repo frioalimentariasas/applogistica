@@ -161,6 +161,11 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 return String(Math.floor(number));
             };
 
+            const formatTipoPedido = (tipo: string | undefined): string => {
+                if (tipo === 'DESPACHO GENERICO') return 'GENERICO';
+                return tipo || 'N/A';
+            };
+
             const { formType, formData, userDisplayName } = submission;
     
             const addHeader = (title: string) => {
@@ -354,7 +359,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             {content: 'Factura/Remisión:', styles: {fontStyle: 'bold'}},
                             formData.facturaRemision || 'N/A',
                             {content: !isReception ? 'Tipo Pedido:' : '', styles: {fontStyle: 'bold'}},
-                            !isReception ? formData.tipoPedido || 'N/A' : ''
+                            !isReception ? formatTipoPedido(formData.tipoPedido) : ''
                         ]
                 ];
                 
@@ -518,7 +523,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         {content: `H. Inicio ${operationTerm}:`, styles: {fontStyle: 'bold'}}, formatTime12Hour(formData.horaInicio),
                         {content: `H. Fin ${operationTerm}:`, styles: {fontStyle: 'bold'}}, formatTime12Hour(formData.horaFin),
                         {content: isReception ? 'Factura/Remisión:' : 'Tipo Pedido:', styles: {fontStyle: 'bold'}}, 
-                        isReception ? formData.facturaRemision || 'N/A' : formData.tipoPedido || 'N/A'
+                        isReception ? formData.facturaRemision || 'N/A' : formatTipoPedido(formData.tipoPedido)
                       ],
                  ];
                  

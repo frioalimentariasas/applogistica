@@ -67,6 +67,12 @@ const formatPaletas = (num: any): string => {
     return String(Math.floor(number));
 };
 
+const formatTipoPedido = (tipo: string | undefined): string => {
+    if (tipo === 'DESPACHO GENERICO') return 'GENERICO';
+    return tipo || 'N/A';
+};
+
+
 interface FixedWeightReportProps {
     formData: any;
     userDisplayName: string;
@@ -103,7 +109,7 @@ export function FixedWeightReport({ formData, userDisplayName, attachments, form
                             <td style={fieldCellStyle}><ReportField label="Doc. Transp." value={formData.documentoTransporte} /></td>
                             <td style={fieldCellStyle}><ReportField label="Factura/Remisión" value={formData.facturaRemision} /></td>
                             <td style={fieldCellStyle}>
-                                {!isReception && <ReportField label="Tipo Pedido" value={formData.tipoPedido} />}
+                                {!isReception && <ReportField label="Tipo Pedido" value={formatTipoPedido(formData.tipoPedido)} />}
                             </td>
                         </tr>
                         {isReception && (
@@ -195,7 +201,7 @@ export function FixedWeightReport({ formData, userDisplayName, attachments, form
                                 <tr key={i} style={{ borderBottom: '1px solid #ddd' }}>
                                     {isOther ? (
                                         <td style={{ padding: '4px', width: '100%' }} colSpan={3}>
-                                            <span style={{ fontWeight: 'bold' }}>OTRAS OBSERVACIONES: </span>{obs.customType}
+                                            <strong style={{fontWeight: 'bold'}}>OTRAS OBSERVACIONES: </strong>{obs.customType}
                                         </td>
                                     ) : (
                                         <>

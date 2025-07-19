@@ -53,6 +53,11 @@ const ReportField = ({ label, value }: { label: string, value: any }) => (
     </>
 );
 
+const formatTipoPedido = (tipo: string | undefined): string => {
+    if (tipo === 'DESPACHO GENERICO') return 'GENERICO';
+    return tipo || 'N/A';
+};
+
 interface VariableWeightDispatchReportProps {
     formData: any;
     userDisplayName: string;
@@ -145,7 +150,7 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                         <tr>
                             <td style={fieldCellStyle}><ReportField label={`Hora Inicio ${operationTerm}`} value={formatTime12Hour(formData.horaInicio)} /></td>
                             <td style={fieldCellStyle}><ReportField label={`Hora Fin ${operationTerm}`} value={formatTime12Hour(formData.horaFin)} /></td>
-                            <td style={fieldCellStyle}><ReportField label="Tipo Pedido" value={formData.tipoPedido} /></td>
+                            <td style={fieldCellStyle}><ReportField label="Tipo Pedido" value={formatTipoPedido(formData.tipoPedido)} /></td>
                         </tr>
                     </tbody>
                 </table>
@@ -266,7 +271,7 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                                 <tr key={i} style={{ borderBottom: '1px solid #ddd' }}>
                                     {isOther ? (
                                         <td style={{ padding: '4px', width: '100%' }} colSpan={3}>
-                                            <span style={{ fontWeight: 'bold' }}>OTRAS OBSERVACIONES: </span>{obs.customType}
+                                            <strong style={{fontWeight: 'bold'}}>OTRAS OBSERVACIONES: </strong>{obs.customType}
                                         </td>
                                     ) : (
                                         <>
