@@ -51,7 +51,7 @@ const ResultsSkeleton = () => (
 
 const EmptyState = ({ searched, title, description, emptyDescription }: { searched: boolean; title: string; description: string; emptyDescription: string; }) => (
     <TableRow>
-        <TableCell colSpan={15} className="py-20 text-center">
+        <TableCell colSpan={16} className="py-20 text-center">
             <div className="flex flex-col items-center gap-4">
                 <div className="rounded-full bg-primary/10 p-4">
                     <FolderSearch className="h-12 w-12 text-primary" />
@@ -1211,24 +1211,24 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
                                 <ScrollArea className="w-full whitespace-nowrap rounded-md border h-[60vh] relative">
                                     <Table>
-                                        <TableHeader className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm">
+                                        <TableHeader>
                                             <TableRow>
-                                                <TableHead className="sticky left-0 z-20 bg-background/95 backdrop-blur-sm">Fecha</TableHead>
-                                                <TableHead>Op. Logística</TableHead>
-                                                <TableHead>Duración</TableHead>
-                                                <TableHead>Hora Inicio</TableHead>
-                                                <TableHead>Hora Fin</TableHead>
-                                                <TableHead>Placa Vehículo</TableHead>
-                                                <TableHead>No. Contenedor</TableHead>
-                                                <TableHead>Cliente</TableHead>
-                                                <TableHead>Tipo Operación</TableHead>
-                                                <TableHead>Tipo Pedido</TableHead>
-                                                <TableHead>Tipo Empaque</TableHead>
-                                                <TableHead>No. Pedido (SISLOG)</TableHead>
-                                                <TableHead>Op. Cuadrilla</TableHead>
-                                                <TableHead>No. Operarios</TableHead>
-                                                <TableHead>Total Paletas</TableHead>
-                                                <TableHead>Observaciones</TableHead>
+                                                <TableHead className="sticky left-0 z-20 bg-background/95 backdrop-blur-sm top-0">Fecha</TableHead>
+                                                <TableHead className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm">Op. Logística</TableHead>
+                                                <TableHead className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm">Duración</TableHead>
+                                                <TableHead className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm">Hora Inicio</TableHead>
+                                                <TableHead className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm">Hora Fin</TableHead>
+                                                <TableHead className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm">Placa Vehículo</TableHead>
+                                                <TableHead className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm">No. Contenedor</TableHead>
+                                                <TableHead className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm">Cliente</TableHead>
+                                                <TableHead className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm">Tipo Operación</TableHead>
+                                                <TableHead className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm">Tipo Pedido</TableHead>
+                                                <TableHead className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm">Tipo Empaque</TableHead>
+                                                <TableHead className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm">No. Pedido (SISLOG)</TableHead>
+                                                <TableHead className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm">Op. Cuadrilla</TableHead>
+                                                <TableHead className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm">No. Operarios</TableHead>
+                                                <TableHead className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm">Total Paletas</TableHead>
+                                                <TableHead className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm">Observaciones</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
