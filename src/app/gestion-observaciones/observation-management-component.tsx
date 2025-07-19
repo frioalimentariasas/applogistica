@@ -174,7 +174,7 @@ export default function ObservationManagementComponent({ initialObservations }: 
                       <FormLabel>Nombre de la Observación</FormLabel>
                       <FormControl>
                         <Input 
-                          placeholder="Ej: CLASIFICACIÓN DE PRODUCTO" 
+                          placeholder="EJ: DESCRIPCIÓN DE LA OBSERVACIONES." 
                           {...field} 
                           onChange={(e) => field.onChange(e.target.value.toUpperCase())}
                         />
