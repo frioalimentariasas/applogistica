@@ -19,6 +19,7 @@ import { storage } from "@/lib/firebase";
 import { ref, uploadString, getDownloadURL } from "firebase/storage";
 import { optimizeImage } from "@/lib/image-optimizer";
 import { getSubmissionById, type SubmissionResult } from "@/app/actions/consultar-formatos";
+import { getStandardObservations, type StandardObservation } from "@/app/gestion-observaciones/actions";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -168,6 +169,7 @@ const observationSchema = z.object({
   type: z.string().min(1, "Debe seleccionar un tipo de observación."),
   customType: z.string().optional(),
   quantity: z.coerce.number({invalid_type_error: "La cantidad debe ser un número."}).min(0, "La cantidad no puede ser negativa.").optional(),
+  quantityType: z.string().optional(),
   executedByGrupoRosales: z.boolean().default(false),
 }).refine(data => {
     if (data.type === 'Otra' && !data.customType?.trim()) {
@@ -252,7 +254,6 @@ const originalDefaultValues: FormValues = {
 // Mock data
 const coordinadores = ["Cristian Acuña", "Sergio Padilla"];
 const presentaciones = ["Cajas", "Sacos", "Canastillas"];
-const observationTypes = ["Restibado", "Otra"];
 
 // Attachment Constants
 const MAX_ATTACHMENTS = 30;
@@ -424,6 +425,7 @@ export default function VariableWeightFormComponent() {
   const [isLoadingForm, setIsLoadingForm] = useState(!!submissionId);
   const [originalSubmission, setOriginalSubmission] = useState<SubmissionResult | null>(null);
   const [isMixErrorDialogOpen, setMixErrorDialogOpen] = useState(false);
+  const [standardObservations, setStandardObservations] = useState<StandardObservation[]>([]);
 
 
   const filteredClients = useMemo(() => {
@@ -557,10 +559,7 @@ export default function VariableWeightFormComponent() {
         setAttachments(originalSubmission.attachmentUrls);
     } else {
         // In new form mode, reset to blank
-        form.reset({
-            ...originalDefaultValues,
-            aplicaCuadrilla: undefined,
-        });
+        form.reset(originalDefaultValues);
         setAttachments([]);
     }
     setDiscardAlertOpen(false);
@@ -633,11 +632,16 @@ export default function VariableWeightFormComponent() {
   };
 
   useEffect(() => {
-    const fetchClients = async () => {
-        const clientList = await getClients();
-        setClientes(clientList);
+    const fetchClientsAndObs = async () => {
+      const [clientList, obsList] = await Promise.all([
+        getClients(),
+        getStandardObservations()
+      ]);
+      setClientes(clientList);
+      setStandardObservations(obsList);
     };
-    fetchClients();
+    fetchClientsAndObs();
+
     if (!submissionId) {
         form.reset(originalDefaultValues);
     }
@@ -1350,7 +1354,10 @@ export default function VariableWeightFormComponent() {
                     <div>
                         <Label>Observaciones</Label>
                         <div className="space-y-4 mt-2">
-                            {observationFields.map((field, index) => (
+                            {observationFields.map((field, index) => {
+                                const selectedObservation = watchedObservations?.[index];
+                                const stdObsData = standardObservations.find(obs => obs.name === selectedObservation?.type);
+                                return (
                                 <div key={field.id} className="p-4 border rounded-lg relative bg-white space-y-4">
                                     <Button
                                         type="button"
@@ -1368,23 +1375,28 @@ export default function VariableWeightFormComponent() {
                                             render={({ field }) => (
                                                 <FormItem>
                                                     <FormLabel>Tipo de Observación</FormLabel>
-                                                    <Select onValueChange={field.onChange} defaultValue={field.value}>
+                                                    <Select onValueChange={(value) => {
+                                                      const selectedStdObs = standardObservations.find(obs => obs.name === value);
+                                                      field.onChange(value);
+                                                      form.setValue(`observaciones.${index}.quantityType`, selectedStdObs?.quantityType);
+                                                    }} value={field.value}>
                                                         <FormControl>
                                                             <SelectTrigger>
                                                                 <SelectValue placeholder="Seleccione un tipo" />
                                                             </SelectTrigger>
                                                         </FormControl>
                                                         <SelectContent>
-                                                            {observationTypes.map(type => (
-                                                                <SelectItem key={type} value={type}>{type}</SelectItem>
+                                                            {standardObservations.map(obs => (
+                                                                <SelectItem key={obs.id} value={obs.name}>{obs.name}</SelectItem>
                                                             ))}
+                                                            <SelectItem value="Otra">Otra</SelectItem>
                                                         </SelectContent>
                                                     </Select>
                                                     <FormMessage />
                                                 </FormItem>
                                             )}
                                         />
-                                        {watchedObservations?.[index]?.type === 'Otra' ? (
+                                        {selectedObservation?.type === 'Otra' ? (
                                             <FormField
                                                 control={form.control}
                                                 name={`observaciones.${index}.customType`}
@@ -1405,9 +1417,9 @@ export default function VariableWeightFormComponent() {
                                                 name={`observaciones.${index}.quantity`}
                                                 render={({ field }) => (
                                                     <FormItem>
-                                                        <FormLabel>Cantidad</FormLabel>
+                                                        <FormLabel>Cantidad ({stdObsData?.quantityType || 'N/A'})</FormLabel>
                                                         <FormControl>
-                                                            <Input type="number" placeholder="Paletas/Unidades" {...field} />
+                                                            <Input type="number" placeholder="0" {...field} />
                                                         </FormControl>
                                                         <FormMessage />
                                                     </FormItem>
@@ -1436,11 +1448,11 @@ export default function VariableWeightFormComponent() {
                                         )}
                                     </div>
                                 </div>
-                            ))}
+                            )})}
                             <Button
                                 type="button"
                                 variant="outline"
-                                onClick={() => appendObservation({ type: '', quantity: 0, executedByGrupoRosales: false, customType: '' })}
+                                onClick={() => appendObservation({ type: '', quantity: 0, executedByGrupoRosales: false, customType: '', quantityType: '' })}
                                 className="mt-4"
                             >
                                 <PlusCircle className="mr-2 h-4 w-4" />
