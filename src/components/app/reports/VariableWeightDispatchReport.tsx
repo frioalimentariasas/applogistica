@@ -266,7 +266,7 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                                 <tr key={i} style={{ borderBottom: '1px solid #ddd' }}>
                                     {isOther ? (
                                         <td style={{ padding: '4px', width: '100%' }} colSpan={3}>
-                                            <strong>{`OTRAS OBSERVACIONES: ${obs.customType}`}</strong>
+                                            <strong>OTRAS OBSERVACIONES: </strong>{obs.customType}
                                         </td>
                                     ) : (
                                         <>
@@ -274,7 +274,7 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                                                 <strong>{obs.type}</strong>
                                             </td>
                                             <td style={{ textAlign: 'right', padding: '4px' }}>
-                                                {`${obs.quantity ?? 'N/A'} ${obs.quantityType || ''}`.trim()}
+                                                {`${obs.quantity ?? ''} ${obs.quantityType || ''}`.trim()}
                                             </td>
                                             <td style={{ padding: '4px' }}>
                                                 {obs.executedByGrupoRosales ? 'Sí' : 'No'}

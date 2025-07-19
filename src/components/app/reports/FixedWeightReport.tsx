@@ -101,7 +101,7 @@ export function FixedWeightReport({ formData, userDisplayName, attachments, form
                         </tr>
                          <tr>
                             <td style={fieldCellStyle}><ReportField label="Doc. Transp." value={formData.documentoTransporte} /></td>
-                            <td style={fieldCellStyle}>
+                            <td style={fieldCellStyle} colSpan={isReception ? 1 : 2}>
                                 <ReportField label="Factura/Remisión" value={formData.facturaRemision} />
                             </td>
                             {isReception && (
@@ -192,7 +192,7 @@ export function FixedWeightReport({ formData, userDisplayName, attachments, form
                                 <tr key={i} style={{ borderBottom: '1px solid #ddd' }}>
                                     {isOther ? (
                                         <td style={{ padding: '4px', width: '100%' }} colSpan={3}>
-                                            <strong>{`OTRAS OBSERVACIONES: ${obs.customType}`}</strong>
+                                            <strong>OTRAS OBSERVACIONES: </strong>{obs.customType}
                                         </td>
                                     ) : (
                                         <>
@@ -200,7 +200,7 @@ export function FixedWeightReport({ formData, userDisplayName, attachments, form
                                                 <strong>{obs.type}</strong>
                                             </td>
                                             <td style={{ textAlign: 'right', padding: '4px' }}>
-                                                {`${obs.quantity ?? 'N/A'} ${obs.quantityType || ''}`.trim()}
+                                                {`${obs.quantity ?? ''} ${obs.quantityType || ''}`.trim()}
                                             </td>
                                             <td style={{ padding: '4px' }}>
                                                 {obs.executedByGrupoRosales ? 'Sí' : 'No'}

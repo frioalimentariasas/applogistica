@@ -281,16 +281,16 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         const isOther = obs.type === 'OTRAS OBSERVACIONES';
                         if (isOther) {
                             return [{ 
-                                content: `OTRAS OBSERVACIONES: ${obs.customType || ''}`,
+                                content: [{text: "OTRAS OBSERVACIONES: ", styles: {fontStyle: 'bold'}}, {text: obs.customType || ''}],
                                 colSpan: 3,
-                                styles: { fontStyle: 'bold' } 
+                                styles: { fontStyle: 'normal' } 
                             }];
                         } else {
-                            const typeText = obs.type;
+                            const typeText = { content: obs.type, styles: { fontStyle: 'bold' } };
                             const quantityText = `${obs.quantity ?? ''} ${obs.quantityType || ''}`.trim();
                             const executedText = obs.executedByGrupoRosales ? 'Sí' : 'No';
                             return [
-                                { content: typeText, styles: { fontStyle: 'bold' } },
+                                typeText,
                                 { content: quantityText, styles: { halign: 'right' } },
                                 { content: executedText }
                             ];
@@ -330,11 +330,8 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
             if (formType.startsWith('fixed-weight-')) {
                 const isReception = formType.includes('recepcion');
                 const operationTerm = isReception ? 'Descargue' : 'Cargue';
-    
-                autoTable(doc, {
-                    startY: yPos,
-                    head: [[{ content: 'Información General', colSpan: 6, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]],
-                    body: [
+                
+                const generalInfoBody = [
                         [
                             {content: 'Pedido SISLOG:', styles: {fontStyle: 'bold'}},
                             formData.pedidoSislog || 'N/A',
@@ -358,8 +355,13 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             formData.facturaRemision || 'N/A',
                             isReception ? {content: 'Tipo Pedido:', styles: {fontStyle: 'bold'}} : {content: '', styles: {}},
                             isReception ? `${formData.tipoPedido || 'N/A'}${formData.tipoPedido === 'MAQUILA' ? ` (${formData.tipoEmpaqueMaquila || 'N/A'})` : ''}` : {content: '', styles: {}}
-                        ],
-                    ].filter(row => row.length > 0 && row.some(cell => typeof cell === 'string' ? cell.length > 0 : (cell as any).content.length > 0)), // Filter out empty array for non-reception and all empty content
+                        ]
+                ];
+
+                autoTable(doc, {
+                    startY: yPos,
+                    head: [[{ content: 'Información General', colSpan: 6, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]],
+                    body: generalInfoBody.filter(row => row.length > 0 && row.some(cell => typeof cell === 'string' ? cell.length > 0 : (cell as any).content.length > 0)), // Filter out empty array for non-reception and all empty content
                     theme: 'grid', 
                     styles: { fontSize: 8, cellPadding: 4, valign: 'middle' },
                     columnStyles: {
@@ -371,8 +373,6 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 });
                 yPos = (doc as any).autoTable.previous.finalY + 15;
     
-                const hasPesoNetoKg = formData.productos.some((p: any) => p.pesoNetoKg != null && !isNaN(Number(p.pesoNetoKg)));
-
                 const productHead = [['Código', 'Descripción', 'No. Cajas', 'Total Paletas', 'Peso Neto (kg)', 'Temp(°C)']];
                 
                 const productBody = formData.productos.map((p: any) => {
