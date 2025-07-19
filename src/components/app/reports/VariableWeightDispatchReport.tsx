@@ -249,9 +249,32 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                 </ReportSection>
             )}
 
-            {formData.observaciones && (
-                <ReportSection title="Observaciones">
-                    <p style={{ fontSize: '11px', margin: 0 }}>{formData.observaciones}</p>
+            {formData.observaciones && formData.observaciones.length > 0 && (
+                 <ReportSection title="Observaciones">
+                    <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse' }}>
+                        <thead>
+                            <tr style={{ borderBottom: '1px solid #aaa' }}>
+                                <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Tipo</th>
+                                <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Cantidad</th>
+                                <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Ejecutado por Grupo Rosales</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {formData.observaciones.map((obs: any, i: number) => (
+                                <tr key={i} style={{ borderBottom: '1px solid #ddd' }}>
+                                    <td style={{ padding: '4px', width: '60%' }}>
+                                        {obs.type === 'Otra' ? `Otra: ${obs.customType || ''}` : obs.type}
+                                    </td>
+                                    <td style={{ textAlign: 'right', padding: '4px' }}>
+                                        {obs.type !== 'Otra' ? `${obs.quantity ?? 'N/A'} ${obs.quantityType || ''}`.trim() : 'N/A'}
+                                    </td>
+                                    <td style={{ padding: '4px' }}>
+                                        {obs.type !== 'Otra' ? (obs.executedByGrupoRosales ? 'Sí' : 'No') : 'N/A'}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 </ReportSection>
             )}
 

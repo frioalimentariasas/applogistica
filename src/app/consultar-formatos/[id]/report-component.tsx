@@ -274,6 +274,44 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     doc.text(`Página ${i} de ${pageCount}`, pageWidth - margin, pageHeight - 20, { align: 'right' });
                 }
             };
+            
+            const addObservationsTable = () => {
+                if (formData.observaciones && formData.observaciones.length > 0) {
+                    const obsHead = [['Tipo de Observación', 'Cantidad', 'Ejecutado por Grupo Rosales']];
+                    const obsBody = formData.observaciones.map((obs: any) => {
+                        const type = obs.type === 'Otra' ? `Otra: ${obs.customType || ''}` : obs.type;
+                        const quantity = obs.type !== 'Otra' ? `${obs.quantity ?? ''} ${obs.quantityType || ''}`.trim() : 'N/A';
+                        const executed = obs.type !== 'Otra' ? (obs.executedByGrupoRosales ? 'Sí' : 'No') : 'N/A';
+                        return [type, quantity, executed];
+                    });
+
+                    autoTable(doc, {
+                        startY: yPos,
+                        head: [[{ content: 'Observaciones', colSpan: 3, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]],
+                        body: [],
+                        theme: 'grid',
+                        margin: { horizontal: margin },
+                        styles: { fontSize: 8, cellPadding: 4 },
+                    });
+                    
+                    autoTable(doc, {
+                        startY: (doc as any).autoTable.previous.finalY,
+                        head: obsHead,
+                        body: obsBody,
+                        theme: 'grid',
+                        margin: { horizontal: margin },
+                        styles: { fontSize: 8, cellPadding: 4, valign: 'middle' },
+                        headStyles: { fillColor: '#f8fafc', textColor: '#334155' },
+                        columnStyles: {
+                            0: { cellWidth: '*' },
+                            1: { cellWidth: 'auto', halign: 'right' },
+                            2: { cellWidth: 'auto', halign: 'center' },
+                        },
+                    });
+
+                    yPos = (doc as any).autoTable.previous.finalY + 15;
+                }
+            };
     
             addHeader(getReportTitle());
     
@@ -422,10 +460,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 });
                 yPos = (doc as any).autoTable.previous.finalY + 15;
     
-                if (formData.observaciones) {
-                    autoTable(doc, { startY: yPos, margin: { horizontal: margin }, head: [[{ content: 'Observaciones', styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]], body: [[formData.observaciones]], theme: 'grid', styles: { fontSize: 8, cellPadding: 4 } });
-                    yPos = (doc as any).autoTable.previous.finalY + 15;
-                }
+                addObservationsTable();
     
                 autoTable(doc, { 
                     startY: yPos, 
@@ -647,10 +682,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     yPos = (doc as any).autoTable.previous.finalY + 15;
                 }
 
-                 if (formData.observaciones) {
-                    autoTable(doc, { startY: yPos, margin: { horizontal: margin }, head: [[{ content: 'Observaciones', styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]], body: [[formData.observaciones]], theme: 'grid', styles: { fontSize: 8, cellPadding: 4 } });
-                    yPos = (doc as any).autoTable.previous.finalY + 15;
-                }
+                 addObservationsTable();
     
                 autoTable(doc, { 
                     startY: yPos, 
