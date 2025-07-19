@@ -281,7 +281,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         const isOther = obs.type === 'OTRAS OBSERVACIONES';
                         if (isOther) {
                             return [{ 
-                                content: 'OTRAS OBSERVACIONES: ' + (obs.customType || ''),
+                                content: `OTRAS OBSERVACIONES: ${obs.customType || ''}`,
                                 colSpan: 3,
                                 styles: { halign: 'left', fontStyle: 'normal' }
                             }];
@@ -353,10 +353,21 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             formData.documentoTransporte || 'N/A',
                             {content: 'Factura/Remisión:', styles: {fontStyle: 'bold'}},
                             formData.facturaRemision || 'N/A',
-                            {content: 'Tipo Pedido:', styles: {fontStyle: 'bold'}},
-                            `${formData.tipoPedido || 'N/A'}${formData.tipoPedido === 'MAQUILA' ? ` (${formData.tipoEmpaqueMaquila || 'N/A'})` : ''}`
+                            {content: !isReception ? 'Tipo Pedido:' : '', styles: {fontStyle: 'bold'}},
+                            !isReception ? formData.tipoPedido || 'N/A' : ''
                         ]
                 ];
+                
+                if (isReception) {
+                    generalInfoBody.push([
+                         {
+                            content: `Tipo Pedido: ${formData.tipoPedido || 'N/A'}${formData.tipoPedido === 'MAQUILA' ? ` (${formData.tipoEmpaqueMaquila || 'N/A'})` : ''}`,
+                            styles: {fontStyle: 'bold'},
+                            colSpan: 6
+                        }
+                    ]);
+                }
+
 
                 autoTable(doc, {
                     startY: yPos,
@@ -787,7 +798,6 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
 
         switch (submission.formType) {
             case 'fixed-weight-recepcion':
-                return <FixedWeightReport {...props} formType={submission.formType} />;
             case 'fixed-weight-despacho':
                  return <FixedWeightReport {...props} formType={submission.formType} />;
             case 'variable-weight-despacho':

@@ -266,12 +266,12 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                                 <tr key={i} style={{ borderBottom: '1px solid #ddd' }}>
                                     {isOther ? (
                                         <td style={{ padding: '4px', width: '100%' }} colSpan={3}>
-                                            <strong>OTRAS OBSERVACIONES: </strong>{obs.customType}
+                                            <span style={{ fontWeight: 'bold' }}>OTRAS OBSERVACIONES: </span>{obs.customType}
                                         </td>
                                     ) : (
                                         <>
                                             <td style={{ padding: '4px', width: '60%' }}>
-                                                <strong>{obs.type}</strong>
+                                                <strong style={{fontWeight: 'bold'}}>{obs.type}</strong>
                                             </td>
                                             <td style={{ textAlign: 'right', padding: '4px' }}>
                                                 {`${obs.quantity ?? ''} ${obs.quantityType || ''}`.trim()}
