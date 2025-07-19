@@ -29,7 +29,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 const EmptyState = ({ searched }: { searched: boolean; }) => (
     <TableRow>
-        <TableCell colSpan={8} className="py-20 text-center">
+        <TableCell colSpan={9} className="py-20 text-center">
             <div className="flex flex-col items-center gap-4">
                 <div className="rounded-full bg-primary/10 p-4">
                     <FolderSearch className="h-12 w-12 text-primary" />
@@ -257,6 +257,7 @@ export default function CrewPerformanceReportPage() {
             'Operario Responsable': row.operario,
             'Cliente': row.cliente,
             'Tipo Operación': row.tipoOperacion,
+            'Pedido SISLOG': row.pedidoSislog,
             'Kilos Totales': row.kilos.toFixed(2),
             'Hora Inicio': formatTime12Hour(row.horaInicio),
             'Hora Fin': formatTime12Hour(row.horaFin),
@@ -267,7 +268,8 @@ export default function CrewPerformanceReportPage() {
             'Fecha': '',
             'Operario Responsable': '',
             'Cliente': '',
-            'Tipo Operación': 'TOTALES:',
+            'Tipo Operación': '',
+            'Pedido SISLOG': 'TOTALES:',
             'Kilos Totales': totalKilos.toFixed(2),
             'Hora Inicio': '',
             'Hora Fin': '',
@@ -305,12 +307,13 @@ export default function CrewPerformanceReportPage() {
 
         autoTable(doc, {
             startY: titleY + 15,
-            head: [['Fecha', 'Operario', 'Cliente', 'Tipo Op.', 'Kilos', 'H. Inicio', 'H. Fin', 'Duración']],
+            head: [['Fecha', 'Operario', 'Cliente', 'Tipo Op.', 'Pedido', 'Kilos', 'H. Inicio', 'H. Fin', 'Duración']],
             body: reportData.map(row => [
                 format(new Date(row.fecha), 'dd/MM/yy'),
                 row.operario,
                 row.cliente,
                 row.tipoOperacion,
+                row.pedidoSislog,
                 row.kilos.toFixed(2),
                 formatTime12Hour(row.horaInicio),
                 formatTime12Hour(row.horaFin),
@@ -318,7 +321,7 @@ export default function CrewPerformanceReportPage() {
             ]),
             foot: [
                 [
-                    { content: 'TOTALES:', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold' } }, 
+                    { content: 'TOTALES:', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold' } }, 
                     { content: totalKilos.toFixed(2), styles: { halign: 'left', fontStyle: 'bold' } },
                     '', '',
                     { content: formatDuration(totalDuration), styles: { halign: 'left', fontStyle: 'bold' } }
@@ -471,6 +474,7 @@ export default function CrewPerformanceReportPage() {
                                         <TableHead>Operario</TableHead>
                                         <TableHead>Cliente</TableHead>
                                         <TableHead>Tipo Op.</TableHead>
+                                        <TableHead>Pedido SISLOG</TableHead>
                                         <TableHead className="text-right">Kilos</TableHead>
                                         <TableHead>H. Inicio</TableHead>
                                         <TableHead>H. Fin</TableHead>
@@ -479,7 +483,7 @@ export default function CrewPerformanceReportPage() {
                                 </TableHeader>
                                 <TableBody>
                                     {isLoading ? (
-                                        <TableRow><TableCell colSpan={8}><Skeleton className="h-20 w-full" /></TableCell></TableRow>
+                                        <TableRow><TableCell colSpan={9}><Skeleton className="h-20 w-full" /></TableCell></TableRow>
                                     ) : displayedData.length > 0 ? (
                                         displayedData.map((row) => (
                                             <TableRow key={row.id}>
@@ -487,6 +491,7 @@ export default function CrewPerformanceReportPage() {
                                                 <TableCell>{row.operario}</TableCell>
                                                 <TableCell className="max-w-[150px] truncate" title={row.cliente}>{row.cliente}</TableCell>
                                                 <TableCell>{row.tipoOperacion}</TableCell>
+                                                <TableCell>{row.pedidoSislog}</TableCell>
                                                 <TableCell className="text-right font-mono">{row.kilos.toFixed(2)}</TableCell>
                                                 <TableCell>{formatTime12Hour(row.horaInicio)}</TableCell>
                                                 <TableCell>{formatTime12Hour(row.horaFin)}</TableCell>
