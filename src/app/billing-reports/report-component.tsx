@@ -1216,11 +1216,15 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                 <TableHead>Fecha</TableHead>
                                                 <TableHead>Op. Logística</TableHead>
                                                 <TableHead>Duración</TableHead>
+                                                <TableHead>Hora Inicio</TableHead>
+                                                <TableHead>Hora Fin</TableHead>
+                                                <TableHead>Placa Vehículo</TableHead>
+                                                <TableHead>No. Contenedor</TableHead>
                                                 <TableHead>Cliente</TableHead>
                                                 <TableHead>Tipo Operación</TableHead>
                                                 <TableHead>Tipo Pedido</TableHead>
                                                 <TableHead>Tipo Empaque</TableHead>
-                                                <TableHead>No. Pedido</TableHead>
+                                                <TableHead>No. Pedido (SISLOG)</TableHead>
                                                 <TableHead>Op. Cuadrilla</TableHead>
                                                 <TableHead>No. Operarios</TableHead>
                                                 <TableHead>Total Paletas</TableHead>
@@ -1229,13 +1233,17 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                         </TableHeader>
                                         <TableBody>
                                             {isDetailedReportLoading ? (
-                                                <TableRow><TableCell colSpan={12}><Skeleton className="h-20 w-full" /></TableCell></TableRow>
+                                                <TableRow><TableCell colSpan={16}><Skeleton className="h-20 w-full" /></TableCell></TableRow>
                                             ) : detailedReportData.length > 0 ? (
                                                 detailedReportData.map((row) => (
                                                     <TableRow key={row.id}>
                                                         <TableCell>{format(new Date(row.fecha), 'dd/MM/yyyy')}</TableCell>
                                                         <TableCell>{row.operacionLogistica}</TableCell>
                                                         <TableCell>{formatDuration(row.duracionMinutos)}</TableCell>
+                                                        <TableCell>{formatTime12Hour(row.horaInicio)}</TableCell>
+                                                        <TableCell>{formatTime12Hour(row.horaFin)}</TableCell>
+                                                        <TableCell>{row.placa}</TableCell>
+                                                        <TableCell>{row.contenedor}</TableCell>
                                                         <TableCell>{row.cliente}</TableCell>
                                                         <TableCell>{row.tipoOperacion}</TableCell>
                                                         <TableCell>{row.tipoPedido}</TableCell>
