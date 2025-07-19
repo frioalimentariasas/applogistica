@@ -190,13 +190,13 @@ export function FixedWeightReport({ formData, userDisplayName, attachments, form
                             {formData.observaciones.map((obs: any, i: number) => (
                                 <tr key={i} style={{ borderBottom: '1px solid #ddd' }}>
                                     <td style={{ padding: '4px', width: '60%' }}>
-                                        {obs.type === 'Otra' ? `Otra: ${obs.customType}` : obs.type}
+                                        {obs.type === 'OTRAS OBSERVACIONES' ? `OTRAS OBSERVACIONES: ${obs.customType}` : obs.type}
                                     </td>
                                     <td style={{ textAlign: 'right', padding: '4px' }}>
-                                        {obs.type !== 'Otra' ? `${obs.quantity ?? 'N/A'} ${obs.quantityType || ''}`.trim() : 'N/A'}
+                                        {obs.type !== 'OTRAS OBSERVACIONES' ? `${obs.quantity ?? 'N/A'} ${obs.quantityType || ''}`.trim() : 'N/A'}
                                     </td>
                                     <td style={{ padding: '4px' }}>
-                                        {obs.type !== 'Otra' ? (obs.executedByGrupoRosales ? 'Sí' : 'No') : 'N/A'}
+                                        {obs.type !== 'OTRAS OBSERVACIONES' ? (obs.executedByGrupoRosales ? 'Sí' : 'No') : 'N/A'}
                                     </td>
                                 </tr>
                             ))}

@@ -125,12 +125,12 @@ const observationSchema = z.object({
   quantityType: z.string().optional(),
   executedByGrupoRosales: z.boolean().default(false),
 }).refine(data => {
-    if (data.type === 'Otra' && !data.customType?.trim()) {
+    if (data.type === 'OTRAS OBSERVACIONES' && !data.customType?.trim()) {
         return false;
     }
     return true;
 }, {
-    message: "La descripción para 'Otra' observación es obligatoria.",
+    message: "La descripción para 'OTRAS OBSERVACIONES' es obligatoria.",
     path: ['customType']
 });
 
@@ -257,7 +257,7 @@ export default function VariableWeightReceptionFormComponent() {
   const [standardObservations, setStandardObservations] = useState<StandardObservation[]>([]);
 
   const filteredClients = useMemo(() => {
-    if (!clientSearch) return clientes;
+    if (!clientSearch) return clients;
     return clientes.filter(c => c.razonSocial.toLowerCase().includes(clientSearch.toLowerCase()));
   }, [clientSearch, clientes]);
   
@@ -328,7 +328,7 @@ export default function VariableWeightReceptionFormComponent() {
         }
         form.reset({
             ...formData,
-            aplicaCuadrilla: formData.aplicaCuadrilla || undefined,
+            aplicaCuadrilla: undefined,
         });
         setAttachments(originalSubmission.attachmentUrls);
     } else {
@@ -1293,14 +1293,14 @@ export default function VariableWeightReceptionFormComponent() {
                                                             {standardObservations.map(obs => (
                                                                 <SelectItem key={obs.id} value={obs.name}>{obs.name}</SelectItem>
                                                             ))}
-                                                            <SelectItem value="Otra">Otra</SelectItem>
+                                                            <SelectItem value="OTRAS OBSERVACIONES">OTRAS OBSERVACIONES</SelectItem>
                                                         </SelectContent>
                                                     </Select>
                                                     <FormMessage />
                                                 </FormItem>
                                             )}
                                         />
-                                        {selectedObservation?.type === 'Otra' ? (
+                                        {selectedObservation?.type === 'OTRAS OBSERVACIONES' ? (
                                             <FormField
                                                 control={form.control}
                                                 name={`observaciones.${index}.customType`}
