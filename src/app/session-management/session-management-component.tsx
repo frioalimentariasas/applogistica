@@ -45,6 +45,7 @@ import { ArrowLeft, RefreshCw, ShieldAlert, ShieldCheck, UserX, Loader2, KeyRoun
 import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 const AccessDenied = () => (
     <div className="flex flex-col items-center justify-center text-center gap-4">
@@ -455,28 +456,30 @@ export default function SessionManagementComponent() {
                     </DialogHeader>
                     <Form {...permissionsForm}>
                         <form onSubmit={permissionsForm.handleSubmit(handleSavePermissions)}>
-                            <div className="space-y-4 py-4">
-                                {permissionLabels.map(({ key, label }) => (
-                                    <Controller
-                                        key={key}
-                                        name={key}
-                                        control={permissionsForm.control}
-                                        render={({ field }) => (
-                                            <div className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                                                <div className="space-y-0.5">
-                                                    <Label htmlFor={key} className="text-base">{label}</Label>
+                            <ScrollArea className="max-h-[50vh] pr-6">
+                                <div className="space-y-4 py-4">
+                                    {permissionLabels.map(({ key, label }) => (
+                                        <Controller
+                                            key={key}
+                                            name={key}
+                                            control={permissionsForm.control}
+                                            render={({ field }) => (
+                                                <div className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                                                    <div className="space-y-0.5">
+                                                        <Label htmlFor={key} className="text-base">{label}</Label>
+                                                    </div>
+                                                    <Checkbox
+                                                        id={key}
+                                                        checked={field.value}
+                                                        onCheckedChange={field.onChange}
+                                                    />
                                                 </div>
-                                                <Checkbox
-                                                    id={key}
-                                                    checked={field.value}
-                                                    onCheckedChange={field.onChange}
-                                                />
-                                            </div>
-                                        )}
-                                    />
-                                ))}
-                            </div>
-                            <DialogFooter>
+                                            )}
+                                        />
+                                    ))}
+                                </div>
+                            </ScrollArea>
+                            <DialogFooter className="pt-4">
                                 <Button type="button" variant="outline" onClick={() => setIsPermissionsDialogOpen(false)}>Cancelar</Button>
                                 <Button type="submit" disabled={isSavingPermissions}>
                                     {isSavingPermissions && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
