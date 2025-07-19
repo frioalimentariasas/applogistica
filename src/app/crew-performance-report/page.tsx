@@ -247,7 +247,7 @@ export default function CrewPerformanceReportPage() {
     };
 
     const totalDuration = useMemo(() => reportData.reduce((acc, row) => acc + (row.duracionMinutos || 0), 0), [reportData]);
-    const totalKilos = useMemo(() => reportData.reduce((acc, row) => acc + (row.kilos || 0), 0), [reportData]);
+    const totalToneladas = useMemo(() => reportData.reduce((acc, row) => acc + (row.kilos || 0), 0) / 1000, [reportData]);
     
     const handleExportExcel = () => {
         if (reportData.length === 0) return;
@@ -258,7 +258,7 @@ export default function CrewPerformanceReportPage() {
             'Cliente': row.cliente,
             'Tipo Operación': row.tipoOperacion,
             'Pedido SISLOG': row.pedidoSislog,
-            'Kilos Totales': row.kilos.toFixed(2),
+            'Toneladas': (row.kilos / 1000).toFixed(3),
             'Hora Inicio': formatTime12Hour(row.horaInicio),
             'Hora Fin': formatTime12Hour(row.horaFin),
             'Duración': formatDuration(row.duracionMinutos),
@@ -270,7 +270,7 @@ export default function CrewPerformanceReportPage() {
             'Cliente': '',
             'Tipo Operación': '',
             'Pedido SISLOG': 'TOTALES:',
-            'Kilos Totales': totalKilos.toFixed(2),
+            'Toneladas': totalToneladas.toFixed(3),
             'Hora Inicio': '',
             'Hora Fin': '',
             'Duración': formatDuration(totalDuration)
@@ -307,14 +307,14 @@ export default function CrewPerformanceReportPage() {
 
         autoTable(doc, {
             startY: titleY + 15,
-            head: [['Fecha', 'Operario', 'Cliente', 'Tipo Op.', 'Pedido', 'Kilos', 'H. Inicio', 'H. Fin', 'Duración']],
+            head: [['Fecha', 'Operario', 'Cliente', 'Tipo Op.', 'Pedido', 'Toneladas', 'H. Inicio', 'H. Fin', 'Duración']],
             body: reportData.map(row => [
                 format(new Date(row.fecha), 'dd/MM/yy'),
                 row.operario,
                 row.cliente,
                 row.tipoOperacion,
                 row.pedidoSislog,
-                row.kilos.toFixed(2),
+                (row.kilos / 1000).toFixed(3),
                 formatTime12Hour(row.horaInicio),
                 formatTime12Hour(row.horaFin),
                 formatDuration(row.duracionMinutos)
@@ -322,7 +322,7 @@ export default function CrewPerformanceReportPage() {
             foot: [
                 [
                     { content: 'TOTALES:', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold' } }, 
-                    { content: totalKilos.toFixed(2), styles: { halign: 'left', fontStyle: 'bold' } },
+                    { content: totalToneladas.toFixed(3), styles: { halign: 'left', fontStyle: 'bold' } },
                     '', '',
                     { content: formatDuration(totalDuration), styles: { halign: 'left', fontStyle: 'bold' } }
                 ]
@@ -475,7 +475,7 @@ export default function CrewPerformanceReportPage() {
                                         <TableHead>Cliente</TableHead>
                                         <TableHead>Tipo Op.</TableHead>
                                         <TableHead>Pedido SISLOG</TableHead>
-                                        <TableHead className="text-right">Kilos</TableHead>
+                                        <TableHead className="text-right">Toneladas</TableHead>
                                         <TableHead>H. Inicio</TableHead>
                                         <TableHead>H. Fin</TableHead>
                                         <TableHead className="text-right">Duración</TableHead>
@@ -492,7 +492,7 @@ export default function CrewPerformanceReportPage() {
                                                 <TableCell className="max-w-[150px] truncate" title={row.cliente}>{row.cliente}</TableCell>
                                                 <TableCell>{row.tipoOperacion}</TableCell>
                                                 <TableCell>{row.pedidoSislog}</TableCell>
-                                                <TableCell className="text-right font-mono">{row.kilos.toFixed(2)}</TableCell>
+                                                <TableCell className="text-right font-mono">{(row.kilos / 1000).toFixed(3)}</TableCell>
                                                 <TableCell>{formatTime12Hour(row.horaInicio)}</TableCell>
                                                 <TableCell>{formatTime12Hour(row.horaFin)}</TableCell>
                                                 <TableCell className="text-right font-medium">{formatDuration(row.duracionMinutos)}</TableCell>
