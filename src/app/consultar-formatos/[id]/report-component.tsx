@@ -336,7 +336,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 const isReception = formType.includes('recepcion');
                 const operationTerm = isReception ? 'Descargue' : 'Cargue';
                 
-                const generalInfoBody = [
+                const generalInfoBody: any[] = [
                         [
                             {content: 'Pedido SISLOG:', styles: {fontStyle: 'bold'}},
                             formData.pedidoSislog || 'N/A',
@@ -485,7 +485,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             {content: 'Operario:', styles: {fontStyle: 'bold'}},
                             userDisplayName || 'N/A',
                              {content: 'Operación Realizada por Cuadrilla:', styles: {fontStyle: 'bold'}},
-                            `${formData.aplicaCuadrilla ? formData.aplicaCuadrilla.charAt(0).toUpperCase() + formData.aplicaCuadrilla.slice(1) : 'N/A'}${formData.aplicaCuadrilla === 'si' && formData.tipoPedido === 'MAQUILA' && formData.numeroOperariosCuadrilla ? ` (${formData.numeroOperariosCuadrilla} operarios)`: ''}`
+                            `${formData.aplicaCuadrilla ? formData.aplicaCuadrilla.charAt(0).toUpperCase() + formData.aplicaCuadrilla.slice(1) : 'N/A'}${formData.aplicaCuadrilla === 'si' && isReception && formData.tipoPedido === 'MAQUILA' && formData.numeroOperariosCuadrilla ? ` (${formData.numeroOperariosCuadrilla} operarios)`: ''}`
                         ],
                     ].filter(row => row.length > 0 && row.some(cell => typeof cell === 'string' ? cell.length > 0 : (cell as any).content.length > 0)),
                     theme: 'grid', 
@@ -503,7 +503,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                  const isReception = formType.includes('recepcion') || formType.includes('reception');
                  const operationTerm = isReception ? 'Descargue' : 'Cargue';
                  
-                 const generalInfoBody = [
+                 const generalInfoBody: any[][] = [
                      [
                         {content: 'Pedido SISLOG:', styles: {fontStyle: 'bold'}}, formData.pedidoSislog || 'N/A',
                         {content: 'Cliente:', styles: {fontStyle: 'bold'}}, formData.cliente || 'N/A',
@@ -514,11 +514,11 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         {content: 'Cédula:', styles: {fontStyle: 'bold'}}, formData.cedulaConductor || 'N/A',
                         {content: 'Placa:', styles: {fontStyle: 'bold'}}, formData.placa || 'N/A'
                      ],
-                     [
+                      [
                         {content: 'Precinto:', styles: {fontStyle: 'bold'}}, formData.precinto || 'N/A',
                         {content: 'Set Point (°C):', styles: {fontStyle: 'bold'}}, formatOptionalNumber(formData.setPoint),
                         {content: 'Contenedor:', styles: {fontStyle: 'bold'}}, formData.contenedor || 'N/A'
-                     ],
+                      ],
                       [
                         {content: `H. Inicio ${operationTerm}:`, styles: {fontStyle: 'bold'}}, formatTime12Hour(formData.horaInicio),
                         {content: `H. Fin ${operationTerm}:`, styles: {fontStyle: 'bold'}}, formatTime12Hour(formData.horaFin),

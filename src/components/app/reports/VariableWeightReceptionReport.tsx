@@ -238,12 +238,12 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                                 <tr key={i} style={{ borderBottom: '1px solid #ddd' }}>
                                     {isOther ? (
                                         <td style={{ padding: '4px', width: '100%' }} colSpan={3}>
-                                            <strong>OTRAS OBSERVACIONES: </strong>{obs.customType}
+                                            <strong style={{fontWeight: 'bold'}}>OTRAS OBSERVACIONES: </strong>{obs.customType}
                                         </td>
                                     ) : (
                                         <>
                                             <td style={{ padding: '4px', width: '60%' }}>
-                                                <strong>{obs.type}</strong>
+                                                <strong style={{fontWeight: 'bold'}}>{obs.type}</strong>
                                             </td>
                                             <td style={{ textAlign: 'right', padding: '4px' }}>
                                                 {`${obs.quantity ?? ''} ${obs.quantityType || ''}`.trim()}
