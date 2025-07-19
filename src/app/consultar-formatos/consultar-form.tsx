@@ -82,6 +82,7 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
         pedidoSislog: '',
         nombreCliente: '',
         operationType: undefined,
+        tipoPedido: undefined,
     });
     const [date, setDate] = useState<Date | undefined>(undefined);
     const [results, setResults] = useState<SubmissionResult[]>([]);
@@ -108,7 +109,7 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
             setResults(searchResults);
 
             if (!isAutoSearch) {
-                const isDefaultSearch = !searchCriteria.pedidoSislog && !searchCriteria.nombreCliente && !searchCriteria.searchDateStart && !searchCriteria.operationType;
+                const isDefaultSearch = !searchCriteria.pedidoSislog && !searchCriteria.nombreCliente && !searchCriteria.searchDateStart && !searchCriteria.operationType && !searchCriteria.tipoPedido;
                 if (isDefaultSearch && searchResults.length > 0) {
                      toast({
                         title: "Mostrando resultados de la última semana",
@@ -143,6 +144,7 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
                     pedidoSislog: savedCriteria.pedidoSislog || '',
                     nombreCliente: savedCriteria.nombreCliente || '',
                     operationType: savedCriteria.operationType,
+                    tipoPedido: savedCriteria.tipoPedido,
                 };
                 const restoredDate = savedCriteria.searchDateStart ? parseISO(savedCriteria.searchDateStart) : undefined;
                 
@@ -182,9 +184,7 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
         };
         
         const criteriaToSave = {
-            pedidoSislog: criteria.pedidoSislog,
-            nombreCliente: criteria.nombreCliente,
-            operationType: criteria.operationType,
+            ...criteria,
             searchDateStart,
             searchDateEnd,
         };
@@ -198,6 +198,7 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
             pedidoSislog: '',
             nombreCliente: '',
             operationType: undefined,
+            tipoPedido: undefined,
         });
         setDate(undefined);
         setResults([]);
@@ -284,7 +285,7 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
                         <CardDescription>Utilice uno o más filtros para encontrar los formatos que necesita.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 items-end">
                             <div className="space-y-2">
                                 <Label htmlFor="pedidoSislog">Pedido SISLOG</Label>
                                 <Input 
@@ -377,7 +378,26 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
                                     </SelectContent>
                                 </Select>
                             </div>
-                            <div className="flex flex-col sm:flex-row gap-2 lg:col-span-1">
+                            <div className="space-y-2">
+                                <Label htmlFor="tipoPedido">Tipo de Pedido</Label>
+                                <Select
+                                    value={criteria.tipoPedido || 'all'}
+                                    onValueChange={(value) => setCriteria({ ...criteria, tipoPedido: value === 'all' ? undefined : value })}
+                                    disabled={isLoading}
+                                >
+                                    <SelectTrigger id="tipoPedido">
+                                        <SelectValue placeholder="Todos" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">Todos</SelectItem>
+                                        <SelectItem value="GENERICO">GENERICO</SelectItem>
+                                        <SelectItem value="MAQUILA">MAQUILA</SelectItem>
+                                        <SelectItem value="TUNEL">TUNEL</SelectItem>
+                                        <SelectItem value="INGRESO DE SALDO">INGRESO DE SALDO</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="flex flex-col sm:flex-row gap-2">
                                 <Button onClick={handleSearch} className="w-full" disabled={isLoading}>
                                     {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
                                     Buscar
