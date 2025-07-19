@@ -192,8 +192,12 @@ export function FixedWeightReport({ formData, userDisplayName, attachments, form
                                     <td style={{ padding: '4px', width: '60%' }}>
                                         {obs.type === 'Otra' ? `Otra: ${obs.customType}` : obs.type}
                                     </td>
-                                    <td style={{ textAlign: 'right', padding: '4px' }}>{obs.quantity ?? 'N/A'}</td>
-                                    <td style={{ padding: '4px' }}>{obs.executedByGrupoRosales ? 'Sí' : 'No'}</td>
+                                    <td style={{ textAlign: 'right', padding: '4px' }}>
+                                        {obs.type !== 'Otra' ? `${obs.quantity ?? 'N/A'} ${obs.quantityType || ''}`.trim() : 'N/A'}
+                                    </td>
+                                    <td style={{ padding: '4px' }}>
+                                        {obs.type !== 'Otra' ? (obs.executedByGrupoRosales ? 'Sí' : 'No') : 'N/A'}
+                                    </td>
                                 </tr>
                             ))}
                         </tbody>

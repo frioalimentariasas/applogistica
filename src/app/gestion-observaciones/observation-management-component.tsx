@@ -66,7 +66,10 @@ export default function ObservationManagementComponent({ initialObservations }: 
 
   const onAddSubmit: SubmitHandler<ObservationFormValues> = async (data) => {
     setIsSubmitting(true);
-    const result = await addStandardObservation(data);
+    const result = await addStandardObservation({
+      ...data,
+      name: data.name.toUpperCase()
+    });
     if (result.success && result.newObservation) {
       toast({ title: 'Éxito', description: result.message });
       setObservations(prev => [...prev, result.newObservation!].sort((a, b) => a.name.localeCompare(b.name)));
@@ -80,10 +83,13 @@ export default function ObservationManagementComponent({ initialObservations }: 
   const onEditSubmit: SubmitHandler<ObservationFormValues> = async (data) => {
     if (!observationToEdit) return;
     setIsEditing(true);
-    const result = await updateStandardObservation(observationToEdit.id, data);
+    const result = await updateStandardObservation(observationToEdit.id, {
+      ...data,
+      name: data.name.toUpperCase()
+    });
     if (result.success) {
       toast({ title: 'Éxito', description: result.message });
-      setObservations(prev => prev.map(o => o.id === observationToEdit.id ? { ...o, ...data } : o).sort((a, b) => a.name.localeCompare(b.name)));
+      setObservations(prev => prev.map(o => o.id === observationToEdit.id ? { ...o, ...data, name: data.name.toUpperCase() } : o).sort((a, b) => a.name.localeCompare(b.name)));
       setObservationToEdit(null);
     } else {
       toast({ variant: 'destructive', title: 'Error', description: result.message });
@@ -166,7 +172,13 @@ export default function ObservationManagementComponent({ initialObservations }: 
                   <FormField control={form.control} name="name" render={({ field }) => (
                     <FormItem>
                       <FormLabel>Nombre de la Observación</FormLabel>
-                      <FormControl><Input placeholder="Ej: Clasificación de producto" {...field} /></FormControl>
+                      <FormControl>
+                        <Input 
+                          placeholder="Ej: CLASIFICACIÓN DE PRODUCTO" 
+                          {...field} 
+                          onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                        />
+                      </FormControl>
                       <FormMessage />
                     </FormItem>
                   )} />
@@ -246,7 +258,12 @@ export default function ObservationManagementComponent({ initialObservations }: 
               <FormField control={editForm.control} name="name" render={({ field }) => (
                 <FormItem>
                   <FormLabel>Nombre de la Observación</FormLabel>
-                  <FormControl><Input {...field} /></FormControl>
+                   <FormControl>
+                        <Input 
+                          {...field} 
+                          onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                        />
+                      </FormControl>
                   <FormMessage />
                 </FormItem>
               )} />

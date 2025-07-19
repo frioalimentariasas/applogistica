@@ -1121,6 +1121,7 @@ export default function FixedWeightFormComponent() {
                     {observationFields.map((field, index) => {
                        const selectedObservation = watchedObservations?.[index];
                        const stdObsData = standardObservations.find(obs => obs.name === selectedObservation?.type);
+                       const isOtherType = selectedObservation?.type === 'Otra';
                        return (
                         <div key={field.id} className="p-4 border rounded-lg relative bg-white space-y-4">
                             <Button
@@ -1160,7 +1161,7 @@ export default function FixedWeightFormComponent() {
                                         </FormItem>
                                     )}
                                 />
-                                {selectedObservation?.type === 'Otra' ? (
+                                {isOtherType ? (
                                     <FormField
                                         control={form.control}
                                         name={`observaciones.${index}.customType`}
@@ -1168,7 +1169,11 @@ export default function FixedWeightFormComponent() {
                                             <FormItem className="lg:col-span-3">
                                                 <FormLabel>Descripción</FormLabel>
                                                 <FormControl>
-                                                    <Textarea placeholder="Describa la observación" {...field} />
+                                                    <Textarea 
+                                                        placeholder="Describa la observación" 
+                                                        {...field}
+                                                        onChange={(e) => field.onChange(e.target.value.toUpperCase())} 
+                                                    />
                                                 </FormControl>
                                                 <FormMessage />
                                             </FormItem>
