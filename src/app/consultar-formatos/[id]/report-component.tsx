@@ -283,7 +283,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             return [{ 
                                 content: 'OTRAS OBSERVACIONES: ' + (obs.customType || ''),
                                 colSpan: 3,
-                                styles: { halign: 'left' } 
+                                styles: { halign: 'left', fontStyle: 'normal' }
                             }];
                         } else {
                             const typeText = { content: obs.type, styles: { fontStyle: 'bold' } };
@@ -353,15 +353,15 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             formData.documentoTransporte || 'N/A',
                             {content: 'Factura/Remisión:', styles: {fontStyle: 'bold'}},
                             formData.facturaRemision || 'N/A',
-                            isReception ? {content: 'Tipo Pedido:', styles: {fontStyle: 'bold'}} : {content: '', styles: {}},
-                            isReception ? `${formData.tipoPedido || 'N/A'}${formData.tipoPedido === 'MAQUILA' ? ` (${formData.tipoEmpaqueMaquila || 'N/A'})` : ''}` : {content: '', styles: {}}
+                            {content: 'Tipo Pedido:', styles: {fontStyle: 'bold'}},
+                            `${formData.tipoPedido || 'N/A'}${formData.tipoPedido === 'MAQUILA' ? ` (${formData.tipoEmpaqueMaquila || 'N/A'})` : ''}`
                         ]
                 ];
 
                 autoTable(doc, {
                     startY: yPos,
                     head: [[{ content: 'Información General', colSpan: 6, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]],
-                    body: generalInfoBody.filter(row => row.length > 0 && row.some(cell => typeof cell === 'string' ? cell.length > 0 : (cell as any).content.length > 0)), // Filter out empty array for non-reception and all empty content
+                    body: generalInfoBody,
                     theme: 'grid', 
                     styles: { fontSize: 8, cellPadding: 4, valign: 'middle' },
                     columnStyles: {
@@ -487,7 +487,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                  const isReception = formType.includes('recepcion') || formType.includes('reception');
                  const operationTerm = isReception ? 'Descargue' : 'Cargue';
                  
-                 const generalInfoBody = isReception ? [
+                 const generalInfoBody = [
                      [
                         {content: 'Pedido SISLOG:', styles: {fontStyle: 'bold'}}, formData.pedidoSislog || 'N/A',
                         {content: 'Cliente:', styles: {fontStyle: 'bold'}}, formData.cliente || 'N/A',
@@ -506,37 +506,20 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                       [
                         {content: `H. Inicio ${operationTerm}:`, styles: {fontStyle: 'bold'}}, formatTime12Hour(formData.horaInicio),
                         {content: `H. Fin ${operationTerm}:`, styles: {fontStyle: 'bold'}}, formatTime12Hour(formData.horaFin),
-                        {content: 'Factura/Remisión:', styles: {fontStyle: 'bold'}}, formData.facturaRemision || 'N/A'
+                        {content: isReception ? 'Factura/Remisión:' : 'Tipo Pedido:', styles: {fontStyle: 'bold'}}, 
+                        isReception ? formData.facturaRemision || 'N/A' : formData.tipoPedido || 'N/A'
                       ],
-                      [
-                          {
-                              content: `Tipo Pedido: ${formData.tipoPedido || 'N/A'}${formData.tipoPedido === 'MAQUILA' ? ` (${formData.tipoEmpaqueMaquila || 'N/A'})` : ''}`,
-                              styles: {fontStyle: 'bold'},
-                              colSpan: 6
-                          }
-                      ]
-                 ] : [ // Dispatch Body
-                     [
-                        {content: 'Pedido SISLOG:', styles: {fontStyle: 'bold'}}, formData.pedidoSislog || 'N/A',
-                        {content: 'Cliente:', styles: {fontStyle: 'bold'}}, formData.cliente || 'N/A',
-                        {content: 'Fecha:', styles: {fontStyle: 'bold'}}, formData.fecha ? format(new Date(formData.fecha), "dd/MM/yyyy") : 'N/A'
-                     ],
-                     [
-                        {content: 'Conductor:', styles: {fontStyle: 'bold'}}, formData.conductor || 'N/A',
-                        {content: 'Cédula:', styles: {fontStyle: 'bold'}}, formData.cedulaConductor || 'N/A',
-                        {content: 'Placa:', styles: {fontStyle: 'bold'}}, formData.placa || 'N/A'
-                     ],
-                     [
-                        {content: 'Precinto:', styles: {fontStyle: 'bold'}}, formData.precinto || 'N/A',
-                        {content: 'Set Point (°C):', styles: {fontStyle: 'bold'}}, formatOptionalNumber(formData.setPoint),
-                        {content: 'Contenedor:', styles: {fontStyle: 'bold'}}, formData.contenedor || 'N/A'
-                     ],
-                     [
-                        {content: `H. Inicio ${operationTerm}:`, styles: {fontStyle: 'bold'}}, formatTime12Hour(formData.horaInicio),
-                        {content: `H. Fin ${operationTerm}:`, styles: {fontStyle: 'bold'}}, formatTime12Hour(formData.horaFin),
-                        {content: 'Factura/Remisión:', styles: {fontStyle: 'bold'}}, formData.facturaRemision || 'N/A'
-                     ]
                  ];
+                 
+                if (isReception) {
+                    generalInfoBody.push([
+                        {
+                            content: `Tipo Pedido: ${formData.tipoPedido || 'N/A'}${formData.tipoPedido === 'MAQUILA' ? ` (${formData.tipoEmpaqueMaquila || 'N/A'})` : ''}`,
+                            styles: {fontStyle: 'bold'},
+                            colSpan: 6
+                        }
+                    ]);
+                }
 
 
                  autoTable(doc, {
@@ -656,10 +639,11 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     const totalCantidad = formData.summary.reduce((acc: any, p: any) => acc + (p.totalCantidad || 0), 0);
                     const totalPaletas = formData.summary.reduce((acc: any, p: any) => acc + (p.totalPaletas || 0), 0);
 
-                    const footRow: any[] = [{ content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }];
+                    const footRow: any[] = [{ content: 'TOTALES:', colSpan: isDispatch ? 2 : 1, styles: { halign: 'right', fontStyle: 'bold' } }];
                     if (isDispatch) {
                         footRow.push(totalCantidad, totalPaletas);
                     } else { // Reception
+                        footRow.unshift(''); // Add empty cell for temperatures
                         footRow.push(totalPaletas, totalCantidad);
                     }
                     footRow.push(totalPeso.toFixed(2));

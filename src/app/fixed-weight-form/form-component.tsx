@@ -127,7 +127,7 @@ const formSchema = z.object({
   observaciones: z.array(observationSchema).optional(),
   coordinador: z.string().min(1, "Seleccione un coordinador."),
   aplicaCuadrilla: z.enum(["si", "no"], { required_error: "Seleccione una opción para 'Operación Realizada por Cuadrilla'." }),
-  tipoPedido: z.enum(['GENERICO', 'MAQUILA', 'TUNEL', 'INGRESO DE SALDO']).optional(),
+  tipoPedido: z.enum(['GENERICO', 'MAQUILA', 'TUNEL', 'INGRESO DE SALDO', 'DESPACHO GENERICO', 'DESPACHO TUNEL']).optional(),
   tipoEmpaqueMaquila: z.enum(['EMPAQUE DE SACOS', 'EMPAQUE DE CAJAS']).optional(),
   numeroOperariosCuadrilla: z.coerce.number().int().min(1, "Debe ser al menos 1.").optional(),
 }).refine((data) => {
@@ -301,8 +301,8 @@ export default function FixedWeightFormComponent() {
             formData.fecha = new Date(formData.fecha);
         }
         form.reset({
+            ...originalDefaultValues,
             ...formData,
-            aplicaCuadrilla: undefined,
         });
         setAttachments(originalSubmission.attachmentUrls);
     } else {
@@ -939,6 +939,29 @@ export default function FixedWeightFormComponent() {
                                 />
                             )}
                         </>
+                    )}
+                    {operation === 'despacho' && (
+                         <FormField
+                            control={form.control}
+                            name="tipoPedido"
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Tipo de Pedido</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                    <SelectTrigger>
+                                    <SelectValue placeholder="Seleccione un tipo de pedido" />
+                                    </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    <SelectItem value="DESPACHO GENERICO">GENERICO</SelectItem>
+                                    <SelectItem value="DESPACHO TUNEL">TUNEL</SelectItem>
+                                </SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
                     )}
                 </div>
               </CardContent>

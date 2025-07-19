@@ -208,6 +208,7 @@ const formSchema = z.object({
     observaciones: z.array(observationSchema).optional(),
     coordinador: z.string().min(1, "Seleccione un coordinador."),
     aplicaCuadrilla: z.enum(["si", "no"], { required_error: "Seleccione una opción para 'Aplica Cuadrilla'." }),
+    tipoPedido: z.enum(['GENERICO', 'TUNEL']).optional(),
 }).refine((data) => {
     return data.horaInicio !== data.horaFin;
 }, {
@@ -249,6 +250,7 @@ const originalDefaultValues: FormValues = {
   observaciones: [],
   coordinador: "",
   aplicaCuadrilla: undefined,
+  tipoPedido: undefined,
 };
 
 // Mock data
@@ -553,8 +555,8 @@ export default function VariableWeightFormComponent() {
             formData.fecha = new Date(formData.fecha);
         }
         form.reset({
+            ...originalDefaultValues,
             ...formData,
-            aplicaCuadrilla: undefined,
         });
         setAttachments(originalSubmission.attachmentUrls);
     } else {
@@ -668,6 +670,7 @@ export default function VariableWeightFormComponent() {
               lote: formData.lote ?? null,
               observaciones: formData.observaciones ?? [],
               aplicaCuadrilla: formData.aplicaCuadrilla ?? undefined,
+              tipoPedido: formData.tipoPedido ?? undefined,
               summary: (formData.summary || []).map((s: any) => ({
                 ...s,
                 temperatura: s.temperatura ?? null
@@ -1212,6 +1215,27 @@ export default function VariableWeightFormComponent() {
                               <FormMessage />
                           </FormItem>
                       )}/>
+                        <FormField
+                            control={form.control}
+                            name="tipoPedido"
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Tipo de Pedido</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                    <SelectTrigger>
+                                    <SelectValue placeholder="Seleccione un tipo de pedido" />
+                                    </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    <SelectItem value="GENERICO">GENERICO</SelectItem>
+                                    <SelectItem value="TUNEL">TUNEL</SelectItem>
+                                </SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                            )}
+                        />
                   </div>
                 </CardContent>
             </Card>
@@ -1404,7 +1428,7 @@ export default function VariableWeightFormComponent() {
                                                     <FormItem className="lg:col-span-3">
                                                         <FormLabel>Descripción</FormLabel>
                                                         <FormControl>
-                                                            <Textarea placeholder="Describa la observación" {...field} />
+                                                            <Textarea placeholder="Describa la observación" {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} />
                                                         </FormControl>
                                                         <FormMessage />
                                                     </FormItem>
