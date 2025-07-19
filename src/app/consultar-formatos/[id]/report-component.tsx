@@ -279,10 +279,17 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 if (formData.observaciones && formData.observaciones.length > 0) {
                     const obsHead = [['Tipo de Observación', 'Cantidad', 'Ejecutado por Grupo Rosales']];
                     const obsBody = formData.observaciones.map((obs: any) => {
-                        const type = obs.type === 'Otra' ? `Otra: ${obs.customType || ''}` : obs.type;
-                        const quantity = obs.type !== 'Otra' ? `${obs.quantity ?? ''} ${obs.quantityType || ''}`.trim() : 'N/A';
-                        const executed = obs.type !== 'Otra' ? (obs.executedByGrupoRosales ? 'Sí' : 'No') : 'N/A';
-                        return [type, quantity, executed];
+                        const typeText = obs.type === 'OTRAS OBSERVACIONES' ? `OTRAS OBSERVACIONES: ${obs.customType || ''}` : obs.type;
+                        
+                        const quantityText = obs.type !== 'OTRAS OBSERVACIONES' ? `${obs.quantity ?? ''} ${obs.quantityType || ''}`.trim() : 'N/A';
+                        
+                        const executedText = obs.type !== 'OTRAS OBSERVACIONES' ? (obs.executedByGrupoRosales ? 'Sí' : 'No') : 'N/A';
+                        
+                        return [
+                            { content: typeText, styles: { fontStyle: 'bold' } },
+                            { content: quantityText },
+                            { content: executedText }
+                        ];
                     });
 
                     autoTable(doc, {
@@ -345,12 +352,8 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             {content: 'Factura/Remisión:', styles: {fontStyle: 'bold'}},
                             formData.facturaRemision || 'N/A',
                             isReception ? {content: 'Tipo Pedido:', styles: {fontStyle: 'bold'}} : {content: '', styles: {}},
-                            isReception ? formData.tipoPedido || 'N/A' : {content: '', styles: {}}
+                            isReception ? `${formData.tipoPedido || 'N/A'}${formData.tipoPedido === 'MAQUILA' ? ` (${formData.tipoEmpaqueMaquila || 'N/A'})` : ''}` : {content: '', styles: {}}
                         ],
-                        isReception && formData.tipoPedido === 'MAQUILA' ? [
-                            {content: 'Tipo Empaque (Maquila):', styles: {fontStyle: 'bold'}, colSpan: 2},
-                            {content: formData.tipoEmpaqueMaquila || 'N/A', colSpan: 4}
-                        ] : []
                     ].filter(row => row.length > 0 && row.some(cell => typeof cell === 'string' ? cell.length > 0 : (cell as any).content.length > 0)), // Filter out empty array for non-reception and all empty content
                     theme: 'grid', 
                     styles: { fontSize: 8, cellPadding: 4, valign: 'middle' },
@@ -365,28 +368,17 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
     
                 const hasPesoNetoKg = formData.productos.some((p: any) => p.pesoNetoKg != null && !isNaN(Number(p.pesoNetoKg)));
 
-                const productHead = [['Código', 'Descripción', 'No. Cajas', 'Total Paletas']];
-                if (hasPesoNetoKg) productHead[0].push('Peso Neto (kg)');
-                productHead[0].push('Temp(°C)');
-
+                const productHead = [['Código', 'Descripción', 'No. Cajas', 'Total Paletas', 'Peso Neto (kg)', 'Temp(°C)']];
+                
                 const productBody = formData.productos.map((p: any) => {
-                    const row = [ p.codigo, p.descripcion, p.cajas, formatPaletas(p.totalPaletas ?? p.paletas) ];
-                    if (hasPesoNetoKg) {
-                        row.push(p.pesoNetoKg ? Number(p.pesoNetoKg).toFixed(2) : '0.00');
-                    }
-                    row.push(p.temperatura);
-                    return row;
+                    return [ p.codigo, p.descripcion, p.cajas, formatPaletas(p.totalPaletas ?? p.paletas), p.pesoNetoKg ? Number(p.pesoNetoKg).toFixed(2) : '0.00', p.temperatura ];
                 });
                 
                 const totalCajas = formData.productos.reduce((acc: any, p: any) => acc + (Number(p.cajas) || 0), 0);
                 const totalPaletas = formData.productos.reduce((acc: any, p: any) => acc + (Number(p.totalPaletas ?? p.paletas) || 0), 0);
                 const totalPesoNetoKg = formData.productos.reduce((acc: any, p: any) => acc + (Number(p.pesoNetoKg) || 0), 0);
 
-                const footRow = [{ content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }, totalCajas, formatPaletas(totalPaletas)];
-                if (hasPesoNetoKg) {
-                    footRow.push(totalPesoNetoKg.toFixed(2));
-                }
-                footRow.push(''); // For temperature column
+                const footRow = [{ content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }, totalCajas, formatPaletas(totalPaletas), totalPesoNetoKg.toFixed(2), ''];
     
                 const productTableConfig: any = {
                     startY: yPos,
@@ -472,12 +464,8 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             {content: 'Operario:', styles: {fontStyle: 'bold'}},
                             userDisplayName || 'N/A',
                              {content: 'Operación Realizada por Cuadrilla:', styles: {fontStyle: 'bold'}},
-                            formData.aplicaCuadrilla ? formData.aplicaCuadrilla.charAt(0).toUpperCase() + formData.aplicaCuadrilla.slice(1) : 'N/A'
+                            `${formData.aplicaCuadrilla ? formData.aplicaCuadrilla.charAt(0).toUpperCase() + formData.aplicaCuadrilla.slice(1) : 'N/A'}${formData.aplicaCuadrilla === 'si' && formData.tipoPedido === 'MAQUILA' && formData.numeroOperariosCuadrilla ? ` (${formData.numeroOperariosCuadrilla} operarios)`: ''}`
                         ],
-                        formData.aplicaCuadrilla === 'si' && formData.tipoPedido === 'MAQUILA' && formData.numeroOperariosCuadrilla ? [
-                            {content: 'No. Operarios Cuadrilla:', styles: {fontStyle: 'bold'}, colSpan: 2},
-                            {content: formData.numeroOperariosCuadrilla, colSpan: 4}
-                        ] : []
                     ].filter(row => row.length > 0 && row.some(cell => typeof cell === 'string' ? cell.length > 0 : (cell as any).content.length > 0)),
                     theme: 'grid', 
                     styles: { fontSize: 8, cellPadding: 4, valign: 'middle' },
@@ -519,17 +507,17 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                  
                  if (isReception) {
                      generalInfoBody.push([
-                         {content: 'Tipo Pedido:', styles: {fontStyle: 'bold'}}, formData.tipoPedido || 'N/A',
-                         {content: 'Tipo Empaque (Maquila):', styles: {fontStyle: 'bold'}}, (formData.tipoPedido === 'MAQUILA' ? formData.tipoEmpaqueMaquila : 'N/A') || 'N/A',
-                         {content: '', styles: {}}, {content: '', styles: {}}
-                     ].filter(c => (c as any).content !== ''));
+                         {content: 'Tipo Pedido:', styles: {fontStyle: 'bold'}},
+                         `${formData.tipoPedido || 'N/A'}${formData.tipoPedido === 'MAQUILA' ? ` (${formData.tipoEmpaqueMaquila || 'N/A'})` : ''}`,
+                         {content: '', styles: {}}, {content: '', styles: {}}, {content: '', styles: {}}, {content: '', styles: {}}
+                     ]);
                  }
 
 
                  autoTable(doc, {
                     startY: yPos,
                     head: [[{ content: `Datos de ${isReception ? 'Recepción' : 'Despacho'}`, colSpan: 6, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]],
-                    body: generalInfoBody.filter(row => row.length > 0 && row.some(cell => (cell as any).content && (cell as any).content.length > 0)),
+                    body: generalInfoBody.filter(row => row.length > 0 && row.some(cell => cell && (cell as any).content !== undefined ? (cell as any).content.length > 0 : String(cell).length > 0)),
                     theme: 'grid',
                     styles: { fontSize: 8, cellPadding: 4, valign: 'middle' },
                     columnStyles: {
@@ -694,12 +682,8 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             {content: 'Operario:', styles: {fontStyle: 'bold'}},
                             userDisplayName || 'N/A',
                              {content: 'Operación Realizada por Cuadrilla:', styles: {fontStyle: 'bold'}},
-                            formData.aplicaCuadrilla ? formData.aplicaCuadrilla.charAt(0).toUpperCase() + formData.aplicaCuadrilla.slice(1) : 'N/A'
+                            `${formData.aplicaCuadrilla ? formData.aplicaCuadrilla.charAt(0).toUpperCase() + formData.aplicaCuadrilla.slice(1) : 'N/A'}${formData.aplicaCuadrilla === 'si' && isReception && formData.tipoPedido === 'MAQUILA' && formData.numeroOperariosCuadrilla ? ` (${formData.numeroOperariosCuadrilla} operarios)`: ''}`
                         ],
-                         isReception && formData.aplicaCuadrilla === 'si' && formData.tipoPedido === 'MAQUILA' && formData.numeroOperariosCuadrilla ? [
-                            {content: 'No. Operarios Cuadrilla:', styles: {fontStyle: 'bold'}, colSpan: 2},
-                            {content: formData.numeroOperariosCuadrilla, colSpan: 4}
-                        ] : []
                     ].filter(row => row.length > 0 && row.some(cell => typeof cell === 'string' ? cell.length > 0 : (cell as any).content.length > 0)), 
                     theme: 'grid', 
                     styles: { fontSize: 8, cellPadding: 4, valign: 'middle' },

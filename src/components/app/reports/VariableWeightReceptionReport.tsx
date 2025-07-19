@@ -221,9 +221,32 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                 </ReportSection>
             )}
 
-            {formData.observaciones && (
-                <ReportSection title="Observaciones">
-                    <p style={{ fontSize: '11px', margin: 0 }}>{formData.observaciones}</p>
+            {formData.observaciones && formData.observaciones.length > 0 && (
+                 <ReportSection title="Observaciones">
+                    <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse' }}>
+                        <thead>
+                            <tr style={{ borderBottom: '1px solid #aaa' }}>
+                                <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Tipo</th>
+                                <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Cantidad</th>
+                                <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Ejecutado por Grupo Rosales</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {formData.observaciones.map((obs: any, i: number) => (
+                                <tr key={i} style={{ borderBottom: '1px solid #ddd' }}>
+                                    <td style={{ padding: '4px', width: '60%' }}>
+                                        <strong>{obs.type === 'OTRAS OBSERVACIONES' ? `OTRAS OBSERVACIONES: ${obs.customType}` : obs.type}</strong>
+                                    </td>
+                                    <td style={{ textAlign: 'right', padding: '4px' }}>
+                                        {obs.type !== 'OTRAS OBSERVACIONES' ? `${obs.quantity ?? 'N/A'} ${obs.quantityType || ''}`.trim() : 'N/A'}
+                                    </td>
+                                    <td style={{ padding: '4px' }}>
+                                        {obs.type !== 'OTRAS OBSERVACIONES' ? (obs.executedByGrupoRosales ? 'Sí' : 'No') : 'N/A'}
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
                 </ReportSection>
             )}
 
@@ -235,7 +258,7 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                             <td style={{...fieldCellStyle, width: '33.33%'}}><ReportField label="Operario" value={userDisplayName} /></td>
                             <td style={{...fieldCellStyle, width: '33.33%'}}>
                                 <ReportField label="Operación Realizada por Cuadrilla" value={formData.aplicaCuadrilla ? formData.aplicaCuadrilla.charAt(0).toUpperCase() + formData.aplicaCuadrilla.slice(1) : 'N/A'} />
-                                {formData.aplicaCuadrilla === 'si' && formData.numeroOperariosCuadrilla && (
+                                {formData.aplicaCuadrilla === 'si' && formData.tipoPedido === 'MAQUILA' && formData.numeroOperariosCuadrilla && (
                                     <div style={{ marginLeft: '8px', fontSize: '10px' }}>
                                         ↳ No. Operarios: {formData.numeroOperariosCuadrilla}
                                     </div>
