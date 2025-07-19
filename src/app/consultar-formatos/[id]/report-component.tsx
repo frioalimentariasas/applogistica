@@ -277,19 +277,24 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
             
             const addObservationsTable = () => {
                 if (formData.observaciones && formData.observaciones.length > 0) {
-                    const obsHead = [['Tipo de Observación', 'Cantidad', 'Ejecutado por Grupo Rosales']];
                     const obsBody = formData.observaciones.map((obs: any) => {
-                        const typeText = obs.type === 'OTRAS OBSERVACIONES' ? `OTRAS OBSERVACIONES: ${obs.customType || ''}` : obs.type;
-                        
-                        const quantityText = obs.type !== 'OTRAS OBSERVACIONES' ? `${obs.quantity ?? ''} ${obs.quantityType || ''}`.trim() : 'N/A';
-                        
-                        const executedText = obs.type !== 'OTRAS OBSERVACIONES' ? (obs.executedByGrupoRosales ? 'Sí' : 'No') : 'N/A';
-                        
-                        return [
-                            { content: typeText, styles: { fontStyle: 'bold' } },
-                            { content: quantityText },
-                            { content: executedText }
-                        ];
+                        const isOther = obs.type === 'OTRAS OBSERVACIONES';
+                        if (isOther) {
+                            return [{ 
+                                content: `OTRAS OBSERVACIONES: ${obs.customType || ''}`,
+                                colSpan: 3,
+                                styles: { fontStyle: 'bold' } 
+                            }];
+                        } else {
+                            const typeText = obs.type;
+                            const quantityText = `${obs.quantity ?? ''} ${obs.quantityType || ''}`.trim();
+                            const executedText = obs.executedByGrupoRosales ? 'Sí' : 'No';
+                            return [
+                                { content: typeText, styles: { fontStyle: 'bold' } },
+                                { content: quantityText, styles: { halign: 'right' } },
+                                { content: executedText }
+                            ];
+                        }
                     });
 
                     autoTable(doc, {
@@ -303,7 +308,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     
                     autoTable(doc, {
                         startY: (doc as any).autoTable.previous.finalY,
-                        head: obsHead,
+                        head: [['Tipo de Observación', 'Cantidad', 'Ejecutado por Grupo Rosales']],
                         body: obsBody,
                         theme: 'grid',
                         margin: { horizontal: margin },
@@ -311,8 +316,8 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         headStyles: { fillColor: '#f8fafc', textColor: '#334155' },
                         columnStyles: {
                             0: { cellWidth: '*' },
-                            1: { cellWidth: 'auto', halign: 'right' },
-                            2: { cellWidth: 'auto', halign: 'center' },
+                            1: { cellWidth: 'auto' },
+                            2: { cellWidth: 'auto' },
                         },
                     });
 

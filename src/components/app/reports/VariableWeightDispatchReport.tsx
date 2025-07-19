@@ -260,19 +260,30 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                             </tr>
                         </thead>
                         <tbody>
-                            {formData.observaciones.map((obs: any, i: number) => (
+                            {formData.observaciones.map((obs: any, i: number) => {
+                                const isOther = obs.type === 'OTRAS OBSERVACIONES';
+                                return (
                                 <tr key={i} style={{ borderBottom: '1px solid #ddd' }}>
-                                    <td style={{ padding: '4px', width: '60%' }}>
-                                        <strong>{obs.type === 'OTRAS OBSERVACIONES' ? `OTRAS OBSERVACIONES: ${obs.customType}` : obs.type}</strong>
-                                    </td>
-                                    <td style={{ textAlign: 'right', padding: '4px' }}>
-                                        {obs.type !== 'OTRAS OBSERVACIONES' ? `${obs.quantity ?? 'N/A'} ${obs.quantityType || ''}`.trim() : 'N/A'}
-                                    </td>
-                                    <td style={{ padding: '4px' }}>
-                                        {obs.type !== 'OTRAS OBSERVACIONES' ? (obs.executedByGrupoRosales ? 'Sí' : 'No') : 'N/A'}
-                                    </td>
+                                    {isOther ? (
+                                        <td style={{ padding: '4px', width: '100%' }} colSpan={3}>
+                                            <strong>{`OTRAS OBSERVACIONES: ${obs.customType}`}</strong>
+                                        </td>
+                                    ) : (
+                                        <>
+                                            <td style={{ padding: '4px', width: '60%' }}>
+                                                <strong>{obs.type}</strong>
+                                            </td>
+                                            <td style={{ textAlign: 'right', padding: '4px' }}>
+                                                {`${obs.quantity ?? 'N/A'} ${obs.quantityType || ''}`.trim()}
+                                            </td>
+                                            <td style={{ padding: '4px' }}>
+                                                {obs.executedByGrupoRosales ? 'Sí' : 'No'}
+                                            </td>
+                                        </>
+                                    )}
                                 </tr>
-                            ))}
+                                )
+                            })}
                         </tbody>
                     </table>
                 </ReportSection>
