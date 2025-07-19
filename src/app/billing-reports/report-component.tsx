@@ -51,7 +51,7 @@ const ResultsSkeleton = () => (
 
 const EmptyState = ({ searched, title, description, emptyDescription }: { searched: boolean; title: string; description: string; emptyDescription: string; }) => (
     <TableRow>
-        <TableCell colSpan={11} className="py-20 text-center">
+        <TableCell colSpan={15} className="py-20 text-center">
             <div className="flex flex-col items-center gap-4">
                 <div className="rounded-full bg-primary/10 p-4">
                     <FolderSearch className="h-12 w-12 text-primary" />
@@ -107,6 +107,19 @@ const formatTime12Hour = (time24: string | undefined): string => {
     h = h % 12;
     h = h ? h : 12; // the hour '0' should be '12'
     return `${h}:${minutes} ${ampm}`;
+};
+
+const formatDuration = (totalMinutes: number | null): string => {
+    if (totalMinutes === null || totalMinutes < 0) return 'N/A';
+    if (totalMinutes < 60) {
+        return `${totalMinutes} min`;
+    }
+    const hours = Math.floor(totalMinutes / 60);
+    const minutes = totalMinutes % 60;
+    if (minutes === 0) {
+        return `${hours}h`;
+    }
+    return `${hours}h ${minutes}m`;
 };
 
 const MAX_DATE_RANGE_DAYS = 31;
@@ -376,7 +389,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         setDetailedReportData([]);
 
         try {
-            const criteria: DetailedReportCriteria = {
+            const criteria = {
                 startDate: format(detailedReportDateRange.from, 'yyyy-MM-dd'),
                 endDate: format(detailedReportDateRange.to, 'yyyy-MM-dd'),
                 clientName: detailedReportClient,
@@ -409,22 +422,35 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
     const handleDetailedReportExportExcel = () => {
         if (detailedReportData.length === 0) return;
+        
+        const totalDuration = detailedReportData.reduce((acc, row) => acc + (row.duracionMinutos || 0), 0);
 
         const dataToExport = detailedReportData.map(row => ({
             'Fecha': format(new Date(row.fecha), 'dd/MM/yyyy'),
-            'Operación Logística': row.operacionLogistica,
+            'Op. Logística': row.operacionLogistica,
+            'Duración': formatDuration(row.duracionMinutos),
             'Hora Inicio': formatTime12Hour(row.horaInicio),
             'Hora Fin': formatTime12Hour(row.horaFin),
             'Placa Vehículo': row.placa,
             'No. Contenedor': row.contenedor,
             'Cliente': row.cliente,
-            'Observaciones': row.observaciones,
-            'Total Paletas': row.totalPaletas,
+            'Tipo Operación': row.tipoOperacion,
             'Tipo Pedido': row.tipoPedido,
-            'No. Pedido (SISLOG)': row.pedidoSislog
+            'Tipo Empaque': row.tipoEmpaqueMaquila,
+            'No. Pedido (SISLOG)': row.pedidoSislog,
+            'Op. Cuadrilla': row.operacionPorCuadrilla,
+            'No. Operarios': row.numeroOperariosCuadrilla,
+            'Total Paletas': row.totalPaletas,
+            'Observaciones': row.observaciones,
         }));
+        
+        const footer = {
+            'Fecha': 'TOTAL:',
+            'Op. Logística': '',
+            'Duración': formatDuration(totalDuration),
+        };
 
-        const worksheet = XLSX.utils.json_to_sheet(dataToExport);
+        const worksheet = XLSX.utils.json_to_sheet([...dataToExport, footer]);
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, 'Reporte Detallado');
         const fileName = `Reporte_Detallado_Operacion_${format(detailedReportDateRange!.from!, 'yyyy-MM-dd')}_a_${format(detailedReportDateRange!.to!, 'yyyy-MM-dd')}.xlsx`;
@@ -436,7 +462,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         
         const doc = new jsPDF({ orientation: 'landscape' });
         const pageWidth = doc.internal.pageSize.getWidth();
-        
+        const totalDuration = detailedReportData.reduce((acc, row) => acc + (row.duracionMinutos || 0), 0);
+
         const logoWidth = 70;
         const aspectRatio = logoDimensions.width / logoDimensions.height;
         const logoHeight = logoWidth / aspectRatio;
@@ -453,30 +480,45 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         doc.setFont('helvetica', 'bold');
         doc.text('Frio Alimentaria SAS Nit: 900736914-0', pageWidth / 2, titleY + 8, { align: 'center' });
 
+        const head = [[
+            'Fecha', 'Op. Log.', 'Duración', 'Cliente', 'Tipo Op.', 'Tipo Pedido', 'Empaque', 'No. Pedido', 'Op. Cuadrilla', 'No. Ops', 'Total Paletas', 'Observaciones'
+        ]];
+        
+        const body = detailedReportData.map(row => [
+            format(new Date(row.fecha), 'dd/MM/yy'),
+            row.operacionLogistica,
+            formatDuration(row.duracionMinutos),
+            row.cliente,
+            row.tipoOperacion,
+            row.tipoPedido,
+            row.tipoEmpaqueMaquila,
+            row.pedidoSislog,
+            row.operacionPorCuadrilla,
+            row.numeroOperariosCuadrilla,
+            row.totalPaletas,
+            row.observaciones
+        ]);
+
+        const foot = [
+            [{ content: 'Duración Total:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }, { content: formatDuration(totalDuration) }, '', '', '', '', '', '', '', '', '']
+        ];
+
+
         autoTable(doc, {
             startY: titleY + 18,
-            head: [[
-                'Fecha', 'Op. Log.', 'Cliente', 'Tipo Pedido', 'No. Pedido', 'Placa', 'Contenedor', 'H. Inicio', 'H. Fin', 'Total Paletas', 'Observaciones'
-            ]],
-            body: detailedReportData.map(row => [
-                format(new Date(row.fecha), 'dd/MM/yy'),
-                row.operacionLogistica,
-                row.cliente,
-                row.tipoPedido,
-                row.pedidoSislog,
-                row.placa,
-                row.contenedor,
-                formatTime12Hour(row.horaInicio),
-                formatTime12Hour(row.horaFin),
-                row.totalPaletas,
-                row.observaciones
-            ]),
+            head: head,
+            body: body,
+            foot: foot,
             theme: 'grid',
-            headStyles: { fillColor: [33, 150, 243], fontSize: 8 },
-            styles: { fontSize: 7, cellPadding: 1.5, overflow: 'linebreak' },
+            headStyles: { fillColor: [33, 150, 243], fontSize: 6, cellPadding: 1 },
+            footStyles: { fillColor: [33, 150, 243], textColor: '#ffffff' },
+            styles: { fontSize: 6, cellPadding: 1, overflow: 'linebreak' },
             columnStyles: {
-                1: { cellWidth: 25 }, // Op. Log.
-                10: { cellWidth: 50 }, // Observaciones column
+                 0: { cellWidth: 18 }, // Fecha
+                 1: { cellWidth: 20 }, // Op. Log.
+                 2: { cellWidth: 20 }, // Duración
+                 3: { cellWidth: 'auto' }, // Cliente
+                 11: { cellWidth: 35 }, // Observaciones column
             }
         });
 
@@ -1173,32 +1215,34 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                             <TableRow>
                                                 <TableHead>Fecha</TableHead>
                                                 <TableHead>Op. Logística</TableHead>
+                                                <TableHead>Duración</TableHead>
                                                 <TableHead>Cliente</TableHead>
+                                                <TableHead>Tipo Operación</TableHead>
                                                 <TableHead>Tipo Pedido</TableHead>
+                                                <TableHead>Tipo Empaque</TableHead>
                                                 <TableHead>No. Pedido</TableHead>
-                                                <TableHead>Placa</TableHead>
-                                                <TableHead>Contenedor</TableHead>
-                                                <TableHead>H. Inicio</TableHead>
-                                                <TableHead>H. Fin</TableHead>
+                                                <TableHead>Op. Cuadrilla</TableHead>
+                                                <TableHead>No. Operarios</TableHead>
                                                 <TableHead>Total Paletas</TableHead>
                                                 <TableHead>Observaciones</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
                                             {isDetailedReportLoading ? (
-                                                <TableRow><TableCell colSpan={11}><Skeleton className="h-20 w-full" /></TableCell></TableRow>
+                                                <TableRow><TableCell colSpan={12}><Skeleton className="h-20 w-full" /></TableCell></TableRow>
                                             ) : detailedReportData.length > 0 ? (
                                                 detailedReportData.map((row) => (
                                                     <TableRow key={row.id}>
                                                         <TableCell>{format(new Date(row.fecha), 'dd/MM/yyyy')}</TableCell>
                                                         <TableCell>{row.operacionLogistica}</TableCell>
+                                                        <TableCell>{formatDuration(row.duracionMinutos)}</TableCell>
                                                         <TableCell>{row.cliente}</TableCell>
+                                                        <TableCell>{row.tipoOperacion}</TableCell>
                                                         <TableCell>{row.tipoPedido}</TableCell>
+                                                        <TableCell>{row.tipoEmpaqueMaquila}</TableCell>
                                                         <TableCell>{row.pedidoSislog}</TableCell>
-                                                        <TableCell>{row.placa}</TableCell>
-                                                        <TableCell>{row.contenedor}</TableCell>
-                                                        <TableCell>{formatTime12Hour(row.horaInicio)}</TableCell>
-                                                        <TableCell>{formatTime12Hour(row.horaFin)}</TableCell>
+                                                        <TableCell>{row.operacionPorCuadrilla}</TableCell>
+                                                        <TableCell>{row.numeroOperariosCuadrilla}</TableCell>
                                                         <TableCell>{row.totalPaletas}</TableCell>
                                                         <TableCell className="max-w-[200px] truncate" title={row.observaciones}>{row.observaciones}</TableCell>
                                                     </TableRow>

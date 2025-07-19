@@ -3,6 +3,7 @@
 
 import admin from 'firebase-admin';
 import { firestore } from '@/lib/firebase-admin';
+import { parse, differenceInMinutes, addDays } from 'date-fns';
 
 // Helper function to determine the logistic operation type
 const getOperationLogisticsType = (isoDateString: string, horaInicio: string, horaFin: string): string => {
@@ -67,6 +68,24 @@ const getOperationLogisticsType = (isoDateString: string, horaInicio: string, ho
     }
 };
 
+const calculateDuration = (horaInicio: string, horaFin: string): number | null => {
+    if (!horaInicio || !horaFin) return null;
+    try {
+        const startTime = parse(horaInicio, 'HH:mm', new Date());
+        const endTime = parse(horaFin, 'HH:mm', new Date());
+
+        if (endTime < startTime) {
+            endTime.setDate(endTime.getDate() + 1); // Handle overnight operations
+        }
+        
+        return differenceInMinutes(endTime, startTime);
+    } catch (e) {
+        console.error("Error calculating duration", e);
+        return null;
+    }
+};
+
+
 // Helper to get a YYYY-MM-DD string adjusted for a specific timezone (e.g., UTC-5 for Colombia)
 const getLocalGroupingDate = (isoString: string): string => {
     if (!isoString) return '';
@@ -121,10 +140,15 @@ export interface DetailedReportRow {
     cliente: string;
     observaciones: string;
     totalPaletas: number;
-    tipoPedido: string;
+    tipoOperacion: string; // Renamed from tipoPedido
     pedidoSislog: string;
     operacionLogistica: string;
     sesion: string;
+    tipoPedido: string; // New field
+    tipoEmpaqueMaquila: string; // New field
+    numeroOperariosCuadrilla: string; // New field
+    operacionPorCuadrilla: string; // New field
+    duracionMinutos: number | null; // New field
 }
 
 const calculateTotalPallets = (formType: string, formData: any): number => {
@@ -203,14 +227,30 @@ export async function getDetailedReport(criteria: DetailedReportCriteria): Promi
 
         const totalPaletas = calculateTotalPallets(formType, formData);
         
-        let tipoPedido = 'N/A';
+        let tipoOperacion = 'N/A';
         if (formType.includes('recepcion') || formType.includes('reception')) {
-            tipoPedido = 'Recepción';
+            tipoOperacion = 'Recepción';
         } else if (formType.includes('despacho')) {
-            tipoPedido = 'Despacho';
+            tipoOperacion = 'Despacho';
         }
 
         const operacionLogistica = getOperationLogisticsType(formData.fecha, formData.horaInicio, formData.horaFin);
+        const duracionMinutos = calculateDuration(formData.horaInicio, formData.horaFin);
+        
+        let operacionPorCuadrilla = 'N/A';
+        if (formData.aplicaCuadrilla) {
+            operacionPorCuadrilla = formData.aplicaCuadrilla.charAt(0).toUpperCase() + formData.aplicaCuadrilla.slice(1);
+        }
+
+        let tipoPedido = formData.tipoPedido || 'N/A';
+        if (tipoPedido === 'DESPACHO GENERICO') {
+            tipoPedido = 'GENERICO';
+        }
+
+        let numeroOperarios = 'N/A';
+        if (formData.aplicaCuadrilla === 'si' && formData.tipoPedido === 'MAQUILA' && formData.numeroOperariosCuadrilla) {
+            numeroOperarios = String(formData.numeroOperariosCuadrilla);
+        }
         
         return {
             id,
@@ -222,10 +262,16 @@ export async function getDetailedReport(criteria: DetailedReportCriteria): Promi
             cliente: formData.nombreCliente || formData.cliente || 'N/A',
             observaciones: formData.observaciones || '',
             totalPaletas,
-            tipoPedido,
+            tipoOperacion, // Renamed
             pedidoSislog: formData.pedidoSislog || 'N/A',
             operacionLogistica,
             sesion: formData.sesion || 'N/A',
+            // New fields
+            tipoPedido: tipoPedido,
+            tipoEmpaqueMaquila: formData.tipoEmpaqueMaquila || 'N/A',
+            numeroOperariosCuadrilla: numeroOperarios,
+            operacionPorCuadrilla: operacionPorCuadrilla,
+            duracionMinutos: duracionMinutos,
         };
     });
 
@@ -236,7 +282,7 @@ export async function getDetailedReport(criteria: DetailedReportCriteria): Promi
     if (criteria.operationType) {
         // Use localeCompare for case-insensitive and accent-insensitive comparison
         results = results.filter(row => 
-            row.tipoPedido.localeCompare(criteria.operationType!, 'es', { sensitivity: 'base' }) === 0
+            row.tipoOperacion.localeCompare(criteria.operationType!, 'es', { sensitivity: 'base' }) === 0
         );
     }
     if (criteria.containerNumber && criteria.containerNumber.trim()) {
