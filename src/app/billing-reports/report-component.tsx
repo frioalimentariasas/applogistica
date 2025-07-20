@@ -122,6 +122,22 @@ const formatDuration = (totalMinutes: number | null): string => {
     return `${hours}h ${minutes}m`;
 };
 
+const formatObservaciones = (observaciones: any): string => {
+    if (!observaciones || !Array.isArray(observaciones) || observaciones.length === 0) {
+      return '';
+    }
+    return observaciones.map(obs => {
+        if (obs.type === 'OTRAS OBSERVACIONES') {
+            return obs.customType || 'OTRAS OBSERVACIONES';
+        }
+        let text = obs.type;
+        if (obs.quantity > 0) {
+            text += ` (Cant: ${obs.quantity})`;
+        }
+        return text;
+    }).join(', ');
+};
+
 const MAX_DATE_RANGE_DAYS = 31;
 
 
@@ -453,7 +469,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             'Op. Cuadrilla': row.operacionPorCuadrilla,
             'No. Operarios': row.numeroOperariosCuadrilla,
             'Total Paletas': row.totalPaletas,
-            'Observaciones': row.observaciones,
+            'Observaciones': formatObservaciones(row.observaciones),
         }));
         
         const footer = {
@@ -508,7 +524,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             row.operacionPorCuadrilla,
             row.numeroOperariosCuadrilla,
             row.totalPaletas,
-            row.observaciones
+            formatObservaciones(row.observaciones)
         ]);
 
         const foot = [
@@ -1304,7 +1320,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                         <TableCell>{row.operacionPorCuadrilla}</TableCell>
                                                         <TableCell>{row.numeroOperariosCuadrilla}</TableCell>
                                                         <TableCell>{row.totalPaletas}</TableCell>
-                                                        <TableCell className="max-w-[200px] truncate" title={row.observaciones}>{row.observaciones}</TableCell>
+                                                        <TableCell className="max-w-[200px] truncate" title={formatObservaciones(row.observaciones)}>{formatObservaciones(row.observaciones)}</TableCell>
                                                     </TableRow>
                                                 ))
                                             ) : (
@@ -1785,5 +1801,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         </div>
     );
 }
+
+    
 
     
