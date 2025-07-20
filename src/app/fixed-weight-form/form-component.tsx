@@ -118,11 +118,12 @@ const formSchema = z.object({
   cedulaConductor: z.string().min(1, "La cédula del conductor es obligatoria.").regex(/^[0-9]*$/, "La cédula solo puede contener números."),
   placa: z.string().min(1, "La placa es obligatoria.").regex(/^[A-Z]{3}[0-9]{3}$/, "Formato inválido. Deben ser 3 letras y 3 números (ej: ABC123)."),
   muelle: z.string().min(1, "Seleccione un muelle."),
-  contenedor: z.string()
-    .regex(/^[A-Z]{4}[0-9]{7}$/, { message: "Formato inválido. Deben ser 4 letras y 7 números." })
-    .length(11, "Debe tener 11 caracteres.")
-    .nullable()
-    .or(z.literal('')),
+  contenedor: z.string().min(1, "El contenedor es obligatorio.").refine(value => {
+    const formatRegex = /^[A-Z]{4}[0-9]{7}$/;
+    return value.toUpperCase() === 'N/A' || formatRegex.test(value);
+  }, {
+    message: "Formato inválido. Debe ser 'N/A' o 4 letras y 7 números (ej: ABCD1234567)."
+  }),
   setPoint: z.preprocess(
       (val) => (val === "" || val === null ? null : val),
       z.coerce.number({ invalid_type_error: "Set Point debe ser un número."})
@@ -1140,10 +1141,9 @@ export default function FixedWeightFormComponent() {
                     )}/>
                     <FormField control={form.control} name="contenedor" render={({ field }) => (
                         <FormItem><FormLabel>Contenedor</FormLabel><FormControl><Input
-                                    placeholder="ABCD1234567"
+                                    placeholder="ABCD1234567 o N/A"
                                     {...field}
                                     onChange={(e) => field.onChange(e.target.value.toUpperCase())}
-                                    maxLength={11}
                                     value={field.value ?? ''}
                                 /></FormControl><FormMessage /></FormItem>
                     )}/>
