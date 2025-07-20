@@ -44,6 +44,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -56,7 +58,8 @@ import {
     RotateCcw,
     ChevronsUpDown,
     FileText,
-    Loader2
+    Loader2,
+    Check,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { RestoreDialog } from "@/components/app/restore-dialog";
@@ -1173,27 +1176,18 @@ export default function FixedWeightFormComponent() {
                                     control={form.control}
                                     name={`observaciones.${index}.type`}
                                     render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Tipo de Observación</FormLabel>
-                                            <Select onValueChange={(value) => {
-                                                const selectedStdObs = standardObservations.find(obs => obs.name === value);
-                                                field.onChange(value);
-                                                form.setValue(`observaciones.${index}.quantityType`, selectedStdObs?.quantityType);
-                                            }} value={field.value}>
-                                                <FormControl>
-                                                    <SelectTrigger>
-                                                        <SelectValue placeholder="Seleccione un tipo" />
-                                                    </SelectTrigger>
-                                                </FormControl>
-                                                <SelectContent>
-                                                    {standardObservations.map(obs => (
-                                                        <SelectItem key={obs.id} value={obs.name}>{obs.name}</SelectItem>
-                                                    ))}
-                                                    <SelectItem value="OTRAS OBSERVACIONES">OTRAS OBSERVACIONES</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                            <FormMessage />
-                                        </FormItem>
+                                      <FormItem>
+                                        <FormLabel>Tipo de Observación</FormLabel>
+                                        <ObservationCombobox
+                                          value={field.value}
+                                          onChange={(value, quantityType) => {
+                                            field.onChange(value);
+                                            form.setValue(`observaciones.${index}.quantityType`, quantityType);
+                                          }}
+                                          standardObservations={standardObservations}
+                                        />
+                                        <FormMessage />
+                                      </FormItem>
                                     )}
                                 />
                                 {isOtherType ? (
@@ -1433,6 +1427,67 @@ export default function FixedWeightFormComponent() {
     </div>
   );
 }
+
+const ObservationCombobox = ({ value, onChange, standardObservations }: { value: string; onChange: (value: string, quantityType?: string) => void; standardObservations: StandardObservation[] }) => {
+    const [open, setOpen] = useState(false);
+
+    const allObservations = useMemo(() => [
+        ...standardObservations,
+        { id: 'OTRAS', name: 'OTRAS OBSERVACIONES', quantityType: '' }
+    ], [standardObservations]);
+
+    return (
+        <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+                <FormControl>
+                    <Button
+                        variant="outline"
+                        role="combobox"
+                        className={cn(
+                            "w-full justify-between",
+                            !value && "text-muted-foreground"
+                        )}
+                    >
+                        {value
+                            ? allObservations.find(
+                                (obs) => obs.name === value
+                              )?.name
+                            : "Seleccione un tipo"}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                </FormControl>
+            </PopoverTrigger>
+            <PopoverContent className="w-full p-0">
+                <Command>
+                    <CommandInput placeholder="Buscar observación..." />
+                    <CommandEmpty>No se encontró la observación.</CommandEmpty>
+                    <CommandGroup>
+                        <ScrollArea className="h-72">
+                            {allObservations.map((obs) => (
+                                <CommandItem
+                                    value={obs.name}
+                                    key={obs.id}
+                                    onSelect={() => {
+                                        onChange(obs.name, obs.quantityType);
+                                        setOpen(false);
+                                    }}
+                                >
+                                    <Check
+                                        className={cn(
+                                            "mr-2 h-4 w-4",
+                                            value === obs.name ? "opacity-100" : "opacity-0"
+                                        )}
+                                    />
+                                    {obs.name}
+                                </CommandItem>
+                            ))}
+                        </ScrollArea>
+                    </CommandGroup>
+                </Command>
+            </PopoverContent>
+        </Popover>
+    );
+};
 
 // Component for the product selector dialog
 function ProductSelectorDialog({

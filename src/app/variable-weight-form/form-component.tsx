@@ -39,6 +39,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "@/components/ui/command";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -55,7 +57,8 @@ import {
     ChevronsUpDown,
     FileText,
     Edit2,
-    Loader2
+    Loader2,
+    Check
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -1409,23 +1412,14 @@ export default function VariableWeightFormComponent() {
                                             render={({ field }) => (
                                                 <FormItem>
                                                     <FormLabel>Tipo de Observación</FormLabel>
-                                                    <Select onValueChange={(value) => {
-                                                      const selectedStdObs = standardObservations.find(obs => obs.name === value);
-                                                      field.onChange(value);
-                                                      form.setValue(`observaciones.${index}.quantityType`, selectedStdObs?.quantityType);
-                                                    }} value={field.value}>
-                                                        <FormControl>
-                                                            <SelectTrigger>
-                                                                <SelectValue placeholder="Seleccione un tipo" />
-                                                            </SelectTrigger>
-                                                        </FormControl>
-                                                        <SelectContent>
-                                                            {standardObservations.map(obs => (
-                                                                <SelectItem key={obs.id} value={obs.name}>{obs.name}</SelectItem>
-                                                            ))}
-                                                            <SelectItem value="OTRAS OBSERVACIONES">OTRAS OBSERVACIONES</SelectItem>
-                                                        </SelectContent>
-                                                    </Select>
+                                                    <ObservationCombobox
+                                                      value={field.value}
+                                                      onChange={(value, quantityType) => {
+                                                        field.onChange(value);
+                                                        form.setValue(`observaciones.${index}.quantityType`, quantityType);
+                                                      }}
+                                                      standardObservations={standardObservations}
+                                                    />
                                                     <FormMessage />
                                                 </FormItem>
                                             )}
@@ -1656,6 +1650,66 @@ export default function VariableWeightFormComponent() {
   );
 }
 
+const ObservationCombobox = ({ value, onChange, standardObservations }: { value: string; onChange: (value: string, quantityType?: string) => void; standardObservations: StandardObservation[] }) => {
+    const [open, setOpen] = useState(false);
+
+    const allObservations = useMemo(() => [
+        ...standardObservations,
+        { id: 'OTRAS', name: 'OTRAS OBSERVACIONES', quantityType: '' }
+    ], [standardObservations]);
+
+    return (
+        <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+                <FormControl>
+                    <Button
+                        variant="outline"
+                        role="combobox"
+                        className={cn(
+                            "w-full justify-between",
+                            !value && "text-muted-foreground"
+                        )}
+                    >
+                        {value
+                            ? allObservations.find(
+                                (obs) => obs.name === value
+                              )?.name
+                            : "Seleccione un tipo"}
+                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                    </Button>
+                </FormControl>
+            </PopoverTrigger>
+            <PopoverContent className="w-full p-0">
+                <Command>
+                    <CommandInput placeholder="Buscar observación..." />
+                    <CommandEmpty>No se encontró la observación.</CommandEmpty>
+                    <CommandGroup>
+                        <ScrollArea className="h-72">
+                            {allObservations.map((obs) => (
+                                <CommandItem
+                                    value={obs.name}
+                                    key={obs.id}
+                                    onSelect={() => {
+                                        onChange(obs.name, obs.quantityType);
+                                        setOpen(false);
+                                    }}
+                                >
+                                    <Check
+                                        className={cn(
+                                            "mr-2 h-4 w-4",
+                                            value === obs.name ? "opacity-100" : "opacity-0"
+                                        )}
+                                    />
+                                    {obs.name}
+                                </CommandItem>
+                            ))}
+                        </ScrollArea>
+                    </CommandGroup>
+                </Command>
+            </PopoverContent>
+        </Popover>
+    );
+};
 
 // Component for the product selector dialog
 function ProductSelectorDialog({
