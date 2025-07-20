@@ -435,6 +435,8 @@ export default function VariableWeightFormComponent() {
   const [originalSubmission, setOriginalSubmission] = useState<SubmissionResult | null>(null);
   const [isMixErrorDialogOpen, setMixErrorDialogOpen] = useState(false);
   const [standardObservations, setStandardObservations] = useState<StandardObservation[]>([]);
+  const [isObservationDialogOpen, setObservationDialogOpen] = useState(false);
+  const [observationDialogIndex, setObservationDialogIndex] = useState<number | null>(null);
 
 
   const filteredClients = useMemo(() => {
@@ -1043,6 +1045,11 @@ export default function VariableWeightFormComponent() {
       }
   };
 
+  const handleObservationDialogOpening = (index: number) => {
+    setObservationDialogIndex(index);
+    setObservationDialogOpen(true);
+  };
+
 
   const title = `${submissionId ? 'Editando' : 'Formato de'} ${operation.charAt(0).toUpperCase() + operation.slice(1)} - Peso Variable`;
 
@@ -1076,6 +1083,17 @@ export default function VariableWeightFormComponent() {
             }
         }}
       />
+      <ObservationSelectorDialog
+        open={isObservationDialogOpen}
+        onOpenChange={setObservationDialogOpen}
+        standardObservations={standardObservations}
+        onSelect={(obs) => {
+            if (observationDialogIndex !== null) {
+                form.setValue(`observaciones.${observationDialogIndex}.type`, obs.name);
+                form.setValue(`observaciones.${observationDialogIndex}.quantityType`, obs.quantityType);
+            }
+        }}
+       />
       <div className="mx-auto max-w-6xl">
         <header className="mb-6 md:mb-8">
             <div className="relative flex items-center justify-center text-center">
@@ -1412,14 +1430,15 @@ export default function VariableWeightFormComponent() {
                                             render={({ field }) => (
                                                 <FormItem>
                                                     <FormLabel>Tipo de Observación</FormLabel>
-                                                    <ObservationCombobox
-                                                      value={field.value}
-                                                      onChange={(value, quantityType) => {
-                                                        field.onChange(value);
-                                                        form.setValue(`observaciones.${index}.quantityType`, quantityType);
-                                                      }}
-                                                      standardObservations={standardObservations}
-                                                    />
+                                                     <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        className="w-full justify-between text-left font-normal h-10"
+                                                        onClick={() => handleObservationDialogOpening(index)}
+                                                        >
+                                                        <span className="truncate">{field.value || "Seleccionar observación..."}</span>
+                                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                    </Button>
                                                     <FormMessage />
                                                 </FormItem>
                                             )}
@@ -1650,66 +1669,70 @@ export default function VariableWeightFormComponent() {
   );
 }
 
-const ObservationCombobox = ({ value, onChange, standardObservations }: { value: string; onChange: (value: string, quantityType?: string) => void; standardObservations: StandardObservation[] }) => {
-    const [open, setOpen] = useState(false);
+function ObservationSelectorDialog({
+    open,
+    onOpenChange,
+    standardObservations,
+    onSelect,
+}: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    standardObservations: StandardObservation[];
+    onSelect: (observation: { name: string, quantityType?: string }) => void;
+}) {
+    const [search, setSearch] = useState("");
 
     const allObservations = useMemo(() => [
         ...standardObservations,
         { id: 'OTRAS', name: 'OTRAS OBSERVACIONES', quantityType: '' }
     ], [standardObservations]);
 
+    const filteredObservations = useMemo(() => {
+        if (!search) return allObservations;
+        return allObservations.filter(obs => obs.name.toLowerCase().includes(search.toLowerCase()));
+    }, [search, allObservations]);
+
+    useEffect(() => {
+        if (!open) {
+            setSearch("");
+        }
+    }, [open]);
+
     return (
-        <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>
-                <FormControl>
-                    <Button
-                        variant="outline"
-                        role="combobox"
-                        className={cn(
-                            "w-full justify-between",
-                            !value && "text-muted-foreground"
-                        )}
-                    >
-                        {value
-                            ? allObservations.find(
-                                (obs) => obs.name === value
-                              )?.name
-                            : "Seleccione un tipo"}
-                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                    </Button>
-                </FormControl>
-            </PopoverTrigger>
-            <PopoverContent className="w-full p-0">
-                <Command>
-                    <CommandInput placeholder="Buscar observación..." />
-                    <CommandEmpty>No se encontró la observación.</CommandEmpty>
-                    <CommandGroup>
-                        <ScrollArea className="h-72">
-                            {allObservations.map((obs) => (
-                                <CommandItem
-                                    value={obs.name}
-                                    key={obs.id}
-                                    onSelect={() => {
-                                        onChange(obs.name, obs.quantityType);
-                                        setOpen(false);
-                                    }}
-                                >
-                                    <Check
-                                        className={cn(
-                                            "mr-2 h-4 w-4",
-                                            value === obs.name ? "opacity-100" : "opacity-0"
-                                        )}
-                                    />
-                                    {obs.name}
-                                </CommandItem>
-                            ))}
-                        </ScrollArea>
-                    </CommandGroup>
-                </Command>
-            </PopoverContent>
-        </Popover>
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Seleccionar Tipo de Observación</DialogTitle>
+                    <DialogDescription>Busque y seleccione un tipo de la lista.</DialogDescription>
+                </DialogHeader>
+                <Input
+                    placeholder="Buscar observación..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="my-4"
+                />
+                <ScrollArea className="h-72">
+                    <div className="space-y-1">
+                        {filteredObservations.map((obs) => (
+                            <Button
+                                key={obs.id}
+                                variant="ghost"
+                                className="w-full justify-start"
+                                onClick={() => {
+                                    onSelect({ name: obs.name, quantityType: obs.quantityType });
+                                    onOpenChange(false);
+                                }}
+                            >
+                                {obs.name}
+                            </Button>
+                        ))}
+                        {filteredObservations.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontró la observación.</p>}
+                    </div>
+                </ScrollArea>
+            </DialogContent>
+        </Dialog>
     );
-};
+}
 
 // Component for the product selector dialog
 function ProductSelectorDialog({
