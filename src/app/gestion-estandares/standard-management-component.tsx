@@ -2,25 +2,39 @@
 "use client";
 
 import { useState } from 'react';
-import { useForm } from 'react-hook-form';
+import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useRouter } from 'next/navigation';
 
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
-import { updatePerformanceStandard, type PerformanceStandardMap } from './actions';
+import { 
+    addPerformanceStandard, 
+    updatePerformanceStandard, 
+    deletePerformanceStandard, 
+    type PerformanceStandard 
+} from './actions';
+import { getClients, type ClientInfo } from '@/app/actions/clients';
+
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Loader2, TrendingUp, Save, ShieldAlert } from 'lucide-react';
+import { ArrowLeft, Loader2, TrendingUp, Save, ShieldAlert, PlusCircle, Edit, Trash2 } from 'lucide-react';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+
 
 const standardSchema = z.object({
-  'recepcion-fijo': z.coerce.number().min(1, "Debe ser mayor a 0."),
-  'recepcion-variable': z.coerce.number().min(1, "Debe ser mayor a 0."),
-  'despacho-fijo': z.coerce.number().min(1, "Debe ser mayor a 0."),
-  'despacho-variable': z.coerce.number().min(1, "Debe ser mayor a 0."),
+  description: z.string().min(3, "La descripción es requerida."),
+  clientName: z.string().min(1, "El cliente es requerido."),
+  operationType: z.enum(['recepcion', 'despacho', 'TODAS']),
+  productType: z.enum(['fijo', 'variable', 'TODAS']),
+  unitOfMeasure: z.enum(['PALETA', 'CAJA', 'SACO', 'CANASTILLA', 'TODAS']),
+  minutesPerTon: z.coerce.number().min(1, "Debe ser mayor a 0."),
 });
 
 type StandardFormValues = z.infer<typeof standardSchema>;
@@ -37,30 +51,66 @@ const AccessDenied = () => (
     </div>
 );
 
-export default function StandardManagementComponent({ initialStandards }: { initialStandards: PerformanceStandardMap | null }) {
+export default function StandardManagementComponent({ initialStandards, clients }: { initialStandards: PerformanceStandard[], clients: ClientInfo[] }) {
   const router = useRouter();
   const { toast } = useToast();
   const { permissions, loading: authLoading } = useAuth();
   
+  const [standards, setStandards] = useState<PerformanceStandard[]>(initialStandards);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [editingStandard, setEditingStandard] = useState<PerformanceStandard | null>(null);
+  const [deletingStandard, setDeletingStandard] = useState<PerformanceStandard | null>(null);
 
   const form = useForm<StandardFormValues>({
     resolver: zodResolver(standardSchema),
-    defaultValues: {
-      'recepcion-fijo': initialStandards?.['recepcion-fijo'] || 25,
-      'recepcion-variable': initialStandards?.['recepcion-variable'] || 25,
-      'despacho-fijo': initialStandards?.['despacho-fijo'] || 25,
-      'despacho-variable': initialStandards?.['despacho-variable'] || 25,
-    },
   });
 
-  const onSubmit = async (data: StandardFormValues) => {
+  const openDialog = (standard: PerformanceStandard | null = null) => {
+    setEditingStandard(standard);
+    if (standard) {
+      form.reset({
+        description: standard.description,
+        clientName: standard.clientName,
+        operationType: standard.operationType,
+        productType: standard.productType,
+        unitOfMeasure: standard.unitOfMeasure,
+        minutesPerTon: standard.minutesPerTon,
+      });
+    } else {
+      form.reset({
+        description: '',
+        clientName: 'TODOS',
+        operationType: 'TODAS',
+        productType: 'TODAS',
+        unitOfMeasure: 'TODAS',
+        minutesPerTon: 25,
+      });
+    }
+    setIsDialogOpen(true);
+  };
+
+  const onSubmit: SubmitHandler<StandardFormValues> = async (data) => {
     setIsSubmitting(true);
     try {
-      for (const [key, value] of Object.entries(data)) {
-        await updatePerformanceStandard(key as keyof PerformanceStandardMap, value);
+      if (editingStandard) {
+        const result = await updatePerformanceStandard(editingStandard.id, data as Omit<PerformanceStandard, 'id'>);
+        if (result.success) {
+          setStandards(prev => prev.map(s => s.id === editingStandard.id ? { id: s.id, ...data } as PerformanceStandard : s));
+          toast({ title: 'Éxito', description: 'Estándar actualizado.' });
+        } else {
+          throw new Error(result.message);
+        }
+      } else {
+        const result = await addPerformanceStandard(data as Omit<PerformanceStandard, 'id'>);
+        if (result.success && result.newStandard) {
+          setStandards(prev => [...prev, result.newStandard!]);
+          toast({ title: 'Éxito', description: 'Estándar creado.' });
+        } else {
+          throw new Error(result.message);
+        }
       }
-      toast({ title: 'Éxito', description: 'Los estándares de rendimiento han sido actualizados.' });
+      setIsDialogOpen(false);
     } catch (error) {
       const msg = error instanceof Error ? error.message : "Ocurrió un error inesperado.";
       toast({ variant: 'destructive', title: 'Error', description: msg });
@@ -68,6 +118,27 @@ export default function StandardManagementComponent({ initialStandards }: { init
       setIsSubmitting(false);
     }
   };
+
+  const handleDelete = async () => {
+    if (!deletingStandard) return;
+    setIsSubmitting(true);
+    try {
+        const result = await deletePerformanceStandard(deletingStandard.id);
+        if(result.success) {
+            setStandards(prev => prev.filter(s => s.id !== deletingStandard.id));
+            toast({ title: 'Éxito', description: 'Estándar eliminado.' });
+        } else {
+            throw new Error(result.message);
+        }
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : "Ocurrió un error inesperado.";
+      toast({ variant: 'destructive', title: 'Error', description: msg });
+    } finally {
+      setDeletingStandard(null);
+      setIsSubmitting(false);
+    }
+  }
+
 
   if (authLoading) {
       return (
@@ -93,7 +164,7 @@ export default function StandardManagementComponent({ initialStandards }: { init
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
-      <div className="max-w-4xl mx-auto">
+      <div className="max-w-6xl mx-auto">
         <header className="mb-6 md:mb-8">
           <div className="relative flex items-center justify-center text-center">
             <Button variant="ghost" size="icon" className="absolute left-0 top-1/2 -translate-y-1/2" onClick={() => router.push('/')}>
@@ -111,83 +182,150 @@ export default function StandardManagementComponent({ initialStandards }: { init
 
         <Card>
             <CardHeader>
-                <CardTitle>Estándares de Operación</CardTitle>
-                <CardDescription>Estos valores se usarán para calcular el indicador de rendimiento en el reporte de desempeño de cuadrilla.</CardDescription>
+                <div className="flex justify-between items-center">
+                    <div>
+                        <CardTitle>Listado de Estándares</CardTitle>
+                        <CardDescription>Cree y edite los estándares de rendimiento para las operaciones.</CardDescription>
+                    </div>
+                    <Button onClick={() => openDialog()}>
+                        <PlusCircle className="mr-2 h-4 w-4" />
+                        Crear Estándar
+                    </Button>
+                </div>
             </CardHeader>
             <CardContent>
-                <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-8">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="text-lg">Recepción</CardTitle>
-                                </CardHeader>
-                                <CardContent className="space-y-4">
-                                     <FormField
-                                        control={form.control}
-                                        name="recepcion-fijo"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Recepción Peso Fijo (min/ton)</FormLabel>
-                                                <FormControl><Input type="number" {...field} /></FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={form.control}
-                                        name="recepcion-variable"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Recepción Peso Variable (min/ton)</FormLabel>
-                                                <FormControl><Input type="number" {...field} /></FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                </CardContent>
-                            </Card>
-                            <Card>
-                                <CardHeader>
-                                    <CardTitle className="text-lg">Despacho</CardTitle>
-                                </CardHeader>
-                                <CardContent className="space-y-4">
-                                     <FormField
-                                        control={form.control}
-                                        name="despacho-fijo"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Despacho Peso Fijo (min/ton)</FormLabel>
-                                                <FormControl><Input type="number" {...field} /></FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                    <FormField
-                                        control={form.control}
-                                        name="despacho-variable"
-                                        render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Despacho Peso Variable (min/ton)</FormLabel>
-                                                <FormControl><Input type="number" {...field} /></FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}
-                                    />
-                                </CardContent>
-                            </Card>
-                        </div>
-
-                         <div className="flex justify-end">
-                             <Button type="submit" disabled={isSubmitting}>
-                                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                                Guardar Estándares
-                            </Button>
-                         </div>
-                    </form>
-                </Form>
+                <div className="rounded-md border">
+                    <Table>
+                        <TableHeader>
+                            <TableRow>
+                                <TableHead>Descripción</TableHead>
+                                <TableHead>Cliente</TableHead>
+                                <TableHead>Tipo Op.</TableHead>
+                                <TableHead>Tipo Prod.</TableHead>
+                                <TableHead>Unidad Medida</TableHead>
+                                <TableHead className="text-right">Minutos/Tonelada</TableHead>
+                                <TableHead className="text-right">Acciones</TableHead>
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {standards.length > 0 ? (
+                                standards.map(standard => (
+                                    <TableRow key={standard.id}>
+                                        <TableCell>{standard.description}</TableCell>
+                                        <TableCell>{standard.clientName}</TableCell>
+                                        <TableCell>{standard.operationType}</TableCell>
+                                        <TableCell>{standard.productType}</TableCell>
+                                        <TableCell>{standard.unitOfMeasure}</TableCell>
+                                        <TableCell className="text-right font-mono">{standard.minutesPerTon}</TableCell>
+                                        <TableCell className="text-right">
+                                            <Button variant="ghost" size="icon" onClick={() => openDialog(standard)}><Edit className="h-4 w-4" /></Button>
+                                            <Button variant="ghost" size="icon" className="text-destructive" onClick={() => setDeletingStandard(standard)}><Trash2 className="h-4 w-4" /></Button>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            ) : (
+                                <TableRow>
+                                    <TableCell colSpan={7} className="text-center h-24">No hay estándares definidos.</TableCell>
+                                </TableRow>
+                            )}
+                        </TableBody>
+                    </Table>
+                </div>
             </CardContent>
         </Card>
+
+        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>{editingStandard ? 'Editar' : 'Crear'} Estándar de Rendimiento</DialogTitle>
+                    <DialogDescription>
+                        Defina los criterios para este estándar. Use 'TODOS' para un valor por defecto.
+                    </DialogDescription>
+                </DialogHeader>
+                <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                        <FormField control={form.control} name="description" render={({ field }) => (
+                            <FormItem><FormLabel>Descripción</FormLabel><FormControl><Input placeholder="Ej: Recepción Furgón cajas" {...field} /></FormControl><FormMessage /></FormItem>
+                        )}/>
+                        <FormField control={form.control} name="clientName" render={({ field }) => (
+                            <FormItem><FormLabel>Cliente</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un cliente" /></SelectTrigger></FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="TODOS">TODOS (Por defecto)</SelectItem>
+                                        {clients.map(c => <SelectItem key={c.id} value={c.razonSocial}>{c.razonSocial}</SelectItem>)}
+                                    </SelectContent>
+                                </Select><FormMessage />
+                            </FormItem>
+                        )}/>
+                        <div className="grid grid-cols-2 gap-4">
+                            <FormField control={form.control} name="operationType" render={({ field }) => (
+                                <FormItem><FormLabel>Tipo de Operación</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                                        <SelectContent>
+                                            <SelectItem value="TODAS">TODAS</SelectItem>
+                                            <SelectItem value="recepcion">Recepción</SelectItem>
+                                            <SelectItem value="despacho">Despacho</SelectItem>
+                                        </SelectContent>
+                                    </Select><FormMessage />
+                                </FormItem>
+                            )}/>
+                            <FormField control={form.control} name="productType" render={({ field }) => (
+                                <FormItem><FormLabel>Tipo de Producto</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                                        <SelectContent>
+                                            <SelectItem value="TODAS">TODAS</SelectItem>
+                                            <SelectItem value="fijo">Peso Fijo</SelectItem>
+                                            <SelectItem value="variable">Peso Variable</SelectItem>
+                                        </SelectContent>
+                                    </Select><FormMessage />
+                                </FormItem>
+                            )}/>
+                        </div>
+                        <FormField control={form.control} name="unitOfMeasure" render={({ field }) => (
+                            <FormItem><FormLabel>Unidad de Medida</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="TODAS">TODAS</SelectItem>
+                                        <SelectItem value="PALETA">Por Paleta</SelectItem>
+                                        <SelectItem value="CAJA">Por Caja</SelectItem>
+                                        <SelectItem value="SACO">Por Saco</SelectItem>
+                                        <SelectItem value="CANASTILLA">Por Canastilla</SelectItem>
+                                    </SelectContent>
+                                </Select><FormMessage />
+                            </FormItem>
+                        )}/>
+                        <FormField control={form.control} name="minutesPerTon" render={({ field }) => (
+                            <FormItem><FormLabel>Minutos por Tonelada</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                        )}/>
+                        <DialogFooter>
+                            <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
+                            <Button type="submit" disabled={isSubmitting}>
+                                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                                Guardar Estándar
+                            </Button>
+                        </DialogFooter>
+                    </form>
+                </Form>
+            </DialogContent>
+        </Dialog>
+        
+        <AlertDialog open={!!deletingStandard} onOpenChange={() => setDeletingStandard(null)}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>¿Está seguro?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                       Esta acción eliminará permanentemente el estándar: <strong>{deletingStandard?.description}</strong>.
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDelete} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground">
+                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                        Eliminar
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
 
       </div>
     </div>

@@ -12,7 +12,7 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 
 import { getCrewPerformanceReport, type CrewPerformanceReportRow } from '@/app/actions/crew-performance-report';
-import { getPerformanceStandards, type PerformanceStandardMap } from '@/app/gestion-estandares/actions';
+import { findBestMatchingStandard, type PerformanceStandard } from '@/app/gestion-estandares/actions';
 import { getAvailableOperarios } from '@/app/actions/performance-report';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
@@ -119,7 +119,7 @@ const formatDuration = (totalMinutes: number | null): string => {
 
 const getPerformanceIndicator = (
   row: CrewPerformanceReportRow, 
-  standards: PerformanceStandardMap | null
+  standard: PerformanceStandard | null
 ): {
   status: 'Óptimo' | 'Normal' | 'Lento' | 'N/A',
   color: string,
@@ -129,25 +129,23 @@ const getPerformanceIndicator = (
   if (!formType || duracionMinutos === null || duracionMinutos <= 0 || kilos <= 0) {
     return { status: 'N/A', color: 'text-gray-400', tooltip: 'Datos insuficientes para calcular.' };
   }
-
-  const operation = formType.includes('recepcion') || formType.includes('reception') ? 'recepcion' : 'despacho';
-  const product = formType.includes('fixed-weight') ? 'fijo' : 'variable';
-  const standardKey = `${operation}-${product}` as keyof PerformanceStandardMap;
   
-  const standardMinutesPerTon = standards?.[standardKey] ?? 25; // Default to 25 mins/ton if not found
+  const standardMinutesPerTon = standard?.minutesPerTon ?? 25; // Default to 25 mins/ton if not found
   
   const toneladas = kilos / 1000;
   const standardTime = toneladas * standardMinutesPerTon;
   const lowerBound = standardTime * 0.9;
   const upperBound = standardTime * 1.1;
 
+  const standardTooltip = `Estándar Aplicado: ${standard ? standard.description : `Por defecto (${standardMinutesPerTon} min/ton)`}. Tiempo esperado: ${formatDuration(standardTime)}`;
+
   if (duracionMinutos < lowerBound) {
-    return { status: 'Óptimo', color: 'text-green-600', tooltip: `Más rápido que el estándar de ${formatDuration(standardTime)} (${standardMinutesPerTon} min/ton).` };
+    return { status: 'Óptimo', color: 'text-green-600', tooltip: `Más rápido que el estándar. ${standardTooltip}` };
   }
   if (duracionMinutos > upperBound) {
-    return { status: 'Lento', color: 'text-red-600', tooltip: `Más lento que el estándar de ${formatDuration(standardTime)} (${standardMinutesPerTon} min/ton).` };
+    return { status: 'Lento', color: 'text-red-600', tooltip: `Más lento que el estándar. ${standardTooltip}` };
   }
-  return { status: 'Normal', color: 'text-yellow-600', tooltip: `Dentro del estándar de ${formatDuration(standardTime)} (${standardMinutesPerTon} min/ton).` };
+  return { status: 'Normal', color: 'text-yellow-600', tooltip: `Dentro del estándar. ${standardTooltip}` };
 };
 
 
@@ -165,11 +163,10 @@ export default function CrewPerformanceReportPage() {
     const [operationType, setOperationType] = useState<string>('all');
     const [productType, setProductType] = useState<string>('all');
     
-    const [reportData, setReportData] = useState<CrewPerformanceReportRow[]>([]);
+    const [reportData, setReportData] = useState<(CrewPerformanceReportRow & { standard: PerformanceStandard | null })[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isLoadingOperarios, setIsLoadingOperarios] = useState(false);
     const [searched, setSearched] = useState(false);
-    const [standards, setStandards] = useState<PerformanceStandardMap | null>(null);
 
     
     const [currentPage, setCurrentPage] = useState(1);
@@ -185,24 +182,6 @@ export default function CrewPerformanceReportPage() {
     const [logoBase64, setLogoBase64] = useState<string | null>(null);
     const [logoDimensions, setLogoDimensions] = useState<{ width: number, height: number } | null>(null);
     const [isLogoLoading, setIsLogoLoading] = useState(true);
-
-    const fetchStandards = useCallback(async () => {
-        try {
-            const fetchedStandards = await getPerformanceStandards();
-            setStandards(fetchedStandards);
-        } catch (error) {
-            toast({
-                variant: 'destructive',
-                title: 'Error',
-                description: 'No se pudieron cargar los estándares de rendimiento.',
-            });
-        }
-    }, [toast]);
-
-    useEffect(() => {
-        fetchStandards();
-    }, [fetchStandards]);
-
 
     useEffect(() => {
         const fetchLogo = async () => {
@@ -270,7 +249,17 @@ export default function CrewPerformanceReportPage() {
             };
 
             const results = await getCrewPerformanceReport(criteria);
-            setReportData(results);
+            
+            const resultsWithStandards = await Promise.all(results.map(async (row) => {
+                const operation = row.formType.includes('recepcion') || row.formType.includes('reception') ? 'recepcion' : 'despacho';
+                const product = row.formType.includes('fixed-weight') ? 'fijo' : 'variable';
+                // This logic needs to be more complex based on your new requirements
+                const unitOfMeasure = 'PALETA'; // Simplified for now, needs real data
+                const standard = await findBestMatchingStandard(row.cliente, operation, product, unitOfMeasure);
+                return { ...row, standard };
+            }));
+
+            setReportData(resultsWithStandards);
             
             if (results.length === 0) {
                  toast({
@@ -309,18 +298,23 @@ export default function CrewPerformanceReportPage() {
     const handleExportExcel = () => {
         if (reportData.length === 0) return;
 
-        const dataToExport = reportData.map(row => ({
-            'Fecha': format(new Date(row.fecha), 'dd/MM/yyyy'),
-            'Operario Responsable': row.operario,
-            'Cliente': row.cliente,
-            'Tipo Operación': row.tipoOperacion,
-            'Pedido SISLOG': row.pedidoSislog,
-            'Indicador': getPerformanceIndicator(row, standards).status,
-            'Toneladas': (row.kilos / 1000).toFixed(2),
-            'Hora Inicio': formatTime12Hour(row.horaInicio),
-            'Hora Fin': formatTime12Hour(row.horaFin),
-            'Duración': formatDuration(row.duracionMinutos),
-        }));
+        const dataToExport = reportData.map(row => {
+            const indicator = getPerformanceIndicator(row, row.standard);
+            return {
+                'Fecha': format(new Date(row.fecha), 'dd/MM/yyyy'),
+                'Operario Responsable': row.operario,
+                'Cliente': row.cliente,
+                'Tipo Operación': row.tipoOperacion,
+                'Pedido SISLOG': row.pedidoSislog,
+                'Indicador': indicator.status,
+                'Toneladas': (row.kilos / 1000).toFixed(2),
+                'Hora Inicio': formatTime12Hour(row.horaInicio),
+                'Hora Fin': formatTime12Hour(row.horaFin),
+                'Duración': formatDuration(row.duracionMinutos),
+                'Estándar Aplicado': row.standard?.description || 'Por defecto',
+                'Minutos/Tonelada Estándar': row.standard?.minutesPerTon || 25,
+            }
+        });
 
         const totalRow = {
             'Fecha': '',
@@ -367,7 +361,9 @@ export default function CrewPerformanceReportPage() {
         autoTable(doc, {
             startY: titleY + 15,
             head: [['Fecha', 'Operario', 'Cliente', 'Tipo Op.', 'Pedido', 'Toneladas', 'Duración', 'Indicador']],
-            body: reportData.map(row => [
+            body: reportData.map(row => {
+                const indicator = getPerformanceIndicator(row, row.standard);
+                return [
                 format(new Date(row.fecha), 'dd/MM/yy'),
                 row.operario,
                 row.cliente,
@@ -375,8 +371,8 @@ export default function CrewPerformanceReportPage() {
                 row.pedidoSislog,
                 (row.kilos / 1000).toFixed(2),
                 formatDuration(row.duracionMinutos),
-                getPerformanceIndicator(row, standards).status
-            ]),
+                indicator.status
+            ]}),
             foot: [
                 [
                     { content: 'TOTALES:', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold' } }, 
@@ -553,7 +549,7 @@ export default function CrewPerformanceReportPage() {
                                         <TableRow><TableCell colSpan={8}><Skeleton className="h-20 w-full" /></TableCell></TableRow>
                                     ) : displayedData.length > 0 ? (
                                         displayedData.map((row) => {
-                                            const indicator = getPerformanceIndicator(row, standards);
+                                            const indicator = getPerformanceIndicator(row, row.standard);
                                             return (
                                                 <TableRow key={row.id}>
                                                     <TableCell>

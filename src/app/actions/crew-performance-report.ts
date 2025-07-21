@@ -79,6 +79,7 @@ export interface CrewPerformanceReportRow {
     horaFin: string;
     duracionMinutos: number | null;
     pedidoSislog: string;
+    tipoEmpaqueMaquila: string; // Add this
 }
 
 export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCriteria): Promise<CrewPerformanceReportRow[]> {
@@ -133,6 +134,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                 horaFin: formData.horaFin || 'N/A',
                 duracionMinutos: calculateDuration(formData.horaInicio, formData.horaFin),
                 pedidoSislog: formData.pedidoSislog || 'N/A',
+                tipoEmpaqueMaquila: formData.tipoEmpaqueMaquila || 'N/A',
             };
         });
 
