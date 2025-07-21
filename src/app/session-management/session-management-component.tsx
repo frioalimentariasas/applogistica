@@ -79,7 +79,7 @@ const permissionLabels: { key: keyof AppPermissions; label: string }[] = [
     { key: 'canViewCrewPerformanceReport', label: 'Ver Informe Desempeño Cuadrilla' },
     { key: 'canManageClients', label: 'Gestionar Clientes' },
     { key: 'canManageArticles', label: 'Gestionar Artículos' },
-    { key: 'canManageStandards', label: 'Gestionar Estándares Rendimiento' },
+    { key: 'canManageStandards', label: 'Gestionar Estándares de Productividad' },
     { key: 'canManageSessions', label: 'Gestionar Usuarios' },
 ];
 
