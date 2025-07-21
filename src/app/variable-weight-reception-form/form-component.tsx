@@ -329,26 +329,9 @@ export default function VariableWeightReceptionFormComponent() {
   const { isRestoreDialogOpen, onRestore, onDiscard: onDiscardFromHook, onOpenChange, clearDraft } = useFormPersistence(formIdentifier, form, originalDefaultValues, attachments, setAttachments, !!submissionId);
 
   const handleDiscard = () => {
-    onDiscardFromHook(); // Clears storage via hook
-    if (submissionId && originalSubmission) {
-        // In edit mode, reset to the original data loaded from the DB
-        const formData = originalSubmission.formData;
-        if (formData.fecha && typeof formData.fecha === 'string') {
-            formData.fecha = new Date(formData.fecha);
-        }
-        form.reset({
-            ...originalDefaultValues,
-            ...formData,
-            tipoPedido: formData.tipoPedido ?? undefined,
-            tipoEmpaqueMaquila: formData.tipoEmpaqueMaquila ?? undefined,
-            numeroOperariosCuadrilla: formData.numeroOperariosCuadrilla ?? undefined,
-        });
-        setAttachments(originalSubmission.attachmentUrls);
-    } else {
-        // In new form mode, reset to blank
-        form.reset(originalDefaultValues);
-        setAttachments([]);
-    }
+    onDiscardFromHook();
+    form.reset(originalDefaultValues);
+    setAttachments([]);
     setDiscardAlertOpen(false);
   };
 

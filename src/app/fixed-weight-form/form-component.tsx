@@ -180,7 +180,7 @@ const originalDefaultValues: FormValues = {
   precinto: "",
   documentoTransporte: "",
   facturaRemision: "",
-  productos: [{ codigo: '', descripcion: '', cajas: 0, totalPaletas: 0, pesoBrutoKg: 0, pesoNetoKg: 0, temperatura: null }],
+  productos: [],
   nombreConductor: "",
   cedulaConductor: "",
   placa: "",
@@ -313,7 +313,7 @@ export default function FixedWeightFormComponent() {
         form.reset({
             ...originalDefaultValues,
             ...formData,
-            tipoPedido: formData.tipoPedido ?? undefined, // Ensure reset
+            tipoPedido: formData.tipoPedido ?? undefined,
             tipoEmpaqueMaquila: formData.tipoEmpaqueMaquila ?? undefined,
             numeroOperariosCuadrilla: formData.numeroOperariosCuadrilla ?? undefined,
         });
@@ -339,7 +339,12 @@ export default function FixedWeightFormComponent() {
     fetchClientsAndObs();
 
     if (!submissionId) {
-        form.reset(originalDefaultValues);
+        form.reset({
+            ...originalDefaultValues,
+            productos: [ // Start with one empty product
+                { codigo: '', descripcion: '', cajas: 0, totalPaletas: 0, pesoBrutoKg: 0, pesoNetoKg: 0, temperatura: null }
+            ]
+        });
     }
     window.scrollTo(0, 0);
   }, [submissionId, form]);
@@ -1587,4 +1592,3 @@ function ProductSelectorDialog({
         </Dialog>
     );
 }
-
