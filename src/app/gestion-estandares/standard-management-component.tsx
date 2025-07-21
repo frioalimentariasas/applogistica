@@ -272,7 +272,7 @@ export default function StandardManagementComponent({ initialStandards, clients 
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogContent>
                 <DialogHeader>
-                    <DialogTitle>{editingStandard ? 'Editar' : 'Crear'} Estándar de Rendimiento</DialogTitle>
+                    <DialogTitle>{editingStandard ? 'Editar' : 'Crear'} Estándar de Productividad</DialogTitle>
                     <DialogDescription>
                         {editingStandard 
                           ? 'Modifique los detalles del estándar.' 
