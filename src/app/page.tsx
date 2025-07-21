@@ -113,7 +113,7 @@ export default function Home() {
 
   return (
     <div className="flex min-h-screen w-full items-center justify-center bg-gray-50 p-4">
-      <div className="w-full max-w-4xl space-y-8 relative">
+      <div className="w-full max-w-6xl space-y-8 relative">
         <Button
           variant="outline"
           size="sm"
@@ -132,7 +132,7 @@ export default function Home() {
             </div>
         )}
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
             {permissions.canGenerateForms && (
                 <Card className="flex flex-col">
                     <CardHeader>
