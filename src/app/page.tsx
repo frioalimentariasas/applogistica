@@ -93,7 +93,7 @@ export default function Home() {
     { label: 'Informes para Facturación', href: '/billing-reports', icon: BookCopy, permission: 'canViewBillingReports' },
     { label: 'Informe de Desempeño Operaciones', href: '/performance-report', icon: Timer, permission: 'canViewPerformanceReport' },
     { label: 'Gestión de Desempeño Cuadrilla', href: '/crew-performance-report', icon: Users, permission: 'canViewCrewPerformanceReport' },
-    { label: 'Gestión de Estándares', href: '/gestion-estandares', icon: TrendingUpIcon, permission: 'canManageArticles' }, // Reuse permission
+    { label: 'Gestión de Estándares Rendimiento', href: '/gestion-estandares', icon: TrendingUpIcon, permission: 'canManageStandards' },
     { label: 'Gestión de Artículos', href: '/gestion-articulos', icon: Box, permission: 'canManageArticles' },
     { label: 'Gestión de Clientes', href: '/gestion-clientes', icon: Users2, permission: 'canManageClients' },
     { label: 'Gestión de Observaciones', href: '/gestion-observaciones', icon: ClipboardList, permission: 'canManageArticles' }, // Reuse article permission

@@ -137,6 +137,7 @@ export async function getUserPermissions(email: string): Promise<AppPermissions>
             canManageClients: true,
             canViewBillingReports: true,
             canManageSessions: true,
+            canManageStandards: true,
         };
     }
 

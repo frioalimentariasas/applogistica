@@ -16,6 +16,7 @@ export interface AppPermissions {
   canManageClients: boolean;
   canViewBillingReports: boolean;
   canManageSessions: boolean;
+  canManageStandards: boolean;
 }
 
 export const defaultPermissions: AppPermissions = {
@@ -27,6 +28,7 @@ export const defaultPermissions: AppPermissions = {
   canManageClients: false,
   canViewBillingReports: false,
   canManageSessions: false,
+  canManageStandards: false,
 };
 
 
