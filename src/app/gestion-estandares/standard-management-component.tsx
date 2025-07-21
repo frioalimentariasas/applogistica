@@ -208,7 +208,7 @@ export default function StandardManagementComponent({ initialStandards, clients 
             <div>
               <div className="flex items-center justify-center gap-2">
                 <TrendingUp className="h-7 w-7 md:h-8 md:w-8 text-primary" />
-                <h1 className="text-xl md:text-2xl font-bold text-primary">Gestión de Estándares Rendimiento</h1>
+                <h1 className="text-xl md:text-2xl font-bold text-primary">Gestión de Estándares de Productividad</h1>
               </div>
               <p className="text-xs md:text-sm text-gray-500">Defina los minutos estándar por tonelada para cada tipo de operación de cuadrilla.</p>
             </div>
