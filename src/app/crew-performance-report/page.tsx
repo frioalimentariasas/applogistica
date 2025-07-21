@@ -1,8 +1,9 @@
 
 "use client";
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { DateRange } from 'react-day-picker';
 import { format, subDays, addDays } from 'date-fns';
 import { es } from 'date-fns/locale';
@@ -11,6 +12,7 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 
 import { getCrewPerformanceReport, type CrewPerformanceReportRow } from '@/app/actions/crew-performance-report';
+import { getPerformanceStandards, type PerformanceStandardMap } from '@/app/gestion-estandares/actions';
 import { getAvailableOperarios } from '@/app/actions/performance-report';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
@@ -22,7 +24,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, File, FileDown, FolderSearch, Users, ShieldAlert, TrendingUp, Circle } from 'lucide-react';
+import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, File, FileDown, FolderSearch, Users, ShieldAlert, TrendingUp, Circle, Settings } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -105,40 +107,47 @@ const formatTime12Hour = (time24: string | undefined): string => {
 const formatDuration = (totalMinutes: number | null): string => {
     if (totalMinutes === null || totalMinutes < 0) return 'N/A';
     if (totalMinutes < 60) {
-        return `${totalMinutes} min`;
+        return `${Math.round(totalMinutes)} min`;
     }
     const hours = Math.floor(totalMinutes / 60);
     const minutes = totalMinutes % 60;
     if (minutes === 0) {
         return `${hours}h`;
     }
-    return `${hours}h ${minutes}m`;
+    return `${hours}h ${Math.round(minutes)}m`;
 };
 
-// Placeholder for performance calculation
-const getPerformanceIndicator = (row: CrewPerformanceReportRow): {
+const getPerformanceIndicator = (
+  row: CrewPerformanceReportRow, 
+  standards: PerformanceStandardMap | null
+): {
   status: 'Óptimo' | 'Normal' | 'Lento' | 'N/A',
   color: string,
   tooltip: string
 } => {
-  const { duracionMinutos, kilos } = row;
+  const { duracionMinutos, kilos, formType } = row;
   if (duracionMinutos === null || duracionMinutos <= 0 || kilos <= 0) {
     return { status: 'N/A', color: 'text-gray-400', tooltip: 'Datos insuficientes para calcular.' };
   }
-  const toneladas = kilos / 1000;
+
+  const operation = formType.includes('recepcion') || formType.includes('reception') ? 'recepcion' : 'despacho';
+  const product = formType.includes('fixed-weight') ? 'fijo' : 'variable';
+  const standardKey = `${operation}-${product}` as keyof PerformanceStandardMap;
   
-  // Placeholder standard: 25 minutes per ton
-  const standardTime = toneladas * 25; 
+  const standardMinutesPerTon = standards?.[standardKey] ?? 25; // Default to 25 mins/ton if not found
+  
+  const toneladas = kilos / 1000;
+  const standardTime = toneladas * standardMinutesPerTon;
   const lowerBound = standardTime * 0.9;
   const upperBound = standardTime * 1.1;
 
   if (duracionMinutos < lowerBound) {
-    return { status: 'Óptimo', color: 'text-green-600', tooltip: `Más rápido que el estándar de ${formatDuration(standardTime)}.` };
+    return { status: 'Óptimo', color: 'text-green-600', tooltip: `Más rápido que el estándar de ${formatDuration(standardTime)} (${standardMinutesPerTon} min/ton).` };
   }
   if (duracionMinutos > upperBound) {
-    return { status: 'Lento', color: 'text-red-600', tooltip: `Más lento que el estándar de ${formatDuration(standardTime)}.` };
+    return { status: 'Lento', color: 'text-red-600', tooltip: `Más lento que el estándar de ${formatDuration(standardTime)} (${standardMinutesPerTon} min/ton).` };
   }
-  return { status: 'Normal', color: 'text-yellow-600', tooltip: `Dentro del estándar de ${formatDuration(standardTime)}.` };
+  return { status: 'Normal', color: 'text-yellow-600', tooltip: `Dentro del estándar de ${formatDuration(standardTime)} (${standardMinutesPerTon} min/ton).` };
 };
 
 
@@ -160,6 +169,8 @@ export default function CrewPerformanceReportPage() {
     const [isLoading, setIsLoading] = useState(false);
     const [isLoadingOperarios, setIsLoadingOperarios] = useState(false);
     const [searched, setSearched] = useState(false);
+    const [standards, setStandards] = useState<PerformanceStandardMap | null>(null);
+
     
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
@@ -174,6 +185,24 @@ export default function CrewPerformanceReportPage() {
     const [logoBase64, setLogoBase64] = useState<string | null>(null);
     const [logoDimensions, setLogoDimensions] = useState<{ width: number, height: number } | null>(null);
     const [isLogoLoading, setIsLogoLoading] = useState(true);
+
+    const fetchStandards = useCallback(async () => {
+        try {
+            const fetchedStandards = await getPerformanceStandards();
+            setStandards(fetchedStandards);
+        } catch (error) {
+            toast({
+                variant: 'destructive',
+                title: 'Error',
+                description: 'No se pudieron cargar los estándares de rendimiento.',
+            });
+        }
+    }, [toast]);
+
+    useEffect(() => {
+        fetchStandards();
+    }, [fetchStandards]);
+
 
     useEffect(() => {
         const fetchLogo = async () => {
@@ -286,7 +315,7 @@ export default function CrewPerformanceReportPage() {
             'Cliente': row.cliente,
             'Tipo Operación': row.tipoOperacion,
             'Pedido SISLOG': row.pedidoSislog,
-            'Indicador': getPerformanceIndicator(row).status,
+            'Indicador': getPerformanceIndicator(row, standards).status,
             'Toneladas': (row.kilos / 1000).toFixed(2),
             'Hora Inicio': formatTime12Hour(row.horaInicio),
             'Hora Fin': formatTime12Hour(row.horaFin),
@@ -346,7 +375,7 @@ export default function CrewPerformanceReportPage() {
                 row.pedidoSislog,
                 (row.kilos / 1000).toFixed(2),
                 formatDuration(row.duracionMinutos),
-                getPerformanceIndicator(row).status
+                getPerformanceIndicator(row, standards).status
             ]),
             foot: [
                 [
@@ -414,8 +443,18 @@ export default function CrewPerformanceReportPage() {
 
                 <Card>
                     <CardHeader>
-                        <CardTitle>Filtros del Reporte</CardTitle>
-                        <CardDescription>Seleccione los filtros para generar el informe de desempeño de cuadrilla.</CardDescription>
+                        <div className="flex justify-between items-start">
+                             <div>
+                                <CardTitle>Filtros del Reporte</CardTitle>
+                                <CardDescription>Seleccione los filtros para generar el informe de desempeño de cuadrilla.</CardDescription>
+                            </div>
+                            <Button asChild variant="outline" size="sm">
+                                <Link href="/gestion-estandares">
+                                    <Settings className="mr-2 h-4 w-4" />
+                                    Gestionar Estándares
+                                </Link>
+                            </Button>
+                        </div>
                     </CardHeader>
                     <CardContent>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
@@ -514,7 +553,7 @@ export default function CrewPerformanceReportPage() {
                                         <TableRow><TableCell colSpan={8}><Skeleton className="h-20 w-full" /></TableCell></TableRow>
                                     ) : displayedData.length > 0 ? (
                                         displayedData.map((row) => {
-                                            const indicator = getPerformanceIndicator(row);
+                                            const indicator = getPerformanceIndicator(row, standards);
                                             return (
                                                 <TableRow key={row.id}>
                                                     <TableCell>
