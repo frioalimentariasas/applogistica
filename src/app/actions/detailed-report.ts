@@ -128,7 +128,7 @@ export interface DetailedReportCriteria {
     operationType?: 'recepcion' | 'despacho';
     containerNumber?: string;
     sesion?: string;
-    tipoPedido?: string;
+    tipoPedido?: string[];
 }
 
 export interface DetailedReportRow {
@@ -292,8 +292,8 @@ export async function getDetailedReport(criteria: DetailedReportCriteria): Promi
     if (criteria.sesion) {
         results = results.filter(row => row.sesion === criteria.sesion);
     }
-    if (criteria.tipoPedido) {
-        results = results.filter(row => row.tipoPedido === criteria.tipoPedido);
+    if (criteria.tipoPedido && criteria.tipoPedido.length > 0) {
+        results = results.filter(row => criteria.tipoPedido!.includes(row.tipoPedido));
     }
 
 

@@ -34,6 +34,7 @@ import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { MultiSelect } from '@/components/ui/multi-select';
 
 
 const ResultsSkeleton = () => (
@@ -166,7 +167,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const [detailedReportClient, setDetailedReportClient] = useState<string | undefined>(undefined);
     const [detailedReportOperationType, setDetailedReportOperationType] = useState<string>('');
     const [detailedReportContainer, setDetailedReportContainer] = useState<string>('');
-    const [detailedReportTipoPedido, setDetailedReportTipoPedido] = useState<string>('');
+    const [detailedReportTipoPedido, setDetailedReportTipoPedido] = useState<string[]>([]);
     const [detailedReportData, setDetailedReportData] = useState<DetailedReportRow[]>([]);
     const [isDetailedReportLoading, setIsDetailedReportLoading] = useState(false);
     const [isDetailedReportSearched, setIsDetailedReportSearched] = useState(false);
@@ -424,7 +425,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 clientName: detailedReportClient,
                 operationType: detailedReportOperationType === 'todos' ? undefined : detailedReportOperationType as 'recepcion' | 'despacho',
                 containerNumber: detailedReportContainer,
-                tipoPedido: detailedReportTipoPedido === 'all' ? undefined : detailedReportTipoPedido,
+                tipoPedido: detailedReportTipoPedido.length > 0 ? detailedReportTipoPedido : undefined,
             };
 
             const results = await getDetailedReport(criteria);
@@ -446,7 +447,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         setDetailedReportClient(undefined);
         setDetailedReportOperationType('');
         setDetailedReportContainer('');
-        setDetailedReportTipoPedido('');
+        setDetailedReportTipoPedido([]);
         setDetailedReportData([]);
         setIsDetailedReportSearched(false);
     };
@@ -961,6 +962,13 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         doc.save(fileName);
     };
 
+    const tipoPedidoOptions = [
+        { value: 'GENERICO', label: 'GENERICO' },
+        { value: 'MAQUILA', label: 'MAQUILA' },
+        { value: 'TUNEL', label: 'TUNEL' },
+        { value: 'INGRESO DE SALDO', label: 'INGRESO DE SALDO' }
+    ];
+
     return (
         <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
             <div className="max-w-screen-2xl mx-auto">
@@ -1256,16 +1264,13 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                     </div>
                                     <div className="space-y-2">
                                         <Label>Tipo de Pedido</Label>
-                                        <Select value={detailedReportTipoPedido} onValueChange={setDetailedReportTipoPedido}>
-                                            <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="all">Todos</SelectItem>
-                                                <SelectItem value="GENERICO">GENERICO</SelectItem>
-                                                <SelectItem value="MAQUILA">MAQUILA</SelectItem>
-                                                <SelectItem value="TUNEL">TUNEL</SelectItem>
-                                                <SelectItem value="INGRESO DE SALDO">INGRESO DE SALDO</SelectItem>
-                                            </SelectContent>
-                                        </Select>
+                                        <MultiSelect
+                                            options={tipoPedidoOptions}
+                                            selected={detailedReportTipoPedido}
+                                            onChange={setDetailedReportTipoPedido}
+                                            className="w-full"
+                                            placeholder="Seleccionar tipo(s)..."
+                                        />
                                     </div>
                                     <div className="space-y-2">
                                         <Label>No. Contenedor (Opcional)</Label>
