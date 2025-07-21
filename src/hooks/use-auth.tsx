@@ -10,6 +10,8 @@ import { getFirestore, doc, getDoc } from 'firebase/firestore';
 export interface AppPermissions {
   canGenerateForms: boolean;
   canConsultForms: boolean;
+  canEditForms: boolean;
+  canDeleteForms: boolean;
   canViewPerformanceReport: boolean;
   canViewCrewPerformanceReport: boolean;
   canManageArticles: boolean;
@@ -22,6 +24,8 @@ export interface AppPermissions {
 export const defaultPermissions: AppPermissions = {
   canGenerateForms: false,
   canConsultForms: false,
+  canEditForms: false,
+  canDeleteForms: false,
   canViewPerformanceReport: false,
   canViewCrewPerformanceReport: false,
   canManageArticles: false,

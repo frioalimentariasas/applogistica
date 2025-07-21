@@ -14,6 +14,7 @@ import Image from "next/image";
 import { useAuth } from "@/hooks/use-auth";
 import { getClients, type ClientInfo } from "@/app/actions/clients";
 import { getArticulosByClients, type ArticuloInfo } from "@/app/actions/articulos";
+import { getUsersList, type UserInfo } from "@/app/actions/users";
 import { useFormPersistence } from "@/hooks/use-form-persistence";
 import { saveForm } from "@/app/actions/save-form";
 import { storage } from "@/lib/firebase";
@@ -138,6 +139,7 @@ const formSchema = z.object({
   observaciones: z.array(observationSchema).optional(),
   coordinador: z.string().min(1, "Seleccione un coordinador."),
   aplicaCuadrilla: z.enum(["si", "no"], { required_error: "Seleccione una opción para 'Operación Realizada por Cuadrilla'." }),
+  operarioResponsable: z.string().optional(), // For admin editing
   tipoPedido: z.enum(['GENERICO', 'MAQUILA', 'TUNEL', 'INGRESO DE SALDO', 'DESPACHO GENERICO']).optional(),
   tipoEmpaqueMaquila: z.enum(['EMPAQUE DE SACOS', 'EMPAQUE DE CAJAS']).optional(),
   numeroOperariosCuadrilla: z.coerce.number().int().min(1, "Debe ser al menos 1.").optional(),
@@ -197,6 +199,7 @@ const originalDefaultValues: FormValues = {
   observaciones: [],
   coordinador: "",
   aplicaCuadrilla: undefined,
+  operarioResponsable: undefined,
   tipoPedido: undefined,
   tipoEmpaqueMaquila: undefined,
   numeroOperariosCuadrilla: undefined,
@@ -227,6 +230,7 @@ export default function FixedWeightFormComponent() {
   const { user, displayName, permissions } = useAuth();
   
   const [clientes, setClientes] = useState<ClientInfo[]>([]);
+  const [allUsers, setAllUsers] = useState<UserInfo[]>([]);
   
   const [articulos, setArticulos] = useState<ArticuloInfo[]>([]);
   const [isLoadingArticulos, setIsLoadingArticulos] = useState(false);
@@ -331,15 +335,19 @@ export default function FixedWeightFormComponent() {
 
 
   useEffect(() => {
-    const fetchClientsAndObs = async () => {
-      const [clientList, obsList] = await Promise.all([
+    const fetchInitialData = async () => {
+      const [clientList, obsList, userList] = await Promise.all([
         getClients(),
-        getStandardObservations()
+        getStandardObservations(),
+        isAdmin ? getUsersList() : Promise.resolve([])
       ]);
       setClientes(clientList);
       setStandardObservations(obsList);
+      if (isAdmin) {
+          setAllUsers(userList);
+      }
     };
-    fetchClientsAndObs();
+    fetchInitialData();
 
     if (!submissionId) {
         form.reset({
@@ -350,7 +358,7 @@ export default function FixedWeightFormComponent() {
         });
     }
     window.scrollTo(0, 0);
-  }, [submissionId, form]);
+  }, [submissionId, form, isAdmin]);
 
   useEffect(() => {
     const loadSubmissionData = async () => {
@@ -378,6 +386,7 @@ export default function FixedWeightFormComponent() {
               tipoPedido: formData.tipoPedido ?? undefined,
               tipoEmpaqueMaquila: formData.tipoEmpaqueMaquila ?? undefined,
               numeroOperariosCuadrilla: formData.numeroOperariosCuadrilla ?? undefined,
+              operarioResponsable: submission.userId, // Default to original user
               unidadDeMedidaPrincipal: formData.unidadDeMedidaPrincipal ?? 'PALETA',
               productos: (formData.productos || []).map((p: any) => ({
                   ...originalDefaultValues.productos[0],
@@ -561,7 +570,7 @@ export default function FixedWeightFormComponent() {
                     return;
                 }
 
-                setAttachments(prev => [...prev, optimizedImage]);
+                setAttachments(prev => [...prev, ...optimizedImage]);
             } catch (error) {
                  console.error("Image optimization error:", error);
                  toast({
@@ -658,9 +667,13 @@ export default function FixedWeightFormComponent() {
         
         const finalAttachmentUrls = [...existingAttachmentUrls, ...uploadedUrls];
 
+        const isUpdating = !!submissionId;
+        const selectedUserId = data.operarioResponsable || (isUpdating ? originalSubmission?.userId : user.uid);
+        const selectedUser = allUsers.find(u => u.uid === selectedUserId) || { displayName: displayName || 'N/A' };
+        
         const submissionData = {
-            userId: user.uid,
-            userDisplayName: displayName || 'N/A',
+            userId: selectedUserId!,
+            userDisplayName: selectedUser.displayName,
             formType: `fixed-weight-${operation}`,
             formData: data,
             attachmentUrls: finalAttachmentUrls,
@@ -1336,10 +1349,27 @@ export default function FixedWeightFormComponent() {
                         <FormField control={form.control} name="coordinador" render={({ field }) => (
                             <FormItem><FormLabel>Coordinador Responsable</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                         )}/>
-                        <FormItem>
-                            <FormLabel>Operario Responsable</FormLabel>
-                            <FormControl><Input disabled value={submissionId ? originalSubmission?.userDisplayName : displayName || ''} /></FormControl>
-                        </FormItem>
+                        
+                        {submissionId && isAdmin ? (
+                             <FormField control={form.control} name="operarioResponsable" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Operario Responsable</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value}>
+                                        <FormControl><SelectTrigger><SelectValue placeholder="Seleccione un operario" /></SelectTrigger></FormControl>
+                                        <SelectContent>
+                                            {allUsers.map(u => <SelectItem key={u.uid} value={u.uid}>{u.displayName}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )}/>
+                        ) : (
+                            <FormItem>
+                                <FormLabel>Operario Responsable</FormLabel>
+                                <FormControl><Input disabled value={submissionId ? originalSubmission?.userDisplayName : displayName || ''} /></FormControl>
+                            </FormItem>
+                        )}
+
                         <FormField
                             control={form.control}
                             name="aplicaCuadrilla"
