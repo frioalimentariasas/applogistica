@@ -75,6 +75,7 @@ export interface CrewPerformanceReportRow {
     operario: string;
     cliente: string;
     tipoOperacion: string;
+    tipoProducto: 'Fijo' | 'Variable' | 'N/A';
     kilos: number;
     horaInicio: string;
     horaFin: string;
@@ -123,6 +124,13 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             } else if (formType.includes('despacho')) {
                 tipoOperacion = 'Despacho';
             }
+
+            let tipoProducto: 'Fijo' | 'Variable' | 'N/A' = 'N/A';
+            if (formType.includes('fixed-weight')) {
+                tipoProducto = 'Fijo';
+            } else if (formType.includes('variable-weight')) {
+                tipoProducto = 'Variable';
+            }
             
             return {
                 id,
@@ -131,6 +139,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                 operario: userDisplayName || 'N/A',
                 cliente: formData.nombreCliente || formData.cliente || 'N/A',
                 tipoOperacion,
+                tipoProducto,
                 kilos: calculateTotalKilos(formType, formData),
                 horaInicio: formData.horaInicio || 'N/A',
                 horaFin: formData.horaFin || 'N/A',

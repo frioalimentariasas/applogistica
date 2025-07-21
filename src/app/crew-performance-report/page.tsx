@@ -224,7 +224,7 @@ export default function CrewPerformanceReportPage() {
         fetchOperarios();
     }, [dateRange, toast]);
 
-    const handleSearch = async () => {
+    const handleSearch = useCallback(async () => {
         if (!dateRange || !dateRange.from || !dateRange.to) {
             toast({
                 variant: 'destructive',
@@ -279,7 +279,7 @@ export default function CrewPerformanceReportPage() {
         } finally {
             setIsLoading(false);
         }
-    };
+    }, [dateRange, selectedOperario, operationType, productType, toast]);
     
     const handleClear = () => {
         setDateRange(undefined);
@@ -304,6 +304,7 @@ export default function CrewPerformanceReportPage() {
                 'Operario Responsable': row.operario,
                 'Cliente': row.cliente,
                 'Tipo Operación': row.tipoOperacion,
+                'Tipo Producto': row.tipoProducto,
                 'Pedido SISLOG': row.pedidoSislog,
                 'Indicador': indicator.status,
                 'Toneladas': (row.kilos / 1000).toFixed(2),
@@ -320,6 +321,7 @@ export default function CrewPerformanceReportPage() {
             'Operario Responsable': '',
             'Cliente': '',
             'Tipo Operación': '',
+            'Tipo Producto': '',
             'Pedido SISLOG': 'TOTALES:',
             'Indicador': '',
             'Toneladas': totalToneladas.toFixed(2),
@@ -359,7 +361,7 @@ export default function CrewPerformanceReportPage() {
 
         autoTable(doc, {
             startY: titleY + 15,
-            head: [['Fecha', 'Operario', 'Cliente', 'Tipo Op.', 'Pedido', 'Toneladas', 'Duración', 'Indicador']],
+            head: [['Fecha', 'Operario', 'Cliente', 'Tipo Op.', 'Tipo Prod.', 'Pedido', 'Toneladas', 'Duración', 'Indicador']],
             body: reportData.map(row => {
                 const indicator = getPerformanceIndicator(row, row.standard);
                 return [
@@ -367,6 +369,7 @@ export default function CrewPerformanceReportPage() {
                 row.operario,
                 row.cliente,
                 row.tipoOperacion,
+                row.tipoProducto,
                 row.pedidoSislog,
                 (row.kilos / 1000).toFixed(2),
                 formatDuration(row.duracionMinutos),
@@ -374,7 +377,7 @@ export default function CrewPerformanceReportPage() {
             ]}),
             foot: [
                 [
-                    { content: 'TOTALES:', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold' } }, 
+                    { content: 'TOTALES:', colSpan: 6, styles: { halign: 'right', fontStyle: 'bold' } }, 
                     { content: totalToneladas.toFixed(2), styles: { halign: 'left', fontStyle: 'bold' } },
                     { content: formatDuration(totalDuration), styles: { halign: 'left', fontStyle: 'bold' } },
                     ''
@@ -446,7 +449,7 @@ export default function CrewPerformanceReportPage() {
                             <Button asChild variant="outline" size="sm">
                                 <Link href="/gestion-estandares">
                                     <Settings className="mr-2 h-4 w-4" />
-                                    Gestionar Estándares
+                                    Gestionar Estándares de Productividad
                                 </Link>
                             </Button>
                         </div>
@@ -538,6 +541,7 @@ export default function CrewPerformanceReportPage() {
                                         <TableHead>Operario</TableHead>
                                         <TableHead>Cliente</TableHead>
                                         <TableHead>Tipo Op.</TableHead>
+                                        <TableHead>Tipo Prod.</TableHead>
                                         <TableHead>Pedido SISLOG</TableHead>
                                         <TableHead className="text-right">Toneladas</TableHead>
                                         <TableHead className="text-right">Duración</TableHead>
@@ -545,7 +549,7 @@ export default function CrewPerformanceReportPage() {
                                 </TableHeader>
                                 <TableBody>
                                     {isLoading ? (
-                                        <TableRow><TableCell colSpan={8}><Skeleton className="h-20 w-full" /></TableCell></TableRow>
+                                        <TableRow><TableCell colSpan={9}><Skeleton className="h-20 w-full" /></TableCell></TableRow>
                                     ) : displayedData.length > 0 ? (
                                         displayedData.map((row) => {
                                             const indicator = getPerformanceIndicator(row, row.standard);
@@ -570,6 +574,7 @@ export default function CrewPerformanceReportPage() {
                                                     <TableCell>{row.operario}</TableCell>
                                                     <TableCell className="max-w-[150px] truncate" title={row.cliente}>{row.cliente}</TableCell>
                                                     <TableCell>{row.tipoOperacion}</TableCell>
+                                                    <TableCell>{row.tipoProducto}</TableCell>
                                                     <TableCell>{row.pedidoSislog}</TableCell>
                                                     <TableCell className="text-right font-mono">{(row.kilos / 1000).toFixed(2)}</TableCell>
                                                     <TableCell className="text-right font-medium">{formatDuration(row.duracionMinutos)}</TableCell>
@@ -606,4 +611,5 @@ export default function CrewPerformanceReportPage() {
         </div>
     );
 }
+
 
