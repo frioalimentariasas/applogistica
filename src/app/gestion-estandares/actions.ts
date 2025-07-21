@@ -18,6 +18,16 @@ export interface PerformanceStandard {
     minutesPerTon: number;
 }
 
+export interface PerformanceStandardFormValues {
+    description: string;
+    clientNames: string[];
+    operationType: OperationType | 'TODAS';
+    productType: ProductType | 'TODAS';
+    unitOfMeasure: UnitOfMeasure | 'TODAS';
+    minutesPerTon: number;
+}
+
+
 // Function to get all standards
 export async function getPerformanceStandards(): Promise<PerformanceStandard[]> {
     if (!firestore) {
@@ -25,7 +35,7 @@ export async function getPerformanceStandards(): Promise<PerformanceStandard[]> 
         return [];
     }
     try {
-        const snapshot = await firestore.collection('performance_standards').orderBy('clientName').orderBy('operationType').get();
+        const snapshot = await firestore.collection('performance_standards').get();
         if (snapshot.empty) {
             return [];
         }
@@ -34,6 +44,13 @@ export async function getPerformanceStandards(): Promise<PerformanceStandard[]> 
             ...doc.data()
         } as PerformanceStandard));
         
+        // Sort in code to avoid needing a composite index
+        standards.sort((a, b) => {
+            const clientCompare = a.clientName.localeCompare(b.clientName);
+            if (clientCompare !== 0) return clientCompare;
+            return a.operationType.localeCompare(b.operationType);
+        });
+
         return standards;
     } catch (error) {
         console.error("Error fetching performance standards:", error);
@@ -45,25 +62,25 @@ export async function getPerformanceStandards(): Promise<PerformanceStandard[]> 
 }
 
 // Function to add a new standard or multiple standards
-export async function addPerformanceStandard(data: Omit<PerformanceStandard, 'id'>): Promise<{ success: boolean; message: string; }> {
+export async function addPerformanceStandard(data: PerformanceStandardFormValues): Promise<{ success: boolean; message: string; }> {
     if (!firestore) return { success: false, message: 'Error de configuración del servidor.' };
 
-    const { clientName, minutesPerTon } = data;
+    const { clientNames, minutesPerTon, ...restOfData } = data;
     if (typeof minutesPerTon !== 'number' || minutesPerTon <= 0) {
         return { success: false, message: 'Los minutos por tonelada deben ser un número positivo.' };
     }
-    if (!clientName || clientName.trim() === '') {
+    if (!clientNames || clientNames.length === 0) {
         return { success: false, message: 'El campo de cliente(s) es obligatorio.' };
     }
 
     try {
         const batch = firestore.batch();
-        const clients = clientName.split(',').map(name => name.trim()).filter(Boolean);
-
-        for (const client of clients) {
+        
+        for (const client of clientNames) {
             const newStandardData = {
-                ...data,
-                clientName: client
+                ...restOfData,
+                clientName: client,
+                minutesPerTon,
             };
             const docRef = firestore.collection('performance_standards').doc();
             batch.set(docRef, newStandardData);
@@ -74,7 +91,7 @@ export async function addPerformanceStandard(data: Omit<PerformanceStandard, 'id
         revalidatePath('/gestion-estandares');
         revalidatePath('/crew-performance-report');
         
-        const successMessage = clients.length > 1 ? `Se crearon ${clients.length} estándares con éxito.` : 'Estándar creado con éxito.';
+        const successMessage = clientNames.length > 1 ? `Se crearon ${clientNames.length} estándares con éxito.` : 'Estándar creado con éxito.';
         return { success: true, message: successMessage };
 
     } catch (error) {

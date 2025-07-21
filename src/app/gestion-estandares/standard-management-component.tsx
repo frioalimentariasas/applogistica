@@ -14,6 +14,7 @@ import {
     updatePerformanceStandard, 
     deletePerformanceStandard, 
     type PerformanceStandard,
+    type PerformanceStandardFormValues,
     getPerformanceStandards
 } from './actions';
 import type { ClientInfo } from '@/app/actions/clients';
@@ -22,23 +23,27 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { ArrowLeft, Loader2, TrendingUp, Save, ShieldAlert, PlusCircle, Edit, Trash2 } from 'lucide-react';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-
+import { MultiSelect } from '@/components/ui/multi-select';
 
 const standardSchema = z.object({
   description: z.string().min(3, "La descripción es requerida."),
-  clientName: z.string().min(1, "El cliente es requerido."),
+  clientNames: z.array(z.string()).min(1, "Debe seleccionar al menos un cliente."),
   operationType: z.enum(['recepcion', 'despacho', 'TODAS']),
   productType: z.enum(['fijo', 'variable', 'TODAS']),
   unitOfMeasure: z.enum(['PALETA', 'CAJA', 'SACO', 'CANASTILLA', 'TODAS']),
   minutesPerTon: z.coerce.number().min(1, "Debe ser mayor a 0."),
 });
 
-type StandardFormValues = z.infer<typeof standardSchema>;
+const editStandardSchema = standardSchema.omit({ clientNames: true }).extend({
+    clientName: z.string()
+});
+type EditStandardFormValues = z.infer<typeof editStandardSchema>;
+
 
 const AccessDenied = () => (
     <div className="flex flex-col items-center justify-center text-center gap-4">
@@ -62,67 +67,82 @@ export default function StandardManagementComponent({ initialStandards, clients 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingStandard, setEditingStandard] = useState<PerformanceStandard | null>(null);
   const [deletingStandard, setDeletingStandard] = useState<PerformanceStandard | null>(null);
+  
+  const clientOptions = [{ value: 'TODOS', label: 'TODOS (Estándar General)' }, ...clients.map(c => ({ value: c.razonSocial, label: c.razonSocial }))];
 
-  const form = useForm<StandardFormValues>({
+  const form = useForm<PerformanceStandardFormValues>({
     resolver: zodResolver(standardSchema),
+  });
+  
+  const editForm = useForm<EditStandardFormValues>({
+      resolver: zodResolver(editStandardSchema),
   });
 
   const openDialog = (standard: PerformanceStandard | null = null) => {
     setEditingStandard(standard);
     if (standard) {
-      form.reset({
-        description: standard.description,
-        clientName: standard.clientName,
-        operationType: standard.operationType,
-        productType: standard.productType,
-        unitOfMeasure: standard.unitOfMeasure,
-        minutesPerTon: standard.minutesPerTon,
-      });
+        editForm.reset({
+            description: standard.description,
+            clientName: standard.clientName,
+            operationType: standard.operationType,
+            productType: standard.productType,
+            unitOfMeasure: standard.unitOfMeasure,
+            minutesPerTon: standard.minutesPerTon,
+        });
     } else {
-      form.reset({
-        description: '',
-        clientName: 'TODOS',
-        operationType: 'TODAS',
-        productType: 'TODAS',
-        unitOfMeasure: 'TODAS',
-        minutesPerTon: 25,
+        form.reset({
+            description: '',
+            clientNames: [],
+            operationType: 'TODAS',
+            productType: 'TODAS',
+            unitOfMeasure: 'TODAS',
+            minutesPerTon: 25,
       });
     }
     setIsDialogOpen(true);
   };
 
-  const onSubmit: SubmitHandler<StandardFormValues> = async (data) => {
+  const onAddSubmit: SubmitHandler<PerformanceStandardFormValues> = async (data) => {
     setIsSubmitting(true);
     try {
-      if (editingStandard) {
-        const result = await updatePerformanceStandard(editingStandard.id, data as Omit<PerformanceStandard, 'id'>);
-        if (result.success) {
-          setStandards(prev => {
-              const updated = prev.map(s => s.id === editingStandard.id ? { id: s.id, ...data } as PerformanceStandard : s);
-              return updated.sort((a,b) => a.clientName.localeCompare(b.clientName) || a.operationType.localeCompare(b.operationType));
-          });
-          toast({ title: 'Éxito', description: 'Estándar actualizado.' });
-        } else {
-          throw new Error(result.message);
-        }
+      const result = await addPerformanceStandard(data);
+      if (result.success) {
+        const allStandards = await getPerformanceStandards();
+        setStandards(allStandards);
+        toast({ title: 'Éxito', description: result.message });
+        setIsDialogOpen(false);
       } else {
-        const result = await addPerformanceStandard(data as Omit<PerformanceStandard, 'id'>);
-        if (result.success) {
-          // A full refresh is easier than trying to patch the state with potentially multiple new standards
-          const allStandards = await getPerformanceStandards();
-          setStandards(allStandards);
-          toast({ title: 'Éxito', description: result.message });
-        } else {
-          throw new Error(result.message);
-        }
+        throw new Error(result.message);
       }
-      setIsDialogOpen(false);
     } catch (error) {
       const msg = error instanceof Error ? error.message : "Ocurrió un error inesperado.";
       toast({ variant: 'destructive', title: 'Error', description: msg });
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const onEditSubmit: SubmitHandler<EditStandardFormValues> = async (data) => {
+      if (!editingStandard) return;
+      setIsSubmitting(true);
+      try {
+          const result = await updatePerformanceStandard(editingStandard.id, data);
+          if (result.success) {
+              setStandards(prev => {
+                  const updated = prev.map(s => s.id === editingStandard.id ? { id: s.id, ...data } as PerformanceStandard : s);
+                  return updated.sort((a,b) => a.clientName.localeCompare(b.clientName) || a.operationType.localeCompare(b.operationType));
+              });
+              toast({ title: 'Éxito', description: 'Estándar actualizado.' });
+              setIsDialogOpen(false);
+          } else {
+              throw new Error(result.message);
+          }
+      } catch (error) {
+          const msg = error instanceof Error ? error.message : "Ocurrió un error inesperado.";
+          toast({ variant: 'destructive', title: 'Error', description: msg });
+      } finally {
+        setIsSubmitting(false);
+      }
   };
 
   const handleDelete = async () => {
@@ -245,26 +265,43 @@ export default function StandardManagementComponent({ initialStandards, clients 
                 <DialogHeader>
                     <DialogTitle>{editingStandard ? 'Editar' : 'Crear'} Estándar de Rendimiento</DialogTitle>
                     <DialogDescription>
-                        Defina los criterios para este estándar. Use 'TODOS' o ingrese clientes separados por comas.
+                        {editingStandard 
+                          ? 'Modifique los detalles del estándar.' 
+                          : "Defina los criterios para este estándar. Puede seleccionar uno o varios clientes."
+                        }
                     </DialogDescription>
                 </DialogHeader>
-                <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                        <FormField control={form.control} name="description" render={({ field }) => (
+                 <Form {...(editingStandard ? editForm : form)}>
+                    <form onSubmit={editingStandard ? editForm.handleSubmit(onEditSubmit) : form.handleSubmit(onAddSubmit)} className="space-y-4">
+                        <FormField control={editingStandard ? editForm.control : form.control} name="description" render={({ field }) => (
                             <FormItem><FormLabel>Descripción</FormLabel><FormControl><Input placeholder="Ej: Recepción Furgón cajas" {...field} /></FormControl><FormMessage /></FormItem>
                         )}/>
-                        <FormField control={form.control} name="clientName" render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Cliente(s)</FormLabel>
-                                <FormControl><Input placeholder="TODOS, o Cliente A, Cliente B..." {...field} /></FormControl>
-                                <FormDescription>
-                                    Use 'TODOS' o escriba nombres de clientes separados por comas.
-                                </FormDescription>
-                                <FormMessage />
-                            </FormItem>
-                        )}/>
+                        
+                        {editingStandard ? (
+                            <FormField control={editForm.control} name="clientName" render={({ field }) => (
+                                <FormItem><FormLabel>Cliente</FormLabel><FormControl><Input {...field} disabled /></FormControl></FormItem>
+                            )}/>
+                        ) : (
+                            <FormField
+                              control={form.control}
+                              name="clientNames"
+                              render={({ field }) => (
+                                <FormItem>
+                                  <FormLabel>Cliente(s)</FormLabel>
+                                  <MultiSelect
+                                    options={clientOptions}
+                                    selected={field.value}
+                                    onChange={field.onChange}
+                                    placeholder="Seleccione uno o más clientes..."
+                                  />
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                        )}
+                        
                         <div className="grid grid-cols-2 gap-4">
-                            <FormField control={form.control} name="operationType" render={({ field }) => (
+                            <FormField control={editingStandard ? editForm.control : form.control} name="operationType" render={({ field }) => (
                                 <FormItem><FormLabel>Tipo de Operación</FormLabel>
                                     <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                                         <SelectContent>
@@ -275,7 +312,7 @@ export default function StandardManagementComponent({ initialStandards, clients 
                                     </Select><FormMessage />
                                 </FormItem>
                             )}/>
-                            <FormField control={form.control} name="productType" render={({ field }) => (
+                            <FormField control={editingStandard ? editForm.control : form.control} name="productType" render={({ field }) => (
                                 <FormItem><FormLabel>Tipo de Producto</FormLabel>
                                     <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                                         <SelectContent>
@@ -287,7 +324,7 @@ export default function StandardManagementComponent({ initialStandards, clients 
                                 </FormItem>
                             )}/>
                         </div>
-                        <FormField control={form.control} name="unitOfMeasure" render={({ field }) => (
+                        <FormField control={editingStandard ? editForm.control : form.control} name="unitOfMeasure" render={({ field }) => (
                             <FormItem><FormLabel>Unidad de Medida</FormLabel>
                                 <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                                     <SelectContent>
@@ -300,7 +337,7 @@ export default function StandardManagementComponent({ initialStandards, clients 
                                 </Select><FormMessage />
                             </FormItem>
                         )}/>
-                        <FormField control={form.control} name="minutesPerTon" render={({ field }) => (
+                        <FormField control={editingStandard ? editForm.control : form.control} name="minutesPerTon" render={({ field }) => (
                             <FormItem><FormLabel>Minutos por Tonelada</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
                         )}/>
                         <DialogFooter>
