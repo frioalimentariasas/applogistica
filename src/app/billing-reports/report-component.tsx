@@ -166,6 +166,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const [detailedReportClient, setDetailedReportClient] = useState<string | undefined>(undefined);
     const [detailedReportOperationType, setDetailedReportOperationType] = useState<string>('');
     const [detailedReportContainer, setDetailedReportContainer] = useState<string>('');
+    const [detailedReportTipoPedido, setDetailedReportTipoPedido] = useState<string>('');
     const [detailedReportData, setDetailedReportData] = useState<DetailedReportRow[]>([]);
     const [isDetailedReportLoading, setIsDetailedReportLoading] = useState(false);
     const [isDetailedReportSearched, setIsDetailedReportSearched] = useState(false);
@@ -423,6 +424,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 clientName: detailedReportClient,
                 operationType: detailedReportOperationType === 'todos' ? undefined : detailedReportOperationType as 'recepcion' | 'despacho',
                 containerNumber: detailedReportContainer,
+                tipoPedido: detailedReportTipoPedido === 'all' ? undefined : detailedReportTipoPedido,
             };
 
             const results = await getDetailedReport(criteria);
@@ -444,6 +446,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         setDetailedReportClient(undefined);
         setDetailedReportOperationType('');
         setDetailedReportContainer('');
+        setDetailedReportTipoPedido('');
         setDetailedReportData([]);
         setIsDetailedReportSearched(false);
     };
@@ -1202,7 +1205,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                 <CardDescription>Filtre para ver un listado detallado de las operaciones registradas.</CardDescription>
                             </CardHeader>
                             <CardContent>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end mb-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 items-end mb-6">
                                     <div className="space-y-2">
                                         <Label>Rango de Fechas</Label>
                                         <Popover>
@@ -1248,6 +1251,19 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                 <SelectItem value="todos">Todos</SelectItem>
                                                 <SelectItem value="recepcion">Recepción</SelectItem>
                                                 <SelectItem value="despacho">Despacho</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Tipo de Pedido</Label>
+                                        <Select value={detailedReportTipoPedido} onValueChange={setDetailedReportTipoPedido}>
+                                            <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="all">Todos</SelectItem>
+                                                <SelectItem value="GENERICO">GENERICO</SelectItem>
+                                                <SelectItem value="MAQUILA">MAQUILA</SelectItem>
+                                                <SelectItem value="TUNEL">TUNEL</SelectItem>
+                                                <SelectItem value="INGRESO DE SALDO">INGRESO DE SALDO</SelectItem>
                                             </SelectContent>
                                         </Select>
                                     </div>
@@ -1801,6 +1817,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         </div>
     );
 }
+
+    
 
     
 

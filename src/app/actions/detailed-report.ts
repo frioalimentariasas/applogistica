@@ -128,6 +128,7 @@ export interface DetailedReportCriteria {
     operationType?: 'recepcion' | 'despacho';
     containerNumber?: string;
     sesion?: string;
+    tipoPedido?: string;
 }
 
 export interface DetailedReportRow {
@@ -291,9 +292,14 @@ export async function getDetailedReport(criteria: DetailedReportCriteria): Promi
     if (criteria.sesion) {
         results = results.filter(row => row.sesion === criteria.sesion);
     }
+    if (criteria.tipoPedido) {
+        results = results.filter(row => row.tipoPedido === criteria.tipoPedido);
+    }
 
 
     results.sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
 
     return results;
 }
+
+    
