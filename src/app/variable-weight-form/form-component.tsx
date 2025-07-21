@@ -217,6 +217,7 @@ const formSchema = z.object({
     coordinador: z.string().min(1, "Seleccione un coordinador."),
     aplicaCuadrilla: z.enum(["si", "no"], { required_error: "Seleccione una opción para 'Aplica Cuadrilla'." }),
     tipoPedido: z.enum(['GENERICO', 'TUNEL']).optional(),
+    unidadDeMedidaPrincipal: z.string().optional(),
 }).refine((data) => {
     return data.horaInicio !== data.horaFin;
 }, {
@@ -259,6 +260,7 @@ const originalDefaultValues: FormValues = {
   coordinador: "",
   aplicaCuadrilla: undefined,
   tipoPedido: undefined,
+  unidadDeMedidaPrincipal: "PALETA",
 };
 
 // Mock data
@@ -494,6 +496,22 @@ export default function VariableWeightFormComponent() {
             }
         }
     });
+
+    // Set principal unit of measure based on the first item's "presentacion"
+    if (watchedItems[0]?.presentacion) {
+        let unit: string = watchedItems[0].presentacion.toUpperCase();
+        if (unit === 'CAJAS') unit = 'CAJA';
+        if (unit === 'SACOS') unit = 'SACO';
+        if (unit === 'CANASTILLAS') unit = 'CANASTILLA';
+        if (['CAJA', 'SACO', 'CANASTILLA', 'PALETA'].includes(unit)) {
+            form.setValue('unidadDeMedidaPrincipal', unit);
+        } else {
+            form.setValue('unidadDeMedidaPrincipal', 'PALETA');
+        }
+    } else {
+        form.setValue('unidadDeMedidaPrincipal', 'PALETA');
+    }
+
   }, [watchedItems, form]);
 
 
@@ -667,6 +685,7 @@ export default function VariableWeightFormComponent() {
               observaciones: formData.observaciones ?? [],
               aplicaCuadrilla: formData.aplicaCuadrilla ?? undefined,
               tipoPedido: formData.tipoPedido ?? undefined,
+              unidadDeMedidaPrincipal: formData.unidadDeMedidaPrincipal ?? 'PALETA',
               summary: (formData.summary || []).map((s: any) => ({
                 ...s,
                 temperatura: s.temperatura ?? null
@@ -1105,6 +1124,11 @@ export default function VariableWeightFormComponent() {
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <FormField
+              control={form.control}
+              name="unidadDeMedidaPrincipal"
+              render={({ field }) => <input type="hidden" {...field} />}
+            />
             {/* Header Data Card */}
             <Card>
               <CardHeader>

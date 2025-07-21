@@ -12,7 +12,7 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 
 import { getCrewPerformanceReport, type CrewPerformanceReportRow } from '@/app/actions/crew-performance-report';
-import { findBestMatchingStandard, type PerformanceStandard } from '@/app/gestion-estandares/actions';
+import { findBestMatchingStandard, type PerformanceStandard, type UnitOfMeasure } from '@/app/gestion-estandares/actions';
 import { getAvailableOperarios } from '@/app/actions/performance-report';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
@@ -253,8 +253,7 @@ export default function CrewPerformanceReportPage() {
             const resultsWithStandards = await Promise.all(results.map(async (row) => {
                 const operation = row.formType.includes('recepcion') || row.formType.includes('reception') ? 'recepcion' : 'despacho';
                 const product = row.formType.includes('fixed-weight') ? 'fijo' : 'variable';
-                // This logic needs to be more complex based on your new requirements
-                const unitOfMeasure = 'PALETA'; // Simplified for now, needs real data
+                const unitOfMeasure = row.unidadDeMedidaPrincipal as UnitOfMeasure;
                 const standard = await findBestMatchingStandard(row.cliente, operation, product, unitOfMeasure);
                 return { ...row, standard };
             }));

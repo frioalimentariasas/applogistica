@@ -138,6 +138,7 @@ const formSchema = z.object({
   tipoPedido: z.enum(['GENERICO', 'MAQUILA', 'TUNEL', 'INGRESO DE SALDO', 'DESPACHO GENERICO']).optional(),
   tipoEmpaqueMaquila: z.enum(['EMPAQUE DE SACOS', 'EMPAQUE DE CAJAS']).optional(),
   numeroOperariosCuadrilla: z.coerce.number().int().min(1, "Debe ser al menos 1.").optional(),
+  unidadDeMedidaPrincipal: z.string().optional(),
 }).refine((data) => {
     return data.horaInicio !== data.horaFin;
 }, {
@@ -196,6 +197,7 @@ const originalDefaultValues: FormValues = {
   tipoPedido: undefined,
   tipoEmpaqueMaquila: undefined,
   numeroOperariosCuadrilla: undefined,
+  unidadDeMedidaPrincipal: "PALETA",
 };
 
 // Mock data for selects
@@ -313,9 +315,6 @@ export default function FixedWeightFormComponent() {
         form.reset({
             ...originalDefaultValues,
             ...formData,
-            tipoPedido: formData.tipoPedido ?? undefined,
-            tipoEmpaqueMaquila: formData.tipoEmpaqueMaquila ?? undefined,
-            numeroOperariosCuadrilla: formData.numeroOperariosCuadrilla ?? undefined,
         });
         setAttachments(originalSubmission.attachmentUrls);
     } else {
@@ -375,6 +374,7 @@ export default function FixedWeightFormComponent() {
               tipoPedido: formData.tipoPedido ?? undefined,
               tipoEmpaqueMaquila: formData.tipoEmpaqueMaquila ?? undefined,
               numeroOperariosCuadrilla: formData.numeroOperariosCuadrilla ?? undefined,
+              unidadDeMedidaPrincipal: formData.unidadDeMedidaPrincipal ?? 'PALETA',
               productos: (formData.productos || []).map((p: any) => ({
                   ...originalDefaultValues.productos[0],
                   ...p,
@@ -784,6 +784,11 @@ export default function FixedWeightFormComponent() {
 
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <FormField
+              control={form.control}
+              name="unidadDeMedidaPrincipal"
+              render={({ field }) => <input type="hidden" {...field} />}
+            />
             {/* General Info Card */}
             <Card>
               <CardHeader>

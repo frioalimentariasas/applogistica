@@ -173,6 +173,7 @@ const formSchema = z.object({
     tipoPedido: z.enum(['GENERICO', 'MAQUILA', 'TUNEL', 'INGRESO DE SALDO'], { required_error: "El tipo de pedido es obligatorio." }),
     tipoEmpaqueMaquila: z.enum(['EMPAQUE DE SACOS', 'EMPAQUE DE CAJAS']).optional(),
     numeroOperariosCuadrilla: z.coerce.number().int().min(1, "Debe ser al menos 1.").optional(),
+    unidadDeMedidaPrincipal: z.string().optional(),
 }).refine((data) => {
     return data.horaInicio !== data.horaFin;
 }, {
@@ -215,6 +216,7 @@ const originalDefaultValues: FormValues = {
   tipoPedido: undefined,
   tipoEmpaqueMaquila: undefined,
   numeroOperariosCuadrilla: undefined,
+  unidadDeMedidaPrincipal: "PALETA",
 };
 
 
@@ -318,6 +320,20 @@ export default function VariableWeightReceptionFormComponent() {
             form.setValue(`items.${index}.pesoNeto`, calculatedPesoNeto, { shouldValidate: false });
         }
     });
+
+    if (watchedItems[0]?.presentacion) {
+        let unit: string = watchedItems[0].presentacion.toUpperCase();
+        if (unit === 'CAJAS') unit = 'CAJA';
+        if (unit === 'SACOS') unit = 'SACO';
+        if (unit === 'CANASTILLAS') unit = 'CANASTILLA';
+        if (['CAJA', 'SACO', 'CANASTILLA', 'PALETA'].includes(unit)) {
+            form.setValue('unidadDeMedidaPrincipal', unit);
+        } else {
+            form.setValue('unidadDeMedidaPrincipal', 'PALETA');
+        }
+    } else {
+        form.setValue('unidadDeMedidaPrincipal', 'PALETA');
+    }
   }, [watchedItems, form]);
 
   const { fields: summaryFields } = useFieldArray({
@@ -449,6 +465,7 @@ export default function VariableWeightReceptionFormComponent() {
               tipoEmpaqueMaquila: formData.tipoEmpaqueMaquila ?? undefined,
               numeroOperariosCuadrilla: formData.numeroOperariosCuadrilla ?? undefined,
               facturaRemision: formData.facturaRemision ?? null,
+              unidadDeMedidaPrincipal: formData.unidadDeMedidaPrincipal ?? 'PALETA',
               summary: (formData.summary || []).map((s: any) => ({
                   ...s,
                   temperatura1: s.temperatura1 ?? s.temperatura ?? null,
@@ -872,6 +889,11 @@ export default function VariableWeightReceptionFormComponent() {
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+                <FormField
+                  control={form.control}
+                  name="unidadDeMedidaPrincipal"
+                  render={({ field }) => <input type="hidden" {...field} />}
+                />
                 <Card>
                   <CardHeader>
                       <CardTitle>Información General</CardTitle>

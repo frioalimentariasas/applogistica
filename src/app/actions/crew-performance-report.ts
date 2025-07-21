@@ -4,6 +4,7 @@
 import admin from 'firebase-admin';
 import { firestore } from '@/lib/firebase-admin';
 import { parse, differenceInMinutes, addDays } from 'date-fns';
+import type { UnitOfMeasure } from '@/app/gestion-estandares/actions';
 
 const serializeTimestamps = (data: any): any => {
     if (data === null || data === undefined || typeof data !== 'object') {
@@ -79,7 +80,8 @@ export interface CrewPerformanceReportRow {
     horaFin: string;
     duracionMinutos: number | null;
     pedidoSislog: string;
-    tipoEmpaqueMaquila: string; // Add this
+    tipoEmpaqueMaquila: string;
+    unidadDeMedidaPrincipal: UnitOfMeasure | 'N/A';
 }
 
 export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCriteria): Promise<CrewPerformanceReportRow[]> {
@@ -135,6 +137,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                 duracionMinutos: calculateDuration(formData.horaInicio, formData.horaFin),
                 pedidoSislog: formData.pedidoSislog || 'N/A',
                 tipoEmpaqueMaquila: formData.tipoEmpaqueMaquila || 'N/A',
+                unidadDeMedidaPrincipal: formData.unidadDeMedidaPrincipal || 'N/A',
             };
         });
 
