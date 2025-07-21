@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -22,13 +22,15 @@ import type { ClientInfo } from '@/app/actions/clients';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Loader2, TrendingUp, Save, ShieldAlert, PlusCircle, Edit, Trash2 } from 'lucide-react';
+import { ArrowLeft, Loader2, TrendingUp, Save, ShieldAlert, PlusCircle, Edit, Trash2, ChevronsUpDown } from 'lucide-react';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { MultiSelect } from '@/components/ui/multi-select';
+import { Checkbox } from '@/components/ui/checkbox';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Label } from '@/components/ui/label';
 
 const standardSchema = z.object({
   description: z.string().min(3, "La descripción es requerida."),
@@ -67,6 +69,8 @@ export default function StandardManagementComponent({ initialStandards, clients 
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [editingStandard, setEditingStandard] = useState<PerformanceStandard | null>(null);
   const [deletingStandard, setDeletingStandard] = useState<PerformanceStandard | null>(null);
+  const [isClientListOpen, setIsClientListOpen] = useState(false);
+  const [clientSearch, setClientSearch] = useState('');
   
   const clientOptions = [{ value: 'TODOS', label: 'TODOS (Estándar General)' }, ...clients.map(c => ({ value: c.razonSocial, label: c.razonSocial }))];
 
@@ -164,6 +168,11 @@ export default function StandardManagementComponent({ initialStandards, clients 
       setIsSubmitting(false);
     }
   }
+
+  const filteredClients = useMemo(() => {
+    if (!clientSearch) return clientOptions;
+    return clientOptions.filter(c => c.label.toLowerCase().includes(clientSearch.toLowerCase()));
+  }, [clientSearch, clientOptions]);
 
 
   if (authLoading) {
@@ -282,21 +291,66 @@ export default function StandardManagementComponent({ initialStandards, clients 
                                 <FormItem><FormLabel>Cliente</FormLabel><FormControl><Input {...field} disabled /></FormControl></FormItem>
                             )}/>
                         ) : (
-                            <FormField
-                              control={form.control}
-                              name="clientNames"
-                              render={({ field }) => (
-                                <FormItem>
-                                  <FormLabel>Cliente(s)</FormLabel>
-                                  <MultiSelect
-                                    options={clientOptions}
-                                    selected={field.value}
-                                    onChange={field.onChange}
-                                    placeholder="Seleccione uno o más clientes..."
-                                  />
-                                  <FormMessage />
-                                </FormItem>
-                              )}
+                           <FormField
+                                control={form.control}
+                                name="clientNames"
+                                render={({ field }) => {
+                                    const selectedCount = field.value?.length || 0;
+                                    let buttonText = 'Seleccione uno o más clientes...';
+                                    if (selectedCount === 1 && field.value?.[0] === 'TODOS') {
+                                        buttonText = 'TODOS (Estándar General)';
+                                    } else if (selectedCount > 0) {
+                                        buttonText = `${selectedCount} cliente(s) seleccionado(s)`;
+                                    }
+
+                                    return (
+                                        <FormItem>
+                                            <FormLabel>Cliente(s)</FormLabel>
+                                            <Dialog open={isClientListOpen} onOpenChange={setIsClientListOpen}>
+                                                <DialogTrigger asChild>
+                                                    <Button variant="outline" className="w-full justify-between text-left font-normal">
+                                                        <span className="truncate">{buttonText}</span>
+                                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                    </Button>
+                                                </DialogTrigger>
+                                                <DialogContent>
+                                                    <DialogHeader>
+                                                        <DialogTitle>Seleccionar Cliente(s)</DialogTitle>
+                                                        <DialogDescription>Seleccione los clientes para este estándar.</DialogDescription>
+                                                    </DialogHeader>
+                                                    <Input
+                                                        placeholder="Buscar cliente..."
+                                                        value={clientSearch}
+                                                        onChange={(e) => setClientSearch(e.target.value)}
+                                                        className="my-4"
+                                                    />
+                                                    <ScrollArea className="h-72">
+                                                        <div className="space-y-1">
+                                                            {filteredClients.map((option) => (
+                                                                <div key={option.value} className="flex items-center space-x-2 rounded-md p-2 hover:bg-accent">
+                                                                    <Checkbox
+                                                                        id={`client-${option.value}`}
+                                                                        checked={field.value?.includes(option.value)}
+                                                                        onCheckedChange={(checked) => {
+                                                                            return checked
+                                                                                ? field.onChange([...(field.value || []), option.value])
+                                                                                : field.onChange(field.value?.filter((v) => v !== option.value));
+                                                                        }}
+                                                                    />
+                                                                    <Label htmlFor={`client-${option.value}`} className="w-full cursor-pointer">{option.label}</Label>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </ScrollArea>
+                                                    <DialogFooter>
+                                                        <Button type="button" onClick={() => setIsClientListOpen(false)}>Cerrar</Button>
+                                                    </DialogFooter>
+                                                </DialogContent>
+                                            </Dialog>
+                                            <FormMessage />
+                                        </FormItem>
+                                    );
+                                }}
                             />
                         )}
                         
