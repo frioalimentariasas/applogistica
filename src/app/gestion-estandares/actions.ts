@@ -25,7 +25,7 @@ export async function getPerformanceStandards(): Promise<PerformanceStandard[]> 
         return [];
     }
     try {
-        const snapshot = await firestore.collection('performance_standards').get();
+        const snapshot = await firestore.collection('performance_standards').orderBy('clientName').orderBy('operationType').get();
         if (snapshot.empty) {
             return [];
         }
@@ -34,16 +34,12 @@ export async function getPerformanceStandards(): Promise<PerformanceStandard[]> 
             ...doc.data()
         } as PerformanceStandard));
         
-        // Sort in-memory to avoid needing a composite index
-        standards.sort((a, b) => {
-            const clientCompare = a.clientName.localeCompare(b.clientName);
-            if (clientCompare !== 0) return clientCompare;
-            return a.operationType.localeCompare(b.operationType);
-        });
-
         return standards;
     } catch (error) {
         console.error("Error fetching performance standards:", error);
+        if (error instanceof Error && error.message.includes('requires an index')) {
+            throw error;
+        }
         return [];
     }
 }
