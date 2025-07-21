@@ -126,7 +126,7 @@ const getPerformanceIndicator = (
   tooltip: string
 } => {
   const { duracionMinutos, kilos, formType } = row;
-  if (duracionMinutos === null || duracionMinutos <= 0 || kilos <= 0) {
+  if (!formType || duracionMinutos === null || duracionMinutos <= 0 || kilos <= 0) {
     return { status: 'N/A', color: 'text-gray-400', tooltip: 'Datos insuficientes para calcular.' };
   }
 

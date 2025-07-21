@@ -69,6 +69,7 @@ export interface CrewPerformanceReportCriteria {
 
 export interface CrewPerformanceReportRow {
     id: string;
+    formType: string;
     fecha: string;
     operario: string;
     cliente: string;
@@ -157,7 +158,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         
         results.sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
 
-        return results.map(({ formType, ...rest }) => rest);
+        return results;
     } catch (error: any) {
         if (error instanceof Error && error.message.includes('requires an index')) {
             console.error("Firestore composite index required. See the full error log for the creation link.", error);
