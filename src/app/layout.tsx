@@ -4,15 +4,15 @@ import { Toaster } from "@/components/ui/toaster"
 import { AuthProvider } from '@/hooks/use-auth';
 
 export const metadata: Metadata = {
-  title: 'App Logistica Frio Alimentaria',
+  title: 'App Control de Operaciones Logísticas',
   description: 'Logística en alimentos congelados',
   icons: {
     icon: {
-      url: '/icon.png',
+      url: '/images/company-logo.png',
       type: 'image/png',
     },
     shortcut: {
-      url: '/icon.png',
+      url: '/images/company-logo.png',
       type: 'image/png',
     }
   },
