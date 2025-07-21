@@ -34,7 +34,6 @@ import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { MultiSelect } from '@/components/ui/multi-select';
 
 
 const ResultsSkeleton = () => (
@@ -172,6 +171,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const [isDetailedReportLoading, setIsDetailedReportLoading] = useState(false);
     const [isDetailedReportSearched, setIsDetailedReportSearched] = useState(false);
     const [isDetailedClientDialogOpen, setDetailedClientDialogOpen] = useState(false);
+    const [isDetailedTipoPedidoDialogOpen, setIsDetailedTipoPedidoDialogOpen] = useState(false);
     const [detailedClientSearch, setDetailedClientSearch] = useState("");
 
     // State for CSV inventory report
@@ -969,6 +969,12 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         { value: 'INGRESO DE SALDO', label: 'INGRESO DE SALDO' }
     ];
 
+    const getTipoPedidoButtonText = () => {
+        if (detailedReportTipoPedido.length === 0) return "Seleccionar tipo(s)...";
+        if (detailedReportTipoPedido.length === 1) return detailedReportTipoPedido[0];
+        return `${detailedReportTipoPedido.length} tipos seleccionados`;
+    };
+
     return (
         <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
             <div className="max-w-screen-2xl mx-auto">
@@ -1264,13 +1270,42 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                     </div>
                                     <div className="space-y-2">
                                         <Label>Tipo de Pedido</Label>
-                                        <MultiSelect
-                                            options={tipoPedidoOptions}
-                                            selected={detailedReportTipoPedido}
-                                            onChange={setDetailedReportTipoPedido}
-                                            className="w-full"
-                                            placeholder="Seleccionar tipo(s)..."
-                                        />
+                                        <Dialog open={isDetailedTipoPedidoDialogOpen} onOpenChange={setIsDetailedTipoPedidoDialogOpen}>
+                                            <DialogTrigger asChild>
+                                                <Button variant="outline" className="w-full justify-between text-left font-normal">
+                                                    <span className="truncate">{getTipoPedidoButtonText()}</span>
+                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                </Button>
+                                            </DialogTrigger>
+                                            <DialogContent>
+                                                <DialogHeader>
+                                                    <DialogTitle>Seleccionar Tipo(s) de Pedido</DialogTitle>
+                                                </DialogHeader>
+                                                <div className="space-y-2 py-4">
+                                                {tipoPedidoOptions.map((option) => (
+                                                    <div key={option.value} className="flex items-center space-x-2">
+                                                    <Checkbox
+                                                        id={`tipo-pedido-${option.value}`}
+                                                        checked={detailedReportTipoPedido.includes(option.value)}
+                                                        onCheckedChange={(checked) => {
+                                                        setDetailedReportTipoPedido((prev) =>
+                                                            checked
+                                                            ? [...prev, option.value]
+                                                            : prev.filter((value) => value !== option.value)
+                                                        );
+                                                        }}
+                                                    />
+                                                    <Label htmlFor={`tipo-pedido-${option.value}`} className="font-normal cursor-pointer">
+                                                        {option.label}
+                                                    </Label>
+                                                    </div>
+                                                ))}
+                                                </div>
+                                                <DialogFooter>
+                                                    <Button onClick={() => setIsDetailedTipoPedidoDialogOpen(false)}>Cerrar</Button>
+                                                </DialogFooter>
+                                            </DialogContent>
+                                        </Dialog>
                                     </div>
                                     <div className="space-y-2">
                                         <Label>No. Contenedor (Opcional)</Label>
@@ -1822,9 +1857,3 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         </div>
     );
 }
-
-    
-
-    
-
-    
