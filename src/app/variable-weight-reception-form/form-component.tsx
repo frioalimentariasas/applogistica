@@ -158,7 +158,7 @@ const formSchema = z.object({
     ),
     contenedor: z.string().min(1, "El contenedor es obligatorio.").refine(value => {
       const formatRegex = /^[A-Z]{4}[0-9]{7}$/;
-      return value.toUpperCase() === 'N/A' || formatRegex.test(value);
+      return value.toUpperCase() === 'N/A' || formatRegex.test(value.toUpperCase());
     }, {
       message: "Formato inválido. Debe ser 'N/A' o 4 letras y 7 números (ej: ABCD1234567)."
     }),
@@ -337,8 +337,11 @@ export default function VariableWeightReceptionFormComponent() {
             formData.fecha = new Date(formData.fecha);
         }
         form.reset({
+            ...originalDefaultValues,
             ...formData,
-            aplicaCuadrilla: undefined,
+            tipoPedido: formData.tipoPedido ?? undefined,
+            tipoEmpaqueMaquila: formData.tipoEmpaqueMaquila ?? undefined,
+            numeroOperariosCuadrilla: formData.numeroOperariosCuadrilla ?? undefined,
         });
         setAttachments(originalSubmission.attachmentUrls);
     } else {
