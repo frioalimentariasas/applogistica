@@ -7,6 +7,7 @@ import { useForm, useFieldArray, useWatch, FormProvider } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format } from "date-fns";
+import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
 import Image from "next/image";
@@ -57,7 +58,8 @@ import {
     Edit2,
     ChevronsUpDown,
     Loader2,
-    Check
+    Check,
+    CalendarIcon,
 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -65,6 +67,7 @@ import { RestoreDialog } from "@/components/app/restore-dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDialogDesc, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
+import { Calendar } from "@/components/ui/calendar";
 
 const itemSchema = z.object({
     codigo: z.string().min(1, "El código es requerido."),
@@ -241,7 +244,7 @@ export default function VariableWeightReceptionFormComponent() {
   const submissionId = searchParams.get("id");
 
   const { toast } = useToast();
-  const { user, displayName } = useAuth();
+  const { user, displayName, permissions } = useAuth();
 
   const [clientes, setClientes] = useState<ClientInfo[]>([]);
   
@@ -267,6 +270,8 @@ export default function VariableWeightReceptionFormComponent() {
   const [standardObservations, setStandardObservations] = useState<StandardObservation[]>([]);
   const [isObservationDialogOpen, setObservationDialogOpen] = useState(false);
   const [observationDialogIndex, setObservationDialogIndex] = useState<number | null>(null);
+
+  const isAdmin = permissions.canManageSessions;
 
   const filteredClients = useMemo(() => {
     if (!clientSearch) return clientes;
@@ -658,7 +663,7 @@ export default function VariableWeightReceptionFormComponent() {
                     return;
                 }
 
-                setAttachments(prev => [...prev, optimizedImage]);
+                setAttachments(prev => [...prev, ...optimizedImage]);
             } catch (error) {
                  console.error("Image optimization error:", error);
                  toast({
@@ -966,13 +971,53 @@ export default function VariableWeightReceptionFormComponent() {
                               </FormItem>
                           )}
                           />
-                        <FormField control={form.control} name="fecha" render={({ field }) => (
+                        <FormField
+                          control={form.control}
+                          name="fecha"
+                          render={({ field }) => (
                             <FormItem>
                               <FormLabel>Fecha</FormLabel>
-                              <FormControl><Input disabled value={field.value ? format(field.value, "dd/MM/yyyy") : ""} /></FormControl>
+                              {submissionId && !isAdmin ? (
+                                <FormControl>
+                                  <Input
+                                    disabled
+                                    value={field.value ? format(field.value, "dd/MM/yyyy") : ""}
+                                  />
+                                </FormControl>
+                              ) : (
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <FormControl>
+                                      <Button
+                                        variant={"outline"}
+                                        className={cn(
+                                          "w-full pl-3 text-left font-normal",
+                                          !field.value && "text-muted-foreground"
+                                        )}
+                                      >
+                                        {field.value ? (
+                                          format(field.value, "PPP", { locale: es })
+                                        ) : (
+                                          <span>Seleccione una fecha</span>
+                                        )}
+                                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                      </Button>
+                                    </FormControl>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-auto p-0" align="start">
+                                    <Calendar
+                                      mode="single"
+                                      selected={field.value}
+                                      onSelect={field.onChange}
+                                      initialFocus
+                                    />
+                                  </PopoverContent>
+                                </Popover>
+                              )}
                               <FormMessage />
                             </FormItem>
-                        )}/>
+                          )}
+                        />
                         <FormField control={form.control} name="conductor" render={({ field }) => (
                             <FormItem>
                               <FormLabel>Conductor</FormLabel>
@@ -1701,3 +1746,4 @@ function ProductSelectorDialog({
         </Dialog>
     );
 }
+
