@@ -74,6 +74,8 @@ const UserSkeleton = () => (
 const permissionLabels: { key: keyof AppPermissions; label: string }[] = [
     { key: 'canGenerateForms', label: 'Generar Formatos' },
     { key: 'canConsultForms', label: 'Consultar Formatos' },
+    { key: 'canEditForms', label: 'Editar Formatos' },
+    { key: 'canDeleteForms', label: 'Eliminar Formatos' },
     { key: 'canViewBillingReports', label: 'Ver Informes de Facturación' },
     { key: 'canViewPerformanceReport', label: 'Ver Informe Desempeño Operaciones' },
     { key: 'canViewCrewPerformanceReport', label: 'Ver Informe Desempeño Cuadrilla' },
