@@ -14,6 +14,7 @@ import Image from "next/image";
 import { useAuth } from "@/hooks/use-auth";
 import { getClients, type ClientInfo } from "@/app/actions/clients";
 import { getArticulosByClients, type ArticuloInfo } from "@/app/actions/articulos";
+import { getUsersList, type UserInfo } from "@/app/actions/users";
 import { useFormPersistence } from "@/hooks/use-form-persistence";
 import { saveForm } from "@/app/actions/save-form";
 import { storage } from "@/lib/firebase";
@@ -173,6 +174,7 @@ const formSchema = z.object({
     observaciones: z.array(observationSchema).optional(),
     coordinador: z.string().min(1, "Seleccione un coordinador."),
     aplicaCuadrilla: z.enum(["si", "no"], { required_error: "Seleccione una opción para 'Operación Realizada por Cuadrilla'." }),
+    operarioResponsable: z.string().optional(),
     tipoPedido: z.enum(['GENERICO', 'MAQUILA', 'TUNEL', 'INGRESO DE SALDO'], { required_error: "El tipo de pedido es obligatorio." }),
     tipoEmpaqueMaquila: z.enum(['EMPAQUE DE SACOS', 'EMPAQUE DE CAJAS']).optional(),
     numeroOperariosCuadrilla: z.coerce.number().int().min(1, "Debe ser al menos 1.").optional(),
@@ -216,6 +218,7 @@ const originalDefaultValues: FormValues = {
   observaciones: [],
   coordinador: "",
   aplicaCuadrilla: undefined,
+  operarioResponsable: undefined,
   tipoPedido: undefined,
   tipoEmpaqueMaquila: undefined,
   numeroOperariosCuadrilla: undefined,
@@ -247,6 +250,7 @@ export default function VariableWeightReceptionFormComponent() {
   const { user, displayName, permissions } = useAuth();
 
   const [clientes, setClientes] = useState<ClientInfo[]>([]);
+  const [allUsers, setAllUsers] = useState<UserInfo[]>([]);
   
   const [articulos, setArticulos] = useState<ArticuloInfo[]>([]);
   const [isLoadingArticulos, setIsLoadingArticulos] = useState(false);
@@ -431,12 +435,16 @@ export default function VariableWeightReceptionFormComponent() {
 
   useEffect(() => {
     const fetchClientsAndObs = async () => {
-      const [clientList, obsList] = await Promise.all([
+      const [clientList, obsList, userList] = await Promise.all([
         getClients(),
-        getStandardObservations()
+        getStandardObservations(),
+        isAdmin ? getUsersList() : Promise.resolve([])
       ]);
       setClientes(clientList);
       setStandardObservations(obsList);
+      if (isAdmin) {
+          setAllUsers(userList);
+      }
     };
     fetchClientsAndObs();
 
@@ -444,7 +452,7 @@ export default function VariableWeightReceptionFormComponent() {
         form.reset(originalDefaultValues);
     }
     window.scrollTo(0, 0);
-  }, [submissionId, form]);
+  }, [submissionId, form, isAdmin]);
 
   useEffect(() => {
     const loadSubmissionData = async () => {
@@ -470,6 +478,7 @@ export default function VariableWeightReceptionFormComponent() {
               tipoEmpaqueMaquila: formData.tipoEmpaqueMaquila ?? undefined,
               numeroOperariosCuadrilla: formData.numeroOperariosCuadrilla ?? undefined,
               facturaRemision: formData.facturaRemision ?? null,
+              operarioResponsable: submission.userId,
               unidadDeMedidaPrincipal: formData.unidadDeMedidaPrincipal ?? 'PALETA',
               summary: (formData.summary || []).map((s: any) => ({
                   ...s,
@@ -770,16 +779,30 @@ export default function VariableWeightReceptionFormComponent() {
         
         const finalAttachmentUrls = [...existingAttachmentUrls, ...uploadedUrls];
 
-        const submissionData = {
-            userId: user.uid,
-            userDisplayName: displayName || 'N/A',
-            formType: `variable-weight-reception`,
-            formData: dataWithFinalSummary,
-            attachmentUrls: finalAttachmentUrls,
-            createdAt: originalSubmission?.createdAt,
-        };
+        const isUpdating = !!submissionId;
+        
+        // Define who the editor is (the person logged in)
+        const editor = { id: user.uid, displayName: displayName || 'N/A' };
 
-        const result = await saveForm(submissionData, submissionId ?? undefined);
+        // Define who the responsible user is
+        let responsibleUser = { id: editor.id, displayName: editor.displayName };
+        if (isUpdating && isAdmin && data.operarioResponsable) {
+            const selectedUser = allUsers.find(u => u.uid === data.operarioResponsable);
+            if (selectedUser) {
+                responsibleUser = { id: selectedUser.uid, displayName: selectedUser.displayName };
+            }
+        } else if (isUpdating && originalSubmission) {
+            responsibleUser = { id: originalSubmission.userId, displayName: originalSubmission.userDisplayName };
+        }
+
+        const result = await saveForm({
+            formData: dataWithFinalSummary,
+            formType: `variable-weight-reception`,
+            attachmentUrls: finalAttachmentUrls,
+            responsibleUser: responsibleUser,
+            editor: editor,
+            createdAt: originalSubmission?.createdAt,
+        }, submissionId ?? undefined);
 
         if (result.success) {
             toast({ title: "Formulario Guardado", description: `La recepción de peso variable ha sido ${submissionId ? 'actualizada' : 'guardada'}.` });
@@ -1450,10 +1473,25 @@ export default function VariableWeightReceptionFormComponent() {
                         <FormField control={form.control} name="coordinador" render={({ field }) => (
                             <FormItem><FormLabel>Coordinador Responsable</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                         )}/>
-                        <FormItem>
-                            <FormLabel>Operario Responsable</FormLabel>
-                            <FormControl><Input disabled value={submissionId ? originalSubmission?.userDisplayName : displayName || ''} /></FormControl>
-                        </FormItem>
+                        {submissionId && isAdmin ? (
+                             <FormField control={form.control} name="operarioResponsable" render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Operario Responsable</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value}>
+                                        <FormControl><SelectTrigger><SelectValue placeholder="Seleccione un operario" /></SelectTrigger></FormControl>
+                                        <SelectContent>
+                                            {allUsers.map(u => <SelectItem key={u.uid} value={u.uid}>{u.displayName}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )}/>
+                        ) : (
+                            <FormItem>
+                                <FormLabel>Operario Responsable</FormLabel>
+                                <FormControl><Input disabled value={submissionId ? originalSubmission?.userDisplayName : displayName || ''} /></FormControl>
+                            </FormItem>
+                        )}
                         <FormField
                             control={form.control}
                             name="aplicaCuadrilla"
@@ -1746,4 +1784,3 @@ function ProductSelectorDialog({
         </Dialog>
     );
 }
-

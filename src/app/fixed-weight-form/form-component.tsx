@@ -668,19 +668,29 @@ export default function FixedWeightFormComponent() {
         const finalAttachmentUrls = [...existingAttachmentUrls, ...uploadedUrls];
 
         const isUpdating = !!submissionId;
-        const selectedUserId = data.operarioResponsable || (isUpdating ? originalSubmission?.userId : user.uid);
-        const selectedUser = allUsers.find(u => u.uid === selectedUserId) || { displayName: displayName || 'N/A' };
         
-        const submissionData = {
-            userId: selectedUserId!,
-            userDisplayName: selectedUser.displayName,
-            formType: `fixed-weight-${operation}`,
+        // Define who the editor is (the person logged in)
+        const editor = { id: user.uid, displayName: displayName || 'N/A' };
+
+        // Define who the responsible user is
+        let responsibleUser = { id: editor.id, displayName: editor.displayName };
+        if (isUpdating && isAdmin && data.operarioResponsable) {
+            const selectedUser = allUsers.find(u => u.uid === data.operarioResponsable);
+            if (selectedUser) {
+                responsibleUser = { id: selectedUser.uid, displayName: selectedUser.displayName };
+            }
+        } else if (isUpdating && originalSubmission) {
+            responsibleUser = { id: originalSubmission.userId, displayName: originalSubmission.userDisplayName };
+        }
+        
+        const result = await saveForm({
             formData: data,
+            formType: `fixed-weight-${operation}`,
             attachmentUrls: finalAttachmentUrls,
-            createdAt: originalSubmission?.createdAt, // Pass original createdAt for updates
-        };
-        
-        const result = await saveForm(submissionData, submissionId ?? undefined);
+            responsibleUser: responsibleUser,
+            editor: editor,
+            createdAt: originalSubmission?.createdAt,
+        }, submissionId ?? undefined);
 
         if (result.success) {
             toast({ title: "Formato Guardado", description: `El formato ha sido ${submissionId ? 'actualizado' : 'guardado'} correctamente.` });
@@ -1666,4 +1676,3 @@ function ProductSelectorDialog({
         </Dialog>
     );
 }
-

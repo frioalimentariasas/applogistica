@@ -14,6 +14,7 @@ import Image from "next/image";
 import { useAuth } from "@/hooks/use-auth";
 import { getClients, type ClientInfo } from "@/app/actions/clients";
 import { getArticulosByClients, type ArticuloInfo } from "@/app/actions/articulos";
+import { getUsersList, type UserInfo } from "@/app/actions/users";
 import { useFormPersistence } from "@/hooks/use-form-persistence";
 import { saveForm } from "@/app/actions/save-form";
 import { storage } from "@/lib/firebase";
@@ -219,6 +220,7 @@ const formSchema = z.object({
     observaciones: z.array(observationSchema).optional(),
     coordinador: z.string().min(1, "Seleccione un coordinador."),
     aplicaCuadrilla: z.enum(["si", "no"], { required_error: "Seleccione una opción para 'Aplica Cuadrilla'." }),
+    operarioResponsable: z.string().optional(),
     tipoPedido: z.enum(['GENERICO', 'TUNEL']).optional(),
     unidadDeMedidaPrincipal: z.string().optional(),
 }).refine((data) => {
@@ -262,6 +264,7 @@ const originalDefaultValues: FormValues = {
   observaciones: [],
   coordinador: "",
   aplicaCuadrilla: undefined,
+  operarioResponsable: undefined,
   tipoPedido: undefined,
   unidadDeMedidaPrincipal: "PALETA",
 };
@@ -419,6 +422,7 @@ export default function VariableWeightFormComponent() {
   const { user, displayName, permissions } = useAuth();
   
   const [clientes, setClientes] = useState<ClientInfo[]>([]);
+  const [allUsers, setAllUsers] = useState<UserInfo[]>([]);
   
   const [articulos, setArticulos] = useState<ArticuloInfo[]>([]);
   const [isLoadingArticulos, setIsLoadingArticulos] = useState(false);
@@ -653,12 +657,16 @@ export default function VariableWeightFormComponent() {
 
   useEffect(() => {
     const fetchClientsAndObs = async () => {
-      const [clientList, obsList] = await Promise.all([
+      const [clientList, obsList, userList] = await Promise.all([
         getClients(),
-        getStandardObservations()
+        getStandardObservations(),
+        isAdmin ? getUsersList() : Promise.resolve([])
       ]);
       setClientes(clientList);
       setStandardObservations(obsList);
+      if (isAdmin) {
+          setAllUsers(userList);
+      }
     };
     fetchClientsAndObs();
 
@@ -666,7 +674,7 @@ export default function VariableWeightFormComponent() {
         form.reset(originalDefaultValues);
     }
     window.scrollTo(0, 0);
-  }, [submissionId, form]);
+  }, [submissionId, form, isAdmin]);
 
   useEffect(() => {
     const loadSubmissionData = async () => {
@@ -689,6 +697,7 @@ export default function VariableWeightFormComponent() {
               observaciones: formData.observaciones ?? [],
               aplicaCuadrilla: formData.aplicaCuadrilla ?? undefined,
               tipoPedido: formData.tipoPedido ?? undefined,
+              operarioResponsable: submission.userId,
               unidadDeMedidaPrincipal: formData.unidadDeMedidaPrincipal ?? 'PALETA',
               summary: (formData.summary || []).map((s: any) => ({
                 ...s,
@@ -882,7 +891,7 @@ export default function VariableWeightFormComponent() {
                     return;
                 }
 
-                setAttachments(prev => [...prev, optimizedImage]);
+                setAttachments(prev => [...prev, ...optimizedImage]);
             } catch (error) {
                  console.error("Image optimization error:", error);
                  toast({
@@ -997,17 +1006,31 @@ export default function VariableWeightFormComponent() {
         );
         
         const finalAttachmentUrls = [...existingAttachmentUrls, ...uploadedUrls];
+        
+        const isUpdating = !!submissionId;
+        
+        // Define who the editor is (the person logged in)
+        const editor = { id: user.uid, displayName: displayName || 'N/A' };
 
-        const submissionData = {
-            userId: user.uid,
-            userDisplayName: displayName || 'N/A',
-            formType: `variable-weight-${operation}`,
+        // Define who the responsible user is
+        let responsibleUser = { id: editor.id, displayName: editor.displayName };
+        if (isUpdating && isAdmin && data.operarioResponsable) {
+            const selectedUser = allUsers.find(u => u.uid === data.operarioResponsable);
+            if (selectedUser) {
+                responsibleUser = { id: selectedUser.uid, displayName: selectedUser.displayName };
+            }
+        } else if (isUpdating && originalSubmission) {
+            responsibleUser = { id: originalSubmission.userId, displayName: originalSubmission.userDisplayName };
+        }
+
+        const result = await saveForm({
             formData: dataWithFinalSummary,
+            formType: `variable-weight-${operation}`,
             attachmentUrls: finalAttachmentUrls,
-            createdAt: originalSubmission?.createdAt, // Pass original createdAt for updates
-        };
-
-        const result = await saveForm(submissionData, submissionId ?? undefined);
+            responsibleUser: responsibleUser,
+            editor: editor,
+            createdAt: originalSubmission?.createdAt,
+        }, submissionId ?? undefined);
 
         if (result.success) {
             toast({ title: "Formulario Guardado", description: `El formato de ${operation} ha sido ${submissionId ? 'actualizado' : 'guardado'} correctamente.` });
@@ -1561,8 +1584,8 @@ export default function VariableWeightFormComponent() {
                             </Button>
                         </div>
                     </div>
-                </CardContent>
-            </Card>
+                  </CardContent>
+                </Card>
 
              {/* Responsible Person Card */}
              <Card>
@@ -1571,10 +1594,25 @@ export default function VariableWeightFormComponent() {
                     <FormField control={form.control} name="coordinador" render={({ field }) => (
                         <FormItem><FormLabel>Coordinador Responsable</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                     )}/>
-                    <FormItem>
-                        <FormLabel>Operario Responsable</FormLabel>
-                        <FormControl><Input disabled value={submissionId ? originalSubmission?.userDisplayName : displayName || ''} /></FormControl>
-                    </FormItem>
+                    {submissionId && isAdmin ? (
+                         <FormField control={form.control} name="operarioResponsable" render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Operario Responsable</FormLabel>
+                                <Select onValueChange={field.onChange} value={field.value}>
+                                    <FormControl><SelectTrigger><SelectValue placeholder="Seleccione un operario" /></SelectTrigger></FormControl>
+                                    <SelectContent>
+                                        {allUsers.map(u => <SelectItem key={u.uid} value={u.uid}>{u.displayName}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                                <FormMessage />
+                            </FormItem>
+                        )}/>
+                    ) : (
+                        <FormItem>
+                            <FormLabel>Operario Responsable</FormLabel>
+                            <FormControl><Input disabled value={submissionId ? originalSubmission?.userDisplayName : displayName || ''} /></FormControl>
+                        </FormItem>
+                    )}
                     <FormField
                         control={form.control}
                         name="aplicaCuadrilla"
@@ -1862,4 +1900,3 @@ function ProductSelectorDialog({
         </Dialog>
     );
 }
-
