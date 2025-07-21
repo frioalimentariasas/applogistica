@@ -224,7 +224,7 @@ export default function StandardManagementComponent({ initialStandards, clients 
                     </div>
                     <Button onClick={() => openDialog()}>
                         <PlusCircle className="mr-2 h-4 w-4" />
-                        Crear Estándar
+                        Crear Estándar de Productividad
                     </Button>
                 </div>
             </CardHeader>
@@ -377,23 +377,23 @@ export default function StandardManagementComponent({ initialStandards, clients 
                                     </Select><FormMessage />
                                 </FormItem>
                             )}/>
+                             <FormField control={editingStandard ? editForm.control : form.control} name="unitOfMeasure" render={({ field }) => (
+                                <FormItem><FormLabel>Unidad de Medida</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                                        <SelectContent>
+                                            <SelectItem value="TODAS">TODAS</SelectItem>
+                                            <SelectItem value="PALETA">Por Paleta</SelectItem>
+                                            <SelectItem value="CAJA">Por Caja</SelectItem>
+                                            <SelectItem value="SACO">Por Saco</SelectItem>
+                                            <SelectItem value="CANASTILLA">Por Canastilla</SelectItem>
+                                        </SelectContent>
+                                    </Select><FormMessage />
+                                </FormItem>
+                            )}/>
+                            <FormField control={editingStandard ? editForm.control : form.control} name="minutesPerTon" render={({ field }) => (
+                                <FormItem><FormLabel>Minutos por Tonelada</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                            )}/>
                         </div>
-                        <FormField control={editingStandard ? editForm.control : form.control} name="unitOfMeasure" render={({ field }) => (
-                            <FormItem><FormLabel>Unidad de Medida</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                                    <SelectContent>
-                                        <SelectItem value="TODAS">TODAS</SelectItem>
-                                        <SelectItem value="PALETA">Por Paleta</SelectItem>
-                                        <SelectItem value="CAJA">Por Caja</SelectItem>
-                                        <SelectItem value="SACO">Por Saco</SelectItem>
-                                        <SelectItem value="CANASTILLA">Por Canastilla</SelectItem>
-                                    </SelectContent>
-                                </Select><FormMessage />
-                            </FormItem>
-                        )}/>
-                        <FormField control={editingStandard ? editForm.control : form.control} name="minutesPerTon" render={({ field }) => (
-                            <FormItem><FormLabel>Minutos por Tonelada</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
-                        )}/>
                         <DialogFooter>
                             <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
                             <Button type="submit" disabled={isSubmitting}>
