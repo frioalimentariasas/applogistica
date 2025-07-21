@@ -93,9 +93,6 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
     const [isClientDialogOpen, setClientDialogOpen] = useState(false);
     const [clientSearch, setClientSearch] = useState("");
 
-    const isOperario = permissions.canGenerateForms && !permissions.canManageClients;
-    const isViewer = !permissions.canGenerateForms && permissions.canConsultForms;
-    
     const filteredClients = useMemo(() => {
         if (!clientSearch) return clients;
         return clients.filter(c => c.razonSocial.toLowerCase().includes(clientSearch.toLowerCase()));
@@ -447,7 +444,19 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
                                                 <TableCell className="text-right">
                                                     <TooltipProvider delayDuration={100}>
                                                         <div className="flex items-center justify-end gap-1">
-                                                            {isOperario ? (
+                                                            <Tooltip>
+                                                                <TooltipTrigger asChild>
+                                                                    <Button asChild variant="ghost" size="icon">
+                                                                        <Link href={`/consultar-formatos/${sub.id}`}>
+                                                                            <Eye className="h-4 w-4" />
+                                                                            <span className="sr-only">Ver detalles</span>
+                                                                        </Link>
+                                                                    </Button>
+                                                                </TooltipTrigger>
+                                                                <TooltipContent><p>Ver Detalle</p></TooltipContent>
+                                                            </Tooltip>
+                                                            
+                                                            {permissions.canEditForms && (
                                                                 <Tooltip>
                                                                     <TooltipTrigger asChild>
                                                                         <Button asChild variant="ghost" size="icon">
@@ -459,52 +468,18 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
                                                                     </TooltipTrigger>
                                                                     <TooltipContent><p>Editar Formulario</p></TooltipContent>
                                                                 </Tooltip>
-                                                            ) : isViewer ? (
+                                                            )}
+
+                                                            {permissions.canDeleteForms && (
                                                                 <Tooltip>
                                                                     <TooltipTrigger asChild>
-                                                                        <Button asChild variant="ghost" size="icon">
-                                                                            <Link href={`/consultar-formatos/${sub.id}`}>
-                                                                                <Eye className="h-4 w-4" />
-                                                                                <span className="sr-only">Ver detalles</span>
-                                                                            </Link>
+                                                                        <Button variant="ghost" size="icon" onClick={() => setSubmissionToDelete(sub)}>
+                                                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                                                            <span className="sr-only">Eliminar</span>
                                                                         </Button>
                                                                     </TooltipTrigger>
-                                                                    <TooltipContent><p>Ver Detalle</p></TooltipContent>
+                                                                    <TooltipContent><p>Eliminar Formulario</p></TooltipContent>
                                                                 </Tooltip>
-                                                            ) : (
-                                                                <>
-                                                                    <Tooltip>
-                                                                        <TooltipTrigger asChild>
-                                                                            <Button asChild variant="ghost" size="icon">
-                                                                                <Link href={`/consultar-formatos/${sub.id}`}>
-                                                                                    <Eye className="h-4 w-4" />
-                                                                                    <span className="sr-only">Ver detalles</span>
-                                                                                </Link>
-                                                                            </Button>
-                                                                        </TooltipTrigger>
-                                                                        <TooltipContent><p>Ver Detalle</p></TooltipContent>
-                                                                    </Tooltip>
-                                                                    <Tooltip>
-                                                                        <TooltipTrigger asChild>
-                                                                            <Button asChild variant="ghost" size="icon">
-                                                                                <Link href={getEditUrl(sub)}>
-                                                                                    <Edit className="h-4 w-4 text-blue-600" />
-                                                                                    <span className="sr-only">Editar</span>
-                                                                                </Link>
-                                                                            </Button>
-                                                                        </TooltipTrigger>
-                                                                        <TooltipContent><p>Editar Formulario</p></TooltipContent>
-                                                                    </Tooltip>
-                                                                    <Tooltip>
-                                                                        <TooltipTrigger asChild>
-                                                                            <Button variant="ghost" size="icon" onClick={() => setSubmissionToDelete(sub)}>
-                                                                                <Trash2 className="h-4 w-4 text-destructive" />
-                                                                                <span className="sr-only">Eliminar</span>
-                                                                            </Button>
-                                                                        </TooltipTrigger>
-                                                                        <TooltipContent><p>Eliminar Formulario</p></TooltipContent>
-                                                                    </Tooltip>
-                                                                </>
                                                             )}
                                                         </div>
                                                     </TooltipProvider>
@@ -545,3 +520,4 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
         </div>
     );
 }
+
