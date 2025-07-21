@@ -11,7 +11,7 @@ export type UnitOfMeasure = 'PALETA' | 'CAJA' | 'SACO' | 'CANASTILLA';
 export interface PerformanceStandard {
     id: string;
     description: string;
-    clientName: string; // 'TODOS' for a general standard
+    clientName: string; // 'TODOS' for a general standard, or a specific client name
     operationType: OperationType | 'TODAS';
     productType: ProductType | 'TODAS';
     unitOfMeasure: UnitOfMeasure | 'TODAS';
@@ -44,21 +44,39 @@ export async function getPerformanceStandards(): Promise<PerformanceStandard[]> 
     }
 }
 
-// Function to add a new standard
-export async function addPerformanceStandard(data: Omit<PerformanceStandard, 'id'>): Promise<{ success: boolean; message: string; newStandard?: PerformanceStandard }> {
+// Function to add a new standard or multiple standards
+export async function addPerformanceStandard(data: Omit<PerformanceStandard, 'id'>): Promise<{ success: boolean; message: string; }> {
     if (!firestore) return { success: false, message: 'Error de configuración del servidor.' };
 
-    const { minutesPerTon } = data;
+    const { clientName, minutesPerTon } = data;
     if (typeof minutesPerTon !== 'number' || minutesPerTon <= 0) {
         return { success: false, message: 'Los minutos por tonelada deben ser un número positivo.' };
     }
+    if (!clientName || clientName.trim() === '') {
+        return { success: false, message: 'El campo de cliente(s) es obligatorio.' };
+    }
 
     try {
-        const docRef = await firestore.collection('performance_standards').add(data);
+        const batch = firestore.batch();
+        const clients = clientName.split(',').map(name => name.trim()).filter(Boolean);
+
+        for (const client of clients) {
+            const newStandardData = {
+                ...data,
+                clientName: client
+            };
+            const docRef = firestore.collection('performance_standards').doc();
+            batch.set(docRef, newStandardData);
+        }
+
+        await batch.commit();
+
         revalidatePath('/gestion-estandares');
         revalidatePath('/crew-performance-report');
-        const newStandard = { id: docRef.id, ...data };
-        return { success: true, message: 'Estándar creado con éxito.', newStandard };
+        
+        const successMessage = clients.length > 1 ? `Se crearon ${clients.length} estándares con éxito.` : 'Estándar creado con éxito.';
+        return { success: true, message: successMessage };
+
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Ocurrió un error desconocido.";
         return { success: false, message: `Error del servidor: ${errorMessage}` };

@@ -96,16 +96,21 @@ export default function StandardManagementComponent({ initialStandards, clients 
       if (editingStandard) {
         const result = await updatePerformanceStandard(editingStandard.id, data as Omit<PerformanceStandard, 'id'>);
         if (result.success) {
-          setStandards(prev => prev.map(s => s.id === editingStandard.id ? { id: s.id, ...data } as PerformanceStandard : s));
+          setStandards(prev => {
+              const updated = prev.map(s => s.id === editingStandard.id ? { id: s.id, ...data } as PerformanceStandard : s);
+              return updated.sort((a,b) => a.clientName.localeCompare(b.clientName) || a.operationType.localeCompare(b.operationType));
+          });
           toast({ title: 'Éxito', description: 'Estándar actualizado.' });
         } else {
           throw new Error(result.message);
         }
       } else {
         const result = await addPerformanceStandard(data as Omit<PerformanceStandard, 'id'>);
-        if (result.success && result.newStandard) {
-          setStandards(prev => [...prev, result.newStandard!]);
-          toast({ title: 'Éxito', description: 'Estándar creado.' });
+        if (result.success) {
+          // A full refresh is easier than trying to patch the state with potentially multiple new standards
+          const allStandards = await getPerformanceStandards();
+          setStandards(allStandards);
+          toast({ title: 'Éxito', description: result.message });
         } else {
           throw new Error(result.message);
         }
@@ -239,7 +244,7 @@ export default function StandardManagementComponent({ initialStandards, clients 
                 <DialogHeader>
                     <DialogTitle>{editingStandard ? 'Editar' : 'Crear'} Estándar de Rendimiento</DialogTitle>
                     <DialogDescription>
-                        Defina los criterios para este estándar. Use 'TODOS' para un valor por defecto.
+                        Defina los criterios para este estándar. Use 'TODOS' o ingrese clientes separados por comas.
                     </DialogDescription>
                 </DialogHeader>
                 <Form {...form}>
@@ -248,13 +253,13 @@ export default function StandardManagementComponent({ initialStandards, clients 
                             <FormItem><FormLabel>Descripción</FormLabel><FormControl><Input placeholder="Ej: Recepción Furgón cajas" {...field} /></FormControl><FormMessage /></FormItem>
                         )}/>
                         <FormField control={form.control} name="clientName" render={({ field }) => (
-                            <FormItem><FormLabel>Cliente</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un cliente" /></SelectTrigger></FormControl>
-                                    <SelectContent>
-                                        <SelectItem value="TODOS">TODOS (Por defecto)</SelectItem>
-                                        {clients.map(c => <SelectItem key={c.id} value={c.razonSocial}>{c.razonSocial}</SelectItem>)}
-                                    </SelectContent>
-                                </Select><FormMessage />
+                            <FormItem>
+                                <FormLabel>Cliente(s)</FormLabel>
+                                <FormControl><Input placeholder="TODOS, o Cliente A, Cliente B..." {...field} /></FormControl>
+                                <FormDescription>
+                                    Use 'TODOS' o escriba nombres de clientes separados por comas.
+                                </FormDescription>
+                                <FormMessage />
                             </FormItem>
                         )}/>
                         <div className="grid grid-cols-2 gap-4">
