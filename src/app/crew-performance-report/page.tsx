@@ -145,6 +145,14 @@ const getPerformanceIndicator = (row: CrewPerformanceReportRow): { text: string,
     return { text: 'Lento', color: 'text-red-600' };
 };
 
+const formatTons = (kilos: number): number | string => {
+    const tons = kilos / 1000;
+    // Check if the number has significant decimals
+    if (tons % 1 === 0 || (tons * 100) % 1 === 0) {
+        return Number(tons.toFixed(0));
+    }
+    return Number(tons.toFixed(2));
+};
 
 export default function CrewPerformanceReportPage() {
     const router = useRouter();
@@ -308,7 +316,7 @@ export default function CrewPerformanceReportPage() {
                 'Tipo Operación': row.tipoOperacion,
                 'Tipo Producto': row.tipoProducto,
                 'Pedido SISLOG': row.pedidoSislog,
-                'Toneladas': (row.kilos / 1000),
+                'Toneladas': formatTons(row.kilos),
                 'Hora Inicio': formatTime12Hour(row.horaInicio),
                 'Hora Fin': formatTime12Hour(row.horaFin),
                 'Duración': formatDuration(row.duracionMinutos),
@@ -371,7 +379,7 @@ export default function CrewPerformanceReportPage() {
                 row.tipoOperacion,
                 row.tipoProducto,
                 row.pedidoSislog,
-                (row.kilos / 1000),
+                formatTons(row.kilos),
                 formatDuration(row.duracionMinutos),
                 indicator.text
             ]}),
@@ -617,7 +625,7 @@ export default function CrewPerformanceReportPage() {
                                                     <TableCell>{row.tipoOperacion}</TableCell>
                                                     <TableCell>{row.tipoProducto}</TableCell>
                                                     <TableCell>{row.pedidoSislog}</TableCell>
-                                                    <TableCell className="text-right font-mono">{Number((row.kilos / 1000).toFixed(2))}</TableCell>
+                                                    <TableCell className="text-right font-mono">{formatTons(row.kilos)}</TableCell>
                                                     <TableCell className="text-right font-medium">{formatDuration(row.duracionMinutos)}</TableCell>
                                                     <TableCell className={cn("text-right font-semibold", indicator.color)}>
                                                         <div className="flex items-center justify-end gap-2">

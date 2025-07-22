@@ -111,7 +111,9 @@ export interface FindStandardCriteria {
 }
 
 export async function findBestMatchingStandard(criteria: FindStandardCriteria): Promise<PerformanceStandard | null> {
-    const { clientName, operationType, productType, tons } = criteria;
+    const { clientName, operationType, productType } = criteria;
+    // Round tons to 2 decimal places to avoid floating point issues.
+    const tons = Number(criteria.tons.toFixed(2));
     
     // Always fetch the fresh list of standards from the database.
     const allStandards = await getPerformanceStandards();
@@ -121,9 +123,8 @@ export async function findBestMatchingStandard(criteria: FindStandardCriteria): 
     }
 
     const potentialMatches = allStandards.filter(std => {
-        // Use exclusive upper bound for max tons to handle ranges like 8-12 properly.
-        // A range of min: 8, max: 13 will include 12.999 but not 13.0
-        return tons >= std.minTons && tons < std.maxTons;
+        // Use inclusive range for both min and max
+        return tons >= std.minTons && tons <= std.maxTons;
     });
     
     if (potentialMatches.length === 0) return null;
