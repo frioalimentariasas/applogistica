@@ -162,6 +162,37 @@ export async function deletePerformanceStandard(id: string): Promise<{ success: 
     }
 }
 
+export async function deleteMultipleStandards(ids: string[]): Promise<{ success: boolean; message: string }> {
+    if (!firestore) {
+        return { success: false, message: 'Error de configuración del servidor.' };
+    }
+    if (!ids || ids.length === 0) {
+        return { success: false, message: 'No se proporcionaron estándares para eliminar.' };
+    }
+
+    try {
+        const batchSize = 500;
+        for (let i = 0; i < ids.length; i += batchSize) {
+            const batch = firestore.batch();
+            const chunk = ids.slice(i, i + batchSize);
+            chunk.forEach(id => {
+                const docRef = firestore.collection('performance_standards').doc(id);
+                batch.delete(docRef);
+            });
+            await batch.commit();
+        }
+        
+        revalidatePath('/gestion-estandares');
+        return { success: true, message: `${ids.length} estándar(es) eliminado(s) con éxito.` };
+
+    } catch (error) {
+        console.error('Error al eliminar estándares en lote:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Ocurrió un error desconocido.';
+        return { success: false, message: `Error del servidor: ${errorMessage}` };
+    }
+}
+
+
 // Function to find the best matching standard for a given operation
 export async function findBestMatchingStandard(
     clientName: string, 
@@ -208,4 +239,3 @@ export async function findBestMatchingStandard(
     // No standard found after checking all priorities.
     return null;
 }
-

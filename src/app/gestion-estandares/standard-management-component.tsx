@@ -12,7 +12,8 @@ import { useAuth } from '@/hooks/use-auth';
 import { 
     addPerformanceStandard, 
     updatePerformanceStandard, 
-    deletePerformanceStandard, 
+    deletePerformanceStandard,
+    deleteMultipleStandards, 
     type PerformanceStandard,
     type PerformanceStandardFormValues,
     getPerformanceStandards,
@@ -91,6 +92,10 @@ export default function StandardManagementComponent({ initialStandards, clients 
   const [isClientListOpen, setIsClientListOpen] = useState(false);
   const [clientSearch, setClientSearch] = useState('');
   
+  const [selectedStandardIds, setSelectedStandardIds] = useState<Set<string>>(new Set());
+  const [isConfirmBulkDeleteOpen, setIsConfirmBulkDeleteOpen] = useState(false);
+  const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+
   const clientOptions = [{ value: 'TODOS', label: 'TODOS (Estándar General)' }, ...clients.map(c => ({ value: c.razonSocial, label: c.razonSocial }))];
 
   const form = useForm<PerformanceStandardFormValues>({
@@ -193,11 +198,43 @@ export default function StandardManagementComponent({ initialStandards, clients 
       setIsSubmitting(false);
     }
   }
+  
+  const handleBulkDeleteConfirm = async () => {
+    if (selectedStandardIds.size === 0) return;
+    
+    setIsBulkDeleting(true);
+    const idsToDelete = Array.from(selectedStandardIds);
+    const result = await deleteMultipleStandards(idsToDelete);
+
+    if (result.success) {
+      toast({ title: 'Éxito', description: result.message });
+      setStandards(prev => prev.filter(a => !selectedStandardIds.has(a.id)));
+      setSelectedStandardIds(new Set()); // Clear selection
+    } else {
+      toast({ variant: 'destructive', title: 'Error', description: result.message });
+    }
+    setIsConfirmBulkDeleteOpen(false);
+    setIsBulkDeleting(false);
+  };
+
 
   const filteredClients = useMemo(() => {
     if (!clientSearch) return clientOptions;
     return clientOptions.filter(c => c.label.toLowerCase().includes(clientSearch.toLowerCase()));
   }, [clientSearch, clientOptions]);
+
+  const isAllSelected = useMemo(() => {
+    if (standards.length === 0) return false;
+    return standards.every(s => selectedStandardIds.has(s.id));
+  }, [selectedStandardIds, standards]);
+
+  const handleSelectAll = (checked: boolean) => {
+    if (checked) {
+      setSelectedStandardIds(new Set(standards.map(s => s.id)));
+    } else {
+      setSelectedStandardIds(new Set());
+    }
+  };
 
 
   if (authLoading) {
@@ -242,15 +279,23 @@ export default function StandardManagementComponent({ initialStandards, clients 
 
         <Card>
             <CardHeader>
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center flex-wrap gap-4">
                     <div>
                         <CardTitle>Listado de Estándares</CardTitle>
                         <CardDescription>Cree y edite los estándares de rendimiento para las operaciones.</CardDescription>
                     </div>
-                    <Button onClick={() => openDialog()}>
-                        <PlusCircle className="mr-2 h-4 w-4" />
-                        Crear Estándar
-                    </Button>
+                    <div className="flex gap-2">
+                        {selectedStandardIds.size > 0 && (
+                            <Button onClick={() => setIsConfirmBulkDeleteOpen(true)} variant="destructive" size="sm" disabled={isBulkDeleting}>
+                                <Trash2 className="mr-2 h-4 w-4" />
+                                Eliminar ({selectedStandardIds.size})
+                            </Button>
+                        )}
+                        <Button onClick={() => openDialog()}>
+                            <PlusCircle className="mr-2 h-4 w-4" />
+                            Crear Estándar
+                        </Button>
+                    </div>
                 </div>
             </CardHeader>
             <CardContent>
@@ -258,6 +303,14 @@ export default function StandardManagementComponent({ initialStandards, clients 
                     <Table>
                         <TableHeader>
                             <TableRow>
+                                <TableHead className="w-12">
+                                <Checkbox
+                                    checked={isAllSelected}
+                                    onCheckedChange={(checked) => handleSelectAll(checked === true)}
+                                    aria-label="Seleccionar todos los estándares"
+                                    disabled={standards.length === 0}
+                                />
+                                </TableHead>
                                 <TableHead>Descripción</TableHead>
                                 <TableHead>Cliente</TableHead>
                                 <TableHead>Tipo Op.</TableHead>
@@ -269,7 +322,21 @@ export default function StandardManagementComponent({ initialStandards, clients 
                         <TableBody>
                             {standards.length > 0 ? (
                                 standards.map(standard => (
-                                    <TableRow key={standard.id}>
+                                    <TableRow key={standard.id} data-state={selectedStandardIds.has(standard.id) && "selected"}>
+                                        <TableCell>
+                                            <Checkbox
+                                                checked={selectedStandardIds.has(standard.id)}
+                                                onCheckedChange={(checked) => {
+                                                    setSelectedStandardIds(prev => {
+                                                        const newSet = new Set(prev);
+                                                        if (checked) newSet.add(standard.id);
+                                                        else newSet.delete(standard.id);
+                                                        return newSet;
+                                                    });
+                                                }}
+                                                aria-label={`Seleccionar estándar ${standard.description}`}
+                                            />
+                                        </TableCell>
                                         <TableCell>{standard.description}</TableCell>
                                         <TableCell>{standard.clientName}</TableCell>
                                         <TableCell>{standard.operationType}</TableCell>
@@ -283,7 +350,7 @@ export default function StandardManagementComponent({ initialStandards, clients 
                                 ))
                             ) : (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="text-center h-24">No hay estándares definidos.</TableCell>
+                                    <TableCell colSpan={7} className="text-center h-24">No hay estándares definidos.</TableCell>
                                 </TableRow>
                             )}
                         </TableBody>
@@ -470,8 +537,29 @@ export default function StandardManagementComponent({ initialStandards, clients 
             </AlertDialogContent>
         </AlertDialog>
 
+        <AlertDialog open={isConfirmBulkDeleteOpen} onOpenChange={setIsConfirmBulkDeleteOpen}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>¿Confirmar eliminación masiva?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        Esta acción no se puede deshacer. Se eliminarán permanentemente <strong>{selectedStandardIds.size}</strong> estándar(es) seleccionado(s).
+                    </AlertDialogDescription>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction 
+                        onClick={handleBulkDeleteConfirm} 
+                        disabled={isBulkDeleting}
+                        className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                    >
+                        {isBulkDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                        Sí, eliminar seleccionados
+                    </AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+
       </div>
     </div>
   );
 }
-
