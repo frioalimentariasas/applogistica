@@ -167,19 +167,9 @@ export async function findBestMatchingStandard(
 ): Promise<PerformanceStandard | null> {
     if (!firestore) return null;
     
-    // Define special client names and their aliases
-    const clientAliases: Record<string, string> = {
-        "ATLANTIC FS S.A.S.": "Atlantic",
-        "ATLANTIC SEDE BARRANQUILLA": "Atlantic",
-        "AVICOLA EL MADROÑO S.A.": "Avicola",
-    };
-
-    const alias = clientAliases[clientName] || null;
-    const searchNames = alias ? [clientName, alias] : [clientName];
-
-    // First, try to find a specific rule for the client or their alias.
+    // First, try to find a specific rule for the client.
     const clientSpecificSnapshot = await firestore.collection('performance_standards')
-        .where('clientName', 'in', searchNames)
+        .where('clientName', '==', clientName)
         .where('minTons', '<=', tons)
         .get();
 
