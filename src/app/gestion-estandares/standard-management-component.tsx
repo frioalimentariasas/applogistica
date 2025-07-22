@@ -37,7 +37,7 @@ import { Label } from '@/components/ui/label';
 const rangeSchema = z.object({
   minTons: z.coerce.number().min(0, "Debe ser 0 o mayor."),
   maxTons: z.coerce.number().min(0.1, "Debe ser mayor que 0."),
-  baseMinutes: z.coerce.number().min(1, "Debe ser mayor a 0."),
+  baseMinutes: z.coerce.number().int().min(1, "Debe ser mayor a 0."),
 }).refine(data => data.maxTons > data.minTons, {
     message: "Máx > Mín",
     path: ["maxTons"],
@@ -56,7 +56,7 @@ const editBaseSchema = z.object({
   operationType: z.enum(['recepcion', 'despacho', 'TODAS']),
   minTons: z.coerce.number().min(0, "Debe ser 0 o mayor."),
   maxTons: z.coerce.number().min(0.1, "Debe ser mayor que 0."),
-  baseMinutes: z.coerce.number().min(1, "Debe ser mayor a 0."),
+  baseMinutes: z.coerce.number().int().min(1, "Debe ser mayor a 0."),
 });
 
 const editStandardSchema = editBaseSchema.refine(data => data.maxTons > data.minTons, {
@@ -360,7 +360,7 @@ export default function StandardManagementComponent({ initialStandards, clients 
         </Card>
 
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogContent className="sm:max-w-xl grid-rows-[auto_1fr_auto]">
+            <DialogContent className="sm:max-w-xl grid grid-rows-[auto_1fr_auto] max-h-[90vh]">
                 <DialogHeader>
                     <DialogTitle>{editingStandard ? 'Editar' : 'Crear'} Estándar de Productividad</DialogTitle>
                     <DialogDescription>
@@ -371,8 +371,7 @@ export default function StandardManagementComponent({ initialStandards, clients 
                     </DialogDescription>
                 </DialogHeader>
                  <Form {...(editingStandard ? editForm : form)}>
-                    <form id="standard-form" onSubmit={editingStandard ? editForm.handleSubmit(onEditSubmit) : form.handleSubmit(onAddSubmit)} className="space-y-4">
-                      <div className="overflow-y-auto max-h-[60vh] p-1 pr-4 space-y-4">
+                    <form id="standard-form" onSubmit={editingStandard ? editForm.handleSubmit(onEditSubmit) : form.handleSubmit(onAddSubmit)} className="space-y-4 overflow-y-auto px-1">
                             <FormField control={editingStandard ? editForm.control : form.control} name="description" render={({ field }) => (
                                 <FormItem><FormLabel>Descripción</FormLabel><FormControl><Input placeholder="Ej: Cargue/Descargue General" {...field} /></FormControl><FormMessage /></FormItem>
                             )}/>
@@ -470,10 +469,10 @@ export default function StandardManagementComponent({ initialStandards, clients 
                             {editingStandard ? (
                                 <div className="grid grid-cols-3 gap-4">
                                    <FormField control={editForm.control} name="minTons" render={({ field }) => (
-                                        <FormItem><FormLabel>Min. Toneladas</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                                        <FormItem><FormLabel>Min. Toneladas</FormLabel><FormControl><Input type="number" step="0.1" {...field} /></FormControl><FormMessage /></FormItem>
                                     )}/>
                                      <FormField control={editForm.control} name="maxTons" render={({ field }) => (
-                                        <FormItem><FormLabel>Max. Toneladas</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                                        <FormItem><FormLabel>Max. Toneladas</FormLabel><FormControl><Input type="number" step="0.1" {...field} /></FormControl><FormMessage /></FormItem>
                                     )}/>
                                     <FormField control={editForm.control} name="baseMinutes" render={({ field }) => (
                                         <FormItem><FormLabel>Minutos Base</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
@@ -482,34 +481,31 @@ export default function StandardManagementComponent({ initialStandards, clients 
                             ) : (
                                 <div className="space-y-4">
                                      <Label>Rangos de Toneladas y Tiempos</Label>
-                                     <ScrollArea className="max-h-48 pr-3">
-                                        <div className="space-y-4">
-                                            {fields.map((field, index) => (
-                                                <div key={field.id} className="flex items-end gap-2">
-                                                    <FormField control={form.control} name={`ranges.${index}.minTons`} render={({ field }) => (
-                                                        <FormItem><FormLabel>Min</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
-                                                    )}/>
-                                                    <FormField control={form.control} name={`ranges.${index}.maxTons`} render={({ field }) => (
-                                                        <FormItem><FormLabel>Max</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
-                                                    )}/>
-                                                    <FormField control={form.control} name={`ranges.${index}.baseMinutes`} render={({ field }) => (
-                                                        <FormItem><FormLabel>Minutos</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
-                                                    )}/>
-                                                    <Button type="button" variant="ghost" size="icon" className="shrink-0 text-destructive" onClick={() => remove(index)}><Trash2 className="h-4 w-4" /></Button>
-                                                </div>
-                                            ))}
-                                        </div>
-                                     </ScrollArea>
+                                     <div className="space-y-4">
+                                        {fields.map((field, index) => (
+                                            <div key={field.id} className="flex items-end gap-2">
+                                                <FormField control={form.control} name={`ranges.${index}.minTons`} render={({ field }) => (
+                                                    <FormItem><FormLabel>Min</FormLabel><FormControl><Input type="number" step="0.1" {...field} /></FormControl><FormMessage /></FormItem>
+                                                )}/>
+                                                <FormField control={form.control} name={`ranges.${index}.maxTons`} render={({ field }) => (
+                                                    <FormItem><FormLabel>Max</FormLabel><FormControl><Input type="number" step="0.1" {...field} /></FormControl><FormMessage /></FormItem>
+                                                )}/>
+                                                <FormField control={form.control} name={`ranges.${index}.baseMinutes`} render={({ field }) => (
+                                                    <FormItem><FormLabel>Minutos</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                                                )}/>
+                                                <Button type="button" variant="ghost" size="icon" className="shrink-0 text-destructive" onClick={() => remove(index)}><Trash2 className="h-4 w-4" /></Button>
+                                            </div>
+                                        ))}
+                                     </div>
                                     <Button type="button" variant="outline" size="sm" onClick={() => append({ minTons: 0, maxTons: 0, baseMinutes: 0 })}>
                                         <PlusCircle className="mr-2 h-4 w-4"/>
                                         Agregar Rango
                                     </Button>
                                 </div>
                             )}
-                      </div>
                     </form>
                 </Form>
-                 <DialogFooter className="pt-4">
+                 <DialogFooter className="pt-4 border-t">
                     <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
                     <Button type="submit" form="standard-form" disabled={isSubmitting}>
                         {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
