@@ -15,7 +15,8 @@ import {
     deletePerformanceStandard, 
     type PerformanceStandard,
     type PerformanceStandardFormValues,
-    getPerformanceStandards
+    getPerformanceStandards,
+    type OperationType,
 } from './actions';
 import type { ClientInfo } from '@/app/actions/clients';
 
@@ -44,12 +45,14 @@ const rangeSchema = z.object({
 const baseStandardSchema = z.object({
   description: z.string().min(3, "La descripción es requerida."),
   clientNames: z.array(z.string()).min(1, "Debe seleccionar al menos un cliente."),
+  operationType: z.enum(['recepcion', 'despacho', 'TODAS'], { required_error: 'Debe seleccionar un tipo de operación.' }),
   ranges: z.array(rangeSchema).min(1, "Debe agregar al menos un rango de toneladas."),
 });
 
 const editBaseSchema = z.object({
   description: z.string().min(3, "La descripción es requerida."),
   clientName: z.string(),
+  operationType: z.enum(['recepcion', 'despacho', 'TODAS']),
   minTons: z.coerce.number().min(0, "Debe ser 0 o mayor."),
   maxTons: z.coerce.number().min(0.1, "Debe ser mayor que 0."),
   baseMinutes: z.coerce.number().min(1, "Debe ser mayor a 0."),
@@ -60,7 +63,7 @@ const editStandardSchema = editBaseSchema.refine(data => data.maxTons > data.min
     path: ["maxTons"],
 });
 
-type EditStandardFormValues = Omit<PerformanceStandard, 'id' | 'operationType'>;
+type EditStandardFormValues = Omit<PerformanceStandard, 'id'>;
 
 
 const AccessDenied = () => (
@@ -112,6 +115,7 @@ export default function StandardManagementComponent({ initialStandards, clients 
         editForm.reset({
             description: standard.description,
             clientName: standard.clientName,
+            operationType: standard.operationType,
             minTons: standard.minTons,
             maxTons: standard.maxTons,
             baseMinutes: standard.baseMinutes,
@@ -120,6 +124,7 @@ export default function StandardManagementComponent({ initialStandards, clients 
         form.reset({
             description: 'CARGUE Y/O DESCARGUE',
             clientNames: [],
+            operationType: 'TODAS',
             ranges: [{ minTons: 0, maxTons: 0, baseMinutes: 0 }]
       });
     }
@@ -150,10 +155,10 @@ export default function StandardManagementComponent({ initialStandards, clients 
       if (!editingStandard) return;
       setIsSubmitting(true);
       try {
-          const result = await updatePerformanceStandard(editingStandard.id, { ...data, operationType: 'TODAS' });
+          const result = await updatePerformanceStandard(editingStandard.id, data);
           if (result.success) {
               setStandards(prev => {
-                  const updated = prev.map(s => s.id === editingStandard.id ? { id: s.id, ...data, operationType: 'TODAS' } as PerformanceStandard : s);
+                  const updated = prev.map(s => s.id === editingStandard.id ? { id: s.id, ...data } as PerformanceStandard : s);
                   return updated.sort((a,b) => a.clientName.localeCompare(b.clientName) || a.minTons - b.minTons);
               });
               toast({ title: 'Éxito', description: 'Estándar actualizado.' });
@@ -244,7 +249,7 @@ export default function StandardManagementComponent({ initialStandards, clients 
                     </div>
                     <Button onClick={() => openDialog()}>
                         <PlusCircle className="mr-2 h-4 w-4" />
-                        Crear Estándar de Productividad
+                        Crear Estándar
                     </Button>
                 </div>
             </CardHeader>
@@ -255,6 +260,7 @@ export default function StandardManagementComponent({ initialStandards, clients 
                             <TableRow>
                                 <TableHead>Descripción</TableHead>
                                 <TableHead>Cliente</TableHead>
+                                <TableHead>Tipo Op.</TableHead>
                                 <TableHead>Rango Toneladas</TableHead>
                                 <TableHead className="text-right">Minutos Base</TableHead>
                                 <TableHead className="text-right">Acciones</TableHead>
@@ -266,6 +272,7 @@ export default function StandardManagementComponent({ initialStandards, clients 
                                     <TableRow key={standard.id}>
                                         <TableCell>{standard.description}</TableCell>
                                         <TableCell>{standard.clientName}</TableCell>
+                                        <TableCell>{standard.operationType}</TableCell>
                                         <TableCell>{`${standard.minTons} a ${standard.maxTons}`}</TableCell>
                                         <TableCell className="text-right font-mono">{standard.baseMinutes}</TableCell>
                                         <TableCell className="text-right">
@@ -276,7 +283,7 @@ export default function StandardManagementComponent({ initialStandards, clients 
                                 ))
                             ) : (
                                 <TableRow>
-                                    <TableCell colSpan={5} className="text-center h-24">No hay estándares definidos.</TableCell>
+                                    <TableCell colSpan={6} className="text-center h-24">No hay estándares definidos.</TableCell>
                                 </TableRow>
                             )}
                         </TableBody>
@@ -297,8 +304,8 @@ export default function StandardManagementComponent({ initialStandards, clients 
                     </DialogDescription>
                 </DialogHeader>
                  <Form {...(editingStandard ? editForm : form)}>
-                    <form id="standard-form" onSubmit={editingStandard ? editForm.handleSubmit(onEditSubmit) : form.handleSubmit(onAddSubmit)} className="overflow-y-auto max-h-[60vh] p-1 pr-4">
-                        <div className="space-y-4">
+                    <form id="standard-form" onSubmit={editingStandard ? editForm.handleSubmit(onEditSubmit) : form.handleSubmit(onAddSubmit)} className="space-y-4">
+                      <div className="overflow-y-auto max-h-[60vh] p-1 pr-4 space-y-4">
                             <FormField control={editingStandard ? editForm.control : form.control} name="description" render={({ field }) => (
                                 <FormItem><FormLabel>Descripción</FormLabel><FormControl><Input placeholder="Ej: Cargue/Descargue General" {...field} /></FormControl><FormMessage /></FormItem>
                             )}/>
@@ -370,6 +377,28 @@ export default function StandardManagementComponent({ initialStandards, clients 
                                     }}
                                 />
                             )}
+                             <FormField
+                                control={editingStandard ? editForm.control : form.control}
+                                name="operationType"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Tipo de Operación</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value}>
+                                    <FormControl>
+                                        <SelectTrigger>
+                                        <SelectValue placeholder="Seleccione un tipo" />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="TODAS">TODAS</SelectItem>
+                                        <SelectItem value="recepcion">Recepción</SelectItem>
+                                        <SelectItem value="despacho">Despacho</SelectItem>
+                                    </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
                             
                             {editingStandard ? (
                                 <div className="grid grid-cols-3 gap-4">
@@ -385,8 +414,8 @@ export default function StandardManagementComponent({ initialStandards, clients 
                                 </div>
                             ) : (
                                 <div className="space-y-4">
-                                    <div className="space-y-2">
-                                        <Label>Rangos de Toneladas y Tiempos</Label>
+                                     <Label>Rangos de Toneladas y Tiempos</Label>
+                                     <ScrollArea className="max-h-48 pr-3">
                                         <div className="space-y-4">
                                             {fields.map((field, index) => (
                                                 <div key={field.id} className="flex items-end gap-2">
@@ -403,14 +432,14 @@ export default function StandardManagementComponent({ initialStandards, clients 
                                                 </div>
                                             ))}
                                         </div>
-                                    </div>
+                                     </ScrollArea>
                                     <Button type="button" variant="outline" size="sm" onClick={() => append({ minTons: 0, maxTons: 0, baseMinutes: 0 })}>
                                         <PlusCircle className="mr-2 h-4 w-4"/>
                                         Agregar Rango
                                     </Button>
                                 </div>
                             )}
-                        </div>
+                      </div>
                     </form>
                 </Form>
                  <DialogFooter className="pt-4">
@@ -445,3 +474,4 @@ export default function StandardManagementComponent({ initialStandards, clients 
     </div>
   );
 }
+

@@ -118,7 +118,7 @@ export async function updatePerformanceStandard(id: string, data: Omit<Performan
     const { minTons, maxTons, baseMinutes, clientName, description, operationType } = data;
     const errors: string[] = [];
     if (typeof minTons !== 'number' || minTons < 0) errors.push('Las toneladas mínimas deben ser un número no negativo.');
-    if (typeof maxTons !== 'number' || maxTons <= 0) errors.push('Las toneladas máximas deben ser un número positivo.');
+    if (typeof maxTons !== 'number' || maxTons <= 0) errors.push('Las toneladas máximas deben ser mayores que las mínimas.');
     if (maxTons <= minTons) errors.push('Las toneladas máximas deben ser mayores que las mínimas.');
     if (typeof baseMinutes !== 'number' || baseMinutes <= 0) errors.push('Los minutos base deben ser un número positivo.');
     if (!clientName) errors.push('El nombre del cliente es obligatorio.');
@@ -170,55 +170,42 @@ export async function findBestMatchingStandard(
 ): Promise<PerformanceStandard | null> {
     if (!firestore) return null;
 
-    const findMatchInSnapshot = (snapshot: FirebaseFirestore.QuerySnapshot): PerformanceStandard | null => {
-        let matches = snapshot.docs
-            .map(doc => ({ id: doc.id, ...doc.data() } as PerformanceStandard))
-            .filter(doc => tons >= doc.minTons && tons < doc.maxTons);
+    // Define the search criteria in order of priority
+    const searchPriorities = [
+        // 1. Most specific: Exact client and exact operation type
+        { clientName: clientName, operationType: operationType },
+        // 2. Less specific: General client ('TODOS') but exact operation type
+        { clientName: 'TODOS', operationType: operationType },
+        // 3. Less specific: Exact client but general operation type ('TODAS')
+        { clientName: clientName, operationType: 'TODAS' as const },
+        // 4. Most general: General client and general operation type
+        { clientName: 'TODOS', operationType: 'TODAS' as const },
+    ];
 
-        if (matches.length > 0) {
-            // In case of overlapping ranges (bad data), return the one with the smallest range for more specificity
-            matches.sort((a,b) => (a.maxTons - a.minTons) - (b.maxTons - b.minTons));
-            return matches[0];
+    for (const priority of searchPriorities) {
+        try {
+            const snapshot = await firestore.collection('performance_standards')
+                .where('clientName', '==', priority.clientName)
+                .where('operationType', '==', priority.operationType)
+                .get();
+
+            if (!snapshot.empty) {
+                const matches = snapshot.docs
+                    .map(doc => ({ id: doc.id, ...doc.data() } as PerformanceStandard))
+                    .filter(doc => tons >= doc.minTons && tons < doc.maxTons);
+                
+                if (matches.length > 0) {
+                    // Sort by the narrowest range to be more specific in case of overlaps
+                    matches.sort((a,b) => (a.maxTons - a.minTons) - (b.maxTons - b.minTons));
+                    return matches[0]; // Return the best match for this priority level
+                }
+            }
+        } catch (error) {
+            console.error(`Error querying for standard with priority: ${JSON.stringify(priority)}`, error);
         }
-        return null;
-    };
-    
-    // 1. Try to find a specific rule for the client and operation type
-    const clientSpecificSnapshot = await firestore.collection('performance_standards')
-        .where('clientName', '==', clientName)
-        .where('operationType', '==', operationType)
-        .get();
-    
-    let standard = findMatchInSnapshot(clientSpecificSnapshot);
-    if (standard) return standard;
-    
-    // 2. Try to find a specific rule for the client that applies to ALL operation types
-    const clientGeneralSnapshot = await firestore.collection('performance_standards')
-        .where('clientName', '==', clientName)
-        .where('operationType', '==', 'TODAS')
-        .get();
-        
-    standard = findMatchInSnapshot(clientGeneralSnapshot);
-    if (standard) return standard;
+    }
 
-    // 3. Try to find a general rule ('TODOS') for the specific operation type
-    const generalSpecificSnapshot = await firestore.collection('performance_standards')
-        .where('clientName', '==', 'TODOS')
-        .where('operationType', '==', operationType)
-        .get();
-        
-    standard = findMatchInSnapshot(generalSpecificSnapshot);
-    if (standard) return standard;
-    
-    // 4. Finally, find a general rule ('TODOS') for ALL operation types
-    const generalGeneralSnapshot = await firestore.collection('performance_standards')
-        .where('clientName', '==', 'TODOS')
-        .where('operationType', '==', 'TODAS')
-        .get();
-
-    standard = findMatchInSnapshot(generalGeneralSnapshot);
-    if (standard) return standard;
-
-    // No standard found.
+    // No standard found after checking all priorities.
     return null;
 }
+
