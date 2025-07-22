@@ -24,7 +24,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, File, FileDown, FolderSearch, Users, ShieldAlert, TrendingUp, Circle, Settings, ChevronsUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
@@ -308,7 +308,7 @@ export default function CrewPerformanceReportPage() {
                 'Tipo Operación': row.tipoOperacion,
                 'Tipo Producto': row.tipoProducto,
                 'Pedido SISLOG': row.pedidoSislog,
-                'Toneladas': (row.kilos / 1000).toFixed(2),
+                'Toneladas': (row.kilos / 1000),
                 'Hora Inicio': formatTime12Hour(row.horaInicio),
                 'Hora Fin': formatTime12Hour(row.horaFin),
                 'Duración': formatDuration(row.duracionMinutos),
@@ -323,7 +323,7 @@ export default function CrewPerformanceReportPage() {
             'Tipo Operación': '',
             'Tipo Producto': '',
             'Pedido SISLOG': 'TOTALES:',
-            'Toneladas': totalToneladas.toFixed(2),
+            'Toneladas': totalToneladas,
             'Hora Inicio': '',
             'Hora Fin': '',
             'Duración': formatDuration(totalDuration),
@@ -371,7 +371,7 @@ export default function CrewPerformanceReportPage() {
                 row.tipoOperacion,
                 row.tipoProducto,
                 row.pedidoSislog,
-                (row.kilos / 1000).toFixed(2),
+                (row.kilos / 1000),
                 formatDuration(row.duracionMinutos),
                 indicator.text
             ]}),
@@ -482,6 +482,7 @@ export default function CrewPerformanceReportPage() {
                                     <DialogContent>
                                         <DialogHeader>
                                             <DialogTitle>Seleccionar Cliente(s)</DialogTitle>
+                                            <DialogDescription>Deje la selección vacía para incluir a todos los clientes.</DialogDescription>
                                         </DialogHeader>
                                         <Input
                                             placeholder="Buscar cliente..."
@@ -616,7 +617,7 @@ export default function CrewPerformanceReportPage() {
                                                     <TableCell>{row.tipoOperacion}</TableCell>
                                                     <TableCell>{row.tipoProducto}</TableCell>
                                                     <TableCell>{row.pedidoSislog}</TableCell>
-                                                    <TableCell className="text-right font-mono">{(row.kilos / 1000).toFixed(2)}</TableCell>
+                                                    <TableCell className="text-right font-mono">{Number((row.kilos / 1000).toFixed(2))}</TableCell>
                                                     <TableCell className="text-right font-medium">{formatDuration(row.duracionMinutos)}</TableCell>
                                                     <TableCell className={cn("text-right font-semibold", indicator.color)}>
                                                         <div className="flex items-center justify-end gap-2">
@@ -657,3 +658,4 @@ export default function CrewPerformanceReportPage() {
         </div>
     );
 }
+
