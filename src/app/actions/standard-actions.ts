@@ -121,11 +121,9 @@ export async function findBestMatchingStandard(criteria: FindStandardCriteria): 
     }
 
     const potentialMatches = allStandards.filter(std => {
-        // Round to 4 decimal places to avoid floating point inaccuracies
-        const roundedTons = Number(tons.toFixed(4));
-        const roundedMin = Number(std.minTons.toFixed(4));
-        const roundedMax = Number(std.maxTons.toFixed(4));
-        return roundedTons >= roundedMin && roundedTons <= roundedMax;
+        // Use exclusive upper bound for max tons to handle ranges like 8-12 properly.
+        // A range of min: 8, max: 13 will include 12.999 but not 13.0
+        return tons >= std.minTons && tons < std.maxTons;
     });
     
     if (potentialMatches.length === 0) return null;
