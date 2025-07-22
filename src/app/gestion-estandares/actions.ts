@@ -100,4 +100,57 @@ export async function deleteMultipleStandards(ids: string[]): Promise<{ success:
   }
 }
 
+
+// --- Standard Matching Logic ---
+
+interface FindStandardCriteria {
+    clientName?: string;
+    operationType?: 'recepcion' | 'despacho';
+    productType?: 'fijo' | 'variable' | null;
+    tons: number;
+}
+
+export async function findBestMatchingStandard(criteria: FindStandardCriteria): Promise<PerformanceStandard | null> {
+    const { clientName, operationType, productType, tons } = criteria;
+
+    if (!clientName || !operationType || !productType) {
+        return null;
+    }
+
+    const allStandards = await getPerformanceStandards();
+
+    const potentialMatches = allStandards.filter(std => 
+        tons >= std.minTons && tons <= std.maxTons
+    );
     
+    if (potentialMatches.length === 0) return null;
+
+    // Define the order of specificity for matching
+    const searchPriorities = [
+        // 1. Most specific: Exact match for client, operation, and product type
+        (std: PerformanceStandard) => std.clientName === clientName && std.operationType === operationType && std.productType === productType,
+        // 2. Match client and operation, any product type
+        (std: PerformanceStandard) => std.clientName === clientName && std.operationType === operationType && std.productType === 'TODOS',
+        // 3. Match client and product type, any operation
+        (std: PerformanceStandard) => std.clientName === clientName && std.operationType === 'TODAS' && std.productType === productType,
+        // 4. Match client, any operation or product type
+        (std: PerformanceStandard) => std.clientName === clientName && std.operationType === 'TODAS' && std.productType === 'TODOS',
+        // 5. Match operation and product type, any client
+        (std: PerformanceStandard) => std.clientName === 'TODOS' && std.operationType === operationType && std.productType === productType,
+        // 6. Match operation, any client or product type
+        (std: PerformanceStandard) => std.clientName === 'TODOS' && std.operationType === operationType && std.productType === 'TODOS',
+        // 7. Match product type, any client or operation
+        (std: PerformanceStandard) => std.clientName === 'TODOS' && std.operationType === 'TODAS' && std.productType === productType,
+        // 8. Least specific: Universal fallback
+        (std: PerformanceStandard) => std.clientName === 'TODOS' && std.operationType === 'TODAS' && std.productType === 'TODOS',
+    ];
+
+    for (const check of searchPriorities) {
+        const found = potentialMatches.find(check);
+        if (found) {
+            return found;
+        }
+    }
+
+    return null; // No matching standard found
+}
