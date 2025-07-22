@@ -160,17 +160,25 @@ export async function deletePerformanceStandard(id: string): Promise<{ success: 
     }
 }
 
+// Function to find the best matching standard for a given operation
 export async function findBestMatchingStandard(
     clientName: string, 
     tons: number
 ): Promise<PerformanceStandard | null> {
     if (!firestore) return null;
     
-    // As per new logic, we find the standard based on client and tonnage.
-    
-    // First, try to find a specific rule for the client.
+    // Define special client names and their aliases
+    const clientAliases: Record<string, string> = {
+        "ATLANTIC FS S.A.S.": "Atlantic",
+        "AVICOLA EL MADROÑO S.A.": "Avicola",
+    };
+
+    const alias = clientAliases[clientName] || null;
+    const searchNames = alias ? [clientName, alias] : [clientName];
+
+    // First, try to find a specific rule for the client or their alias.
     const clientSpecificSnapshot = await firestore.collection('performance_standards')
-        .where('clientName', '==', clientName)
+        .where('clientName', 'in', searchNames)
         .where('minTons', '<=', tons)
         .get();
 
@@ -178,7 +186,6 @@ export async function findBestMatchingStandard(
         .map(doc => ({ id: doc.id, ...doc.data() } as PerformanceStandard))
         .filter(doc => doc.maxTons >= tons);
 
-    // If a specific rule is found, return it.
     if (matches.length > 0) {
         // In case of overlapping ranges (bad data), return the one with the smallest range for more specificity
         matches.sort((a,b) => (a.maxTons - a.minTons) - (b.maxTons - b.minTons));

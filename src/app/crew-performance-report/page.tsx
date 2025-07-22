@@ -138,7 +138,7 @@ const getPerformanceIndicator = (
   const lowerBound = standardMinutes * 0.9;
   const upperBound = standardMinutes * 1.1;
 
-  const standardTooltip = `Estándar: "${standard.description}" (${standard.baseMinutes} min para ${standard.minTons}-${standard.maxTons} ton).`;
+  const standardTooltip = `Estándar: "${standard.description}" (Tiempo Esperado: ${standard.baseMinutes} min para ${standard.minTons}-${standard.maxTons} ton).`;
 
   if (duracionMinutos < lowerBound) {
     return { status: 'Óptimo', color: 'text-green-600', tooltip: `Más rápido que el estándar. ${standardTooltip}` };
@@ -611,5 +611,6 @@ export default function CrewPerformanceReportPage() {
         </div>
     );
 }
+
 
 
