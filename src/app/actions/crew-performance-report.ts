@@ -24,21 +24,22 @@ async function findBestMatchingStandard(criteria: { clientName?: string; operati
     if (potentialMatches.length === 0) return null;
     
     const searchPriorities = [
-        // 1. Exact match
+        // 1. Exact match on client, operation, and product
         (std: PerformanceStandard) => std.clientName === clientName && std.operationType === operationType && std.productType === productType,
-        // 2. Client and Operation match, any product type
         (std: PerformanceStandard) => std.clientName === clientName && std.operationType === operationType && std.productType === 'TODOS',
-        // 3. Client and Product match, any operation type
         (std: PerformanceStandard) => std.clientName === clientName && std.operationType === 'TODAS' && std.productType === productType,
-        // 4. Client match, any operation or product type
         (std: PerformanceStandard) => std.clientName === clientName && std.operationType === 'TODAS' && std.productType === 'TODOS',
-        // 5. Operation and Product match, any client
+        
+        // 2. Partial match on client name (e.g. "ATLANTIC SEDE B..." in "ATLANTIC FS S.A.S. BARRANQUILLA...")
+        (std: PerformanceStandard) => clientName.includes(std.clientName) && std.operationType === operationType && std.productType === productType,
+        (std: PerformanceStandard) => clientName.includes(std.clientName) && std.operationType === operationType && std.productType === 'TODOS',
+        (std: PerformanceStandard) => clientName.includes(std.clientName) && std.operationType === 'TODAS' && std.productType === productType,
+        (std: PerformanceStandard) => clientName.includes(std.clientName) && std.operationType === 'TODAS' && std.productType === 'TODOS',
+
+        // 3. Fallback to "TODOS" client
         (std: PerformanceStandard) => std.clientName === 'TODOS' && std.operationType === operationType && std.productType === productType,
-        // 6. Operation match, any client or product
         (std: PerformanceStandard) => std.clientName === 'TODOS' && std.operationType === operationType && std.productType === 'TODOS',
-        // 7. Product match, any client or operation
         (std: PerformanceStandard) => std.clientName === 'TODOS' && std.operationType === 'TODAS' && std.productType === productType,
-        // 8. Universal fallback
         (std: PerformanceStandard) => std.clientName === 'TODOS' && std.operationType === 'TODAS' && std.productType === 'TODOS',
     ];
 
@@ -188,9 +189,10 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             
             const kilos = calculateTotalKilos(formType, formData);
             const toneladas = kilos / 1000;
+            const clientName = formData.nombreCliente || formData.cliente;
 
             const standard = await findBestMatchingStandard({
-              clientName: formData.nombreCliente || formData.cliente,
+              clientName: clientName,
               operationType: operationTypeForAction,
               productType: productTypeForAction,
               tons: toneladas
@@ -201,7 +203,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                 formType,
                 fecha: formData.fecha,
                 operario: userDisplayName || 'N/A',
-                cliente: formData.nombreCliente || formData.cliente || 'N/A',
+                cliente: clientName || 'N/A',
                 tipoOperacion,
                 tipoProducto,
                 kilos: kilos,
