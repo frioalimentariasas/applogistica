@@ -71,6 +71,10 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
     // A form is in "summary format" if ANY item has a paleta value of 0. Otherwise, it's detailed.
     const isSummaryFormat = formData.items.some((p: any) => Number(p.paleta) === 0);
 
+    const hasStandardObservations = (formData.observaciones || []).some(
+        (obs: any) => obs.type !== 'OTRAS OBSERVACIONES'
+    );
+
     const recalculatedSummary = (() => {
         const groupedByDesc = (formData.items || []).reduce((acc, item) => {
             if (!item?.descripcion?.trim()) return acc;
@@ -257,20 +261,22 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
             {formData.observaciones && formData.observaciones.length > 0 && (
                  <ReportSection title="Observaciones">
                     <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse' }}>
-                        <thead>
-                            <tr style={{ borderBottom: '1px solid #aaa' }}>
-                                <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Tipo</th>
-                                <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Cantidad</th>
-                                <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Ejecutado por Grupo Rosales</th>
-                            </tr>
-                        </thead>
+                        {hasStandardObservations && (
+                             <thead>
+                                <tr style={{ borderBottom: '1px solid #aaa' }}>
+                                    <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Tipo</th>
+                                    <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Cantidad</th>
+                                    <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Ejecutado por Grupo Rosales</th>
+                                </tr>
+                            </thead>
+                        )}
                         <tbody>
                             {formData.observaciones.map((obs: any, i: number) => {
                                 const isOther = obs.type === 'OTRAS OBSERVACIONES';
                                 return (
                                 <tr key={i} style={{ borderBottom: '1px solid #ddd' }}>
                                     {isOther ? (
-                                        <td style={{ padding: '4px', width: '100%' }} colSpan={3}>
+                                        <td style={{ padding: '4px', width: '100%' }} colSpan={hasStandardObservations ? 3 : 1}>
                                             <strong style={{fontWeight: 'bold'}}>OTRAS OBSERVACIONES: </strong>{obs.customType}
                                         </td>
                                     ) : (
