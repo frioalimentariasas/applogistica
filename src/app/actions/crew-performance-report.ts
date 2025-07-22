@@ -4,7 +4,7 @@
 import admin from 'firebase-admin';
 import { firestore } from '@/lib/firebase-admin';
 import { parse, differenceInMinutes, addDays } from 'date-fns';
-import { findBestMatchingStandard, PerformanceStandard } from '@/app/gestion-estandares/actions';
+import { findBestMatchingStandard, type PerformanceStandard } from '@/app/gestion-estandares/actions';
 
 const serializeTimestamps = (data: any): any => {
     if (data === null || data === undefined || typeof data !== 'object') {
