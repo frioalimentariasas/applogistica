@@ -4,7 +4,54 @@
 import admin from 'firebase-admin';
 import { firestore } from '@/lib/firebase-admin';
 import { parse, differenceInMinutes, addDays } from 'date-fns';
-import { findBestMatchingStandard, type PerformanceStandard } from '@/app/gestion-estandares/actions';
+import { getPerformanceStandards, type PerformanceStandard } from '@/app/gestion-estandares/actions';
+
+
+// This logic is moved here to prevent circular dependencies.
+async function findBestMatchingStandard(criteria: { clientName?: string; operationType?: 'recepcion' | 'despacho'; productType?: 'fijo' | 'variable' | null; tons: number; }): Promise<PerformanceStandard | null> {
+    const { clientName, operationType, productType, tons } = criteria;
+
+    if (!clientName || !operationType || !productType) {
+        return null;
+    }
+
+    const allStandards = await getPerformanceStandards();
+
+    const potentialMatches = allStandards.filter(std => 
+        tons >= std.minTons && tons <= std.maxTons
+    );
+    
+    if (potentialMatches.length === 0) return null;
+    
+    const searchPriorities = [
+        // 1. Exact match
+        (std: PerformanceStandard) => std.clientName === clientName && std.operationType === operationType && std.productType === productType,
+        // 2. Client and Operation match, any product type
+        (std: PerformanceStandard) => std.clientName === clientName && std.operationType === operationType && std.productType === 'TODOS',
+        // 3. Client and Product match, any operation type
+        (std: PerformanceStandard) => std.clientName === clientName && std.operationType === 'TODAS' && std.productType === productType,
+        // 4. Client match, any operation or product type
+        (std: PerformanceStandard) => std.clientName === clientName && std.operationType === 'TODAS' && std.productType === 'TODOS',
+        // 5. Operation and Product match, any client
+        (std: PerformanceStandard) => std.clientName === 'TODOS' && std.operationType === operationType && std.productType === productType,
+        // 6. Operation match, any client or product
+        (std: PerformanceStandard) => std.clientName === 'TODOS' && std.operationType === operationType && std.productType === 'TODOS',
+        // 7. Product match, any client or operation
+        (std: PerformanceStandard) => std.clientName === 'TODOS' && std.operationType === 'TODAS' && std.productType === productType,
+        // 8. Universal fallback
+        (std: PerformanceStandard) => std.clientName === 'TODOS' && std.operationType === 'TODAS' && std.productType === 'TODOS',
+    ];
+
+    for (const check of searchPriorities) {
+        const found = potentialMatches.find(check);
+        if (found) {
+            return found;
+        }
+    }
+
+    return null;
+}
+
 
 const serializeTimestamps = (data: any): any => {
     if (data === null || data === undefined || typeof data !== 'object') {
