@@ -137,7 +137,7 @@ export default function Home() {
                 <div>
                     <Card className="flex flex-col">
                         <CardHeader>
-                            <CardTitle className="text-xl">Control de Operaciones Logísticas</CardTitle>
+                            <CardTitle className="text-xl text-center">Control de Operaciones Logísticas</CardTitle>
                         </CardHeader>
                         <CardContent className="flex-grow flex flex-col justify-between">
                             <form onSubmit={handleSubmit} className="space-y-6">
@@ -187,7 +187,7 @@ export default function Home() {
                 <div>
                     <Card className="w-full">
                         <CardHeader>
-                            <CardTitle className="text-xl">Consultas y Herramientas</CardTitle>
+                            <CardTitle className="text-xl text-center">Consultas y Herramientas</CardTitle>
                         </CardHeader>
                         <CardContent>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
