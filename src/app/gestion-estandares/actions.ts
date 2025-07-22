@@ -1,3 +1,4 @@
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -88,9 +89,9 @@ export async function addPerformanceStandard(data: PerformanceStandardFormValues
                     description,
                     clientName: client,
                     operationType: operationType,
-                    minTons: range.minTons,
-                    maxTons: range.maxTons,
-                    baseMinutes: range.baseMinutes,
+                    minTons: Number(range.minTons),
+                    maxTons: Number(range.maxTons),
+                    baseMinutes: Number(range.baseMinutes),
                 };
                 const docRef = firestore.collection('performance_standards').doc();
                 batch.set(docRef, newStandardData);
@@ -114,7 +115,11 @@ export async function addPerformanceStandard(data: PerformanceStandardFormValues
 export async function updatePerformanceStandard(id: string, data: Omit<PerformanceStandard, 'id'>): Promise<{ success: boolean; message: string }> {
     if (!firestore) return { success: false, message: 'Error de configuración del servidor.' };
     
-    const { minTons, maxTons, baseMinutes, clientName, description, operationType } = data;
+    const { clientName, description, operationType } = data;
+    const minTons = Number(data.minTons);
+    const maxTons = Number(data.maxTons);
+    const baseMinutes = Number(data.baseMinutes);
+
     const errors: string[] = [];
     if (typeof minTons !== 'number' || minTons < 0) errors.push('Las toneladas mínimas deben ser un número no negativo.');
     if (typeof maxTons !== 'number' || maxTons <= 0) errors.push('Las toneladas máximas deben ser mayores que las mínimas.');
@@ -200,32 +205,40 @@ export async function findBestMatchingStandard(
 ): Promise<PerformanceStandard | null> {
     if (!firestore) return null;
 
-    // Get all standards once to filter in memory
+    // Get all standards once to filter in memory, ensuring types are correct
     const allStandards = await getPerformanceStandards();
 
-    const priorities = [
-      // 1. Most specific: Exact client and exact operation type
-      (s: PerformanceStandard) => s.clientName === clientName && s.operationType === operationType,
-      // 2. Less specific: General client ('TODOS') but exact operation type
-      (s: PerformanceStandard) => s.clientName === 'TODOS' && s.operationType === operationType,
-      // 3. Less specific: Exact client but general operation type ('TODAS')
-      (s: PerformanceStandard) => s.clientName === clientName && s.operationType === 'TODAS',
-      // 4. Most general: General client and general operation type
-      (s: PerformanceStandard) => s.clientName === 'TODOS' && s.operationType === 'TODAS',
-    ];
+    const check = (standard: PerformanceStandard) => {
+      return tons >= standard.minTons && tons <= standard.maxTons;
+    };
 
-    for (const filter of priorities) {
-      const potentialMatches = allStandards
-        .filter(filter)
-        .filter(s => tons >= s.minTons && tons <= s.maxTons);
-      
-      if (potentialMatches.length > 0) {
-        // Sort by the narrowest range to be more specific in case of overlaps
-        potentialMatches.sort((a, b) => (a.maxTons - a.minTons) - (b.maxTons - b.minTons));
-        return potentialMatches[0]; // Return the best match for this priority level
-      }
+    // Priority 1: Specific client, specific operation type
+    let matches = allStandards.filter(s => s.clientName === clientName && s.operationType === operationType && check(s));
+    if (matches.length > 0) {
+        matches.sort((a,b) => (a.maxTons - a.minTons) - (b.maxTons - b.minTons));
+        return matches[0];
     }
     
-    // No standard found after checking all priorities.
+    // Priority 2: General client, specific operation type
+    matches = allStandards.filter(s => s.clientName === 'TODOS' && s.operationType === operationType && check(s));
+    if (matches.length > 0) {
+        matches.sort((a,b) => (a.maxTons - a.minTons) - (b.maxTons - b.minTons));
+        return matches[0];
+    }
+
+    // Priority 3: Specific client, general operation type
+    matches = allStandards.filter(s => s.clientName === clientName && s.operationType === 'TODAS' && check(s));
+     if (matches.length > 0) {
+        matches.sort((a,b) => (a.maxTons - a.minTons) - (b.maxTons - b.minTons));
+        return matches[0];
+    }
+
+    // Priority 4: General client, general operation type
+    matches = allStandards.filter(s => s.clientName === 'TODOS' && s.operationType === 'TODAS' && check(s));
+    if (matches.length > 0) {
+        matches.sort((a,b) => (a.maxTons - a.minTons) - (b.maxTons - b.minTons));
+        return matches[0];
+    }
+    
     return null;
 }
