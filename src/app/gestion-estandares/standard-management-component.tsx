@@ -18,6 +18,7 @@ import {
     type PerformanceStandardFormValues,
     getPerformanceStandards,
     type OperationType,
+    type ProductType,
 } from './actions';
 import type { ClientInfo } from '@/app/actions/clients';
 
@@ -47,6 +48,7 @@ const baseStandardSchema = z.object({
   description: z.string().min(3, "La descripción es requerida."),
   clientNames: z.array(z.string()).min(1, "Debe seleccionar al menos un cliente."),
   operationType: z.enum(['recepcion', 'despacho', 'TODAS'], { required_error: 'Debe seleccionar un tipo de operación.' }),
+  productType: z.enum(['fijo', 'variable', 'TODAS'], { required_error: 'Debe seleccionar un tipo de producto.' }),
   ranges: z.array(rangeSchema).min(1, "Debe agregar al menos un rango de toneladas."),
 });
 
@@ -54,6 +56,7 @@ const editBaseSchema = z.object({
   description: z.string().min(3, "La descripción es requerida."),
   clientName: z.string(),
   operationType: z.enum(['recepcion', 'despacho', 'TODAS']),
+  productType: z.enum(['fijo', 'variable', 'TODAS']),
   minTons: z.coerce.number().min(0, "Debe ser 0 o mayor."),
   maxTons: z.coerce.number().min(0.1, "Debe ser mayor que 0."),
   baseMinutes: z.coerce.number().int().min(1, "Debe ser mayor a 0."),
@@ -121,6 +124,7 @@ export default function StandardManagementComponent({ initialStandards, clients 
             description: standard.description,
             clientName: standard.clientName,
             operationType: standard.operationType,
+            productType: standard.productType,
             minTons: standard.minTons,
             maxTons: standard.maxTons,
             baseMinutes: standard.baseMinutes,
@@ -130,6 +134,7 @@ export default function StandardManagementComponent({ initialStandards, clients 
             description: 'CARGUE Y/O DESCARGUE',
             clientNames: [],
             operationType: 'TODAS',
+            productType: 'TODAS',
             ranges: [{ minTons: 0, maxTons: 0, baseMinutes: 0 }]
       });
     }
@@ -314,6 +319,7 @@ export default function StandardManagementComponent({ initialStandards, clients 
                                 <TableHead>Descripción</TableHead>
                                 <TableHead>Cliente</TableHead>
                                 <TableHead>Tipo Op.</TableHead>
+                                <TableHead>Tipo Prod.</TableHead>
                                 <TableHead>Rango Toneladas</TableHead>
                                 <TableHead className="text-right">Minutos Base</TableHead>
                                 <TableHead className="text-right">Acciones</TableHead>
@@ -340,6 +346,7 @@ export default function StandardManagementComponent({ initialStandards, clients 
                                         <TableCell>{standard.description}</TableCell>
                                         <TableCell>{standard.clientName}</TableCell>
                                         <TableCell>{standard.operationType}</TableCell>
+                                        <TableCell>{standard.productType}</TableCell>
                                         <TableCell>{`${standard.minTons} a ${standard.maxTons}`}</TableCell>
                                         <TableCell className="text-right font-mono">{standard.baseMinutes}</TableCell>
                                         <TableCell className="text-right">
@@ -350,7 +357,7 @@ export default function StandardManagementComponent({ initialStandards, clients 
                                 ))
                             ) : (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="text-center h-24">No hay estándares definidos.</TableCell>
+                                    <TableCell colSpan={8} className="text-center h-24">No hay estándares definidos.</TableCell>
                                 </TableRow>
                             )}
                         </TableBody>
@@ -459,6 +466,28 @@ export default function StandardManagementComponent({ initialStandards, clients 
                                         <SelectItem value="TODAS">TODAS</SelectItem>
                                         <SelectItem value="recepcion">Recepción</SelectItem>
                                         <SelectItem value="despacho">Despacho</SelectItem>
+                                    </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                             <FormField
+                                control={editingStandard ? editForm.control : form.control}
+                                name="productType"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Tipo de Producto</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value}>
+                                    <FormControl>
+                                        <SelectTrigger>
+                                        <SelectValue placeholder="Seleccione un tipo" />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="TODAS">TODOS</SelectItem>
+                                        <SelectItem value="fijo">Peso Fijo</SelectItem>
+                                        <SelectItem value="variable">Peso Variable</SelectItem>
                                     </SelectContent>
                                     </Select>
                                     <FormMessage />

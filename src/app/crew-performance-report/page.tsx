@@ -266,7 +266,7 @@ export default function CrewPerformanceReportPage() {
                     opType = 'despacho';
                 }
 
-                const standard = opType ? await findBestMatchingStandard(row.cliente, tons, opType) : null;
+                const standard = opType ? await findBestMatchingStandard(row.cliente, tons, opType, row.productType) : null;
                 return { ...row, standard };
             }));
 

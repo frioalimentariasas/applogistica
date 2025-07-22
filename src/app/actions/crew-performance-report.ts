@@ -84,6 +84,7 @@ export interface CrewPerformanceReportRow {
     pedidoSislog: string;
     tipoEmpaqueMaquila: string;
     unidadDeMedidaPrincipal: UnitOfMeasure | 'N/A';
+    productType: 'fijo' | 'variable' | null;
 }
 
 export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCriteria): Promise<CrewPerformanceReportRow[]> {
@@ -127,10 +128,13 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             }
 
             let tipoProducto: 'Fijo' | 'Variable' | 'N/A' = 'N/A';
+            let productTypeForAction: 'fijo' | 'variable' | null = null;
             if (formType.includes('fixed-weight')) {
                 tipoProducto = 'Fijo';
+                productTypeForAction = 'fijo';
             } else if (formType.includes('variable-weight')) {
                 tipoProducto = 'Variable';
+                productTypeForAction = 'variable';
             }
             
             return {
@@ -148,6 +152,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                 pedidoSislog: formData.pedidoSislog || 'N/A',
                 tipoEmpaqueMaquila: formData.tipoEmpaqueMaquila || 'N/A',
                 unidadDeMedidaPrincipal: formData.unidadDeMedidaPrincipal || 'N/A',
+                productType: productTypeForAction,
             };
         });
 

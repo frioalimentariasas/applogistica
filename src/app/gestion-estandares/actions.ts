@@ -11,11 +11,12 @@ export type UnitOfMeasure = 'PALETA' | 'CAJA' | 'SACO' | 'CANASTILLA';
 export interface PerformanceStandard {
     id: string;
     description: string;
-    clientName: string; // 'TODOS' for a general standard, or a specific client name
+    clientName: string; 
     operationType: OperationType | 'TODAS'; 
+    productType: ProductType | 'TODAS';
     minTons: number;
     maxTons: number;
-    baseMinutes: number; // Replaces minutesPerTon
+    baseMinutes: number;
 }
 
 export interface TonRange {
@@ -28,6 +29,7 @@ export interface PerformanceStandardFormValues {
     description: string;
     clientNames: string[];
     operationType: OperationType | 'TODAS';
+    productType: ProductType | 'TODAS';
     ranges: TonRange[];
 }
 
@@ -46,10 +48,9 @@ export async function getPerformanceStandards(): Promise<PerformanceStandard[]> 
         const standards = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data(),
-            // Ensure numeric types for older data that might be stored as strings
             minTons: Number(doc.data().minTons || 0),
             maxTons: Number(doc.data().maxTons || 0),
-            baseMinutes: Number(doc.data().baseMinutes || doc.data().minutesPerTon || 0),
+            baseMinutes: Number(doc.data().baseMinutes || 0),
         } as PerformanceStandard));
         
         standards.sort((a, b) => {
@@ -72,11 +73,12 @@ export async function getPerformanceStandards(): Promise<PerformanceStandard[]> 
 export async function addPerformanceStandard(data: PerformanceStandardFormValues): Promise<{ success: boolean; message: string; }> {
     if (!firestore) return { success: false, message: 'Error de configuración del servidor.' };
 
-    const { clientNames, ranges, description, operationType } = data;
+    const { clientNames, ranges, description, operationType, productType } = data;
     
     // Basic validation
     if (!clientNames || clientNames.length === 0) return { success: false, message: 'Debe seleccionar al menos un cliente.' };
     if (!operationType) return { success: false, message: 'Debe seleccionar un tipo de operación.'};
+    if (!productType) return { success: false, message: 'Debe seleccionar un tipo de producto.'};
     if (!ranges || ranges.length === 0) return { success: false, message: 'Debe definir al menos un rango de toneladas.' };
     if (!description) return { success: false, message: 'La descripción es obligatoria.' };
 
@@ -89,6 +91,7 @@ export async function addPerformanceStandard(data: PerformanceStandardFormValues
                     description,
                     clientName: client,
                     operationType: operationType,
+                    productType: productType,
                     minTons: Number(range.minTons),
                     maxTons: Number(range.maxTons),
                     baseMinutes: Number(range.baseMinutes),
@@ -115,7 +118,7 @@ export async function addPerformanceStandard(data: PerformanceStandardFormValues
 export async function updatePerformanceStandard(id: string, data: Omit<PerformanceStandard, 'id'>): Promise<{ success: boolean; message: string }> {
     if (!firestore) return { success: false, message: 'Error de configuración del servidor.' };
     
-    const { clientName, description, operationType } = data;
+    const { clientName, description, operationType, productType } = data;
     const minTons = Number(data.minTons);
     const maxTons = Number(data.maxTons);
     const baseMinutes = Number(data.baseMinutes);
@@ -137,6 +140,7 @@ export async function updatePerformanceStandard(id: string, data: Omit<Performan
             description,
             clientName,
             operationType,
+            productType,
             minTons,
             maxTons,
             baseMinutes,
@@ -197,64 +201,45 @@ export async function deleteMultipleStandards(ids: string[]): Promise<{ success:
 }
 
 
-// Function to find the best matching standard for a given operation
 export async function findBestMatchingStandard(
     clientName: string, 
     tons: number,
-    operationType: 'recepcion' | 'despacho'
+    operationType: 'recepcion' | 'despacho' | null,
+    productType: 'fijo' | 'variable' | null
 ): Promise<PerformanceStandard | null> {
-    if (!firestore) return null;
+    if (!firestore || !operationType || !productType) return null;
 
-    // Get all standards once to filter in memory, ensuring types are correct
     const allStandards = await getPerformanceStandards();
 
-    // Helper to check if the tons fall within the range
-    const checkRange = (standard: PerformanceStandard) => {
-      return tons >= standard.minTons && tons <= standard.maxTons;
-    };
-
-    // Priority 1: Specific client, specific operation type
-    let matches = allStandards.filter(s => 
-        s.clientName === clientName && 
-        s.operationType === operationType && 
-        checkRange(s)
-    );
-    if (matches.length > 0) {
-        matches.sort((a,b) => (a.maxTons - a.minTons) - (b.maxTons - b.minTons));
-        return matches[0];
-    }
+    const filters = [
+      // 1. Most specific: Client, Operation, Product
+      (s: PerformanceStandard) => s.clientName === clientName && s.operationType === operationType && s.productType === productType,
+      // 2. Client, Operation, All Products
+      (s: PerformanceStandard) => s.clientName === clientName && s.operationType === operationType && s.productType === 'TODAS',
+      // 3. Client, All Operations, Product
+      (s: PerformanceStandard) => s.clientName === clientName && s.operationType === 'TODAS' && s.productType === productType,
+      // 4. Client, All Operations, All Products
+      (s: PerformanceStandard) => s.clientName === clientName && s.operationType === 'TODAS' && s.productType === 'TODAS',
+      // 5. All Clients, Operation, Product
+      (s: PerformanceStandard) => s.clientName === 'TODOS' && s.operationType === operationType && s.productType === productType,
+      // 6. All Clients, Operation, All Products
+      (s: PerformanceStandard) => s.clientName === 'TODOS' && s.operationType === operationType && s.productType === 'TODAS',
+      // 7. All Clients, All Operations, Product
+      (s: PerformanceStandard) => s.clientName === 'TODOS' && s.operationType === 'TODAS' && s.productType === productType,
+      // 8. Most generic: All Clients, All Operations, All Products
+      (s: PerformanceStandard) => s.clientName === 'TODOS' && s.operationType === 'TODAS' && s.productType === 'TODAS',
+    ];
     
-    // Priority 2: Specific client, general operation type ('TODAS')
-    matches = allStandards.filter(s => 
-        s.clientName === clientName && 
-        s.operationType === 'TODAS' && 
-        checkRange(s)
-    );
-    if (matches.length > 0) {
-        matches.sort((a,b) => (a.maxTons - a.minTons) - (b.maxTons - b.minTons));
-        return matches[0];
-    }
-
-    // Priority 3: General client ('TODOS'), specific operation type
-    matches = allStandards.filter(s => 
-        s.clientName === 'TODOS' && 
-        s.operationType === operationType && 
-        checkRange(s)
-    );
-    if (matches.length > 0) {
-        matches.sort((a,b) => (a.maxTons - a.minTons) - (b.maxTons - b.minTons));
-        return matches[0];
-    }
-    
-    // Priority 4: General client ('TODOS'), general operation type ('TODAS')
-    matches = allStandards.filter(s => 
-        s.clientName === 'TODOS' && 
-        s.operationType === 'TODAS' && 
-        checkRange(s)
-    );
-    if (matches.length > 0) {
-        matches.sort((a,b) => (a.maxTons - a.minTons) - (b.maxTons - b.minTons));
-        return matches[0];
+    for (const filter of filters) {
+        const matches = allStandards.filter(s => 
+            filter(s) && tons >= s.minTons && tons <= s.maxTons
+        );
+        
+        if (matches.length > 0) {
+            // If multiple standards match at the same priority level, pick the one with the smallest range
+            matches.sort((a,b) => (a.maxTons - a.minTons) - (b.maxTons - b.minTons));
+            return matches[0];
+        }
     }
     
     return null;
