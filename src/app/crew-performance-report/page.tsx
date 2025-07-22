@@ -572,7 +572,7 @@ export default function CrewPerformanceReportPage() {
                                                     </TableCell>
                                                     <TableCell>{format(new Date(row.fecha), 'dd/MM/yyyy')}</TableCell>
                                                     <TableCell>{row.operario}</TableCell>
-                                                    <TableCell className="max-w-[150px] truncate" title={row.cliente}>{row.cliente}</TableCell>
+                                                    <TableCell>{row.cliente}</TableCell>
                                                     <TableCell>{row.tipoOperacion}</TableCell>
                                                     <TableCell>{row.tipoProducto}</TableCell>
                                                     <TableCell>{row.pedidoSislog}</TableCell>
@@ -611,6 +611,3 @@ export default function CrewPerformanceReportPage() {
         </div>
     );
 }
-
-
-
