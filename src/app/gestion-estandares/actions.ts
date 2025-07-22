@@ -170,6 +170,7 @@ export async function findBestMatchingStandard(
     // Define special client names and their aliases
     const clientAliases: Record<string, string> = {
         "ATLANTIC FS S.A.S.": "Atlantic",
+        "ATLANTIC SEDE BARRANQUILLA": "Atlantic",
         "AVICOLA EL MADROÑO S.A.": "Avicola",
     };
 

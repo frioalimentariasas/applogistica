@@ -121,17 +121,17 @@ const getPerformanceIndicator = (
   row: CrewPerformanceReportRow, 
   standard: PerformanceStandard | null
 ): {
-  status: 'Óptimo' | 'Normal' | 'Lento' | 'N/A',
+  status: 'Óptimo' | 'Normal' | 'Lento' | 'No Calculado' | 'N/A',
   color: string,
   tooltip: string
 } => {
   const { duracionMinutos, kilos } = row;
   if (duracionMinutos === null || duracionMinutos <= 0 || kilos <= 0) {
-    return { status: 'N/A', color: 'text-gray-400', tooltip: 'Datos insuficientes para calcular.' };
+    return { status: 'No Calculado', color: 'text-gray-400', tooltip: 'Datos insuficientes para calcular (kilos o duración es cero).' };
   }
   
   if (!standard) {
-    return { status: 'N/A', color: 'text-gray-400', tooltip: 'No se encontró un estándar aplicable.' };
+    return { status: 'N/A', color: 'text-gray-400', tooltip: 'No se encontró un estándar de productividad aplicable.' };
   }
   
   const standardMinutes = standard.baseMinutes;
