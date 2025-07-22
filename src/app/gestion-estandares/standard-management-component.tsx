@@ -297,116 +297,119 @@ export default function StandardManagementComponent({ initialStandards, clients 
                     </DialogDescription>
                 </DialogHeader>
                  <Form {...(editingStandard ? editForm : form)}>
-                    <form onSubmit={editingStandard ? editForm.handleSubmit(onEditSubmit) : form.handleSubmit(onAddSubmit)} className="space-y-4">
-                        <FormField control={editingStandard ? editForm.control : form.control} name="description" render={({ field }) => (
-                            <FormItem><FormLabel>Descripción</FormLabel><FormControl><Input placeholder="Ej: Cargue/Descargue General" {...field} /></FormControl><FormMessage /></FormItem>
-                        )}/>
-                        
-                        {editingStandard ? (
-                            <FormField control={editForm.control} name="clientName" render={({ field }) => (
-                                <FormItem><FormLabel>Cliente</FormLabel><FormControl><Input {...field} disabled /></FormControl></FormItem>
-                            )}/>
-                        ) : (
-                           <FormField
-                                control={form.control}
-                                name="clientNames"
-                                render={({ field }) => {
-                                    const selectedCount = field.value?.length || 0;
-                                    let buttonText = 'Seleccione uno o más clientes...';
-                                    if (selectedCount === 1 && field.value?.[0] === 'TODOS') {
-                                        buttonText = 'TODOS (Estándar General)';
-                                    } else if (selectedCount > 0) {
-                                        buttonText = `${selectedCount} cliente(s) seleccionado(s)`;
-                                    }
-
-                                    return (
-                                        <FormItem>
-                                            <FormLabel>Cliente(s)</FormLabel>
-                                            <Dialog open={isClientListOpen} onOpenChange={setIsClientListOpen}>
-                                                <DialogTrigger asChild>
-                                                    <Button variant="outline" className="w-full justify-between text-left font-normal">
-                                                        <span className="truncate">{buttonText}</span>
-                                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                                    </Button>
-                                                </DialogTrigger>
-                                                <DialogContent>
-                                                    <DialogHeader>
-                                                        <DialogTitle>Seleccionar Cliente(s)</DialogTitle>
-                                                        <DialogDescription>Seleccione los clientes para este estándar.</DialogDescription>
-                                                    </DialogHeader>
-                                                    <Input
-                                                        placeholder="Buscar cliente..."
-                                                        value={clientSearch}
-                                                        onChange={(e) => setClientSearch(e.target.value)}
-                                                        className="my-4"
-                                                    />
-                                                    <ScrollArea className="h-72">
-                                                        <div className="space-y-1">
-                                                            {filteredClients.map((option) => (
-                                                                <div key={option.value} className="flex items-center space-x-2 rounded-md p-2 hover:bg-accent">
-                                                                    <Checkbox
-                                                                        id={`client-${option.value}`}
-                                                                        checked={field.value?.includes(option.value)}
-                                                                        onCheckedChange={(checked) => {
-                                                                            return checked
-                                                                                ? field.onChange([...(field.value || []), option.value])
-                                                                                : field.onChange(field.value?.filter((v) => v !== option.value));
-                                                                        }}
-                                                                    />
-                                                                    <Label htmlFor={`client-${option.value}`} className="w-full cursor-pointer">{option.label}</Label>
-                                                                </div>
-                                                            ))}
-                                                        </div>
-                                                    </ScrollArea>
-                                                    <DialogFooter>
-                                                        <Button type="button" onClick={() => setIsClientListOpen(false)}>Cerrar</Button>
-                                                    </DialogFooter>
-                                                </DialogContent>
-                                            </Dialog>
-                                            <FormMessage />
-                                        </FormItem>
-                                    );
-                                }}
-                            />
-                        )}
-                        
-                        {editingStandard ? (
-                            <div className="grid grid-cols-3 gap-4">
-                               <FormField control={editForm.control} name="minTons" render={({ field }) => (
-                                    <FormItem><FormLabel>Min. Toneladas</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
-                                )}/>
-                                 <FormField control={editForm.control} name="maxTons" render={({ field }) => (
-                                    <FormItem><FormLabel>Max. Toneladas</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
-                                )}/>
-                                <FormField control={editForm.control} name="baseMinutes" render={({ field }) => (
-                                    <FormItem><FormLabel>Minutos Base</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
-                                )}/>
-                            </div>
-                        ) : (
+                    <form onSubmit={editingStandard ? editForm.handleSubmit(onEditSubmit) : form.handleSubmit(onAddSubmit)}>
+                        <ScrollArea className="max-h-[60vh] p-4">
                             <div className="space-y-4">
-                                <Label>Rangos de Toneladas y Tiempos</Label>
-                                {fields.map((field, index) => (
-                                    <div key={field.id} className="flex items-end gap-2">
-                                        <FormField control={form.control} name={`ranges.${index}.minTons`} render={({ field }) => (
-                                            <FormItem><FormLabel>Min</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
-                                        )}/>
-                                        <FormField control={form.control} name={`ranges.${index}.maxTons`} render={({ field }) => (
-                                            <FormItem><FormLabel>Max</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
-                                        )}/>
-                                        <FormField control={form.control} name={`ranges.${index}.baseMinutes`} render={({ field }) => (
-                                            <FormItem><FormLabel>Minutos</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
-                                        )}/>
-                                        <Button type="button" variant="ghost" size="icon" className="shrink-0 text-destructive" onClick={() => remove(index)}><Trash2 className="h-4 w-4" /></Button>
-                                    </div>
-                                ))}
-                                <Button type="button" variant="outline" size="sm" onClick={() => append({ minTons: 0, maxTons: 0, baseMinutes: 0 })}>
-                                    <PlusCircle className="mr-2 h-4 w-4"/>
-                                    Agregar Rango
-                                </Button>
-                            </div>
-                        )}
+                                <FormField control={editingStandard ? editForm.control : form.control} name="description" render={({ field }) => (
+                                    <FormItem><FormLabel>Descripción</FormLabel><FormControl><Input placeholder="Ej: Cargue/Descargue General" {...field} /></FormControl><FormMessage /></FormItem>
+                                )}/>
+                                
+                                {editingStandard ? (
+                                    <FormField control={editForm.control} name="clientName" render={({ field }) => (
+                                        <FormItem><FormLabel>Cliente</FormLabel><FormControl><Input {...field} disabled /></FormControl></FormItem>
+                                    )}/>
+                                ) : (
+                                   <FormField
+                                        control={form.control}
+                                        name="clientNames"
+                                        render={({ field }) => {
+                                            const selectedCount = field.value?.length || 0;
+                                            let buttonText = 'Seleccione uno o más clientes...';
+                                            if (selectedCount === 1 && field.value?.[0] === 'TODOS') {
+                                                buttonText = 'TODOS (Estándar General)';
+                                            } else if (selectedCount > 0) {
+                                                buttonText = `${selectedCount} cliente(s) seleccionado(s)`;
+                                            }
 
-                        <DialogFooter>
+                                            return (
+                                                <FormItem>
+                                                    <FormLabel>Cliente(s)</FormLabel>
+                                                    <Dialog open={isClientListOpen} onOpenChange={setIsClientListOpen}>
+                                                        <DialogTrigger asChild>
+                                                            <Button variant="outline" className="w-full justify-between text-left font-normal">
+                                                                <span className="truncate">{buttonText}</span>
+                                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                            </Button>
+                                                        </DialogTrigger>
+                                                        <DialogContent>
+                                                            <DialogHeader>
+                                                                <DialogTitle>Seleccionar Cliente(s)</DialogTitle>
+                                                                <DialogDescription>Seleccione los clientes para este estándar.</DialogDescription>
+                                                            </DialogHeader>
+                                                            <Input
+                                                                placeholder="Buscar cliente..."
+                                                                value={clientSearch}
+                                                                onChange={(e) => setClientSearch(e.target.value)}
+                                                                className="my-4"
+                                                            />
+                                                            <ScrollArea className="h-72">
+                                                                <div className="space-y-1">
+                                                                    {filteredClients.map((option) => (
+                                                                        <div key={option.value} className="flex items-center space-x-2 rounded-md p-2 hover:bg-accent">
+                                                                            <Checkbox
+                                                                                id={`client-${option.value}`}
+                                                                                checked={field.value?.includes(option.value)}
+                                                                                onCheckedChange={(checked) => {
+                                                                                    return checked
+                                                                                        ? field.onChange([...(field.value || []), option.value])
+                                                                                        : field.onChange(field.value?.filter((v) => v !== option.value));
+                                                                                }}
+                                                                            />
+                                                                            <Label htmlFor={`client-${option.value}`} className="w-full cursor-pointer">{option.label}</Label>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </ScrollArea>
+                                                            <DialogFooter>
+                                                                <Button type="button" onClick={() => setIsClientListOpen(false)}>Cerrar</Button>
+                                                            </DialogFooter>
+                                                        </DialogContent>
+                                                    </Dialog>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            );
+                                        }}
+                                    />
+                                )}
+                                
+                                {editingStandard ? (
+                                    <div className="grid grid-cols-3 gap-4">
+                                       <FormField control={editForm.control} name="minTons" render={({ field }) => (
+                                            <FormItem><FormLabel>Min. Toneladas</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                                        )}/>
+                                         <FormField control={editForm.control} name="maxTons" render={({ field }) => (
+                                            <FormItem><FormLabel>Max. Toneladas</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                                        )}/>
+                                        <FormField control={editForm.control} name="baseMinutes" render={({ field }) => (
+                                            <FormItem><FormLabel>Minutos Base</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                                        )}/>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        <Label>Rangos de Toneladas y Tiempos</Label>
+                                        {fields.map((field, index) => (
+                                            <div key={field.id} className="flex items-end gap-2">
+                                                <FormField control={form.control} name={`ranges.${index}.minTons`} render={({ field }) => (
+                                                    <FormItem><FormLabel>Min</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                                                )}/>
+                                                <FormField control={form.control} name={`ranges.${index}.maxTons`} render={({ field }) => (
+                                                    <FormItem><FormLabel>Max</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                                                )}/>
+                                                <FormField control={form.control} name={`ranges.${index}.baseMinutes`} render={({ field }) => (
+                                                    <FormItem><FormLabel>Minutos</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                                                )}/>
+                                                <Button type="button" variant="ghost" size="icon" className="shrink-0 text-destructive" onClick={() => remove(index)}><Trash2 className="h-4 w-4" /></Button>
+                                            </div>
+                                        ))}
+                                        <Button type="button" variant="outline" size="sm" onClick={() => append({ minTons: 0, maxTons: 0, baseMinutes: 0 })}>
+                                            <PlusCircle className="mr-2 h-4 w-4"/>
+                                            Agregar Rango
+                                        </Button>
+                                    </div>
+                                )}
+                            </div>
+                        </ScrollArea>
+                        <DialogFooter className="pt-4">
                             <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
                             <Button type="submit" disabled={isSubmitting}>
                                 {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
