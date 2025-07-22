@@ -12,7 +12,6 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 
 import { getCrewPerformanceReport, type CrewPerformanceReportRow } from '@/app/actions/crew-performance-report';
-import { findBestMatchingStandard, type PerformanceStandard } from '@/app/gestion-estandares/actions';
 import { getAvailableOperarios } from '@/app/actions/performance-report';
 import { getClients, type ClientInfo } from '@/app/actions/clients';
 import { useToast } from '@/hooks/use-toast';
@@ -32,7 +31,6 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
 
 const EmptyState = ({ searched }: { searched: boolean; }) => (
@@ -121,36 +119,6 @@ const formatDuration = (totalMinutes: number | null): string => {
     return `${hours}h ${Math.round(minutes)}m`;
 };
 
-const getPerformanceIndicator = (
-  row: CrewPerformanceReportRow, 
-  standard: PerformanceStandard | null
-): {
-  status: 'Óptimo' | 'Normal' | 'Lento' | 'No Calculado' | 'N/A',
-  color: string,
-  tooltip: string
-} => {
-  const { duracionMinutos, kilos } = row;
-  if (duracionMinutos === null || duracionMinutos <= 0 || kilos <= 0) {
-    return { status: 'No Calculado', color: 'text-gray-400', tooltip: 'Datos insuficientes para calcular (kilos o duración es cero).' };
-  }
-  
-  if (!standard) {
-    return { status: 'N/A', color: 'text-gray-400', tooltip: 'No se encontró un estándar de productividad aplicable.' };
-  }
-  
-  const standardMinutes = standard.baseMinutes;
-  const standardTooltip = `Estándar: "${standard.description}" (Tiempo Esperado: ${standard.baseMinutes} min).`;
-
-  if (duracionMinutos <= standardMinutes) {
-    return { status: 'Óptimo', color: 'text-green-600', tooltip: `Dentro o mejor que el estándar. ${standardTooltip}` };
-  }
-  if (duracionMinutos <= standardMinutes + 10) {
-    return { status: 'Normal', color: 'text-yellow-600', tooltip: `Ligeramente por encima del estándar. ${standardTooltip}` };
-  }
-  return { status: 'Lento', color: 'text-red-600', tooltip: `Supera el estándar por más de 10 minutos. ${standardTooltip}` };
-};
-
-
 export default function CrewPerformanceReportPage() {
     const router = useRouter();
     const { toast } = useToast();
@@ -171,7 +139,7 @@ export default function CrewPerformanceReportPage() {
     const [isClientDialogOpen, setClientDialogOpen] = useState(false);
     const [clientSearch, setClientSearch] = useState('');
 
-    const [reportData, setReportData] = useState<(CrewPerformanceReportRow & { standard: PerformanceStandard | null })[]>([]);
+    const [reportData, setReportData] = useState<CrewPerformanceReportRow[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isLoadingOperarios, setIsLoadingOperarios] = useState(false);
     const [searched, setSearched] = useState(false);
@@ -257,20 +225,7 @@ export default function CrewPerformanceReportPage() {
 
             const results = await getCrewPerformanceReport(criteria);
             
-            const resultsWithStandards = await Promise.all(results.map(async (row) => {
-                const tons = row.kilos / 1000;
-                let opType: 'recepcion' | 'despacho' | null = null;
-                if (row.tipoOperacion.toLowerCase().includes('recep')) {
-                    opType = 'recepcion';
-                } else if (row.tipoOperacion.toLowerCase().includes('despacho')) {
-                    opType = 'despacho';
-                }
-
-                const standard = opType ? await findBestMatchingStandard(row.cliente, tons, opType, row.productType) : null;
-                return { ...row, standard };
-            }));
-
-            setReportData(resultsWithStandards);
+            setReportData(results);
             
             if (results.length === 0) {
                  toast({
@@ -318,8 +273,6 @@ export default function CrewPerformanceReportPage() {
         if (reportData.length === 0) return;
 
         const dataToExport = reportData.map(row => {
-            const indicator = getPerformanceIndicator(row, row.standard);
-            const standardTime = row.standard ? row.standard.baseMinutes : "N/A";
             return {
                 'Fecha': format(new Date(row.fecha), 'dd/MM/yyyy'),
                 'Operario Responsable': row.operario,
@@ -327,13 +280,10 @@ export default function CrewPerformanceReportPage() {
                 'Tipo Operación': row.tipoOperacion,
                 'Tipo Producto': row.tipoProducto,
                 'Pedido SISLOG': row.pedidoSislog,
-                'Indicador': indicator.status,
                 'Toneladas': (row.kilos / 1000).toFixed(2),
                 'Hora Inicio': formatTime12Hour(row.horaInicio),
                 'Hora Fin': formatTime12Hour(row.horaFin),
                 'Duración': formatDuration(row.duracionMinutos),
-                'Estándar Aplicado': row.standard?.description || 'No encontrado',
-                'Tiempo Esperado (min)': standardTime,
             }
         });
 
@@ -344,7 +294,6 @@ export default function CrewPerformanceReportPage() {
             'Tipo Operación': '',
             'Tipo Producto': '',
             'Pedido SISLOG': 'TOTALES:',
-            'Indicador': '',
             'Toneladas': totalToneladas.toFixed(2),
             'Hora Inicio': '',
             'Hora Fin': '',
@@ -382,9 +331,8 @@ export default function CrewPerformanceReportPage() {
 
         autoTable(doc, {
             startY: titleY + 15,
-            head: [['Fecha', 'Operario', 'Cliente', 'Tipo Op.', 'Tipo Prod.', 'Pedido', 'Toneladas', 'Duración', 'Indicador']],
+            head: [['Fecha', 'Operario', 'Cliente', 'Tipo Op.', 'Tipo Prod.', 'Pedido', 'Toneladas', 'Duración']],
             body: reportData.map(row => {
-                const indicator = getPerformanceIndicator(row, row.standard);
                 return [
                 format(new Date(row.fecha), 'dd/MM/yy'),
                 row.operario,
@@ -394,14 +342,12 @@ export default function CrewPerformanceReportPage() {
                 row.pedidoSislog,
                 (row.kilos / 1000).toFixed(2),
                 formatDuration(row.duracionMinutos),
-                indicator.status
             ]}),
             foot: [
                 [
                     { content: 'TOTALES:', colSpan: 6, styles: { halign: 'right', fontStyle: 'bold' } }, 
                     { content: totalToneladas.toFixed(2), styles: { halign: 'left', fontStyle: 'bold' } },
                     { content: formatDuration(totalDuration), styles: { halign: 'left', fontStyle: 'bold' } },
-                    ''
                 ]
             ],
             headStyles: { fillColor: [33, 150, 243], fontSize: 7 },
@@ -462,17 +408,9 @@ export default function CrewPerformanceReportPage() {
 
                 <Card>
                     <CardHeader>
-                        <div className="flex justify-between items-start">
-                             <div>
-                                <CardTitle>Filtros del Reporte</CardTitle>
-                                <CardDescription>Seleccione los filtros para generar el informe de desempeño de cuadrilla.</CardDescription>
-                            </div>
-                            <Button asChild variant="outline" size="sm">
-                                <Link href="/gestion-estandares">
-                                    <Settings className="mr-2 h-4 w-4" />
-                                    Gestionar Estándares de Productividad
-                                </Link>
-                            </Button>
+                         <div>
+                            <CardTitle>Filtros del Reporte</CardTitle>
+                            <CardDescription>Seleccione los filtros para generar el informe de desempeño de cuadrilla.</CardDescription>
                         </div>
                     </CardHeader>
                     <CardContent>
@@ -612,7 +550,6 @@ export default function CrewPerformanceReportPage() {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>Indicador</TableHead>
                                         <TableHead>Fecha</TableHead>
                                         <TableHead>Operario</TableHead>
                                         <TableHead>Cliente</TableHead>
@@ -627,36 +564,18 @@ export default function CrewPerformanceReportPage() {
                                     {isLoading ? (
                                         <TableRow><TableCell colSpan={9}><Skeleton className="h-20 w-full" /></TableCell></TableRow>
                                     ) : displayedData.length > 0 ? (
-                                        displayedData.map((row) => {
-                                            const indicator = getPerformanceIndicator(row, row.standard);
-                                            return (
-                                                <TableRow key={row.id}>
-                                                    <TableCell>
-                                                        <TooltipProvider>
-                                                            <Tooltip>
-                                                                <TooltipTrigger>
-                                                                    <div className="flex items-center gap-2">
-                                                                        <Circle className={cn("h-3 w-3", indicator.color)} fill="currentColor" />
-                                                                        {indicator.status}
-                                                                    </div>
-                                                                </TooltipTrigger>
-                                                                <TooltipContent>
-                                                                    <p>{indicator.tooltip}</p>
-                                                                </TooltipContent>
-                                                            </Tooltip>
-                                                        </TooltipProvider>
-                                                    </TableCell>
-                                                    <TableCell>{format(new Date(row.fecha), 'dd/MM/yyyy')}</TableCell>
-                                                    <TableCell>{row.operario}</TableCell>
-                                                    <TableCell>{row.cliente}</TableCell>
-                                                    <TableCell>{row.tipoOperacion}</TableCell>
-                                                    <TableCell>{row.tipoProducto}</TableCell>
-                                                    <TableCell>{row.pedidoSislog}</TableCell>
-                                                    <TableCell className="text-right font-mono">{(row.kilos / 1000).toFixed(2)}</TableCell>
-                                                    <TableCell className="text-right font-medium">{formatDuration(row.duracionMinutos)}</TableCell>
-                                                </TableRow>
-                                            )
-                                        })
+                                        displayedData.map((row) => (
+                                            <TableRow key={row.id}>
+                                                <TableCell>{format(new Date(row.fecha), 'dd/MM/yyyy')}</TableCell>
+                                                <TableCell>{row.operario}</TableCell>
+                                                <TableCell>{row.cliente}</TableCell>
+                                                <TableCell>{row.tipoOperacion}</TableCell>
+                                                <TableCell>{row.tipoProducto}</TableCell>
+                                                <TableCell>{row.pedidoSislog}</TableCell>
+                                                <TableCell className="text-right font-mono">{(row.kilos / 1000).toFixed(2)}</TableCell>
+                                                <TableCell className="text-right font-medium">{formatDuration(row.duracionMinutos)}</TableCell>
+                                            </TableRow>
+                                        ))
                                     ) : (
                                         <EmptyState searched={searched} />
                                     )}
