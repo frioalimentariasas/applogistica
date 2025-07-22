@@ -12,7 +12,7 @@ export interface PerformanceStandard {
     id: string;
     description: string;
     clientName: string; // 'TODOS' for a general standard, or a specific client name
-    operationType: OperationType | 'TODAS'; // This is now less relevant for the new logic but kept for structure
+    operationType: OperationType | 'TODAS'; 
     minTons: number;
     maxTons: number;
     baseMinutes: number; // Replaces minutesPerTon
@@ -27,6 +27,7 @@ export interface TonRange {
 export interface PerformanceStandardFormValues {
     description: string;
     clientNames: string[];
+    operationType: OperationType | 'TODAS';
     ranges: TonRange[];
 }
 
@@ -71,10 +72,11 @@ export async function getPerformanceStandards(): Promise<PerformanceStandard[]> 
 export async function addPerformanceStandard(data: PerformanceStandardFormValues): Promise<{ success: boolean; message: string; }> {
     if (!firestore) return { success: false, message: 'Error de configuración del servidor.' };
 
-    const { clientNames, ranges, description } = data;
+    const { clientNames, ranges, description, operationType } = data;
     
     // Basic validation
     if (!clientNames || clientNames.length === 0) return { success: false, message: 'Debe seleccionar al menos un cliente.' };
+    if (!operationType) return { success: false, message: 'Debe seleccionar un tipo de operación.'};
     if (!ranges || ranges.length === 0) return { success: false, message: 'Debe definir al menos un rango de toneladas.' };
     if (!description) return { success: false, message: 'La descripción es obligatoria.' };
 
@@ -86,7 +88,7 @@ export async function addPerformanceStandard(data: PerformanceStandardFormValues
                  const newStandardData = {
                     description,
                     clientName: client,
-                    operationType: 'TODAS', // Simplified as per new logic
+                    operationType: operationType,
                     minTons: range.minTons,
                     maxTons: range.maxTons,
                     baseMinutes: range.baseMinutes,
@@ -113,7 +115,7 @@ export async function addPerformanceStandard(data: PerformanceStandardFormValues
 export async function updatePerformanceStandard(id: string, data: Omit<PerformanceStandard, 'id'>): Promise<{ success: boolean; message: string }> {
     if (!firestore) return { success: false, message: 'Error de configuración del servidor.' };
     
-    const { minTons, maxTons, baseMinutes, clientName, description } = data;
+    const { minTons, maxTons, baseMinutes, clientName, description, operationType } = data;
     const errors: string[] = [];
     if (typeof minTons !== 'number' || minTons < 0) errors.push('Las toneladas mínimas deben ser un número no negativo.');
     if (typeof maxTons !== 'number' || maxTons <= 0) errors.push('Las toneladas máximas deben ser un número positivo.');
@@ -130,7 +132,7 @@ export async function updatePerformanceStandard(id: string, data: Omit<Performan
         const updateData = {
             description,
             clientName,
-            operationType: 'TODAS',
+            operationType,
             minTons,
             maxTons,
             baseMinutes,
@@ -163,40 +165,59 @@ export async function deletePerformanceStandard(id: string): Promise<{ success: 
 // Function to find the best matching standard for a given operation
 export async function findBestMatchingStandard(
     clientName: string, 
-    tons: number
+    tons: number,
+    operationType: 'recepcion' | 'despacho'
 ): Promise<PerformanceStandard | null> {
     if (!firestore) return null;
+
+    const findMatchInSnapshot = (snapshot: FirebaseFirestore.QuerySnapshot): PerformanceStandard | null => {
+        let matches = snapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() } as PerformanceStandard))
+            .filter(doc => tons >= doc.minTons && tons < doc.maxTons);
+
+        if (matches.length > 0) {
+            // In case of overlapping ranges (bad data), return the one with the smallest range for more specificity
+            matches.sort((a,b) => (a.maxTons - a.minTons) - (b.maxTons - b.minTons));
+            return matches[0];
+        }
+        return null;
+    };
     
-    // First, try to find a specific rule for the client.
+    // 1. Try to find a specific rule for the client and operation type
     const clientSpecificSnapshot = await firestore.collection('performance_standards')
         .where('clientName', '==', clientName)
-        .where('minTons', '<=', tons)
+        .where('operationType', '==', operationType)
         .get();
-
-    let matches = clientSpecificSnapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() } as PerformanceStandard))
-        .filter(doc => doc.maxTons >= tons);
-
-    if (matches.length > 0) {
-        // In case of overlapping ranges (bad data), return the one with the smallest range for more specificity
-        matches.sort((a,b) => (a.maxTons - a.minTons) - (b.maxTons - b.minTons));
-        return matches[0];
-    }
     
-    // If no specific rule, find a general rule ('TODOS' client).
-    const generalSnapshot = await firestore.collection('performance_standards')
+    let standard = findMatchInSnapshot(clientSpecificSnapshot);
+    if (standard) return standard;
+    
+    // 2. Try to find a specific rule for the client that applies to ALL operation types
+    const clientGeneralSnapshot = await firestore.collection('performance_standards')
+        .where('clientName', '==', clientName)
+        .where('operationType', '==', 'TODAS')
+        .get();
+        
+    standard = findMatchInSnapshot(clientGeneralSnapshot);
+    if (standard) return standard;
+
+    // 3. Try to find a general rule ('TODOS') for the specific operation type
+    const generalSpecificSnapshot = await firestore.collection('performance_standards')
         .where('clientName', '==', 'TODOS')
-        .where('minTons', '<=', tons)
+        .where('operationType', '==', operationType)
+        .get();
+        
+    standard = findMatchInSnapshot(generalSpecificSnapshot);
+    if (standard) return standard;
+    
+    // 4. Finally, find a general rule ('TODOS') for ALL operation types
+    const generalGeneralSnapshot = await firestore.collection('performance_standards')
+        .where('clientName', '==', 'TODOS')
+        .where('operationType', '==', 'TODAS')
         .get();
 
-    matches = generalSnapshot.docs
-        .map(doc => ({ id: doc.id, ...doc.data() } as PerformanceStandard))
-        .filter(doc => doc.maxTons >= tons);
-
-    if (matches.length > 0) {
-        matches.sort((a,b) => (a.maxTons - a.minTons) - (b.maxTons - b.minTons));
-        return matches[0];
-    }
+    standard = findMatchInSnapshot(generalGeneralSnapshot);
+    if (standard) return standard;
 
     // No standard found.
     return null;

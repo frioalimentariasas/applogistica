@@ -253,7 +253,14 @@ export default function CrewPerformanceReportPage() {
             
             const resultsWithStandards = await Promise.all(results.map(async (row) => {
                 const tons = row.kilos / 1000;
-                const standard = await findBestMatchingStandard(row.cliente, tons);
+                let opType: 'recepcion' | 'despacho' | null = null;
+                if (row.tipoOperacion.toLowerCase().includes('recep')) {
+                    opType = 'recepcion';
+                } else if (row.tipoOperacion.toLowerCase().includes('despacho')) {
+                    opType = 'despacho';
+                }
+
+                const standard = opType ? await findBestMatchingStandard(row.cliente, tons, opType) : null;
                 return { ...row, standard };
             }));
 
@@ -611,3 +618,4 @@ export default function CrewPerformanceReportPage() {
         </div>
     );
 }
+
