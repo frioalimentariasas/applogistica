@@ -12,7 +12,7 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 
 import { getCrewPerformanceReport, type CrewPerformanceReportRow } from '@/app/actions/crew-performance-report';
-import { findBestMatchingStandard, type PerformanceStandard, type UnitOfMeasure } from '@/app/gestion-estandares/actions';
+import { findBestMatchingStandard, type PerformanceStandard } from '@/app/gestion-estandares/actions';
 import { getAvailableOperarios } from '@/app/actions/performance-report';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
@@ -125,19 +125,20 @@ const getPerformanceIndicator = (
   color: string,
   tooltip: string
 } => {
-  const { duracionMinutos, kilos, formType } = row;
-  if (!formType || duracionMinutos === null || duracionMinutos <= 0 || kilos <= 0) {
+  const { duracionMinutos, kilos } = row;
+  if (duracionMinutos === null || duracionMinutos <= 0 || kilos <= 0) {
     return { status: 'N/A', color: 'text-gray-400', tooltip: 'Datos insuficientes para calcular.' };
   }
   
-  const standardMinutesPerTon = standard?.minutesPerTon ?? 25; // Default to 25 mins/ton if not found
+  if (!standard) {
+    return { status: 'N/A', color: 'text-gray-400', tooltip: 'No se encontró un estándar aplicable.' };
+  }
   
-  const toneladas = kilos / 1000;
-  const standardTime = toneladas * standardMinutesPerTon;
-  const lowerBound = standardTime * 0.9;
-  const upperBound = standardTime * 1.1;
+  const standardMinutes = standard.baseMinutes;
+  const lowerBound = standardMinutes * 0.9;
+  const upperBound = standardMinutes * 1.1;
 
-  const standardTooltip = `Estándar Aplicado: ${standard ? standard.description : `Por defecto (${standardMinutesPerTon} min/ton)`}. Tiempo esperado: ${formatDuration(standardTime)}`;
+  const standardTooltip = `Estándar: "${standard.description}" (${standard.baseMinutes} min para ${standard.minTons}-${standard.maxTons} ton).`;
 
   if (duracionMinutos < lowerBound) {
     return { status: 'Óptimo', color: 'text-green-600', tooltip: `Más rápido que el estándar. ${standardTooltip}` };
@@ -251,10 +252,8 @@ export default function CrewPerformanceReportPage() {
             const results = await getCrewPerformanceReport(criteria);
             
             const resultsWithStandards = await Promise.all(results.map(async (row) => {
-                const operation = row.formType.includes('recepcion') || row.formType.includes('reception') ? 'recepcion' : 'despacho';
-                const product = row.formType.includes('fixed-weight') ? 'fijo' : 'variable';
-                const unitOfMeasure = row.unidadDeMedidaPrincipal as UnitOfMeasure;
-                const standard = await findBestMatchingStandard(row.cliente, operation, product, unitOfMeasure);
+                const tons = row.kilos / 1000;
+                const standard = await findBestMatchingStandard(row.cliente, tons);
                 return { ...row, standard };
             }));
 
@@ -299,6 +298,7 @@ export default function CrewPerformanceReportPage() {
 
         const dataToExport = reportData.map(row => {
             const indicator = getPerformanceIndicator(row, row.standard);
+            const standardTime = row.standard ? row.standard.baseMinutes : "N/A";
             return {
                 'Fecha': format(new Date(row.fecha), 'dd/MM/yyyy'),
                 'Operario Responsable': row.operario,
@@ -311,8 +311,8 @@ export default function CrewPerformanceReportPage() {
                 'Hora Inicio': formatTime12Hour(row.horaInicio),
                 'Hora Fin': formatTime12Hour(row.horaFin),
                 'Duración': formatDuration(row.duracionMinutos),
-                'Estándar Aplicado': row.standard?.description || 'Por defecto',
-                'Minutos/Tonelada Estándar': row.standard?.minutesPerTon || 25,
+                'Estándar Aplicado': row.standard?.description || 'No encontrado',
+                'Tiempo Esperado (min)': standardTime,
             }
         });
 

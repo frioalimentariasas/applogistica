@@ -35,16 +35,19 @@ import { Label } from '@/components/ui/label';
 const standardSchema = z.object({
   description: z.string().min(3, "La descripción es requerida."),
   clientNames: z.array(z.string()).min(1, "Debe seleccionar al menos un cliente."),
-  operationType: z.enum(['recepcion', 'despacho', 'TODAS']),
-  productType: z.enum(['fijo', 'variable', 'TODAS']),
-  unitOfMeasure: z.enum(['PALETA', 'CAJA', 'SACO', 'CANASTILLA', 'TODAS']),
-  minutesPerTon: z.coerce.number().min(1, "Debe ser mayor a 0."),
+  minTons: z.coerce.number().min(0, "Debe ser 0 o mayor."),
+  maxTons: z.coerce.number().min(0.1, "Debe ser mayor que 0."),
+  baseMinutes: z.coerce.number().min(1, "Debe ser mayor a 0."),
+}).refine(data => data.maxTons > data.minTons, {
+    message: "Las toneladas máximas deben ser mayores que las mínimas.",
+    path: ["maxTons"],
 });
+
 
 const editStandardSchema = standardSchema.omit({ clientNames: true }).extend({
     clientName: z.string()
 });
-type EditStandardFormValues = z.infer<typeof editStandardSchema>;
+type EditStandardFormValues = Omit<PerformanceStandard, 'id' | 'operationType'>;
 
 
 const AccessDenied = () => (
@@ -88,19 +91,17 @@ export default function StandardManagementComponent({ initialStandards, clients 
         editForm.reset({
             description: standard.description,
             clientName: standard.clientName,
-            operationType: standard.operationType,
-            productType: standard.productType,
-            unitOfMeasure: standard.unitOfMeasure,
-            minutesPerTon: standard.minutesPerTon,
+            minTons: standard.minTons,
+            maxTons: standard.maxTons,
+            baseMinutes: standard.baseMinutes,
         });
     } else {
         form.reset({
             description: '',
             clientNames: [],
-            operationType: 'TODAS',
-            productType: 'TODAS',
-            unitOfMeasure: 'TODAS',
-            minutesPerTon: 25,
+            minTons: 0,
+            maxTons: 0,
+            baseMinutes: 0
       });
     }
     setIsDialogOpen(true);
@@ -130,11 +131,11 @@ export default function StandardManagementComponent({ initialStandards, clients 
       if (!editingStandard) return;
       setIsSubmitting(true);
       try {
-          const result = await updatePerformanceStandard(editingStandard.id, data);
+          const result = await updatePerformanceStandard(editingStandard.id, { ...data, operationType: 'TODAS' });
           if (result.success) {
               setStandards(prev => {
-                  const updated = prev.map(s => s.id === editingStandard.id ? { id: s.id, ...data } as PerformanceStandard : s);
-                  return updated.sort((a,b) => a.clientName.localeCompare(b.clientName) || a.operationType.localeCompare(b.operationType));
+                  const updated = prev.map(s => s.id === editingStandard.id ? { id: s.id, ...data, operationType: 'TODAS' } as PerformanceStandard : s);
+                  return updated.sort((a,b) => a.clientName.localeCompare(b.clientName) || a.minTons - b.minTons);
               });
               toast({ title: 'Éxito', description: 'Estándar actualizado.' });
               setIsDialogOpen(false);
@@ -235,10 +236,8 @@ export default function StandardManagementComponent({ initialStandards, clients 
                             <TableRow>
                                 <TableHead>Descripción</TableHead>
                                 <TableHead>Cliente</TableHead>
-                                <TableHead>Tipo Op.</TableHead>
-                                <TableHead>Tipo Prod.</TableHead>
-                                <TableHead>Unidad Medida</TableHead>
-                                <TableHead className="text-right">Minutos/Tonelada</TableHead>
+                                <TableHead>Rango Toneladas</TableHead>
+                                <TableHead className="text-right">Minutos Base</TableHead>
                                 <TableHead className="text-right">Acciones</TableHead>
                             </TableRow>
                         </TableHeader>
@@ -248,10 +247,8 @@ export default function StandardManagementComponent({ initialStandards, clients 
                                     <TableRow key={standard.id}>
                                         <TableCell>{standard.description}</TableCell>
                                         <TableCell>{standard.clientName}</TableCell>
-                                        <TableCell>{standard.operationType}</TableCell>
-                                        <TableCell>{standard.productType}</TableCell>
-                                        <TableCell>{standard.unitOfMeasure}</TableCell>
-                                        <TableCell className="text-right font-mono">{standard.minutesPerTon}</TableCell>
+                                        <TableCell>{`${standard.minTons} a ${standard.maxTons}`}</TableCell>
+                                        <TableCell className="text-right font-mono">{standard.baseMinutes}</TableCell>
                                         <TableCell className="text-right">
                                             <Button variant="ghost" size="icon" onClick={() => openDialog(standard)}><Edit className="h-4 w-4" /></Button>
                                             <Button variant="ghost" size="icon" className="text-destructive" onClick={() => setDeletingStandard(standard)}><Trash2 className="h-4 w-4" /></Button>
@@ -260,7 +257,7 @@ export default function StandardManagementComponent({ initialStandards, clients 
                                 ))
                             ) : (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="text-center h-24">No hay estándares definidos.</TableCell>
+                                    <TableCell colSpan={5} className="text-center h-24">No hay estándares definidos.</TableCell>
                                 </TableRow>
                             )}
                         </TableBody>
@@ -283,7 +280,7 @@ export default function StandardManagementComponent({ initialStandards, clients 
                  <Form {...(editingStandard ? editForm : form)}>
                     <form onSubmit={editingStandard ? editForm.handleSubmit(onEditSubmit) : form.handleSubmit(onAddSubmit)} className="space-y-4">
                         <FormField control={editingStandard ? editForm.control : form.control} name="description" render={({ field }) => (
-                            <FormItem><FormLabel>Descripción</FormLabel><FormControl><Input placeholder="Ej: Recepción Furgón cajas" {...field} /></FormControl><FormMessage /></FormItem>
+                            <FormItem><FormLabel>Descripción</FormLabel><FormControl><Input placeholder="Ej: Cargue/Descargue General" {...field} /></FormControl><FormMessage /></FormItem>
                         )}/>
                         
                         {editingStandard ? (
@@ -354,44 +351,15 @@ export default function StandardManagementComponent({ initialStandards, clients 
                             />
                         )}
                         
-                        <div className="grid grid-cols-2 gap-4">
-                            <FormField control={editingStandard ? editForm.control : form.control} name="operationType" render={({ field }) => (
-                                <FormItem><FormLabel>Tipo de Operación</FormLabel>
-                                    <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                                        <SelectContent>
-                                            <SelectItem value="TODAS">TODAS</SelectItem>
-                                            <SelectItem value="recepcion">Recepción</SelectItem>
-                                            <SelectItem value="despacho">Despacho</SelectItem>
-                                        </SelectContent>
-                                    </Select><FormMessage />
-                                </FormItem>
+                        <div className="grid grid-cols-3 gap-4">
+                           <FormField control={editingStandard ? editForm.control : form.control} name="minTons" render={({ field }) => (
+                                <FormItem><FormLabel>Min. Toneladas</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
                             )}/>
-                            <FormField control={editingStandard ? editForm.control : form.control} name="productType" render={({ field }) => (
-                                <FormItem><FormLabel>Tipo de Producto</FormLabel>
-                                    <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                                        <SelectContent>
-                                            <SelectItem value="TODAS">TODAS</SelectItem>
-                                            <SelectItem value="fijo">Peso Fijo</SelectItem>
-                                            <SelectItem value="variable">Peso Variable</SelectItem>
-                                        </SelectContent>
-                                    </Select><FormMessage />
-                                </FormItem>
+                             <FormField control={editingStandard ? editForm.control : form.control} name="maxTons" render={({ field }) => (
+                                <FormItem><FormLabel>Max. Toneladas</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
                             )}/>
-                             <FormField control={editingStandard ? editForm.control : form.control} name="unitOfMeasure" render={({ field }) => (
-                                <FormItem><FormLabel>Unidad de Medida</FormLabel>
-                                    <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
-                                        <SelectContent>
-                                            <SelectItem value="TODAS">TODAS</SelectItem>
-                                            <SelectItem value="PALETA">Por Paleta</SelectItem>
-                                            <SelectItem value="CAJA">Por Caja</SelectItem>
-                                            <SelectItem value="SACO">Por Saco</SelectItem>
-                                            <SelectItem value="CANASTILLA">Por Canastilla</SelectItem>
-                                        </SelectContent>
-                                    </Select><FormMessage />
-                                </FormItem>
-                            )}/>
-                            <FormField control={editingStandard ? editForm.control : form.control} name="minutesPerTon" render={({ field }) => (
-                                <FormItem><FormLabel>Minutos por Tonelada</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                            <FormField control={editingStandard ? editForm.control : form.control} name="baseMinutes" render={({ field }) => (
+                                <FormItem><FormLabel>Minutos Base</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
                             )}/>
                         </div>
                         <DialogFooter>
