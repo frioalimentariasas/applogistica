@@ -3,11 +3,10 @@
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { useForm, SubmitHandler } from 'react-hook-form';
+import { useForm, SubmitHandler, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useRouter } from 'next/navigation';
-import * as XLSX from 'xlsx';
 
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
@@ -34,7 +33,26 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import type { ClientInfo } from '@/app/actions/clients';
 
+
+const tonnageRangeSchema = z.object({
+  minTons: z.coerce.number({invalid_type_error: "Debe ser un número"}).min(0, "Debe ser 0 o mayor."),
+  maxTons: z.coerce.number({invalid_type_error: "Debe ser un número"}).min(0, "Debe ser 0 o mayor."),
+  baseMinutes: z.coerce.number({invalid_type_error: "Debe ser un número"}).int().min(1, "Debe ser al menos 1."),
+}).refine(data => data.maxTons > data.minTons, {
+    message: "Max. debe ser mayor que Min.",
+    path: ['maxTons'],
+});
+
 const standardSchema = z.object({
+  clientName: z.string().min(1, { message: 'Debe seleccionar un cliente o "TODOS".' }),
+  operationType: z.enum(['recepcion', 'despacho', 'TODAS'], { required_error: 'Debe seleccionar un tipo de operación.' }),
+  productType: z.enum(['fijo', 'variable', 'TODOS'], { required_error: 'Debe seleccionar un tipo de producto.' }),
+  ranges: z.array(tonnageRangeSchema).min(1, 'Debe agregar al menos un rango.'),
+});
+
+type StandardFormValues = z.infer<typeof standardSchema>;
+
+const editStandardSchema = z.object({
   clientName: z.string().min(1, { message: 'Debe seleccionar un cliente o "TODOS".' }),
   operationType: z.enum(['recepcion', 'despacho', 'TODAS'], { required_error: 'Debe seleccionar un tipo de operación.' }),
   productType: z.enum(['fijo', 'variable', 'TODOS'], { required_error: 'Debe seleccionar un tipo de producto.' }),
@@ -46,7 +64,8 @@ const standardSchema = z.object({
     path: ['maxTons'],
 });
 
-type StandardFormValues = z.infer<typeof standardSchema>;
+type EditStandardFormValues = z.infer<typeof editStandardSchema>;
+
 
 const AccessDenied = () => (
     <div className="flex flex-col items-center justify-center text-center gap-4">
@@ -83,14 +102,17 @@ export default function StandardManagementComponent({ initialClients, initialSta
       clientName: 'TODOS',
       operationType: 'TODAS',
       productType: 'TODOS',
-      minTons: 0,
-      maxTons: 0,
-      baseMinutes: 0,
+      ranges: [{ minTons: 0, maxTons: 0, baseMinutes: 0 }]
     },
   });
 
-  const editForm = useForm<StandardFormValues>({
-    resolver: zodResolver(standardSchema),
+  const { fields, append, remove } = useFieldArray({
+    control: form.control,
+    name: "ranges"
+  });
+
+  const editForm = useForm<EditStandardFormValues>({
+    resolver: zodResolver(editStandardSchema),
   });
   
   const clientOptions = useMemo(() => [{ id: 'TODOS', razonSocial: 'TODOS (Cualquier Cliente)' }, ...initialClients], [initialClients]);
@@ -103,23 +125,30 @@ export default function StandardManagementComponent({ initialClients, initialSta
   const onAddSubmit: SubmitHandler<StandardFormValues> = async (data) => {
     setIsSubmitting(true);
     const result = await addPerformanceStandard(data);
-    if (result.success && result.newStandard) {
+    if (result.success && result.newStandards) {
       toast({ title: 'Éxito', description: result.message });
-      setStandards(prev => [...prev, result.newStandard!].sort((a,b) => a.clientName.localeCompare(b.clientName)));
-      form.reset();
+      setStandards(prev => [...prev, ...result.newStandards!].sort((a,b) => a.clientName.localeCompare(b.clientName)));
+      form.reset({
+        clientName: data.clientName,
+        operationType: data.operationType,
+        productType: data.productType,
+        ranges: [{ minTons: 0, maxTons: 0, baseMinutes: 0 }]
+      });
+      remove(0); // clear the field array
+      append({ minTons: 0, maxTons: 0, baseMinutes: 0 }); // add a fresh one
     } else {
       toast({ variant: 'destructive', title: 'Error', description: result.message });
     }
     setIsSubmitting(false);
   };
   
-  const onEditSubmit: SubmitHandler<StandardFormValues> = async (data) => {
+  const onEditSubmit: SubmitHandler<EditStandardFormValues> = async (data) => {
     if (!standardToEdit) return;
     setIsEditing(true);
     const result = await updatePerformanceStandard(standardToEdit.id, data);
     if (result.success) {
       toast({ title: 'Éxito', description: result.message });
-      setStandards(prev => prev.map(s => s.id === standardToEdit.id ? { ...s, ...data } : s));
+      setStandards(prev => prev.map(s => s.id === standardToEdit.id ? { ...data, id: s.id } : s));
       setStandardToEdit(null);
     } else {
       toast({ variant: 'destructive', title: 'Error', description: result.message });
@@ -201,71 +230,87 @@ export default function StandardManagementComponent({ initialClients, initialSta
           </div>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-            <Card className="lg:col-span-1">
+        <div className="grid grid-cols-1 gap-8">
+            <Card>
                 <CardHeader>
                     <CardTitle>Nuevo Estándar</CardTitle>
-                    <CardDescription>Cree una nueva regla de tiempo para una operación.</CardDescription>
+                    <CardDescription>Cree una o más reglas de tiempo para una combinación de operación.</CardDescription>
                 </CardHeader>
                 <CardContent>
                     <Form {...form}>
-                        <form onSubmit={form.handleSubmit(onAddSubmit)} className="space-y-4">
-                            <FormField
-                                control={form.control}
-                                name="clientName"
-                                render={({ field }) => (
-                                    <FormItem className="flex flex-col">
-                                    <FormLabel>Cliente</FormLabel>
-                                        <Dialog open={isClientDialogOpen} onOpenChange={setClientDialogOpen}>
-                                            <DialogTrigger asChild>
-                                                <Button variant="outline" className="w-full justify-between text-left font-normal">
-                                                    {field.value || "Seleccione..."}
-                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                                </Button>
-                                            </DialogTrigger>
-                                            <DialogContent>
-                                                <DialogHeader><DialogTitle>Seleccionar Cliente</DialogTitle></DialogHeader>
-                                                <Input placeholder="Buscar..." value={clientSearch} onChange={(e) => setClientSearch(e.target.value)} className="mb-4" />
-                                                <ScrollArea className="h-72"><div className="space-y-1">
-                                                    {filteredClients.map((client) => (
-                                                        <Button key={client.id} variant="ghost" className="w-full justify-start" onClick={() => { field.onChange(client.razonSocial); setClientDialogOpen(false); }}>{client.razonSocial}</Button>
-                                                    ))}
-                                                </div></ScrollArea>
-                                            </DialogContent>
-                                        </Dialog>
-                                    <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={form.control}
-                                name="operationType"
-                                render={({ field }) => (
-                                    <FormItem><FormLabel>Tipo de Operación</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODAS">TODAS (Cualquier Operación)</SelectItem><SelectItem value="recepcion">Recepción</SelectItem><SelectItem value="despacho">Despacho</SelectItem></SelectContent></Select><FormMessage /></FormItem>
-                                )}
-                            />
-                             <FormField
-                                control={form.control}
-                                name="productType"
-                                render={({ field }) => (
-                                    <FormItem><FormLabel>Tipo de Producto</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODOS">TODOS (Cualquier Producto)</SelectItem><SelectItem value="fijo">Peso Fijo</SelectItem><SelectItem value="variable">Peso Variable</SelectItem></SelectContent></Select><FormMessage /></FormItem>
-                                )}
-                            />
-                            <div className="grid grid-cols-2 gap-4">
-                                <FormField control={form.control} name="minTons" render={({ field }) => (<FormItem><FormLabel>Min. Toneladas</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
-                                <FormField control={form.control} name="maxTons" render={({ field }) => (<FormItem><FormLabel>Max. Toneladas</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                        <form onSubmit={form.handleSubmit(onAddSubmit)} className="space-y-6">
+                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <FormField
+                                    control={form.control}
+                                    name="clientName"
+                                    render={({ field }) => (
+                                        <FormItem className="flex flex-col">
+                                        <FormLabel>Cliente</FormLabel>
+                                            <Dialog open={isClientDialogOpen} onOpenChange={setClientDialogOpen}>
+                                                <DialogTrigger asChild>
+                                                    <Button variant="outline" className="w-full justify-between text-left font-normal">
+                                                        {field.value || "Seleccione..."}
+                                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                    </Button>
+                                                </DialogTrigger>
+                                                <DialogContent>
+                                                    <DialogHeader><DialogTitle>Seleccionar Cliente</DialogTitle></DialogHeader>
+                                                    <Input placeholder="Buscar..." value={clientSearch} onChange={(e) => setClientSearch(e.target.value)} className="mb-4" />
+                                                    <ScrollArea className="h-72"><div className="space-y-1">
+                                                        {filteredClients.map((client) => (
+                                                            <Button key={client.id} variant="ghost" className="w-full justify-start" onClick={() => { field.onChange(client.razonSocial); setClientDialogOpen(false); }}>{client.razonSocial}</Button>
+                                                        ))}
+                                                    </div></ScrollArea>
+                                                </DialogContent>
+                                            </Dialog>
+                                        <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="operationType"
+                                    render={({ field }) => (
+                                        <FormItem><FormLabel>Tipo de Operación</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODAS">TODAS (Cualquier Operación)</SelectItem><SelectItem value="recepcion">Recepción</SelectItem><SelectItem value="despacho">Despacho</SelectItem></SelectContent></Select><FormMessage /></FormItem>
+                                    )}
+                                />
+                                 <FormField
+                                    control={form.control}
+                                    name="productType"
+                                    render={({ field }) => (
+                                        <FormItem><FormLabel>Tipo de Producto</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODOS">TODOS (Cualquier Producto)</SelectItem><SelectItem value="fijo">Peso Fijo</SelectItem><SelectItem value="variable">Peso Variable</SelectItem></SelectContent></Select><FormMessage /></FormItem>
+                                    )}
+                                />
                             </div>
-                            <FormField control={form.control} name="baseMinutes" render={({ field }) => (<FormItem><FormLabel>Minutos Base</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+
+                            <div className="space-y-4">
+                                <FormLabel>Rangos de Toneladas y Tiempos</FormLabel>
+                                {fields.map((field, index) => (
+                                    <div key={field.id} className="grid grid-cols-1 md:grid-cols-7 gap-2 items-end border p-4 rounded-md relative">
+                                        <FormField control={form.control} name={`ranges.${index}.minTons`} render={({ field }) => (<FormItem className="md:col-span-2"><FormLabel>Min. Toneladas</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                                        <FormField control={form.control} name={`ranges.${index}.maxTons`} render={({ field }) => (<FormItem className="md:col-span-2"><FormLabel>Max. Toneladas</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                                        <FormField control={form.control} name={`ranges.${index}.baseMinutes`} render={({ field }) => (<FormItem className="md:col-span-2"><FormLabel>Minutos Base</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                                        <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => remove(index)}>
+                                            <Trash2 className="h-4 w-4" />
+                                        </Button>
+                                    </div>
+                                ))}
+                                <Button type="button" variant="outline" size="sm" onClick={() => append({ minTons: 0, maxTons: 0, baseMinutes: 0 })}>
+                                    <PlusCircle className="mr-2 h-4 w-4" />
+                                    Agregar Rango
+                                </Button>
+                            </div>
+
                             <Button type="submit" disabled={isSubmitting} className="w-full">
                                 {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
-                                Agregar Estándar
+                                Guardar Estándar(es)
                             </Button>
                         </form>
                     </Form>
                 </CardContent>
             </Card>
 
-            <Card className="lg:col-span-2">
+            <Card>
                 <CardHeader>
                     <div className="flex justify-between items-center">
                         <CardTitle>Estándares Actuales</CardTitle>
@@ -377,3 +422,4 @@ export default function StandardManagementComponent({ initialClients, initialSta
     </div>
   );
 }
+

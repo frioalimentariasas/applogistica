@@ -18,7 +18,7 @@ export interface PerformanceStandard {
 export async function getPerformanceStandards(): Promise<PerformanceStandard[]> {
   if (!firestore) return [];
   try {
-    const snapshot = await firestore.collection('performance_standards').get();
+    const snapshot = await firestore.collection('performance_standards').orderBy('clientName').orderBy('minTons').get();
     if (snapshot.empty) return [];
     return snapshot.docs.map(doc => {
       const data = doc.data();
@@ -38,21 +38,44 @@ export async function getPerformanceStandards(): Promise<PerformanceStandard[]> 
   }
 }
 
-// Action to add a new standard
-export async function addPerformanceStandard(data: Omit<PerformanceStandard, 'id'>): Promise<{ success: boolean; message: string; newStandard?: PerformanceStandard }> {
+interface StandardData {
+    clientName: string;
+    operationType: 'recepcion' | 'despacho' | 'TODAS';
+    productType: 'fijo' | 'variable' | 'TODOS';
+    ranges: {
+        minTons: number;
+        maxTons: number;
+        baseMinutes: number;
+    }[];
+}
+
+// Action to add a new standard with multiple ranges
+export async function addPerformanceStandard(data: StandardData): Promise<{ success: boolean; message: string; newStandards?: PerformanceStandard[] }> {
   if (!firestore) return { success: false, message: 'Error de configuración del servidor.' };
   
-  const dataToSave = {
-    ...data,
-    minTons: Number(data.minTons),
-    maxTons: Number(data.maxTons),
-    baseMinutes: Number(data.baseMinutes),
-  };
-
+  const { clientName, operationType, productType, ranges } = data;
+  
   try {
-    const docRef = await firestore.collection('performance_standards').add(dataToSave);
+    const batch = firestore.batch();
+    const newStandards: PerformanceStandard[] = [];
+    
+    for (const range of ranges) {
+      const docRef = firestore.collection('performance_standards').doc();
+      const standardData = {
+        clientName,
+        operationType,
+        productType,
+        minTons: Number(range.minTons),
+        maxTons: Number(range.maxTons),
+        baseMinutes: Number(range.baseMinutes),
+      };
+      batch.set(docRef, standardData);
+      newStandards.push({ id: docRef.id, ...standardData });
+    }
+
+    await batch.commit();
     revalidatePath('/gestion-estandares');
-    return { success: true, message: 'Estándar creado con éxito.', newStandard: { id: docRef.id, ...dataToSave } };
+    return { success: true, message: `Se crearon ${ranges.length} nuevo(s) estándar(es) con éxito.`, newStandards };
   } catch (error) {
     console.error('Error al agregar estándar:', error);
     return { success: false, message: 'Ocurrió un error en el servidor.' };
@@ -103,7 +126,7 @@ export async function deleteMultipleStandards(ids: string[]): Promise<{ success:
 
 // --- Standard Matching Logic ---
 
-interface FindStandardCriteria {
+export interface FindStandardCriteria {
     clientName?: string;
     operationType?: 'recepcion' | 'despacho';
     productType?: 'fijo' | 'variable' | null;
@@ -111,17 +134,19 @@ interface FindStandardCriteria {
 }
 
 export async function findBestMatchingStandard(criteria: FindStandardCriteria): Promise<PerformanceStandard | null> {
-    const { clientName, operationType, productType, tons } = criteria;
+    const { clientName, operationType, productType } = criteria;
+    const tons = Number(criteria.tons.toFixed(2));
+    
+    // Always fetch the fresh list of standards from the database.
+    const allStandards = await getPerformanceStandards();
 
-    if (!clientName || !operationType || !productType) {
+    if (!clientName || !operationType || !productType || allStandards.length === 0) {
         return null;
     }
 
-    const allStandards = await getPerformanceStandards();
-
-    const potentialMatches = allStandards.filter(std => 
-        tons >= std.minTons && tons <= std.maxTons
-    );
+    const potentialMatches = allStandards.filter(std => {
+        return tons >= std.minTons && tons <= std.maxTons;
+    });
     
     if (potentialMatches.length === 0) return null;
 
@@ -151,6 +176,17 @@ export async function findBestMatchingStandard(criteria: FindStandardCriteria): 
             return found;
         }
     }
+
+    // Fallback for partial client name match
+    const partialMatch = potentialMatches.find(std => 
+        clientName.includes(std.clientName) && 
+        std.clientName !== 'TODOS' && // Ensure we don't partially match 'TODOS'
+        (std.operationType === operationType || std.operationType === 'TODAS') &&
+        (std.productType === productType || std.productType === 'TODOS')
+    );
+
+    if(partialMatch) return partialMatch;
+
 
     return null; // No matching standard found
 }
