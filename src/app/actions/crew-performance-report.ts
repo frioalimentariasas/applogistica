@@ -4,7 +4,7 @@
 import admin from 'firebase-admin';
 import { firestore } from '@/lib/firebase-admin';
 import { parse, differenceInMinutes, addDays } from 'date-fns';
-import { getPerformanceStandards, findBestMatchingStandard, type PerformanceStandard } from './standard-actions';
+import { getPerformanceStandards, findBestMatchingStandard, type PerformanceStandard, type FindStandardCriteria } from '@/app/actions/standard-actions';
 
 
 const serializeTimestamps = (data: any): any => {
@@ -116,7 +116,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             getPerformanceStandards() // Fetch all standards once
         ]);
         
-        let results = snapshot.docs.map(submissionDoc => {
+        const results = await Promise.all(snapshot.docs.map(async (submissionDoc) => {
             const submission = {
                 id: submissionDoc.id,
                 ...serializeTimestamps(submissionDoc.data())
@@ -147,7 +147,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             const toneladas = kilos / 1000;
             const clientName = formData.nombreCliente || formData.cliente;
 
-            const standard = findBestMatchingStandard({
+            const standard = await findBestMatchingStandard({
               clientName: clientName,
               operationType: operationTypeForAction,
               productType: productTypeForAction,
@@ -170,25 +170,26 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                 productType: productTypeForAction,
                 standard
             };
-        });
+        }));
 
         // Apply remaining filters in memory
+        let filteredResults = results;
         if (criteria.clientNames && criteria.clientNames.length > 0) {
-            results = results.filter(row => criteria.clientNames!.includes(row.cliente));
+            filteredResults = filteredResults.filter(row => criteria.clientNames!.includes(row.cliente));
         }
         if (criteria.productType) {
-            results = results.filter(row => row.productType === criteria.productType);
+            filteredResults = filteredResults.filter(row => row.productType === criteria.productType);
         }
         if (criteria.operationType) {
-             results = results.filter(row => {
+             filteredResults = filteredResults.filter(row => {
                 const rowOpType = (row.tipoOperacion === 'Recepción') ? 'recepcion' : (row.tipoOperacion === 'Despacho' ? 'despacho' : null);
                 return rowOpType === criteria.operationType;
             });
         }
         
-        results.sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
+        filteredResults.sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
 
-        return results;
+        return filteredResults;
     } catch (error: any) {
         if (error instanceof Error && error.message.includes('requires an index')) {
             console.error("Firestore composite index required. See the full error log for the creation link.", error);

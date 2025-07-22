@@ -103,14 +103,14 @@ export async function deleteMultipleStandards(ids: string[]): Promise<{ success:
 
 // --- Standard Matching Logic ---
 
-interface FindStandardCriteria {
+export interface FindStandardCriteria {
     clientName?: string;
     operationType?: 'recepcion' | 'despacho';
     productType?: 'fijo' | 'variable' | null;
     tons: number;
 }
 
-export function findBestMatchingStandard(criteria: FindStandardCriteria, allStandards: PerformanceStandard[]): PerformanceStandard | null {
+export async function findBestMatchingStandard(criteria: FindStandardCriteria, allStandards: PerformanceStandard[]): Promise<PerformanceStandard | null> {
     const { clientName, operationType, productType, tons } = criteria;
 
     if (!clientName || !operationType || !productType) {
