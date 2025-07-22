@@ -67,6 +67,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user);
       if (user && user.email) {
+        // Super admin override
+        if (user.email === 'sistemas@frioalimentaria.com.co') {
+            setPermissions({
+                canGenerateForms: true,
+                canConsultForms: true,
+                canEditForms: true,
+                canDeleteForms: true,
+                canViewPerformanceReport: true,
+                canViewCrewPerformanceReport: true,
+                canManageArticles: true,
+                canManageClients: true,
+                canViewBillingReports: true,
+                canManageSessions: true,
+                canManageStandards: true,
+            });
+        } else {
+            try {
+              const userPerms = await getUserPermissions(user.email);
+              setPermissions(userPerms);
+            } catch (error) {
+              console.error("Failed to fetch user permissions:", error);
+              setPermissions(defaultPermissions);
+            }
+        }
+        
         const db = getFirestore(app);
         const nameDocRef = doc(db, 'user_display_names', user.email);
         const nameDoc = await getDoc(nameDocRef);
@@ -76,14 +101,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         } else {
           setDisplayName(user.displayName || user.email);
         }
-        
-        try {
-          const userPerms = await getUserPermissions(user.email);
-          setPermissions(userPerms);
-        } catch (error) {
-          console.error("Failed to fetch user permissions:", error);
-          setPermissions(defaultPermissions);
-        }
+
       } else {
         setDisplayName(null);
         setPermissions(defaultPermissions);
