@@ -85,6 +85,8 @@ export function FixedWeightReport({ formData, userDisplayName, attachments, form
     const totalPaletas = formData.productos.reduce((acc: any, p: any) => acc + (Number(p.totalPaletas ?? p.paletas) || 0), 0);
     const totalPesoNetoKg = formData.productos.reduce((acc: any, p: any) => acc + (Number(p.pesoNetoKg) || 0), 0);
 
+    const showPesoNetoColumn = formData.productos.some((p: any) => Number(p.pesoNetoKg) > 0);
+
     const isReception = formType.includes('recepcion');
     const operationTerm = isReception ? 'Descargue' : 'Cargue';
 
@@ -136,7 +138,7 @@ export function FixedWeightReport({ formData, userDisplayName, attachments, form
                             <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Descripción</th>
                             <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>No. Cajas</th>
                             <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Paletas</th>
-                            <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Peso Neto (kg)</th>
+                            {showPesoNetoColumn && <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Peso Neto (kg)</th>}
                             <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Temp(°C)</th>
                         </tr>
                     </thead>
@@ -147,7 +149,7 @@ export function FixedWeightReport({ formData, userDisplayName, attachments, form
                                 <td style={{ padding: '4px' }}>{p.descripcion}</td>
                                 <td style={{ textAlign: 'right', padding: '4px' }}>{p.cajas}</td>
                                 <td style={{ textAlign: 'right', padding: '4px' }}>{formatPaletas(p.totalPaletas ?? p.paletas)}</td>
-                                <td style={{ textAlign: 'right', padding: '4px' }}>{p.pesoNetoKg && Number(p.pesoNetoKg) !== 0 ? Number(p.pesoNetoKg).toFixed(2) : ''}</td>
+                                {showPesoNetoColumn && <td style={{ textAlign: 'right', padding: '4px' }}>{Number(p.pesoNetoKg) > 0 ? Number(p.pesoNetoKg).toFixed(2) : ''}</td>}
                                 <td style={{ textAlign: 'right', padding: '4px' }}>{p.temperatura}</td>
                             </tr>
                         ))}
@@ -155,7 +157,7 @@ export function FixedWeightReport({ formData, userDisplayName, attachments, form
                             <td style={{ padding: '4px', textAlign: 'right' }} colSpan={2}>TOTALES:</td>
                             <td style={{ textAlign: 'right', padding: '4px' }}>{totalCajas}</td>
                             <td style={{ textAlign: 'right', padding: '4px' }}>{formatPaletas(totalPaletas)}</td>
-                            <td style={{ textAlign: 'right', padding: '4px' }}>{totalPesoNetoKg > 0 ? totalPesoNetoKg.toFixed(2) : ''}</td>
+                            {showPesoNetoColumn && <td style={{ textAlign: 'right', padding: '4px' }}>{totalPesoNetoKg > 0 ? totalPesoNetoKg.toFixed(2) : ''}</td>}
                             <td style={{ padding: '4px' }}></td>
                         </tr>
                     </tbody>
