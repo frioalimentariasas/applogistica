@@ -32,6 +32,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import type { ClientInfo } from '@/app/actions/clients';
+import { MultiSelect, type OptionType } from '@/components/ui/multi-select';
 
 
 const tonnageRangeSchema = z.object({
@@ -44,7 +45,7 @@ const tonnageRangeSchema = z.object({
 });
 
 const standardSchema = z.object({
-  clientName: z.string().min(1, { message: 'Debe seleccionar un cliente o "TODOS".' }),
+  clientNames: z.array(z.string()).min(1, { message: 'Debe seleccionar al menos un cliente.' }),
   operationType: z.enum(['recepcion', 'despacho', 'TODAS'], { required_error: 'Debe seleccionar un tipo de operación.' }),
   productType: z.enum(['fijo', 'variable', 'TODOS'], { required_error: 'Debe seleccionar un tipo de producto.' }),
   ranges: z.array(tonnageRangeSchema).min(1, 'Debe agregar al menos un rango.'),
@@ -86,8 +87,6 @@ export default function StandardManagementComponent({ initialClients, initialSta
   
   const [standards, setStandards] = useState<PerformanceStandard[]>(initialStandards);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isClientDialogOpen, setClientDialogOpen] = useState(false);
-  const [clientSearch, setClientSearch] = useState('');
   
   const [standardToEdit, setStandardToEdit] = useState<PerformanceStandard | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -99,7 +98,7 @@ export default function StandardManagementComponent({ initialClients, initialSta
   const form = useForm<StandardFormValues>({
     resolver: zodResolver(standardSchema),
     defaultValues: {
-      clientName: 'TODOS',
+      clientNames: [],
       operationType: 'TODAS',
       productType: 'TODOS',
       ranges: [{ minTons: 0, maxTons: 0, baseMinutes: 0 }]
@@ -115,12 +114,11 @@ export default function StandardManagementComponent({ initialClients, initialSta
     resolver: zodResolver(editStandardSchema),
   });
   
-  const clientOptions = useMemo(() => [{ id: 'TODOS', razonSocial: 'TODOS (Cualquier Cliente)' }, ...initialClients], [initialClients]);
-  
-  const filteredClients = useMemo(() => {
-    if (!clientSearch) return clientOptions;
-    return clientOptions.filter(c => c.razonSocial.toLowerCase().includes(clientSearch.toLowerCase()));
-  }, [clientSearch, clientOptions]);
+  const clientOptions: OptionType[] = useMemo(() => [
+    { value: 'TODOS', label: 'TODOS (Cualquier Cliente)' }, 
+    ...initialClients.map(c => ({ value: c.razonSocial, label: c.razonSocial }))
+  ], [initialClients]);
+
 
   const onAddSubmit: SubmitHandler<StandardFormValues> = async (data) => {
     setIsSubmitting(true);
@@ -129,13 +127,13 @@ export default function StandardManagementComponent({ initialClients, initialSta
       toast({ title: 'Éxito', description: result.message });
       setStandards(prev => [...prev, ...result.newStandards!].sort((a,b) => a.clientName.localeCompare(b.clientName)));
       form.reset({
-        clientName: data.clientName,
-        operationType: data.operationType,
-        productType: data.productType,
+        clientNames: [],
+        operationType: 'TODAS',
+        productType: 'TODOS',
         ranges: [{ minTons: 0, maxTons: 0, baseMinutes: 0 }]
       });
-      remove(0); // clear the field array
-      append({ minTons: 0, maxTons: 0, baseMinutes: 0 }); // add a fresh one
+      remove(0); 
+      append({ minTons: 0, maxTons: 0, baseMinutes: 0 });
     } else {
       toast({ variant: 'destructive', title: 'Error', description: result.message });
     }
@@ -230,8 +228,8 @@ export default function StandardManagementComponent({ initialClients, initialSta
           </div>
         </header>
 
-        <div className="grid grid-cols-1 gap-8">
-            <Card>
+        <div className="space-y-8">
+             <Card>
                 <CardHeader>
                     <CardTitle>Nuevo Estándar</CardTitle>
                     <CardDescription>Cree una o más reglas de tiempo para una combinación de operación.</CardDescription>
@@ -242,27 +240,28 @@ export default function StandardManagementComponent({ initialClients, initialSta
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                                 <FormField
                                     control={form.control}
-                                    name="clientName"
+                                    name="clientNames"
                                     render={({ field }) => (
                                         <FormItem className="flex flex-col">
-                                        <FormLabel>Cliente</FormLabel>
-                                            <Dialog open={isClientDialogOpen} onOpenChange={setClientDialogOpen}>
-                                                <DialogTrigger asChild>
-                                                    <Button variant="outline" className="w-full justify-between text-left font-normal">
-                                                        {field.value || "Seleccione..."}
-                                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                                    </Button>
-                                                </DialogTrigger>
-                                                <DialogContent>
-                                                    <DialogHeader><DialogTitle>Seleccionar Cliente</DialogTitle></DialogHeader>
-                                                    <Input placeholder="Buscar..." value={clientSearch} onChange={(e) => setClientSearch(e.target.value)} className="mb-4" />
-                                                    <ScrollArea className="h-72"><div className="space-y-1">
-                                                        {filteredClients.map((client) => (
-                                                            <Button key={client.id} variant="ghost" className="w-full justify-start" onClick={() => { field.onChange(client.razonSocial); setClientDialogOpen(false); }}>{client.razonSocial}</Button>
-                                                        ))}
-                                                    </div></ScrollArea>
-                                                </DialogContent>
-                                            </Dialog>
+                                        <FormLabel>Cliente(s)</FormLabel>
+                                            <MultiSelect
+                                                options={clientOptions}
+                                                selected={field.value}
+                                                onChange={(selected) => {
+                                                    // if TODOS is selected, unselect everything else
+                                                    if (selected.includes('TODOS') && field.value.length > 0 && !field.value.includes('TODOS')) {
+                                                        field.onChange(['TODOS']);
+                                                    } 
+                                                    // if something else is selected, and TODOS is already selected, unselect TODOS
+                                                    else if (selected.length > 1 && field.value.includes('TODOS')) {
+                                                        field.onChange(selected.filter(s => s !== 'TODOS'));
+                                                    } else {
+                                                        field.onChange(selected);
+                                                    }
+                                                }}
+                                                placeholder="Seleccione cliente(s)..."
+                                                className="w-full"
+                                            />
                                         <FormMessage />
                                         </FormItem>
                                     )}
@@ -373,7 +372,7 @@ export default function StandardManagementComponent({ initialClients, initialSta
                     control={editForm.control}
                     name="clientName"
                     render={({ field }) => (
-                        <FormItem><FormLabel>Cliente</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{clientOptions.map(c => <SelectItem key={c.id} value={c.razonSocial}>{c.razonSocial}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Cliente</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{clientOptions.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                     )}
                 />
                 <FormField
@@ -422,4 +421,3 @@ export default function StandardManagementComponent({ initialClients, initialSta
     </div>
   );
 }
-

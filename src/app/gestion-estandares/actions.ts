@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -39,7 +40,7 @@ export async function getPerformanceStandards(): Promise<PerformanceStandard[]> 
 }
 
 interface StandardData {
-    clientName: string;
+    clientNames: string[];
     operationType: 'recepcion' | 'despacho' | 'TODAS';
     productType: 'fijo' | 'variable' | 'TODOS';
     ranges: {
@@ -49,33 +50,35 @@ interface StandardData {
     }[];
 }
 
-// Action to add a new standard with multiple ranges
+// Action to add a new standard with multiple ranges and for multiple clients
 export async function addPerformanceStandard(data: StandardData): Promise<{ success: boolean; message: string; newStandards?: PerformanceStandard[] }> {
   if (!firestore) return { success: false, message: 'Error de configuración del servidor.' };
   
-  const { clientName, operationType, productType, ranges } = data;
+  const { clientNames, operationType, productType, ranges } = data;
   
   try {
     const batch = firestore.batch();
     const newStandards: PerformanceStandard[] = [];
     
-    for (const range of ranges) {
-      const docRef = firestore.collection('performance_standards').doc();
-      const standardData = {
-        clientName,
-        operationType,
-        productType,
-        minTons: Number(range.minTons),
-        maxTons: Number(range.maxTons),
-        baseMinutes: Number(range.baseMinutes),
-      };
-      batch.set(docRef, standardData);
-      newStandards.push({ id: docRef.id, ...standardData });
+    for (const clientName of clientNames) {
+        for (const range of ranges) {
+            const docRef = firestore.collection('performance_standards').doc();
+            const standardData = {
+                clientName,
+                operationType,
+                productType,
+                minTons: Number(range.minTons),
+                maxTons: Number(range.maxTons),
+                baseMinutes: Number(range.baseMinutes),
+            };
+            batch.set(docRef, standardData);
+            newStandards.push({ id: docRef.id, ...standardData });
+        }
     }
 
     await batch.commit();
     revalidatePath('/gestion-estandares');
-    return { success: true, message: `Se crearon ${ranges.length} nuevo(s) estándar(es) con éxito.`, newStandards };
+    return { success: true, message: `Se crearon ${newStandards.length} nuevo(s) estándar(es) con éxito.`, newStandards };
   } catch (error) {
     console.error('Error al agregar estándar:', error);
     return { success: false, message: 'Ocurrió un error en el servidor.' };
