@@ -120,9 +120,13 @@ export async function findBestMatchingStandard(criteria: FindStandardCriteria): 
         return null;
     }
 
-    const potentialMatches = allStandards.filter(std => 
-        tons >= std.minTons && tons <= std.maxTons
-    );
+    const potentialMatches = allStandards.filter(std => {
+        // Round to 4 decimal places to avoid floating point inaccuracies
+        const roundedTons = Number(tons.toFixed(4));
+        const roundedMin = Number(std.minTons.toFixed(4));
+        const roundedMax = Number(std.maxTons.toFixed(4));
+        return roundedTons >= roundedMin && roundedTons <= roundedMax;
+    });
     
     if (potentialMatches.length === 0) return null;
 
