@@ -32,21 +32,27 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
 
-const standardSchema = z.object({
+const baseStandardSchema = z.object({
   description: z.string().min(3, "La descripción es requerida."),
   clientNames: z.array(z.string()).min(1, "Debe seleccionar al menos un cliente."),
   minTons: z.coerce.number().min(0, "Debe ser 0 o mayor."),
   maxTons: z.coerce.number().min(0.1, "Debe ser mayor que 0."),
   baseMinutes: z.coerce.number().min(1, "Debe ser mayor a 0."),
-}).refine(data => data.maxTons > data.minTons, {
+});
+
+const standardSchema = baseStandardSchema.refine(data => data.maxTons > data.minTons, {
     message: "Las toneladas máximas deben ser mayores que las mínimas.",
     path: ["maxTons"],
 });
 
 
-const editStandardSchema = standardSchema.omit({ clientNames: true }).extend({
+const editStandardSchema = baseStandardSchema.omit({ clientNames: true }).extend({
     clientName: z.string()
+}).refine(data => data.maxTons > data.minTons, {
+    message: "Las toneladas máximas deben ser mayores que las mínimas.",
+    path: ["maxTons"],
 });
+
 type EditStandardFormValues = Omit<PerformanceStandard, 'id' | 'operationType'>;
 
 
