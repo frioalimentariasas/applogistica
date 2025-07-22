@@ -4,7 +4,7 @@
 import admin from 'firebase-admin';
 import { firestore } from '@/lib/firebase-admin';
 import { parse, differenceInMinutes, addDays } from 'date-fns';
-import type { UnitOfMeasure } from '@/app/gestion-estandares/actions';
+import { findBestMatchingStandard, PerformanceStandard } from '@/app/gestion-estandares/actions';
 
 const serializeTimestamps = (data: any): any => {
     if (data === null || data === undefined || typeof data !== 'object') {
@@ -75,16 +75,15 @@ export interface CrewPerformanceReportRow {
     fecha: string;
     operario: string;
     cliente: string;
-    tipoOperacion: string;
+    tipoOperacion: 'Recepción' | 'Despacho' | 'N/A';
     tipoProducto: 'Fijo' | 'Variable' | 'N/A';
     kilos: number;
     horaInicio: string;
     horaFin: string;
     duracionMinutos: number | null;
     pedidoSislog: string;
-    tipoEmpaqueMaquila: string;
-    unidadDeMedidaPrincipal: UnitOfMeasure | 'N/A';
     productType: 'fijo' | 'variable' | null;
+    standard?: PerformanceStandard | null;
 }
 
 export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCriteria): Promise<CrewPerformanceReportRow[]> {
@@ -113,18 +112,21 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
     try {
         const snapshot = await query.get();
         
-        let results = snapshot.docs.map(submissionDoc => {
+        let results = await Promise.all(snapshot.docs.map(async (submissionDoc) => {
             const submission = {
                 id: submissionDoc.id,
                 ...serializeTimestamps(submissionDoc.data())
             };
             const { id, formType, formData, userDisplayName } = submission;
 
-            let tipoOperacion = 'N/A';
+            let tipoOperacion: 'Recepción' | 'Despacho' | 'N/A' = 'N/A';
+            let operationTypeForAction: 'recepcion' | 'despacho' | undefined = undefined;
             if (formType.includes('recepcion') || formType.includes('reception')) {
                 tipoOperacion = 'Recepción';
+                operationTypeForAction = 'recepcion';
             } else if (formType.includes('despacho')) {
                 tipoOperacion = 'Despacho';
+                operationTypeForAction = 'despacho';
             }
 
             let tipoProducto: 'Fijo' | 'Variable' | 'N/A' = 'N/A';
@@ -137,6 +139,16 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                 productTypeForAction = 'variable';
             }
             
+            const kilos = calculateTotalKilos(formType, formData);
+            const toneladas = kilos / 1000;
+
+            const standard = await findBestMatchingStandard({
+              clientName: formData.nombreCliente || formData.cliente,
+              operationType: operationTypeForAction,
+              productType: productTypeForAction,
+              tons: toneladas
+            });
+            
             return {
                 id,
                 formType,
@@ -145,37 +157,27 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                 cliente: formData.nombreCliente || formData.cliente || 'N/A',
                 tipoOperacion,
                 tipoProducto,
-                kilos: calculateTotalKilos(formType, formData),
+                kilos: kilos,
                 horaInicio: formData.horaInicio || 'N/A',
                 horaFin: formData.horaFin || 'N/A',
                 duracionMinutos: calculateDuration(formData.horaInicio, formData.horaFin),
                 pedidoSislog: formData.pedidoSislog || 'N/A',
-                tipoEmpaqueMaquila: formData.tipoEmpaqueMaquila || 'N/A',
-                unidadDeMedidaPrincipal: formData.unidadDeMedidaPrincipal || 'N/A',
                 productType: productTypeForAction,
+                standard
             };
-        });
+        }));
 
         // Apply remaining filters in memory
         if (criteria.clientNames && criteria.clientNames.length > 0) {
             results = results.filter(row => criteria.clientNames!.includes(row.cliente));
         }
         if (criteria.productType) {
-            results = results.filter(row => {
-                if (criteria.productType === 'fijo') return row.formType.includes('fixed-weight');
-                if (criteria.productType === 'variable') return row.formType.includes('variable-weight');
-                return true;
-            });
+            results = results.filter(row => row.productType === criteria.productType);
         }
         if (criteria.operationType) {
              results = results.filter(row => {
-                if (criteria.operationType === 'recepcion') {
-                    return row.formType.includes('recepcion') || row.formType.includes('reception');
-                }
-                if (criteria.operationType === 'despacho') {
-                    return row.formType.includes('despacho');
-                }
-                return true;
+                const rowOpType = (row.tipoOperacion === 'Recepción') ? 'recepcion' : (row.tipoOperacion === 'Despacho' ? 'despacho' : null);
+                return rowOpType === criteria.operationType;
             });
         }
         

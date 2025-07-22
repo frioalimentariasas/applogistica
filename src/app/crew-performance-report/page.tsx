@@ -24,7 +24,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, File, FileDown, FolderSearch, Users, ShieldAlert, TrendingUp, Circle, Settings, ChevronsUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
@@ -118,6 +118,28 @@ const formatDuration = (totalMinutes: number | null): string => {
     }
     return `${hours}h ${Math.round(minutes)}m`;
 };
+
+const getPerformanceIndicator = (row: CrewPerformanceReportRow): { text: string, color: string } => {
+    const { duracionMinutos, kilos, standard } = row;
+
+    if (kilos === 0 || duracionMinutos === null || duracionMinutos === 0) {
+        return { text: 'No Calculado', color: 'text-gray-500' };
+    }
+    if (!standard) {
+        return { text: 'N/A', color: 'text-gray-500' };
+    }
+
+    const standardTime = standard.baseMinutes;
+    
+    if (duracionMinutos < standardTime) {
+        return { text: 'Óptimo', color: 'text-green-600' };
+    }
+    if (duracionMinutos >= standardTime && duracionMinutos <= standardTime + 10) {
+        return { text: 'Normal', color: 'text-yellow-600' };
+    }
+    return { text: 'Lento', color: 'text-red-600' };
+};
+
 
 export default function CrewPerformanceReportPage() {
     const router = useRouter();
@@ -273,6 +295,7 @@ export default function CrewPerformanceReportPage() {
         if (reportData.length === 0) return;
 
         const dataToExport = reportData.map(row => {
+            const indicator = getPerformanceIndicator(row);
             return {
                 'Fecha': format(new Date(row.fecha), 'dd/MM/yyyy'),
                 'Operario Responsable': row.operario,
@@ -284,6 +307,7 @@ export default function CrewPerformanceReportPage() {
                 'Hora Inicio': formatTime12Hour(row.horaInicio),
                 'Hora Fin': formatTime12Hour(row.horaFin),
                 'Duración': formatDuration(row.duracionMinutos),
+                'Indicador': indicator.text,
             }
         });
 
@@ -297,7 +321,8 @@ export default function CrewPerformanceReportPage() {
             'Toneladas': totalToneladas.toFixed(2),
             'Hora Inicio': '',
             'Hora Fin': '',
-            'Duración': formatDuration(totalDuration)
+            'Duración': formatDuration(totalDuration),
+            'Indicador': ''
         };
 
         const worksheet = XLSX.utils.json_to_sheet([...dataToExport, totalRow]);
@@ -331,8 +356,9 @@ export default function CrewPerformanceReportPage() {
 
         autoTable(doc, {
             startY: titleY + 15,
-            head: [['Fecha', 'Operario', 'Cliente', 'Tipo Op.', 'Tipo Prod.', 'Pedido', 'Toneladas', 'Duración']],
+            head: [['Fecha', 'Operario', 'Cliente', 'Tipo Op.', 'Tipo Prod.', 'Pedido', 'Toneladas', 'Duración', 'Indicador']],
             body: reportData.map(row => {
+                const indicator = getPerformanceIndicator(row);
                 return [
                 format(new Date(row.fecha), 'dd/MM/yy'),
                 row.operario,
@@ -342,12 +368,14 @@ export default function CrewPerformanceReportPage() {
                 row.pedidoSislog,
                 (row.kilos / 1000).toFixed(2),
                 formatDuration(row.duracionMinutos),
+                indicator.text
             ]}),
             foot: [
                 [
                     { content: 'TOTALES:', colSpan: 6, styles: { halign: 'right', fontStyle: 'bold' } }, 
                     { content: totalToneladas.toFixed(2), styles: { halign: 'left', fontStyle: 'bold' } },
                     { content: formatDuration(totalDuration), styles: { halign: 'left', fontStyle: 'bold' } },
+                    ''
                 ]
             ],
             headStyles: { fillColor: [33, 150, 243], fontSize: 7 },
@@ -408,9 +436,17 @@ export default function CrewPerformanceReportPage() {
 
                 <Card>
                     <CardHeader>
-                         <div>
-                            <CardTitle>Filtros del Reporte</CardTitle>
-                            <CardDescription>Seleccione los filtros para generar el informe de desempeño de cuadrilla.</CardDescription>
+                         <div className='flex justify-between items-center'>
+                            <div>
+                                <CardTitle>Filtros del Reporte</CardTitle>
+                                <CardDescription>Seleccione los filtros para generar el informe de desempeño de cuadrilla.</CardDescription>
+                            </div>
+                            <Button asChild variant="outline">
+                                <Link href="/gestion-estandares">
+                                    <Settings className="mr-2 h-4 w-4" />
+                                    Gestionar Estándares
+                                </Link>
+                            </Button>
                         </div>
                     </CardHeader>
                     <CardContent>
@@ -558,24 +594,34 @@ export default function CrewPerformanceReportPage() {
                                         <TableHead>Pedido SISLOG</TableHead>
                                         <TableHead className="text-right">Toneladas</TableHead>
                                         <TableHead className="text-right">Duración</TableHead>
+                                        <TableHead className="text-right">Indicador</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {isLoading ? (
                                         <TableRow><TableCell colSpan={9}><Skeleton className="h-20 w-full" /></TableCell></TableRow>
                                     ) : displayedData.length > 0 ? (
-                                        displayedData.map((row) => (
-                                            <TableRow key={row.id}>
-                                                <TableCell>{format(new Date(row.fecha), 'dd/MM/yyyy')}</TableCell>
-                                                <TableCell>{row.operario}</TableCell>
-                                                <TableCell>{row.cliente}</TableCell>
-                                                <TableCell>{row.tipoOperacion}</TableCell>
-                                                <TableCell>{row.tipoProducto}</TableCell>
-                                                <TableCell>{row.pedidoSislog}</TableCell>
-                                                <TableCell className="text-right font-mono">{(row.kilos / 1000).toFixed(2)}</TableCell>
-                                                <TableCell className="text-right font-medium">{formatDuration(row.duracionMinutos)}</TableCell>
-                                            </TableRow>
-                                        ))
+                                        displayedData.map((row) => {
+                                            const indicator = getPerformanceIndicator(row);
+                                            return (
+                                                <TableRow key={row.id}>
+                                                    <TableCell>{format(new Date(row.fecha), 'dd/MM/yyyy')}</TableCell>
+                                                    <TableCell>{row.operario}</TableCell>
+                                                    <TableCell>{row.cliente}</TableCell>
+                                                    <TableCell>{row.tipoOperacion}</TableCell>
+                                                    <TableCell>{row.tipoProducto}</TableCell>
+                                                    <TableCell>{row.pedidoSislog}</TableCell>
+                                                    <TableCell className="text-right font-mono">{(row.kilos / 1000).toFixed(2)}</TableCell>
+                                                    <TableCell className="text-right font-medium">{formatDuration(row.duracionMinutos)}</TableCell>
+                                                    <TableCell className={cn("text-right font-semibold", indicator.color)}>
+                                                        <div className="flex items-center justify-end gap-2">
+                                                            <Circle className={cn("h-2.5 w-2.5", indicator.color.replace('text-', 'bg-'))} />
+                                                            {indicator.text}
+                                                        </div>
+                                                    </TableCell>
+                                                </TableRow>
+                                            )
+                                        })
                                     ) : (
                                         <EmptyState searched={searched} />
                                     )}
