@@ -1,4 +1,3 @@
-
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -223,7 +222,7 @@ export async function findBestMatchingStandard(
             if (!snapshot.empty) {
                 const matches = snapshot.docs
                     .map(doc => ({ id: doc.id, ...doc.data() } as PerformanceStandard))
-                    .filter(doc => tons >= doc.minTons && tons < doc.maxTons);
+                    .filter(doc => tons >= doc.minTons && tons <= doc.maxTons);
                 
                 if (matches.length > 0) {
                     // Sort by the narrowest range to be more specific in case of overlaps
