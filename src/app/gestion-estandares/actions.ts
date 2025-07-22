@@ -208,33 +208,50 @@ export async function findBestMatchingStandard(
     // Get all standards once to filter in memory, ensuring types are correct
     const allStandards = await getPerformanceStandards();
 
-    const check = (standard: PerformanceStandard) => {
+    // Helper to check if the tons fall within the range
+    const checkRange = (standard: PerformanceStandard) => {
       return tons >= standard.minTons && tons <= standard.maxTons;
     };
 
     // Priority 1: Specific client, specific operation type
-    let matches = allStandards.filter(s => s.clientName === clientName && s.operationType === operationType && check(s));
+    let matches = allStandards.filter(s => 
+        s.clientName === clientName && 
+        s.operationType === operationType && 
+        checkRange(s)
+    );
     if (matches.length > 0) {
         matches.sort((a,b) => (a.maxTons - a.minTons) - (b.maxTons - b.minTons));
         return matches[0];
     }
     
-    // Priority 2: General client, specific operation type
-    matches = allStandards.filter(s => s.clientName === 'TODOS' && s.operationType === operationType && check(s));
+    // Priority 2: Specific client, general operation type ('TODAS')
+    matches = allStandards.filter(s => 
+        s.clientName === clientName && 
+        s.operationType === 'TODAS' && 
+        checkRange(s)
+    );
     if (matches.length > 0) {
         matches.sort((a,b) => (a.maxTons - a.minTons) - (b.maxTons - b.minTons));
         return matches[0];
     }
 
-    // Priority 3: Specific client, general operation type
-    matches = allStandards.filter(s => s.clientName === clientName && s.operationType === 'TODAS' && check(s));
-     if (matches.length > 0) {
+    // Priority 3: General client ('TODOS'), specific operation type
+    matches = allStandards.filter(s => 
+        s.clientName === 'TODOS' && 
+        s.operationType === operationType && 
+        checkRange(s)
+    );
+    if (matches.length > 0) {
         matches.sort((a,b) => (a.maxTons - a.minTons) - (b.maxTons - b.minTons));
         return matches[0];
     }
-
-    // Priority 4: General client, general operation type
-    matches = allStandards.filter(s => s.clientName === 'TODOS' && s.operationType === 'TODAS' && check(s));
+    
+    // Priority 4: General client ('TODOS'), general operation type ('TODAS')
+    matches = allStandards.filter(s => 
+        s.clientName === 'TODOS' && 
+        s.operationType === 'TODAS' && 
+        checkRange(s)
+    );
     if (matches.length > 0) {
         matches.sort((a,b) => (a.maxTons - a.minTons) - (b.maxTons - b.minTons));
         return matches[0];
