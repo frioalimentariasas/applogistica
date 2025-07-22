@@ -32,7 +32,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import type { ClientInfo } from '@/app/actions/clients';
-import { MultiSelect, type OptionType } from '@/components/ui/multi-select';
+import { Label } from '@/components/ui/label';
 
 
 const tonnageRangeSchema = z.object({
@@ -95,6 +95,9 @@ export default function StandardManagementComponent({ initialClients, initialSta
   const [isConfirmBulkDeleteOpen, setIsConfirmBulkDeleteOpen] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
   
+  const [isClientDialogOpen, setClientDialogOpen] = useState(false);
+  const [clientSearch, setClientSearch] = useState('');
+
   const form = useForm<StandardFormValues>({
     resolver: zodResolver(standardSchema),
     defaultValues: {
@@ -114,10 +117,15 @@ export default function StandardManagementComponent({ initialClients, initialSta
     resolver: zodResolver(editStandardSchema),
   });
   
-  const clientOptions: OptionType[] = useMemo(() => [
-    { value: 'TODOS', label: 'TODOS (Cualquier Cliente)' }, 
-    ...initialClients.map(c => ({ value: c.razonSocial, label: c.razonSocial }))
+  const clientOptions: ClientInfo[] = useMemo(() => [
+    { id: 'TODOS', razonSocial: 'TODOS (Cualquier Cliente)' }, 
+    ...initialClients
   ], [initialClients]);
+  
+  const filteredClients = useMemo(() => {
+    if (!clientSearch) return clientOptions;
+    return clientOptions.filter(c => c.razonSocial.toLowerCase().includes(clientSearch.toLowerCase()));
+  }, [clientSearch, clientOptions]);
 
 
   const onAddSubmit: SubmitHandler<StandardFormValues> = async (data) => {
@@ -194,6 +202,13 @@ export default function StandardManagementComponent({ initialClients, initialSta
     }
   };
 
+  const getSelectedClientsText = () => {
+    const selected = form.watch('clientNames');
+    if (selected.length === 0) return "Seleccione cliente(s)...";
+    if (selected.length === 1) return selected[0];
+    return `${selected.length} clientes seleccionados`;
+  };
+
 
   if (authLoading) {
       return <div className="flex min-h-screen w-full items-center justify-center"><Loader2 className="h-12 w-12 animate-spin text-primary" /></div>
@@ -244,24 +259,48 @@ export default function StandardManagementComponent({ initialClients, initialSta
                                     render={({ field }) => (
                                         <FormItem className="flex flex-col">
                                         <FormLabel>Cliente(s)</FormLabel>
-                                            <MultiSelect
-                                                options={clientOptions}
-                                                selected={field.value}
-                                                onChange={(selected) => {
-                                                    // if TODOS is selected, unselect everything else
-                                                    if (selected.includes('TODOS') && field.value.length > 0 && !field.value.includes('TODOS')) {
-                                                        field.onChange(['TODOS']);
-                                                    } 
-                                                    // if something else is selected, and TODOS is already selected, unselect TODOS
-                                                    else if (selected.length > 1 && field.value.includes('TODOS')) {
-                                                        field.onChange(selected.filter(s => s !== 'TODOS'));
-                                                    } else {
-                                                        field.onChange(selected);
-                                                    }
-                                                }}
-                                                placeholder="Seleccione cliente(s)..."
-                                                className="w-full"
-                                            />
+                                            <Dialog open={isClientDialogOpen} onOpenChange={setClientDialogOpen}>
+                                                <DialogTrigger asChild>
+                                                    <Button variant="outline" className="w-full justify-between font-normal">
+                                                        <span className="truncate">{getSelectedClientsText()}</span>
+                                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                    </Button>
+                                                </DialogTrigger>
+                                                <DialogContent className="sm:max-w-[425px]">
+                                                    <DialogHeader>
+                                                        <DialogTitle>Seleccionar Cliente(s)</DialogTitle>
+                                                        <DialogDescription>Seleccione los clientes para este estándar.</DialogDescription>
+                                                    </DialogHeader>
+                                                    <Input
+                                                        placeholder="Buscar cliente..."
+                                                        value={clientSearch}
+                                                        onChange={(e) => setClientSearch(e.target.value)}
+                                                        className="my-4"
+                                                    />
+                                                    <ScrollArea className="h-72">
+                                                        <div className="space-y-1">
+                                                            {filteredClients.map((client) => (
+                                                                <div key={client.id} className="flex items-center space-x-2 rounded-md p-2 hover:bg-accent">
+                                                                    <Checkbox
+                                                                        id={`client-${client.id}`}
+                                                                        checked={field.value.includes(client.razonSocial)}
+                                                                        onCheckedChange={(checked) => {
+                                                                            const updatedValue = checked
+                                                                                ? [...field.value, client.razonSocial]
+                                                                                : field.value.filter(v => v !== client.razonSocial);
+                                                                            field.onChange(updatedValue);
+                                                                        }}
+                                                                    />
+                                                                    <Label htmlFor={`client-${client.id}`} className="w-full cursor-pointer">{client.razonSocial}</Label>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    </ScrollArea>
+                                                    <DialogFooter>
+                                                        <Button onClick={() => setClientDialogOpen(false)}>Cerrar</Button>
+                                                    </DialogFooter>
+                                                </DialogContent>
+                                            </Dialog>
                                         <FormMessage />
                                         </FormItem>
                                     )}
@@ -372,7 +411,14 @@ export default function StandardManagementComponent({ initialClients, initialSta
                     control={editForm.control}
                     name="clientName"
                     render={({ field }) => (
-                        <FormItem><FormLabel>Cliente</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{clientOptions.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Cliente</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}>
+                            <FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl>
+                            <SelectContent>
+                                {clientOptions.map(c => <SelectItem key={c.id} value={c.razonSocial}>{c.razonSocial}</SelectItem>)}
+                            </SelectContent>
+                        </Select>
+                        <FormMessage /></FormItem>
                     )}
                 />
                 <FormField
