@@ -1,6 +1,6 @@
 
 import { Suspense } from 'react';
-import StandardManagementComponent from './standard-management-component';
+import StandardManagementComponent from './StandardManagementComponent';
 import { getClients } from '@/app/actions/clients';
 import { getPerformanceStandards } from './actions';
 

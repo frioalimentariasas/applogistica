@@ -135,10 +135,12 @@ const getPerformanceIndicator = (row: CrewPerformanceReportRow): { text: string,
     if (duracionMinutos < standardTime) {
         return { text: 'Óptimo', color: 'text-green-600' };
     }
-    // si la operación es igual o mayor 10 minutos al estándar el indicador es Normal
+    
+    // si la operación es igual o hasta 10 minutos mayor al estándar el indicador es Normal
     if (duracionMinutos >= standardTime && duracionMinutos <= standardTime + 10) {
         return { text: 'Normal', color: 'text-yellow-600' };
     }
+
     // si es mayor pasado esos 10 min adicionales al estándar el indicador es lento
     return { text: 'Lento', color: 'text-red-600' };
 };
