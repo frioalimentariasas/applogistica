@@ -111,9 +111,12 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                  .where('createdAt', '<', endDateString);
 
     try {
-        const snapshot = await query.get();
+        const [snapshot, allStandards] = await Promise.all([
+            query.get(),
+            getPerformanceStandards() // Fetch all standards once
+        ]);
         
-        let results = await Promise.all(snapshot.docs.map(async (submissionDoc) => {
+        let results = snapshot.docs.map(submissionDoc => {
             const submission = {
                 id: submissionDoc.id,
                 ...serializeTimestamps(submissionDoc.data())
@@ -144,12 +147,12 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             const toneladas = kilos / 1000;
             const clientName = formData.nombreCliente || formData.cliente;
 
-            const standard = await findBestMatchingStandard({
+            const standard = findBestMatchingStandard({
               clientName: clientName,
               operationType: operationTypeForAction,
               productType: productTypeForAction,
               tons: toneladas
-            });
+            }, allStandards); // Pass the fetched standards to the matching function
             
             return {
                 id,
@@ -167,7 +170,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                 productType: productTypeForAction,
                 standard
             };
-        }));
+        });
 
         // Apply remaining filters in memory
         if (criteria.clientNames && criteria.clientNames.length > 0) {

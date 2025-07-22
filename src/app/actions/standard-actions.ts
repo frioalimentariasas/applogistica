@@ -81,7 +81,7 @@ export async function updatePerformanceStandard(id: string, data: Omit<Performan
 }
 
 // Action to delete one or more standards
-export async function deletePerformanceStandards(ids: string[]): Promise<{ success: boolean; message: string }> {
+export async function deleteMultipleStandards(ids: string[]): Promise<{ success: boolean; message: string }> {
   if (!firestore) return { success: false, message: 'Error de configuración del servidor.' };
   if (!ids || ids.length === 0) return { success: false, message: 'No se seleccionaron estándares para eliminar.' };
   
@@ -110,14 +110,12 @@ interface FindStandardCriteria {
     tons: number;
 }
 
-export async function findBestMatchingStandard(criteria: FindStandardCriteria): Promise<PerformanceStandard | null> {
+export function findBestMatchingStandard(criteria: FindStandardCriteria, allStandards: PerformanceStandard[]): PerformanceStandard | null {
     const { clientName, operationType, productType, tons } = criteria;
 
     if (!clientName || !operationType || !productType) {
         return null;
     }
-
-    const allStandards = await getPerformanceStandards();
 
     const potentialMatches = allStandards.filter(std => 
         tons >= std.minTons && tons <= std.maxTons
@@ -151,6 +149,16 @@ export async function findBestMatchingStandard(criteria: FindStandardCriteria): 
             return found;
         }
     }
+
+    // Fallback for partial client name match
+    const partialMatch = potentialMatches.find(std => 
+        clientName.includes(std.clientName) && 
+        (std.operationType === operationType || std.operationType === 'TODAS') &&
+        (std.productType === productType || std.productType === 'TODOS')
+    );
+
+    if(partialMatch) return partialMatch;
+
 
     return null; // No matching standard found
 }
