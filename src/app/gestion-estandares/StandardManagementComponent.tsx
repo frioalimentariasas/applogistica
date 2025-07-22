@@ -252,8 +252,8 @@ export default function StandardManagementComponent({ initialClients, initialSta
                                 )}
                             />
                             <div className="grid grid-cols-2 gap-4">
-                                <FormField control={form.control} name="minTons" render={({ field }) => (<FormItem><FormLabel>Min. Toneladas</FormLabel><FormControl><Input type="number" step="0.5" {...field} /></FormControl><FormMessage /></FormItem>)}/>
-                                <FormField control={form.control} name="maxTons" render={({ field }) => (<FormItem><FormLabel>Max. Toneladas</FormLabel><FormControl><Input type="number" step="0.5" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                                <FormField control={form.control} name="minTons" render={({ field }) => (<FormItem><FormLabel>Min. Toneladas</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                                <FormField control={form.control} name="maxTons" render={({ field }) => (<FormItem><FormLabel>Max. Toneladas</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
                             </div>
                             <FormField control={form.control} name="baseMinutes" render={({ field }) => (<FormItem><FormLabel>Minutos Base</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)}/>
                             <Button type="submit" disabled={isSubmitting} className="w-full">
@@ -346,8 +346,8 @@ export default function StandardManagementComponent({ initialClients, initialSta
                     )}
                 />
                 <div className="grid grid-cols-2 gap-4">
-                    <FormField control={editForm.control} name="minTons" render={({ field }) => (<FormItem><FormLabel>Min. Toneladas</FormLabel><FormControl><Input type="number" step="0.5" {...field} /></FormControl><FormMessage /></FormItem>)}/>
-                    <FormField control={editForm.control} name="maxTons" render={({ field }) => (<FormItem><FormLabel>Max. Toneladas</FormLabel><FormControl><Input type="number" step="0.5" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                    <FormField control={editForm.control} name="minTons" render={({ field }) => (<FormItem><FormLabel>Min. Toneladas</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                    <FormField control={editForm.control} name="maxTons" render={({ field }) => (<FormItem><FormLabel>Max. Toneladas</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
                 </div>
                 <FormField control={editForm.control} name="baseMinutes" render={({ field }) => (<FormItem><FormLabel>Minutos Base</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)}/>
               <DialogFooter>
