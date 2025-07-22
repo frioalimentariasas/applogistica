@@ -194,7 +194,7 @@ export default function StandardManagementComponent({ initialClients, initialSta
             <div>
               <div className="flex items-center justify-center gap-2">
                 <Settings className="h-8 w-8 text-primary" />
-                <h1 className="text-2xl font-bold text-primary">Gestión de Estándares</h1>
+                <h1 className="text-2xl font-bold text-primary">Gestión de Estándares de Productividad</h1>
               </div>
               <p className="text-sm text-gray-500">Defina los tiempos estándar para las operaciones de la cuadrilla.</p>
             </div>
@@ -204,7 +204,7 @@ export default function StandardManagementComponent({ initialClients, initialSta
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <Card className="lg:col-span-1">
                 <CardHeader>
-                    <CardTitle>Nuevo Estándar de Productividad</CardTitle>
+                    <CardTitle>Nuevo Estándar</CardTitle>
                     <CardDescription>Cree una nueva regla de tiempo para una operación.</CardDescription>
                 </CardHeader>
                 <CardContent>
