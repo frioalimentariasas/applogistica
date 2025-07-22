@@ -122,7 +122,7 @@ const formatDuration = (totalMinutes: number | null): string => {
 const getPerformanceIndicator = (row: CrewPerformanceReportRow): { text: string, color: string } => {
     const { duracionMinutos, kilos, standard } = row;
 
-    if (kilos === 0 || duracionMinutos === null || duracionMinutos === 0) {
+    if (kilos === 0 || duracionMinutos === null || duracionMinutos < 0) {
         return { text: 'No Calculado', color: 'text-gray-500' };
     }
     if (!standard) {
@@ -131,12 +131,15 @@ const getPerformanceIndicator = (row: CrewPerformanceReportRow): { text: string,
 
     const standardTime = standard.baseMinutes;
     
+    // si la duración de la operación es menor que el tiempo estándar el indicador es óptimo
     if (duracionMinutos < standardTime) {
         return { text: 'Óptimo', color: 'text-green-600' };
     }
+    // si la operación es igual o mayor 10 minutos al estándar el indicador es Normal
     if (duracionMinutos >= standardTime && duracionMinutos <= standardTime + 10) {
         return { text: 'Normal', color: 'text-yellow-600' };
     }
+    // si es mayor pasado esos 10 min adicionales al estándar el indicador es lento
     return { text: 'Lento', color: 'text-red-600' };
 };
 
