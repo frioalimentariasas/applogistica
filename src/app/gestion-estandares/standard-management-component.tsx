@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useMemo } from 'react';
-import { useForm, SubmitHandler } from 'react-hook-form';
+import { useForm, SubmitHandler, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useRouter } from 'next/navigation';
@@ -32,23 +32,30 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
 
+const rangeSchema = z.object({
+  minTons: z.coerce.number().min(0, "Debe ser 0 o mayor."),
+  maxTons: z.coerce.number().min(0.1, "Debe ser mayor que 0."),
+  baseMinutes: z.coerce.number().min(1, "Debe ser mayor a 0."),
+}).refine(data => data.maxTons > data.minTons, {
+    message: "Máx > Mín",
+    path: ["maxTons"],
+});
+
 const baseStandardSchema = z.object({
   description: z.string().min(3, "La descripción es requerida."),
   clientNames: z.array(z.string()).min(1, "Debe seleccionar al menos un cliente."),
+  ranges: z.array(rangeSchema).min(1, "Debe agregar al menos un rango de toneladas."),
+});
+
+const editBaseSchema = z.object({
+  description: z.string().min(3, "La descripción es requerida."),
+  clientName: z.string(),
   minTons: z.coerce.number().min(0, "Debe ser 0 o mayor."),
   maxTons: z.coerce.number().min(0.1, "Debe ser mayor que 0."),
   baseMinutes: z.coerce.number().min(1, "Debe ser mayor a 0."),
 });
 
-const standardSchema = baseStandardSchema.refine(data => data.maxTons > data.minTons, {
-    message: "Las toneladas máximas deben ser mayores que las mínimas.",
-    path: ["maxTons"],
-});
-
-
-const editStandardSchema = baseStandardSchema.omit({ clientNames: true }).extend({
-    clientName: z.string()
-}).refine(data => data.maxTons > data.minTons, {
+const editStandardSchema = editBaseSchema.refine(data => data.maxTons > data.minTons, {
     message: "Las toneladas máximas deben ser mayores que las mínimas.",
     path: ["maxTons"],
 });
@@ -84,7 +91,15 @@ export default function StandardManagementComponent({ initialStandards, clients 
   const clientOptions = [{ value: 'TODOS', label: 'TODOS (Estándar General)' }, ...clients.map(c => ({ value: c.razonSocial, label: c.razonSocial }))];
 
   const form = useForm<PerformanceStandardFormValues>({
-    resolver: zodResolver(standardSchema),
+    resolver: zodResolver(baseStandardSchema),
+    defaultValues: {
+      ranges: [{ minTons: 0, maxTons: 0, baseMinutes: 0 }]
+    }
+  });
+
+  const { fields, append, remove } = useFieldArray({
+      control: form.control,
+      name: "ranges"
   });
   
   const editForm = useForm<EditStandardFormValues>({
@@ -103,11 +118,9 @@ export default function StandardManagementComponent({ initialStandards, clients 
         });
     } else {
         form.reset({
-            description: '',
+            description: 'CARGUE Y/O DESCARGUE',
             clientNames: [],
-            minTons: 0,
-            maxTons: 0,
-            baseMinutes: 0
+            ranges: [{ minTons: 0, maxTons: 0, baseMinutes: 0 }]
       });
     }
     setIsDialogOpen(true);
@@ -273,13 +286,13 @@ export default function StandardManagementComponent({ initialStandards, clients 
         </Card>
 
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogContent>
+            <DialogContent className="sm:max-w-xl">
                 <DialogHeader>
                     <DialogTitle>{editingStandard ? 'Editar' : 'Crear'} Estándar de Productividad</DialogTitle>
                     <DialogDescription>
                         {editingStandard 
                           ? 'Modifique los detalles del estándar.' 
-                          : "Defina los criterios para este estándar. Puede seleccionar uno o varios clientes."
+                          : "Defina los criterios para este estándar. Puede seleccionar uno o varios clientes y agregar múltiples rangos de toneladas."
                         }
                     </DialogDescription>
                 </DialogHeader>
@@ -357,17 +370,42 @@ export default function StandardManagementComponent({ initialStandards, clients 
                             />
                         )}
                         
-                        <div className="grid grid-cols-3 gap-4">
-                           <FormField control={editingStandard ? editForm.control : form.control} name="minTons" render={({ field }) => (
-                                <FormItem><FormLabel>Min. Toneladas</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
-                            )}/>
-                             <FormField control={editingStandard ? editForm.control : form.control} name="maxTons" render={({ field }) => (
-                                <FormItem><FormLabel>Max. Toneladas</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
-                            )}/>
-                            <FormField control={editingStandard ? editForm.control : form.control} name="baseMinutes" render={({ field }) => (
-                                <FormItem><FormLabel>Minutos Base</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
-                            )}/>
-                        </div>
+                        {editingStandard ? (
+                            <div className="grid grid-cols-3 gap-4">
+                               <FormField control={editForm.control} name="minTons" render={({ field }) => (
+                                    <FormItem><FormLabel>Min. Toneladas</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                                )}/>
+                                 <FormField control={editForm.control} name="maxTons" render={({ field }) => (
+                                    <FormItem><FormLabel>Max. Toneladas</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                                )}/>
+                                <FormField control={editForm.control} name="baseMinutes" render={({ field }) => (
+                                    <FormItem><FormLabel>Minutos Base</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                                )}/>
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                <Label>Rangos de Toneladas y Tiempos</Label>
+                                {fields.map((field, index) => (
+                                    <div key={field.id} className="flex items-end gap-2">
+                                        <FormField control={form.control} name={`ranges.${index}.minTons`} render={({ field }) => (
+                                            <FormItem><FormLabel>Min</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                                        )}/>
+                                        <FormField control={form.control} name={`ranges.${index}.maxTons`} render={({ field }) => (
+                                            <FormItem><FormLabel>Max</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                                        )}/>
+                                        <FormField control={form.control} name={`ranges.${index}.baseMinutes`} render={({ field }) => (
+                                            <FormItem><FormLabel>Minutos</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>
+                                        )}/>
+                                        <Button type="button" variant="ghost" size="icon" className="shrink-0 text-destructive" onClick={() => remove(index)}><Trash2 className="h-4 w-4" /></Button>
+                                    </div>
+                                ))}
+                                <Button type="button" variant="outline" size="sm" onClick={() => append({ minTons: 0, maxTons: 0, baseMinutes: 0 })}>
+                                    <PlusCircle className="mr-2 h-4 w-4"/>
+                                    Agregar Rango
+                                </Button>
+                            </div>
+                        )}
+
                         <DialogFooter>
                             <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
                             <Button type="submit" disabled={isSubmitting}>

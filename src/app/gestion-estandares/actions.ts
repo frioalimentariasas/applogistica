@@ -18,12 +18,16 @@ export interface PerformanceStandard {
     baseMinutes: number; // Replaces minutesPerTon
 }
 
-export interface PerformanceStandardFormValues {
-    description: string;
-    clientNames: string[];
+export interface TonRange {
     minTons: number;
     maxTons: number;
     baseMinutes: number;
+}
+  
+export interface PerformanceStandardFormValues {
+    description: string;
+    clientNames: string[];
+    ranges: TonRange[];
 }
 
 
@@ -67,33 +71,29 @@ export async function getPerformanceStandards(): Promise<PerformanceStandard[]> 
 export async function addPerformanceStandard(data: PerformanceStandardFormValues): Promise<{ success: boolean; message: string; }> {
     if (!firestore) return { success: false, message: 'Error de configuración del servidor.' };
 
-    const { clientNames, minTons, maxTons, baseMinutes, description } = data;
+    const { clientNames, ranges, description } = data;
     
-    const errors: string[] = [];
-    if (!clientNames || clientNames.length === 0) errors.push('El campo de cliente(s) es obligatorio.');
-    if (typeof minTons !== 'number' || minTons < 0) errors.push('Las toneladas mínimas deben ser un número no negativo.');
-    if (typeof maxTons !== 'number' || maxTons <= 0) errors.push('Las toneladas máximas deben ser un número positivo.');
-    if (maxTons <= minTons) errors.push('Las toneladas máximas deben ser mayores que las mínimas.');
-    if (typeof baseMinutes !== 'number' || baseMinutes <= 0) errors.push('Los minutos base deben ser un número positivo.');
-    
-    if (errors.length > 0) {
-        return { success: false, message: errors.join(' ') };
-    }
+    // Basic validation
+    if (!clientNames || clientNames.length === 0) return { success: false, message: 'Debe seleccionar al menos un cliente.' };
+    if (!ranges || ranges.length === 0) return { success: false, message: 'Debe definir al menos un rango de toneladas.' };
+    if (!description) return { success: false, message: 'La descripción es obligatoria.' };
 
     try {
         const batch = firestore.batch();
         
         for (const client of clientNames) {
-            const newStandardData = {
-                description,
-                clientName: client,
-                operationType: 'TODAS', // Simplified as per new logic
-                minTons,
-                maxTons,
-                baseMinutes,
-            };
-            const docRef = firestore.collection('performance_standards').doc();
-            batch.set(docRef, newStandardData);
+            for (const range of ranges) {
+                 const newStandardData = {
+                    description,
+                    clientName: client,
+                    operationType: 'TODAS', // Simplified as per new logic
+                    minTons: range.minTons,
+                    maxTons: range.maxTons,
+                    baseMinutes: range.baseMinutes,
+                };
+                const docRef = firestore.collection('performance_standards').doc();
+                batch.set(docRef, newStandardData);
+            }
         }
 
         await batch.commit();
@@ -101,8 +101,7 @@ export async function addPerformanceStandard(data: PerformanceStandardFormValues
         revalidatePath('/gestion-estandares');
         revalidatePath('/crew-performance-report');
         
-        const successMessage = clientNames.length > 1 ? `Se crearon ${clientNames.length} estándares con éxito.` : 'Estándar creado con éxito.';
-        return { success: true, message: successMessage };
+        return { success: true, message: 'Estándar(es) creado(s) con éxito.' };
 
     } catch (error) {
         const errorMessage = error instanceof Error ? error.message : "Ocurrió un error desconocido.";
