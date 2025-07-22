@@ -112,6 +112,8 @@ export interface FindStandardCriteria {
 
 export async function findBestMatchingStandard(criteria: FindStandardCriteria): Promise<PerformanceStandard | null> {
     const { clientName, operationType, productType, tons } = criteria;
+    
+    // Always fetch the fresh list of standards from the database.
     const allStandards = await getPerformanceStandards();
 
     if (!clientName || !operationType || !productType || allStandards.length === 0) {
@@ -154,6 +156,7 @@ export async function findBestMatchingStandard(criteria: FindStandardCriteria): 
     // Fallback for partial client name match
     const partialMatch = potentialMatches.find(std => 
         clientName.includes(std.clientName) && 
+        std.clientName !== 'TODOS' && // Ensure we don't partially match 'TODOS'
         (std.operationType === operationType || std.operationType === 'TODAS') &&
         (std.productType === productType || std.productType === 'TODOS')
     );
