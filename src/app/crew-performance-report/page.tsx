@@ -139,18 +139,15 @@ const getPerformanceIndicator = (
   }
   
   const standardMinutes = standard.baseMinutes;
-  const lowerBound = standardMinutes * 0.9;
-  const upperBound = standardMinutes * 1.1;
+  const standardTooltip = `Estándar: "${standard.description}" (Tiempo Esperado: ${standard.baseMinutes} min).`;
 
-  const standardTooltip = `Estándar: "${standard.description}" (Tiempo Esperado: ${standard.baseMinutes} min para ${standard.minTons}-${standard.maxTons} ton).`;
-
-  if (duracionMinutos < lowerBound) {
-    return { status: 'Óptimo', color: 'text-green-600', tooltip: `Más rápido que el estándar. ${standardTooltip}` };
+  if (duracionMinutos <= standardMinutes) {
+    return { status: 'Óptimo', color: 'text-green-600', tooltip: `Dentro o mejor que el estándar. ${standardTooltip}` };
   }
-  if (duracionMinutos > upperBound) {
-    return { status: 'Lento', color: 'text-red-600', tooltip: `Más lento que el estándar. ${standardTooltip}` };
+  if (duracionMinutos <= standardMinutes + 10) {
+    return { status: 'Normal', color: 'text-yellow-600', tooltip: `Ligeramente por encima del estándar. ${standardTooltip}` };
   }
-  return { status: 'Normal', color: 'text-yellow-600', tooltip: `Dentro del estándar. ${standardTooltip}` };
+  return { status: 'Lento', color: 'text-red-600', tooltip: `Supera el estándar por más de 10 minutos. ${standardTooltip}` };
 };
 
 

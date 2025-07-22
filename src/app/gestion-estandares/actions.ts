@@ -200,41 +200,32 @@ export async function findBestMatchingStandard(
 ): Promise<PerformanceStandard | null> {
     if (!firestore) return null;
 
-    // Define the search criteria in order of priority
-    const searchPriorities = [
-        // 1. Most specific: Exact client and exact operation type
-        { clientName: clientName, operationType: operationType },
-        // 2. Less specific: General client ('TODOS') but exact operation type
-        { clientName: 'TODOS', operationType: operationType },
-        // 3. Less specific: Exact client but general operation type ('TODAS')
-        { clientName: clientName, operationType: 'TODAS' as const },
-        // 4. Most general: General client and general operation type
-        { clientName: 'TODOS', operationType: 'TODAS' as const },
+    // Get all standards once to filter in memory
+    const allStandards = await getPerformanceStandards();
+
+    const priorities = [
+      // 1. Most specific: Exact client and exact operation type
+      (s: PerformanceStandard) => s.clientName === clientName && s.operationType === operationType,
+      // 2. Less specific: General client ('TODOS') but exact operation type
+      (s: PerformanceStandard) => s.clientName === 'TODOS' && s.operationType === operationType,
+      // 3. Less specific: Exact client but general operation type ('TODAS')
+      (s: PerformanceStandard) => s.clientName === clientName && s.operationType === 'TODAS',
+      // 4. Most general: General client and general operation type
+      (s: PerformanceStandard) => s.clientName === 'TODOS' && s.operationType === 'TODAS',
     ];
 
-    for (const priority of searchPriorities) {
-        try {
-            const snapshot = await firestore.collection('performance_standards')
-                .where('clientName', '==', priority.clientName)
-                .where('operationType', '==', priority.operationType)
-                .get();
-
-            if (!snapshot.empty) {
-                const matches = snapshot.docs
-                    .map(doc => ({ id: doc.id, ...doc.data() } as PerformanceStandard))
-                    .filter(doc => tons >= doc.minTons && tons <= doc.maxTons);
-                
-                if (matches.length > 0) {
-                    // Sort by the narrowest range to be more specific in case of overlaps
-                    matches.sort((a,b) => (a.maxTons - a.minTons) - (b.maxTons - b.minTons));
-                    return matches[0]; // Return the best match for this priority level
-                }
-            }
-        } catch (error) {
-            console.error(`Error querying for standard with priority: ${JSON.stringify(priority)}`, error);
-        }
+    for (const filter of priorities) {
+      const potentialMatches = allStandards
+        .filter(filter)
+        .filter(s => tons >= s.minTons && tons <= s.maxTons);
+      
+      if (potentialMatches.length > 0) {
+        // Sort by the narrowest range to be more specific in case of overlaps
+        potentialMatches.sort((a, b) => (a.maxTons - a.minTons) - (b.maxTons - b.minTons));
+        return potentialMatches[0]; // Return the best match for this priority level
+      }
     }
-
+    
     // No standard found after checking all priorities.
     return null;
 }
