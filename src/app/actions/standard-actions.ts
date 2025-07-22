@@ -110,10 +110,11 @@ export interface FindStandardCriteria {
     tons: number;
 }
 
-export async function findBestMatchingStandard(criteria: FindStandardCriteria, allStandards: PerformanceStandard[]): Promise<PerformanceStandard | null> {
+export async function findBestMatchingStandard(criteria: FindStandardCriteria): Promise<PerformanceStandard | null> {
     const { clientName, operationType, productType, tons } = criteria;
+    const allStandards = await getPerformanceStandards();
 
-    if (!clientName || !operationType || !productType) {
+    if (!clientName || !operationType || !productType || allStandards.length === 0) {
         return null;
     }
 

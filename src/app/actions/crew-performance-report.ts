@@ -4,7 +4,7 @@
 import admin from 'firebase-admin';
 import { firestore } from '@/lib/firebase-admin';
 import { parse, differenceInMinutes, addDays } from 'date-fns';
-import { getPerformanceStandards, findBestMatchingStandard, type PerformanceStandard, type FindStandardCriteria } from '@/app/actions/standard-actions';
+import { findBestMatchingStandard, type PerformanceStandard } from '@/app/actions/standard-actions';
 
 
 const serializeTimestamps = (data: any): any => {
@@ -111,10 +111,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                  .where('createdAt', '<', endDateString);
 
     try {
-        const [snapshot, allStandards] = await Promise.all([
-            query.get(),
-            getPerformanceStandards() // Fetch all standards once
-        ]);
+        const snapshot = await query.get();
         
         const results = await Promise.all(snapshot.docs.map(async (submissionDoc) => {
             const submission = {
@@ -152,7 +149,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
               operationType: operationTypeForAction,
               productType: productTypeForAction,
               tons: toneladas
-            }, allStandards); // Pass the fetched standards to the matching function
+            }); 
             
             return {
                 id,
