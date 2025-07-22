@@ -392,14 +392,14 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 const productHead = [['Código', 'Descripción', 'No. Cajas', 'Total Paletas', 'Peso Neto (kg)', 'Temp(°C)']];
                 
                 const productBody = formData.productos.map((p: any) => {
-                    return [ p.codigo, p.descripcion, p.cajas, formatPaletas(p.totalPaletas ?? p.paletas), p.pesoNetoKg ? Number(p.pesoNetoKg).toFixed(2) : '0.00', p.temperatura ];
+                    return [ p.codigo, p.descripcion, p.cajas, formatPaletas(p.totalPaletas ?? p.paletas), p.pesoNetoKg && Number(p.pesoNetoKg) !== 0 ? Number(p.pesoNetoKg).toFixed(2) : '', p.temperatura ];
                 });
                 
                 const totalCajas = formData.productos.reduce((acc: any, p: any) => acc + (Number(p.cajas) || 0), 0);
                 const totalPaletas = formData.productos.reduce((acc: any, p: any) => acc + (Number(p.totalPaletas ?? p.paletas) || 0), 0);
                 const totalPesoNetoKg = formData.productos.reduce((acc: any, p: any) => acc + (Number(p.pesoNetoKg) || 0), 0);
 
-                const footRow = [{ content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }, totalCajas, formatPaletas(totalPaletas), totalPesoNetoKg.toFixed(2), ''];
+                const footRow = [{ content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }, totalCajas, formatPaletas(totalPaletas), totalPesoNetoKg > 0 ? totalPesoNetoKg.toFixed(2) : '', ''];
     
                 const productTableConfig: any = {
                     startY: yPos,
