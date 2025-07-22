@@ -286,7 +286,7 @@ export default function StandardManagementComponent({ initialStandards, clients 
         </Card>
 
         <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogContent className="sm:max-w-xl">
+            <DialogContent className="sm:max-w-xl grid-rows-[auto_1fr_auto]">
                 <DialogHeader>
                     <DialogTitle>{editingStandard ? 'Editar' : 'Crear'} Estándar de Productividad</DialogTitle>
                     <DialogDescription>
@@ -297,8 +297,8 @@ export default function StandardManagementComponent({ initialStandards, clients 
                     </DialogDescription>
                 </DialogHeader>
                  <Form {...(editingStandard ? editForm : form)}>
-                    <form onSubmit={editingStandard ? editForm.handleSubmit(onEditSubmit) : form.handleSubmit(onAddSubmit)}>
-                        <div className="p-1 space-y-4">
+                    <form id="standard-form" onSubmit={editingStandard ? editForm.handleSubmit(onEditSubmit) : form.handleSubmit(onAddSubmit)} className="overflow-y-auto max-h-[60vh] p-1 pr-4">
+                        <div className="space-y-4">
                             <FormField control={editingStandard ? editForm.control : form.control} name="description" render={({ field }) => (
                                 <FormItem><FormLabel>Descripción</FormLabel><FormControl><Input placeholder="Ej: Cargue/Descargue General" {...field} /></FormControl><FormMessage /></FormItem>
                             )}/>
@@ -385,8 +385,8 @@ export default function StandardManagementComponent({ initialStandards, clients 
                                 </div>
                             ) : (
                                 <div className="space-y-4">
-                                    <Label>Rangos de Toneladas y Tiempos</Label>
-                                    <ScrollArea className="max-h-[30vh] pr-4">
+                                    <div className="space-y-2">
+                                        <Label>Rangos de Toneladas y Tiempos</Label>
                                         <div className="space-y-4">
                                             {fields.map((field, index) => (
                                                 <div key={field.id} className="flex items-end gap-2">
@@ -403,7 +403,7 @@ export default function StandardManagementComponent({ initialStandards, clients 
                                                 </div>
                                             ))}
                                         </div>
-                                    </ScrollArea>
+                                    </div>
                                     <Button type="button" variant="outline" size="sm" onClick={() => append({ minTons: 0, maxTons: 0, baseMinutes: 0 })}>
                                         <PlusCircle className="mr-2 h-4 w-4"/>
                                         Agregar Rango
@@ -411,15 +411,15 @@ export default function StandardManagementComponent({ initialStandards, clients 
                                 </div>
                             )}
                         </div>
-                        <DialogFooter className="pt-4">
-                            <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
-                            <Button type="submit" disabled={isSubmitting}>
-                                {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
-                                Guardar Estándar
-                            </Button>
-                        </DialogFooter>
                     </form>
                 </Form>
+                 <DialogFooter className="pt-4">
+                    <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
+                    <Button type="submit" form="standard-form" disabled={isSubmitting}>
+                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                        Guardar Estándar
+                    </Button>
+                </DialogFooter>
             </DialogContent>
         </Dialog>
         
