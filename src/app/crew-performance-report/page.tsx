@@ -14,6 +14,7 @@ import * as XLSX from 'xlsx';
 import { getCrewPerformanceReport, type CrewPerformanceReportRow } from '@/app/actions/crew-performance-report';
 import { findBestMatchingStandard, type PerformanceStandard } from '@/app/gestion-estandares/actions';
 import { getAvailableOperarios } from '@/app/actions/performance-report';
+import { getClients, type ClientInfo } from '@/app/actions/clients';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 
@@ -24,9 +25,12 @@ import { Calendar } from '@/components/ui/calendar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, File, FileDown, FolderSearch, Users, ShieldAlert, TrendingUp, Circle, Settings } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
+import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, File, FileDown, FolderSearch, Users, ShieldAlert, TrendingUp, Circle, Settings, ChevronsUpDown } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Tooltip, TooltipProvider, TooltipTrigger, TooltipContent } from '@/components/ui/tooltip';
 
@@ -164,6 +168,12 @@ export default function CrewPerformanceReportPage() {
     const [operationType, setOperationType] = useState<string>('all');
     const [productType, setProductType] = useState<string>('all');
     
+    // New state for client filter
+    const [clients, setClients] = useState<ClientInfo[]>([]);
+    const [selectedClients, setSelectedClients] = useState<string[]>([]);
+    const [isClientDialogOpen, setClientDialogOpen] = useState(false);
+    const [clientSearch, setClientSearch] = useState('');
+
     const [reportData, setReportData] = useState<(CrewPerformanceReportRow & { standard: PerformanceStandard | null })[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isLoadingOperarios, setIsLoadingOperarios] = useState(false);
@@ -183,6 +193,25 @@ export default function CrewPerformanceReportPage() {
     const [logoBase64, setLogoBase64] = useState<string | null>(null);
     const [logoDimensions, setLogoDimensions] = useState<{ width: number, height: number } | null>(null);
     const [isLogoLoading, setIsLogoLoading] = useState(true);
+    
+    const filteredClients = useMemo(() => {
+        if (!clientSearch) return clients;
+        return clients.filter(c => c.razonSocial.toLowerCase().includes(clientSearch.toLowerCase()));
+    }, [clientSearch, clients]);
+
+    useEffect(() => {
+        const fetchInitialData = async () => {
+             const [operarios, clientList] = await Promise.all([
+                 getAvailableOperarios(format(dateRange?.from || today, 'yyyy-MM-dd'), format(dateRange?.to || today, 'yyyy-MM-dd')),
+                 getClients()
+             ]);
+             setAvailableOperarios(operarios);
+             setClients(clientList);
+        };
+        if (dateRange?.from && dateRange?.to) {
+            fetchInitialData();
+        }
+    }, [dateRange]);
 
     useEffect(() => {
         const fetchLogo = async () => {
@@ -203,27 +232,6 @@ export default function CrewPerformanceReportPage() {
         };
         fetchLogo();
     }, []);
-
-    useEffect(() => {
-        const fetchOperarios = async () => {
-            if (dateRange?.from && dateRange?.to) {
-                setIsLoadingOperarios(true);
-                try {
-                    const startDate = format(dateRange.from, 'yyyy-MM-dd');
-                    const endDate = format(dateRange.to, 'yyyy-MM-dd');
-                    const operarios = await getAvailableOperarios(startDate, endDate);
-                    setAvailableOperarios(operarios);
-                } catch (error) {
-                     toast({ variant: 'destructive', title: 'Error', description: 'No se pudo cargar la lista de operarios.' });
-                } finally {
-                    setIsLoadingOperarios(false);
-                }
-            } else {
-                setAvailableOperarios([]);
-            }
-        };
-        fetchOperarios();
-    }, [dateRange, toast]);
 
     const handleSearch = useCallback(async () => {
         if (!dateRange || !dateRange.from || !dateRange.to) {
@@ -247,6 +255,7 @@ export default function CrewPerformanceReportPage() {
                 operario: selectedOperario === 'all' ? undefined : selectedOperario,
                 operationType: operationType === 'all' ? undefined : operationType as 'recepcion' | 'despacho',
                 productType: productType === 'all' ? undefined : productType as 'fijo' | 'variable',
+                clientNames: selectedClients.length > 0 ? selectedClients : undefined,
             };
 
             const results = await getCrewPerformanceReport(criteria);
@@ -285,13 +294,14 @@ export default function CrewPerformanceReportPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [dateRange, selectedOperario, operationType, productType, toast]);
+    }, [dateRange, selectedOperario, operationType, productType, selectedClients, toast]);
     
     const handleClear = () => {
         setDateRange(undefined);
         setSelectedOperario('all');
         setOperationType('all');
         setProductType('all');
+        setSelectedClients([]);
         setReportData([]);
         setSearched(false);
         setCurrentPage(1);
@@ -300,6 +310,13 @@ export default function CrewPerformanceReportPage() {
     const totalDuration = useMemo(() => reportData.reduce((acc, row) => acc + (row.duracionMinutos || 0), 0), [reportData]);
     const totalToneladas = useMemo(() => reportData.reduce((acc, row) => acc + (row.kilos || 0), 0) / 1000, [reportData]);
     
+    const getSelectedClientsText = () => {
+        if (selectedClients.length === 0) return "Todos los clientes...";
+        if (selectedClients.length === clients.length) return "Todos los clientes seleccionados";
+        if (selectedClients.length === 1) return selectedClients[0];
+        return `${selectedClients.length} clientes seleccionados`;
+    };
+
     const handleExportExcel = () => {
         if (reportData.length === 0) return;
 
@@ -462,7 +479,7 @@ export default function CrewPerformanceReportPage() {
                         </div>
                     </CardHeader>
                     <CardContent>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 items-end">
                              <div className="space-y-2">
                                 <Label>Rango de Fechas</Label>
                                 <Popover>
@@ -476,6 +493,61 @@ export default function CrewPerformanceReportPage() {
                                         <Calendar initialFocus mode="range" defaultMonth={dateRange?.from} selected={dateRange} onSelect={setDateRange} numberOfMonths={2} locale={es} disabled={{ after: today, before: sixtyTwoDaysAgo }} />
                                     </PopoverContent>
                                 </Popover>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Cliente(s)</Label>
+                                <Dialog open={isClientDialogOpen} onOpenChange={setClientDialogOpen}>
+                                    <DialogTrigger asChild>
+                                        <Button variant="outline" className="w-full justify-between text-left font-normal">
+                                            <span className="truncate">{getSelectedClientsText()}</span>
+                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                        </Button>
+                                    </DialogTrigger>
+                                    <DialogContent>
+                                        <DialogHeader>
+                                            <DialogTitle>Seleccionar Cliente(s)</DialogTitle>
+                                        </DialogHeader>
+                                        <Input
+                                            placeholder="Buscar cliente..."
+                                            value={clientSearch}
+                                            onChange={(e) => setClientSearch(e.target.value)}
+                                            className="my-4"
+                                        />
+                                        <ScrollArea className="h-72">
+                                            <div className="space-y-1">
+                                                <div className="flex items-center space-x-2 rounded-md p-2 hover:bg-accent border-b">
+                                                    <Checkbox
+                                                        id="select-all-clients"
+                                                        checked={selectedClients.length === clients.length}
+                                                        onCheckedChange={(checked) => {
+                                                            setSelectedClients(checked ? clients.map(c => c.razonSocial) : []);
+                                                        }}
+                                                    />
+                                                    <Label htmlFor="select-all-clients" className="w-full cursor-pointer font-semibold">Seleccionar Todos</Label>
+                                                </div>
+                                                {filteredClients.map((client) => (
+                                                    <div key={client.id} className="flex items-center space-x-2 rounded-md p-2 hover:bg-accent">
+                                                        <Checkbox
+                                                            id={`client-${client.id}`}
+                                                            checked={selectedClients.includes(client.razonSocial)}
+                                                            onCheckedChange={(checked) => {
+                                                                setSelectedClients(prev =>
+                                                                    checked
+                                                                        ? [...prev, client.razonSocial]
+                                                                        : prev.filter(s => s !== client.razonSocial)
+                                                                )
+                                                            }}
+                                                        />
+                                                        <Label htmlFor={`client-${client.id}`} className="w-full cursor-pointer">{client.razonSocial}</Label>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </ScrollArea>
+                                        <DialogFooter>
+                                            <Button onClick={() => setClientDialogOpen(false)}>Cerrar</Button>
+                                        </DialogFooter>
+                                    </DialogContent>
+                                </Dialog>
                             </div>
                              <div className="space-y-2">
                                 <Label>Operario Responsable</Label>
@@ -509,7 +581,7 @@ export default function CrewPerformanceReportPage() {
                                     </SelectContent>
                                 </Select>
                             </div>
-                            <div className="flex gap-2">
+                            <div className="flex gap-2 xl:col-start-4">
                                 <Button onClick={handleSearch} className="w-full" disabled={isLoading}>
                                     {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
                                     Generar
@@ -618,4 +690,3 @@ export default function CrewPerformanceReportPage() {
         </div>
     );
 }
-

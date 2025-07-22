@@ -66,6 +66,7 @@ export interface CrewPerformanceReportCriteria {
     operario?: string;
     operationType?: 'recepcion' | 'despacho';
     productType?: 'fijo' | 'variable';
+    clientNames?: string[];
 }
 
 export interface CrewPerformanceReportRow {
@@ -150,7 +151,10 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             };
         });
 
-        // Filter by product and operation type in memory
+        // Apply remaining filters in memory
+        if (criteria.clientNames && criteria.clientNames.length > 0) {
+            results = results.filter(row => criteria.clientNames!.includes(row.cliente));
+        }
         if (criteria.productType) {
             results = results.filter(row => {
                 if (criteria.productType === 'fijo') return row.formType.includes('fixed-weight');
