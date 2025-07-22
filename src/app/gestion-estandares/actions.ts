@@ -99,3 +99,5 @@ export async function deleteMultipleStandards(ids: string[]): Promise<{ success:
     return { success: false, message: 'Ocurrió un error en el servidor.' };
   }
 }
+
+    
