@@ -132,85 +132,87 @@ export default function Home() {
             </div>
         )}
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
+        <div className="space-y-8">
             {permissions.canGenerateForms && (
-                <Card className="flex flex-col">
-                    <CardHeader>
-                        <CardTitle className="text-xl">Control de Operaciones Logísticas</CardTitle>
-                    </CardHeader>
-                    <CardContent className="flex-grow flex flex-col justify-between">
-                        <form onSubmit={handleSubmit} className="space-y-6">
-                            <fieldset>
-                                <legend className="text-base font-semibold text-gray-900 mb-4">Tipo de Operación</legend>
-                                <RadioGroup value={operationType} onValueChange={setOperationType} className="grid grid-cols-2 gap-4">
-                                    <Label htmlFor="recepcion" className={`flex cursor-pointer items-center space-x-3 rounded-md border bg-white p-4 transition-colors ${operationType === 'recepcion' ? 'border-primary ring-2 ring-primary' : 'border-gray-200'}`}>
-                                        <RadioGroupItem value="recepcion" id="recepcion" />
-                                        <ArrowDownCircle className="h-5 w-5 text-gray-600" />
-                                        <span className="font-medium">Recepción</span>
-                                    </Label>
-                                    <Label htmlFor="despacho" className={`flex cursor-pointer items-center space-x-3 rounded-md border bg-white p-4 transition-colors ${operationType === 'despacho' ? 'border-primary ring-2 ring-primary' : 'border-gray-200'}`}>
-                                        <RadioGroupItem value="despacho" id="despacho" />
-                                        <ArrowUpCircle className="h-5 w-5 text-gray-600" />
-                                        <span className="font-medium">Despacho</span>
-                                    </Label>
-                                </RadioGroup>
-                            </fieldset>
-                            
-                            <fieldset>
-                                <legend className="text-base font-semibold text-gray-900 mb-4">Tipo de Producto</legend>
-                                <RadioGroup value={productType} onValueChange={setProductType} className="grid grid-cols-2 gap-4">
-                                    <Label htmlFor="fijo" className={`flex cursor-pointer items-center space-x-3 rounded-md border bg-white p-4 transition-colors ${productType === 'fijo' ? 'border-primary ring-2 ring-primary' : 'border-gray-200'}`}>
-                                        <RadioGroupItem value="fijo" id="fijo" />
-                                        <Box className="h-5 w-5 text-gray-600" />
-                                        <span className="font-medium">Peso Fijo</span>
-                                    </Label>
-                                    <Label htmlFor="variable" className={`flex cursor-pointer items-center space-x-3 rounded-md border bg-white p-4 transition-colors ${productType === 'variable' ? 'border-primary ring-2 ring-primary' : 'border-gray-200'}`}>
-                                        <RadioGroupItem value="variable" id="variable" />
-                                        <Boxes className="h-5 w-5 text-gray-600" />
-                                        <span className="font-medium">Peso Variable</span>
-                                    </Label>
-                                </RadioGroup>
-                            </fieldset>
+                <div>
+                    <Card className="flex flex-col">
+                        <CardHeader>
+                            <CardTitle className="text-xl">Control de Operaciones Logísticas</CardTitle>
+                        </CardHeader>
+                        <CardContent className="flex-grow flex flex-col justify-between">
+                            <form onSubmit={handleSubmit} className="space-y-6">
+                                <fieldset>
+                                    <legend className="text-base font-semibold text-gray-900 mb-4">Tipo de Operación</legend>
+                                    <RadioGroup value={operationType} onValueChange={setOperationType} className="grid grid-cols-2 gap-4">
+                                        <Label htmlFor="recepcion" className={`flex cursor-pointer items-center space-x-3 rounded-md border bg-white p-4 transition-colors ${operationType === 'recepcion' ? 'border-primary ring-2 ring-primary' : 'border-gray-200'}`}>
+                                            <RadioGroupItem value="recepcion" id="recepcion" />
+                                            <ArrowDownCircle className="h-5 w-5 text-gray-600" />
+                                            <span className="font-medium">Recepción</span>
+                                        </Label>
+                                        <Label htmlFor="despacho" className={`flex cursor-pointer items-center space-x-3 rounded-md border bg-white p-4 transition-colors ${operationType === 'despacho' ? 'border-primary ring-2 ring-primary' : 'border-gray-200'}`}>
+                                            <RadioGroupItem value="despacho" id="despacho" />
+                                            <ArrowUpCircle className="h-5 w-5 text-gray-600" />
+                                            <span className="font-medium">Despacho</span>
+                                        </Label>
+                                    </RadioGroup>
+                                </fieldset>
+                                
+                                <fieldset>
+                                    <legend className="text-base font-semibold text-gray-900 mb-4">Tipo de Producto</legend>
+                                    <RadioGroup value={productType} onValueChange={setProductType} className="grid grid-cols-2 gap-4">
+                                        <Label htmlFor="fijo" className={`flex cursor-pointer items-center space-x-3 rounded-md border bg-white p-4 transition-colors ${productType === 'fijo' ? 'border-primary ring-2 ring-primary' : 'border-gray-200'}`}>
+                                            <RadioGroupItem value="fijo" id="fijo" />
+                                            <Box className="h-5 w-5 text-gray-600" />
+                                            <span className="font-medium">Peso Fijo</span>
+                                        </Label>
+                                        <Label htmlFor="variable" className={`flex cursor-pointer items-center space-x-3 rounded-md border bg-white p-4 transition-colors ${productType === 'variable' ? 'border-primary ring-2 ring-primary' : 'border-gray-200'}`}>
+                                            <RadioGroupItem value="variable" id="variable" />
+                                            <Boxes className="h-5 w-5 text-gray-600" />
+                                            <span className="font-medium">Peso Variable</span>
+                                        </Label>
+                                    </RadioGroup>
+                                </fieldset>
 
-                            <Button type="submit" size="lg" className="w-full h-12 text-base" disabled={!operationType || !productType}>
-                                <FileText className="mr-2 h-5 w-5" />
-                                Generar Formato
-                            </Button>
-                        </form>
-                    </CardContent>
-                </Card>
+                                <Button type="submit" size="lg" className="w-full h-12 text-base" disabled={!operationType || !productType}>
+                                    <FileText className="mr-2 h-5 w-5" />
+                                    Generar Formato
+                                </Button>
+                            </form>
+                        </CardContent>
+                    </Card>
+                </div>
             )}
 
-            <div className={cn(!permissions.canGenerateForms && "md:col-span-2 flex justify-center")}>
-              {availableMenuItems.length > 0 && (
-                  <Card className={cn("w-full", !permissions.canGenerateForms && "max-w-lg")}>
-                      <CardHeader>
-                          <CardTitle className="text-xl">Consultas y Herramientas</CardTitle>
-                      </CardHeader>
-                      <CardContent>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                              {availableMenuItems.map((item) => (
-                                  <button
-                                      key={item.href}
-                                      onClick={() => router.push(item.href)}
-                                      className="group text-left p-4 rounded-lg border bg-card hover:bg-primary/5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary"
-                                  >
-                                      <div className="flex items-center justify-between">
-                                          <div className="flex items-center gap-3">
-                                              <div className="bg-primary/10 p-2 rounded-full">
-                                                  <item.icon className="h-6 w-6 text-primary" />
-                                              </div>
-                                              <span className="font-semibold text-card-foreground">{item.label}</span>
-                                          </div>
-                                          <ArrowRight className="h-5 w-5 text-muted-foreground opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-200" />
-                                      </div>
-                                  </button>
-                              ))}
-                          </div>
-                      </CardContent>
-                  </Card>
-              )}
-            </div>
+            {availableMenuItems.length > 0 && (
+                <div>
+                    <Card className="w-full">
+                        <CardHeader>
+                            <CardTitle className="text-xl">Consultas y Herramientas</CardTitle>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                                {availableMenuItems.map((item) => (
+                                    <button
+                                        key={item.href}
+                                        onClick={() => router.push(item.href)}
+                                        className="group text-left p-4 rounded-lg border bg-card hover:bg-primary/5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary"
+                                    >
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <div className="bg-primary/10 p-2 rounded-full">
+                                                    <item.icon className="h-6 w-6 text-primary" />
+                                                </div>
+                                                <span className="font-semibold text-card-foreground">{item.label}</span>
+                                            </div>
+                                            <ArrowRight className="h-5 w-5 text-muted-foreground opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-200" />
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
+                        </CardContent>
+                    </Card>
+                </div>
+            )}
         </div>
 
         <div className="pt-4 max-w-xl mx-auto">
