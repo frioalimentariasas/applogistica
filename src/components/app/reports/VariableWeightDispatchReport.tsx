@@ -154,7 +154,14 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                         <tr>
                             <td style={fieldCellStyle}><ReportField label={`Hora Inicio ${operationTerm}`} value={formatTime12Hour(formData.horaInicio)} /></td>
                             <td style={fieldCellStyle}><ReportField label={`Hora Fin ${operationTerm}`} value={formatTime12Hour(formData.horaFin)} /></td>
-                            <td style={fieldCellStyle}><ReportField label="Tipo Pedido" value={formatTipoPedido(formData.tipoPedido)} /></td>
+                            <td style={fieldCellStyle}>
+                                <ReportField label="Tipo Pedido" value={formatTipoPedido(formData.tipoPedido)} />
+                                {formData.tipoPedido === 'MAQUILA' && (
+                                    <div style={{ marginLeft: '8px', fontSize: '10px' }}>
+                                         ↳ <ReportField label="Tipo Empaque" value={formData.tipoEmpaqueMaquila} />
+                                    </div>
+                                )}
+                            </td>
                         </tr>
                     </tbody>
                 </table>
@@ -306,7 +313,14 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                         <tr>
                             <td style={{...fieldCellStyle, width: '33.33%'}}><ReportField label="Coordinador" value={formData.coordinador} /></td>
                             <td style={{...fieldCellStyle, width: '33.33%'}}><ReportField label="Operario" value={userDisplayName} /></td>
-                            <td style={{...fieldCellStyle, width: '33.33%'}}><ReportField label="Operación Realizada por Cuadrilla" value={formData.aplicaCuadrilla ? formData.aplicaCuadrilla.charAt(0).toUpperCase() + formData.aplicaCuadrilla.slice(1) : 'N/A'} /></td>
+                            <td style={{...fieldCellStyle, width: '33.33%'}}>
+                                <ReportField label="Operación Realizada por Cuadrilla" value={formData.aplicaCuadrilla ? formData.aplicaCuadrilla.charAt(0).toUpperCase() + formData.aplicaCuadrilla.slice(1) : 'N/A'} />
+                                {formData.aplicaCuadrilla === 'si' && formData.tipoPedido === 'MAQUILA' && formData.numeroOperariosCuadrilla && (
+                                    <div style={{ marginLeft: '8px', fontSize: '10px' }}>
+                                        ↳ No. Operarios: {formData.numeroOperariosCuadrilla}
+                                    </div>
+                                )}
+                            </td>
                         </tr>
                     </tbody>
                 </table>

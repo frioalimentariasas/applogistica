@@ -140,7 +140,7 @@ const formSchema = z.object({
   coordinador: z.string().min(1, "Seleccione un coordinador."),
   aplicaCuadrilla: z.enum(["si", "no"], { required_error: "Seleccione una opción para 'Operación Realizada por Cuadrilla'." }),
   operarioResponsable: z.string().optional(), // For admin editing
-  tipoPedido: z.enum(['GENERICO', 'MAQUILA', 'TUNEL', 'INGRESO DE SALDO', 'DESPACHO GENERICO']).optional(),
+  tipoPedido: z.enum(['GENERICO', 'MAQUILA', 'TUNEL', 'INGRESO DE SALDO']).optional(),
   tipoEmpaqueMaquila: z.enum(['EMPAQUE DE SACOS', 'EMPAQUE DE CAJAS']).optional(),
   numeroOperariosCuadrilla: z.coerce.number().int().min(1, "Debe ser al menos 1.").optional(),
   unidadDeMedidaPrincipal: z.string().optional(),
@@ -150,25 +150,21 @@ const formSchema = z.object({
     message: "La hora de fin no puede ser igual a la hora de inicio.",
     path: ["horaFin"],
 }).refine(data => {
-    const isReception = window.location.search.includes('operation=recepcion');
-    if (!isReception) return true;
     if (!data.tipoPedido) {
-        return false; // This makes tipoPedido required for reception
+        return false;
     }
     return true;
 }, {
     message: "El tipo de pedido es obligatorio.",
     path: ['tipoPedido'],
 }).refine(data => {
-    const isReception = window.location.search.includes('operation=recepcion');
-    if (!isReception || data.tipoPedido !== 'MAQUILA') return true;
+    if (data.tipoPedido !== 'MAQUILA') return true;
     return !!data.tipoEmpaqueMaquila;
 }, {
     message: "El tipo de empaque es obligatorio para maquila.",
     path: ['tipoEmpaqueMaquila'],
 }).refine(data => {
-    const isReception = window.location.search.includes('operation=recepcion');
-    if (!isReception || data.aplicaCuadrilla !== 'si' || data.tipoPedido !== 'MAQUILA') return true;
+    if (data.aplicaCuadrilla !== 'si' || data.tipoPedido !== 'MAQUILA') return true;
     return data.numeroOperariosCuadrilla !== undefined && data.numeroOperariosCuadrilla > 0;
 }, {
     message: "El número de operarios es obligatorio.",
@@ -993,7 +989,7 @@ export default function FixedWeightFormComponent() {
                       )}
                     />
 
-                    {operation === 'recepcion' && (
+                    {operation === 'recepcion' ? (
                         <>
                             <FormField
                                 control={form.control}
@@ -1042,8 +1038,7 @@ export default function FixedWeightFormComponent() {
                                 />
                             )}
                         </>
-                    )}
-                    {operation === 'despacho' && (
+                    ) : (
                          <FormField
                             control={form.control}
                             name="tipoPedido"
@@ -1058,12 +1053,36 @@ export default function FixedWeightFormComponent() {
                                 </FormControl>
                                 <SelectContent>
                                     <SelectItem value="GENERICO">GENERICO</SelectItem>
+                                    <SelectItem value="MAQUILA">MAQUILA</SelectItem>
                                     <SelectItem value="TUNEL">TUNEL</SelectItem>
                                 </SelectContent>
                                 </Select>
                                 <FormMessage />
                             </FormItem>
                             )}
+                        />
+                    )}
+                     {operation === 'despacho' && watchedTipoPedido === 'MAQUILA' && (
+                        <FormField
+                        control={form.control}
+                        name="tipoEmpaqueMaquila"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Tipo de Empaque (Maquila)</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Seleccione tipo de empaque" />
+                                </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                <SelectItem value="EMPAQUE DE SACOS">EMPAQUE DE SACOS</SelectItem>
+                                <SelectItem value="EMPAQUE DE CAJAS">EMPAQUE DE CAJAS</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                            </FormItem>
+                        )}
                         />
                     )}
                 </div>
@@ -1389,7 +1408,7 @@ export default function FixedWeightFormComponent() {
                                 <FormItem className="space-y-3"><FormLabel>Operación Realizada por Cuadrilla</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-2"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="cuadrilla-si" /><Label htmlFor="cuadrilla-si">Sí</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="cuadrilla-no" /><Label htmlFor="cuadrilla-no">No</Label></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>
                             )}
                         />
-                        {operation === 'recepcion' && watchedAplicaCuadrilla === 'si' && watchedTipoPedido === 'MAQUILA' && (
+                        {watchedAplicaCuadrilla === 'si' && watchedTipoPedido === 'MAQUILA' && (
                             <FormField
                                 control={form.control}
                                 name="numeroOperariosCuadrilla"
