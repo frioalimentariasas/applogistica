@@ -307,7 +307,7 @@ export default function CrewPerformanceReportPage() {
     const performanceSummary = useMemo(() => {
         if (reportData.length === 0) return null;
 
-        const summary = {
+        const summary: Record<string, { count: number }> = {
             'Óptimo': { count: 0 },
             'Normal': { count: 0 },
             'Lento': { count: 0 },
@@ -366,7 +366,7 @@ export default function CrewPerformanceReportPage() {
         const worksheet = XLSX.utils.json_to_sheet(dataToExport, { origin: 'A1' });
 
         const totalRow = [
-            null, null, null, null, null, 'TOTALES:', totalToneladas, null, null, formatDuration(totalDuration), null
+            null, null, null, null, null, 'TOTALES:', totalToneladas.toFixed(2), null, null, formatDuration(totalDuration), null
         ];
         XLSX.utils.sheet_add_aoa(worksheet, [totalRow], { origin: -1 });
 

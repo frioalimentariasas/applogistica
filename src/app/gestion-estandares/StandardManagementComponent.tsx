@@ -14,7 +14,7 @@ import { addPerformanceStandard, updatePerformanceStandard, deleteMultipleStanda
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Loader2, PlusCircle, Edit, Trash2, ChevronsUpDown, ShieldAlert, Settings } from 'lucide-react';
+import { ArrowLeft, Loader2, PlusCircle, Edit, Trash2, ChevronsUpDown, ShieldAlert, Settings, Search } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -48,6 +48,7 @@ const standardSchema = z.object({
   clientNames: z.array(z.string()).min(1, { message: 'Debe seleccionar al menos un cliente.' }),
   operationType: z.enum(['recepcion', 'despacho', 'TODAS'], { required_error: 'Debe seleccionar un tipo de operación.' }),
   productType: z.enum(['fijo', 'variable', 'TODOS'], { required_error: 'Debe seleccionar un tipo de producto.' }),
+  description: z.string().min(3, { message: "La descripción es requerida (mín. 3 caracteres)."}),
   ranges: z.array(tonnageRangeSchema).min(1, 'Debe agregar al menos un rango.'),
 });
 
@@ -57,6 +58,7 @@ const editStandardSchema = z.object({
   clientName: z.string().min(1, { message: 'Debe seleccionar un cliente o "TODOS".' }),
   operationType: z.enum(['recepcion', 'despacho', 'TODAS'], { required_error: 'Debe seleccionar un tipo de operación.' }),
   productType: z.enum(['fijo', 'variable', 'TODOS'], { required_error: 'Debe seleccionar un tipo de producto.' }),
+  description: z.string().min(3, { message: "La descripción es requerida (mín. 3 caracteres)."}),
   minTons: z.coerce.number({invalid_type_error: "Debe ser un número"}).min(0, "Debe ser 0 o mayor."),
   maxTons: z.coerce.number({invalid_type_error: "Debe ser un número"}).min(0, "Debe ser 0 o mayor."),
   baseMinutes: z.coerce.number({invalid_type_error: "Debe ser un número"}).int().min(1, "Debe ser al menos 1."),
@@ -71,6 +73,7 @@ const bulkEditSchema = z.object({
     clientName: z.string().optional(),
     operationType: z.enum(['recepcion', 'despacho', 'TODAS']).optional(),
     productType: z.enum(['fijo', 'variable', 'TODOS']).optional(),
+    description: z.string().optional(),
     baseMinutes: z.coerce.number().int().min(1, "Debe ser al menos 1.").optional(),
 });
 
@@ -94,6 +97,10 @@ export default function StandardManagementComponent({ initialClients, initialSta
   const { permissions, loading: authLoading } = useAuth();
   
   const [standards, setStandards] = useState<PerformanceStandard[]>(initialStandards);
+  const [filteredStandards, setFilteredStandards] = useState<PerformanceStandard[]>(initialStandards);
+  const [clientFilter, setClientFilter] = useState('');
+  const [descriptionFilter, setDescriptionFilter] = useState('');
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [standardToEdit, setStandardToEdit] = useState<PerformanceStandard | null>(null);
@@ -115,6 +122,7 @@ export default function StandardManagementComponent({ initialClients, initialSta
       clientNames: [],
       operationType: 'TODAS',
       productType: 'TODOS',
+      description: '',
       ranges: [{ minTons: 0, maxTons: 0, baseMinutes: 0 }]
     },
   });
@@ -134,6 +142,7 @@ export default function StandardManagementComponent({ initialClients, initialSta
           clientName: undefined,
           operationType: undefined,
           productType: undefined,
+          description: undefined,
           baseMinutes: undefined
       }
   });
@@ -148,6 +157,15 @@ export default function StandardManagementComponent({ initialClients, initialSta
     return clientOptions.filter(c => c.razonSocial.toLowerCase().includes(clientSearch.toLowerCase()));
   }, [clientSearch, clientOptions]);
 
+  useEffect(() => {
+    const results = standards.filter(s => {
+        const clientMatch = clientFilter ? s.clientName.toLowerCase().includes(clientFilter.toLowerCase()) : true;
+        const descriptionMatch = descriptionFilter ? s.description.toLowerCase().includes(descriptionFilter.toLowerCase()) : true;
+        return clientMatch && descriptionMatch;
+    });
+    setFilteredStandards(results);
+  }, [clientFilter, descriptionFilter, standards]);
+
 
   const onAddSubmit: SubmitHandler<StandardFormValues> = async (data) => {
     setIsSubmitting(true);
@@ -159,6 +177,7 @@ export default function StandardManagementComponent({ initialClients, initialSta
         clientNames: [],
         operationType: 'TODAS',
         productType: 'TODOS',
+        description: '',
         ranges: [{ minTons: 0, maxTons: 0, baseMinutes: 0 }]
       });
       remove(0); 
@@ -190,6 +209,7 @@ export default function StandardManagementComponent({ initialClients, initialSta
         if (data.clientName) updateData.clientName = data.clientName;
         if (data.operationType) updateData.operationType = data.operationType;
         if (data.productType) updateData.productType = data.productType;
+        if (data.description) updateData.description = data.description;
         if (data.baseMinutes !== undefined && !isNaN(data.baseMinutes)) {
             updateData.baseMinutes = data.baseMinutes;
         }
@@ -240,13 +260,13 @@ export default function StandardManagementComponent({ initialClients, initialSta
   };
 
   const isAllSelected = useMemo(() => {
-    if (standards.length === 0) return false;
-    return standards.every(s => selectedIds.has(s.id));
-  }, [selectedIds, standards]);
+    if (filteredStandards.length === 0) return false;
+    return filteredStandards.every(s => selectedIds.has(s.id));
+  }, [selectedIds, filteredStandards]);
   
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedIds(new Set(standards.map(s => s.id)));
+      setSelectedIds(new Set(filteredStandards.map(s => s.id)));
     } else {
       setSelectedIds(new Set());
     }
@@ -302,7 +322,7 @@ export default function StandardManagementComponent({ initialClients, initialSta
                 <CardContent>
                     <Form {...form}>
                         <form onSubmit={form.handleSubmit(onAddSubmit)} className="space-y-6">
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                                 <FormField
                                     control={form.control}
                                     name="clientNames"
@@ -329,17 +349,28 @@ export default function StandardManagementComponent({ initialClients, initialSta
                                                     />
                                                     <ScrollArea className="h-72">
                                                         <div className="space-y-1">
-                                                            {filteredClients.map((client) => (
+                                                             <div className="flex items-center space-x-2 rounded-md p-2 hover:bg-accent">
+                                                                <Checkbox
+                                                                id="select-all-add"
+                                                                checked={field.value.includes('TODOS (Cualquier Cliente)')}
+                                                                onCheckedChange={(checked) => {
+                                                                    field.onChange(checked ? ['TODOS (Cualquier Cliente)'] : []);
+                                                                }}
+                                                                />
+                                                                <Label htmlFor="select-all-add" className="w-full cursor-pointer font-semibold">TODOS (Cualquier Cliente)</Label>
+                                                            </div>
+                                                            {initialClients.map((client) => (
                                                                 <div key={client.id} className="flex items-center space-x-2 rounded-md p-2 hover:bg-accent">
                                                                     <Checkbox
                                                                         id={`client-${client.id}`}
                                                                         checked={field.value.includes(client.razonSocial)}
                                                                         onCheckedChange={(checked) => {
                                                                             const updatedValue = checked
-                                                                                ? [...field.value, client.razonSocial]
+                                                                                ? [...field.value.filter(v => v !== 'TODOS (Cualquier Cliente)'), client.razonSocial]
                                                                                 : field.value.filter(v => v !== client.razonSocial);
                                                                             field.onChange(updatedValue);
                                                                         }}
+                                                                         disabled={field.value.includes('TODOS (Cualquier Cliente)')}
                                                                     />
                                                                     <Label htmlFor={`client-${client.id}`} className="w-full cursor-pointer">{client.razonSocial}</Label>
                                                                 </div>
@@ -367,6 +398,13 @@ export default function StandardManagementComponent({ initialClients, initialSta
                                     name="productType"
                                     render={({ field }) => (
                                         <FormItem><FormLabel>Tipo de Producto</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODOS">TODOS (Cualquier Producto)</SelectItem><SelectItem value="fijo">Peso Fijo</SelectItem><SelectItem value="variable">Peso Variable</SelectItem></SelectContent></Select><FormMessage /></FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="description"
+                                    render={({ field }) => (
+                                        <FormItem><FormLabel>Descripción</FormLabel><FormControl><Input placeholder="Ej: Cargue de pollo entero" {...field} /></FormControl><FormMessage /></FormItem>
                                     )}
                                 />
                             </div>
@@ -419,6 +457,10 @@ export default function StandardManagementComponent({ initialClients, initialSta
                     </div>
                 </CardHeader>
                 <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                        <Input placeholder="Filtrar por cliente..." value={clientFilter} onChange={(e) => setClientFilter(e.target.value)} />
+                        <Input placeholder="Filtrar por descripción..." value={descriptionFilter} onChange={(e) => setDescriptionFilter(e.target.value)} />
+                    </div>
                     <div className="rounded-md border">
                         <ScrollArea className="h-[500px]">
                             <Table>
@@ -426,6 +468,7 @@ export default function StandardManagementComponent({ initialClients, initialSta
                                     <TableRow>
                                         <TableHead className="w-12"><Checkbox checked={isAllSelected} onCheckedChange={(checked) => handleSelectAll(checked === true)} /></TableHead>
                                         <TableHead>Cliente</TableHead>
+                                        <TableHead>Descripción</TableHead>
                                         <TableHead>Tipo Op.</TableHead>
                                         <TableHead>Tipo Prod.</TableHead>
                                         <TableHead>Rango Ton.</TableHead>
@@ -434,11 +477,12 @@ export default function StandardManagementComponent({ initialClients, initialSta
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {standards.length > 0 ? (
-                                        standards.map((s) => (
+                                    {filteredStandards.length > 0 ? (
+                                        filteredStandards.map((s) => (
                                         <TableRow key={s.id} data-state={selectedIds.has(s.id) && "selected"}>
                                             <TableCell><Checkbox checked={selectedIds.has(s.id)} onCheckedChange={(checked) => handleRowSelect(s.id, checked === true)} /></TableCell>
                                             <TableCell>{s.clientName}</TableCell>
+                                            <TableCell className='max-w-[200px] truncate' title={s.description}>{s.description}</TableCell>
                                             <TableCell className='capitalize'>{s.operationType}</TableCell>
                                             <TableCell className='capitalize'>{s.productType}</TableCell>
                                             <TableCell>{s.minTons} - {s.maxTons}</TableCell>
@@ -449,7 +493,7 @@ export default function StandardManagementComponent({ initialClients, initialSta
                                         </TableRow>
                                         ))
                                     ) : (
-                                        <TableRow><TableCell colSpan={7} className="h-24 text-center">No hay estándares definidos.</TableCell></TableRow>
+                                        <TableRow><TableCell colSpan={8} className="h-24 text-center">No hay estándares que coincidan con los filtros.</TableCell></TableRow>
                                     )}
                                 </TableBody>
                             </Table>
@@ -478,6 +522,13 @@ export default function StandardManagementComponent({ initialClients, initialSta
                             </SelectContent>
                         </Select>
                         <FormMessage /></FormItem>
+                    )}
+                />
+                <FormField
+                    control={editForm.control}
+                    name="description"
+                    render={({ field }) => (
+                        <FormItem><FormLabel>Descripción</FormLabel><FormControl><Input placeholder="Ej: Cargue de pollo entero" {...field} /></FormControl><FormMessage /></FormItem>
                     )}
                 />
                 <FormField
@@ -525,6 +576,9 @@ export default function StandardManagementComponent({ initialClients, initialSta
                                     <SelectContent>{clientOptions.map(c => <SelectItem key={c.id} value={c.razonSocial}>{c.razonSocial}</SelectItem>)}</SelectContent>
                                 </Select>
                             <FormMessage /></FormItem>
+                        )}/>
+                        <FormField control={bulkEditForm.control} name="description" render={({ field }) => (
+                            <FormItem><FormLabel>Descripción</FormLabel><FormControl><Input placeholder="No cambiar" {...field} /></FormControl><FormMessage /></FormItem>
                         )}/>
                         <FormField control={bulkEditForm.control} name="operationType" render={({ field }) => (
                             <FormItem><FormLabel>Tipo de Operación</FormLabel>
