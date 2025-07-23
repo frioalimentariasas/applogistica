@@ -1473,13 +1473,13 @@ export default function VariableWeightReceptionFormComponent() {
                 <Card>
                   <CardHeader><CardTitle>Responsables de la Operación</CardTitle></CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-center">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-10 gap-4 items-center">
                         <FormField control={form.control} name="coordinador" render={({ field }) => (
-                            <FormItem><FormLabel>Coordinador Responsable</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                            <FormItem className="lg:col-span-2"><FormLabel>Coordinador Responsable</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                         )}/>
                         {submissionId && isAdmin ? (
                              <FormField control={form.control} name="operarioResponsable" render={({ field }) => (
-                                <FormItem>
+                                <FormItem className="lg:col-span-2">
                                     <FormLabel>Operario Responsable</FormLabel>
                                     <Select onValueChange={field.onChange} value={field.value}>
                                         <FormControl><SelectTrigger><SelectValue placeholder="Seleccione un operario" /></SelectTrigger></FormControl>
@@ -1491,7 +1491,7 @@ export default function VariableWeightReceptionFormComponent() {
                                 </FormItem>
                             )}/>
                         ) : (
-                            <FormItem>
+                            <FormItem className="lg:col-span-2">
                                 <FormLabel>Operario Responsable</FormLabel>
                                 <FormControl><Input disabled value={submissionId ? originalSubmission?.userDisplayName : displayName || ''} /></FormControl>
                             </FormItem>
@@ -1500,7 +1500,9 @@ export default function VariableWeightReceptionFormComponent() {
                             control={form.control}
                             name="aplicaCuadrilla"
                             render={({ field }) => (
-                                <FormItem className="space-y-3"><FormLabel>Operación Realizada por Cuadrilla</FormLabel><FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-2"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="cuadrilla-si" /><Label htmlFor="cuadrilla-si">Sí</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="cuadrilla-no" /><Label htmlFor="cuadrilla-no">No</Label></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>
+                                <FormItem className="space-y-1 lg:col-span-4">
+                                    <FormLabel>Operación Realizada por Cuadrilla</FormLabel>
+                                    <FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-2"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="cuadrilla-si" /><Label htmlFor="cuadrilla-si">Sí</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="cuadrilla-no" /><Label htmlFor="cuadrilla-no">No</Label></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>
                             )}
                         />
                         {watchedAplicaCuadrilla === 'si' && watchedTipoPedido === 'MAQUILA' && (
@@ -1508,7 +1510,7 @@ export default function VariableWeightReceptionFormComponent() {
                                 control={form.control}
                                 name="numeroOperariosCuadrilla"
                                 render={({ field }) => (
-                                    <FormItem>
+                                    <FormItem className="lg:col-span-2">
                                     <FormLabel>No. de Operarios de Cuadrilla</FormLabel>
                                     <FormControl>
                                         <Input

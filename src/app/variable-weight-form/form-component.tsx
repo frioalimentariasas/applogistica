@@ -1632,7 +1632,7 @@ export default function VariableWeightFormComponent() {
              <Card>
                 <CardHeader><CardTitle>Responsables de la Operación</CardTitle></CardHeader>
                 <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-center">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-10 gap-4 items-center">
                         <FormField control={form.control} name="coordinador" render={({ field }) => (
                             <FormItem className="lg:col-span-2"><FormLabel>Coordinador Responsable</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                         )}/>
@@ -1659,7 +1659,7 @@ export default function VariableWeightFormComponent() {
                             control={form.control}
                             name="aplicaCuadrilla"
                             render={({ field }) => (
-                                <FormItem className="space-y-3 lg:col-span-2">
+                                <FormItem className="space-y-1 lg:col-span-4">
                                     <FormLabel>Operación Realizada por Cuadrilla</FormLabel>
                                     <FormControl>
                                         <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-2">
@@ -1676,7 +1676,7 @@ export default function VariableWeightFormComponent() {
                                 control={form.control}
                                 name="numeroOperariosCuadrilla"
                                 render={({ field }) => (
-                                    <FormItem>
+                                    <FormItem className="lg:col-span-2">
                                     <FormLabel>No. de Operarios</FormLabel>
                                     <FormControl>
                                         <Input
