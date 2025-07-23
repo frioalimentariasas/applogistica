@@ -138,6 +138,7 @@ export interface FindStandardCriteria {
 
 export async function findBestMatchingStandard(criteria: FindStandardCriteria): Promise<PerformanceStandard | null> {
     const { clientName, operationType, productType } = criteria;
+    const tons = criteria.tons;
     
     // Always fetch the fresh list of standards from the database.
     const allStandards = await getPerformanceStandards();
@@ -148,7 +149,6 @@ export async function findBestMatchingStandard(criteria: FindStandardCriteria): 
     
     // Use a small epsilon for floating point comparisons to avoid precision issues.
     const epsilon = 0.0001;
-    const tons = criteria.tons;
 
     const potentialMatches = allStandards.filter(std => {
         const min = std.minTons;
@@ -188,3 +188,4 @@ export async function findBestMatchingStandard(criteria: FindStandardCriteria): 
 
     return null; // No matching standard found
 }
+
