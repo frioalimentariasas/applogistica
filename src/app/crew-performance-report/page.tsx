@@ -536,10 +536,10 @@ export default function CrewPerformanceReportPage() {
                         </Button>
                         <div>
                             <div className="flex items-center justify-center gap-2">
-                                <Users className="h-8 w-8 text-primary" />
-                                <h1 className="text-2xl font-bold text-primary">Gestión de Desempeño Cuadrilla</h1>
+                                <TrendingUp className="h-8 w-8 text-primary" />
+                                <h1 className="text-2xl font-bold text-primary">Indicadores y Liquidación Cuadrilla</h1>
                             </div>
-                             <p className="text-sm text-gray-500">Analice los kilos movilizados y tiempos por operación de cuadrillas.</p>
+                             <p className="text-sm text-gray-500">Analice los indicadores de rendimiento y liquide las operaciones de cuadrilla.</p>
                         </div>
                     </div>
                 </header>
@@ -762,3 +762,5 @@ export default function CrewPerformanceReportPage() {
         </div>
     );
 }
+
+    
