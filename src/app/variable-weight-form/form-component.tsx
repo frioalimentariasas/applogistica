@@ -1235,14 +1235,7 @@ export default function VariableWeightFormComponent() {
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Fecha</FormLabel>
-                            {submissionId && !isAdmin ? (
-                              <FormControl>
-                                <Input
-                                  disabled
-                                  value={field.value ? format(field.value, "dd/MM/yyyy") : ""}
-                                />
-                              </FormControl>
-                            ) : (
+                            {isAdmin ? (
                               <Popover>
                                 <PopoverTrigger asChild>
                                   <FormControl>
@@ -1271,6 +1264,13 @@ export default function VariableWeightFormComponent() {
                                   />
                                 </PopoverContent>
                               </Popover>
+                            ) : (
+                              <FormControl>
+                                <Input
+                                  disabled
+                                  value={field.value ? format(field.value, "dd/MM/yyyy") : ""}
+                                />
+                              </FormControl>
                             )}
                             <FormMessage />
                           </FormItem>
