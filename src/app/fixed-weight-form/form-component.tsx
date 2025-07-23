@@ -1272,6 +1272,8 @@ export default function FixedWeightFormComponent() {
                        const selectedObservation = watchedObservations?.[index];
                        const stdObsData = standardObservations.find(obs => obs.name === selectedObservation?.type);
                        const isOtherType = selectedObservation?.type === 'OTRAS OBSERVACIONES';
+                       const isRestibado = selectedObservation?.type === 'RESTIBADO';
+                       
                        return (
                         <div key={field.id} className="p-4 border rounded-lg relative bg-white space-y-4">
                             <Button
@@ -1336,25 +1338,27 @@ export default function FixedWeightFormComponent() {
                                             </FormItem>
                                         )}
                                     />
-                                    <FormField
-                                        control={form.control}
-                                        name={`observaciones.${index}.executedByGrupoRosales`}
-                                        render={({ field }) => (
-                                            <FormItem className="flex flex-row items-end space-x-2 pb-2">
-                                                <FormControl>
-                                                    <Checkbox
-                                                        checked={field.value}
-                                                        onCheckedChange={field.onChange}
-                                                    />
-                                                </FormControl>
-                                                <div className="space-y-1 leading-none">
-                                                    <FormLabel>
-                                                        Ejecutado por Grupo Rosales
-                                                    </FormLabel>
-                                                </div>
-                                            </FormItem>
-                                        )}
-                                    />
+                                    {isRestibado && (
+                                        <FormField
+                                            control={form.control}
+                                            name={`observaciones.${index}.executedByGrupoRosales`}
+                                            render={({ field }) => (
+                                                <FormItem className="flex flex-row items-end space-x-2 pb-2">
+                                                    <FormControl>
+                                                        <Checkbox
+                                                            checked={field.value}
+                                                            onCheckedChange={field.onChange}
+                                                        />
+                                                    </FormControl>
+                                                    <div className="space-y-1 leading-none">
+                                                        <FormLabel className="uppercase">
+                                                            EJECUTADO POR CUADRILLA
+                                                        </FormLabel>
+                                                    </div>
+                                                </FormItem>
+                                            )}
+                                        />
+                                    )}
                                 </>
                                 )}
                             </div>

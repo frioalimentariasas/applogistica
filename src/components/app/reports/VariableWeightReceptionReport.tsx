@@ -233,13 +233,14 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                                 <tr style={{ borderBottom: '1px solid #aaa' }}>
                                     <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Tipo</th>
                                     <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Cantidad</th>
-                                    <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Ejecutado por Grupo Rosales</th>
+                                    <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold', textTransform: 'uppercase' }}>Ejecutado por Cuadrilla</th>
                                 </tr>
                             </thead>
                         )}
                         <tbody>
                             {formData.observaciones.map((obs: any, i: number) => {
                                 const isOther = obs.type === 'OTRAS OBSERVACIONES';
+                                const isRestibado = obs.type === 'RESTIBADO';
                                 return (
                                 <tr key={i} style={{ borderBottom: '1px solid #ddd' }}>
                                     {isOther ? (
@@ -255,7 +256,7 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                                                 {`${obs.quantity ?? ''} ${obs.quantityType || ''}`.trim()}
                                             </td>
                                             <td style={{ padding: '4px' }}>
-                                                {obs.executedByGrupoRosales ? 'Sí' : 'No'}
+                                                {isRestibado ? (obs.executedByGrupoRosales ? 'Sí' : 'No') : ''}
                                             </td>
                                         </>
                                     )}
