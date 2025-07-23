@@ -304,6 +304,45 @@ export default function CrewPerformanceReportPage() {
         return `${selectedClients.length} clientes seleccionados`;
     };
 
+    const performanceSummary = useMemo(() => {
+        if (reportData.length === 0) return null;
+
+        const summary = {
+            'Óptimo': { count: 0 },
+            'Normal': { count: 0 },
+            'Lento': { count: 0 },
+            'N/A': { count: 0 },
+            'No Calculado': { count: 0 },
+        };
+
+        reportData.forEach(row => {
+            const indicator = getPerformanceIndicator(row).text;
+            if (indicator in summary) {
+                summary[indicator as keyof typeof summary].count++;
+            }
+        });
+        
+        const totalOperations = reportData.length;
+        const optimoPercent = (summary['Óptimo'].count / totalOperations) * 100;
+        const normalPercent = (summary['Normal'].count / totalOperations) * 100;
+        const lentoPercent = (summary['Lento'].count / totalOperations) * 100;
+
+        let qualification = 'Regular';
+        if (optimoPercent >= 80) {
+            qualification = 'Excelente';
+        } else if ((optimoPercent + normalPercent) >= 80) {
+            qualification = 'Bueno';
+        } else if (lentoPercent > 20) {
+            qualification = 'Necesita Mejora';
+        }
+
+        return {
+            summary,
+            totalOperations,
+            qualification
+        };
+    }, [reportData]);
+
     const handleExportExcel = () => {
         if (reportData.length === 0) return;
 
@@ -324,21 +363,33 @@ export default function CrewPerformanceReportPage() {
             }
         });
 
-        const totalRow = {
-            'Fecha': '',
-            'Operario Responsable': '',
-            'Cliente': '',
-            'Tipo Operación': '',
-            'Tipo Producto': '',
-            'Pedido SISLOG': 'TOTALES:',
-            'Toneladas': totalToneladas,
-            'Hora Inicio': '',
-            'Hora Fin': '',
-            'Duración': formatDuration(totalDuration),
-            'Indicador': ''
-        };
+        const worksheet = XLSX.utils.json_to_sheet(dataToExport, { origin: 'A1' });
 
-        const worksheet = XLSX.utils.json_to_sheet([...dataToExport, totalRow]);
+        const totalRow = [
+            null, null, null, null, null, 'TOTALES:', totalToneladas, null, null, formatDuration(totalDuration), null
+        ];
+        XLSX.utils.sheet_add_aoa(worksheet, [totalRow], { origin: -1 });
+
+        // Add summary section
+        if (performanceSummary) {
+            const summaryHeader = [['Resumen de Rendimiento']];
+            const summaryTableHeaders = [['Indicador', 'Total Operaciones', 'Porcentaje (%)']];
+            const summaryData = Object.entries(performanceSummary.summary).map(([key, value]) => [
+                key,
+                value.count,
+                (value.count / performanceSummary.totalOperations * 100).toFixed(2) + '%'
+            ]);
+            const qualificationRow = [['Calificación General de Rendimiento:', performanceSummary.qualification]];
+            
+            XLSX.utils.sheet_add_aoa(worksheet, [[]], { origin: -1 }); // Spacer
+            XLSX.utils.sheet_add_aoa(worksheet, summaryHeader, { origin: -1 });
+            XLSX.utils.sheet_add_aoa(worksheet, summaryTableHeaders, { origin: -1 });
+            XLSX.utils.sheet_add_aoa(worksheet, summaryData, { origin: -1 });
+            XLSX.utils.sheet_add_aoa(worksheet, [[]], { origin: -1 }); // Spacer
+            XLSX.utils.sheet_add_aoa(worksheet, qualificationRow, { origin: -1 });
+        }
+
+
         const workbook = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(workbook, worksheet, 'Desempeño Cuadrilla');
         const fileName = `Reporte_Desempeño_Cuadrilla_${format(dateRange!.from!, 'yyyy-MM-dd')}_a_${format(dateRange!.to!, 'yyyy-MM-dd')}.xlsx`;
@@ -366,9 +417,11 @@ export default function CrewPerformanceReportPage() {
         doc.setFontSize(9);
         doc.setFont('helvetica', 'normal');
         doc.text(`Periodo: ${format(dateRange!.from!, 'dd/MM/yyyy')} - ${format(dateRange!.to!, 'dd/MM/yyyy')}`, 14, titleY + 10);
+        
+        const mainTableStartY = titleY + 15;
 
         autoTable(doc, {
-            startY: titleY + 15,
+            startY: mainTableStartY,
             head: [['Fecha', 'Operario', 'Cliente', 'Tipo Op.', 'Tipo Prod.', 'Pedido', 'Toneladas', 'Duración', 'Indicador']],
             body: reportData.map(row => {
                 const indicator = getPerformanceIndicator(row);
@@ -396,6 +449,39 @@ export default function CrewPerformanceReportPage() {
             theme: 'grid',
             styles: { fontSize: 7, cellPadding: 1.5 },
         });
+
+        if (performanceSummary) {
+            const finalY = (doc as any).lastAutoTable.finalY + 15;
+            
+            autoTable(doc, {
+                startY: finalY,
+                head: [[{content: 'Resumen de Rendimiento', styles: { halign: 'center' }}]],
+                body: [],
+                theme: 'grid',
+                headStyles: { fillColor: [33, 150, 243] },
+            });
+            
+            autoTable(doc, {
+                 startY: (doc as any).lastAutoTable.finalY,
+                 head: [['Indicador', 'Total Operaciones', 'Porcentaje (%)']],
+                 body: Object.entries(performanceSummary.summary).map(([key, value]) => [
+                    key,
+                    value.count,
+                    (value.count / performanceSummary.totalOperations * 100).toFixed(2) + ' %'
+                 ]),
+                 theme: 'grid',
+            });
+            
+            autoTable(doc, {
+                startY: (doc as any).lastAutoTable.finalY + 5,
+                body: [[
+                    { content: 'Calificación General de Rendimiento:', styles: { fontStyle: 'bold' } },
+                    { content: performanceSummary.qualification, styles: { fontStyle: 'bold' } }
+                ]],
+                theme: 'plain'
+            });
+        }
+
 
         const fileName = `Reporte_Desempeño_Cuadrilla_${format(dateRange!.from!, 'yyyy-MM-dd')}_a_${format(dateRange!.to!, 'yyyy-MM-dd')}.pdf`;
         doc.save(fileName);
@@ -666,4 +752,3 @@ export default function CrewPerformanceReportPage() {
         </div>
     );
 }
-
