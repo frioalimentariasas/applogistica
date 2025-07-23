@@ -145,13 +145,8 @@ const getPerformanceIndicator = (row: CrewPerformanceReportRow): { text: string,
     return { text: 'Lento', color: 'text-red-600' };
 };
 
-const formatTons = (kilos: number): number | string => {
-    const tons = kilos / 1000;
-    // Check if the number has significant decimals
-    if (tons % 1 === 0 || (tons * 100) % 1 === 0) {
-        return Number(tons.toFixed(0));
-    }
-    return Number(tons.toFixed(2));
+const formatTons = (kilos: number): number => {
+    return Number((kilos / 1000).toFixed(2));
 };
 
 export default function CrewPerformanceReportPage() {
@@ -293,9 +288,13 @@ export default function CrewPerformanceReportPage() {
         setSearched(false);
         setCurrentPage(1);
     };
+    
+    const dataForExport = useMemo(() => {
+        return reportData.filter(row => getPerformanceIndicator(row).text !== 'N/A');
+    }, [reportData]);
 
-    const totalDuration = useMemo(() => reportData.reduce((acc, row) => acc + (row.duracionMinutos || 0), 0), [reportData]);
-    const totalToneladas = useMemo(() => reportData.reduce((acc, row) => acc + (row.kilos || 0), 0) / 1000, [reportData]);
+    const totalDuration = useMemo(() => dataForExport.reduce((acc, row) => acc + (row.duracionMinutos || 0), 0), [dataForExport]);
+    const totalToneladas = useMemo(() => dataForExport.reduce((acc, row) => acc + (row.kilos || 0), 0) / 1000, [dataForExport]);
     
     const getSelectedClientsText = () => {
         if (selectedClients.length === 0) return "Todos los clientes...";
@@ -305,27 +304,34 @@ export default function CrewPerformanceReportPage() {
     };
 
     const performanceSummary = useMemo(() => {
-        if (reportData.length === 0) return null;
+        if (dataForExport.length === 0) return null;
 
         const summary: Record<string, { count: number }> = {
             'Óptimo': { count: 0 },
             'Normal': { count: 0 },
             'Lento': { count: 0 },
-            'N/A': { count: 0 },
             'No Calculado': { count: 0 },
         };
 
-        reportData.forEach(row => {
+        dataForExport.forEach(row => {
             const indicator = getPerformanceIndicator(row).text;
-            if (indicator in summary) {
+             if (indicator in summary) {
                 summary[indicator as keyof typeof summary].count++;
             }
         });
         
-        const totalOperations = reportData.length;
-        const optimoPercent = (summary['Óptimo'].count / totalOperations) * 100;
-        const normalPercent = (summary['Normal'].count / totalOperations) * 100;
-        const lentoPercent = (summary['Lento'].count / totalOperations) * 100;
+        const totalEvaluableOperations = dataForExport.filter(r => getPerformanceIndicator(r).text !== 'No Calculado').length;
+        if (totalEvaluableOperations === 0) {
+             return {
+                summary,
+                totalOperations: dataForExport.length,
+                qualification: "No Calculable"
+            };
+        }
+
+        const optimoPercent = (summary['Óptimo'].count / totalEvaluableOperations) * 100;
+        const normalPercent = (summary['Normal'].count / totalEvaluableOperations) * 100;
+        const lentoPercent = (summary['Lento'].count / totalEvaluableOperations) * 100;
 
         let qualification = 'Regular';
         if (optimoPercent >= 80) {
@@ -338,15 +344,15 @@ export default function CrewPerformanceReportPage() {
 
         return {
             summary,
-            totalOperations,
+            totalOperations: dataForExport.length,
             qualification
         };
-    }, [reportData]);
+    }, [dataForExport]);
 
     const handleExportExcel = () => {
-        if (reportData.length === 0) return;
+        if (dataForExport.length === 0) return;
 
-        const dataToExport = reportData.map(row => {
+        const dataToSheet = dataForExport.map(row => {
             const indicator = getPerformanceIndicator(row);
             return {
                 'Fecha': format(new Date(row.fecha), 'dd/MM/yyyy'),
@@ -363,7 +369,7 @@ export default function CrewPerformanceReportPage() {
             }
         });
 
-        const worksheet = XLSX.utils.json_to_sheet(dataToExport, { origin: 'A1' });
+        const worksheet = XLSX.utils.json_to_sheet(dataToSheet, { origin: 'A1' });
 
         const totalRow = [
             null, null, null, null, null, 'TOTALES:', totalToneladas.toFixed(2), null, null, formatDuration(totalDuration), null
@@ -374,11 +380,14 @@ export default function CrewPerformanceReportPage() {
         if (performanceSummary) {
             const summaryHeader = [['Resumen de Rendimiento']];
             const summaryTableHeaders = [['Indicador', 'Total Operaciones', 'Porcentaje (%)']];
-            const summaryData = Object.entries(performanceSummary.summary).map(([key, value]) => [
-                key,
-                value.count,
-                (value.count / performanceSummary.totalOperations * 100).toFixed(2) + '%'
-            ]);
+            const evaluableOps = dataForExport.filter(r => getPerformanceIndicator(r).text !== 'No Calculado').length;
+
+            const summaryData = Object.entries(performanceSummary.summary).map(([key, value]) => {
+                if (key === 'No Calculado') return [key, value.count, 'N/A'];
+                const percentage = evaluableOps > 0 ? (value.count / evaluableOps * 100).toFixed(2) + '%' : '0.00%';
+                return [key, value.count, percentage];
+            });
+
             const qualificationRow = [['Calificación General de Rendimiento:', performanceSummary.qualification]];
             
             XLSX.utils.sheet_add_aoa(worksheet, [[]], { origin: -1 }); // Spacer
@@ -397,7 +406,7 @@ export default function CrewPerformanceReportPage() {
     };
 
     const handleExportPDF = async () => {
-        if (reportData.length === 0 || !logoBase64 || !logoDimensions) return;
+        if (dataForExport.length === 0 || !logoBase64 || !logoDimensions) return;
         
         const doc = new jsPDF({ orientation: 'landscape' });
         const pageWidth = doc.internal.pageSize.getWidth();
@@ -423,7 +432,7 @@ export default function CrewPerformanceReportPage() {
         autoTable(doc, {
             startY: mainTableStartY,
             head: [['Fecha', 'Operario', 'Cliente', 'Tipo Op.', 'Tipo Prod.', 'Pedido', 'Toneladas', 'Duración', 'Indicador']],
-            body: reportData.map(row => {
+            body: dataForExport.map(row => {
                 const indicator = getPerformanceIndicator(row);
                 return [
                 format(new Date(row.fecha), 'dd/MM/yy'),
@@ -461,14 +470,16 @@ export default function CrewPerformanceReportPage() {
                 headStyles: { fillColor: [33, 150, 243] },
             });
             
+            const evaluableOps = dataForExport.filter(r => getPerformanceIndicator(r).text !== 'No Calculado').length;
+            
             autoTable(doc, {
                  startY: (doc as any).lastAutoTable.finalY,
                  head: [['Indicador', 'Total Operaciones', 'Porcentaje (%)']],
-                 body: Object.entries(performanceSummary.summary).map(([key, value]) => [
-                    key,
-                    value.count,
-                    (value.count / performanceSummary.totalOperations * 100).toFixed(2) + ' %'
-                 ]),
+                 body: Object.entries(performanceSummary.summary).map(([key, value]) => {
+                    if (key === 'No Calculado') return [key, value.count, 'N/A'];
+                    const percentage = evaluableOps > 0 ? (value.count / evaluableOps * 100).toFixed(2) + '%' : '0.00%';
+                    return [key, value.count, percentage];
+                 }),
                  theme: 'grid',
             });
             
@@ -676,8 +687,8 @@ export default function CrewPerformanceReportPage() {
                                 </CardDescription>
                             </div>
                             <div className="flex gap-2">
-                                <Button onClick={handleExportExcel} disabled={isLoading || reportData.length === 0} variant="outline"><File className="mr-2 h-4 w-4" /> Exportar a Excel</Button>
-                                <Button onClick={handleExportPDF} disabled={isLoading || reportData.length === 0 || isLogoLoading} variant="outline">{isLogoLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />} Exportar a PDF</Button>
+                                <Button onClick={handleExportExcel} disabled={isLoading || dataForExport.length === 0} variant="outline"><File className="mr-2 h-4 w-4" /> Exportar a Excel</Button>
+                                <Button onClick={handleExportPDF} disabled={isLoading || dataForExport.length === 0 || isLogoLoading} variant="outline">{isLogoLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />} Exportar a PDF</Button>
                             </div>
                         </div>
                     </CardHeader>
