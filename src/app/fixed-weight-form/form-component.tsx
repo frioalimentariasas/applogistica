@@ -265,6 +265,8 @@ export default function FixedWeightFormComponent() {
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: originalDefaultValues,
+    mode: "onSubmit",
+    reValidateMode: "onSubmit"
   });
 
   const { fields, append, remove } = useFieldArray({
