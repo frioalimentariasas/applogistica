@@ -141,7 +141,8 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             }
             
             const kilos = calculateTotalKilos(formType, formData);
-            const toneladas = kilos / 1000;
+            // Round to 2 decimal places to avoid floating point issues.
+            const toneladas = Math.round((kilos / 1000) * 100) / 100;
             const clientName = formData.nombreCliente || formData.cliente;
 
             const standard = await findBestMatchingStandard({
