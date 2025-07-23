@@ -1380,14 +1380,14 @@ export default function FixedWeightFormComponent() {
              <Card>
                 <CardHeader><CardTitle>Responsables de la Operación</CardTitle></CardHeader>
                 <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-center">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-center">
                         <FormField control={form.control} name="coordinador" render={({ field }) => (
-                            <FormItem><FormLabel>Coordinador Responsable</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                            <FormItem className="lg:col-span-2"><FormLabel>Coordinador Responsable</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                         )}/>
                         
                         {submissionId && isAdmin ? (
                              <FormField control={form.control} name="operarioResponsable" render={({ field }) => (
-                                <FormItem>
+                                <FormItem className="lg:col-span-2">
                                     <FormLabel>Operario Responsable</FormLabel>
                                     <Select onValueChange={field.onChange} value={field.value}>
                                         <FormControl><SelectTrigger><SelectValue placeholder="Seleccione un operario" /></SelectTrigger></FormControl>
@@ -1399,7 +1399,7 @@ export default function FixedWeightFormComponent() {
                                 </FormItem>
                             )}/>
                         ) : (
-                            <FormItem>
+                            <FormItem className="lg:col-span-2">
                                 <FormLabel>Operario Responsable</FormLabel>
                                 <FormControl><Input disabled value={submissionId ? originalSubmission?.userDisplayName : displayName || ''} /></FormControl>
                             </FormItem>
@@ -1418,7 +1418,7 @@ export default function FixedWeightFormComponent() {
                                 name="numeroOperariosCuadrilla"
                                 render={({ field }) => (
                                     <FormItem>
-                                    <FormLabel>No. de Operarios de Cuadrilla</FormLabel>
+                                    <FormLabel>No. de Operarios</FormLabel>
                                     <FormControl>
                                         <Input 
                                             type="number"
