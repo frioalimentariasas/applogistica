@@ -10,11 +10,11 @@ import { useRouter } from 'next/navigation';
 
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
-import { addPerformanceStandard, updatePerformanceStandard, deleteMultipleStandards, type PerformanceStandard } from './actions';
+import { addPerformanceStandard, updatePerformanceStandard, deleteMultipleStandards, updateMultipleStandards, type PerformanceStandard, type BulkUpdateData } from './actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Loader2, PlusCircle, Edit, Trash2, ChevronsUpDown, ShieldAlert, Settings, Download } from 'lucide-react';
+import { ArrowLeft, Loader2, PlusCircle, Edit, Trash2, ChevronsUpDown, ShieldAlert, Settings } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -67,6 +67,14 @@ const editStandardSchema = z.object({
 
 type EditStandardFormValues = z.infer<typeof editStandardSchema>;
 
+const bulkEditSchema = z.object({
+    clientName: z.string().optional(),
+    operationType: z.enum(['recepcion', 'despacho', 'TODAS']).optional(),
+    productType: z.enum(['fijo', 'variable', 'TODOS']).optional(),
+    baseMinutes: z.coerce.number().int().min(1, "Debe ser al menos 1.").optional(),
+});
+
+type BulkEditFormValues = z.infer<typeof bulkEditSchema>;
 
 const AccessDenied = () => (
     <div className="flex flex-col items-center justify-center text-center gap-4">
@@ -90,6 +98,9 @@ export default function StandardManagementComponent({ initialClients, initialSta
   
   const [standardToEdit, setStandardToEdit] = useState<PerformanceStandard | null>(null);
   const [isEditing, setIsEditing] = useState(false);
+
+  const [isBulkEditOpen, setIsBulkEditOpen] = useState(false);
+  const [isBulkEditing, setIsBulkEditing] = useState(false);
   
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isConfirmBulkDeleteOpen, setIsConfirmBulkDeleteOpen] = useState(false);
@@ -115,6 +126,16 @@ export default function StandardManagementComponent({ initialClients, initialSta
 
   const editForm = useForm<EditStandardFormValues>({
     resolver: zodResolver(editStandardSchema),
+  });
+
+  const bulkEditForm = useForm<BulkEditFormValues>({
+      resolver: zodResolver(bulkEditSchema),
+      defaultValues: {
+          clientName: undefined,
+          operationType: undefined,
+          productType: undefined,
+          baseMinutes: undefined
+      }
   });
   
   const clientOptions: ClientInfo[] = useMemo(() => [
@@ -161,6 +182,35 @@ export default function StandardManagementComponent({ initialClients, initialSta
     }
     setIsEditing(false);
   };
+
+   const onBulkEditSubmit: SubmitHandler<BulkEditFormValues> = async (data) => {
+        if (selectedIds.size === 0) return;
+
+        const updateData: BulkUpdateData = {};
+        if (data.clientName) updateData.clientName = data.clientName;
+        if (data.operationType) updateData.operationType = data.operationType;
+        if (data.productType) updateData.productType = data.productType;
+        if (data.baseMinutes !== undefined && !isNaN(data.baseMinutes)) {
+            updateData.baseMinutes = data.baseMinutes;
+        }
+
+        if (Object.keys(updateData).length === 0) {
+            toast({ variant: 'destructive', title: 'Sin cambios', description: 'No se especificaron cambios para aplicar.' });
+            return;
+        }
+        
+        setIsBulkEditing(true);
+        const result = await updateMultipleStandards(Array.from(selectedIds), updateData);
+        if (result.success) {
+            toast({ title: 'Éxito', description: result.message });
+            setStandards(prev => prev.map(s => selectedIds.has(s.id) ? { ...s, ...updateData, id: s.id } : s));
+            setIsBulkEditOpen(false);
+            setSelectedIds(new Set());
+        } else {
+            toast({ variant: 'destructive', title: 'Error', description: result.message });
+        }
+        setIsBulkEditing(false);
+    };
 
   const handleBulkDeleteConfirm = async () => {
     if (selectedIds.size === 0) return;
@@ -352,12 +402,20 @@ export default function StandardManagementComponent({ initialClients, initialSta
                 <CardHeader>
                     <div className="flex justify-between items-center">
                         <CardTitle>Estándares Actuales</CardTitle>
-                        {selectedIds.size > 0 && (
-                            <Button onClick={() => setIsConfirmBulkDeleteOpen(true)} variant="destructive" size="sm" disabled={isBulkDeleting}>
-                                <Trash2 className="mr-2 h-4 w-4" />
-                                Eliminar ({selectedIds.size})
-                            </Button>
-                        )}
+                        <div className="flex gap-2">
+                             {selectedIds.size > 0 && (
+                                <>
+                                <Button onClick={() => setIsBulkEditOpen(true)} variant="outline" size="sm" disabled={isBulkEditing}>
+                                    <Edit className="mr-2 h-4 w-4" />
+                                    Editar Selección ({selectedIds.size})
+                                </Button>
+                                <Button onClick={() => setIsConfirmBulkDeleteOpen(true)} variant="destructive" size="sm" disabled={isBulkDeleting}>
+                                    <Trash2 className="mr-2 h-4 w-4" />
+                                    Eliminar ({selectedIds.size})
+                                </Button>
+                                </>
+                            )}
+                        </div>
                     </div>
                 </CardHeader>
                 <CardContent>
@@ -402,6 +460,7 @@ export default function StandardManagementComponent({ initialClients, initialSta
         </div>
       </div>
       
+      {/* Edit Dialog */}
       <Dialog open={!!standardToEdit} onOpenChange={(isOpen) => !isOpen && setStandardToEdit(null)}>
         <DialogContent>
           <DialogHeader><DialogTitle>Editar Estándar</DialogTitle></DialogHeader>
@@ -448,6 +507,52 @@ export default function StandardManagementComponent({ initialClients, initialSta
           </Form>
         </DialogContent>
       </Dialog>
+      
+      {/* Bulk Edit Dialog */}
+        <Dialog open={isBulkEditOpen} onOpenChange={setIsBulkEditOpen}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Editar {selectedIds.size} Estándares</DialogTitle>
+                    <DialogDescription>
+                        Los campos que modifique aquí se aplicarán a todos los estándares seleccionados. Deje un campo en blanco para no alterarlo.
+                    </DialogDescription>
+                </DialogHeader>
+                <Form {...bulkEditForm}>
+                    <form onSubmit={bulkEditForm.handleSubmit(onBulkEditSubmit)} className="space-y-4 pt-4">
+                        <FormField control={bulkEditForm.control} name="clientName" render={({ field }) => (
+                            <FormItem><FormLabel>Cliente</FormLabel>
+                                <Select onValueChange={field.onChange}><FormControl><SelectTrigger allowDeselect><SelectValue placeholder="No cambiar" /></SelectTrigger></FormControl>
+                                    <SelectContent>{clientOptions.map(c => <SelectItem key={c.id} value={c.razonSocial}>{c.razonSocial}</SelectItem>)}</SelectContent>
+                                </Select>
+                            <FormMessage /></FormItem>
+                        )}/>
+                        <FormField control={bulkEditForm.control} name="operationType" render={({ field }) => (
+                            <FormItem><FormLabel>Tipo de Operación</FormLabel>
+                                <Select onValueChange={field.onChange}><FormControl><SelectTrigger allowDeselect><SelectValue placeholder="No cambiar" /></SelectTrigger></FormControl>
+                                    <SelectContent><SelectItem value="TODAS">TODAS</SelectItem><SelectItem value="recepcion">Recepción</SelectItem><SelectItem value="despacho">Despacho</SelectItem></SelectContent>
+                                </Select>
+                            <FormMessage /></FormItem>
+                        )}/>
+                        <FormField control={bulkEditForm.control} name="productType" render={({ field }) => (
+                            <FormItem><FormLabel>Tipo de Producto</FormLabel>
+                                <Select onValueChange={field.onChange}><FormControl><SelectTrigger allowDeselect><SelectValue placeholder="No cambiar" /></SelectTrigger></FormControl>
+                                    <SelectContent><SelectItem value="TODOS">TODOS</SelectItem><SelectItem value="fijo">Peso Fijo</SelectItem><SelectItem value="variable">Peso Variable</SelectItem></SelectContent>
+                                </Select>
+                            <FormMessage /></FormItem>
+                        )}/>
+                        <FormField control={bulkEditForm.control} name="baseMinutes" render={({ field }) => (
+                            <FormItem><FormLabel>Minutos Base</FormLabel>
+                                <FormControl><Input type="number" placeholder="No cambiar" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10))} /></FormControl>
+                            <FormMessage /></FormItem>
+                        )}/>
+                        <DialogFooter>
+                            <Button type="button" variant="outline" onClick={() => setIsBulkEditOpen(false)}>Cancelar</Button>
+                            <Button type="submit" disabled={isBulkEditing}>{isBulkEditing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Aplicar Cambios</Button>
+                        </DialogFooter>
+                    </form>
+                </Form>
+            </DialogContent>
+        </Dialog>
       
       <AlertDialog open={isConfirmBulkDeleteOpen} onOpenChange={setIsConfirmBulkDeleteOpen}>
           <AlertDialogContent>

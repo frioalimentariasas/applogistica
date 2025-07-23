@@ -106,6 +106,47 @@ export async function updatePerformanceStandard(id: string, data: Omit<Performan
   }
 }
 
+
+export interface BulkUpdateData {
+    clientName?: string;
+    operationType?: 'recepcion' | 'despacho' | 'TODAS';
+    productType?: 'fijo' | 'variable' | 'TODOS';
+    baseMinutes?: number;
+}
+
+export async function updateMultipleStandards(ids: string[], data: BulkUpdateData): Promise<{ success: boolean; message: string }> {
+    if (!firestore) return { success: false, message: 'Error de configuración del servidor.' };
+    if (!ids || ids.length === 0) return { success: false, message: 'No se seleccionaron estándares para actualizar.' };
+    
+    // Construct the update object, only including fields that are actually being changed.
+    const updateData: { [key: string]: any } = {};
+    if (data.clientName) updateData.clientName = data.clientName;
+    if (data.operationType) updateData.operationType = data.operationType;
+    if (data.productType) updateData.productType = data.productType;
+    if (data.baseMinutes !== undefined && !isNaN(data.baseMinutes)) {
+        updateData.baseMinutes = Number(data.baseMinutes);
+    }
+    
+    if (Object.keys(updateData).length === 0) {
+        return { success: false, message: 'No se especificaron cambios para aplicar.' };
+    }
+
+    try {
+        const batch = firestore.batch();
+        ids.forEach(id => {
+            const docRef = firestore.collection('performance_standards').doc(id);
+            batch.update(docRef, updateData);
+        });
+        await batch.commit();
+        revalidatePath('/gestion-estandares');
+        return { success: true, message: `${ids.length} estándar(es) actualizado(s) con éxito.` };
+    } catch (error) {
+        console.error('Error al actualizar estándares en lote:', error);
+        return { success: false, message: 'Ocurrió un error en el servidor.' };
+    }
+}
+
+
 // Action to delete one or more standards
 export async function deleteMultipleStandards(ids: string[]): Promise<{ success: boolean; message: string }> {
   if (!firestore) return { success: false, message: 'Error de configuración del servidor.' };
@@ -138,6 +179,7 @@ export interface FindStandardCriteria {
 
 export async function findBestMatchingStandard(criteria: FindStandardCriteria): Promise<PerformanceStandard | null> {
     const { clientName, operationType, productType } = criteria;
+    // Round tons to handle floating point inaccuracies before comparison
     const tons = Number(criteria.tons.toFixed(2));
     
     // Always fetch the fresh list of standards from the database.
@@ -148,7 +190,10 @@ export async function findBestMatchingStandard(criteria: FindStandardCriteria): 
     }
 
     const potentialMatches = allStandards.filter(std => {
-        return tons >= std.minTons && tons <= std.maxTons;
+        // Use a small epsilon for the upper bound to correctly include the max value
+        // e.g., ensures 12.99 is less than or equal to a max of 12.99, avoiding float issues
+        const epsilon = 0.0001; 
+        return tons >= std.minTons && tons <= (std.maxTons + epsilon);
     });
     
     if (potentialMatches.length === 0) return null;
@@ -179,17 +224,6 @@ export async function findBestMatchingStandard(criteria: FindStandardCriteria): 
             return found;
         }
     }
-
-    // Fallback for partial client name match
-    const partialMatch = potentialMatches.find(std => 
-        clientName.includes(std.clientName) && 
-        std.clientName !== 'TODOS' && // Ensure we don't partially match 'TODOS'
-        (std.operationType === operationType || std.operationType === 'TODAS') &&
-        (std.productType === productType || std.productType === 'TODOS')
-    );
-
-    if(partialMatch) return partialMatch;
-
-
+    
     return null; // No matching standard found
 }
