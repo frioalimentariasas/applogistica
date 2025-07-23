@@ -72,13 +72,10 @@ import { Calendar } from "@/components/ui/calendar";
 
 const itemSchema = z.object({
     codigo: z.string().min(1, "El código es requerido."),
-    paleta: z.preprocess(
-      (val) => (val === "" || val === null ? null : val),
-      z.coerce.number({
+    paleta: z.coerce.number({
           required_error: "La paleta es requerida.",
           invalid_type_error: "La paleta es requerida.",
-      }).int({ message: "La paleta debe ser un número entero." }).min(0, "Debe ser un número no negativo.")
-    ),
+      }).int({ message: "La paleta debe ser un número entero." }).min(0, "Debe ser un número no negativo."),
     descripcion: z.string().min(1, "La descripción es requerida."),
     lote: z.string().max(15, "Máximo 15 caracteres").nullable(),
     presentacion: z.string().min(1, "Seleccione una presentación."),
@@ -123,12 +120,6 @@ const itemSchema = z.object({
           .min(0, "Debe ser un número no negativo.").nullable()
     ),
   }).superRefine((data, ctx) => {
-    // Paleta is always required.
-    if (data.paleta === null || data.paleta === undefined) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La paleta es requerida.", path: ["paleta"] });
-        return;
-    }
-    
     // If it's a summary row (paleta is exactly 0)
     if (data.paleta === 0) {
       if (data.totalCantidad === undefined || data.totalCantidad === null) {
@@ -1698,10 +1689,7 @@ export default function VariableWeightFormComponent() {
             </Card>
             
             <footer className="flex flex-col items-center justify-end gap-4 pt-4 sm:flex-row">
-                <Button type="button" variant="outline" onClick={() => setDiscardAlertOpen(true)} className="w-full sm:w-auto">
-                    <RotateCcw className="mr-2 h-4 w-4"/>
-                    Limpiar Formato
-                </Button>
+                <Button type="button" variant="outline" onClick={() => setDiscardAlertOpen(true)} className="w-full sm:w-auto"><RotateCcw className="mr-2 h-4 w-4"/>Limpiar Formato</Button>
                  <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto">
                     {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4"/>}
                     {isSubmitting ? 'Guardando...' : 'Guardar y Enviar'}
