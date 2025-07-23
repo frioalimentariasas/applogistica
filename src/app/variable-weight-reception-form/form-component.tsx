@@ -166,7 +166,7 @@ const formSchema = z.object({
     }, {
       message: "Formato inválido. Debe ser 'N/A' o 4 letras y 7 números (ej: ABCD1234567)."
     }),
-    facturaRemision: z.string().max(15, "Máximo 15 caracteres.").nullable(),
+    facturaRemision: z.string().max(15, "Máximo 15 caracteres.").optional(),
     items: z.array(itemSchema).min(1, "Debe agregar al menos un item."),
     summary: z.array(summaryItemSchema).nullable(),
     horaInicio: z.string().min(1, "La hora de inicio es obligatoria.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
@@ -477,7 +477,7 @@ export default function VariableWeightReceptionFormComponent() {
               tipoPedido: formData.tipoPedido ?? undefined,
               tipoEmpaqueMaquila: formData.tipoEmpaqueMaquila ?? undefined,
               numeroOperariosCuadrilla: formData.numeroOperariosCuadrilla ?? undefined,
-              facturaRemision: formData.facturaRemision ?? null,
+              facturaRemision: formData.facturaRemision ?? "",
               operarioResponsable: submission.userId,
               unidadDeMedidaPrincipal: formData.unidadDeMedidaPrincipal ?? 'PALETA',
               summary: (formData.summary || []).map((s: any) => ({

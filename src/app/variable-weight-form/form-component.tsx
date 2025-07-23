@@ -77,7 +77,7 @@ const itemSchema = z.object({
           invalid_type_error: "La paleta es requerida.",
       }).int({ message: "La paleta debe ser un número entero." }).min(0, "Debe ser un número no negativo."),
     descripcion: z.string().min(1, "La descripción es requerida."),
-    lote: z.string().max(15, "Máximo 15 caracteres").nullable(),
+    lote: z.string().max(15, "Máximo 15 caracteres").optional(),
     presentacion: z.string().min(1, "Seleccione una presentación."),
     // Conditional fields for individual pallets (paleta > 0)
     cantidadPorPaleta: z.preprocess(
@@ -350,7 +350,8 @@ const FormItemRow = ({ index, control, remove, handleProductDialogOpening }: { i
                                     type="text" 
                                     inputMode="numeric" 
                                     placeholder="0 (para resumen)" 
-                                    {...field} 
+                                    {...field}
+                                    value={field.value ?? ''}
                                 />
                             </FormControl>
                             <FormMessage />
@@ -705,7 +706,7 @@ export default function VariableWeightFormComponent() {
           const sanitizedFormData = {
               ...originalDefaultValues,
               ...formData,
-              lote: formData.lote ?? null,
+              lote: formData.lote ?? "",
               observaciones: formData.observaciones ?? [],
               aplicaCuadrilla: formData.aplicaCuadrilla ?? undefined,
               tipoPedido: formData.tipoPedido ?? undefined,
@@ -719,7 +720,7 @@ export default function VariableWeightFormComponent() {
                   ...originalDefaultValues.items[0],
                   ...item,
                   paleta: item.paleta,
-                  lote: item.lote ?? null,
+                  lote: item.lote ?? "",
                   cantidadPorPaleta: item.cantidadPorPaleta ?? null,
                   pesoBruto: item.pesoBruto ?? null,
                   taraEstiba: item.taraEstiba ?? null,

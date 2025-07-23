@@ -115,8 +115,8 @@ const formSchema = z.object({
   precinto: z.string()
     .min(1, "El precinto es obligatorio.")
     .max(40, "Máximo 40 caracteres."),
-    documentoTransporte: z.string().max(15, "Máximo 15 caracteres.").nullable(),
-    facturaRemision: z.string().max(15, "Máximo 15 caracteres.").nullable(),
+    documentoTransporte: z.string().max(15, "Máximo 15 caracteres.").optional(),
+    facturaRemision: z.string().max(15, "Máximo 15 caracteres.").optional(),
   productos: z.array(productSchema).min(1, "Debe agregar al menos un producto."),
   nombreConductor: z.string().min(1, "El nombre del conductor es obligatorio."),
   cedulaConductor: z.string().min(1, "La cédula del conductor es obligatoria.").regex(/^[0-9]*$/, "La cédula solo puede contener números."),
@@ -375,8 +375,8 @@ export default function FixedWeightFormComponent() {
           const sanitizedFormData = {
               ...originalDefaultValues,
               ...formData,
-              documentoTransporte: formData.documentoTransporte ?? null,
-              facturaRemision: formData.facturaRemision ?? null,
+              documentoTransporte: formData.documentoTransporte ?? "",
+              facturaRemision: formData.facturaRemision ?? "",
               contenedor: formData.contenedor ?? '',
               setPoint: formData.setPoint ?? null,
               observaciones: formData.observaciones ?? [],
