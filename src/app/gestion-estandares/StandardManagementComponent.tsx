@@ -521,21 +521,21 @@ export default function StandardManagementComponent({ initialClients, initialSta
                     <form onSubmit={bulkEditForm.handleSubmit(onBulkEditSubmit)} className="space-y-4 pt-4">
                         <FormField control={bulkEditForm.control} name="clientName" render={({ field }) => (
                             <FormItem><FormLabel>Cliente</FormLabel>
-                                <Select onValueChange={field.onChange}><FormControl><SelectTrigger allowDeselect><SelectValue placeholder="No cambiar" /></SelectTrigger></FormControl>
+                                <Select onValueChange={field.onChange}><FormControl><SelectTrigger><SelectValue placeholder="No cambiar" /></SelectTrigger></FormControl>
                                     <SelectContent>{clientOptions.map(c => <SelectItem key={c.id} value={c.razonSocial}>{c.razonSocial}</SelectItem>)}</SelectContent>
                                 </Select>
                             <FormMessage /></FormItem>
                         )}/>
                         <FormField control={bulkEditForm.control} name="operationType" render={({ field }) => (
                             <FormItem><FormLabel>Tipo de Operación</FormLabel>
-                                <Select onValueChange={field.onChange}><FormControl><SelectTrigger allowDeselect><SelectValue placeholder="No cambiar" /></SelectTrigger></FormControl>
+                                <Select onValueChange={field.onChange}><FormControl><SelectTrigger><SelectValue placeholder="No cambiar" /></SelectTrigger></FormControl>
                                     <SelectContent><SelectItem value="TODAS">TODAS</SelectItem><SelectItem value="recepcion">Recepción</SelectItem><SelectItem value="despacho">Despacho</SelectItem></SelectContent>
                                 </Select>
                             <FormMessage /></FormItem>
                         )}/>
                         <FormField control={bulkEditForm.control} name="productType" render={({ field }) => (
                             <FormItem><FormLabel>Tipo de Producto</FormLabel>
-                                <Select onValueChange={field.onChange}><FormControl><SelectTrigger allowDeselect><SelectValue placeholder="No cambiar" /></SelectTrigger></FormControl>
+                                <Select onValueChange={field.onChange}><FormControl><SelectTrigger><SelectValue placeholder="No cambiar" /></SelectTrigger></FormControl>
                                     <SelectContent><SelectItem value="TODOS">TODOS</SelectItem><SelectItem value="fijo">Peso Fijo</SelectItem><SelectItem value="variable">Peso Variable</SelectItem></SelectContent>
                                 </Select>
                             <FormMessage /></FormItem>
