@@ -632,7 +632,7 @@ export default function CrewPerformanceReportPage() {
                                 </Dialog>
                             </div>
                              <div className="space-y-2">
-                                <Label>Operario Responsable</Label>
+                                <Label>Operario</Label>
                                 <Select value={selectedOperario} onValueChange={setSelectedOperario} disabled={isLoadingOperarios}>
                                     <SelectTrigger><SelectValue placeholder="Seleccione un operario" /></SelectTrigger>
                                     <SelectContent>
@@ -693,19 +693,19 @@ export default function CrewPerformanceReportPage() {
                         </div>
                     </CardHeader>
                     <CardContent>
-                        <ScrollArea className="w-full whitespace-nowrap rounded-md border">
+                        <div className="w-full overflow-x-auto rounded-md border">
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>Fecha</TableHead>
-                                        <TableHead>Operario</TableHead>
-                                        <TableHead>Cliente</TableHead>
-                                        <TableHead>Tipo Op.</TableHead>
-                                        <TableHead>Tipo Prod.</TableHead>
-                                        <TableHead>Pedido SISLOG</TableHead>
-                                        <TableHead className="text-right">Toneladas</TableHead>
-                                        <TableHead className="text-right">Duración</TableHead>
-                                        <TableHead className="text-right">Indicador</TableHead>
+                                        <TableHead className="px-2 py-2">Fecha</TableHead>
+                                        <TableHead className="px-2 py-2">Operario</TableHead>
+                                        <TableHead className="px-2 py-2">Cliente</TableHead>
+                                        <TableHead className="px-2 py-2">Tipo Op.</TableHead>
+                                        <TableHead className="px-2 py-2">Tipo Prod.</TableHead>
+                                        <TableHead className="px-2 py-2">Pedido</TableHead>
+                                        <TableHead className="px-2 py-2 text-right">Toneladas</TableHead>
+                                        <TableHead className="px-2 py-2 text-right">Duración</TableHead>
+                                        <TableHead className="px-2 py-2 text-right">Indicador</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -716,17 +716,17 @@ export default function CrewPerformanceReportPage() {
                                             const indicator = getPerformanceIndicator(row);
                                             return (
                                                 <TableRow key={row.id}>
-                                                    <TableCell>{format(new Date(row.fecha), 'dd/MM/yyyy')}</TableCell>
-                                                    <TableCell>{row.operario}</TableCell>
-                                                    <TableCell>{row.cliente}</TableCell>
-                                                    <TableCell>{row.tipoOperacion}</TableCell>
-                                                    <TableCell>{row.tipoProducto}</TableCell>
-                                                    <TableCell>{row.pedidoSislog}</TableCell>
-                                                    <TableCell className="text-right font-mono">{formatTons(row.kilos)}</TableCell>
-                                                    <TableCell className="text-right font-medium">{formatDuration(row.duracionMinutos)}</TableCell>
-                                                    <TableCell className={cn("text-right font-semibold", indicator.color)}>
-                                                        <div className="flex items-center justify-end gap-2">
-                                                            <Circle className={cn("h-2.5 w-2.5", indicator.color.replace('text-', 'bg-'))} />
+                                                    <TableCell className="text-xs px-2 py-2">{format(new Date(row.fecha), 'dd/MM/yyyy')}</TableCell>
+                                                    <TableCell className="text-xs px-2 py-2">{row.operario}</TableCell>
+                                                    <TableCell className="text-xs px-2 py-2 max-w-[150px] truncate" title={row.cliente}>{row.cliente}</TableCell>
+                                                    <TableCell className="text-xs px-2 py-2">{row.tipoOperacion}</TableCell>
+                                                    <TableCell className="text-xs px-2 py-2">{row.tipoProducto}</TableCell>
+                                                    <TableCell className="text-xs px-2 py-2">{row.pedidoSislog}</TableCell>
+                                                    <TableCell className="text-xs px-2 py-2 text-right font-mono">{formatTons(row.kilos)}</TableCell>
+                                                    <TableCell className="text-xs px-2 py-2 text-right font-medium">{formatDuration(row.duracionMinutos)}</TableCell>
+                                                    <TableCell className={cn("text-xs px-2 py-2 text-right font-semibold", indicator.color)}>
+                                                        <div className="flex items-center justify-end gap-1.5">
+                                                            <Circle className={cn("h-2 w-2", indicator.color.replace('text-', 'bg-'))} />
                                                             {indicator.text}
                                                         </div>
                                                     </TableCell>
@@ -738,8 +738,7 @@ export default function CrewPerformanceReportPage() {
                                     )}
                                 </TableBody>
                             </Table>
-                            <ScrollBar orientation="horizontal" />
-                        </ScrollArea>
+                        </div>
                          <div className="flex items-center justify-between space-x-2 py-4">
                             <div className="flex-1 text-sm text-muted-foreground">{reportData.length} fila(s) en total.</div>
                             <div className="flex items-center space-x-2">
