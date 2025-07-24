@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import admin from 'firebase-admin';
@@ -376,5 +377,62 @@ export async function deleteSingleInventoryDoc(id: string): Promise<{ success: b
         console.error(`Error deleting inventory doc ${id}:`, error);
         const errorMessage = error instanceof Error ? error.message : 'Ocurrió un error desconocido.';
         return { success: false, message: `Error al eliminar ${id}: ${errorMessage}` };
+    }
+}
+
+
+export async function getDetailedInventoryForExport(
+    criteria: { clientName: string; startDate: string; endDate: string; }
+): Promise<InventoryRow[]> {
+    if (!firestore) {
+        throw new Error('Error de configuración del servidor.');
+    }
+    if (!criteria.startDate || !criteria.endDate || !criteria.clientName) {
+        throw new Error('Cliente y rango de fechas son requeridos.');
+    }
+
+    try {
+        const snapshot = await firestore.collection('dailyInventories')
+            .where(admin.firestore.FieldPath.documentId(), '>=', criteria.startDate)
+            .where(admin.firestore.FieldPath.documentId(), '<=', criteria.endDate)
+            .orderBy(admin.firestore.FieldPath.documentId(), 'asc')
+            .get();
+
+        if (snapshot.empty) {
+            return [];
+        }
+
+        const allRows: InventoryRow[] = [];
+        snapshot.docs.forEach(doc => {
+            const inventoryDay = doc.data();
+            if (!inventoryDay || !Array.isArray(inventoryDay.data)) {
+                return;
+            }
+            
+            const clientRows = inventoryDay.data.filter((row: InventoryRow) => 
+                row && row.PROPIETARIO?.trim() === criteria.clientName.trim()
+            );
+
+            // Serialize date objects for the client
+            const serializedRows = clientRows.map((row: any) => {
+                const newRow: any = {};
+                for (const key in row) {
+                    if (row[key] instanceof Date) {
+                        newRow[key] = format(row[key], 'dd/MM/yyyy');
+                    } else {
+                        newRow[key] = row[key];
+                    }
+                }
+                return newRow;
+            });
+
+            allRows.push(...serializedRows);
+        });
+        
+        return allRows;
+
+    } catch (error) {
+        console.error('Error generando el reporte de inventario detallado:', error);
+        throw new Error('No se pudo generar el reporte de inventario detallado.');
     }
 }
