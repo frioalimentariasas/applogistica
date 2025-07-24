@@ -137,13 +137,13 @@ export default function Home() {
                 <div>
                     <Card className="flex flex-col">
                         <CardHeader>
-                            <CardTitle className="text-xl text-center">Control de Operaciones Logísticas</CardTitle>
+                            <CardTitle className="text-lg md:text-xl text-center">Control de Operaciones Logísticas</CardTitle>
                         </CardHeader>
                         <CardContent className="flex-grow flex flex-col justify-between">
                             <form onSubmit={handleSubmit} className="space-y-6">
                                 <fieldset>
                                     <legend className="text-base font-semibold text-gray-900 mb-4">Tipo de Operación</legend>
-                                    <RadioGroup value={operationType} onValueChange={setOperationType} className="grid grid-cols-2 gap-4">
+                                    <RadioGroup value={operationType} onValueChange={setOperationType} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <Label htmlFor="recepcion" className={`flex cursor-pointer items-center space-x-3 rounded-md border bg-white p-4 transition-colors ${operationType === 'recepcion' ? 'border-primary ring-2 ring-primary' : 'border-gray-200'}`}>
                                             <RadioGroupItem value="recepcion" id="recepcion" />
                                             <ArrowDownCircle className="h-5 w-5 text-gray-600" />
@@ -159,7 +159,7 @@ export default function Home() {
                                 
                                 <fieldset>
                                     <legend className="text-base font-semibold text-gray-900 mb-4">Tipo de Producto</legend>
-                                    <RadioGroup value={productType} onValueChange={setProductType} className="grid grid-cols-2 gap-4">
+                                    <RadioGroup value={productType} onValueChange={setProductType} className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                         <Label htmlFor="fijo" className={`flex cursor-pointer items-center space-x-3 rounded-md border bg-white p-4 transition-colors ${productType === 'fijo' ? 'border-primary ring-2 ring-primary' : 'border-gray-200'}`}>
                                             <RadioGroupItem value="fijo" id="fijo" />
                                             <Box className="h-5 w-5 text-gray-600" />
@@ -187,7 +187,7 @@ export default function Home() {
                 <div>
                     <Card className="w-full">
                         <CardHeader>
-                            <CardTitle className="text-xl text-center">Consultas y Herramientas</CardTitle>
+                            <CardTitle className="text-lg md:text-xl text-center">Consultas y Herramientas</CardTitle>
                         </CardHeader>
                         <CardContent>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

@@ -280,7 +280,7 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
           <div className="space-y-8">
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2"><UserPlus />Agregar Nuevo Cliente</CardTitle>
+                <CardTitle className="flex items-center gap-2 text-lg"><UserPlus />Agregar Nuevo Cliente</CardTitle>
                 <CardDescription>Ingrese la razón social para crear un nuevo cliente.</CardDescription>
               </CardHeader>
               <CardContent>
@@ -310,7 +310,7 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
 
             <Card>
               <CardHeader>
-                <CardTitle className="flex items-center gap-2"><FileUp />Cargar Clientes desde Excel</CardTitle>
+                <CardTitle className="flex items-center gap-2 text-lg"><FileUp />Cargar Clientes desde Excel</CardTitle>
                 <CardDescription>Suba un archivo (.xlsx, .xls) para agregar múltiples clientes de una vez.</CardDescription>
               </CardHeader>
               <CardContent>
@@ -346,7 +346,7 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
             <CardHeader>
                 <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
                     <div>
-                        <CardTitle>Listado de Clientes</CardTitle>
+                        <CardTitle className="text-lg">Listado de Clientes</CardTitle>
                         <CardDescription>Clientes actualmente registrados en el sistema.</CardDescription>
                     </div>
                     <Button onClick={handleExportClients} variant="outline" size="sm" disabled={clients.length === 0}>

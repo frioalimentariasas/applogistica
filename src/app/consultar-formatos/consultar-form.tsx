@@ -282,7 +282,7 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
                         <CardDescription>Utilice uno o más filtros para encontrar los formatos que necesita.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 items-end">
                             <div className="space-y-2">
                                 <Label htmlFor="pedidoSislog">Pedido SISLOG</Label>
                                 <Input 
@@ -375,7 +375,7 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
                                     </SelectContent>
                                 </Select>
                             </div>
-                            <div className="space-y-2">
+                            <div className="space-y-2 xl:col-span-1">
                                 <Label htmlFor="tipoPedido">Tipo de Pedido</Label>
                                 <Select
                                     value={criteria.tipoPedido || 'all'}
@@ -394,7 +394,7 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
                                     </SelectContent>
                                 </Select>
                             </div>
-                            <div className="flex flex-col sm:flex-row gap-2 lg:col-start-5">
+                            <div className="flex flex-col sm:flex-row gap-2 xl:col-span-full">
                                 <Button onClick={handleSearch} className="w-full" disabled={isLoading}>
                                     {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
                                     Buscar
@@ -520,4 +520,3 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
         </div>
     );
 }
-
