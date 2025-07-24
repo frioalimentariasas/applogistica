@@ -88,6 +88,18 @@ export interface CrewPerformanceReportRow {
     description: string;
 }
 
+const getLocalGroupingDate = (isoString: string): string => {
+    if (!isoString) return '';
+    try {
+        const date = new Date(isoString);
+        date.setUTCHours(date.getUTCHours() - 5);
+        return date.toISOString().split('T')[0];
+    } catch (e) {
+        console.error(`Invalid date string for grouping: ${isoString}`);
+        return '';
+    }
+};
+
 export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCriteria): Promise<CrewPerformanceReportRow[]> {
     if (!firestore) {
         throw new Error('El servidor no está configurado correctamente.');
@@ -105,21 +117,37 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         query = query.where('userDisplayName', '==', criteria.operario);
     }
     
-    // To include results from the end date, we need to query up to the start of the next day.
-    const endDatePlusOne = addDays(new Date(criteria.endDate), 1);
-    const endDateString = endDatePlusOne.toISOString().split('T')[0];
-
-    query = query.where('createdAt', '>=', criteria.startDate)
-                 .where('createdAt', '<', endDateString);
+    // Widen server query to account for timezone differences, then filter in memory
+    const serverQueryStartDate = new Date(criteria.startDate);
+    serverQueryStartDate.setDate(serverQueryStartDate.getDate() - 1);
+    const serverQueryEndDate = addDays(new Date(criteria.endDate), 2);
+    
+    query = query.where('createdAt', '>=', serverQueryStartDate.toISOString())
+                 .where('createdAt', '<', serverQueryEndDate.toISOString());
 
     try {
         const snapshot = await query.get();
         
-        const results = await Promise.all(snapshot.docs.map(async (submissionDoc) => {
-            const submission = {
+        const allResults = snapshot.docs.map(submissionDoc => {
+             const submission = {
                 id: submissionDoc.id,
                 ...serializeTimestamps(submissionDoc.data())
             };
+            return submission;
+        });
+
+        const dateFilteredResults = allResults.filter(submission => {
+            const formIsoDate = submission.formData?.fecha;
+            if (!formIsoDate || typeof formIsoDate !== 'string') {
+                return false;
+            }
+            // Use the form's specific date for accurate filtering
+            const formDatePart = getLocalGroupingDate(formIsoDate);
+            return formDatePart >= criteria.startDate! && formDatePart <= criteria.endDate!;
+        });
+
+
+        const results = await Promise.all(dateFilteredResults.map(async (submission) => {
             const { id, formType, formData, userDisplayName } = submission;
 
             let tipoOperacion: 'Recepción' | 'Despacho' | 'N/A' = 'N/A';
