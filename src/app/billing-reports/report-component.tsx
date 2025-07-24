@@ -1446,7 +1446,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                         </Card>
                     </TabsContent>
 
-                    <TabsContent value="inventory">
+                    <TabsContent value="inventory" className="space-y-6">
                         <Card>
                             <CardHeader>
                                 <CardTitle>Informe de Inventario Acumulado por Día</CardTitle>
@@ -1746,6 +1746,58 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                         </ScrollArea>
                                     </div>
                                 )}
+                                <Card className="mt-6">
+                                    <CardHeader>
+                                        <CardTitle>Exportar Inventario Detallado a Excel</CardTitle>
+                                        <CardDescription>Genere un archivo Excel con el detalle completo del inventario para un cliente y rango de fechas específico.</CardDescription>
+                                    </CardHeader>
+                                    <CardContent>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                                            <div className="space-y-2">
+                                                <Label>Cliente</Label>
+                                                <Dialog open={isExportClientDialogOpen} onOpenChange={setExportClientDialogOpen}>
+                                                    <DialogTrigger asChild>
+                                                        <Button variant="outline" className="w-full justify-between text-left font-normal">
+                                                            {exportClient || "Seleccione un cliente"}
+                                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                        </Button>
+                                                    </DialogTrigger>
+                                                    <DialogContent className="sm:max-w-[425px]">
+                                                        <DialogHeader><DialogTitle>Seleccionar Cliente</DialogTitle></DialogHeader>
+                                                        <div className="p-4">
+                                                            <Input placeholder="Buscar cliente..." value={exportClientSearch} onChange={(e) => setExportClientSearch(e.target.value)} className="mb-4" />
+                                                            <ScrollArea className="h-72"><div className="space-y-1">
+                                                                {filteredExportClients.map((client) => (
+                                                                    <Button key={client.id} variant="ghost" className="w-full justify-start" onClick={() => { setExportClient(client.razonSocial); setExportClientDialogOpen(false); setExportClientSearch(''); }}>{client.razonSocial}</Button>
+                                                                ))}
+                                                            </div></ScrollArea>
+                                                        </div>
+                                                    </DialogContent>
+                                                </Dialog>
+                                            </div>
+                                            <div className="space-y-2">
+                                                <Label>Rango de Fechas</Label>
+                                                <Popover>
+                                                    <PopoverTrigger asChild>
+                                                        <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !exportDateRange && "text-muted-foreground")}>
+                                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                                            {exportDateRange?.from ? (exportDateRange.to ? (<>{format(exportDateRange.from, "LLL dd, y", { locale: es })} - {format(exportDateRange.to, "LLL dd, y", { locale: es })}</>) : (format(exportDateRange.from, "LLL dd, y", { locale: es }))) : (<span>Seleccione un rango</span>)}
+                                                        </Button>
+                                                    </PopoverTrigger>
+                                                    <PopoverContent className="w-auto p-0" align="start">
+                                                        <Calendar initialFocus mode="range" defaultMonth={exportDateRange?.from} selected={exportDateRange} onSelect={setExportDateRange} numberOfMonths={2} locale={es} disabled={{ after: today, before: sixtyTwoDaysAgo }} />
+                                                    </PopoverContent>
+                                                </Popover>
+                                            </div>
+                                            <div className="lg:col-span-2 flex items-end">
+                                                <Button onClick={handleDetailedInventoryExport} className="w-full" disabled={isExporting}>
+                                                    {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />}
+                                                    Exportar a Excel
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
                             </CardContent>
                         </Card>
                     </TabsContent>
@@ -1865,58 +1917,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                             )}
                                         </TableBody>
                                     </Table>
-                                </div>
-                            </CardContent>
-                        </Card>
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>Exportar Inventario Detallado a Excel</CardTitle>
-                                <CardDescription>Genere un archivo Excel con el detalle completo del inventario para un cliente y rango de fechas específico.</CardDescription>
-                            </CardHeader>
-                            <CardContent>
-                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
-                                    <div className="space-y-2">
-                                        <Label>Cliente</Label>
-                                         <Dialog open={isExportClientDialogOpen} onOpenChange={setExportClientDialogOpen}>
-                                            <DialogTrigger asChild>
-                                                <Button variant="outline" className="w-full justify-between text-left font-normal">
-                                                    {exportClient || "Seleccione un cliente"}
-                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                                </Button>
-                                            </DialogTrigger>
-                                            <DialogContent className="sm:max-w-[425px]">
-                                                <DialogHeader><DialogTitle>Seleccionar Cliente</DialogTitle></DialogHeader>
-                                                <div className="p-4">
-                                                    <Input placeholder="Buscar cliente..." value={exportClientSearch} onChange={(e) => setExportClientSearch(e.target.value)} className="mb-4" />
-                                                    <ScrollArea className="h-72"><div className="space-y-1">
-                                                        {filteredExportClients.map((client) => (
-                                                            <Button key={client.id} variant="ghost" className="w-full justify-start" onClick={() => { setExportClient(client.razonSocial); setExportClientDialogOpen(false); setExportClientSearch(''); }}>{client.razonSocial}</Button>
-                                                        ))}
-                                                    </div></ScrollArea>
-                                                </div>
-                                            </DialogContent>
-                                        </Dialog>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>Rango de Fechas</Label>
-                                        <Popover>
-                                            <PopoverTrigger asChild>
-                                                <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !exportDateRange && "text-muted-foreground")}>
-                                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                                    {exportDateRange?.from ? (exportDateRange.to ? (<>{format(exportDateRange.from, "LLL dd, y", { locale: es })} - {format(exportDateRange.to, "LLL dd, y", { locale: es })}</>) : (format(exportDateRange.from, "LLL dd, y", { locale: es }))) : (<span>Seleccione un rango</span>)}
-                                                </Button>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0" align="start">
-                                                <Calendar initialFocus mode="range" defaultMonth={exportDateRange?.from} selected={exportDateRange} onSelect={setExportDateRange} numberOfMonths={2} locale={es} disabled={{ after: today, before: sixtyTwoDaysAgo }} />
-                                            </PopoverContent>
-                                        </Popover>
-                                    </div>
-                                    <div className="lg:col-span-2 flex items-end">
-                                        <Button onClick={handleDetailedInventoryExport} className="w-full" disabled={isExporting}>
-                                            {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />}
-                                            Exportar a Excel
-                                        </Button>
-                                    </div>
                                 </div>
                             </CardContent>
                         </Card>
