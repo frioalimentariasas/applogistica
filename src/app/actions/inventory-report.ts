@@ -382,13 +382,13 @@ export async function deleteSingleInventoryDoc(id: string): Promise<{ success: b
 
 
 export async function getDetailedInventoryForExport(
-    criteria: { clientName: string; startDate: string; endDate: string; }
+    criteria: { clientNames: string[]; startDate: string; endDate: string; }
 ): Promise<InventoryRow[]> {
     if (!firestore) {
         throw new Error('Error de configuración del servidor.');
     }
-    if (!criteria.startDate || !criteria.endDate || !criteria.clientName) {
-        throw new Error('Cliente y rango de fechas son requeridos.');
+    if (!criteria.startDate || !criteria.endDate || !criteria.clientNames || criteria.clientNames.length === 0) {
+        throw new Error('Cliente(s) y rango de fechas son requeridos.');
     }
 
     try {
@@ -410,7 +410,7 @@ export async function getDetailedInventoryForExport(
             }
             
             const clientRows = inventoryDay.data.filter((row: InventoryRow) => 
-                row && row.PROPIETARIO?.trim() === criteria.clientName.trim()
+                row && row.PROPIETARIO && criteria.clientNames.includes(row.PROPIETARIO.trim())
             );
 
             // Serialize date objects for the client
@@ -436,3 +436,5 @@ export async function getDetailedInventoryForExport(
         throw new Error('No se pudo generar el reporte de inventario detallado.');
     }
 }
+
+    

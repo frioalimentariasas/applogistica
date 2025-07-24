@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from 'react';
@@ -200,7 +199,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const [consolidatedClientSearch, setConsolidatedClientSearch] = useState("");
 
     // State for detailed inventory export
-    const [exportClient, setExportClient] = useState<string | undefined>(undefined);
+    const [exportClients, setExportClients] = useState<string[]>([]);
     const [exportDateRange, setExportDateRange] = useState<DateRange | undefined>(undefined);
     const [isExporting, setIsExporting] = useState(false);
     const [isExportClientDialogOpen, setExportClientDialogOpen] = useState(false);
@@ -976,11 +975,11 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     };
 
     const handleDetailedInventoryExport = async () => {
-        if (!exportClient || !exportDateRange?.from || !exportDateRange?.to) {
+        if (!exportClients || exportClients.length === 0 || !exportDateRange?.from || !exportDateRange?.to) {
             toast({
                 variant: 'destructive',
                 title: 'Filtros incompletos',
-                description: 'Por favor, seleccione un cliente y un rango de fechas para exportar.',
+                description: 'Por favor, seleccione uno o más clientes y un rango de fechas para exportar.',
             });
             return;
         }
@@ -988,7 +987,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         setIsExporting(true);
         try {
             const results = await getDetailedInventoryForExport({
-                clientName: exportClient,
+                clientNames: exportClients,
                 startDate: format(exportDateRange.from, 'yyyy-MM-dd'),
                 endDate: format(exportDateRange.to, 'yyyy-MM-dd'),
             });
@@ -1000,9 +999,9 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
             const worksheet = XLSX.utils.json_to_sheet(results);
             const workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, `Inventario ${exportClient}`);
+            XLSX.utils.book_append_sheet(workbook, worksheet, `Inventario`);
 
-            const fileName = `Inventario_Detallado_${exportClient.replace(/\s/g, '_')}_${format(exportDateRange.from, 'yyyy-MM-dd')}_a_${format(exportDateRange.to, 'yyyy-MM-dd')}.xlsx`;
+            const fileName = `Inventario_Detallado_${format(exportDateRange.from, 'yyyy-MM-dd')}_a_${format(exportDateRange.to, 'yyyy-MM-dd')}.xlsx`;
             XLSX.writeFile(workbook, fileName);
 
         } catch (error) {
@@ -1024,6 +1023,13 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         if (detailedReportTipoPedido.length === 0) return "Seleccionar tipo(s)...";
         if (detailedReportTipoPedido.length === 1) return detailedReportTipoPedido[0];
         return `${detailedReportTipoPedido.length} tipos seleccionados`;
+    };
+    
+    const getExportClientsText = () => {
+        if (exportClients.length === 0) return "Seleccione uno o más clientes...";
+        if (exportClients.length === clients.length) return "Todos los clientes seleccionados";
+        if (exportClients.length === 1) return exportClients[0];
+        return `${exportClients.length} clientes seleccionados`;
     };
 
     return (
@@ -1753,25 +1759,59 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                     </CardHeader>
                                     <CardContent>
                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
-                                            <div className="space-y-2">
-                                                <Label>Cliente</Label>
+                                            <div className="space-y-2 lg:col-span-2">
+                                                <Label>Cliente(s)</Label>
                                                 <Dialog open={isExportClientDialogOpen} onOpenChange={setExportClientDialogOpen}>
                                                     <DialogTrigger asChild>
-                                                        <Button variant="outline" className="w-full justify-between text-left font-normal">
-                                                            {exportClient || "Seleccione un cliente"}
+                                                        <Button variant="outline" className="w-full justify-between font-normal">
+                                                            <span className="truncate">{getExportClientsText()}</span>
                                                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                                         </Button>
                                                     </DialogTrigger>
                                                     <DialogContent className="sm:max-w-[425px]">
-                                                        <DialogHeader><DialogTitle>Seleccionar Cliente</DialogTitle></DialogHeader>
+                                                        <DialogHeader>
+                                                            <DialogTitle>Seleccionar Cliente(s)</DialogTitle>
+                                                            <DialogDescription>Seleccione los clientes para la exportación detallada.</DialogDescription>
+                                                        </DialogHeader>
                                                         <div className="p-4">
-                                                            <Input placeholder="Buscar cliente..." value={exportClientSearch} onChange={(e) => setExportClientSearch(e.target.value)} className="mb-4" />
-                                                            <ScrollArea className="h-72"><div className="space-y-1">
-                                                                {filteredExportClients.map((client) => (
-                                                                    <Button key={client.id} variant="ghost" className="w-full justify-start" onClick={() => { setExportClient(client.razonSocial); setExportClientDialogOpen(false); setExportClientSearch(''); }}>{client.razonSocial}</Button>
-                                                                ))}
-                                                            </div></ScrollArea>
+                                                            <Input
+                                                                placeholder="Buscar cliente..."
+                                                                value={exportClientSearch}
+                                                                onChange={(e) => setExportClientSearch(e.target.value)}
+                                                                className="mb-4"
+                                                            />
+                                                            <ScrollArea className="h-72">
+                                                                <div className="space-y-1">
+                                                                    <div className="flex items-center space-x-2 rounded-md p-2 hover:bg-accent border-b">
+                                                                        <Checkbox
+                                                                            id="select-all-export-clients"
+                                                                            checked={clients.length > 0 && exportClients.length === clients.length}
+                                                                            onCheckedChange={(checked) => {
+                                                                                setExportClients(checked ? clients.map(c => c.razonSocial) : []);
+                                                                            }}
+                                                                        />
+                                                                        <Label htmlFor="select-all-export-clients" className="w-full cursor-pointer font-semibold">Seleccionar Todos</Label>
+                                                                    </div>
+                                                                    {filteredExportClients.map((client) => (
+                                                                        <div key={`export-${client.id}`} className="flex items-center space-x-2 rounded-md p-2 hover:bg-accent">
+                                                                            <Checkbox
+                                                                                id={`client-export-${client.id}`}
+                                                                                checked={exportClients.includes(client.razonSocial)}
+                                                                                onCheckedChange={(checked) => {
+                                                                                    setExportClients(prev =>
+                                                                                        checked ? [...prev, client.razonSocial] : prev.filter(s => s !== client.razonSocial)
+                                                                                    );
+                                                                                }}
+                                                                            />
+                                                                            <Label htmlFor={`client-export-${client.id}`} className="w-full cursor-pointer">{client.razonSocial}</Label>
+                                                                        </div>
+                                                                    ))}
+                                                                </div>
+                                                            </ScrollArea>
                                                         </div>
+                                                        <DialogFooter>
+                                                            <Button onClick={() => setExportClientDialogOpen(false)}>Cerrar</Button>
+                                                        </DialogFooter>
                                                     </DialogContent>
                                                 </Dialog>
                                             </div>
@@ -1789,7 +1829,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                     </PopoverContent>
                                                 </Popover>
                                             </div>
-                                            <div className="lg:col-span-2 flex items-end">
+                                            <div className="flex items-end">
                                                 <Button onClick={handleDetailedInventoryExport} className="w-full" disabled={isExporting}>
                                                     {isExporting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />}
                                                     Exportar a Excel
@@ -1960,3 +2000,5 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         </div>
     );
 }
+
+    
