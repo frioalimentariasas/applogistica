@@ -85,6 +85,7 @@ export interface CrewPerformanceReportRow {
     pedidoSislog: string;
     productType: 'fijo' | 'variable' | null;
     standard?: PerformanceStandard | null;
+    description: string;
 }
 
 export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCriteria): Promise<CrewPerformanceReportRow[]> {
@@ -104,6 +105,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         query = query.where('userDisplayName', '==', criteria.operario);
     }
     
+    // To include results from the end date, we need to query up to the start of the next day.
     const endDatePlusOne = addDays(new Date(criteria.endDate), 1);
     const endDateString = endDatePlusOne.toISOString().split('T')[0];
 
@@ -166,7 +168,8 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                 duracionMinutos: calculateDuration(formData.horaInicio, formData.horaFin),
                 pedidoSislog: formData.pedidoSislog || 'N/A',
                 productType: productTypeForAction,
-                standard
+                standard,
+                description: standard?.description || "Sin descripción",
             };
         }));
 
