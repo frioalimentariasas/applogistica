@@ -167,7 +167,7 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
         }
     }
 
-    // --- Concept: CARGUE / DESCARGUE ---
+    // --- Concept: CARGUE / DESCARGUE (By Ton) ---
     if (formData.aplicaCuadrilla === 'si') {
         const isReception = formType.includes('recepcion') || formType.includes('reception');
         const conceptName = isReception ? 'DESCARGUE' : 'CARGUE';
@@ -184,6 +184,33 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
                 unitOfMeasure: 'TONELADA',
                 totalValue: toneladas * operationConcept.value
             });
+        }
+    }
+
+    // --- Concept: EMPAQUE DE CAJAS / EMPAQUE DE SACOS (Maquila) ---
+    if (formData.aplicaCuadrilla === 'si' && formData.tipoPedido === 'MAQUILA' && formData.tipoEmpaqueMaquila) {
+        const conceptName = formData.tipoEmpaqueMaquila; // "EMPAQUE DE CAJAS" or "EMPAQUE DE SACOS"
+        const unitOfMeasure = conceptName === 'EMPAQUE DE CAJAS' ? 'CAJA' : 'SACO';
+        
+        const maquilaConcept = billingConcepts.find(c => c.conceptName === conceptName && c.unitOfMeasure === unitOfMeasure);
+
+        if (maquilaConcept) {
+            let quantity = 0;
+            if (formType.startsWith('fixed-weight-')) {
+                quantity = (formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.cajas) || 0), 0);
+            } else if (formType.startsWith('variable-weight-')) {
+                quantity = (formData.items || []).reduce((sum: number, p: any) => sum + (Number(p.cantidadPorPaleta) || 0), 0);
+            }
+            
+            if (quantity > 0) {
+                settlements.push({
+                    conceptName: maquilaConcept.conceptName,
+                    unitValue: maquilaConcept.value,
+                    quantity: quantity,
+                    unitOfMeasure: maquilaConcept.unitOfMeasure,
+                    totalValue: quantity * maquilaConcept.value
+                });
+            }
         }
     }
     
