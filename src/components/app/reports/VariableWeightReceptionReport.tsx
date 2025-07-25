@@ -59,16 +59,13 @@ interface VariableWeightReceptionReportProps {
 }
 
 export function VariableWeightReceptionReport({ formData, userDisplayName, attachments }: VariableWeightReceptionReportProps) {
-    
+    const isSummaryFormat = formData.items.some((p: any) => Number(p.paleta) === 0);
+
     // Recalculate summary here to ensure accuracy for old and new data
     const recalculatedSummary = (() => {
         const grouped = (formData.items || []).reduce((acc, item) => {
             if (!item?.descripcion?.trim()) return acc;
             const desc = item.descripcion.trim();
-
-            const cantidad = Number(item.cantidadPorPaleta) || 0;
-            const pesoNeto = Number(item.pesoNeto) || 0;
-            const paleta = Number(item.paleta);
 
             if (!acc[desc]) {
                 const summaryItem = formData.summary?.find(s => s.descripcion === desc);
@@ -83,10 +80,17 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                 };
             }
 
-            acc[desc].totalPeso += isNaN(pesoNeto) ? 0 : pesoNeto;
-            acc[desc].totalCantidad += cantidad;
-            if (!isNaN(paleta) && paleta > 0) {
-                acc[desc].paletas.add(paleta);
+            if (Number(item.paleta) === 0) {
+                acc[desc].totalPeso += Number(item.totalPesoNeto) || 0;
+                acc[desc].totalCantidad += Number(item.totalCantidad) || 0;
+                acc[desc].paletas.add(0); // Special handling for summary rows
+            } else {
+                acc[desc].totalPeso += Number(item.pesoNeto) || 0;
+                acc[desc].totalCantidad += Number(item.cantidadPorPaleta) || 0;
+                const paleta = Number(item.paleta);
+                if (!isNaN(paleta) && paleta > 0) {
+                    acc[desc].paletas.add(paleta);
+                }
             }
             
             return acc;
@@ -96,7 +100,9 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
             descripcion: group.descripcion,
             totalPeso: group.totalPeso,
             totalCantidad: group.totalCantidad,
-            totalPaletas: group.paletas.size,
+            totalPaletas: group.paletas.has(0)
+                ? (formData.items || []).filter(item => item.descripcion === group.descripcion && Number(item.paleta) === 0).reduce((sum, item) => sum + (Number(item.totalPaletas) || 0), 0)
+                : group.paletas.size,
             temperatura1: group.temperatura1,
             temperatura2: group.temperatura2,
             temperatura3: group.temperatura3,
@@ -157,32 +163,56 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                  <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse' }}>
                     <thead>
                         <tr style={{ borderBottom: '1px solid #aaa' }}>
-                            <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Paleta</th>
-                            <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Descripción</th>
-                            <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Lote</th>
-                            <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Presentación</th>
-                            <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Cant.</th>
-                            <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Peso Bruto</th>
-                            <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Tara Estiba</th>
-                            <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Tara Caja</th>
-                            <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Tara</th>
-                            <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Peso Neto</th>
+                            {isSummaryFormat ? (
+                                <>
+                                    <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Descripción</th>
+                                    <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Lote</th>
+                                    <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Presentación</th>
+                                    <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Cant.</th>
+                                    <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Paletas</th>
+                                    <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total P. Neto</th>
+                                </>
+                            ) : (
+                                <>
+                                    <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Paleta</th>
+                                    <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Descripción</th>
+                                    <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Lote</th>
+                                    <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Presentación</th>
+                                    <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Cant.</th>
+                                    <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Peso Bruto</th>
+                                    <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Tara Estiba</th>
+                                    <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Tara Caja</th>
+                                    <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Tara</th>
+                                    <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Peso Neto</th>
+                                </>
+                            )}
                         </tr>
                     </thead>
                     <tbody>
                         {formData.items.map((p: any, i: number) => (
-                            <tr key={i} style={{ borderBottom: '1px solid #ddd' }}>
-                                <td style={{ padding: '4px' }}>{p.paleta}</td>
-                                <td style={{ padding: '4px' }}>{p.descripcion}</td>
-                                <td style={{ padding: '4px' }}>{p.lote}</td>
-                                <td style={{ padding: '4px' }}>{p.presentacion}</td>
-                                <td style={{ textAlign: 'right', padding: '4px' }}>{p.cantidadPorPaleta}</td>
-                                <td style={{ textAlign: 'right', padding: '4px' }}>{p.pesoBruto?.toFixed(2)}</td>
-                                <td style={{ textAlign: 'right', padding: '4px' }}>{p.taraEstiba?.toFixed(2)}</td>
-                                <td style={{ textAlign: 'right', padding: '4px' }}>{p.taraCaja?.toFixed(2)}</td>
-                                <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalTaraCaja?.toFixed(2)}</td>
-                                <td style={{ textAlign: 'right', padding: '4px' }}>{p.pesoNeto?.toFixed(2)}</td>
-                            </tr>
+                           isSummaryFormat ? (
+                                <tr key={i} style={{ borderBottom: '1px solid #ddd' }}>
+                                    <td style={{ padding: '4px' }}>{`${p.descripcion}`}</td>
+                                    <td style={{ padding: '4px' }}>{p.lote}</td>
+                                    <td style={{ padding: '4px' }}>{p.presentacion}</td>
+                                    <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalCantidad}</td>
+                                    <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPaletas}</td>
+                                    <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPesoNeto?.toFixed(2)}</td>
+                                </tr>
+                            ) : (
+                                <tr key={i} style={{ borderBottom: '1px solid #ddd' }}>
+                                    <td style={{ padding: '4px' }}>{p.paleta}</td>
+                                    <td style={{ padding: '4px' }}>{p.descripcion}</td>
+                                    <td style={{ padding: '4px' }}>{p.lote}</td>
+                                    <td style={{ padding: '4px' }}>{p.presentacion}</td>
+                                    <td style={{ textAlign: 'right', padding: '4px' }}>{p.cantidadPorPaleta}</td>
+                                    <td style={{ textAlign: 'right', padding: '4px' }}>{p.pesoBruto?.toFixed(2)}</td>
+                                    <td style={{ textAlign: 'right', padding: '4px' }}>{p.taraEstiba?.toFixed(2)}</td>
+                                    <td style={{ textAlign: 'right', padding: '4px' }}>{p.taraCaja?.toFixed(2)}</td>
+                                    <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalTaraCaja?.toFixed(2)}</td>
+                                    <td style={{ textAlign: 'right', padding: '4px' }}>{p.pesoNeto?.toFixed(2)}</td>
+                                </tr>
+                            )
                         ))}
                     </tbody>
                 </table>

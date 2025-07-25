@@ -74,31 +74,84 @@ import { Calendar } from "@/components/ui/calendar";
 
 const itemSchema = z.object({
     codigo: z.string().min(1, "El código es requerido."),
-    paleta: z.preprocess(
-      (val) => (val === "" || val == null ? null : val),
-      z.coerce.number({ required_error: "La paleta es requerida.", invalid_type_error: "La paleta es requerida."}).int().min(1, "El número de paleta debe ser 1 o mayor.")
-    ),
+    paleta: z.coerce.number({
+          required_error: "La paleta es requerida.",
+          invalid_type_error: "La paleta es requerida.",
+      }).int({ message: "La paleta debe ser un número entero." }).min(0, "Debe ser un número no negativo."),
     descripcion: z.string().min(1, "La descripción es requerida."),
     lote: z.string().min(1, "El lote es requerido.").max(15, "Máx 15 caracteres"),
-    presentacion: z.string().min(1, "La presentación es requerida."),
+    presentacion: z.string().min(1, "Seleccione una presentación."),
+    // Conditional fields for individual pallets (paleta > 0)
     cantidadPorPaleta: z.preprocess(
-      (val) => (val === "" || val == null ? null : val),
-      z.coerce.number({ required_error: "La cantidad es requerida.", invalid_type_error: "La cantidad es requerida." }).int().min(0, "Debe ser un número no negativo.")
+        (val) => (val === "" || val === null ? null : val),
+        z.coerce.number({ invalid_type_error: "La cantidad debe ser un número." })
+          .int({ message: "La cantidad debe ser un número entero." }).min(0, "Debe ser un número no negativo.").nullable()
     ),
     pesoBruto: z.preprocess(
-      (val) => (val === "" || val == null ? null : val),
-      z.coerce.number({ required_error: "El peso bruto es requerido.", invalid_type_error: "El peso bruto es requerido." }).min(0, "Debe ser un número no negativo.")
+        (val) => (val === "" || val === null ? null : val),
+        z.coerce.number({ invalid_type_error: "El peso bruto debe ser un número." })
+          .min(0, "Debe ser un número no negativo.").nullable()
     ),
     taraEstiba: z.preprocess(
-      (val) => (val === "" || val == null ? null : val),
-      z.coerce.number({ required_error: "La tara estiba es requerida.", invalid_type_error: "La tara estiba es requerida." }).min(0, "Debe ser un número no negativo.")
+        (val) => (val === "" || val === null ? null : val),
+        z.coerce.number({ invalid_type_error: "La tara estiba debe ser un número." })
+          .min(0, "Debe ser un número no negativo.").nullable()
     ),
     taraCaja: z.preprocess(
-      (val) => (val === "" || val == null ? null : val),
-      z.coerce.number({ required_error: "La tara caja es requerida.", invalid_type_error: "La tara caja es requerida." }).min(0, "Debe ser un número no negativo.")
+        (val) => (val === "" || val === null ? null : val),
+        z.coerce.number({ invalid_type_error: "La tara caja debe ser un número." })
+          .min(0, "Debe ser un número no negativo.").nullable()
     ),
-    totalTaraCaja: z.coerce.number().nullable(), 
-    pesoNeto: z.coerce.number().nullable(), 
+    // Calculated fields
+    totalTaraCaja: z.number().nullable(),
+    pesoNeto: z.number().nullable(),
+    // Conditional fields for summary row (paleta === 0)
+    totalCantidad: z.preprocess(
+        (val) => (val === "" || val === null ? null : val),
+        z.coerce.number({ invalid_type_error: "El total de cantidad debe ser un número." })
+          .int({ message: "El total de cantidad debe ser un número entero." }).min(0, "Debe ser un número no negativo.").nullable()
+    ),
+    totalPaletas: z.preprocess(
+        (val) => (val === "" || val === null ? null : val),
+        z.coerce.number({ required_error: "El total de paletas es requerido.", invalid_type_error: "El total de paletas debe ser requerido." })
+          .int("El Total Paletas debe ser un número entero.").min(0, "Debe ser un número no negativo.").nullable()
+    ),
+    totalPesoNeto: z.preprocess(
+        (val) => (val === "" || val === null ? null : val),
+        z.coerce.number({ invalid_type_error: "El total de peso neto debe ser un número." })
+          .min(0, "Debe ser un número no negativo.").nullable()
+    ),
+  }).superRefine((data, ctx) => {
+    // If it's a summary row (paleta is exactly 0)
+    if (data.paleta === 0) {
+      if (data.totalCantidad === undefined || data.totalCantidad === null) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El Total Cantidad es requerido.", path: ["totalCantidad"] });
+      }
+      if (data.totalPaletas === undefined || data.totalPaletas === null) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El Total Paletas es requerido.", path: ["totalPaletas"] });
+      }
+      if (data.totalPesoNeto === undefined || data.totalPesoNeto === null) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El Total Peso Neto es requerido.", path: ["totalPesoNeto"] });
+      }
+    } 
+    // Otherwise, it's an individual pallet row
+    else {
+      if (data.paleta === null || data.paleta <= 0) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La paleta debe ser 1 o mayor.", path: ["paleta"] });
+      }
+      if (data.cantidadPorPaleta === undefined || data.cantidadPorPaleta === null) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La Cantidad Por Paleta es requerida.", path: ["cantidadPorPaleta"] });
+      }
+      if (data.pesoBruto === undefined || data.pesoBruto === null) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El Peso Bruto es requerido.", path: ["pesoBruto"] });
+      }
+      if (data.taraEstiba === undefined || data.taraEstiba === null) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La Tara Estiba es requerida.", path: ["taraEstiba"] });
+      }
+      if (data.taraCaja === undefined || data.taraCaja === null) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La Tara Caja es requerida.", path: ["taraCaja"] });
+      }
+    }
 });
   
 const tempSchema = z.preprocess(
@@ -276,6 +329,7 @@ export default function VariableWeightReceptionFormComponent() {
   const [standardObservations, setStandardObservations] = useState<StandardObservation[]>([]);
   const [isObservationDialogOpen, setObservationDialogOpen] = useState(false);
   const [observationDialogIndex, setObservationDialogIndex] = useState<number | null>(null);
+  const [isMixErrorDialogOpen, setMixErrorDialogOpen] = useState(false);
 
   const isAdmin = permissions.canManageSessions;
 
@@ -316,19 +370,21 @@ export default function VariableWeightReceptionFormComponent() {
     if (!watchedItems) return;
 
     watchedItems.forEach((item, index) => {
-        const cantidadPorPaleta = Number(item.cantidadPorPaleta) || 0;
-        const taraCaja = Number(item.taraCaja) || 0;
-        const pesoBruto = Number(item.pesoBruto) || 0;
-        const taraEstiba = Number(item.taraEstiba) || 0;
+        if (item && item.paleta !== 0) {
+            const cantidadPorPaleta = Number(item.cantidadPorPaleta) || 0;
+            const taraCaja = Number(item.taraCaja) || 0;
+            const pesoBruto = Number(item.pesoBruto) || 0;
+            const taraEstiba = Number(item.taraEstiba) || 0;
 
-        const calculatedTotalTaraCaja = cantidadPorPaleta * taraCaja;
-        const calculatedPesoNeto = pesoBruto - taraEstiba - calculatedTotalTaraCaja;
-      
-        if (item.totalTaraCaja !== calculatedTotalTaraCaja) {
-            form.setValue(`items.${index}.totalTaraCaja`, calculatedTotalTaraCaja, { shouldValidate: false });
-        }
-        if (item.pesoNeto !== calculatedPesoNeto) {
-            form.setValue(`items.${index}.pesoNeto`, calculatedPesoNeto, { shouldValidate: false });
+            const calculatedTotalTaraCaja = cantidadPorPaleta * taraCaja;
+            const calculatedPesoNeto = pesoBruto - taraEstiba - calculatedTotalTaraCaja;
+          
+            if (item.totalTaraCaja !== calculatedTotalTaraCaja) {
+                form.setValue(`items.${index}.totalTaraCaja`, calculatedTotalTaraCaja, { shouldValidate: false });
+            }
+            if (item.pesoNeto !== calculatedPesoNeto) {
+                form.setValue(`items.${index}.pesoNeto`, calculatedPesoNeto, { shouldValidate: false });
+            }
         }
     });
 
@@ -368,10 +424,6 @@ export default function VariableWeightReceptionFormComponent() {
         if (!item?.descripcion?.trim()) return acc;
         const desc = item.descripcion.trim();
 
-        const cantidad = Number(item.cantidadPorPaleta) || 0;
-        const pesoNeto = Number(item.pesoNeto) || 0;
-        const paleta = Number(item.paleta);
-
         if (!acc[desc]) {
             acc[desc] = {
                 descripcion: desc,
@@ -381,10 +433,17 @@ export default function VariableWeightReceptionFormComponent() {
             };
         }
 
-        acc[desc].totalPeso += isNaN(pesoNeto) ? 0 : pesoNeto;
-        acc[desc].totalCantidad += cantidad;
-        if (!isNaN(paleta) && paleta > 0) {
-            acc[desc].paletas.add(paleta);
+        if (Number(item.paleta) === 0) {
+            acc[desc].totalPeso += Number(item.totalPesoNeto) || 0;
+            acc[desc].totalCantidad += Number(item.totalCantidad) || 0;
+            acc[desc].paletas.add(0); // Special handling for summary rows
+        } else {
+            acc[desc].totalPeso += Number(item.pesoNeto) || 0;
+            acc[desc].totalCantidad += Number(item.cantidadPorPaleta) || 0;
+            const paleta = Number(item.paleta);
+            if (!isNaN(paleta) && paleta > 0) {
+                acc[desc].paletas.add(paleta);
+            }
         }
         
         return acc;
@@ -394,7 +453,9 @@ export default function VariableWeightReceptionFormComponent() {
         descripcion: group.descripcion,
         totalPeso: group.totalPeso,
         totalCantidad: group.totalCantidad,
-        totalPaletas: group.paletas.size,
+        totalPaletas: group.paletas.has(0) 
+            ? (watchedItems || []).filter(item => item.descripcion === group.descripcion && Number(item.paleta) === 0).reduce((sum, item) => sum + (Number(item.totalPaletas) || 0), 0)
+            : group.paletas.size,
     }));
   }, [watchedItems]);
 
@@ -420,19 +481,49 @@ export default function VariableWeightReceptionFormComponent() {
     const items = form.getValues('items');
     const lastItem = items.length > 0 ? items[items.length - 1] : null;
 
-    append({
-        codigo: lastItem?.codigo || '',
-        paleta: null,
-        descripcion: lastItem?.descripcion || '',
-        lote: lastItem?.lote || '',
-        presentacion: lastItem?.presentacion || '',
-        cantidadPorPaleta: lastItem?.cantidadPorPaleta || null,
-        pesoBruto: null,
-        taraEstiba: null,
-        taraCaja: lastItem?.taraCaja || null,
-        totalTaraCaja: null,
-        pesoNeto: null,
-    });
+    if (!lastItem) {
+        append(originalDefaultValues.items[0]);
+        return;
+    }
+    
+    // Check if the last item was explicitly a summary row (paleta === 0)
+    if (lastItem.paleta === 0) {
+        // Add a new summary row, copying relevant data.
+        append({
+            codigo: lastItem.codigo,
+            paleta: 0,
+            descripcion: lastItem.descripcion,
+            lote: lastItem.lote,
+            presentacion: lastItem.presentacion,
+            totalCantidad: null, 
+            totalPaletas: null, 
+            totalPesoNeto: null, 
+            cantidadPorPaleta: null,
+            pesoBruto: null,
+            taraEstiba: null,
+            taraCaja: null,
+            totalTaraCaja: null,
+            pesoNeto: null,
+        });
+    } else {
+        // Add a new individual pallet row.
+        append({
+            codigo: lastItem.codigo,
+            paleta: null, // New pallet number should be entered by user
+            descripcion: lastItem.descripcion,
+            lote: lastItem.lote,
+            presentacion: lastItem.presentacion,
+            cantidadPorPaleta: lastItem.cantidadPorPaleta,
+            pesoBruto: null,
+            taraEstiba: null,
+            taraCaja: lastItem.taraCaja,
+            totalTaraCaja: null,
+            pesoNeto: null,
+            totalCantidad: null,
+            totalPaletas: null,
+            totalPesoNeto: null,
+        });
+    }
   };
 
   useEffect(() => {
@@ -491,7 +582,7 @@ export default function VariableWeightReceptionFormComponent() {
               items: (formData.items || []).map((item: any) => ({
                   ...originalDefaultValues.items[0],
                   ...item,
-                  paleta: item.paleta ?? null,
+                  paleta: item.paleta, // Keep 0 if it exists
                   lote: item.lote ?? '',
                   presentacion: item.presentacion ?? '',
                   cantidadPorPaleta: item.cantidadPorPaleta ?? null,
@@ -500,6 +591,9 @@ export default function VariableWeightReceptionFormComponent() {
                   taraCaja: item.taraCaja ?? null,
                   totalTaraCaja: item.totalTaraCaja ?? null,
                   pesoNeto: item.pesoNeto ?? null,
+                  totalCantidad: item.totalCantidad ?? null,
+                  totalPaletas: item.totalPaletas ?? null,
+                  totalPesoNeto: item.totalPesoNeto ?? null,
               }))
           };
 
@@ -753,6 +847,15 @@ export default function VariableWeightReceptionFormComponent() {
         toast({ variant: "destructive", title: "Error", description: "Debe iniciar sesión para guardar el formato." });
         return;
     }
+
+    const hasSummaryRow = data.items.some(item => Number(item.paleta) === 0);
+    const hasDetailRow = data.items.some(item => Number(item.paleta) > 0);
+
+    if (hasSummaryRow && hasDetailRow) {
+        setMixErrorDialogOpen(true);
+        return;
+    }
+
     setIsSubmitting(true);
     try {
         const finalSummary = calculatedSummaryForDisplay.map(summaryItem => {
@@ -1162,88 +1265,15 @@ export default function VariableWeightReceptionFormComponent() {
                   <CardHeader><CardTitle>Detalle de la Recepción</CardTitle></CardHeader>
                   <CardContent className="space-y-4">
                       <div className="space-y-4">
-                        {fields.map((field, index) => {
-                             const itemData = watchedItems?.[index];
-                             const totalTaraCaja = itemData?.totalTaraCaja;
-                             const pesoNeto = itemData?.pesoNeto;
-                            
-                             return (
-                            <div key={field.id} className="p-4 border rounded-lg relative bg-white space-y-4">
-                                <div className="flex justify-between items-center">
-                                    <h4 className="font-semibold text-lg">Ítem #{index + 1}</h4>
-                                    <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => remove(index)}><Trash2 className="h-4 w-4" /></Button>
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                     <FormField control={form.control} name={`items.${index}.codigo`} render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Código</FormLabel>
-                                            <Button
-                                              type="button"
-                                              variant="outline"
-                                              className="w-full justify-between text-left font-normal h-10"
-                                              onClick={() => handleProductDialogOpening(index)}
-                                            >
-                                              <span className="truncate">{field.value || "Seleccionar código..."}</span>
-                                              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                            </Button>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}/>
-                                    <FormField control={form.control} name={`items.${index}.descripcion`} render={({ field: controllerField }) => (
-                                        <FormItem className="md:col-span-2">
-                                            <FormLabel>Descripción del Producto</FormLabel>
-                                             <Button
-                                                  type="button"
-                                                  variant="outline"
-                                                  className="w-full justify-between text-left font-normal h-10"
-                                                  onClick={() => handleProductDialogOpening(index)}
-                                                >
-                                                  <span className="truncate">{controllerField.value || "Seleccionar producto..."}</span>
-                                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                            </Button>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}/>
-                                </div>
-                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                                    <FormField control={form.control} name={`items.${index}.paleta`} render={({ field }) => (
-                                        <FormItem><FormLabel>Paleta</FormLabel><FormControl><Input 
-                                            type="text" 
-                                            inputMode="numeric" 
-                                            placeholder="Número de paleta" 
-                                            {...field} 
-                                            onChange={e => {
-                                                const value = e.target.value;
-                                                const numericValue = value.replace(/[^0-9]/g, '');
-                                                field.onChange(numericValue === '' ? null : numericValue);
-                                            }} 
-                                            value={field.value ?? ''} 
-                                        /></FormControl><FormMessage /></FormItem>
-                                    )}/>
-                                    <FormField control={form.control} name={`items.${index}.lote`} render={({ field }) => (
-                                        <FormItem><FormLabel>Lote</FormLabel><FormControl><Input placeholder="Lote (máx. 15 caracteres)" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>
-                                    )}/>
-                                    <FormField control={form.control} name={`items.${index}.presentacion`} render={({ field }) => (
-                                        <FormItem><FormLabel>Presentación</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione presentación" /></SelectTrigger></FormControl><SelectContent>{presentaciones.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
-                                    )}/>
-                                </div>
-                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
-                                     <FormField control={form.control} name={`items.${index}.cantidadPorPaleta`} render={({ field }) => (
-                                        <FormItem><FormLabel>Cantidad Por Paleta</FormLabel><FormControl><Input type="text" inputMode="numeric" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                                    )}/>
-                                    <FormField control={form.control} name={`items.${index}.pesoBruto`} render={({ field }) => (
-                                        <FormItem><FormLabel>Peso Bruto (kg)</FormLabel><FormControl><Input type="text" inputMode="decimal" step="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                                    )}/>
-                                    <FormField control={form.control} name={`items.${index}.taraEstiba`} render={({ field }) => (
-                                        <FormItem><FormLabel>Tara Estiba (kg)</FormLabel><FormControl><Input type="text" inputMode="decimal" step="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                                    )}/>
-                                    <FormField control={form.control} name={`items.${index}.taraCaja`} render={({ field }) => (
-                                        <FormItem><FormLabel>Tara Caja (kg)</FormLabel><FormControl><Input type="text" inputMode="decimal" step="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                                    )}/>
-                                    <FormItem><FormLabel>Peso Neto (kg)</FormLabel><FormControl><Input disabled readOnly value={pesoNeto != null && !isNaN(pesoNeto) ? pesoNeto.toFixed(2) : '0.00'} /></FormControl></FormItem>
-                                </div>
-                            </div>
-                        )})}
+                        {fields.map((field, index) => (
+                            <FormItemRow
+                                key={field.id}
+                                index={index}
+                                control={form.control}
+                                remove={remove}
+                                handleProductDialogOpening={handleProductDialogOpening}
+                            />
+                        ))}
                       </div>
                       <Button type="button" variant="outline" onClick={handleAddItem}><PlusCircle className="mr-2 h-4 w-4" />Agregar Item</Button>
                   </CardContent>
@@ -1666,6 +1696,19 @@ export default function VariableWeightReceptionFormComponent() {
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
+         <AlertDialog open={isMixErrorDialogOpen} onOpenChange={setMixErrorDialogOpen}>
+            <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Error de Validación</AlertDialogTitle>
+                <AlertDialogDesc>
+                No se pueden mezclar ítems de resumen (Paleta 0) con ítems de paletas individuales. Por favor, use solo un método.
+                </AlertDialogDesc>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogAction onClick={() => setMixErrorDialogOpen(false)}>Entendido</AlertDialogAction>
+            </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
       </div>
   );
 }
@@ -1809,3 +1852,125 @@ function ProductSelectorDialog({
         </Dialog>
     );
 }
+
+// Sub-component for a single item row to handle its own state and logic
+const FormItemRow = ({ index, control, remove, handleProductDialogOpening }: { index: number, control: any, remove: (index: number) => void, handleProductDialogOpening: (index: number) => void }) => {
+    const watchedItem = useWatch({ control, name: `items.${index}` });
+    const isSummaryRow = watchedItem?.paleta === 0;
+    const pesoNeto = watchedItem?.pesoNeto;
+
+    return (
+        <div className="p-4 border rounded-lg relative bg-white space-y-4">
+            <div className="flex justify-between items-center">
+                <h4 className="text-lg font-semibold md:text-base">Ítem #{index + 1}</h4>
+                <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => remove(index)}><Trash2 className="h-4 w-4" /></Button>
+            </div>
+            <div className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <FormField control={control} name={`items.${index}.codigo`} render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Código</FormLabel>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                className="w-full justify-between h-10 text-left font-normal"
+                                onClick={() => handleProductDialogOpening(index)}
+                            >
+                                <span className="truncate">{field.value || "Seleccionar código..."}</span>
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
+                    <FormField control={control} name={`items.${index}.descripcion`} render={({ field: controllerField }) => (
+                        <FormItem className="md:col-span-2">
+                            <FormLabel>Descripción del Producto</FormLabel>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                className="w-full justify-between h-10 text-left font-normal"
+                                onClick={() => handleProductDialogOpening(index)}
+                            >
+                                <span className="truncate">{controllerField.value || "Seleccionar producto..."}</span>
+                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                            </Button>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <FormField control={control} name={`items.${index}.paleta`} render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Paleta</FormLabel>
+                            <FormControl>
+                                <Input 
+                                    type="text" 
+                                    inputMode="numeric" 
+                                    placeholder="0 (para resumen)" 
+                                    {...field}
+                                    onChange={e => {
+                                        const value = e.target.value;
+                                        // Allow empty string to represent null, otherwise convert to number
+                                        field.onChange(value === '' ? null : Number(value));
+                                    }}
+                                    value={field.value ?? ''}
+                                />
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
+                    <FormField control={control} name={`items.${index}.lote`} render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Lote</FormLabel>
+                            <FormControl><Input placeholder="Lote (máx. 15 caracteres)" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value.toUpperCase())} /></FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
+                    <FormField control={control} name={`items.${index}.presentacion`} render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Presentación</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                    <SelectTrigger><SelectValue placeholder="Seleccione presentación" /></SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                    {presentaciones.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
+                </div>
+                {isSummaryRow ? (
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <FormField control={control} name={`items.${index}.totalCantidad`} render={({ field }) => (
+                            <FormItem><FormLabel>Total Cantidad</FormLabel><FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                        <FormField control={control} name={`items.${index}.totalPaletas`} render={({ field }) => (
+                            <FormItem><FormLabel>Total Paletas</FormLabel><FormControl><Input type="text" inputMode="numeric" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                        <FormField control={control} name={`items.${index}.totalPesoNeto`} render={({ field }) => (
+                            <FormItem><FormLabel>Total Peso Neto (kg)</FormLabel><FormControl><Input type="text" inputMode="decimal" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                    </div>
+                ) : (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
+                         <FormField control={control} name={`items.${index}.cantidadPorPaleta`} render={({ field }) => (
+                            <FormItem><FormLabel>Cantidad Por Paleta</FormLabel><FormControl><Input type="text" inputMode="numeric" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                        <FormField control={control} name={`items.${index}.pesoBruto`} render={({ field }) => (
+                            <FormItem><FormLabel>Peso Bruto (kg)</FormLabel><FormControl><Input type="text" inputMode="decimal" min="0" step="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                        <FormField control={control} name={`items.${index}.taraEstiba`} render={({ field }) => (
+                            <FormItem><FormLabel>Tara Estiba (kg)</FormLabel><FormControl><Input type="text" inputMode="decimal" min="0" step="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                        <FormField control={control} name={`items.${index}.taraCaja`} render={({ field }) => (
+                            <FormItem><FormLabel>Tara Caja (kg)</FormLabel><FormControl><Input type="text" inputMode="decimal" min="0" step="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                        <FormItem><FormLabel>Peso Neto (kg)</FormLabel><FormControl><Input disabled readOnly value={pesoNeto != null && !isNaN(pesoNeto) ? pesoNeto.toFixed(2) : '0.00'} /></FormControl></FormItem>
+                    </div>
+                )}
+            </div>
+        </div>
+    );
+};
