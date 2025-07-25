@@ -353,6 +353,11 @@ const FormItemRow = ({ index, control, remove, handleProductDialogOpening }: { i
                                     inputMode="numeric" 
                                     placeholder="0 (para resumen)" 
                                     {...field}
+                                    onChange={e => {
+                                        const value = e.target.value;
+                                        // Allow empty string to represent null, otherwise convert to number
+                                        field.onChange(value === '' ? null : Number(value));
+                                    }}
                                     value={field.value ?? ''}
                                 />
                             </FormControl>

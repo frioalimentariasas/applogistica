@@ -545,5 +545,3 @@ export default function PerformanceReportPage() {
         </div>
     );
 }
-
-
