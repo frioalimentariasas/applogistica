@@ -33,6 +33,8 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import type { ClientInfo } from '@/app/actions/clients';
+import { cn } from '@/lib/utils';
+
 
 const conceptSchema = z.object({
   conceptName: z.string().min(3, { message: "El nombre del concepto es requerido (mín. 3 caracteres)."}),
@@ -420,3 +422,4 @@ export default function ConceptManagementComponent({ initialClients, initialConc
   );
 }
 
+    
