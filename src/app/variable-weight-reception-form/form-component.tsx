@@ -62,6 +62,7 @@ import {
     Loader2,
     Check,
     CalendarIcon,
+    Clock,
 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -855,6 +856,13 @@ export default function VariableWeightReceptionFormComponent() {
     setObservationDialogIndex(index);
     setObservationDialogOpen(true);
   };
+  
+  const handleCaptureTime = (fieldName: 'horaInicio' | 'horaFin') => {
+    const now = new Date();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    form.setValue(fieldName, `${hours}:${minutes}`, { shouldValidate: true });
+  };
 
   
   const title = `${submissionId ? 'Editando' : 'Formato de'} Recepción - Peso Variable`;
@@ -1347,18 +1355,28 @@ export default function VariableWeightReceptionFormComponent() {
                           <FormField control={form.control} name="horaInicio" render={({ field }) => (
                           <FormItem>
                               <FormLabel>Hora Inicio</FormLabel>
-                              <FormControl>
-                                  <Input type="time" placeholder="HH:MM" {...field} />
-                              </FormControl>
+                               <div className="flex items-center gap-2">
+                                <FormControl>
+                                    <Input type="time" placeholder="HH:MM" {...field} className="flex-grow" />
+                                </FormControl>
+                                <Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('horaInicio')}>
+                                    <Clock className="h-4 w-4" />
+                                </Button>
+                              </div>
                               <FormMessage />
                           </FormItem>
                           )}/>
                           <FormField control={form.control} name="horaFin" render={({ field }) => (
                           <FormItem>
                               <FormLabel>Hora Fin</FormLabel>
-                              <FormControl>
-                                  <Input type="time" placeholder="HH:MM" {...field} />
-                              </FormControl>
+                              <div className="flex items-center gap-2">
+                                <FormControl>
+                                    <Input type="time" placeholder="HH:MM" {...field} className="flex-grow" />
+                                </FormControl>
+                                 <Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('horaFin')}>
+                                    <Clock className="h-4 w-4" />
+                                </Button>
+                              </div>
                               <FormMessage />
                           </FormItem>
                           )}/>

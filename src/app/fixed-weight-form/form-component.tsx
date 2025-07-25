@@ -64,6 +64,7 @@ import {
     Loader2,
     Check,
     CalendarIcon,
+    Clock,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { RestoreDialog } from "@/components/app/restore-dialog";
@@ -740,6 +741,13 @@ export default function FixedWeightFormComponent() {
     setObservationDialogIndex(index);
     setObservationDialogOpen(true);
   };
+  
+  const handleCaptureTime = (fieldName: 'horaInicio' | 'horaFin') => {
+    const now = new Date();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    form.setValue(fieldName, `${hours}:${minutes}`, { shouldValidate: true });
+  };
 
 
   const title = `${submissionId ? 'Editando' : 'Formato de'} ${operation.charAt(0).toUpperCase() + operation.slice(1)} - Peso Fijo`;
@@ -935,22 +943,32 @@ export default function FixedWeightFormComponent() {
                       )}
                     />
                     <FormField control={form.control} name="horaInicio" render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>{operation === 'recepcion' ? 'Hora Inicio Descargue' : 'Hora de Inicio Cargue'}</FormLabel>
-                        <FormControl>
-                            <Input type="time" placeholder="HH:MM" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                    </FormItem>
+                        <FormItem>
+                            <FormLabel>{operation === 'recepcion' ? 'Hora Inicio Descargue' : 'Hora de Inicio Cargue'}</FormLabel>
+                            <div className="flex items-center gap-2">
+                                <FormControl>
+                                    <Input type="time" placeholder="HH:MM" {...field} className="flex-grow" />
+                                </FormControl>
+                                <Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('horaInicio')} aria-label="Capturar hora actual">
+                                    <Clock className="h-4 w-4" />
+                                </Button>
+                            </div>
+                            <FormMessage />
+                        </FormItem>
                     )}/>
                     <FormField control={form.control} name="horaFin" render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>{operation === 'recepcion' ? 'Hora Fin Descargue' : 'Hora Fin Cargue'}</FormLabel>
-                        <FormControl>
-                            <Input type="time" placeholder="HH:MM" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                    </FormItem>
+                        <FormItem>
+                            <FormLabel>{operation === 'recepcion' ? 'Hora Fin Descargue' : 'Hora Fin Cargue'}</FormLabel>
+                             <div className="flex items-center gap-2">
+                                <FormControl>
+                                    <Input type="time" placeholder="HH:MM" {...field} className="flex-grow" />
+                                </FormControl>
+                                <Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('horaFin')} aria-label="Capturar hora actual">
+                                    <Clock className="h-4 w-4" />
+                                </Button>
+                            </div>
+                            <FormMessage />
+                        </FormItem>
                     )}/>
                     <FormField control={form.control} name="precinto" render={({ field }) => (
                     <FormItem>

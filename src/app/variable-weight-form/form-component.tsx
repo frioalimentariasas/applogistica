@@ -63,6 +63,7 @@ import {
     Loader2,
     Check,
     CalendarIcon,
+    Clock,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -1096,6 +1097,13 @@ export default function VariableWeightFormComponent() {
     setObservationDialogOpen(true);
   };
 
+  const handleCaptureTime = (fieldName: 'horaInicio' | 'horaFin') => {
+    const now = new Date();
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    form.setValue(fieldName, `${hours}:${minutes}`, { shouldValidate: true });
+  };
+
 
   const title = `${submissionId ? 'Editando' : 'Formato de'} ${operation.charAt(0).toUpperCase() + operation.slice(1)} - Peso Variable`;
 
@@ -1502,22 +1510,24 @@ export default function VariableWeightFormComponent() {
                 <CardContent className="space-y-6">
                     <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                         <FormField control={form.control} name="horaInicio" render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Hora de Inicio</FormLabel>
-                            <FormControl>
-                                <Input type="time" placeholder="HH:MM" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
+                            <FormItem>
+                                <FormLabel>Hora de Inicio</FormLabel>
+                                <div className="flex items-center gap-2">
+                                    <FormControl><Input type="time" placeholder="HH:MM" {...field} className="flex-grow" /></FormControl>
+                                    <Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('horaInicio')}><Clock className="h-4 w-4" /></Button>
+                                </div>
+                                <FormMessage />
+                            </FormItem>
                         )}/>
                         <FormField control={form.control} name="horaFin" render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Hora Fin</FormLabel>
-                            <FormControl>
-                                <Input type="time" placeholder="HH:MM" {...field} />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
+                            <FormItem>
+                                <FormLabel>Hora Fin</FormLabel>
+                                <div className="flex items-center gap-2">
+                                    <FormControl><Input type="time" placeholder="HH:MM" {...field} className="flex-grow" /></FormControl>
+                                    <Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('horaFin')}><Clock className="h-4 w-4" /></Button>
+                                </div>
+                                <FormMessage />
+                            </FormItem>
                         )}/>
                     </div>
                     <div>
@@ -1762,7 +1772,7 @@ export default function VariableWeightFormComponent() {
                 </CardContent>
             </Card>
             
-            <footer className="flex flex-col items-center justify-end gap-4 pt-4 sm:flex-row">
+            <footer className="flex flex-col sm:flex-row items-center justify-end gap-4 pt-4">
                 <Button type="button" variant="outline" onClick={() => setDiscardAlertOpen(true)} className="w-full sm:w-auto"><RotateCcw className="mr-2 h-4 w-4"/>Limpiar Formato</Button>
                  <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto">
                     {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4"/>}
