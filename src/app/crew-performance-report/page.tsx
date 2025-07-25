@@ -120,7 +120,11 @@ const formatDuration = (totalMinutes: number | null): string => {
 };
 
 const getPerformanceIndicator = (row: CrewPerformanceReportRow): { text: string, color: string } => {
-    const { duracionMinutos, kilos, standard } = row;
+    const { duracionMinutos, kilos, standard, conceptoLiquidado } = row;
+
+    if (conceptoLiquidado !== 'CARGUE' && conceptoLiquidado !== 'DESCARGUE') {
+        return { text: 'No Aplica', color: 'text-gray-500' };
+    }
 
     if (kilos === 0 || duracionMinutos === null || duracionMinutos < 0) {
         return { text: 'No Calculado', color: 'text-gray-500' };
@@ -144,6 +148,7 @@ const getPerformanceIndicator = (row: CrewPerformanceReportRow): { text: string,
     // si es mayor pasado esos 10 min adicionales al estándar el indicador es lento
     return { text: 'Lento', color: 'text-red-600' };
 };
+
 
 const formatTons = (kilos: number): number => {
     return Number((kilos / 1000).toFixed(2));
