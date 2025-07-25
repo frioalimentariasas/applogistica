@@ -141,6 +141,31 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
             }
         }
     }
+    
+    // --- Concept: TRANSBORDO CANASTILLA ---
+    const transbordoObservations = observations.filter(
+        (obs: any) => obs.type === 'TRANSBORDO CANASTILLA' && obs.executedByGrupoRosales === true
+    );
+
+    if (transbordoObservations.length > 0) {
+        const transbordoConcept = billingConcepts.find(
+            c => c.conceptName === 'TRANSBORDO CANASTILLA' && (c.unitOfMeasure === 'CANASTILLA' || c.unitOfMeasure === 'UNIDAD')
+        );
+        if (transbordoConcept) {
+            const totalUnits = transbordoObservations.reduce(
+                (sum: number, obs: any) => sum + (Number(obs.quantity) || 0), 0
+            );
+            if (totalUnits > 0) {
+                settlements.push({
+                    conceptName: 'TRANSBORDO CANASTILLA',
+                    unitValue: transbordoConcept.value,
+                    quantity: totalUnits,
+                    unitOfMeasure: transbordoConcept.unitOfMeasure,
+                    totalValue: totalUnits * transbordoConcept.value,
+                });
+            }
+        }
+    }
 
     // --- Concept: CARGUE / DESCARGUE ---
     if (formData.aplicaCuadrilla === 'si') {
