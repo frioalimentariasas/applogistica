@@ -295,7 +295,7 @@ export default function CrewPerformanceReportPage() {
 
     const totalDuration = useMemo(() => dataForExport.reduce((acc, row) => acc + (row.duracionMinutos || 0), 0), [dataForExport]);
     const totalToneladas = useMemo(() => dataForExport.reduce((acc, row) => acc + (row.kilos || 0), 0) / 1000, [dataForExport]);
-    const totalLiquidacion = useMemo(() => reportData.reduce((acc, row) => acc + (row.valorLiquidacion || 0), 0), [reportData]);
+    const totalLiquidacion = useMemo(() => reportData.reduce((acc, row) => acc + (row.totalValorLiquidacion || 0), 0), [reportData]);
     
     const getSelectedClientsText = () => {
         if (selectedClients.length === 0) return "Todos los clientes...";
@@ -355,6 +355,7 @@ export default function CrewPerformanceReportPage() {
 
         const dataToSheet = reportData.map(row => {
             const indicator = getPerformanceIndicator(row);
+            const settlementDetail = row.settlements.map(s => `${s.conceptName}: ${s.value.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}`).join('\n');
             return {
                 'Fecha': format(new Date(row.fecha), 'dd/MM/yyyy'),
                 'Operario Responsable': row.operario,
@@ -365,14 +366,15 @@ export default function CrewPerformanceReportPage() {
                 'Toneladas': formatTons(row.kilos),
                 'Duración': formatDuration(row.duracionMinutos),
                 'Indicador': indicator.text,
-                'Valor Liquidado (COP)': row.valorLiquidacion,
+                'Detalle Liquidación (COP)': settlementDetail,
+                'Total Liquidación (COP)': row.totalValorLiquidacion,
             }
         });
 
         const worksheet = XLSX.utils.json_to_sheet(dataToSheet, { origin: 'A1' });
 
         const totalRow = [
-            null, null, null, null, null, null, 'TOTALES:', totalToneladas.toFixed(2), formatDuration(totalDuration), null, totalLiquidacion
+            null, null, null, null, null, null, null, null, 'TOTALES:', null, totalLiquidacion
         ];
         XLSX.utils.sheet_add_aoa(worksheet, [totalRow], { origin: -1 });
 
@@ -431,9 +433,10 @@ export default function CrewPerformanceReportPage() {
 
         autoTable(doc, {
             startY: mainTableStartY,
-            head: [['Fecha', 'Operario', 'Cliente', 'Tipo Op.', 'Pedido', 'Toneladas', 'Duración', 'Indicador', 'Valor Liquidado']],
+            head: [['Fecha', 'Operario', 'Cliente', 'Tipo Op.', 'Pedido', 'Ton', 'Duración', 'Indicador', 'Detalle Liquidación']],
             body: reportData.map(row => {
                 const indicator = getPerformanceIndicator(row);
+                const settlementDetail = row.settlements.map(s => `${s.conceptName}: ${s.value.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}`).join('\n');
                 return [
                 format(new Date(row.fecha), 'dd/MM/yy'),
                 row.operario,
@@ -443,11 +446,11 @@ export default function CrewPerformanceReportPage() {
                 formatTons(row.kilos),
                 formatDuration(row.duracionMinutos),
                 indicator.text,
-                row.valorLiquidacion.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }),
+                settlementDetail,
             ]}),
             foot: [
                 [
-                    { content: 'TOTALES:', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold' } }, 
+                    { content: 'TOTALES:', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold' } }, 
                     { content: totalToneladas.toFixed(2), styles: { halign: 'left', fontStyle: 'bold' } },
                     { content: formatDuration(totalDuration), styles: { halign: 'left', fontStyle: 'bold' } },
                     '',
@@ -457,7 +460,10 @@ export default function CrewPerformanceReportPage() {
             headStyles: { fillColor: [33, 150, 243], fontSize: 7 },
             footStyles: { fillColor: [33, 150, 243], textColor: '#ffffff' },
             theme: 'grid',
-            styles: { fontSize: 7, cellPadding: 1.5 },
+            styles: { fontSize: 7, cellPadding: 1.5, overflow: 'linebreak' },
+             columnStyles: {
+                8: { cellWidth: 80 }, // Detalle Liquidación column
+            }
         });
 
         if (performanceSummary) {
@@ -706,7 +712,7 @@ export default function CrewPerformanceReportPage() {
                                         <TableHead className="px-2 py-2 text-right">Toneladas</TableHead>
                                         <TableHead className="px-2 py-2 text-right">Duración</TableHead>
                                         <TableHead className="px-2 py-2 text-right">Indicador</TableHead>
-                                        <TableHead className="px-2 py-2 text-right">Valor Liquidado</TableHead>
+                                        <TableHead className="px-2 py-2 text-right">Detalle Liquidación</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -730,7 +736,13 @@ export default function CrewPerformanceReportPage() {
                                                             {indicator.text}
                                                         </div>
                                                     </TableCell>
-                                                     <TableCell className="text-xs px-2 py-2 text-right font-mono">{row.valorLiquidacion.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell>
+                                                     <TableCell className="text-xs px-2 py-2 text-right font-mono">
+                                                        {row.settlements.length > 0 ? (
+                                                            row.settlements.map((s, i) => (
+                                                                <div key={i}>{s.conceptName}: {s.value.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</div>
+                                                            ))
+                                                        ) : ('-')}
+                                                     </TableCell>
                                                 </TableRow>
                                             )
                                         })
@@ -763,3 +775,4 @@ export default function CrewPerformanceReportPage() {
         </div>
     );
 }
+

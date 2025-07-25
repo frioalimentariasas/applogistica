@@ -88,7 +88,8 @@ export interface CrewPerformanceReportRow {
     productType: 'fijo' | 'variable' | null;
     standard?: PerformanceStandard | null;
     description: string;
-    valorLiquidacion: number;
+    settlements: { conceptName: string; value: number }[];
+    totalValorLiquidacion: number;
 }
 
 const getLocalGroupingDate = (isoString: string): string => {
@@ -103,8 +104,8 @@ const getLocalGroupingDate = (isoString: string): string => {
     }
 };
 
-const calculateSettlementValue = (submission: any, billingConcepts: BillingConcept[]): number => {
-    let totalValue = 0;
+const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]): { conceptName: string; value: number }[] => {
+    const settlements: { conceptName: string; value: number }[] = [];
     const { formData, formType } = submission;
     const observations = formData.observaciones || [];
 
@@ -121,7 +122,12 @@ const calculateSettlementValue = (submission: any, billingConcepts: BillingConce
             const totalPallets = reestibadoObservations.reduce(
                 (sum: number, obs: any) => sum + (Number(obs.quantity) || 0), 0
             );
-            totalValue += totalPallets * reestibadoConcept.value;
+            if (totalPallets > 0) {
+                settlements.push({
+                    conceptName: 'REESTIBADO',
+                    value: totalPallets * reestibadoConcept.value,
+                });
+            }
         }
     }
 
@@ -133,13 +139,14 @@ const calculateSettlementValue = (submission: any, billingConcepts: BillingConce
         const operationConcept = billingConcepts.find(c => c.conceptName === conceptName);
 
         if (operationConcept) {
-            // Assuming this is a per-operation charge, so we just add the value.
-            // If it were per-ton, per-pallet, etc., we'd need more logic here.
-            totalValue += operationConcept.value;
+            settlements.push({
+                conceptName: conceptName,
+                value: operationConcept.value
+            });
         }
     }
     
-    return totalValue;
+    return settlements;
 };
 
 
@@ -160,13 +167,12 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         query = query.where('userDisplayName', '==', criteria.operario);
     }
     
-    // Widen server query to account for timezone differences, then filter in memory
     const serverQueryStartDate = new Date(criteria.startDate);
-    serverQueryStartDate.setDate(serverQueryStartDate.getDate() - 1);
-    const serverQueryEndDate = addDays(new Date(criteria.endDate), 2);
+    const serverQueryEndDate = addDays(new Date(criteria.endDate), 1);
     
-    query = query.where('createdAt', '>=', serverQueryStartDate.toISOString())
-                 .where('createdAt', '<', serverQueryEndDate.toISOString());
+    query = query.where('createdAt', '>=', serverQueryStartDate.toISOString().split('T')[0])
+                 .where('createdAt', '<', serverQueryEndDate.toISOString().split('T')[0]);
+
 
     try {
         const [snapshot, billingConcepts] = await Promise.all([
@@ -187,7 +193,6 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             if (!formIsoDate || typeof formIsoDate !== 'string') {
                 return false;
             }
-            // Use the form's specific date for accurate filtering
             const formDatePart = getLocalGroupingDate(formIsoDate);
             return formDatePart >= criteria.startDate! && formDatePart <= criteria.endDate!;
         });
@@ -217,7 +222,6 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             }
             
             const kilos = calculateTotalKilos(formType, formData);
-            // Round to 2 decimal places to avoid floating point issues.
             const toneladas = Math.round((kilos / 1000) * 100) / 100;
             const clientName = formData.nombreCliente || formData.cliente;
 
@@ -228,7 +232,8 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
               tons: toneladas
             }); 
             
-            const valorLiquidacion = calculateSettlementValue(submission, billingConcepts);
+            const settlements = calculateSettlements(submission, billingConcepts);
+            const totalValorLiquidacion = settlements.reduce((sum, s) => sum + s.value, 0);
 
             return {
                 id,
@@ -246,7 +251,8 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                 productType: productTypeForAction,
                 standard,
                 description: standard?.description || "Sin descripción",
-                valorLiquidacion: valorLiquidacion,
+                settlements,
+                totalValorLiquidacion,
             };
         }));
 
