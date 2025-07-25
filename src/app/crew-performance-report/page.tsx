@@ -295,6 +295,7 @@ export default function CrewPerformanceReportPage() {
 
     const totalDuration = useMemo(() => dataForExport.reduce((acc, row) => acc + (row.duracionMinutos || 0), 0), [dataForExport]);
     const totalToneladas = useMemo(() => dataForExport.reduce((acc, row) => acc + (row.kilos || 0), 0) / 1000, [dataForExport]);
+    const totalLiquidacion = useMemo(() => reportData.reduce((acc, row) => acc + (row.valorLiquidacion || 0), 0), [reportData]);
     
     const getSelectedClientsText = () => {
         if (selectedClients.length === 0) return "Todos los clientes...";
@@ -350,9 +351,9 @@ export default function CrewPerformanceReportPage() {
     }, [dataForExport]);
 
     const handleExportExcel = () => {
-        if (dataForExport.length === 0) return;
+        if (reportData.length === 0) return;
 
-        const dataToSheet = dataForExport.map(row => {
+        const dataToSheet = reportData.map(row => {
             const indicator = getPerformanceIndicator(row);
             return {
                 'Fecha': format(new Date(row.fecha), 'dd/MM/yyyy'),
@@ -362,17 +363,16 @@ export default function CrewPerformanceReportPage() {
                 'Tipo Producto': row.tipoProducto,
                 'Pedido SISLOG': row.pedidoSislog,
                 'Toneladas': formatTons(row.kilos),
-                'Hora Inicio': formatTime12Hour(row.horaInicio),
-                'Hora Fin': formatTime12Hour(row.horaFin),
                 'Duración': formatDuration(row.duracionMinutos),
                 'Indicador': indicator.text,
+                'Valor Liquidado (COP)': row.valorLiquidacion,
             }
         });
 
         const worksheet = XLSX.utils.json_to_sheet(dataToSheet, { origin: 'A1' });
 
         const totalRow = [
-            null, null, null, null, null, 'TOTALES:', totalToneladas.toFixed(2), null, null, formatDuration(totalDuration), null
+            null, null, null, null, null, null, 'TOTALES:', totalToneladas.toFixed(2), formatDuration(totalDuration), null, totalLiquidacion
         ];
         XLSX.utils.sheet_add_aoa(worksheet, [totalRow], { origin: -1 });
 
@@ -400,13 +400,13 @@ export default function CrewPerformanceReportPage() {
 
 
         const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'Desempeño Cuadrilla');
-        const fileName = `Reporte_Desempeño_Cuadrilla_${format(dateRange!.from!, 'yyyy-MM-dd')}_a_${format(dateRange!.to!, 'yyyy-MM-dd')}.xlsx`;
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Liquidacion Cuadrilla');
+        const fileName = `Reporte_Liquidacion_Cuadrilla_${format(dateRange!.from!, 'yyyy-MM-dd')}_a_${format(dateRange!.to!, 'yyyy-MM-dd')}.xlsx`;
         XLSX.writeFile(workbook, fileName);
     };
 
     const handleExportPDF = async () => {
-        if (dataForExport.length === 0 || !logoBase64 || !logoDimensions) return;
+        if (reportData.length === 0 || !logoBase64 || !logoDimensions) return;
         
         const doc = new jsPDF({ orientation: 'landscape' });
         const pageWidth = doc.internal.pageSize.getWidth();
@@ -421,7 +421,7 @@ export default function CrewPerformanceReportPage() {
         
         doc.setFontSize(11);
         doc.setFont('helvetica', 'bold');
-        doc.text(`Informe de Desempeño de Cuadrilla`, pageWidth / 2, titleY, { align: 'center' });
+        doc.text(`Informe de Liquidación de Cuadrilla`, pageWidth / 2, titleY, { align: 'center' });
         
         doc.setFontSize(9);
         doc.setFont('helvetica', 'normal');
@@ -431,26 +431,27 @@ export default function CrewPerformanceReportPage() {
 
         autoTable(doc, {
             startY: mainTableStartY,
-            head: [['Fecha', 'Operario', 'Cliente', 'Tipo Op.', 'Tipo Prod.', 'Pedido', 'Toneladas', 'Duración', 'Indicador']],
-            body: dataForExport.map(row => {
+            head: [['Fecha', 'Operario', 'Cliente', 'Tipo Op.', 'Pedido', 'Toneladas', 'Duración', 'Indicador', 'Valor Liquidado']],
+            body: reportData.map(row => {
                 const indicator = getPerformanceIndicator(row);
                 return [
                 format(new Date(row.fecha), 'dd/MM/yy'),
                 row.operario,
                 row.cliente,
                 row.tipoOperacion,
-                row.tipoProducto,
                 row.pedidoSislog,
                 formatTons(row.kilos),
                 formatDuration(row.duracionMinutos),
-                indicator.text
+                indicator.text,
+                row.valorLiquidacion.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }),
             ]}),
             foot: [
                 [
-                    { content: 'TOTALES:', colSpan: 6, styles: { halign: 'right', fontStyle: 'bold' } }, 
+                    { content: 'TOTALES:', colSpan: 5, styles: { halign: 'right', fontStyle: 'bold' } }, 
                     { content: totalToneladas.toFixed(2), styles: { halign: 'left', fontStyle: 'bold' } },
                     { content: formatDuration(totalDuration), styles: { halign: 'left', fontStyle: 'bold' } },
-                    ''
+                    '',
+                    { content: totalLiquidacion.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'left', fontStyle: 'bold' } }
                 ]
             ],
             headStyles: { fillColor: [33, 150, 243], fontSize: 7 },
@@ -494,7 +495,7 @@ export default function CrewPerformanceReportPage() {
         }
 
 
-        const fileName = `Reporte_Desempeño_Cuadrilla_${format(dateRange!.from!, 'yyyy-MM-dd')}_a_${format(dateRange!.to!, 'yyyy-MM-dd')}.pdf`;
+        const fileName = `Reporte_Liquidacion_Cuadrilla_${format(dateRange!.from!, 'yyyy-MM-dd')}_a_${format(dateRange!.to!, 'yyyy-MM-dd')}.pdf`;
         doc.save(fileName);
     };
 
@@ -687,8 +688,8 @@ export default function CrewPerformanceReportPage() {
                                 </CardDescription>
                             </div>
                             <div className="flex gap-2">
-                                <Button onClick={handleExportExcel} disabled={isLoading || dataForExport.length === 0} variant="outline"><File className="mr-2 h-4 w-4" /> Exportar a Excel</Button>
-                                <Button onClick={handleExportPDF} disabled={isLoading || dataForExport.length === 0 || isLogoLoading} variant="outline">{isLogoLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />} Exportar a PDF</Button>
+                                <Button onClick={handleExportExcel} disabled={isLoading || reportData.length === 0} variant="outline"><File className="mr-2 h-4 w-4" /> Exportar a Excel</Button>
+                                <Button onClick={handleExportPDF} disabled={isLoading || reportData.length === 0 || isLogoLoading} variant="outline">{isLogoLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />} Exportar a PDF</Button>
                             </div>
                         </div>
                     </CardHeader>
@@ -701,11 +702,11 @@ export default function CrewPerformanceReportPage() {
                                         <TableHead className="px-2 py-2">Operario</TableHead>
                                         <TableHead className="px-2 py-2">Cliente</TableHead>
                                         <TableHead className="px-2 py-2">Tipo Op.</TableHead>
-                                        <TableHead className="px-2 py-2">Tipo Prod.</TableHead>
                                         <TableHead className="px-2 py-2">Pedido</TableHead>
                                         <TableHead className="px-2 py-2 text-right">Toneladas</TableHead>
                                         <TableHead className="px-2 py-2 text-right">Duración</TableHead>
                                         <TableHead className="px-2 py-2 text-right">Indicador</TableHead>
+                                        <TableHead className="px-2 py-2 text-right">Valor Liquidado</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -720,7 +721,6 @@ export default function CrewPerformanceReportPage() {
                                                     <TableCell className="text-xs px-2 py-2">{row.operario}</TableCell>
                                                     <TableCell className="text-xs px-2 py-2 max-w-[150px] truncate" title={row.cliente}>{row.cliente}</TableCell>
                                                     <TableCell className="text-xs px-2 py-2">{row.tipoOperacion}</TableCell>
-                                                    <TableCell className="text-xs px-2 py-2">{row.tipoProducto}</TableCell>
                                                     <TableCell className="text-xs px-2 py-2">{row.pedidoSislog}</TableCell>
                                                     <TableCell className="text-xs px-2 py-2 text-right font-mono">{formatTons(row.kilos)}</TableCell>
                                                     <TableCell className="text-xs px-2 py-2 text-right font-medium">{formatDuration(row.duracionMinutos)}</TableCell>
@@ -730,6 +730,7 @@ export default function CrewPerformanceReportPage() {
                                                             {indicator.text}
                                                         </div>
                                                     </TableCell>
+                                                     <TableCell className="text-xs px-2 py-2 text-right font-mono">{row.valorLiquidacion.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell>
                                                 </TableRow>
                                             )
                                         })
@@ -762,5 +763,3 @@ export default function CrewPerformanceReportPage() {
         </div>
     );
 }
-
-    

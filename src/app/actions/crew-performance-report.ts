@@ -5,6 +5,7 @@ import admin from 'firebase-admin';
 import { firestore } from '@/lib/firebase-admin';
 import { parse, differenceInMinutes, addDays } from 'date-fns';
 import { findBestMatchingStandard, type PerformanceStandard } from '@/app/actions/standard-actions';
+import { getBillingConcepts, type BillingConcept } from '../gestion-conceptos-liquidacion/actions';
 
 
 const serializeTimestamps = (data: any): any => {
@@ -86,6 +87,7 @@ export interface CrewPerformanceReportRow {
     productType: 'fijo' | 'variable' | null;
     standard?: PerformanceStandard | null;
     description: string;
+    valorLiquidacion: number;
 }
 
 const getLocalGroupingDate = (isoString: string): string => {
@@ -126,7 +128,10 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                  .where('createdAt', '<', serverQueryEndDate.toISOString());
 
     try {
-        const snapshot = await query.get();
+        const [snapshot, billingConcepts] = await Promise.all([
+            query.get(),
+            getBillingConcepts()
+        ]);
         
         const allResults = snapshot.docs.map(submissionDoc => {
              const submission = {
@@ -198,6 +203,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                 productType: productTypeForAction,
                 standard,
                 description: standard?.description || "Sin descripción",
+                valorLiquidacion: 0, // Placeholder for now
             };
         }));
 
