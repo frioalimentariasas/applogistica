@@ -148,7 +148,7 @@ const formSchema = z.object({
 }).refine((data) => {
     return data.horaInicio !== data.horaFin;
 }, {
-    message: "La hora de fin no puede ser igual a la hora de inicio.",
+    message: "La hora de fin no puede ser igual a la de inicio.",
     path: ["horaFin"],
 }).refine(data => {
     if (!data.tipoPedido) {
