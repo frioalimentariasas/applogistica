@@ -1370,7 +1370,7 @@ export default function VariableWeightReceptionFormComponent() {
                                 const selectedObservation = watchedObservations?.[index];
                                 const stdObsData = standardObservations.find(obs => obs.name === selectedObservation?.type);
                                 const isOtherType = selectedObservation?.type === 'OTRAS OBSERVACIONES';
-                                const isReestibado = selectedObservation?.type === 'REESTIBADO';
+                                const showCrewCheckbox = selectedObservation?.type === 'REESTIBADO' || selectedObservation?.type === 'TRANSBORDO CANASTILLA';
                                 return (
                                 <div key={field.id} className="p-4 border rounded-lg relative bg-white space-y-4">
                                     <Button
@@ -1431,7 +1431,7 @@ export default function VariableWeightReceptionFormComponent() {
                                                     </FormItem>
                                                 )}
                                             />
-                                            {isReestibado && (
+                                            {showCrewCheckbox && (
                                                 <FormField
                                                     control={form.control}
                                                     name={`observaciones.${index}.executedByGrupoRosales`}
