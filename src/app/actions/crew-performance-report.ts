@@ -102,6 +102,32 @@ const getLocalGroupingDate = (isoString: string): string => {
     }
 };
 
+const calculateSettlementValue = (submission: any, billingConcepts: BillingConcept[]): number => {
+    let totalValue = 0;
+    const { formData } = submission;
+    const observations = formData.observaciones || [];
+
+    // Concept: REESTIBADO
+    const reestibadoObservations = observations.filter(
+        (obs: any) => obs.type === 'REESTIBADO' && obs.executedByGrupoRosales === true
+    );
+    
+    if (reestibadoObservations.length > 0) {
+        const reestibadoConcept = billingConcepts.find(
+            c => c.conceptName === 'REESTIBADO' && c.unitOfMeasure === 'PALETA'
+        );
+        if (reestibadoConcept) {
+            const totalPallets = reestibadoObservations.reduce(
+                (sum: number, obs: any) => sum + (Number(obs.quantity) || 0), 0
+            );
+            totalValue += totalPallets * reestibadoConcept.value;
+        }
+    }
+    
+    return totalValue;
+};
+
+
 export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCriteria): Promise<CrewPerformanceReportRow[]> {
     if (!firestore) {
         throw new Error('El servidor no está configurado correctamente.');
@@ -187,6 +213,8 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
               tons: toneladas
             }); 
             
+            const valorLiquidacion = calculateSettlementValue(submission, billingConcepts);
+
             return {
                 id,
                 formType,
@@ -203,7 +231,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                 productType: productTypeForAction,
                 standard,
                 description: standard?.description || "Sin descripción",
-                valorLiquidacion: 0, // Placeholder for now
+                valorLiquidacion: valorLiquidacion,
             };
         }));
 

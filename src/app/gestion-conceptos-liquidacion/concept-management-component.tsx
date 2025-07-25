@@ -92,7 +92,10 @@ export default function ConceptManagementComponent({ initialClients, initialConc
 
   const onAddSubmit: SubmitHandler<ConceptFormValues> = async (data) => {
     setIsSubmitting(true);
-    const result = await addBillingConcept(data);
+    const result = await addBillingConcept({
+        ...data,
+        conceptName: data.conceptName.toUpperCase().trim(),
+    });
     if (result.success && result.newConcept) {
       toast({ title: 'Éxito', description: result.message });
       setConcepts(prev => [...prev, result.newConcept!].sort((a,b) => a.conceptName.localeCompare(b.conceptName)));
@@ -106,10 +109,13 @@ export default function ConceptManagementComponent({ initialClients, initialConc
   const onEditSubmit: SubmitHandler<ConceptFormValues> = async (data) => {
     if (!conceptToEdit) return;
     setIsEditing(true);
-    const result = await updateBillingConcept(conceptToEdit.id, data);
+    const result = await updateBillingConcept(conceptToEdit.id, {
+        ...data,
+        conceptName: data.conceptName.toUpperCase().trim(),
+    });
     if (result.success) {
       toast({ title: 'Éxito', description: result.message });
-      setConcepts(prev => prev.map(s => s.id === conceptToEdit.id ? { ...data, id: s.id } : s));
+      setConcepts(prev => prev.map(s => s.id === conceptToEdit.id ? { ...data, conceptName: data.conceptName.toUpperCase().trim(), id: s.id } : s));
       setConceptToEdit(null);
     } else {
       toast({ variant: 'destructive', title: 'Error', description: result.message });
@@ -177,7 +183,7 @@ export default function ConceptManagementComponent({ initialClients, initialConc
       <div className="max-w-7xl mx-auto">
         <header className="mb-8">
           <div className="relative flex items-center justify-center text-center">
-            <Button variant="ghost" size="icon" className="absolute left-0 top-1/2 -translate-y-1/2" onClick={() => router.push('/')}>
+            <Button variant="ghost" size="icon" className="absolute left-0 top-1/2 -translate-y-1/2" onClick={() => router.push('/crew-performance-report')}>
               <ArrowLeft className="h-6 w-6" />
             </Button>
             <div>
@@ -200,7 +206,7 @@ export default function ConceptManagementComponent({ initialClients, initialConc
                     <CardContent>
                         <Form {...addForm}>
                             <form onSubmit={addForm.handleSubmit(onAddSubmit)} className="space-y-4">
-                                <FormField control={addForm.control} name="conceptName" render={({ field }) => (<FormItem><FormLabel>Nombre del Concepto</FormLabel><FormControl><Input placeholder="Ej: CARGUE POLLO ENTERO" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                                <FormField control={addForm.control} name="conceptName" render={({ field }) => (<FormItem><FormLabel>Nombre del Concepto</FormLabel><FormControl><Input placeholder="Ej: REESTIBADO" {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)}/>
                                 <FormField control={addForm.control} name="clientName" render={({ field }) => (<FormItem><FormLabel>Cliente</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{clientOptions.map(c => <SelectItem key={c.id} value={c.razonSocial}>{c.razonSocial}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)}/>
                                 <FormField control={addForm.control} name="operationType" render={({ field }) => (<FormItem><FormLabel>Tipo de Operación</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODAS">TODAS</SelectItem><SelectItem value="recepcion">Recepción</SelectItem><SelectItem value="despacho">Despacho</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
                                 <FormField control={addForm.control} name="productType" render={({ field }) => (<FormItem><FormLabel>Tipo de Producto</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODOS">TODOS</SelectItem><SelectItem value="fijo">Peso Fijo</SelectItem><SelectItem value="variable">Peso Variable</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
@@ -276,7 +282,7 @@ export default function ConceptManagementComponent({ initialClients, initialConc
           <DialogHeader><DialogTitle>Editar Concepto de Liquidación</DialogTitle></DialogHeader>
           <Form {...editForm}>
             <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4 pt-4">
-                <FormField control={editForm.control} name="conceptName" render={({ field }) => (<FormItem><FormLabel>Nombre del Concepto</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                <FormField control={editForm.control} name="conceptName" render={({ field }) => (<FormItem><FormLabel>Nombre del Concepto</FormLabel><FormControl><Input {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)}/>
                 <FormField control={editForm.control} name="clientName" render={({ field }) => (<FormItem><FormLabel>Cliente</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{clientOptions.map(c => <SelectItem key={c.id} value={c.razonSocial}>{c.razonSocial}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)}/>
                 <FormField control={editForm.control} name="operationType" render={({ field }) => (<FormItem><FormLabel>Tipo de Operación</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODAS">TODAS</SelectItem><SelectItem value="recepcion">Recepción</SelectItem><SelectItem value="despacho">Despacho</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
                 <FormField control={editForm.control} name="productType" render={({ field }) => (<FormItem><FormLabel>Tipo de Producto</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODOS">TODOS</SelectItem><SelectItem value="fijo">Peso Fijo</SelectItem><SelectItem value="variable">Peso Variable</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
