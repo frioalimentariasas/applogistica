@@ -149,22 +149,18 @@ const formSchema = z.object({
       .max(15, "El pedido SISLOG no puede exceder los 15 caracteres."),
     cliente: z.string().min(1, "Seleccione un cliente."),
     fecha: z.date({ required_error: "La fecha es obligatoria." }),
-    conductor: z.string()
-      .min(1, "El nombre del conductor es obligatorio."),
-    cedulaConductor: z.string()
-      .min(1, "La cédula del conductor es obligatoria.").regex(/^[0-9]*$/, "La cédula solo puede contener números."),
-    placa: z.string()
-      .min(1, "La placa es obligatoria.")
-      .regex(/^[A-Z]{3}[0-9]{3}$/, "Formato inválido. Deben ser 3 letras y 3 números (ej: ABC123)."),
-    precinto: z.string().min(1, "El precinto es obligatorio."),
+    conductor: z.string(),
+    cedulaConductor: z.string().regex(/^[0-9]*$|^$/, "La cédula solo puede contener números."),
+    placa: z.string().regex(/^[A-Z]{3}[0-9]{3}$|^$/, "Formato inválido. Deben ser 3 letras y 3 números (ej: ABC123)."),
+    precinto: z.string(),
     setPoint: z.preprocess(
       (val) => (val === "" || val === null ? null : val),
       z.coerce.number({ invalid_type_error: "Set Point debe ser un número."})
         .min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99.").nullable()
     ),
-    contenedor: z.string().min(1, "El contenedor es obligatorio.").refine(value => {
+    contenedor: z.string().refine(value => {
       const formatRegex = /^[A-Z]{4}[0-9]{7}$/;
-      return value.toUpperCase() === 'N/A' || formatRegex.test(value.toUpperCase());
+      return !value || value.toUpperCase() === 'N/A' || formatRegex.test(value.toUpperCase());
     }, {
       message: "Formato inválido. Debe ser 'N/A' o 4 letras y 7 números (ej: ABCD1234567)."
     }),
@@ -186,19 +182,23 @@ const formSchema = z.object({
 }, {
     message: "La hora de fin no puede ser igual a la de inicio.",
     path: ["horaFin"],
-}).refine(data => {
-    if (data.tipoPedido !== 'MAQUILA') return true;
-    return !!data.tipoEmpaqueMaquila;
-}, {
-    message: "El tipo de empaque es obligatorio para maquila.",
-    path: ['tipoEmpaqueMaquila'],
-}).refine(data => {
-    if (data.aplicaCuadrilla !== 'si' || data.tipoPedido !== 'MAQUILA') return true;
-    return data.numeroOperariosCuadrilla !== undefined && data.numeroOperariosCuadrilla > 0;
-}, {
-    message: "El número de operarios es obligatorio.",
-    path: ['numeroOperariosCuadrilla'],
+}).superRefine((data, ctx) => {
+    if (data.tipoPedido === 'MAQUILA' && !data.tipoEmpaqueMaquila) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El tipo de empaque es obligatorio para maquila.", path: ['tipoEmpaqueMaquila'] });
+    }
+    if (data.aplicaCuadrilla === 'si' && data.tipoPedido === 'MAQUILA' && (data.numeroOperariosCuadrilla === undefined || data.numeroOperariosCuadrilla <= 0)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El número de operarios es obligatorio.", path: ['numeroOperariosCuadrilla'] });
+    }
+    const isSpecialReception = data.tipoPedido === 'INGRESO DE SALDO' || data.tipoPedido === 'MAQUILA';
+    if (!isSpecialReception) {
+        if (!data.conductor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El nombre del conductor es obligatorio.', path: ['conductor'] });
+        if (!data.cedulaConductor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'La cédula del conductor es obligatoria.', path: ['cedulaConductor'] });
+        if (!data.placa?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'La placa es obligatoria.', path: ['placa'] });
+        if (!data.precinto?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El precinto es obligatorio.', path: ['precinto'] });
+        if (!data.contenedor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El contenedor es obligatorio.', path: ['contenedor'] });
+    }
 });
+
 
 type FormValues = z.infer<typeof formSchema>;
 
@@ -660,7 +660,7 @@ export default function VariableWeightReceptionFormComponent() {
             try {
                 const optimizedImage = await optimizeImage(dataUrl);
 
-                const newImagesSize = getByteSizeFromBase64(optimizedImage.split(',')[1]);
+                const newImageSize = getByteSizeFromBase64(optimizedImage.split(',')[1]);
                 const existingImagesSize = attachments
                     .filter(a => a.startsWith('data:image'))
                     .reduce((sum, base64) => sum + getByteSizeFromBase64(base64.split(',')[1]), 0);

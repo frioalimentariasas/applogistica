@@ -106,79 +106,90 @@ const observationSchema = z.object({
     path: ['customType']
 });
 
-const formSchema = z.object({
-  pedidoSislog: z.string()
-    .min(1, "El pedido SISLOG es obligatorio.")
-    .max(15, "El pedido SISLOG no puede exceder los 15 caracteres."),
-  nombreCliente: z.string().min(1, "Seleccione un cliente."),
-  fecha: z.date({ required_error: "La fecha es obligatoria." }),
-  horaInicio: z.string().min(1, "La hora de inicio es obligatoria.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
-  horaFin: z.string().min(1, "La hora de fin es obligatoria.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
-  precinto: z.string()
-    .min(1, "El precinto es obligatorio.")
-    .max(40, "Máximo 40 caracteres."),
+const createFormSchema = (isReception: boolean) => z.object({
+    pedidoSislog: z.string()
+      .min(1, "El pedido SISLOG es obligatorio.")
+      .max(15, "El pedido SISLOG no puede exceder los 15 caracteres."),
+    nombreCliente: z.string().min(1, "Seleccione un cliente."),
+    fecha: z.date({ required_error: "La fecha es obligatoria." }),
+    horaInicio: z.string().min(1, "La hora de inicio es obligatoria.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
+    horaFin: z.string().min(1, "La hora de fin es obligatoria.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
+    precinto: z.string()
+      .max(40, "Máximo 40 caracteres."),
     documentoTransporte: z.string().max(15, "Máximo 15 caracteres.").optional(),
     facturaRemision: z.string().max(15, "Máximo 15 caracteres.").optional(),
-  productos: z.array(productSchema).min(1, "Debe agregar al menos un producto."),
-  nombreConductor: z.string().min(1, "El nombre del conductor es obligatorio."),
-  cedulaConductor: z.string().min(1, "La cédula del conductor es obligatoria.").regex(/^[0-9]*$/, "La cédula solo puede contener números."),
-  placa: z.string().min(1, "La placa es obligatoria.").regex(/^[A-Z]{3}[0-9]{3}$/, "Formato inválido. Deben ser 3 letras y 3 números (ej: ABC123)."),
-  muelle: z.string().min(1, "Seleccione un muelle."),
-  contenedor: z.string().min(1, "El contenedor es obligatorio.").refine(value => {
-    const formatRegex = /^[A-Z]{4}[0-9]{7}$/;
-    return value.toUpperCase() === 'N/A' || formatRegex.test(value.toUpperCase());
+    productos: z.array(productSchema).min(1, "Debe agregar al menos un producto."),
+    nombreConductor: z.string(),
+    cedulaConductor: z.string().regex(/^[0-9]*$/, "La cédula solo puede contener números."),
+    placa: z.string().regex(/^[A-Z]{3}[0-9]{3}$/, "Formato inválido. Deben ser 3 letras y 3 números (ej: ABC123)."),
+    muelle: z.string().min(1, "Seleccione un muelle."),
+    contenedor: z.string().refine(value => {
+      const formatRegex = /^[A-Z]{4}[0-9]{7}$/;
+      return value.toUpperCase() === 'N/A' || formatRegex.test(value.toUpperCase());
+    }, {
+      message: "Formato inválido. Debe ser 'N/A' o 4 letras y 7 números (ej: ABCD1234567)."
+    }),
+    setPoint: z.preprocess(
+        (val) => (val === "" || val === null ? null : val),
+        z.coerce.number({ invalid_type_error: "Set Point debe ser un número."})
+          .min(-99, "El valor debe estar entre -99 y 99.").nullable()
+    ),
+    condicionesHigiene: z.enum(["limpio", "sucio"], { required_error: "Seleccione una condición." }),
+    termoregistrador: z.enum(["si", "no"], { required_error: "Seleccione una opción." }),
+    clienteRequiereTermoregistro: z.enum(["si", "no"], { required_error: "Seleccione una opción." }),
+    observaciones: z.array(observationSchema).optional(),
+    coordinador: z.string().min(1, "Seleccione un coordinador."),
+    aplicaCuadrilla: z.enum(["si", "no"], { required_error: "Seleccione una opción para 'Operación Realizada por Cuadrilla'." }),
+    operarioResponsable: z.string().optional(),
+    tipoPedido: z.enum(['GENERICO', 'MAQUILA', 'TUNEL', 'INGRESO DE SALDO']).optional(),
+    tipoEmpaqueMaquila: z.enum(['EMPAQUE DE SACOS', 'EMPAQUE DE CAJAS']).optional(),
+    numeroOperariosCuadrilla: z.coerce.number().int().min(1, "Debe ser al menos 1.").optional(),
+    unidadDeMedidaPrincipal: z.string().optional(),
+  }).refine((data) => {
+      if (data.horaInicio && data.horaFin && data.horaInicio === data.horaFin) {
+          return false;
+      }
+      return true;
   }, {
-    message: "Formato inválido. Debe ser 'N/A' o 4 letras y 7 números (ej: ABCD1234567)."
-  }),
-  setPoint: z.preprocess(
-      (val) => (val === "" || val === null ? null : val),
-      z.coerce.number({ invalid_type_error: "Set Point debe ser un número."})
-        .min(-99, "El valor debe estar entre -99 y 99.").nullable()
-  ),
-  condicionesHigiene: z.enum(["limpio", "sucio"], { required_error: "Seleccione una condición." }),
-  termoregistrador: z.enum(["si", "no"], { required_error: "Seleccione una opción." }),
-  clienteRequiereTermoregistro: z.enum(["si", "no"], { required_error: "Seleccione una opción." }),
-  observaciones: z.array(observationSchema).optional(),
-  coordinador: z.string().min(1, "Seleccione un coordinador."),
-  aplicaCuadrilla: z.enum(["si", "no"], { required_error: "Seleccione una opción para 'Operación Realizada por Cuadrilla'." }),
-  operarioResponsable: z.string().optional(), // For admin editing
-  tipoPedido: z.enum(['GENERICO', 'MAQUILA', 'TUNEL', 'INGRESO DE SALDO']).optional(),
-  tipoEmpaqueMaquila: z.enum(['EMPAQUE DE SACOS', 'EMPAQUE DE CAJAS']).optional(),
-  numeroOperariosCuadrilla: z.coerce.number().int().min(1, "Debe ser al menos 1.").optional(),
-  unidadDeMedidaPrincipal: z.string().optional(),
-}).refine((data) => {
-    if (data.horaInicio && data.horaFin && data.horaInicio === data.horaFin) {
-        return false;
-    }
-    return true;
-}, {
-    message: "La hora de fin no puede ser igual a la de inicio.",
-    path: ["horaFin"],
-}).refine(data => {
-    if (!data.tipoPedido) {
-        return false;
-    }
-    return true;
-}, {
-    message: "El tipo de pedido es obligatorio.",
-    path: ['tipoPedido'],
-}).refine(data => {
-    if (data.tipoPedido !== 'MAQUILA') return true;
-    return !!data.tipoEmpaqueMaquila;
-}, {
-    message: "El tipo de empaque es obligatorio para maquila.",
-    path: ['tipoEmpaqueMaquila'],
-}).refine(data => {
-    if (data.aplicaCuadrilla !== 'si' || data.tipoPedido !== 'MAQUILA') return true;
-    return data.numeroOperariosCuadrilla !== undefined && data.numeroOperariosCuadrilla > 0;
-}, {
-    message: "El número de operarios es obligatorio.",
-    path: ['numeroOperariosCuadrilla'],
-});
+      message: "La hora de fin no puede ser igual a la de inicio.",
+      path: ["horaFin"],
+  }).superRefine((data, ctx) => {
+      if (isReception) {
+        if (!data.tipoPedido) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El tipo de pedido es obligatorio.", path: ['tipoPedido'] });
+        }
+        if (data.tipoPedido === 'MAQUILA' && !data.tipoEmpaqueMaquila) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El tipo de empaque es obligatorio para maquila.", path: ['tipoEmpaqueMaquila'] });
+        }
+        if (data.aplicaCuadrilla === 'si' && data.tipoPedido === 'MAQUILA' && (data.numeroOperariosCuadrilla === undefined || data.numeroOperariosCuadrilla <= 0)) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El número de operarios es obligatorio.", path: ['numeroOperariosCuadrilla'] });
+        }
 
-type FormValues = z.infer<typeof formSchema>;
+        const isSpecialReception = data.tipoPedido === 'INGRESO DE SALDO' || data.tipoPedido === 'MAQUILA';
+        if (!isSpecialReception) {
+            if (!data.nombreConductor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El nombre del conductor es obligatorio.', path: ['nombreConductor'] });
+            if (!data.cedulaConductor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'La cédula del conductor es obligatoria.', path: ['cedulaConductor'] });
+            if (!data.placa?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'La placa es obligatoria.', path: ['placa'] });
+            if (!data.precinto?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El precinto es obligatorio.', path: ['precinto'] });
+            if (!data.contenedor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El contenedor es obligatorio.', path: ['contenedor'] });
+        }
 
-const originalDefaultValues: FormValues = {
+      } else { // Despacho
+        if (!data.tipoPedido) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El tipo de pedido es obligatorio.", path: ['tipoPedido'] });
+        }
+        if (!data.nombreConductor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El nombre del conductor es obligatorio.', path: ['nombreConductor'] });
+        if (!data.cedulaConductor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'La cédula del conductor es obligatoria.', path: ['cedulaConductor'] });
+        if (!data.placa?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'La placa es obligatoria.', path: ['placa'] });
+        if (!data.precinto?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El precinto es obligatorio.', path: ['precinto'] });
+        if (!data.contenedor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El contenedor es obligatorio.', path: ['contenedor'] });
+      }
+  });
+
+
+type FormValues = z.infer<ReturnType<typeof createFormSchema>>;
+
+const originalDefaultValues: Omit<FormValues, 'operation'> = {
   pedidoSislog: "",
   nombreCliente: "",
   fecha: new Date(),
@@ -226,6 +237,8 @@ export default function FixedWeightFormComponent() {
   const searchParams = useSearchParams();
   const operation = searchParams.get("operation") || "operación";
   const submissionId = searchParams.get("id");
+  const isReception = operation === 'recepcion';
+  const formSchema = useMemo(() => createFormSchema(isReception), [isReception]);
 
   const { toast } = useToast();
   const { user, displayName, permissions } = useAuth();
