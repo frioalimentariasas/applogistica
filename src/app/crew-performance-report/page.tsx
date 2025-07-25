@@ -35,7 +35,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 const EmptyState = ({ searched }: { searched: boolean; }) => (
     <TableRow>
-        <TableCell colSpan={10} className="py-20 text-center">
+        <TableCell colSpan={13} className="py-20 text-center">
             <div className="flex flex-col items-center gap-4">
                 <div className="rounded-full bg-primary/10 p-4">
                     <FolderSearch className="h-12 w-12 text-primary" />
@@ -295,7 +295,7 @@ export default function CrewPerformanceReportPage() {
 
     const totalDuration = useMemo(() => dataForExport.reduce((acc, row) => acc + (row.duracionMinutos || 0), 0), [dataForExport]);
     const totalToneladas = useMemo(() => dataForExport.reduce((acc, row) => acc + (row.kilos || 0), 0) / 1000, [dataForExport]);
-    const totalLiquidacion = useMemo(() => reportData.reduce((acc, row) => acc + (row.totalValorLiquidacion || 0), 0), [reportData]);
+    const totalLiquidacion = useMemo(() => reportData.reduce((acc, row) => acc + (row.valorTotalConcepto || 0), 0), [reportData]);
     
     const getSelectedClientsText = () => {
         if (selectedClients.length === 0) return "Todos los clientes...";
@@ -355,7 +355,6 @@ export default function CrewPerformanceReportPage() {
 
         const dataToSheet = reportData.map(row => {
             const indicator = getPerformanceIndicator(row);
-            const settlementDetail = row.settlements.map(s => `${s.conceptName}: ${s.value.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}`).join('\n');
             return {
                 'Fecha': format(new Date(row.fecha), 'dd/MM/yyyy'),
                 'Operario Responsable': row.operario,
@@ -363,20 +362,27 @@ export default function CrewPerformanceReportPage() {
                 'Tipo Operación': row.tipoOperacion,
                 'Tipo Producto': row.tipoProducto,
                 'Pedido SISLOG': row.pedidoSislog,
+                'Placa': row.placa,
+                'Contenedor': row.contenedor,
                 'Toneladas': formatTons(row.kilos),
                 'Duración': formatDuration(row.duracionMinutos),
                 'Indicador': indicator.text,
-                'Detalle Liquidación (COP)': settlementDetail,
-                'Total Liquidación (COP)': row.totalValorLiquidacion,
+                'Concepto': row.conceptoLiquidado,
+                'Valor Unitario (COP)': row.valorUnitario,
+                'Cantidad Concepto': row.cantidadConcepto,
+                'Unidad Medida': row.unidadMedidaConcepto,
+                'Valor Total Concepto (COP)': row.valorTotalConcepto,
             }
         });
 
         const worksheet = XLSX.utils.json_to_sheet(dataToSheet, { origin: 'A1' });
 
-        const totalRow = [
-            null, null, null, null, null, null, null, null, 'TOTALES:', null, totalLiquidacion
-        ];
-        XLSX.utils.sheet_add_aoa(worksheet, [totalRow], { origin: -1 });
+        const totalRowIndex = dataToSheet.length + 2;
+        const totalRow = {
+            'Concepto': 'TOTAL LIQUIDACIÓN:',
+            'Valor Total Concepto (COP)': totalLiquidacion,
+        }
+        XLSX.utils.sheet_add_json(worksheet, [totalRow], { skipHeader: true, origin: -1 });
 
         // Add summary section
         if (performanceSummary) {
@@ -433,37 +439,35 @@ export default function CrewPerformanceReportPage() {
 
         autoTable(doc, {
             startY: mainTableStartY,
-            head: [['Fecha', 'Operario', 'Cliente', 'Tipo Op.', 'Pedido', 'Ton', 'Duración', 'Indicador', 'Detalle Liquidación']],
+            head: [['Fecha', 'Operario', 'Cliente', 'Tipo Op.', 'Pedido', 'Placa', 'Contenedor', 'Ton', 'Duración', 'Indicador', 'Concepto', 'Vlr. Unit', 'Vlr. Total']],
             body: reportData.map(row => {
                 const indicator = getPerformanceIndicator(row);
-                const settlementDetail = row.settlements.map(s => `${s.conceptName}: ${s.value.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}`).join('\n');
                 return [
-                format(new Date(row.fecha), 'dd/MM/yy'),
-                row.operario,
-                row.cliente,
-                row.tipoOperacion,
-                row.pedidoSislog,
-                formatTons(row.kilos),
-                formatDuration(row.duracionMinutos),
-                indicator.text,
-                settlementDetail,
-            ]}),
+                    format(new Date(row.fecha), 'dd/MM/yy'),
+                    row.operario,
+                    row.cliente,
+                    row.tipoOperacion,
+                    row.pedidoSislog,
+                    row.placa,
+                    row.contenedor,
+                    formatTons(row.kilos),
+                    formatDuration(row.duracionMinutos),
+                    indicator.text,
+                    row.conceptoLiquidado,
+                    row.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }),
+                    row.valorTotalConcepto.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }),
+                ]
+            }),
             foot: [
                 [
-                    { content: 'TOTALES:', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold' } }, 
-                    { content: totalToneladas.toFixed(2), styles: { halign: 'left', fontStyle: 'bold' } },
-                    { content: formatDuration(totalDuration), styles: { halign: 'left', fontStyle: 'bold' } },
-                    '',
-                    { content: totalLiquidacion.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'left', fontStyle: 'bold' } }
+                    { content: 'TOTAL LIQUIDACIÓN:', colSpan: 12, styles: { halign: 'right', fontStyle: 'bold' } }, 
+                    { content: totalLiquidacion.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } }
                 ]
             ],
-            headStyles: { fillColor: [33, 150, 243], fontSize: 7 },
+            headStyles: { fillColor: [33, 150, 243], fontSize: 6, cellPadding: 1 },
             footStyles: { fillColor: [33, 150, 243], textColor: '#ffffff' },
             theme: 'grid',
-            styles: { fontSize: 7, cellPadding: 1.5, overflow: 'linebreak' },
-             columnStyles: {
-                8: { cellWidth: 80 }, // Detalle Liquidación column
-            }
+            styles: { fontSize: 6, cellPadding: 1, overflow: 'linebreak' },
         });
 
         if (performanceSummary) {
@@ -690,7 +694,7 @@ export default function CrewPerformanceReportPage() {
                             <div>
                                 <CardTitle>Resultados del Informe de Cuadrilla</CardTitle>
                                 <CardDescription>
-                                    {isLoading ? "Cargando resultados..." : `Mostrando ${reportData.length} operaciones.`}
+                                    {isLoading ? "Cargando resultados..." : `Mostrando ${reportData.length} conceptos liquidados.`}
                                 </CardDescription>
                             </div>
                             <div className="flex gap-2">
@@ -704,44 +708,50 @@ export default function CrewPerformanceReportPage() {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead className="px-2 py-2">Fecha</TableHead>
-                                        <TableHead className="px-2 py-2">Operario</TableHead>
-                                        <TableHead className="px-2 py-2">Cliente</TableHead>
-                                        <TableHead className="px-2 py-2">Tipo Op.</TableHead>
-                                        <TableHead className="px-2 py-2">Pedido</TableHead>
-                                        <TableHead className="px-2 py-2 text-right">Toneladas</TableHead>
-                                        <TableHead className="px-2 py-2 text-right">Duración</TableHead>
-                                        <TableHead className="px-2 py-2 text-right">Indicador</TableHead>
-                                        <TableHead className="px-2 py-2 text-right">Detalle Liquidación</TableHead>
+                                        <TableHead>Fecha</TableHead>
+                                        <TableHead>Operario</TableHead>
+                                        <TableHead>Cliente</TableHead>
+                                        <TableHead>Tipo Op.</TableHead>
+                                        <TableHead>Pedido</TableHead>
+                                        <TableHead>Placa</TableHead>
+                                        <TableHead>Contenedor</TableHead>
+                                        <TableHead className="text-right">Toneladas</TableHead>
+                                        <TableHead className="text-right">Duración</TableHead>
+                                        <TableHead className="text-right">Indicador</TableHead>
+                                        <TableHead>Concepto</TableHead>
+                                        <TableHead className="text-right">Vlr. Unitario</TableHead>
+                                        <TableHead className="text-right">Vlr. Total Concepto</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {isLoading ? (
-                                        <TableRow><TableCell colSpan={9}><Skeleton className="h-20 w-full" /></TableCell></TableRow>
+                                        <TableRow><TableCell colSpan={13}><Skeleton className="h-20 w-full" /></TableCell></TableRow>
                                     ) : displayedData.length > 0 ? (
                                         displayedData.map((row) => {
                                             const indicator = getPerformanceIndicator(row);
                                             return (
                                                 <TableRow key={row.id}>
-                                                    <TableCell className="text-xs px-2 py-2">{format(new Date(row.fecha), 'dd/MM/yyyy')}</TableCell>
-                                                    <TableCell className="text-xs px-2 py-2">{row.operario}</TableCell>
-                                                    <TableCell className="text-xs px-2 py-2 max-w-[150px] truncate" title={row.cliente}>{row.cliente}</TableCell>
-                                                    <TableCell className="text-xs px-2 py-2">{row.tipoOperacion}</TableCell>
-                                                    <TableCell className="text-xs px-2 py-2">{row.pedidoSislog}</TableCell>
-                                                    <TableCell className="text-xs px-2 py-2 text-right font-mono">{formatTons(row.kilos)}</TableCell>
-                                                    <TableCell className="text-xs px-2 py-2 text-right font-medium">{formatDuration(row.duracionMinutos)}</TableCell>
-                                                    <TableCell className={cn("text-xs px-2 py-2 text-right font-semibold", indicator.color)}>
+                                                    <TableCell className="text-xs">{format(new Date(row.fecha), 'dd/MM/yyyy')}</TableCell>
+                                                    <TableCell className="text-xs">{row.operario}</TableCell>
+                                                    <TableCell className="text-xs max-w-[150px] truncate" title={row.cliente}>{row.cliente}</TableCell>
+                                                    <TableCell className="text-xs">{row.tipoOperacion}</TableCell>
+                                                    <TableCell className="text-xs">{row.pedidoSislog}</TableCell>
+                                                    <TableCell className="text-xs">{row.placa}</TableCell>
+                                                    <TableCell className="text-xs">{row.contenedor}</TableCell>
+                                                    <TableCell className="text-xs text-right font-mono">{formatTons(row.kilos)}</TableCell>
+                                                    <TableCell className="text-xs text-right font-medium">{formatDuration(row.duracionMinutos)}</TableCell>
+                                                    <TableCell className={cn("text-xs text-right font-semibold", indicator.color)}>
                                                         <div className="flex items-center justify-end gap-1.5">
                                                             <Circle className={cn("h-2 w-2", indicator.color.replace('text-', 'bg-'))} />
                                                             {indicator.text}
                                                         </div>
                                                     </TableCell>
-                                                     <TableCell className="text-xs px-2 py-2 text-right font-mono">
-                                                        {row.settlements.length > 0 ? (
-                                                            row.settlements.map((s, i) => (
-                                                                <div key={i}>{s.conceptName}: {s.value.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</div>
-                                                            ))
-                                                        ) : ('-')}
+                                                    <TableCell className="text-xs font-semibold">{row.conceptoLiquidado}</TableCell>
+                                                     <TableCell className="text-xs text-right font-mono">
+                                                        {row.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 })}
+                                                     </TableCell>
+                                                     <TableCell className="text-xs text-right font-mono">
+                                                        {row.valorTotalConcepto.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}
                                                      </TableCell>
                                                 </TableRow>
                                             )
@@ -749,11 +759,17 @@ export default function CrewPerformanceReportPage() {
                                     ) : (
                                         <EmptyState searched={searched} />
                                     )}
+                                     {!isLoading && reportData.length > 0 && (
+                                        <TableRow className="font-bold bg-muted hover:bg-muted">
+                                            <TableCell colSpan={12} className="text-right">TOTAL GENERAL LIQUIDACIÓN</TableCell>
+                                            <TableCell className="text-right">{totalLiquidacion.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell>
+                                        </TableRow>
+                                     )}
                                 </TableBody>
                             </Table>
                         </div>
                          <div className="flex items-center justify-between space-x-2 py-4">
-                            <div className="flex-1 text-sm text-muted-foreground">{reportData.length} fila(s) en total.</div>
+                            <div className="flex-1 text-sm text-muted-foreground">{reportData.length} conceptos liquidados en total.</div>
                             <div className="flex items-center space-x-2">
                                 <p className="text-sm font-medium">Filas por página</p>
                                 <Select value={`${itemsPerPage}`} onValueChange={(value) => { setItemsPerPage(Number(value)); setCurrentPage(1); }}>
@@ -775,4 +791,3 @@ export default function CrewPerformanceReportPage() {
         </div>
     );
 }
-

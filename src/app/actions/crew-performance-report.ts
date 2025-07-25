@@ -73,7 +73,8 @@ export interface CrewPerformanceReportCriteria {
 }
 
 export interface CrewPerformanceReportRow {
-    id: string;
+    id: string; // Unique ID for the row (can be submissionId + conceptName)
+    submissionId: string;
     formType: string;
     fecha: string;
     operario: string;
@@ -85,12 +86,19 @@ export interface CrewPerformanceReportRow {
     horaFin: string;
     duracionMinutos: number | null;
     pedidoSislog: string;
+    placa: string;
+    contenedor: string;
     productType: 'fijo' | 'variable' | null;
     standard?: PerformanceStandard | null;
     description: string;
-    settlements: { conceptName: string; value: number }[];
-    totalValorLiquidacion: number;
+    // Settlement details for this specific row
+    conceptoLiquidado: string;
+    valorUnitario: number;
+    cantidadConcepto: number;
+    unidadMedidaConcepto: string;
+    valorTotalConcepto: number;
 }
+
 
 const getLocalGroupingDate = (isoString: string): string => {
     if (!isoString) return '';
@@ -104,8 +112,8 @@ const getLocalGroupingDate = (isoString: string): string => {
     }
 };
 
-const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]): { conceptName: string; value: number }[] => {
-    const settlements: { conceptName: string; value: number }[] = [];
+const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]): { conceptName: string, unitValue: number, quantity: number, unitOfMeasure: string, totalValue: number }[] => {
+    const settlements: { conceptName: string, unitValue: number, quantity: number, unitOfMeasure: string, totalValue: number }[] = [];
     const { formData, formType } = submission;
     const observations = formData.observaciones || [];
 
@@ -125,7 +133,10 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
             if (totalPallets > 0) {
                 settlements.push({
                     conceptName: 'REESTIBADO',
-                    value: totalPallets * reestibadoConcept.value,
+                    unitValue: reestibadoConcept.value,
+                    quantity: totalPallets,
+                    unitOfMeasure: 'PALETA',
+                    totalValue: totalPallets * reestibadoConcept.value,
                 });
             }
         }
@@ -141,9 +152,12 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
         const operationConcept = billingConcepts.find(c => c.conceptName === conceptName && c.unitOfMeasure === 'TONELADA');
 
         if (operationConcept && toneladas > 0) {
-            settlements.push({
+             settlements.push({
                 conceptName: conceptName,
-                value: toneladas * operationConcept.value
+                unitValue: operationConcept.value,
+                quantity: toneladas,
+                unitOfMeasure: 'TONELADA',
+                totalValue: toneladas * operationConcept.value
             });
         }
     }
@@ -199,8 +213,9 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             return formDatePart >= criteria.startDate! && formDatePart <= criteria.endDate!;
         });
 
+        const finalReportRows: CrewPerformanceReportRow[] = [];
 
-        const results = await Promise.all(dateFilteredResults.map(async (submission) => {
+        for (const submission of dateFilteredResults) {
             const { id, formType, formData, userDisplayName } = submission;
 
             let tipoOperacion: 'Recepción' | 'Despacho' | 'N/A' = 'N/A';
@@ -235,31 +250,39 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             }); 
             
             const settlements = calculateSettlements(submission, billingConcepts);
-            const totalValorLiquidacion = settlements.reduce((sum, s) => sum + s.value, 0);
-
-            return {
-                id,
-                formType,
-                fecha: formData.fecha,
-                operario: userDisplayName || 'N/A',
-                cliente: clientName || 'N/A',
-                tipoOperacion,
-                tipoProducto,
-                kilos: kilos,
-                horaInicio: formData.horaInicio || 'N/A',
-                horaFin: formData.horaFin || 'N/A',
-                duracionMinutos: calculateDuration(formData.horaInicio, formData.horaFin),
-                pedidoSislog: formData.pedidoSislog || 'N/A',
-                productType: productTypeForAction,
-                standard,
-                description: standard?.description || "Sin descripción",
-                settlements,
-                totalValorLiquidacion,
-            };
-        }));
-
-        // Apply remaining filters in memory
-        let filteredResults = results;
+            
+            if (settlements.length > 0) {
+                for (const settlement of settlements) {
+                    finalReportRows.push({
+                        id: `${id}-${settlement.conceptName}`,
+                        submissionId: id,
+                        formType,
+                        fecha: formData.fecha,
+                        operario: userDisplayName || 'N/A',
+                        cliente: clientName || 'N/A',
+                        tipoOperacion,
+                        tipoProducto,
+                        kilos: kilos,
+                        horaInicio: formData.horaInicio || 'N/A',
+                        horaFin: formData.horaFin || 'N/A',
+                        duracionMinutos: calculateDuration(formData.horaInicio, formData.horaFin),
+                        pedidoSislog: formData.pedidoSislog || 'N/A',
+                        placa: formData.placa || 'N/A',
+                        contenedor: formData.contenedor || 'N/A',
+                        productType: productTypeForAction,
+                        standard,
+                        description: standard?.description || "Sin descripción",
+                        conceptoLiquidado: settlement.conceptName,
+                        valorUnitario: settlement.unitValue,
+                        cantidadConcepto: settlement.quantity,
+                        unidadMedidaConcepto: settlement.unitOfMeasure,
+                        valorTotalConcepto: settlement.totalValue,
+                    });
+                }
+            }
+        }
+        
+        let filteredResults = finalReportRows;
         if (criteria.clientNames && criteria.clientNames.length > 0) {
             filteredResults = filteredResults.filter(row => criteria.clientNames!.includes(row.cliente));
         }
@@ -285,8 +308,3 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         throw error;
     }
 }
-
-
-    
-
-    
