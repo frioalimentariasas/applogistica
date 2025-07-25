@@ -1451,7 +1451,7 @@ export default function VariableWeightFormComponent() {
                                 <FormItem>
                                     <FormLabel className="font-semibold">Cantidad Total de Paletas de Despacho</FormLabel>
                                     <FormControl>
-                                        <Input type="number" placeholder="Ingrese el total de paletas" {...field} />
+                                        <Input type="number" placeholder="Ingrese el total de paletas" {...field} value={field.value ?? ''} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
