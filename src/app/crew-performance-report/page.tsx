@@ -364,12 +364,11 @@ export default function CrewPerformanceReportPage() {
                 'Pedido SISLOG': row.pedidoSislog,
                 'Placa': row.placa,
                 'Contenedor': row.contenedor,
-                'Toneladas': formatTons(row.kilos),
+                'Cantidad (Ton/Und)': row.cantidadConcepto,
                 'Duración': formatDuration(row.duracionMinutos),
                 'Indicador': indicator.text,
                 'Concepto': row.conceptoLiquidado,
                 'Valor Unitario (COP)': row.valorUnitario,
-                'Cantidad Concepto': row.cantidadConcepto,
                 'Unidad Medida': row.unidadMedidaConcepto,
                 'Valor Total Concepto (COP)': row.valorTotalConcepto,
             }
@@ -439,7 +438,7 @@ export default function CrewPerformanceReportPage() {
 
         autoTable(doc, {
             startY: mainTableStartY,
-            head: [['Fecha', 'Operario', 'Cliente', 'Tipo Op.', 'Pedido', 'Placa', 'Contenedor', 'Ton', 'Duración', 'Indicador', 'Concepto', 'Vlr. Unit', 'Vlr. Total']],
+            head: [['Fecha', 'Operario', 'Cliente', 'Tipo Op.', 'Pedido', 'Placa', 'Contenedor', 'Cant.', 'Duración', 'Indicador', 'Concepto', 'Vlr. Unit', 'Vlr. Total']],
             body: reportData.map(row => {
                 const indicator = getPerformanceIndicator(row);
                 return [
@@ -450,7 +449,7 @@ export default function CrewPerformanceReportPage() {
                     row.pedidoSislog,
                     row.placa,
                     row.contenedor,
-                    formatTons(row.kilos),
+                    row.cantidadConcepto,
                     formatDuration(row.duracionMinutos),
                     indicator.text,
                     row.conceptoLiquidado,
@@ -715,7 +714,7 @@ export default function CrewPerformanceReportPage() {
                                         <TableHead>Pedido</TableHead>
                                         <TableHead>Placa</TableHead>
                                         <TableHead>Contenedor</TableHead>
-                                        <TableHead className="text-right">Toneladas</TableHead>
+                                        <TableHead className="text-right">Cantidad (Ton/Und)</TableHead>
                                         <TableHead className="text-right">Duración</TableHead>
                                         <TableHead className="text-right">Indicador</TableHead>
                                         <TableHead>Concepto</TableHead>
@@ -738,7 +737,7 @@ export default function CrewPerformanceReportPage() {
                                                     <TableCell className="text-xs">{row.pedidoSislog}</TableCell>
                                                     <TableCell className="text-xs">{row.placa}</TableCell>
                                                     <TableCell className="text-xs">{row.contenedor}</TableCell>
-                                                    <TableCell className="text-xs text-right font-mono">{formatTons(row.kilos)}</TableCell>
+                                                    <TableCell className="text-xs text-right font-mono">{row.cantidadConcepto.toFixed(2)}</TableCell>
                                                     <TableCell className="text-xs text-right font-medium">{formatDuration(row.duracionMinutos)}</TableCell>
                                                     <TableCell className={cn("text-xs text-right font-semibold", indicator.color)}>
                                                         <div className="flex items-center justify-end gap-1.5">
