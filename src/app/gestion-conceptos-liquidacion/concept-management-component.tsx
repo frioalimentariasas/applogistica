@@ -13,7 +13,7 @@ import { addBillingConcept, updateBillingConcept, deleteMultipleBillingConcepts,
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Loader2, PlusCircle, Edit, Trash2, ShieldAlert, DollarSign } from 'lucide-react';
+import { ArrowLeft, Loader2, PlusCircle, Edit, Trash2, ShieldAlert, DollarSign, ChevronsUpDown } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -67,6 +67,10 @@ export default function ConceptManagementComponent({ initialClients, initialConc
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isConfirmBulkDeleteOpen, setIsConfirmBulkDeleteOpen] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
+  const [isClientDialogOpen, setClientDialogOpen] = useState(false);
+  const [isEditClientDialogOpen, setEditClientDialogOpen] = useState(false);
+  const [clientSearch, setClientSearch] = useState('');
+
 
   const addForm = useForm<ConceptFormValues>({
     resolver: zodResolver(conceptSchema),
@@ -88,6 +92,11 @@ export default function ConceptManagementComponent({ initialClients, initialConc
     { id: 'TODOS', razonSocial: 'TODOS (Cualquier Cliente)' }, 
     ...initialClients
   ], [initialClients]);
+
+  const filteredClients = useMemo(() => {
+    if (!clientSearch) return clientOptions;
+    return clientOptions.filter(c => c.razonSocial.toLowerCase().includes(clientSearch.toLowerCase()));
+  }, [clientSearch, clientOptions]);
 
 
   const onAddSubmit: SubmitHandler<ConceptFormValues> = async (data) => {
@@ -142,6 +151,7 @@ export default function ConceptManagementComponent({ initialClients, initialConc
   const openEditDialog = (concept: BillingConcept) => {
     setConceptToEdit(concept);
     editForm.reset(concept);
+    setEditClientDialogOpen(true);
   };
 
   const handleRowSelect = (id: string, checked: boolean) => {
@@ -207,7 +217,54 @@ export default function ConceptManagementComponent({ initialClients, initialConc
                         <Form {...addForm}>
                             <form onSubmit={addForm.handleSubmit(onAddSubmit)} className="space-y-4">
                                 <FormField control={addForm.control} name="conceptName" render={({ field }) => (<FormItem><FormLabel>Nombre del Concepto</FormLabel><FormControl><Input placeholder="Ej: REESTIBADO" {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)}/>
-                                <FormField control={addForm.control} name="clientName" render={({ field }) => (<FormItem><FormLabel>Cliente</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{clientOptions.map(c => <SelectItem key={c.id} value={c.razonSocial}>{c.razonSocial}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)}/>
+                                <FormField
+                                  control={addForm.control}
+                                  name="clientName"
+                                  render={({ field }) => (
+                                      <FormItem className="flex flex-col">
+                                          <FormLabel>Cliente</FormLabel>
+                                          <Dialog open={isClientDialogOpen} onOpenChange={setClientDialogOpen}>
+                                              <DialogTrigger asChild>
+                                                  <Button variant="outline" className="w-full justify-between text-left font-normal">
+                                                      {field.value || "Seleccione un cliente..."}
+                                                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                  </Button>
+                                              </DialogTrigger>
+                                              <DialogContent className="sm:max-w-[425px]">
+                                                  <DialogHeader>
+                                                      <DialogTitle>Seleccionar Cliente</DialogTitle>
+                                                      <DialogDescription>Busque y seleccione un cliente de la lista.</DialogDescription>
+                                                  </DialogHeader>
+                                                  <Input
+                                                      placeholder="Buscar cliente..."
+                                                      value={clientSearch}
+                                                      onChange={(e) => setClientSearch(e.target.value)}
+                                                      className="my-4"
+                                                  />
+                                                  <ScrollArea className="h-72">
+                                                      <div className="space-y-1">
+                                                          {filteredClients.map((c) => (
+                                                              <Button
+                                                                  key={c.id}
+                                                                  variant="ghost"
+                                                                  className="w-full justify-start"
+                                                                  onClick={() => {
+                                                                      field.onChange(c.razonSocial);
+                                                                      setClientDialogOpen(false);
+                                                                      setClientSearch('');
+                                                                  }}
+                                                              >
+                                                                  {c.razonSocial}
+                                                              </Button>
+                                                          ))}
+                                                      </div>
+                                                  </ScrollArea>
+                                              </DialogContent>
+                                          </Dialog>
+                                          <FormMessage />
+                                      </FormItem>
+                                  )}
+                                />
                                 <FormField control={addForm.control} name="operationType" render={({ field }) => (<FormItem><FormLabel>Tipo de Operación</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODAS">TODAS</SelectItem><SelectItem value="recepcion">Recepción</SelectItem><SelectItem value="despacho">Despacho</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
                                 <FormField control={addForm.control} name="productType" render={({ field }) => (<FormItem><FormLabel>Tipo de Producto</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODOS">TODOS</SelectItem><SelectItem value="fijo">Peso Fijo</SelectItem><SelectItem value="variable">Peso Variable</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
                                 <FormField control={addForm.control} name="unitOfMeasure" render={({ field }) => (<FormItem><FormLabel>Unidad de Medida</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TONELADA">TONELADA</SelectItem><SelectItem value="PALETA">PALETA</SelectItem><SelectItem value="UNIDAD">UNIDAD</SelectItem><SelectItem value="CAJA">CAJA</SelectItem><SelectItem value="SACO">SACO</SelectItem><SelectItem value="CANASTILLA">CANASTILLA</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
@@ -277,19 +334,64 @@ export default function ConceptManagementComponent({ initialClients, initialConc
       </div>
       
       {/* Edit Dialog */}
-      <Dialog open={!!conceptToEdit} onOpenChange={(isOpen) => !isOpen && setConceptToEdit(null)}>
+      <Dialog open={isEditClientDialogOpen} onOpenChange={setEditClientDialogOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>Editar Concepto de Liquidación</DialogTitle></DialogHeader>
           <Form {...editForm}>
             <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4 pt-4">
                 <FormField control={editForm.control} name="conceptName" render={({ field }) => (<FormItem><FormLabel>Nombre del Concepto</FormLabel><FormControl><Input {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)}/>
-                <FormField control={editForm.control} name="clientName" render={({ field }) => (<FormItem><FormLabel>Cliente</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent>{clientOptions.map(c => <SelectItem key={c.id} value={c.razonSocial}>{c.razonSocial}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)}/>
+                <FormField
+                  control={editForm.control}
+                  name="clientName"
+                  render={({ field }) => (
+                      <FormItem className="flex flex-col">
+                          <FormLabel>Cliente</FormLabel>
+                          <Popover open={!!conceptToEdit && isEditClientDialogOpen} onOpenChange={setEditClientDialogOpen}>
+                              <PopoverTrigger asChild>
+                                  <Button variant="outline" className="w-full justify-between text-left font-normal">
+                                      {field.value || "Seleccione un cliente..."}
+                                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                  </Button>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
+                                  <Command>
+                                      <CommandInput placeholder="Buscar cliente..." />
+                                      <CommandList>
+                                          <CommandEmpty>No se encontraron clientes.</CommandEmpty>
+                                          <CommandGroup>
+                                              {clientOptions.map((c) => (
+                                                  <CommandItem
+                                                      key={c.id}
+                                                      value={c.razonSocial}
+                                                      onSelect={(currentValue) => {
+                                                          field.onChange(currentValue === field.value ? "" : currentValue);
+                                                          setEditClientDialogOpen(false);
+                                                      }}
+                                                  >
+                                                      <Check
+                                                          className={cn(
+                                                              "mr-2 h-4 w-4",
+                                                              field.value === c.razonSocial ? "opacity-100" : "opacity-0"
+                                                          )}
+                                                      />
+                                                      {c.razonSocial}
+                                                  </CommandItem>
+                                              ))}
+                                          </CommandGroup>
+                                      </CommandList>
+                                  </Command>
+                              </PopoverContent>
+                          </Popover>
+                          <FormMessage />
+                      </FormItem>
+                  )}
+                />
                 <FormField control={editForm.control} name="operationType" render={({ field }) => (<FormItem><FormLabel>Tipo de Operación</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODAS">TODAS</SelectItem><SelectItem value="recepcion">Recepción</SelectItem><SelectItem value="despacho">Despacho</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
                 <FormField control={editForm.control} name="productType" render={({ field }) => (<FormItem><FormLabel>Tipo de Producto</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODOS">TODOS</SelectItem><SelectItem value="fijo">Peso Fijo</SelectItem><SelectItem value="variable">Peso Variable</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
                 <FormField control={editForm.control} name="unitOfMeasure" render={({ field }) => (<FormItem><FormLabel>Unidad de Medida</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TONELADA">TONELADA</SelectItem><SelectItem value="PALETA">PALETA</SelectItem><SelectItem value="UNIDAD">UNIDAD</SelectItem><SelectItem value="CAJA">CAJA</SelectItem><SelectItem value="SACO">SACO</SelectItem><SelectItem value="CANASTILLA">CANASTILLA</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
                 <FormField control={editForm.control} name="value" render={({ field }) => (<FormItem><FormLabel>Valor Unitario (COP)</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
                 <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => setConceptToEdit(null)}>Cancelar</Button>
+                    <Button type="button" variant="outline" onClick={() => {setConceptToEdit(null); setEditClientDialogOpen(false);}}>Cancelar</Button>
                     <Button type="submit" disabled={isEditing}>{isEditing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Guardar Cambios</Button>
                 </DialogFooter>
             </form>
