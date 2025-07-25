@@ -155,7 +155,6 @@ export default function ConceptManagementComponent({ initialClients, initialConc
   const openEditDialog = (concept: BillingConcept) => {
     setConceptToEdit(concept);
     editForm.reset(concept);
-    setEditClientDialogOpen(true);
   };
 
   const handleRowSelect = (id: string, checked: boolean) => {
@@ -338,7 +337,7 @@ export default function ConceptManagementComponent({ initialClients, initialConc
       </div>
       
       {/* Edit Dialog */}
-      <Dialog open={isEditClientDialogOpen} onOpenChange={setEditClientDialogOpen}>
+      <Dialog open={!!conceptToEdit} onOpenChange={(isOpen) => { if (!isOpen) setConceptToEdit(null) }}>
         <DialogContent>
           <DialogHeader><DialogTitle>Editar Concepto de Liquidación</DialogTitle></DialogHeader>
           <Form {...editForm}>
@@ -348,46 +347,47 @@ export default function ConceptManagementComponent({ initialClients, initialConc
                   control={editForm.control}
                   name="clientName"
                   render={({ field }) => (
-                      <FormItem className="flex flex-col">
-                          <FormLabel>Cliente</FormLabel>
-                          <Popover open={!!conceptToEdit && isEditClientDialogOpen} onOpenChange={setEditClientDialogOpen}>
-                              <PopoverTrigger asChild>
-                                  <Button variant="outline" className="w-full justify-between text-left font-normal">
-                                      {field.value || "Seleccione un cliente..."}
-                                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                  </Button>
-                              </PopoverTrigger>
-                              <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
-                                  <Command>
-                                      <CommandInput placeholder="Buscar cliente..." />
-                                      <CommandList>
-                                          <CommandEmpty>No se encontraron clientes.</CommandEmpty>
-                                          <CommandGroup>
-                                              {clientOptions.map((c) => (
-                                                  <CommandItem
-                                                      key={c.id}
-                                                      value={c.razonSocial}
-                                                      onSelect={(currentValue) => {
-                                                          field.onChange(currentValue === field.value ? "" : currentValue);
-                                                          setEditClientDialogOpen(false);
-                                                      }}
-                                                  >
-                                                      <Check
-                                                          className={cn(
-                                                              "mr-2 h-4 w-4",
-                                                              field.value === c.razonSocial ? "opacity-100" : "opacity-0"
-                                                          )}
-                                                      />
-                                                      {c.razonSocial}
-                                                  </CommandItem>
-                                              ))}
-                                          </CommandGroup>
-                                      </CommandList>
-                                  </Command>
-                              </PopoverContent>
-                          </Popover>
-                          <FormMessage />
-                      </FormItem>
+                    <FormItem className="flex flex-col">
+                        <FormLabel>Cliente</FormLabel>
+                        <Popover open={isEditClientDialogOpen} onOpenChange={setEditClientDialogOpen}>
+                            <PopoverTrigger asChild>
+                                <Button variant="outline" className="w-full justify-between text-left font-normal">
+                                    {field.value || "Seleccione un cliente..."}
+                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
+                                <Command>
+                                    <CommandInput placeholder="Buscar cliente..." />
+                                    <CommandList>
+                                        <CommandEmpty>No se encontraron clientes.</CommandEmpty>
+                                        <CommandGroup>
+                                            {clientOptions.map((c) => (
+                                                <CommandItem
+                                                    key={c.id}
+                                                    value={c.razonSocial}
+                                                    onSelect={(currentValue) => {
+                                                        const newValue = currentValue.toLocaleUpperCase() === field.value ? "" : c.razonSocial;
+                                                        field.onChange(newValue);
+                                                        setEditClientDialogOpen(false);
+                                                    }}
+                                                >
+                                                    <Check
+                                                        className={cn(
+                                                            "mr-2 h-4 w-4",
+                                                            field.value === c.razonSocial ? "opacity-100" : "opacity-0"
+                                                        )}
+                                                    />
+                                                    {c.razonSocial}
+                                                </CommandItem>
+                                            ))}
+                                        </CommandGroup>
+                                    </CommandList>
+                                </Command>
+                            </PopoverContent>
+                        </Popover>
+                        <FormMessage />
+                    </FormItem>
                   )}
                 />
                 <FormField control={editForm.control} name="operationType" render={({ field }) => (<FormItem><FormLabel>Tipo de Operación</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODAS">TODAS</SelectItem><SelectItem value="recepcion">Recepción</SelectItem><SelectItem value="despacho">Despacho</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
@@ -395,7 +395,7 @@ export default function ConceptManagementComponent({ initialClients, initialConc
                 <FormField control={editForm.control} name="unitOfMeasure" render={({ field }) => (<FormItem><FormLabel>Unidad de Medida</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TONELADA">TONELADA</SelectItem><SelectItem value="PALETA">PALETA</SelectItem><SelectItem value="UNIDAD">UNIDAD</SelectItem><SelectItem value="CAJA">CAJA</SelectItem><SelectItem value="SACO">SACO</SelectItem><SelectItem value="CANASTILLA">CANASTILLA</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
                 <FormField control={editForm.control} name="value" render={({ field }) => (<FormItem><FormLabel>Valor Unitario (COP)</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
                 <DialogFooter>
-                    <Button type="button" variant="outline" onClick={() => {setConceptToEdit(null); setEditClientDialogOpen(false);}}>Cancelar</Button>
+                    <Button type="button" variant="outline" onClick={() => setConceptToEdit(null)}>Cancelar</Button>
                     <Button type="submit" disabled={isEditing}>{isEditing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Guardar Cambios</Button>
                 </DialogFooter>
             </form>
@@ -421,5 +421,3 @@ export default function ConceptManagementComponent({ initialClients, initialConc
     </div>
   );
 }
-
-    
