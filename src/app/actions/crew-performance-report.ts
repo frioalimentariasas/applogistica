@@ -135,13 +135,15 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
     if (formData.aplicaCuadrilla === 'si') {
         const isReception = formType.includes('recepcion') || formType.includes('reception');
         const conceptName = isReception ? 'DESCARGUE' : 'CARGUE';
+        const kilos = calculateTotalKilos(formType, formData);
+        const toneladas = kilos / 1000;
         
-        const operationConcept = billingConcepts.find(c => c.conceptName === conceptName);
+        const operationConcept = billingConcepts.find(c => c.conceptName === conceptName && c.unitOfMeasure === 'TONELADA');
 
-        if (operationConcept) {
+        if (operationConcept && toneladas > 0) {
             settlements.push({
                 conceptName: conceptName,
-                value: operationConcept.value
+                value: toneladas * operationConcept.value
             });
         }
     }
@@ -284,5 +286,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
     }
 }
 
+
+    
 
     
