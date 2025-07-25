@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import admin from 'firebase-admin';
@@ -104,10 +105,10 @@ const getLocalGroupingDate = (isoString: string): string => {
 
 const calculateSettlementValue = (submission: any, billingConcepts: BillingConcept[]): number => {
     let totalValue = 0;
-    const { formData } = submission;
+    const { formData, formType } = submission;
     const observations = formData.observaciones || [];
 
-    // Concept: REESTIBADO
+    // --- Concept: REESTIBADO ---
     const reestibadoObservations = observations.filter(
         (obs: any) => obs.type === 'REESTIBADO' && obs.executedByGrupoRosales === true
     );
@@ -121,6 +122,20 @@ const calculateSettlementValue = (submission: any, billingConcepts: BillingConce
                 (sum: number, obs: any) => sum + (Number(obs.quantity) || 0), 0
             );
             totalValue += totalPallets * reestibadoConcept.value;
+        }
+    }
+
+    // --- Concept: CARGUE / DESCARGUE ---
+    if (formData.aplicaCuadrilla === 'si') {
+        const isReception = formType.includes('recepcion') || formType.includes('reception');
+        const conceptName = isReception ? 'DESCARGUE' : 'CARGUE';
+        
+        const operationConcept = billingConcepts.find(c => c.conceptName === conceptName);
+
+        if (operationConcept) {
+            // Assuming this is a per-operation charge, so we just add the value.
+            // If it were per-ton, per-pallet, etc., we'd need more logic here.
+            totalValue += operationConcept.value;
         }
     }
     
@@ -262,3 +277,6 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         throw error;
     }
 }
+
+
+    
