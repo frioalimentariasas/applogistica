@@ -147,7 +147,10 @@ const formSchema = z.object({
   numeroOperariosCuadrilla: z.coerce.number().int().min(1, "Debe ser al menos 1.").optional(),
   unidadDeMedidaPrincipal: z.string().optional(),
 }).refine((data) => {
-    return data.horaInicio !== data.horaFin;
+    if (data.horaInicio && data.horaFin && data.horaInicio === data.horaFin) {
+        return false;
+    }
+    return true;
 }, {
     message: "La hora de fin no puede ser igual a la de inicio.",
     path: ["horaFin"],
@@ -1071,36 +1074,12 @@ export default function FixedWeightFormComponent() {
                                 </FormControl>
                                 <SelectContent>
                                     <SelectItem value="GENERICO">GENERICO</SelectItem>
-                                    <SelectItem value="MAQUILA">MAQUILA</SelectItem>
                                     <SelectItem value="TUNEL">TUNEL</SelectItem>
                                 </SelectContent>
                                 </Select>
                                 <FormMessage />
                             </FormItem>
                             )}
-                        />
-                    )}
-                     {operation === 'despacho' && watchedTipoPedido === 'MAQUILA' && (
-                        <FormField
-                        control={form.control}
-                        name="tipoEmpaqueMaquila"
-                        render={({ field }) => (
-                            <FormItem>
-                            <FormLabel>Tipo de Empaque (Maquila)</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value}>
-                                <FormControl>
-                                <SelectTrigger>
-                                    <SelectValue placeholder="Seleccione tipo de empaque" />
-                                </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                <SelectItem value="EMPAQUE DE SACOS">EMPAQUE DE SACOS</SelectItem>
-                                <SelectItem value="EMPAQUE DE CAJAS">EMPAQUE DE CAJAS</SelectItem>
-                                </SelectContent>
-                            </Select>
-                            <FormMessage />
-                            </FormItem>
-                        )}
                         />
                     )}
                 </div>

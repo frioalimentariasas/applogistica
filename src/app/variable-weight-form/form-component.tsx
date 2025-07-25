@@ -217,31 +217,17 @@ const formSchema = z.object({
     coordinador: z.string().min(1, "Seleccione un coordinador."),
     aplicaCuadrilla: z.enum(["si", "no"], { required_error: "Seleccione una opción para 'Operación Realizada por Cuadrilla'." }),
     operarioResponsable: z.string().optional(),
-    tipoPedido: z.enum(['GENERICO', 'TUNEL', 'MAQUILA']).optional(),
-    tipoEmpaqueMaquila: z.enum(['EMPAQUE DE SACOS', 'EMPAQUE DE CAJAS']).optional(),
+    tipoPedido: z.enum(['GENERICO', 'TUNEL']).optional(),
     numeroOperariosCuadrilla: z.coerce.number().int().min(1, "Debe ser al menos 1.").optional(),
     unidadDeMedidaPrincipal: z.string().optional(),
 }).refine((data) => {
-    return data.horaInicio !== data.horaFin;
+    if (data.horaInicio && data.horaFin && data.horaInicio === data.horaFin) {
+        return false;
+    }
+    return true;
 }, {
     message: "La hora de fin no puede ser igual a la de inicio.",
     path: ["horaFin"],
-}).refine(data => {
-    if (data.tipoPedido === 'MAQUILA') {
-        return !!data.tipoEmpaqueMaquila;
-    }
-    return true;
-}, {
-    message: "El tipo de empaque es obligatorio para maquila.",
-    path: ['tipoEmpaqueMaquila'],
-}).refine(data => {
-    if (data.aplicaCuadrilla === 'si' && data.tipoPedido === 'MAQUILA') {
-        return data.numeroOperariosCuadrilla !== undefined && data.numeroOperariosCuadrilla > 0;
-    }
-    return true;
-}, {
-    message: "El número de operarios es obligatorio.",
-    path: ['numeroOperariosCuadrilla'],
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -280,7 +266,6 @@ const originalDefaultValues: FormValues = {
   aplicaCuadrilla: undefined,
   operarioResponsable: undefined,
   tipoPedido: undefined,
-  tipoEmpaqueMaquila: undefined,
   numeroOperariosCuadrilla: undefined,
   unidadDeMedidaPrincipal: "PALETA",
 };
@@ -494,7 +479,6 @@ export default function VariableWeightFormComponent() {
   });
 
   const watchedItems = useWatch({ control: form.control, name: "items" });
-  const watchedTipoPedido = useWatch({ control: form.control, name: 'tipoPedido' });
   const watchedAplicaCuadrilla = useWatch({ control: form.control, name: 'aplicaCuadrilla' });
   const watchedObservations = useWatch({ control: form.control, name: "observaciones" });
 
@@ -1364,36 +1348,12 @@ export default function VariableWeightFormComponent() {
                                 <SelectContent>
                                     <SelectItem value="GENERICO">GENERICO</SelectItem>
                                     <SelectItem value="TUNEL">TUNEL</SelectItem>
-                                    <SelectItem value="MAQUILA">MAQUILA</SelectItem>
                                 </SelectContent>
                                 </Select>
                                 <FormMessage />
                             </FormItem>
                             )}
                         />
-                         {watchedTipoPedido === 'MAQUILA' && (
-                            <FormField
-                            control={form.control}
-                            name="tipoEmpaqueMaquila"
-                            render={({ field }) => (
-                                <FormItem>
-                                <FormLabel>Tipo de Empaque (Maquila)</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value}>
-                                    <FormControl>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Seleccione tipo de empaque" />
-                                    </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                    <SelectItem value="EMPAQUE DE SACOS">EMPAQUE DE SACOS</SelectItem>
-                                    <SelectItem value="EMPAQUE DE CAJAS">EMPAQUE DE CAJAS</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
-                                </FormItem>
-                            )}
-                            />
-                        )}
                   </div>
                 </CardContent>
             </Card>
@@ -1649,14 +1609,14 @@ export default function VariableWeightFormComponent() {
                 <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-10 gap-4 items-center">
                         <FormField control={form.control} name="coordinador" render={({ field }) => (
-                            <FormItem className="lg:col-span-2"><FormLabel>Coordinador Responsable</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                            <FormItem className="lg:col-span-2"><FormLabel>Coordinador Responsable</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                         )}/>
                         {submissionId && isAdmin ? (
                              <FormField control={form.control} name="operarioResponsable" render={({ field }) => (
                                 <FormItem className="lg:col-span-2">
                                     <FormLabel>Operario Responsable</FormLabel>
                                     <Select onValueChange={field.onChange} value={field.value}>
-                                        <FormControl><SelectTrigger><SelectValue placeholder="Operario" /></SelectTrigger></FormControl>
+                                        <FormControl><SelectTrigger><SelectValue placeholder="Seleccione un operario" /></SelectTrigger></FormControl>
                                         <SelectContent>
                                             {allUsers.map(u => <SelectItem key={u.uid} value={u.uid}>{u.displayName}</SelectItem>)}
                                         </SelectContent>
@@ -1679,28 +1639,6 @@ export default function VariableWeightFormComponent() {
                                     <FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-2"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="cuadrilla-si" /><Label htmlFor="cuadrilla-si">Sí</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="cuadrilla-no" /><Label htmlFor="cuadrilla-no">No</Label></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>
                             )}
                         />
-                        {watchedAplicaCuadrilla === 'si' && watchedTipoPedido === 'MAQUILA' && (
-                            <FormField
-                                control={form.control}
-                                name="numeroOperariosCuadrilla"
-                                render={({ field }) => (
-                                    <FormItem className="lg:col-span-2">
-                                    <FormLabel>No. de Operarios de Cuadrilla</FormLabel>
-                                    <FormControl>
-                                        <Input
-                                            type="number"
-                                            min="1"
-                                            placeholder="Ej: 3"
-                                            {...field}
-                                            value={field.value ?? ''}
-                                            onChange={e => field.onChange(parseInt(e.target.value, 10) || undefined)}
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                        )}
                     </div>
                 </CardContent>
              </Card>
