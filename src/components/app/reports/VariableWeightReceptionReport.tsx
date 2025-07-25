@@ -1,4 +1,3 @@
-
 import { parseISO } from 'date-fns';
 
 const formatTime12Hour = (time24: string | undefined): string => {
@@ -233,7 +232,7 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                                 <tr style={{ borderBottom: '1px solid #aaa' }}>
                                     <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Tipo</th>
                                     <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Cantidad</th>
-                                    <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold', textTransform: 'uppercase' }}>Ejecutado por Cuadrilla</th>
+                                    <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold', textTransform: 'uppercase' }}>REALIZADO POR CUADRILLA</th>
                                 </tr>
                             </thead>
                         )}

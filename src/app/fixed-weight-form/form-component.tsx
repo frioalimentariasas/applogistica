@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
@@ -384,8 +385,7 @@ export default function FixedWeightFormComponent() {
               tipoPedido: formData.tipoPedido ?? undefined,
               tipoEmpaqueMaquila: formData.tipoEmpaqueMaquila ?? undefined,
               numeroOperariosCuadrilla: formData.numeroOperariosCuadrilla ?? undefined,
-              operarioResponsable: submission.userId, // Default to original user
-              unidadDeMedidaPrincipal: formData.unidadDeMedidaPrincipal ?? 'PALETA',
+              operarioResponsable: undefined,
               productos: (formData.productos || []).map((p: any) => ({
                   ...originalDefaultValues.productos[0],
                   ...p,
@@ -1351,9 +1351,9 @@ export default function FixedWeightFormComponent() {
                                                         />
                                                     </FormControl>
                                                     <div className="space-y-1 leading-none">
-                                                        <FormLabel className="uppercase">
-                                                            EJECUTADO POR CUADRILLA
-                                                        </FormLabel>
+                                                        <Label htmlFor={`obs-check-${index}`} className="font-normal cursor-pointer uppercase">
+                                                            REALIZADO POR CUADRILLA
+                                                        </Label>
                                                     </div>
                                                 </FormItem>
                                             )}
@@ -1380,17 +1380,17 @@ export default function FixedWeightFormComponent() {
              <Card>
                 <CardHeader><CardTitle>Responsables de la Operación</CardTitle></CardHeader>
                 <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-10 gap-4 items-center">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-center">
                         <FormField control={form.control} name="coordinador" render={({ field }) => (
-                            <FormItem className="lg:col-span-2"><FormLabel>Coordinador Responsable</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                            <FormItem className="lg:col-span-1"><FormLabel>Coordinador</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                         )}/>
                         
                         {submissionId && isAdmin ? (
                              <FormField control={form.control} name="operarioResponsable" render={({ field }) => (
-                                <FormItem className="lg:col-span-2">
-                                    <FormLabel>Operario Responsable</FormLabel>
+                                <FormItem className="lg:col-span-1">
+                                    <FormLabel>Operario</FormLabel>
                                     <Select onValueChange={field.onChange} value={field.value}>
-                                        <FormControl><SelectTrigger><SelectValue placeholder="Seleccione un operario" /></SelectTrigger></FormControl>
+                                        <FormControl><SelectTrigger><SelectValue placeholder="Operario" /></SelectTrigger></FormControl>
                                         <SelectContent>
                                             {allUsers.map(u => <SelectItem key={u.uid} value={u.uid}>{u.displayName}</SelectItem>)}
                                         </SelectContent>
@@ -1399,8 +1399,8 @@ export default function FixedWeightFormComponent() {
                                 </FormItem>
                             )}/>
                         ) : (
-                            <FormItem className="lg:col-span-2">
-                                <FormLabel>Operario Responsable</FormLabel>
+                            <FormItem className="lg:col-span-1">
+                                <FormLabel>Operario</FormLabel>
                                 <FormControl><Input disabled value={submissionId ? originalSubmission?.userDisplayName : displayName || ''} /></FormControl>
                             </FormItem>
                         )}
@@ -1409,13 +1409,12 @@ export default function FixedWeightFormComponent() {
                             control={form.control}
                             name="aplicaCuadrilla"
                             render={({ field }) => (
-                                <FormItem className="space-y-1 lg:col-span-4">
-                                    <FormLabel>Operación Realizada por Cuadrilla</FormLabel>
+                                <FormItem className="space-y-1 lg:col-span-2">
+                                    <FormLabel>Operación por Cuadrilla</FormLabel>
                                     <FormControl>
                                         <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-2">
                                             <FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="cuadrilla-si" /><Label htmlFor="cuadrilla-si">Sí</Label></FormItem>
-                                            <FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="cuadrilla-no" /><Label htmlFor="cuadrilla-no">No</Label></FormItem>
-                                        </RadioGroup>
+                                            <FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="cuadrilla-no" /><Label htmlFor="cuadrilla-no">No</Label></FormItem></RadioGroup>
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -1426,8 +1425,8 @@ export default function FixedWeightFormComponent() {
                                 control={form.control}
                                 name="numeroOperariosCuadrilla"
                                 render={({ field }) => (
-                                    <FormItem className="lg:col-span-2">
-                                    <FormLabel>No. de Operarios</FormLabel>
+                                    <FormItem className="lg:col-span-1">
+                                    <FormLabel>No. Operarios</FormLabel>
                                     <FormControl>
                                         <Input 
                                             type="number"

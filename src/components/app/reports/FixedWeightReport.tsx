@@ -1,4 +1,5 @@
 
+
 import { parseISO } from 'date-fns';
 
 const formatTime12Hour = (time24: string | undefined): string => {
@@ -195,7 +196,7 @@ export function FixedWeightReport({ formData, userDisplayName, attachments, form
                                 <tr style={{ borderBottom: '1px solid #aaa' }}>
                                     <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Tipo</th>
                                     <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Cantidad</th>
-                                    <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold', textTransform: 'uppercase' }}>Ejecutado por Cuadrilla</th>
+                                    <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold', textTransform: 'uppercase' }}>REALIZADO POR CUADRILLA</th>
                                 </tr>
                             </thead>
                         )}
@@ -260,6 +261,10 @@ export function FixedWeightReport({ formData, userDisplayName, attachments, form
                                             <div style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}>
                                                 <img src={img} alt={`Anexo ${rowIndex * 2 + colIndex + 1}`} style={{ maxWidth: '100%', border: '1px solid #ccc', borderRadius: '4px', objectFit: 'contain' }} />
                                                 <p style={{ fontSize: '10px', marginTop: '4px', marginBlock: 0 }}>Registro Fotográfico {rowIndex * 2 + colIndex + 1}</p>
+                                            </div>
+                                        </td>
+                                    ))}
+                                    {attachments.slice(rowIndex * 2, rowIndex * 2 + colIndex + 1}</p>
                                             </div>
                                         </td>
                                     ))}
