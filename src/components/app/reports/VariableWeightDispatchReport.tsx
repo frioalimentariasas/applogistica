@@ -347,3 +347,8 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                             ))}
                         </tbody>
                     </table>
+                </ReportSection>
+            )}
+        </>
+    );
+}
