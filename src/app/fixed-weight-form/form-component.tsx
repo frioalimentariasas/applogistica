@@ -1272,7 +1272,7 @@ export default function FixedWeightFormComponent() {
                        const selectedObservation = watchedObservations?.[index];
                        const stdObsData = standardObservations.find(obs => obs.name === selectedObservation?.type);
                        const isOtherType = selectedObservation?.type === 'OTRAS OBSERVACIONES';
-                       const isRestibado = selectedObservation?.type === 'RESTIBADO';
+                       const isReestibado = selectedObservation?.type === 'REESTIBADO';
                        
                        return (
                         <div key={field.id} className="p-4 border rounded-lg relative bg-white space-y-4">
@@ -1338,7 +1338,7 @@ export default function FixedWeightFormComponent() {
                                             </FormItem>
                                         )}
                                     />
-                                    {isRestibado && (
+                                    {isReestibado && (
                                         <FormField
                                             control={form.control}
                                             name={`observaciones.${index}.executedByGrupoRosales`}
@@ -1380,15 +1380,15 @@ export default function FixedWeightFormComponent() {
              <Card>
                 <CardHeader><CardTitle>Responsables de la Operación</CardTitle></CardHeader>
                 <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-center">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-10 gap-4 items-center">
                         <FormField control={form.control} name="coordinador" render={({ field }) => (
-                            <FormItem className="lg:col-span-1"><FormLabel>Coordinador</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                            <FormItem className="lg:col-span-2"><FormLabel>Coordinador Responsable</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                         )}/>
                         
                         {submissionId && isAdmin ? (
                              <FormField control={form.control} name="operarioResponsable" render={({ field }) => (
-                                <FormItem className="lg:col-span-1">
-                                    <FormLabel>Operario</FormLabel>
+                                <FormItem className="lg:col-span-2">
+                                    <FormLabel>Operario Responsable</FormLabel>
                                     <Select onValueChange={field.onChange} value={field.value}>
                                         <FormControl><SelectTrigger><SelectValue placeholder="Operario" /></SelectTrigger></FormControl>
                                         <SelectContent>
@@ -1399,8 +1399,8 @@ export default function FixedWeightFormComponent() {
                                 </FormItem>
                             )}/>
                         ) : (
-                            <FormItem className="lg:col-span-1">
-                                <FormLabel>Operario</FormLabel>
+                            <FormItem className="lg:col-span-2">
+                                <FormLabel>Operario Responsable</FormLabel>
                                 <FormControl><Input disabled value={submissionId ? originalSubmission?.userDisplayName : displayName || ''} /></FormControl>
                             </FormItem>
                         )}
@@ -1409,8 +1409,8 @@ export default function FixedWeightFormComponent() {
                             control={form.control}
                             name="aplicaCuadrilla"
                             render={({ field }) => (
-                                <FormItem className="space-y-1 lg:col-span-2">
-                                    <FormLabel>Operación por Cuadrilla</FormLabel>
+                                <FormItem className="space-y-1 lg:col-span-4">
+                                    <FormLabel>Operación Realizada por Cuadrilla</FormLabel>
                                     <FormControl>
                                         <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-2">
                                             <FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="cuadrilla-si" /><Label htmlFor="cuadrilla-si">Sí</Label></FormItem>
@@ -1425,8 +1425,8 @@ export default function FixedWeightFormComponent() {
                                 control={form.control}
                                 name="numeroOperariosCuadrilla"
                                 render={({ field }) => (
-                                    <FormItem className="lg:col-span-1">
-                                    <FormLabel>No. Operarios</FormLabel>
+                                    <FormItem className="lg:col-span-2">
+                                    <FormLabel>No. de Operarios de Cuadrilla</FormLabel>
                                     <FormControl>
                                         <Input 
                                             type="number"

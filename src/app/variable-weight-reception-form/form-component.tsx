@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
@@ -1369,7 +1370,7 @@ export default function VariableWeightReceptionFormComponent() {
                                 const selectedObservation = watchedObservations?.[index];
                                 const stdObsData = standardObservations.find(obs => obs.name === selectedObservation?.type);
                                 const isOtherType = selectedObservation?.type === 'OTRAS OBSERVACIONES';
-                                const isRestibado = selectedObservation?.type === 'RESTIBADO';
+                                const isReestibado = selectedObservation?.type === 'REESTIBADO';
                                 return (
                                 <div key={field.id} className="p-4 border rounded-lg relative bg-white space-y-4">
                                     <Button
@@ -1430,7 +1431,7 @@ export default function VariableWeightReceptionFormComponent() {
                                                     </FormItem>
                                                 )}
                                             />
-                                            {isRestibado && (
+                                            {isReestibado && (
                                                 <FormField
                                                     control={form.control}
                                                     name={`observaciones.${index}.executedByGrupoRosales`}
@@ -1443,9 +1444,9 @@ export default function VariableWeightReceptionFormComponent() {
                                                                 />
                                                             </FormControl>
                                                             <div className="space-y-1 leading-none">
-                                                                <FormLabel className="uppercase">
-                                                                    EJECUTADO POR CUADRILLA
-                                                                </FormLabel>
+                                                                <Label htmlFor={`obs-check-${index}`} className="font-normal cursor-pointer uppercase">
+                                                                    REALIZADO POR CUADRILLA
+                                                                </Label>
                                                             </div>
                                                         </FormItem>
                                                     )}

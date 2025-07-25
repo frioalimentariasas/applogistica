@@ -203,7 +203,7 @@ export function FixedWeightReport({ formData, userDisplayName, attachments, form
                         <tbody>
                             {formData.observaciones.map((obs: any, i: number) => {
                                 const isOther = obs.type === 'OTRAS OBSERVACIONES';
-                                const isRestibado = obs.type === 'RESTIBADO';
+                                const isReestibado = obs.type === 'REESTIBADO';
                                 return (
                                 <tr key={i} style={{ borderBottom: '1px solid #ddd' }}>
                                     {isOther ? (
@@ -219,7 +219,7 @@ export function FixedWeightReport({ formData, userDisplayName, attachments, form
                                                 {`${obs.quantity ?? ''} ${obs.quantityType || ''}`.trim()}
                                             </td>
                                             <td style={{ padding: '4px' }}>
-                                                {isRestibado ? (obs.executedByGrupoRosales ? 'Sí' : 'No') : ''}
+                                                {isReestibado ? (obs.executedByGrupoRosales ? 'Sí' : 'No') : ''}
                                             </td>
                                         </>
                                     )}
@@ -261,10 +261,6 @@ export function FixedWeightReport({ formData, userDisplayName, attachments, form
                                             <div style={{ breakInside: 'avoid', pageBreakInside: 'avoid' }}>
                                                 <img src={img} alt={`Anexo ${rowIndex * 2 + colIndex + 1}`} style={{ maxWidth: '100%', border: '1px solid #ccc', borderRadius: '4px', objectFit: 'contain' }} />
                                                 <p style={{ fontSize: '10px', marginTop: '4px', marginBlock: 0 }}>Registro Fotográfico {rowIndex * 2 + colIndex + 1}</p>
-                                            </div>
-                                        </td>
-                                    ))}
-                                    {attachments.slice(rowIndex * 2, rowIndex * 2 + colIndex + 1}</p>
                                             </div>
                                         </td>
                                     ))}
