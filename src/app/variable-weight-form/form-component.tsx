@@ -81,6 +81,7 @@ const itemSchema = z.object({
     descripcion: z.string().min(1, "La descripción es requerida."),
     lote: z.string().max(15, "Máximo 15 caracteres").optional(),
     presentacion: z.string().min(1, "Seleccione una presentación."),
+    destino: z.string().optional(),
     // Conditional fields for individual pallets (paleta > 0)
     cantidadPorPaleta: z.preprocess(
         (val) => (val === "" || val === null ? null : val),
@@ -126,9 +127,6 @@ const itemSchema = z.object({
     if (data.paleta === 0) {
       if (data.totalCantidad === undefined || data.totalCantidad === null) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El Total Cantidad es requerido.", path: ["totalCantidad"] });
-      }
-      if (data.totalPaletas === undefined || data.totalPaletas === null) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El Total Paletas es requerido.", path: ["totalPaletas"] });
       }
       if (data.totalPesoNeto === undefined || data.totalPesoNeto === null) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El Total Peso Neto es requerido.", path: ["totalPesoNeto"] });
@@ -209,6 +207,8 @@ const formSchema = z.object({
     }, {
       message: "Formato inválido. Debe ser 'N/A' o 4 letras y 7 números (ej: ABCD1234567)."
     }),
+    despachoPorDestino: z.boolean().default(false),
+    totalPaletasDespacho: z.coerce.number().optional(),
     items: z.array(itemSchema).min(1, "Debe agregar al menos un item."),
     summary: z.array(summaryItemSchema).nullable(),
     horaInicio: z.string().min(1, "La hora de inicio es obligatoria.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
@@ -228,6 +228,14 @@ const formSchema = z.object({
 }, {
     message: "La hora de fin no puede ser igual a la de inicio.",
     path: ["horaFin"],
+}).superRefine((data, ctx) => {
+    if (data.despachoPorDestino && data.items.some(item => Number(item.paleta) === 0) && (data.totalPaletasDespacho === undefined || data.totalPaletasDespacho === null || data.totalPaletasDespacho <= 0)) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "El total de paletas del despacho es requerido.",
+            path: ["totalPaletasDespacho"],
+        });
+    }
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -242,12 +250,15 @@ const originalDefaultValues: FormValues = {
   precinto: "",
   setPoint: null,
   contenedor: "",
+  despachoPorDestino: false,
+  totalPaletasDespacho: undefined,
   items: [{
     codigo: '',
     paleta: null,
     descripcion: '', 
     lote: '', 
     presentacion: '', 
+    destino: '',
     cantidadPorPaleta: null, 
     pesoBruto: null,
     taraEstiba: null,
@@ -273,6 +284,7 @@ const originalDefaultValues: FormValues = {
 // Mock data
 const coordinadores = ["Cristian Acuña", "Sergio Padilla"];
 const presentaciones = ["Cajas", "Sacos", "Canastillas"];
+const clientesEspeciales = ["AVICOLA EL MADROÑO S.A.", "SMYL TRANSPORTE Y LOGISTICA SAS"];
 
 // Attachment Constants
 const MAX_ATTACHMENTS = 30;
@@ -284,7 +296,7 @@ function getByteSizeFromBase64(base64: string): number {
 }
 
 // Sub-component for a single item row to handle its own state and logic
-const FormItemRow = ({ index, control, remove, handleProductDialogOpening }: { index: number, control: any, remove: (index: number) => void, handleProductDialogOpening: (index: number) => void }) => {
+const FormItemRow = ({ index, control, remove, handleProductDialogOpening, despachoPorDestino }: { index: number, control: any, remove: (index: number) => void, handleProductDialogOpening: (index: number) => void, despachoPorDestino: boolean }) => {
     const watchedItem = useWatch({ control, name: `items.${index}` });
     const isSummaryRow = watchedItem?.paleta === 0;
     const pesoNeto = watchedItem?.pesoNeto;
@@ -371,14 +383,25 @@ const FormItemRow = ({ index, control, remove, handleProductDialogOpening }: { i
                         </FormItem>
                     )} />
                 </div>
+                {despachoPorDestino && (
+                     <FormField control={control} name={`items.${index}.destino`} render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Destino</FormLabel>
+                            <FormControl><Input placeholder="Ciudad o dirección de destino" {...field} value={field.value ?? ''} /></FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )} />
+                )}
                 {isSummaryRow ? (
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <FormField control={control} name={`items.${index}.totalCantidad`} render={({ field }) => (
                             <FormItem><FormLabel>Total Cantidad</FormLabel><FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                         )} />
-                        <FormField control={control} name={`items.${index}.totalPaletas`} render={({ field }) => (
-                            <FormItem><FormLabel>Total Paletas</FormLabel><FormControl><Input type="text" inputMode="numeric" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                        )} />
+                        {!despachoPorDestino && (
+                            <FormField control={control} name={`items.${index}.totalPaletas`} render={({ field }) => (
+                                <FormItem><FormLabel>Total Paletas</FormLabel><FormControl><Input type="text" inputMode="numeric" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                            )} />
+                        )}
                         <FormField control={control} name={`items.${index}.totalPesoNeto`} render={({ field }) => (
                             <FormItem><FormLabel>Total Peso Neto (kg)</FormLabel><FormControl><Input type="text" inputMode="decimal" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                         )} />
@@ -481,6 +504,11 @@ export default function VariableWeightFormComponent() {
   const watchedItems = useWatch({ control: form.control, name: "items" });
   const watchedAplicaCuadrilla = useWatch({ control: form.control, name: 'aplicaCuadrilla' });
   const watchedObservations = useWatch({ control: form.control, name: "observaciones" });
+  const watchedCliente = useWatch({ control: form.control, name: 'cliente' });
+  const watchedDespachoPorDestino = useWatch({ control: form.control, name: 'despachoPorDestino' });
+
+  const showDespachoPorDestino = clientesEspeciales.includes(watchedCliente);
+  const isSummaryMode = (watchedItems || []).some(item => Number(item?.paleta) === 0);
 
 
   const isClientChangeDisabled = useMemo(() => {
@@ -556,7 +584,9 @@ export default function VariableWeightFormComponent() {
         }
         
         let totalPaletas = 0;
-        if (isGroupInSummaryMode) {
+        if (watchedDespachoPorDestino && isGroupInSummaryMode) {
+             totalPaletas = form.getValues('totalPaletasDespacho') || 0;
+        } else if (isGroupInSummaryMode) {
             itemsInGroup.forEach(item => {
                 if (Number(item.paleta) === 0) {
                     totalPaletas += Number(item.totalPaletas) || 0;
@@ -564,7 +594,7 @@ export default function VariableWeightFormComponent() {
             });
         } else {
             const uniquePallets = new Set<number>();
-            itemsInGroup.forEach(item => {
+            (watchedItems || []).forEach(item => { // Count across all items, not just this group for individual pallets
                 const paletaNum = Number(item.paleta);
                 if (!isNaN(paletaNum) && paletaNum > 0) {
                     uniquePallets.add(paletaNum);
@@ -580,7 +610,7 @@ export default function VariableWeightFormComponent() {
             totalPaletas,
         };
     });
-  }, [watchedItems]);
+  }, [watchedItems, watchedDespachoPorDestino, form]);
 
 
   const formIdentifier = submissionId ? `variable-weight-edit-${submissionId}` : `variable-weight-${operation}`;
@@ -628,6 +658,7 @@ export default function VariableWeightFormComponent() {
             descripcion: lastItem.descripcion,
             lote: lastItem.lote,
             presentacion: lastItem.presentacion,
+            destino: lastItem.destino,
             totalCantidad: null, 
             totalPaletas: null, 
             totalPesoNeto: null, 
@@ -646,6 +677,7 @@ export default function VariableWeightFormComponent() {
             descripcion: lastItem.descripcion,
             lote: lastItem.lote,
             presentacion: lastItem.presentacion,
+            destino: lastItem.destino,
             cantidadPorPaleta: lastItem.cantidadPorPaleta,
             pesoBruto: null,
             taraEstiba: lastItem.taraEstiba,
@@ -702,6 +734,8 @@ export default function VariableWeightFormComponent() {
               aplicaCuadrilla: formData.aplicaCuadrilla ?? undefined,
               tipoPedido: formData.tipoPedido ?? undefined,
               operarioResponsable: submission.userId,
+              despachoPorDestino: formData.despachoPorDestino ?? false,
+              totalPaletasDespacho: formData.totalPaletasDespacho ?? undefined,
               summary: (formData.summary || []).map((s: any) => ({
                 ...s,
                 temperatura: s.temperatura ?? null
@@ -710,6 +744,7 @@ export default function VariableWeightFormComponent() {
                   ...originalDefaultValues.items[0],
                   ...item,
                   paleta: item.paleta,
+                  destino: item.destino ?? '',
                   lote: item.lote ?? "",
                   cantidadPorPaleta: item.cantidadPorPaleta ?? null,
                   pesoBruto: item.pesoBruto ?? null,
@@ -1057,7 +1092,7 @@ export default function VariableWeightFormComponent() {
     setClientSearch('');
   
     // Reset dependent fields
-    form.setValue('items', [{ codigo: '', paleta: null, descripcion: '', lote: '', presentacion: '', cantidadPorPaleta: null, pesoBruto: null, taraEstiba: null, taraCaja: null, totalTaraCaja: null, pesoNeto: null, totalCantidad: null, totalPaletas: null, totalPesoNeto: null }]);
+    form.setValue('items', [{ codigo: '', paleta: null, descripcion: '', lote: '', presentacion: '', destino: '', cantidadPorPaleta: null, pesoBruto: null, taraEstiba: null, taraCaja: null, totalTaraCaja: null, pesoNeto: null, totalCantidad: null, totalPaletas: null, totalPesoNeto: null }]);
     setArticulos([]);
   };
 
@@ -1354,6 +1389,28 @@ export default function VariableWeightFormComponent() {
                             </FormItem>
                             )}
                         />
+                         {showDespachoPorDestino && (
+                            <FormField
+                                control={form.control}
+                                name="despachoPorDestino"
+                                render={({ field }) => (
+                                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm md:col-span-3">
+                                    <div className="space-y-0.5">
+                                        <FormLabel>Pedido por Destino</FormLabel>
+                                        <FormDescription>
+                                        Marque esta opción si este despacho tiene múltiples destinos.
+                                        </FormDescription>
+                                    </div>
+                                    <FormControl>
+                                        <Checkbox
+                                        checked={field.value}
+                                        onCheckedChange={field.onChange}
+                                        />
+                                    </FormControl>
+                                    </FormItem>
+                                )}
+                            />
+                        )}
                   </div>
                 </CardContent>
             </Card>
@@ -1378,12 +1435,30 @@ export default function VariableWeightFormComponent() {
                         control={form.control}
                         remove={remove}
                         handleProductDialogOpening={handleProductDialogOpening}
+                        despachoPorDestino={watchedDespachoPorDestino}
                     />
                 ))}
                 <Button type="button" variant="outline" onClick={handleAddItem}>
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Agregar Item
                 </Button>
+                {watchedDespachoPorDestino && isSummaryMode && (
+                    <div className="pt-4 max-w-xs">
+                        <FormField
+                            control={form.control}
+                            name="totalPaletasDespacho"
+                            render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel className="font-semibold">Cantidad Total de Paletas de Despacho</FormLabel>
+                                    <FormControl>
+                                        <Input type="number" placeholder="Ingrese el total de paletas" {...field} />
+                                    </FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    </div>
+                )}
               </CardContent>
             </Card>
 
@@ -1917,3 +1992,4 @@ function ProductSelectorDialog({
         </Dialog>
     );
 }
+
