@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef } from 'react';
@@ -349,43 +350,44 @@ export default function ConceptManagementComponent({ initialClients, initialConc
                   render={({ field }) => (
                     <FormItem className="flex flex-col">
                         <FormLabel>Cliente</FormLabel>
-                        <Popover open={isEditClientDialogOpen} onOpenChange={setEditClientDialogOpen}>
-                            <PopoverTrigger asChild>
+                        <Dialog open={isEditClientDialogOpen} onOpenChange={setEditClientDialogOpen}>
+                            <DialogTrigger asChild>
                                 <Button variant="outline" className="w-full justify-between text-left font-normal">
                                     {field.value || "Seleccione un cliente..."}
                                     <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                 </Button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
-                                <Command>
-                                    <CommandInput placeholder="Buscar cliente..." />
-                                    <CommandList>
-                                        <CommandEmpty>No se encontraron clientes.</CommandEmpty>
-                                        <CommandGroup>
-                                            {clientOptions.map((c) => (
-                                                <CommandItem
-                                                    key={c.id}
-                                                    value={c.razonSocial}
-                                                    onSelect={(currentValue) => {
-                                                        const newValue = currentValue.toLocaleUpperCase() === field.value ? "" : c.razonSocial;
-                                                        field.onChange(newValue);
-                                                        setEditClientDialogOpen(false);
-                                                    }}
-                                                >
-                                                    <Check
-                                                        className={cn(
-                                                            "mr-2 h-4 w-4",
-                                                            field.value === c.razonSocial ? "opacity-100" : "opacity-0"
-                                                        )}
-                                                    />
-                                                    {c.razonSocial}
-                                                </CommandItem>
-                                            ))}
-                                        </CommandGroup>
-                                    </CommandList>
-                                </Command>
-                            </PopoverContent>
-                        </Popover>
+                            </DialogTrigger>
+                            <DialogContent className="sm:max-w-[425px]">
+                                <DialogHeader>
+                                    <DialogTitle>Seleccionar Cliente</DialogTitle>
+                                    <DialogDescription>Busque y seleccione un cliente de la lista.</DialogDescription>
+                                </DialogHeader>
+                                <Input
+                                    placeholder="Buscar cliente..."
+                                    value={clientSearch}
+                                    onChange={(e) => setClientSearch(e.target.value)}
+                                    className="my-4"
+                                />
+                                <ScrollArea className="h-72">
+                                    <div className="space-y-1">
+                                        {filteredClients.map((c) => (
+                                            <Button
+                                                key={c.id}
+                                                variant="ghost"
+                                                className="w-full justify-start"
+                                                onClick={() => {
+                                                    field.onChange(c.razonSocial);
+                                                    setEditClientDialogOpen(false);
+                                                    setClientSearch('');
+                                                }}
+                                            >
+                                                {c.razonSocial}
+                                            </Button>
+                                        ))}
+                                    </div>
+                                </ScrollArea>
+                            </DialogContent>
+                        </Dialog>
                         <FormMessage />
                     </FormItem>
                   )}
