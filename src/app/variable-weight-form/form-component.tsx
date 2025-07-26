@@ -506,6 +506,7 @@ export default function VariableWeightFormComponent() {
   const watchedObservations = useWatch({ control: form.control, name: "observaciones" });
   const watchedCliente = useWatch({ control: form.control, name: 'cliente' });
   const watchedDespachoPorDestino = useWatch({ control: form.control, name: 'despachoPorDestino' });
+  const watchedTotalPaletasDespacho = useWatch({ control: form.control, name: 'totalPaletasDespacho' });
 
   const showDespachoPorDestino = clientesEspeciales.includes(watchedCliente);
   const isSummaryMode = (watchedItems || []).some(item => item?.paleta === 0);
@@ -585,7 +586,7 @@ export default function VariableWeightFormComponent() {
         
         let totalPaletas = 0;
         if (watchedDespachoPorDestino && isGroupInSummaryMode) {
-             totalPaletas = form.getValues('totalPaletasDespacho') || 0;
+             totalPaletas = watchedTotalPaletasDespacho || 0;
         } else if (isGroupInSummaryMode) {
             itemsInGroup.forEach(item => {
                 if (Number(item.paleta) === 0) {
@@ -610,7 +611,7 @@ export default function VariableWeightFormComponent() {
             totalPaletas,
         };
     });
-  }, [watchedItems, watchedDespachoPorDestino, form]);
+  }, [watchedItems, watchedDespachoPorDestino, watchedTotalPaletasDespacho]);
 
 
   const formIdentifier = submissionId ? `variable-weight-edit-${submissionId}` : `variable-weight-${operation}`;
