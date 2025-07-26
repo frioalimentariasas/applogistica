@@ -510,6 +510,286 @@ export default function VariableWeightFormComponent() {
     loadSubmissionData();
   }, [submissionId, form, router, toast]);
 
+  const handleFileChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files) {
+        const files = Array.from(event.target.files);
+        const imageFiles = files.filter(file => file.type.startsWith('image/'));
+        
+        if (imageFiles.length === 0) return;
+
+        if (imageFiles.length !== files.length) {
+            toast({
+                variant: "destructive",
+                title: "Archivos no válidos",
+                description: "Por favor, seleccione solo archivos de imagen.",
+            });
+        }
+        
+        if (attachments.length + imageFiles.length > MAX_ATTACHMENTS) {
+            toast({
+                variant: "destructive",
+                title: "Límite de archivos excedido",
+                description: `No puede adjuntar más de ${MAX_ATTACHMENTS} archivos.`,
+            });
+            return;
+        }
+
+        const processingToast = toast({
+            title: "Optimizando imágenes...",
+            description: `Procesando ${imageFiles.length} imagen(es). Por favor espere.`,
+        });
+
+        try {
+            const optimizedImages = await Promise.all(imageFiles.map(file => {
+                return new Promise<string>((resolve, reject) => {
+                    const reader = new FileReader();
+                    reader.onloadend = () => {
+                        optimizeImage(reader.result as string)
+                            .then(resolve)
+                            .catch(reject);
+                    };
+                    reader.onerror = reject;
+                    reader.readAsDataURL(file);
+                });
+            }));
+            
+            const newImagesSize = optimizedImages.reduce((sum, base64) => sum + getByteSizeFromBase64(base64.split(',')[1]), 0);
+            const existingImagesSize = attachments
+                .filter(a => a.startsWith('data:image'))
+                .reduce((sum, base64) => sum + getByteSizeFromBase64(base64.split(',')[1]), 0);
+
+            if (existingImagesSize + newImagesSize > MAX_TOTAL_SIZE_BYTES) {
+                 toast({
+                    variant: "destructive",
+                    title: "Límite de tamaño excedido",
+                    description: `El tamaño total de los adjuntos no puede superar los ${MAX_TOTAL_SIZE_BYTES / 1024 / 1024} MB.`,
+                });
+                return;
+            }
+
+            setAttachments(prev => [...prev, ...optimizedImages]);
+        } catch (error) {
+            console.error("Image optimization error:", error);
+            toast({
+                variant: "destructive",
+                title: "Error de optimización",
+                description: "No se pudo optimizar una o más imágenes.",
+            });
+        } finally {
+            processingToast.dismiss();
+            if (fileInputRef.current) {
+                fileInputRef.current.value = "";
+            }
+        }
+    }
+  };
+
+  const handleRemoveAttachment = (indexToRemove: number) => {
+      setAttachments(prev => prev.filter((_, index) => index !== indexToRemove));
+  };
+  
+  const handleRemoveAllAttachments = () => {
+    setAttachments([]);
+    setDeleteAllAlertOpen(false);
+  };
+
+  const handleOpenCamera = async () => {
+      setIsCameraOpen(true);
+  };
+  
+  const handleCapture = async () => {
+    if (attachments.length >= MAX_ATTACHMENTS) {
+        toast({
+            variant: "destructive",
+            title: "Límite de archivos excedido",
+            description: `No puede adjuntar más de ${MAX_ATTACHMENTS} archivos.`,
+        });
+        handleCloseCamera();
+        return;
+    }
+
+    if (videoRef.current && canvasRef.current) {
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
+        
+        if (video.videoWidth === 0 || video.videoHeight === 0) {
+            toast({
+                variant: 'destructive',
+                title: 'Error de Cámara',
+                description: 'No se pudo obtener la imagen de la cámara. Por favor, intente de nuevo.',
+            });
+            handleCloseCamera();
+            return;
+        }
+
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const context = canvas.getContext('2d');
+        if (context) {
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const dataUrl = canvas.toDataURL('image/jpeg');
+            
+            handleCloseCamera(); // Close camera UI immediately
+
+            const processingToast = toast({
+              title: "Optimizando imagen...",
+              description: "Por favor espere un momento.",
+            });
+          
+            try {
+                const optimizedImage = await optimizeImage(dataUrl);
+
+                const newImageSize = getByteSizeFromBase64(optimizedImage.split(',')[1]);
+                const existingImagesSize = attachments
+                    .filter(a => a.startsWith('data:image'))
+                    .reduce((sum, base64) => sum + getByteSizeFromBase64(base64.split(',')[1]), 0);
+
+                if (existingImagesSize + newImageSize > MAX_TOTAL_SIZE_BYTES) {
+                    toast({
+                        variant: "destructive",
+                        title: "Límite de tamaño excedido",
+                        description: `El tamaño total de los adjuntos no puede superar los ${MAX_TOTAL_SIZE_BYTES / 1024 / 1024} MB.`,
+                    });
+                    return;
+                }
+
+                setAttachments(prev => [...prev, ...optimizedImage]);
+            } catch (error) {
+                 console.error("Image optimization error:", error);
+                 toast({
+                    variant: "destructive",
+                    title: "Error de optimización",
+                    description: "No se pudo optimizar la imagen capturada.",
+                 });
+            } finally {
+                processingToast.dismiss();
+            }
+        } else {
+          // Make sure camera is closed even if context is not available
+          handleCloseCamera();
+        }
+    }
+  };
+
+  const handleCloseCamera = () => {
+      if (videoRef.current && videoRef.current.srcObject) {
+          const stream = videoRef.current.srcObject as MediaStream;
+          stream.getTracks().forEach(track => track.stop());
+          videoRef.current.srcObject = null;
+      }
+      setIsCameraOpen(false);
+  };
+
+  useEffect(() => {
+    let stream: MediaStream;
+    const enableCamera = async () => {
+        if (isCameraOpen) {
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                const rearCameraConstraints = { video: { facingMode: { exact: "environment" } } };
+                const anyCameraConstraints = { video: true };
+                try {
+                    stream = await navigator.mediaDevices.getUserMedia(rearCameraConstraints);
+                    if (videoRef.current) {
+                        videoRef.current.srcObject = stream;
+                    }
+                } catch (err) {
+                    console.warn("Rear camera not available, trying any camera.", err);
+                    try {
+                       stream = await navigator.mediaDevices.getUserMedia(anyCameraConstraints);
+                        if (videoRef.current) {
+                            videoRef.current.srcObject = stream;
+                        }
+                    } catch (finalErr) {
+                         console.error("Error accessing camera: ", finalErr);
+                        toast({
+                            variant: 'destructive',
+                            title: 'Acceso a la cámara denegado',
+                            description: 'Por favor, habilite los permisos de la cámara en la configuración de su navegador.',
+                        });
+                        setIsCameraOpen(false);
+                    }
+                }
+            } else {
+                toast({
+                    variant: 'destructive',
+                    title: 'Cámara no disponible',
+                    description: 'Su navegador no soporta el acceso a la cámara.',
+                });
+                setIsCameraOpen(false);
+            }
+        }
+    };
+    enableCamera();
+    return () => {
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+        }
+    }
+  }, [isCameraOpen, toast]);
+
+  async function onSubmit(data: FormValues) {
+    if (!user || !storage) {
+        toast({ variant: "destructive", title: "Error", description: "Debe iniciar sesión para guardar el formato." });
+        return;
+    }
+    setIsSubmitting(true);
+    try {
+        const newAttachmentsBase64 = attachments.filter(a => a.startsWith('data:image'));
+        const existingAttachmentUrls = attachments.filter(a => a.startsWith('http'));
+
+        const uploadedUrls = await Promise.all(
+            newAttachmentsBase64.map(async (base64) => {
+                const fileName = `submission-${Date.now()}-${Math.random().toString(36).substring(2)}.jpg`;
+                const storageRef = ref(storage, `attachments/${user.uid}/${fileName}`);
+                const base64String = base64.split(',')[1];
+                const snapshot = await uploadString(storageRef, base64String, 'base64', { contentType: 'image/jpeg' });
+                return getDownloadURL(snapshot.ref);
+            })
+        );
+        
+        const finalAttachmentUrls = [...existingAttachmentUrls, ...uploadedUrls];
+
+        const isUpdating = !!submissionId;
+        
+        // Define who the editor is (the person logged in)
+        const editor = { id: user.uid, displayName: displayName || 'N/A' };
+
+        // Define who the responsible user is
+        let responsibleUser = { id: editor.id, displayName: editor.displayName };
+        if (isUpdating && isAdmin && data.operarioResponsable) {
+            const selectedUser = allUsers.find(u => u.uid === data.operarioResponsable);
+            if (selectedUser) {
+                responsibleUser = { id: selectedUser.uid, displayName: selectedUser.displayName };
+            }
+        } else if (isUpdating && originalSubmission) {
+            responsibleUser = { id: originalSubmission.userId, displayName: originalSubmission.userDisplayName };
+        }
+        
+        const result = await saveForm({
+            formData: data,
+            formType: `variable-weight-despacho`,
+            attachmentUrls: finalAttachmentUrls,
+            responsibleUser: responsibleUser,
+            editor: editor,
+            createdAt: originalSubmission?.createdAt,
+        }, submissionId ?? undefined);
+
+        if (result.success) {
+            toast({ title: "Formato Guardado", description: `El formato ha sido ${submissionId ? 'actualizado' : 'guardado'} correctamente.` });
+            await clearDraft(!!submissionId);
+            router.push('/');
+        } else {
+            throw new Error(result.message);
+        }
+    } catch (error) {
+        console.error("Submission error:", error);
+        const errorMessage = error instanceof Error ? error.message : "No se pudo guardar el formulario.";
+        toast({ variant: "destructive", title: "Error al Enviar", description: errorMessage });
+    } finally {
+        setIsSubmitting(false);
+    }
+  }
+  
   const handleClientSelection = async (clientName: string) => {
     form.setValue('cliente', clientName);
     setClientDialogOpen(false);
@@ -840,13 +1120,56 @@ export default function VariableWeightFormComponent() {
                   </CardContent>
               </Card>
 
-              {/* The rest of the form sections go here */}
               <Card>
                 <CardHeader>
                     <CardTitle>Detalle del Despacho</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                    {/* Items/Destinos Section */}
+                  {watchedDespachoPorDestino ? (
+                      <div className="space-y-6">
+                        {destinoFields.map((destinoField, destinoIndex) => (
+                          <div key={destinoField.id} className="p-4 border rounded-lg space-y-4 bg-gray-50/50">
+                            <div className="flex justify-between items-center">
+                              <FormField
+                                control={form.control}
+                                name={`destinos.${destinoIndex}.nombreDestino`}
+                                render={({ field }) => (
+                                  <FormItem className="flex-grow">
+                                    <FormLabel>Destino #{destinoIndex + 1}</FormLabel>
+                                    <FormControl><Input placeholder="Escriba el nombre del destino" {...field} /></FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              <Button type="button" variant="ghost" size="icon" className="text-destructive self-end ml-4" onClick={() => removeDestino(destinoIndex)}>
+                                <Trash2 className="h-5 w-5" />
+                              </Button>
+                            </div>
+                            <ItemsPorDestino control={form.control} remove={remove} handleProductDialogOpening={handleProductDialogOpening} destinoIndex={destinoIndex} />
+                          </div>
+                        ))}
+                        <Button type="button" variant="outline" onClick={() => appendDestino({ nombreDestino: '', items: [] })}><MapPin className="mr-2 h-4 w-4" />Agregar Destino</Button>
+                      </div>
+                  ) : (
+                    <div className="space-y-4">
+                        {fields.map((field, index) => (
+                           <ItemFields key={field.id} control={form.control} itemIndex={index} handleProductDialogOpening={handleProductDialogOpening} remove={remove} />
+                        ))}
+                        <Button type="button" variant="outline" onClick={() => append(originalDefaultValues.items[0])}><PlusCircle className="mr-2 h-4 w-4" />Agregar Ítem</Button>
+                    </div>
+                  )}
+                  {watchedDespachoPorDestino && isSummaryMode && (
+                      <div className="pt-4">
+                        <FormField control={form.control} name="totalPaletasDespacho" render={({ field }) => (
+                          <FormItem>
+                              <FormLabel className="text-base font-semibold">Cantidad Total de Paletas de Despacho</FormLabel>
+                              <FormControl><Input type="number" placeholder="Ingrese el total de paletas de todos los destinos" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))} /></FormControl>
+                              <FormDescription>Este valor se usará para el total en el resumen agrupado.</FormDescription>
+                              <FormMessage />
+                          </FormItem>
+                        )}/>
+                      </div>
+                  )}
                 </CardContent>
               </Card>
               
@@ -855,8 +1178,7 @@ export default function VariableWeightFormComponent() {
                     <CardTitle>Resumen Agrupado de Productos</CardTitle>
                 </CardHeader>
                  <CardContent>
-                    {/* Summary Section */}
-                </CardContent>
+                 </CardContent>
               </Card>
 
               <Card>
@@ -864,21 +1186,18 @@ export default function VariableWeightFormComponent() {
                       <CardTitle>Tiempo y Observaciones de la Operación</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-6">
-                      {/* Time and Observations Section */}
                   </CardContent>
               </Card>
 
               <Card>
                   <CardHeader><CardTitle>Responsables de la Operación</CardTitle></CardHeader>
                   <CardContent>
-                    {/* Responsibles Section */}
                   </CardContent>
               </Card>
 
               <Card>
                   <CardHeader><CardTitle>Anexos</CardTitle></CardHeader>
                   <CardContent className="space-y-4">
-                      {/* Attachments Section */}
                   </CardContent>
               </Card>
 
@@ -1077,13 +1396,19 @@ function ItemsPorDestino({ control, remove, handleProductDialogOpening, destinoI
     );
 }
 
-const ItemFields = ({ control, itemIndex, handleProductDialogOpening, destinoIndex }: { control: any, itemIndex: number, handleProductDialogOpening: (context: { itemIndex: number, destinoIndex?: number }) => void, destinoIndex?: number }) => {
+const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, destinoIndex }: { control: any, itemIndex: number, handleProductDialogOpening: (context: { itemIndex: number, destinoIndex?: number }) => void, remove?: (index: number) => void, destinoIndex?: number }) => {
     const basePath = destinoIndex !== undefined ? `destinos.${destinoIndex}.items` : 'items';
     const watchedItem = useWatch({ control, name: `${basePath}.${itemIndex}` });
     const isSummaryRow = watchedItem?.paleta === 0;
     const pesoNeto = watchedItem?.pesoNeto;
 
     return (
+      <div className="p-4 border rounded-lg relative bg-white space-y-4">
+         {remove && (
+           <Button type="button" variant="ghost" size="icon" className="absolute top-2 right-2 text-destructive" onClick={() => remove(itemIndex)}>
+             <Trash2 className="h-4 w-4" />
+           </Button>
+         )}
         <>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <FormField control={control} name={`${basePath}.${itemIndex}.codigo`} render={({ field }) => (
@@ -1148,5 +1473,6 @@ const ItemFields = ({ control, itemIndex, handleProductDialogOpening, destinoInd
                 </div>
             )}
         </>
+      </div>
     );
 };
