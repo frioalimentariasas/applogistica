@@ -878,15 +878,6 @@ export default function VariableWeightFormComponent() {
         toast({ variant: "destructive", title: "Error", description: "Debe iniciar sesión para guardar el formato." });
         return;
     }
-    
-    const allItems = data.despachoPorDestino ? data.destinos.flatMap(d => d.items) : data.items;
-    const hasSummaryRow = allItems.some(item => Number(item.paleta) === 0);
-    const hasDetailRow = allItems.some(item => Number(item.paleta) > 0);
-
-    if (hasSummaryRow && hasDetailRow) {
-        setMixErrorDialogOpen(true);
-        return;
-    }
 
     setIsSubmitting(true);
     try {
@@ -945,6 +936,22 @@ export default function VariableWeightFormComponent() {
         setIsSubmitting(false);
     }
   }
+  
+  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    const data = form.getValues();
+    const allItems = data.despachoPorDestino ? data.destinos.flatMap(d => d.items) : data.items;
+    const hasSummaryRow = allItems.some(item => Number(item.paleta) === 0);
+    const hasDetailRow = allItems.some(item => Number(item.paleta) > 0);
+
+    if (hasSummaryRow && hasDetailRow) {
+      setMixErrorDialogOpen(true);
+      return;
+    }
+
+    form.handleSubmit(onSubmit)(e);
+  };
   
   const handleClientSelection = async (clientName: string) => {
     form.setValue('cliente', clientName);
@@ -1135,7 +1142,7 @@ export default function VariableWeightFormComponent() {
               </div>
           </header>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <form onSubmit={handleFormSubmit} className="space-y-6">
                 <Card>
                   <CardHeader>
                       <CardTitle>Información General del Despacho</CardTitle>
@@ -1453,34 +1460,32 @@ export default function VariableWeightFormComponent() {
                                                     </div>
                                                 </TableCell>
                                                 <TableCell>
-                                                  <div className="flex items-center gap-1">
                                                       <FormField
                                                           control={form.control}
                                                           name={`summary.${summaryIndex}.temperatura`}
                                                           render={({ field }) => (
                                                             <FormItem>
-                                                              <FormControl><Input type="text" inputMode="decimal" placeholder="T1" {...field} 
+                                                              <FormControl><Input type="text" inputMode="decimal" placeholder="Temp" {...field} 
                                                                       onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} 
                                                                       value={field.value ?? ''}
-                                                                  className="w-20 h-9 text-center" /></FormControl>
+                                                                  className="w-24 h-9 text-center" /></FormControl>
                                                               <FormMessage className="text-xs"/>
                                                             </FormItem>
                                                           )} />
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                  <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
+                                                    {calculatedSummaryForDisplay[summaryIndex]?.totalPaletas || 0}
                                                   </div>
                                                 </TableCell>
                                                 <TableCell className="text-right">
                                                   <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
-                                                    {summaryItem.totalPaletas || 0}
+                                                    {(calculatedSummaryForDisplay[summaryIndex]?.totalPeso || 0).toFixed(2)}
                                                   </div>
                                                 </TableCell>
                                                 <TableCell className="text-right">
                                                   <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
-                                                    {(summaryItem.totalPeso || 0).toFixed(2)}
-                                                  </div>
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                  <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
-                                                    {summaryItem.totalCantidad || 0}
+                                                    {calculatedSummaryForDisplay[summaryIndex]?.totalCantidad || 0}
                                                   </div>
                                                 </TableCell>
                                             </TableRow>
