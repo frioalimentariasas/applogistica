@@ -509,7 +509,7 @@ export default function VariableWeightFormComponent() {
   const watchedTotalPaletasDespacho = useWatch({ control: form.control, name: 'totalPaletasDespacho' });
 
   const showDespachoPorDestino = clientesEspeciales.includes(watchedCliente);
-  const isSummaryMode = (watchedItems || []).some(item => Number(item?.paleta) === 0);
+  const isSummaryMode = (watchedItems || []).some(item => item?.paleta === 0);
 
 
   const isClientChangeDisabled = useMemo(() => {
@@ -586,12 +586,10 @@ export default function VariableWeightFormComponent() {
                 }
             });
         } else {
+             const uniquePallets = new Set<number>();
              itemsInGroup.forEach(item => {
                 totalPeso += Number(item.pesoNeto) || 0;
                 totalCantidad += Number(item.cantidadPorPaleta) || 0;
-            });
-            const uniquePallets = new Set<number>();
-            (watchedItems || []).forEach(item => { // Count across all items, not just this group for individual pallets
                 const paletaNum = Number(item.paleta);
                 if (!isNaN(paletaNum) && paletaNum > 0) {
                     uniquePallets.add(paletaNum);
@@ -1458,7 +1456,7 @@ export default function VariableWeightFormComponent() {
                                 <FormItem>
                                     <FormLabel className="font-semibold">Cantidad Total de Paletas de Despacho</FormLabel>
                                     <FormControl>
-                                        <Input type="number" placeholder="Ingrese el total de paletas" {...field} value={field.value ?? ''} />
+                                        <Input type="number" placeholder="Ingrese el total de paletas" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseInt(e.target.value, 10))} />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
@@ -1850,7 +1848,7 @@ export default function VariableWeightFormComponent() {
               </AlertDialogFooter>
           </AlertDialogContent>
       </AlertDialog>
-
+      
       <AlertDialog open={isMixErrorDialogOpen} onOpenChange={setMixErrorDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
