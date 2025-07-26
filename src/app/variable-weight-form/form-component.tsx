@@ -225,7 +225,6 @@ const formSchema = z.object({
     aplicaCuadrilla: z.enum(["si", "no"], { required_error: "Seleccione una opción para 'Operación Realizada por Cuadrilla'." }),
     operarioResponsable: z.string().optional(),
     tipoPedido: z.enum(['GENERICO', 'TUNEL']),
-    numeroOperariosCuadrilla: z.coerce.number().int().min(1, "Debe ser al menos 1.").optional(),
     unidadDeMedidaPrincipal: z.string().optional(),
 }).refine((data) => {
     if (data.horaInicio && data.horaFin && data.horaInicio === data.horaFin) {
@@ -296,7 +295,6 @@ const originalDefaultValues: FormValues = {
   aplicaCuadrilla: undefined,
   operarioResponsable: undefined,
   tipoPedido: 'GENERICO',
-  numeroOperariosCuadrilla: undefined,
   unidadDeMedidaPrincipal: "PALETA",
 };
 
@@ -880,6 +878,16 @@ export default function VariableWeightFormComponent() {
         toast({ variant: "destructive", title: "Error", description: "Debe iniciar sesión para guardar el formato." });
         return;
     }
+    
+    const allItems = data.despachoPorDestino ? data.destinos.flatMap(d => d.items) : data.items;
+    const hasSummaryRow = allItems.some(item => Number(item.paleta) === 0);
+    const hasDetailRow = allItems.some(item => Number(item.paleta) > 0);
+
+    if (hasSummaryRow && hasDetailRow) {
+        setMixErrorDialogOpen(true);
+        return;
+    }
+
     setIsSubmitting(true);
     try {
         const newAttachmentsBase64 = attachments.filter(a => a.startsWith('data:image'));
@@ -1635,13 +1643,13 @@ export default function VariableWeightFormComponent() {
                 <Card>
                   <CardHeader><CardTitle>Responsables de la Operación</CardTitle></CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-10 gap-4 items-center">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-center">
                         <FormField control={form.control} name="coordinador" render={({ field }) => (
-                            <FormItem className="lg:col-span-2"><FormLabel>Coordinador Responsable</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                            <FormItem><FormLabel>Coordinador Responsable</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                         )}/>
                         {submissionId && isAdmin ? (
                              <FormField control={form.control} name="operarioResponsable" render={({ field }) => (
-                                <FormItem className="lg:col-span-2">
+                                <FormItem>
                                     <FormLabel>Operario Responsable</FormLabel>
                                     <Select onValueChange={field.onChange} value={field.value}>
                                         <FormControl><SelectTrigger><SelectValue placeholder="Seleccione un operario" /></SelectTrigger></FormControl>
@@ -1653,7 +1661,7 @@ export default function VariableWeightFormComponent() {
                                 </FormItem>
                             )}/>
                         ) : (
-                            <FormItem className="lg:col-span-2">
+                            <FormItem>
                                 <FormLabel>Operario Responsable</FormLabel>
                                 <FormControl><Input disabled value={submissionId ? originalSubmission?.userDisplayName : displayName || ''} /></FormControl>
                             </FormItem>
@@ -1662,33 +1670,11 @@ export default function VariableWeightFormComponent() {
                             control={form.control}
                             name="aplicaCuadrilla"
                             render={({ field }) => (
-                                <FormItem className="space-y-1 lg:col-span-4">
+                                <FormItem className="space-y-1">
                                     <FormLabel>Operación Realizada por Cuadrilla</FormLabel>
                                     <FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-2"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="cuadrilla-si" /><Label htmlFor="cuadrilla-si">Sí</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="cuadrilla-no" /><Label htmlFor="cuadrilla-no">No</Label></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>
                             )}
                         />
-                        {watchedAplicaCuadrilla === 'si' && (
-                            <FormField
-                                control={form.control}
-                                name="numeroOperariosCuadrilla"
-                                render={({ field }) => (
-                                    <FormItem className="lg:col-span-2">
-                                    <FormLabel>No. de Operarios de Cuadrilla</FormLabel>
-                                    <FormControl>
-                                        <Input
-                                            type="number"
-                                            min="1"
-                                            placeholder="Ej: 3"
-                                            {...field}
-                                            value={field.value ?? ''}
-                                            onChange={e => field.onChange(parseInt(e.target.value, 10) || undefined)}
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                        )}
                     </div>
                   </CardContent>
                 </Card>
