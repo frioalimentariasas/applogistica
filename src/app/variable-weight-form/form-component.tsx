@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
@@ -315,13 +316,14 @@ function getByteSizeFromBase64(base64: string): number {
 
 
 function ItemsPorDestino({ control, remove, handleProductDialogOpening, destinoIndex }: { control: any; remove: (index: number) => void, handleProductDialogOpening: (context: { itemIndex: number, destinoIndex: number }) => void; destinoIndex: number }) {
+    const { getValues } = useFormContext();
     const { fields, append, remove: removeItem } = useFieldArray({
         control,
         name: `destinos.${destinoIndex}.items`,
     });
 
     const handleAddItem = () => {
-        const allItems = control.getValues('destinos').flatMap((d: any) => d.items);
+        const allItems = getValues('destinos').flatMap((d: any) => d.items);
         const isSummaryMode = allItems.some((item: any) => item?.paleta === 0);
         
         append({
@@ -1042,7 +1044,7 @@ export default function VariableWeightFormComponent() {
   
   const showSummary = useMemo(() => {
     if (!calculatedSummaryForDisplay || !calculatedSummaryForDisplay.items) return false;
-    return calculatedSummaryForDisplay.items.length > 0;
+    return calculatedSummaryForDisplay.items.some(item => item && item.descripcion && item.descripcion.trim() !== '');
   }, [calculatedSummaryForDisplay]);
 
 
@@ -1756,10 +1758,7 @@ export default function VariableWeightFormComponent() {
                 </Card>
               
               <footer className="flex flex-col sm:flex-row items-center justify-end gap-4 pt-4">
-                <Button type="button" variant="outline" onClick={() => setDiscardAlertOpen(true)} className="w-full sm:w-auto">
-                    <RotateCcw className="mr-2 h-4 w-4"/>
-                    Limpiar Formato
-                </Button>
+                <Button type="button" variant="outline" onClick={() => setDiscardAlertOpen(true)} className="w-full sm:w-auto"><RotateCcw className="mr-2 h-4 w-4"/>Limpiar Formato</Button>
                 <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto">
                     {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4"/>}
                     {isSubmitting ? 'Guardando...' : 'Guardar Formato y Enviar'}
