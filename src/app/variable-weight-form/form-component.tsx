@@ -313,6 +313,267 @@ function getByteSizeFromBase64(base64: string): number {
     return base64.length * (3 / 4) - (base64.endsWith('==') ? 2 : base64.endsWith('=') ? 1 : 0);
 }
 
+function ProductSelectorDialog({
+    open,
+    onOpenChange,
+    articulos,
+    isLoading,
+    clientSelected,
+    onSelect,
+}: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    articulos: ArticuloInfo[];
+    isLoading: boolean;
+    clientSelected: boolean;
+    onSelect: (articulo: ArticuloInfo) => void;
+}) {
+    const [search, setSearch] = useState("");
+
+    const filteredArticulos = useMemo(() => {
+        if (!search) return articulos;
+        return articulos.filter(a => a.denominacionArticulo.toLowerCase().includes(search.toLowerCase()) || a.codigoProducto.toLowerCase().includes(search.toLowerCase()));
+    }, [search, articulos]);
+    
+    useEffect(() => {
+        if (!open) {
+            setSearch("");
+        }
+    }, [open]);
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Seleccionar Producto</DialogTitle>
+                    <DialogDescription>Busque y seleccione un producto de la lista del cliente.</DialogDescription>
+                </DialogHeader>
+                {!clientSelected ? (
+                    <div className="p-4 text-center text-muted-foreground">Debe escoger primero un cliente.</div>
+                ) : (
+                    <>
+                        <Input
+                            placeholder="Buscar producto por código o descripción..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="mb-4"
+                        />
+                        <ScrollArea className="h-72">
+                            <div className="space-y-1">
+                                {isLoading && <p className="text-center text-sm text-muted-foreground">Cargando...</p>}
+                                {!isLoading && filteredArticulos.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron productos.</p>}
+                                {filteredArticulos.map((p, i) => (
+                                    <Button
+                                        key={`${p.id}-${i}`}
+                                        variant="ghost"
+                                        className="w-full justify-start h-auto text-wrap"
+                                        onClick={() => {
+                                            onSelect(p);
+                                            onOpenChange(false);
+                                        }}
+                                    >
+                                        <div className="flex flex-col items-start">
+                                            <span>{p.denominacionArticulo}</span>
+                                            <span className="text-xs text-muted-foreground">{p.codigoProducto}</span>
+                                        </div>
+                                    </Button>
+                                ))}
+                            </div>
+                        </ScrollArea>
+                    </>
+                )}
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function ObservationSelectorDialog({
+    open,
+    onOpenChange,
+    standardObservations,
+    onSelect,
+}: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    standardObservations: StandardObservation[];
+    onSelect: (observation: { name: string, quantityType?: string }) => void;
+}) {
+    const [search, setSearch] = useState("");
+
+    const allObservations = useMemo(() => [
+        ...standardObservations,
+        { id: 'OTRAS', name: 'OTRAS OBSERVACIONES', quantityType: '' }
+    ], [standardObservations]);
+
+    const filteredObservations = useMemo(() => {
+        if (!search) return allObservations;
+        return allObservations.filter(obs => obs.name.toLowerCase().includes(search.toLowerCase()));
+    }, [search, allObservations]);
+
+    useEffect(() => {
+        if (!open) {
+            setSearch("");
+        }
+    }, [open]);
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Seleccionar Tipo de Observación</DialogTitle>
+                    <DialogDescription>Busque y seleccione un tipo de la lista.</DialogDescription>
+                </DialogHeader>
+                <Input
+                    placeholder="Buscar observación..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="my-4"
+                />
+                <ScrollArea className="h-72">
+                    <div className="space-y-1">
+                        {filteredObservations.map((obs) => (
+                            <Button
+                                key={obs.id}
+                                variant="ghost"
+                                className="w-full justify-start"
+                                onClick={() => {
+                                    onSelect({ name: obs.name, quantityType: obs.quantityType });
+                                    onOpenChange(false);
+                                }}
+                            >
+                                {obs.name}
+                            </Button>
+                        ))}
+                        {filteredObservations.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontró la observación.</p>}
+                    </div>
+                </ScrollArea>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+function ItemsPorDestino({ control, remove, handleProductDialogOpening, destinoIndex }: { control: any; remove: (index: number) => void, handleProductDialogOpening: (context: { itemIndex: number, destinoIndex: number }) => void; destinoIndex: number }) {
+    const { fields, append, remove: removeItem } = useFieldArray({
+        control,
+        name: `destinos.${destinoIndex}.items`,
+    });
+
+    const handleAddItem = () => {
+        const allItems = control.getValues('destinos').flatMap((d: any) => d.items);
+        const isSummaryMode = allItems.some((item: any) => item?.paleta === 0);
+        
+        append({
+            codigo: '',
+            paleta: isSummaryMode ? 0 : null,
+            descripcion: "",
+            lote: "",
+            presentacion: "",
+            cantidadPorPaleta: null,
+            pesoBruto: null,
+            taraEstiba: null,
+            taraCaja: null,
+            totalTaraCaja: null,
+            pesoNeto: null,
+            totalCantidad: null,
+            totalPaletas: null,
+            totalPesoNeto: null,
+        });
+    };
+
+    return (
+        <div className="space-y-4 pl-4 border-l-2 ml-2">
+            {fields.map((field, itemIndex) => (
+                <div key={field.id} className="p-4 border rounded-lg relative bg-white/50 space-y-4">
+                     <Button type="button" variant="ghost" size="icon" className="absolute top-2 right-2 text-destructive" onClick={() => removeItem(itemIndex)}><Trash2 className="h-4 w-4" /></Button>
+                    <ItemFields control={control} itemIndex={itemIndex} handleProductDialogOpening={handleProductDialogOpening} destinoIndex={destinoIndex} />
+                </div>
+            ))}
+            <Button type="button" variant="outline" size="sm" onClick={handleAddItem}><PlusCircle className="mr-2 h-4 w-4" />Agregar Ítem a Destino</Button>
+        </div>
+    );
+}
+
+const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, destinoIndex }: { control: any, itemIndex: number, handleProductDialogOpening: (context: { itemIndex: number, destinoIndex?: number }) => void, remove?: (index: number) => void, destinoIndex?: number }) => {
+    const basePath = destinoIndex !== undefined ? `destinos.${destinoIndex}.items` : 'items';
+    const watchedItem = useWatch({ control, name: `${basePath}.${itemIndex}` });
+    const isSummaryRow = watchedItem?.paleta === 0;
+    const pesoNeto = watchedItem?.pesoNeto;
+
+    return (
+      <div className="p-4 border rounded-lg relative bg-white space-y-4">
+         {remove && (
+           <Button type="button" variant="ghost" size="icon" className="absolute top-2 right-2 text-destructive" onClick={() => remove(itemIndex)}>
+             <Trash2 className="h-4 w-4" />
+           </Button>
+         )}
+        <>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <FormField control={control} name={`${basePath}.${itemIndex}.codigo`} render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Código</FormLabel>
+                        <Button type="button" variant="outline" className="w-full justify-between h-10 text-left font-normal" onClick={() => handleProductDialogOpening({ itemIndex, destinoIndex })}>
+                            <span className="truncate">{field.value || "Seleccionar código..."}</span>
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                        <FormMessage />
+                    </FormItem>
+                )} />
+                <FormField control={control} name={`${basePath}.${itemIndex}.descripcion`} render={({ field }) => (
+                    <FormItem className="md:col-span-2">
+                        <FormLabel>Descripción</FormLabel>
+                        <Button type="button" variant="outline" className="w-full justify-between h-10 text-left font-normal" onClick={() => handleProductDialogOpening({ itemIndex, destinoIndex })}>
+                            <span className="truncate">{field.value || "Seleccionar producto..."}</span>
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                        <FormMessage />
+                    </FormItem>
+                )} />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <FormField control={control} name={`${basePath}.${itemIndex}.paleta`} render={({ field }) => (
+                    <FormItem><FormLabel>Paleta</FormLabel><FormControl><Input type="text" inputMode="numeric" placeholder="0 para resumen" {...field} onChange={e => field.onChange(e.target.value === '' ? null : Number(e.target.value))} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={control} name={`${basePath}.${itemIndex}.lote`} render={({ field }) => (
+                    <FormItem><FormLabel>Lote</FormLabel><FormControl><Input placeholder="Lote (máx. 15)" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={control} name={`${basePath}.${itemIndex}.presentacion`} render={({ field }) => (
+                    <FormItem><FormLabel>Presentación</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione" /></SelectTrigger></FormControl><SelectContent>{presentaciones.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                )} />
+            </div>
+            {isSummaryRow ? (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <FormField control={control} name={`${basePath}.${itemIndex}.totalCantidad`} render={({ field }) => (
+                        <FormItem><FormLabel>Total Cantidad</FormLabel><FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={control} name={`${basePath}.${itemIndex}.totalPaletas`} render={({ field }) => (
+                        <FormItem><FormLabel>Total Paletas</FormLabel><FormControl><Input type="text" inputMode="numeric" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={control} name={`${basePath}.${itemIndex}.totalPesoNeto`} render={({ field }) => (
+                        <FormItem><FormLabel>Total Peso Neto (kg)</FormLabel><FormControl><Input type="text" inputMode="decimal" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
+                    <FormField control={control} name={`${basePath}.${itemIndex}.cantidadPorPaleta`} render={({ field }) => (
+                        <FormItem><FormLabel>Cant. Por Paleta</FormLabel><FormControl><Input type="text" inputMode="numeric" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={control} name={`${basePath}.${itemIndex}.pesoBruto`} render={({ field }) => (
+                        <FormItem><FormLabel>P. Bruto (kg)</FormLabel><FormControl><Input type="text" inputMode="decimal" min="0" step="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={control} name={`${basePath}.${itemIndex}.taraEstiba`} render={({ field }) => (
+                        <FormItem><FormLabel>T. Estiba (kg)</FormLabel><FormControl><Input type="text" inputMode="decimal" min="0" step="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={control} name={`${basePath}.${itemIndex}.taraCaja`} render={({ field }) => (
+                        <FormItem><FormLabel>T. Caja (kg)</FormLabel><FormControl><Input type="text" inputMode="decimal" min="0" step="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormItem><FormLabel>Peso Neto (kg)</FormLabel><FormControl><Input disabled readOnly value={pesoNeto != null && !isNaN(pesoNeto) ? pesoNeto.toFixed(2) : '0.00'} /></FormControl></FormItem>
+                </div>
+            )}
+        </>
+      </div>
+    );
+};
+
 export default function VariableWeightFormComponent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -833,6 +1094,52 @@ export default function VariableWeightFormComponent() {
 
   const title = `${submissionId ? 'Editando' : 'Formato de'} ${operation.charAt(0).toUpperCase() + operation.slice(1)} - Peso Variable`;
 
+  const calculatedSummaryForDisplay = useMemo(() => {
+    const allItemsForSummary = watchedDespachoPorDestino ? (watchedDestinos || []).flatMap(d => d.items) : (watchedItems || []);
+
+    const grouped = allItemsForSummary.reduce((acc, item) => {
+        if (!item?.descripcion?.trim()) return acc;
+        const desc = item.descripcion.trim();
+
+        if (!acc[desc]) {
+            acc[desc] = {
+                descripcion: desc,
+                totalPeso: 0,
+                totalCantidad: 0,
+                paletas: new Set<number>(),
+            };
+        }
+
+        if (Number(item.paleta) === 0) {
+            acc[desc].totalPeso += Number(item.totalPesoNeto) || 0;
+            acc[desc].totalCantidad += Number(item.totalCantidad) || 0;
+            acc[desc].paletas.add(0);
+        } else {
+            acc[desc].totalPeso += Number(item.pesoNeto) || 0;
+            acc[desc].totalCantidad += Number(item.cantidadPorPaleta) || 0;
+            const paleta = Number(item.paleta);
+            if (!isNaN(paleta) && paleta > 0) {
+                acc[desc].paletas.add(paleta);
+            }
+        }
+        
+        return acc;
+    }, {} as Record<string, { descripcion: string; totalPeso: number; totalCantidad: number; paletas: Set<number> }>);
+
+    return Object.values(grouped).map(group => {
+        const paletasCount = group.paletas.has(0)
+            ? allItemsForSummary.filter(item => item.descripcion === group.descripcion && Number(item.paleta) === 0).reduce((sum, item) => sum + (Number(item.totalPaletas) || 0), 0)
+            : group.paletas.size;
+
+        return {
+            descripcion: group.descripcion,
+            totalPeso: group.totalPeso,
+            totalCantidad: group.totalCantidad,
+            totalPaletas: paletasCount,
+        };
+    });
+  }, [watchedItems, watchedDestinos, watchedDespachoPorDestino]);
+
   if (isLoadingForm) {
       return (
           <div className="flex min-h-screen w-full items-center justify-center">
@@ -1172,32 +1479,343 @@ export default function VariableWeightFormComponent() {
                 </CardContent>
               </Card>
               
-              <Card>
-                <CardHeader>
-                    <CardTitle>Resumen Agrupado de Productos</CardTitle>
-                </CardHeader>
-                 <CardContent>
-                    Contenido del formulario omitido por brevedad...
-                 </CardContent>
-              </Card>
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Resumen Agrupado de Productos</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                         <div className="rounded-md border">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead>Producto</TableHead>
+                                        <TableHead>Temperatura (°C)</TableHead>
+                                        <TableHead className="text-right">Total Cantidad</TableHead>
+                                        <TableHead className="text-right">Total Paletas</TableHead>
+                                        <TableHead className="text-right">Total Peso (kg)</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {calculatedSummaryForDisplay.length > 0 ? (
+                                        calculatedSummaryForDisplay.map((summaryItem) => {
+                                            const summaryIndex = form.getValues('summary')?.findIndex(s => s.descripcion === summaryItem.descripcion) ?? -1;
+                                            return (
+                                            <TableRow key={summaryItem.descripcion}>
+                                                <TableCell className="font-medium">{summaryItem.descripcion}</TableCell>
+                                                <TableCell>
+                                                    { summaryIndex > -1 ? (
+                                                      <div className="flex items-center gap-1">
+                                                          <FormField
+                                                              control={form.control}
+                                                              name={`summary.${summaryIndex}.temperatura`}
+                                                              render={({ field }) => (
+                                                                <FormItem>
+                                                                  <FormControl><Input type="text" inputMode="decimal" placeholder="Temp" {...field} 
+                                                                          onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} 
+                                                                          value={field.value ?? ''}
+                                                                      className="w-20 h-9 text-center" /></FormControl>
+                                                                  <FormMessage className="text-xs"/>
+                                                                </FormItem>
+                                                              )} />
+                                                      </div>
+                                                    ) : (
+                                                      <div className="h-10 w-full" />
+                                                    )}
+                                                </TableCell>
+                                                <TableCell className="text-right">{summaryItem.totalCantidad}</TableCell>
+                                                <TableCell className="text-right">{summaryItem.totalPaletas}</TableCell>
+                                                <TableCell className="text-right">{summaryItem.totalPeso.toFixed(2)}</TableCell>
+                                            </TableRow>
+                                        )})
+                                    ) : (
+                                        <TableRow>
+                                            <TableCell colSpan={5} className="h-24 text-center">
+                                                Agregue ítems para ver el resumen.
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </CardContent>
+                </Card>
 
               <Card>
                   <CardHeader>
                       <CardTitle>Tiempo y Observaciones de la Operación</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <FormField control={form.control} name="horaInicio" render={({ field }) => (
+                          <FormItem>
+                              <FormLabel>Hora Inicio</FormLabel>
+                               <div className="flex items-center gap-2">
+                                <FormControl>
+                                    <Input type="time" placeholder="HH:MM" {...field} className="flex-grow" />
+                                </FormControl>
+                                <Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('horaInicio')}>
+                                    <Clock className="h-4 w-4" />
+                                </Button>
+                              </div>
+                              <FormMessage />
+                          </FormItem>
+                          )}/>
+                          <FormField control={form.control} name="horaFin" render={({ field }) => (
+                          <FormItem>
+                              <FormLabel>Hora Fin</FormLabel>
+                              <div className="flex items-center gap-2">
+                                <FormControl>
+                                    <Input type="time" placeholder="HH:MM" {...field} className="flex-grow" />
+                                </FormControl>
+                                 <Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('horaFin')}>
+                                    <Clock className="h-4 w-4" />
+                                </Button>
+                              </div>
+                              <FormMessage />
+                          </FormItem>
+                          )}/>
+                      </div>
+                       <div>
+                        <Label>Observaciones</Label>
+                        <div className="space-y-4 mt-2">
+                            {observationFields.map((field, index) => {
+                                const selectedObservation = watchedObservations?.[index];
+                                const stdObsData = standardObservations.find(obs => obs.name === selectedObservation?.type);
+                                const isOtherType = selectedObservation?.type === 'OTRAS OBSERVACIONES';
+                                const showCrewCheckbox = selectedObservation?.type === 'REESTIBADO' || selectedObservation?.type === 'TRANSBORDO CANASTILLA';
+                                return (
+                                <div key={field.id} className="p-4 border rounded-lg relative bg-white space-y-4">
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="absolute top-2 right-2 text-destructive hover:bg-destructive/10"
+                                        onClick={() => removeObservation(index)}
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                                        <FormField
+                                            control={form.control}
+                                            name={`observaciones.${index}.type`}
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Tipo de Observación</FormLabel>
+                                                     <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        className="w-full justify-between text-left font-normal h-10"
+                                                        onClick={() => handleObservationDialogOpening(index)}
+                                                        >
+                                                        <span className="truncate">{field.value || "Seleccionar observación..."}</span>
+                                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                    </Button>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        {isOtherType ? (
+                                            <FormField
+                                                control={form.control}
+                                                name={`observaciones.${index}.customType`}
+                                                render={({ field }) => (
+                                                    <FormItem className="lg:col-span-3">
+                                                        <FormLabel>Descripción</FormLabel>
+                                                        <FormControl>
+                                                            <Textarea placeholder="Describa la observación" {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        ) : (
+                                        <>
+                                            <FormField
+                                                control={form.control}
+                                                name={`observaciones.${index}.quantity`}
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>Cantidad ({stdObsData?.quantityType || 'N/A'})</FormLabel>
+                                                        <FormControl>
+                                                            <Input type="number" placeholder="0" {...field} />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            {showCrewCheckbox && (
+                                                <FormField
+                                                    control={form.control}
+                                                    name={`observaciones.${index}.executedByGrupoRosales`}
+                                                    render={({ field }) => (
+                                                        <FormItem className="flex flex-row items-end space-x-2 pb-2">
+                                                            <FormControl>
+                                                                <Checkbox
+                                                                    checked={field.value}
+                                                                    onCheckedChange={field.onChange}
+                                                                />
+                                                            </FormControl>
+                                                            <div className="space-y-1 leading-none">
+                                                                <Label htmlFor={`obs-check-${index}`} className="font-normal cursor-pointer uppercase">
+                                                                    REALIZADO POR CUADRILLA
+                                                                </Label>
+                                                            </div>
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            )}
+                                        </>
+                                        )}
+                                    </div>
+                                </div>
+                            )})}
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => appendObservation({ type: '', quantity: 0, executedByGrupoRosales: false, customType: '', quantityType: '' })}
+                                className="mt-4"
+                            >
+                                <PlusCircle className="mr-2 h-4 w-4" />
+                                Agregar Observación
+                            </Button>
+                        </div>
+                    </div>
                   </CardContent>
               </Card>
 
               <Card>
                   <CardHeader><CardTitle>Responsables de la Operación</CardTitle></CardHeader>
                   <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-10 gap-4 items-center">
+                        <FormField control={form.control} name="coordinador" render={({ field }) => (
+                            <FormItem className="lg:col-span-2"><FormLabel>Coordinador Responsable</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                        )}/>
+                        
+                        {submissionId && isAdmin ? (
+                             <FormField control={form.control} name="operarioResponsable" render={({ field }) => (
+                                <FormItem className="lg:col-span-2">
+                                    <FormLabel>Operario Responsable</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value}>
+                                        <FormControl><SelectTrigger><SelectValue placeholder="Seleccione un operario" /></SelectTrigger></FormControl>
+                                        <SelectContent>
+                                            {allUsers.map(u => <SelectItem key={u.uid} value={u.uid}>{u.displayName}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )}/>
+                        ) : (
+                            <FormItem className="lg:col-span-2">
+                                <FormLabel>Operario Responsable</FormLabel>
+                                <FormControl><Input disabled value={submissionId ? originalSubmission?.userDisplayName : displayName || ''} /></FormControl>
+                            </FormItem>
+                        )}
+
+                        <FormField
+                            control={form.control}
+                            name="aplicaCuadrilla"
+                            render={({ field }) => (
+                                <FormItem className="space-y-1 lg:col-span-4">
+                                    <FormLabel>Operación Realizada por Cuadrilla</FormLabel>
+                                    <FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-2"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="cuadrilla-si" /><Label htmlFor="cuadrilla-si">Sí</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="cuadrilla-no" /><Label htmlFor="cuadrilla-no">No</Label></FormItem></RadioGroup></FormControl>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        {watchedAplicaCuadrilla === 'si' && form.getValues('tipoPedido') === 'MAQUILA' && (
+                            <FormField
+                                control={form.control}
+                                name="numeroOperariosCuadrilla"
+                                render={({ field }) => (
+                                    <FormItem className="lg:col-span-2">
+                                    <FormLabel>No. de Operarios de Cuadrilla</FormLabel>
+                                    <FormControl>
+                                        <Input 
+                                            type="number"
+                                            min="1"
+                                            placeholder="Ej: 3" 
+                                            {...field} 
+                                            value={field.value ?? ''}
+                                            onChange={e => field.onChange(parseInt(e.target.value, 10) || undefined)}
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        )}
+                    </div>
                   </CardContent>
               </Card>
 
               <Card>
                   <CardHeader><CardTitle>Anexos</CardTitle></CardHeader>
                   <CardContent className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div 
+                              className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-lg cursor-pointer hover:bg-gray-100"
+                              onClick={() => fileInputRef.current?.click()}
+                          >
+                              <UploadCloud className="w-10 h-10 text-gray-400 mb-2"/>
+                              <p className="text-sm text-gray-600 font-semibold">Subir archivos o arrastre y suelte</p>
+                              <p className="text-xs text-gray-500">Max. de 30 imágenes / 10MB Total</p>
+                              <Input type="file" ref={fileInputRef} className="hidden" multiple accept="image/*" onChange={handleFileChange} />
+                          </div>
+                          <div 
+                              className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-lg cursor-pointer hover:bg-gray-100"
+                              onClick={handleOpenCamera}
+                          >
+                              <Camera className="w-10 h-10 text-gray-400 mb-2"/>
+                              <p className="text-sm text-gray-600 font-semibold">Tomar Foto</p>
+                              <p className="text-xs text-gray-500">Usar la cámara del dispositivo</p>
+                          </div>
+                      </div>
+                      {attachments.length > 0 && (
+                          <div>
+                            <div className="flex justify-between items-center mb-2">
+                                <h4 className="text-sm font-medium">Archivos Adjuntos ({attachments.length}/{MAX_ATTACHMENTS}):</h4>
+                                <AlertDialog open={isDeleteAllAlertOpen} onOpenChange={setDeleteAllAlertOpen}>
+                                    <AlertDialogTrigger asChild>
+                                        <Button type="button" variant="outline" size="sm" className="text-destructive hover:text-destructive border-destructive/50 hover:bg-destructive/10">
+                                            <Trash2 className="mr-2 h-3 w-3" />
+                                            Eliminar Todos
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>¿Está seguro de eliminar todos los anexos?</AlertDialogTitle>
+                                            <AlertDialogDesc>
+                                                Esta acción no se puede deshacer. Se eliminarán permanentemente todos los archivos adjuntos.
+                                            </AlertDialogDesc>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                            <AlertDialogAction onClick={handleRemoveAllAttachments} className="bg-destructive hover:bg-destructive/90">
+                                                Eliminar Todos
+                                            </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            </div>
+                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                                  {attachments.map((src, index) => (
+                                      <div key={index} className="relative group aspect-square">
+                                          <Image src={src} alt={`Anexo ${index + 1}`} fill className="rounded-md object-cover" />
+                                          <Button
+                                              type="button"
+                                              variant="destructive"
+                                              size="icon"
+                                              className="absolute top-1 right-1 h-6 w-6"
+                                              onClick={() => handleRemoveAttachment(index)}
+                                          >
+                                              <Trash2 className="h-4 w-4" />
+                                              <span className="sr-only">Eliminar imagen</span>
+                                          </Button>
+                                      </div>
+                                  ))}
+                              </div>
+                          </div>
+                      )}
                   </CardContent>
               </Card>
 
@@ -1210,268 +1828,55 @@ export default function VariableWeightFormComponent() {
               </footer>
           </form>
         </div>
+
+        <Dialog open={isCameraOpen} onOpenChange={setIsCameraOpen}>
+          <DialogContent className="max-w-3xl">
+              <DialogHeader>
+                  <DialogTitle>Tomar Foto</DialogTitle>
+                  <DialogDescription>Apunte la cámara y capture una imagen para adjuntarla al formulario.</DialogDescription>
+              </DialogHeader>
+              <div className="relative">
+                  <video ref={videoRef} className="w-full aspect-video rounded-md bg-black" autoPlay muted playsInline />
+                  <canvas ref={canvasRef} className="hidden"></canvas>
+              </div>
+              <DialogFooter>
+                  <Button variant="outline" onClick={handleCloseCamera}>Cancelar</Button>
+                  <Button onClick={handleCapture}>
+                      <Camera className="mr-2 h-4 w-4"/>
+                      Capturar y Adjuntar
+                  </Button>
+              </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        
+        <AlertDialog open={isDiscardAlertOpen} onOpenChange={setDiscardAlertOpen}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>¿Está seguro que desea limpiar el formato?</AlertDialogTitle>
+                    <AlertDialogDesc>
+                        Esta acción no se puede deshacer. Se eliminará toda la información que ha ingresado en el formato.
+                    </AlertDialogDesc>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction onClick={handleDiscard} className="bg-destructive hover:bg-destructive/90">Limpiar Formato</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+         <AlertDialog open={isMixErrorDialogOpen} onOpenChange={setMixErrorDialogOpen}>
+            <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Error de Validación</AlertDialogTitle>
+                <AlertDialogDesc>
+                No se pueden mezclar ítems de resumen (Paleta 0) con ítems de paletas individuales. Por favor, use solo un método.
+                </AlertDialogDesc>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogAction onClick={() => setMixErrorDialogOpen(false)}>Entendido</AlertDialogAction>
+            </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
       </div>
     </FormProvider>
   );
 }
-
-function ObservationSelectorDialog({
-    open,
-    onOpenChange,
-    standardObservations,
-    onSelect,
-}: {
-    open: boolean;
-    onOpenChange: (open: boolean) => void;
-    standardObservations: StandardObservation[];
-    onSelect: (observation: { name: string, quantityType?: string }) => void;
-}) {
-    const [search, setSearch] = useState("");
-
-    const allObservations = useMemo(() => [
-        ...standardObservations,
-        { id: 'OTRAS', name: 'OTRAS OBSERVACIONES', quantityType: '' }
-    ], [standardObservations]);
-
-    const filteredObservations = useMemo(() => {
-        if (!search) return allObservations;
-        return allObservations.filter(obs => obs.name.toLowerCase().includes(search.toLowerCase()));
-    }, [search, allObservations]);
-
-    useEffect(() => {
-        if (!open) {
-            setSearch("");
-        }
-    }, [open]);
-
-    return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Seleccionar Tipo de Observación</DialogTitle>
-                    <DialogDescription>Busque y seleccione un tipo de la lista.</DialogDescription>
-                </DialogHeader>
-                <Input
-                    placeholder="Buscar observación..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="my-4"
-                />
-                <ScrollArea className="h-72">
-                    <div className="space-y-1">
-                        {filteredObservations.map((obs) => (
-                            <Button
-                                key={obs.id}
-                                variant="ghost"
-                                className="w-full justify-start"
-                                onClick={() => {
-                                    onSelect({ name: obs.name, quantityType: obs.quantityType });
-                                    onOpenChange(false);
-                                }}
-                            >
-                                {obs.name}
-                            </Button>
-                        ))}
-                        {filteredObservations.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontró la observación.</p>}
-                    </div>
-                </ScrollArea>
-            </DialogContent>
-        </Dialog>
-    );
-}
-
-function ProductSelectorDialog({
-    open,
-    onOpenChange,
-    articulos,
-    isLoading,
-    clientSelected,
-    onSelect,
-}: {
-    open: boolean;
-    onOpenChange: (open: boolean) => void;
-    articulos: ArticuloInfo[];
-    isLoading: boolean;
-    clientSelected: boolean;
-    onSelect: (articulo: ArticuloInfo) => void;
-}) {
-    const [search, setSearch] = useState("");
-
-    const filteredArticulos = useMemo(() => {
-        if (!search) return articulos;
-        return articulos.filter(a => a.denominacionArticulo.toLowerCase().includes(search.toLowerCase()) || a.codigoProducto.toLowerCase().includes(search.toLowerCase()));
-    }, [search, articulos]);
-    
-    useEffect(() => {
-        if (!open) {
-            setSearch("");
-        }
-    }, [open]);
-
-    return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Seleccionar Producto</DialogTitle>
-                    <DialogDescription>Busque y seleccione un producto de la lista del cliente.</DialogDescription>
-                </DialogHeader>
-                {!clientSelected ? (
-                    <div className="p-4 text-center text-muted-foreground">Debe escoger primero un cliente.</div>
-                ) : (
-                    <>
-                        <Input
-                            placeholder="Buscar producto por código o descripción..."
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            className="mb-4"
-                        />
-                        <ScrollArea className="h-72">
-                            <div className="space-y-1">
-                                {isLoading && <p className="text-center text-sm text-muted-foreground">Cargando...</p>}
-                                {!isLoading && filteredArticulos.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron productos.</p>}
-                                {filteredArticulos.map((p, i) => (
-                                    <Button
-                                        key={`${p.id}-${i}`}
-                                        variant="ghost"
-                                        className="w-full justify-start h-auto text-wrap"
-                                        onClick={() => {
-                                            onSelect(p);
-                                            onOpenChange(false);
-                                        }}
-                                    >
-                                        <div className="flex flex-col items-start">
-                                            <span>{p.denominacionArticulo}</span>
-                                            <span className="text-xs text-muted-foreground">{p.codigoProducto}</span>
-                                        </div>
-                                    </Button>
-                                ))}
-                            </div>
-                        </ScrollArea>
-                    </>
-                )}
-            </DialogContent>
-        </Dialog>
-    );
-}
-
-function ItemsPorDestino({ control, remove, handleProductDialogOpening, destinoIndex }: { control: any; remove: (index: number) => void, handleProductDialogOpening: (context: { itemIndex: number, destinoIndex: number }) => void; destinoIndex: number }) {
-    const { fields, append, remove: removeItem } = useFieldArray({
-        control,
-        name: `destinos.${destinoIndex}.items`,
-    });
-
-    const handleAddItem = () => {
-        const allItems = control.getValues(`destinos.${destinoIndex}.items`);
-        const isSummaryMode = allItems.some((item: any) => item?.paleta === 0);
-        
-        append({
-            codigo: '',
-            paleta: isSummaryMode ? 0 : null,
-            descripcion: "",
-            lote: "",
-            presentacion: "",
-            cantidadPorPaleta: null,
-            pesoBruto: null,
-            taraEstiba: null,
-            taraCaja: null,
-            totalTaraCaja: null,
-            pesoNeto: null,
-            totalCantidad: null,
-            totalPaletas: null,
-            totalPesoNeto: null,
-        });
-    };
-
-    return (
-        <div className="space-y-4 pl-4 border-l-2 ml-2">
-            {fields.map((field, itemIndex) => (
-                <div key={field.id} className="p-4 border rounded-lg relative bg-white/50 space-y-4">
-                     <Button type="button" variant="ghost" size="icon" className="absolute top-2 right-2 text-destructive" onClick={() => removeItem(itemIndex)}><Trash2 className="h-4 w-4" /></Button>
-                    <ItemFields control={control} itemIndex={itemIndex} handleProductDialogOpening={handleProductDialogOpening} destinoIndex={destinoIndex} />
-                </div>
-            ))}
-            <Button type="button" variant="outline" size="sm" onClick={handleAddItem}><PlusCircle className="mr-2 h-4 w-4" />Agregar Ítem a Destino</Button>
-        </div>
-    );
-}
-
-const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, destinoIndex }: { control: any, itemIndex: number, handleProductDialogOpening: (context: { itemIndex: number, destinoIndex?: number }) => void, remove?: (index: number) => void, destinoIndex?: number }) => {
-    const basePath = destinoIndex !== undefined ? `destinos.${destinoIndex}.items` : 'items';
-    const watchedItem = useWatch({ control, name: `${basePath}.${itemIndex}` });
-    const isSummaryRow = watchedItem?.paleta === 0;
-    const pesoNeto = watchedItem?.pesoNeto;
-
-    return (
-      <div className="p-4 border rounded-lg relative bg-white space-y-4">
-         {remove && (
-           <Button type="button" variant="ghost" size="icon" className="absolute top-2 right-2 text-destructive" onClick={() => remove(itemIndex)}>
-             <Trash2 className="h-4 w-4" />
-           </Button>
-         )}
-        <>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <FormField control={control} name={`${basePath}.${itemIndex}.codigo`} render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Código</FormLabel>
-                        <Button type="button" variant="outline" className="w-full justify-between h-10 text-left font-normal" onClick={() => handleProductDialogOpening({ itemIndex, destinoIndex })}>
-                            <span className="truncate">{field.value || "Seleccionar código..."}</span>
-                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                        <FormMessage />
-                    </FormItem>
-                )} />
-                <FormField control={control} name={`${basePath}.${itemIndex}.descripcion`} render={({ field }) => (
-                    <FormItem className="md:col-span-2">
-                        <FormLabel>Descripción</FormLabel>
-                        <Button type="button" variant="outline" className="w-full justify-between h-10 text-left font-normal" onClick={() => handleProductDialogOpening({ itemIndex, destinoIndex })}>
-                            <span className="truncate">{field.value || "Seleccionar producto..."}</span>
-                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                        <FormMessage />
-                    </FormItem>
-                )} />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <FormField control={control} name={`${basePath}.${itemIndex}.paleta`} render={({ field }) => (
-                    <FormItem><FormLabel>Paleta</FormLabel><FormControl><Input type="text" inputMode="numeric" placeholder="0 para resumen" {...field} onChange={e => field.onChange(e.target.value === '' ? null : Number(e.target.value))} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                )} />
-                <FormField control={control} name={`${basePath}.${itemIndex}.lote`} render={({ field }) => (
-                    <FormItem><FormLabel>Lote</FormLabel><FormControl><Input placeholder="Lote (máx. 15)" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>
-                )} />
-                <FormField control={control} name={`${basePath}.${itemIndex}.presentacion`} render={({ field }) => (
-                    <FormItem><FormLabel>Presentación</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione" /></SelectTrigger></FormControl><SelectContent>{presentaciones.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
-                )} />
-            </div>
-            {isSummaryRow ? (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <FormField control={control} name={`${basePath}.${itemIndex}.totalCantidad`} render={({ field }) => (
-                        <FormItem><FormLabel>Total Cantidad</FormLabel><FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField control={control} name={`${basePath}.${itemIndex}.totalPaletas`} render={({ field }) => (
-                        <FormItem><FormLabel>Total Paletas</FormLabel><FormControl><Input type="text" inputMode="numeric" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField control={control} name={`${basePath}.${itemIndex}.totalPesoNeto`} render={({ field }) => (
-                        <FormItem><FormLabel>Total Peso Neto (kg)</FormLabel><FormControl><Input type="text" inputMode="decimal" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                </div>
-            ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
-                    <FormField control={control} name={`${basePath}.${itemIndex}.cantidadPorPaleta`} render={({ field }) => (
-                        <FormItem><FormLabel>Cant. Por Paleta</FormLabel><FormControl><Input type="text" inputMode="numeric" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField control={control} name={`${basePath}.${itemIndex}.pesoBruto`} render={({ field }) => (
-                        <FormItem><FormLabel>P. Bruto (kg)</FormLabel><FormControl><Input type="text" inputMode="decimal" min="0" step="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField control={control} name={`${basePath}.${itemIndex}.taraEstiba`} render={({ field }) => (
-                        <FormItem><FormLabel>T. Estiba (kg)</FormLabel><FormControl><Input type="text" inputMode="decimal" min="0" step="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField control={control} name={`${basePath}.${itemIndex}.taraCaja`} render={({ field }) => (
-                        <FormItem><FormLabel>T. Caja (kg)</FormLabel><FormControl><Input type="text" inputMode="decimal" min="0" step="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormItem><FormLabel>Peso Neto (kg)</FormLabel><FormControl><Input disabled readOnly value={pesoNeto != null && !isNaN(pesoNeto) ? pesoNeto.toFixed(2) : '0.00'} /></FormControl></FormItem>
-                </div>
-            )}
-        </>
-      </div>
-    );
-};
