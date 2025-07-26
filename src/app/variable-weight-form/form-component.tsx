@@ -262,7 +262,6 @@ const formSchema = z.object({
             path: ["items"],
         });
     }
-
     if (data.despachoPorDestino && hasSummaryRow && (data.totalPaletasDespacho === undefined || data.totalPaletasDespacho === null || data.totalPaletasDespacho <= 0)) {
         ctx.addIssue({
             code: z.ZodIssueCode.custom,
@@ -651,6 +650,7 @@ export default function VariableWeightFormComponent() {
   const watchedCliente = useWatch({ control: form.control, name: 'cliente' });
   const watchedDespachoPorDestino = useWatch({ control: form.control, name: 'despachoPorDestino' });
   const watchedTotalPaletasDespacho = useWatch({ control: form.control, name: 'totalPaletasDespacho' });
+
 
   const showDespachoPorDestino = clientesEspeciales.includes(watchedCliente);
   
@@ -1126,19 +1126,32 @@ export default function VariableWeightFormComponent() {
         return acc;
     }, {} as Record<string, { descripcion: string; totalPeso: number; totalCantidad: number; paletas: Set<number> }>);
 
-    return Object.values(grouped).map(group => {
-        const paletasCount = group.paletas.has(0)
-            ? allItemsForSummary.filter(item => item.descripcion === group.descripcion && Number(item.paleta) === 0).reduce((sum, item) => sum + (Number(item.totalPaletas) || 0), 0)
-            : group.paletas.size;
+    const totalGeneralPaletas = watchedDespachoPorDestino && isSummaryMode
+        ? watchedTotalPaletasDespacho || 0
+        : Object.values(grouped).reduce((sum, group) => {
+            const paletasCount = group.paletas.has(0)
+                ? allItemsForSummary.filter(item => item.descripcion === group.descripcion && Number(item.paleta) === 0).reduce((itemSum, item) => itemSum + (Number(item.totalPaletas) || 0), 0)
+                : group.paletas.size;
+            return sum + paletasCount;
+        }, 0);
 
-        return {
-            descripcion: group.descripcion,
-            totalPeso: group.totalPeso,
-            totalCantidad: group.totalCantidad,
-            totalPaletas: paletasCount,
-        };
-    });
-  }, [watchedItems, watchedDestinos, watchedDespachoPorDestino]);
+
+    return {
+        items: Object.values(grouped).map(group => {
+            const paletasCount = group.paletas.has(0)
+                ? allItemsForSummary.filter(item => item.descripcion === group.descripcion && Number(item.paleta) === 0).reduce((sum, item) => sum + (Number(item.totalPaletas) || 0), 0)
+                : group.paletas.size;
+    
+            return {
+                descripcion: group.descripcion,
+                totalPeso: group.totalPeso,
+                totalCantidad: group.totalCantidad,
+                totalPaletas: paletasCount,
+            };
+        }),
+        totalGeneralPaletas
+    };
+  }, [watchedItems, watchedDestinos, watchedDespachoPorDestino, watchedTotalPaletasDespacho, isSummaryMode]);
 
   if (isLoadingForm) {
       return (
@@ -1479,6 +1492,7 @@ export default function VariableWeightFormComponent() {
                 </CardContent>
               </Card>
               
+               {calculatedSummaryForDisplay.items.length > 0 && (
                 <Card>
                     <CardHeader>
                         <CardTitle>Resumen Agrupado de Productos</CardTitle>
@@ -1496,49 +1510,49 @@ export default function VariableWeightFormComponent() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {calculatedSummaryForDisplay.length > 0 ? (
-                                        calculatedSummaryForDisplay.map((summaryItem) => {
-                                            const summaryIndex = form.getValues('summary')?.findIndex(s => s.descripcion === summaryItem.descripcion) ?? -1;
-                                            return (
-                                            <TableRow key={summaryItem.descripcion}>
-                                                <TableCell className="font-medium">{summaryItem.descripcion}</TableCell>
-                                                <TableCell>
-                                                    { summaryIndex > -1 ? (
-                                                      <div className="flex items-center gap-1">
-                                                          <FormField
-                                                              control={form.control}
-                                                              name={`summary.${summaryIndex}.temperatura`}
-                                                              render={({ field }) => (
-                                                                <FormItem>
-                                                                  <FormControl><Input type="text" inputMode="decimal" placeholder="Temp" {...field} 
-                                                                          onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} 
-                                                                          value={field.value ?? ''}
-                                                                      className="w-20 h-9 text-center" /></FormControl>
-                                                                  <FormMessage className="text-xs"/>
-                                                                </FormItem>
-                                                              )} />
-                                                      </div>
-                                                    ) : (
-                                                      <div className="h-10 w-full" />
-                                                    )}
-                                                </TableCell>
-                                                <TableCell className="text-right">{summaryItem.totalCantidad}</TableCell>
-                                                <TableCell className="text-right">{summaryItem.totalPaletas}</TableCell>
-                                                <TableCell className="text-right">{summaryItem.totalPeso.toFixed(2)}</TableCell>
-                                            </TableRow>
-                                        )})
-                                    ) : (
-                                        <TableRow>
-                                            <TableCell colSpan={5} className="h-24 text-center">
-                                                Agregue ítems para ver el resumen.
+                                    {calculatedSummaryForDisplay.items.map((summaryItem) => {
+                                        const summaryIndex = form.getValues('summary')?.findIndex(s => s.descripcion === summaryItem.descripcion) ?? -1;
+                                        return (
+                                        <TableRow key={summaryItem.descripcion}>
+                                            <TableCell className="font-medium">{summaryItem.descripcion}</TableCell>
+                                            <TableCell>
+                                                { summaryIndex > -1 ? (
+                                                  <div className="flex items-center gap-1">
+                                                      <FormField
+                                                          control={form.control}
+                                                          name={`summary.${summaryIndex}.temperatura`}
+                                                          render={({ field }) => (
+                                                            <FormItem>
+                                                              <FormControl><Input type="text" inputMode="decimal" placeholder="Temp" {...field} 
+                                                                      onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} 
+                                                                      value={field.value ?? ''}
+                                                                  className="w-20 h-9 text-center" /></FormControl>
+                                                              <FormMessage className="text-xs"/>
+                                                            </FormItem>
+                                                          )} />
+                                                  </div>
+                                                ) : (
+                                                  <div className="h-10 w-full" />
+                                                )}
                                             </TableCell>
+                                            <TableCell className="text-right">{summaryItem.totalCantidad}</TableCell>
+                                            <TableCell className="text-right">{summaryItem.totalPaletas}</TableCell>
+                                            <TableCell className="text-right">{summaryItem.totalPeso.toFixed(2)}</TableCell>
                                         </TableRow>
-                                    )}
+                                    )})}
                                 </TableBody>
+                                <TableRow className="font-bold bg-muted hover:bg-muted">
+                                    <TableCell colSpan={2} className="text-right">TOTALES GENERALES:</TableCell>
+                                    <TableCell className="text-right">{calculatedSummaryForDisplay.items.reduce((acc, item) => acc + item.totalCantidad, 0)}</TableCell>
+                                    <TableCell className="text-right">{calculatedSummaryForDisplay.totalGeneralPaletas}</TableCell>
+                                    <TableCell className="text-right">{calculatedSummaryForDisplay.items.reduce((acc, item) => acc + item.totalPeso, 0).toFixed(2)}</TableCell>
+                                </TableRow>
                             </Table>
                         </div>
                     </CardContent>
                 </Card>
+              )}
+
 
               <Card>
                   <CardHeader>
@@ -1717,9 +1731,7 @@ export default function VariableWeightFormComponent() {
                             render={({ field }) => (
                                 <FormItem className="space-y-1 lg:col-span-4">
                                     <FormLabel>Operación Realizada por Cuadrilla</FormLabel>
-                                    <FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-2"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="cuadrilla-si" /><Label htmlFor="cuadrilla-si">Sí</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="cuadrilla-no" /><Label htmlFor="cuadrilla-no">No</Label></FormItem></RadioGroup></FormControl>
-                                    <FormMessage />
-                                </FormItem>
+                                    <FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-2"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="cuadrilla-si" /><Label htmlFor="cuadrilla-si">Sí</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="cuadrilla-no" /><Label htmlFor="cuadrilla-no">No</Label></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>
                             )}
                         />
                         {watchedAplicaCuadrilla === 'si' && form.getValues('tipoPedido') === 'MAQUILA' && (
