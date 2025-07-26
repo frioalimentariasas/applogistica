@@ -314,8 +314,6 @@ function getByteSizeFromBase64(base64: string): number {
     return base64.length * (3 / 4) - (base64.endsWith('==') ? 2 : base64.endsWith('=') ? 1 : 0);
 }
 
-
-
 function ItemsPorDestino({ control, remove, handleProductDialogOpening, destinoIndex }: { control: any; remove: (index: number) => void, handleProductDialogOpening: (context: { itemIndex: number, destinoIndex: number }) => void; destinoIndex: number }) {
     const { getValues } = useFormContext();
     const { fields, append, remove: removeItem } = useFieldArray({
@@ -324,25 +322,32 @@ function ItemsPorDestino({ control, remove, handleProductDialogOpening, destinoI
     });
 
     const handleAddItem = () => {
-        const allItems = getValues('destinos').flatMap((d: any) => d.items);
-        const isSummaryMode = allItems.some((item: any) => item?.paleta === 0);
-        
-        append({
-            codigo: '',
-            paleta: isSummaryMode ? 0 : null,
-            descripcion: "",
-            lote: "",
-            presentacion: "",
-            cantidadPorPaleta: null,
-            pesoBruto: null,
-            taraEstiba: null,
-            taraCaja: null,
-            totalTaraCaja: null,
-            pesoNeto: null,
-            totalCantidad: null,
-            totalPaletas: null,
-            totalPesoNeto: null,
-        });
+        const items = getValues(`destinos.${destinoIndex}.items`);
+        const lastItem = items.length > 0 ? items[items.length - 1] : null;
+
+        if (!lastItem) {
+            append({
+                codigo: '', paleta: null, descripcion: "", lote: "", presentacion: "",
+                cantidadPorPaleta: null, pesoBruto: null, taraEstiba: null, taraCaja: null, totalTaraCaja: null, pesoNeto: null,
+                totalCantidad: null, totalPaletas: null, totalPesoNeto: null
+            });
+            return;
+        }
+
+        if (lastItem.paleta === 0) {
+            append({
+                codigo: lastItem.codigo, descripcion: lastItem.descripcion, lote: lastItem.lote, presentacion: lastItem.presentacion,
+                paleta: 0, totalCantidad: null, totalPaletas: null, totalPesoNeto: null,
+                cantidadPorPaleta: null, pesoBruto: null, taraEstiba: null, taraCaja: null, totalTaraCaja: null, pesoNeto: null,
+            });
+        } else {
+            append({
+                codigo: lastItem.codigo, descripcion: lastItem.descripcion, lote: lastItem.lote, presentacion: lastItem.presentacion,
+                cantidadPorPaleta: lastItem.cantidadPorPaleta, taraCaja: lastItem.taraCaja,
+                paleta: null, pesoBruto: null, taraEstiba: null, totalTaraCaja: null, pesoNeto: null,
+                totalCantidad: null, totalPaletas: null, totalPesoNeto: null,
+            });
+        }
     };
 
     return (
@@ -520,7 +525,7 @@ export default function VariableWeightFormComponent() {
     name: "destinos",
   });
 
-  const { fields: summaryFields } = useFieldArray({
+  const { fields: summaryFields, setValue: setSummaryValue } = useFieldArray({
     control: form.control,
     name: "summary"
   });
@@ -1065,14 +1070,12 @@ export default function VariableWeightFormComponent() {
   }, [calculatedSummaryForDisplay]);
 
   useEffect(() => {
-    // This effect ensures the summary field in the form state is kept in sync with the calculated summary.
-    // This is crucial for validation and for ensuring the temperature fields are correctly associated.
     const currentSummaryInForm = form.getValues('summary') || [];
     const newSummaryState = calculatedSummaryForDisplay.items.map(newItem => {
         const existingItem = currentSummaryInForm.find(oldItem => oldItem.descripcion === newItem.descripcion);
         return {
             ...newItem,
-            temperatura: existingItem?.temperatura ?? null, // Preserve existing temperature
+            temperatura: existingItem?.temperatura ?? null,
         };
     });
 
@@ -1080,6 +1083,58 @@ export default function VariableWeightFormComponent() {
         form.setValue('summary', newSummaryState, { shouldValidate: true });
     }
   }, [calculatedSummaryForDisplay.items, form]);
+
+  const handleAddItem = () => {
+    const items = form.getValues('items');
+    const lastItem = items.length > 0 ? items[items.length - 1] : null;
+
+    if (!lastItem) {
+        append({
+            codigo: '', paleta: null, descripcion: "", lote: "", presentacion: "",
+            cantidadPorPaleta: null, pesoBruto: null, taraEstiba: null, taraCaja: null, totalTaraCaja: null, pesoNeto: null,
+            totalCantidad: null, totalPaletas: null, totalPesoNeto: null
+        });
+        return;
+    }
+    
+    if (lastItem.paleta === 0) {
+        // Add a new summary row, copying relevant data.
+        append({
+            codigo: lastItem.codigo,
+            paleta: 0,
+            descripcion: lastItem.descripcion,
+            lote: lastItem.lote,
+            presentacion: lastItem.presentacion,
+            totalCantidad: null, 
+            totalPaletas: null, 
+            totalPesoNeto: null, 
+            cantidadPorPaleta: null,
+            pesoBruto: null,
+            taraEstiba: null,
+            taraCaja: null,
+            totalTaraCaja: null,
+            pesoNeto: null,
+        });
+    } else {
+        // Add a new individual pallet row.
+        append({
+            codigo: lastItem.codigo,
+            descripcion: lastItem.descripcion,
+            lote: lastItem.lote,
+            presentacion: lastItem.presentacion,
+            cantidadPorPaleta: lastItem.cantidadPorPaleta,
+            taraCaja: lastItem.taraCaja,
+            paleta: null,
+            pesoBruto: null,
+            taraEstiba: null,
+            totalTaraCaja: null,
+            pesoNeto: null,
+            totalCantidad: null,
+            totalPaletas: null,
+            totalPesoNeto: null,
+        });
+    }
+  };
 
 
   if (isLoadingForm) {
@@ -1428,11 +1483,11 @@ export default function VariableWeightFormComponent() {
                                     <Button type="button" variant="outline" onClick={() => appendDestino({ nombreDestino: '', items: [] })}><MapPin className="mr-2 h-4 w-4"/>Agregar Destino</Button>
                                 </div>
                            ) : (
-                                <div>
+                                <div className="space-y-4">
                                     {fields.map((field, index) => (
                                         <ItemFields key={field.id} control={form.control} itemIndex={index} remove={remove} handleProductDialogOpening={handleProductDialogOpening} />
                                     ))}
-                                    <Button type="button" variant="outline" onClick={() => append(originalDefaultValues.items[0])}><PlusCircle className="mr-2 h-4 w-4" />Agregar Ítem</Button>
+                                    <Button type="button" variant="outline" onClick={handleAddItem}><PlusCircle className="mr-2 h-4 w-4" />Agregar Ítem</Button>
                                 </div>
                            )}
                         </div>
@@ -1466,36 +1521,30 @@ export default function VariableWeightFormComponent() {
                                                     </div>
                                                 </TableCell>
                                                 <TableCell>
-                                                    <Controller
-                                                        name={`summary.${summaryIndex}.temperatura`}
+                                                     <FormField
                                                         control={form.control}
+                                                        name={`summary.${summaryIndex}.temperatura`}
                                                         render={({ field }) => (
-                                                            <FormField
-                                                                control={form.control}
-                                                                name={`summary.${summaryIndex}.temperatura`}
-                                                                render={({ field }) => (
-                                                                <FormItem>
-                                                                    <FormControl><Input
-                                                                        type="text"
-                                                                        inputMode="decimal"
-                                                                        placeholder="Temp"
-                                                                        {...field}
-                                                                        onChange={e => {
-                                                                            const value = e.target.value === '' ? null : e.target.value;
-                                                                            field.onChange(value);
-                                                                            const currentSummary = form.getValues('summary') || [];
-                                                                            const updatedSummary = currentSummary.map((item, idx) => 
-                                                                                idx === summaryIndex ? { ...item, temperatura: value } : item
-                                                                            );
-                                                                            form.setValue('summary', updatedSummary, { shouldValidate: true });
-                                                                        }}
-                                                                        value={field.value ?? ''}
-                                                                        className="w-24 h-9 text-center" 
-                                                                    /></FormControl>
-                                                                    <FormMessage className="text-xs"/>
-                                                                </FormItem>
-                                                                )}
-                                                            />
+                                                        <FormItem>
+                                                            <FormControl><Input
+                                                                type="text"
+                                                                inputMode="decimal"
+                                                                placeholder="Temp"
+                                                                {...field}
+                                                                onChange={e => {
+                                                                    const value = e.target.value === '' ? null : e.target.value;
+                                                                    field.onChange(value);
+                                                                    const currentSummary = form.getValues('summary') || [];
+                                                                    const updatedSummary = currentSummary.map((item, idx) => 
+                                                                        idx === summaryIndex ? { ...item, temperatura: value } : item
+                                                                    );
+                                                                    form.setValue('summary', updatedSummary, { shouldValidate: true });
+                                                                }}
+                                                                value={field.value ?? ''}
+                                                                className="w-24 h-9 text-center" 
+                                                            /></FormControl>
+                                                            <FormMessage className="text-xs"/>
+                                                        </FormItem>
                                                         )}
                                                     />
                                                 </TableCell>
