@@ -1768,26 +1768,26 @@ export default function VariableWeightFormComponent() {
                                     </AlertDialogContent>
                                 </AlertDialog>
                             </div>
-                            <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
-                                {attachments.map((src, index) => (
-                                    <div key={index} className="group relative aspect-square">
-                                        <Image src={src} alt={`Anexo ${index + 1}`} fill className="rounded-md object-cover" />
-                                        <Button
-                                            type="button"
-                                            variant="destructive"
-                                            size="icon"
-                                            className="absolute right-1 top-1 h-6 w-6"
-                                            onClick={() => handleRemoveAttachment(index)}
-                                        >
-                                            <Trash2 className="h-4 w-4" />
-                                            <span className="sr-only">Eliminar imagen</span>
-                                        </Button>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                </CardContent>
+                              <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6">
+                                  {attachments.map((src, index) => (
+                                      <div key={index} className="group relative aspect-square">
+                                          <Image src={src} alt={`Anexo ${index + 1}`} fill className="rounded-md object-cover" />
+                                          <Button
+                                              type="button"
+                                              variant="destructive"
+                                              size="icon"
+                                              className="absolute right-1 top-1 h-6 w-6"
+                                              onClick={() => handleRemoveAttachment(index)}
+                                          >
+                                              <Trash2 className="h-4 w-4" />
+                                              <span className="sr-only">Eliminar imagen</span>
+                                          </Button>
+                                      </div>
+                                  ))}
+                              </div>
+                          </div>
+                      )}
+                  </CardContent>
             </Card>
             
             <footer className="flex flex-col sm:flex-row items-center justify-end gap-4 pt-4">
@@ -1992,4 +1992,3 @@ function ProductSelectorDialog({
         </Dialog>
     );
 }
-
