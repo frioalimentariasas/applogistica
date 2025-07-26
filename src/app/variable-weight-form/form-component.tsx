@@ -217,7 +217,7 @@ const formSchema = z.object({
     coordinador: z.string().min(1, "Seleccione un coordinador."),
     aplicaCuadrilla: z.enum(["si", "no"], { required_error: "Seleccione una opción para 'Operación Realizada por Cuadrilla'." }),
     operarioResponsable: z.string().optional(),
-    tipoPedido: z.enum(['GENERICO', 'TUNEL']).optional(),
+    tipoPedido: z.enum(['GENERICO', 'TUNEL']),
     numeroOperariosCuadrilla: z.coerce.number().int().min(1, "Debe ser al menos 1.").optional(),
     unidadDeMedidaPrincipal: z.string().optional(),
 }).refine((data) => {
@@ -276,7 +276,7 @@ const originalDefaultValues: FormValues = {
   coordinador: "",
   aplicaCuadrilla: undefined,
   operarioResponsable: undefined,
-  tipoPedido: undefined,
+  tipoPedido: 'GENERICO',
   numeroOperariosCuadrilla: undefined,
   unidadDeMedidaPrincipal: "PALETA",
 };
@@ -1819,7 +1819,7 @@ export default function VariableWeightFormComponent() {
                   </Button>
               </DialogFooter>
           </DialogContent>
-      </Dialog>
+        </Dialog>
       
       <AlertDialog open={isDiscardAlertOpen} onOpenChange={setDiscardAlertOpen}>
           <AlertDialogContent>
@@ -1992,4 +1992,3 @@ function ProductSelectorDialog({
         </Dialog>
     );
 }
-
