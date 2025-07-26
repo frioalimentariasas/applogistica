@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
@@ -664,7 +665,8 @@ export default function VariableWeightFormComponent() {
 
 
   const isClientChangeDisabled = useMemo(() => {
-    return allItems.length > 1 || (allItems.length === 1 && !!allItems[0].descripcion);
+    if (!allItems || allItems.length === 0) return false;
+    return allItems.length > 1 || (allItems.length === 1 && !!allItems[0]?.descripcion);
   }, [allItems]);
   
   const formIdentifier = submissionId ? `variable-weight-edit-${submissionId}` : `variable-weight-${operation}`;
@@ -1218,626 +1220,219 @@ export default function VariableWeightFormComponent() {
                   </div>
               </div>
           </header>
-
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <FormField
-                control={form.control}
-                name="unidadDeMedidaPrincipal"
-                render={({ field }) => <input type="hidden" {...field} />}
-              />
-              {/* Header Data Card */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Información General</CardTitle>
-                </CardHeader>
-                <CardContent>
-                    <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-                        <FormField control={form.control} name="pedidoSislog" render={({ field }) => (
-                            <FormItem className="md:col-span-3">
-                              <FormLabel>Pedido SISLOG</FormLabel>
-                              <FormControl><Input placeholder="Máximo 15 caracteres" {...field} /></FormControl>
-                              <FormMessage />
-                            </FormItem>
-                        )}/>
-                        <FormField
+                <Card>
+                  <CardHeader>
+                    <CardTitle>Información General</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+                          <FormField control={form.control} name="pedidoSislog" render={({ field }) => (
+                              <FormItem className="md:col-span-3">
+                                <FormLabel>Pedido SISLOG</FormLabel>
+                                <FormControl><Input placeholder="Máximo 15 caracteres" {...field} /></FormControl>
+                                <FormMessage />
+                              </FormItem>
+                          )}/>
+                          <FormField
+                              control={form.control}
+                              name="cliente"
+                              render={({ field }) => (
+                                  <FormItem className="flex flex-col">
+                                    <FormLabel>Cliente</FormLabel>
+                                      <Dialog open={isClientDialogOpen} onOpenChange={(isOpen) => {
+                                          if (!isOpen) setClientSearch("");
+                                          setClientDialogOpen(isOpen);
+                                      }}>
+                                          <DialogTrigger asChild>
+                                              <Button
+                                                  variant="outline"
+                                                  className="w-full justify-between text-left font-normal"
+                                                  disabled={isClientChangeDisabled}
+                                              >
+                                                  {field.value || "Seleccione un cliente..."}
+                                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                              </Button>
+                                          </DialogTrigger>
+                                          <DialogContent className="sm:max-w-[425px]">
+                                              <DialogHeader>
+                                                  <DialogTitle>Seleccionar Cliente</DialogTitle>
+                                                  <DialogDescription>Busque y seleccione un cliente de la lista. Esto cargará los productos asociados.</DialogDescription>
+                                              </DialogHeader>
+                                              <div className="p-4">
+                                                  <Input
+                                                      placeholder="Buscar cliente..."
+                                                      value={clientSearch}
+                                                      onChange={(e) => setClientSearch(e.target.value)}
+                                                      className="mb-4"
+                                                  />
+                                                  <ScrollArea className="h-72">
+                                                      <div className="space-y-1">
+                                                          {filteredClients.map((cliente) => (
+                                                              <Button
+                                                                  key={cliente.id}
+                                                                  variant="ghost"
+                                                                  className="w-full justify-start"
+                                                                  onClick={() => handleClientSelection(cliente.razonSocial)}
+                                                              >
+                                                                  {cliente.razonSocial}
+                                                              </Button>
+                                                          ))}
+                                                          {filteredClients.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron clientes.</p>}
+                                                      </div>
+                                                  </ScrollArea>
+                                              </div>
+                                          </DialogContent>
+                                      </Dialog>
+                                      {isClientChangeDisabled && (
+                                        <FormDescription>
+                                          Para cambiar de cliente, elimine todos los ítems.
+                                        </FormDescription>
+                                      )}
+                                  <FormMessage />
+                                </FormItem>
+                              )}
+                            />
+                          <FormField
                             control={form.control}
-                            name="cliente"
+                            name="fecha"
                             render={({ field }) => (
-                                <FormItem className="flex flex-col">
-                                  <FormLabel>Cliente</FormLabel>
-                                    <Dialog open={isClientDialogOpen} onOpenChange={(isOpen) => {
-                                        if (!isOpen) setClientSearch("");
-                                        setClientDialogOpen(isOpen);
-                                    }}>
-                                        <DialogTrigger asChild>
-                                            <Button
-                                                variant="outline"
-                                                className="w-full justify-between text-left font-normal"
-                                                disabled={isClientChangeDisabled}
-                                            >
-                                                {field.value || "Seleccione un cliente..."}
-                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                            </Button>
-                                        </DialogTrigger>
-                                        <DialogContent className="sm:max-w-[425px]">
-                                            <DialogHeader>
-                                                <DialogTitle>Seleccionar Cliente</DialogTitle>
-                                                <DialogDescription>Busque y seleccione un cliente de la lista. Esto cargará los productos asociados.</DialogDescription>
-                                            </DialogHeader>
-                                            <div className="p-4">
-                                                <Input
-                                                    placeholder="Buscar cliente..."
-                                                    value={clientSearch}
-                                                    onChange={(e) => setClientSearch(e.target.value)}
-                                                    className="mb-4"
-                                                />
-                                                <ScrollArea className="h-72">
-                                                    <div className="space-y-1">
-                                                        {filteredClients.map((cliente) => (
-                                                            <Button
-                                                                key={cliente.id}
-                                                                variant="ghost"
-                                                                className="w-full justify-start"
-                                                                onClick={() => handleClientSelection(cliente.razonSocial)}
-                                                            >
-                                                                {cliente.razonSocial}
-                                                            </Button>
-                                                        ))}
-                                                        {filteredClients.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron clientes.</p>}
-                                                    </div>
-                                                </ScrollArea>
-                                            </div>
-                                        </DialogContent>
-                                    </Dialog>
-                                    {isClientChangeDisabled && (
-                                      <FormDescription>
-                                        Para cambiar de cliente, elimine todos los ítems.
-                                      </FormDescription>
-                                    )}
+                              <FormItem>
+                                <FormLabel>Fecha</FormLabel>
+                                {isAdmin ? (
+                                  <Popover>
+                                    <PopoverTrigger asChild>
+                                      <FormControl>
+                                        <Button
+                                          variant={"outline"}
+                                          className={cn(
+                                            "w-full pl-3 text-left font-normal",
+                                            !field.value && "text-muted-foreground"
+                                          )}
+                                        >
+                                          {field.value ? (
+                                            format(field.value, "PPP", { locale: es })
+                                          ) : (
+                                            <span>Seleccione una fecha</span>
+                                          )}
+                                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                        </Button>
+                                      </FormControl>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0" align="start">
+                                      <Calendar
+                                        mode="single"
+                                        selected={field.value}
+                                        onSelect={field.onChange}
+                                        initialFocus
+                                      />
+                                    </PopoverContent>
+                                  </Popover>
+                                ) : (
+                                  <FormControl>
+                                    <Input
+                                      disabled
+                                      value={field.value ? format(field.value, "dd/MM/yyyy") : ""}
+                                    />
+                                  </FormControl>
+                                )}
                                 <FormMessage />
                               </FormItem>
                             )}
                           />
-                        <FormField
-                          control={form.control}
-                          name="fecha"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Fecha</FormLabel>
-                              {isAdmin ? (
-                                <Popover>
-                                  <PopoverTrigger asChild>
-                                    <FormControl>
-                                      <Button
-                                        variant={"outline"}
-                                        className={cn(
-                                          "w-full pl-3 text-left font-normal",
-                                          !field.value && "text-muted-foreground"
-                                        )}
-                                      >
-                                        {field.value ? (
-                                          format(field.value, "PPP", { locale: es })
-                                        ) : (
-                                          <span>Seleccione una fecha</span>
-                                        )}
-                                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                      </Button>
-                                    </FormControl>
-                                  </PopoverTrigger>
-                                  <PopoverContent className="w-auto p-0" align="start">
-                                    <Calendar
-                                      mode="single"
-                                      selected={field.value}
-                                      onSelect={field.onChange}
-                                      initialFocus
-                                    />
-                                  </PopoverContent>
-                                </Popover>
-                              ) : (
-                                <FormControl>
-                                  <Input
-                                    disabled
-                                    value={field.value ? format(field.value, "dd/MM/yyyy") : ""}
-                                  />
-                                </FormControl>
-                              )}
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField control={form.control} name="conductor" render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Conductor</FormLabel>
-                              <FormControl><Input placeholder="Nombre del conductor" {...field} /></FormControl>
-                              <FormMessage />
-                            </FormItem>
-                        )}/>
-                        <FormField control={form.control} name="cedulaConductor" render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Cédula Conductor</FormLabel>
-                              <FormControl><Input placeholder="Número de cédula" {...field} inputMode="numeric" pattern="[0-9]*" /></FormControl>
-                              <FormMessage />
-                            </FormItem>
-                        )}/>
-                        <FormField control={form.control} name="placa" render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Placa del vehículo</FormLabel>
-                              <FormControl><Input placeholder="ABC123" {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} maxLength={6} /></FormControl>
-                              <FormMessage />
-                            </FormItem>
-                        )}/>
-                        <FormField control={form.control} name="precinto" render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Precinto</FormLabel>
-                              <FormControl><Input placeholder="Precinto (máx. 50 caracteres)" {...field} /></FormControl>
-                              <FormMessage />
-                            </FormItem>
-                        )}/>
-                        <FormField control={form.control} name="setPoint" render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Set Point (°C)</FormLabel>
-                                <FormControl><Input type="text" inputMode="decimal" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}/>
-                        <FormField control={form.control} name="contenedor" render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Contenedor</FormLabel>
-                                <FormControl><Input
-                                      placeholder="ABCD1234567 o N/A"
-                                      {...field}
-                                      onChange={(e) => field.onChange(e.target.value.toUpperCase())}
-                                      value={field.value ?? ''}
-                                  /></FormControl>
-                                <FormMessage />
-                            </FormItem>
-                        )}/>
-                          <FormField
-                              control={form.control}
-                              name="tipoPedido"
-                              render={({ field }) => (
+                          <FormField control={form.control} name="conductor" render={({ field }) => (
                               <FormItem>
-                                  <FormLabel>Tipo de Pedido</FormLabel>
-                                  <Select onValueChange={field.onChange} value={field.value}>
-                                  <FormControl>
-                                      <SelectTrigger>
-                                      <SelectValue placeholder="Seleccione un tipo de pedido" />
-                                      </SelectTrigger>
-                                  </FormControl>
-                                  <SelectContent>
-                                      <SelectItem value="GENERICO">GENERICO</SelectItem>
-                                      <SelectItem value="TUNEL">TUNEL</SelectItem>
-                                  </SelectContent>
-                                  </Select>
+                                <FormLabel>Conductor</FormLabel>
+                                <FormControl><Input placeholder="Nombre del conductor" {...field} /></FormControl>
+                                <FormMessage />
+                              </FormItem>
+                          )}/>
+                          <FormField control={form.control} name="cedulaConductor" render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Cédula Conductor</FormLabel>
+                                <FormControl><Input placeholder="Número de cédula" {...field} inputMode="numeric" pattern="[0-9]*" /></FormControl>
+                                <FormMessage />
+                              </FormItem>
+                          )}/>
+                          <FormField control={form.control} name="placa" render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Placa del vehículo</FormLabel>
+                                <FormControl><Input placeholder="ABC123" {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} maxLength={6} /></FormControl>
+                                <FormMessage />
+                              </FormItem>
+                          )}/>
+                          <FormField control={form.control} name="precinto" render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Precinto</FormLabel>
+                                <FormControl><Input placeholder="Precinto (máx. 50 caracteres)" {...field} /></FormControl>
+                                <FormMessage />
+                              </FormItem>
+                          )}/>
+                          <FormField control={form.control} name="setPoint" render={({ field }) => (
+                              <FormItem>
+                                  <FormLabel>Set Point (°C)</FormLabel>
+                                  <FormControl><Input type="text" inputMode="decimal" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl>
                                   <FormMessage />
                               </FormItem>
-                              )}
-                          />
-                           {showDespachoPorDestino && (
-                              <FormField
-                                  control={form.control}
-                                  name="despachoPorDestino"
-                                  render={({ field }) => (
-                                      <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm md:col-span-3">
-                                      <div className="space-y-0.5">
-                                          <FormLabel>Pedido por Destino</FormLabel>
-                                          <FormDescription>
-                                          Marque esta opción si este despacho tiene múltiples destinos.
-                                          </FormDescription>
-                                      </div>
-                                      <FormControl>
-                                          <Checkbox
-                                          checked={field.value}
-                                          onCheckedChange={field.onChange}
-                                          />
-                                      </FormControl>
-                                      </FormItem>
-                                  )}
-                              />
-                          )}
-                    </div>
-                  </CardContent>
-              </Card>
-              
-              <Card>
-                <CardHeader>
-                    <CardTitle>Detalle del Despacho</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  {watchedDespachoPorDestino ? (
-                      <div className="space-y-6">
-                        {destinoFields.map((destinoField, destinoIndex) => (
-                          <div key={destinoField.id} className="p-4 border rounded-lg space-y-4 bg-gray-50/50">
-                            <div className="flex justify-between items-center">
-                              <FormField
+                          )}/>
+                          <FormField control={form.control} name="contenedor" render={({ field }) => (
+                              <FormItem>
+                                  <FormLabel>Contenedor</FormLabel>
+                                  <FormControl><Input
+                                        placeholder="ABCD1234567 o N/A"
+                                        {...field}
+                                        onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                                        value={field.value ?? ''}
+                                    /></FormControl>
+                                  <FormMessage />
+                              </FormItem>
+                          )}/>
+                            <FormField
                                 control={form.control}
-                                name={`destinos.${destinoIndex}.nombreDestino`}
+                                name="tipoPedido"
                                 render={({ field }) => (
-                                  <FormItem className="flex-grow">
-                                    <FormLabel>Destino #{destinoIndex + 1}</FormLabel>
-                                    <FormControl><Input placeholder="Escriba el nombre del destino" {...field} /></FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                              <Button type="button" variant="ghost" size="icon" className="text-destructive self-end ml-4" onClick={() => removeDestino(destinoIndex)}>
-                                <Trash2 className="h-5 w-5" />
-                              </Button>
-                            </div>
-                            <ItemsPorDestino control={form.control} remove={remove} handleProductDialogOpening={handleProductDialogOpening} destinoIndex={destinoIndex} />
-                          </div>
-                        ))}
-                        <Button type="button" variant="outline" onClick={() => appendDestino({ nombreDestino: '', items: [] })}><MapPin className="mr-2 h-4 w-4" />Agregar Destino</Button>
-                      </div>
-                  ) : (
-                    <div className="space-y-4">
-                        {fields.map((field, index) => (
-                           <ItemFields key={field.id} control={form.control} itemIndex={index} handleProductDialogOpening={handleProductDialogOpening} remove={remove} />
-                        ))}
-                        <Button type="button" variant="outline" onClick={() => append(originalDefaultValues.items[0])}><PlusCircle className="mr-2 h-4 w-4" />Agregar Ítem</Button>
-                    </div>
-                  )}
-                  {watchedDespachoPorDestino && isSummaryMode && (
-                      <div className="pt-4">
-                        <FormField control={form.control} name="totalPaletasDespacho" render={({ field }) => (
-                          <FormItem>
-                              <FormLabel className="text-base font-semibold">Cantidad Total de Paletas de Despacho</FormLabel>
-                              <FormControl><Input type="number" placeholder="Ingrese el total de paletas de todos los destinos" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))} /></FormControl>
-                              <FormDescription>Este valor se usará para el total en el resumen agrupado.</FormDescription>
-                              <FormMessage />
-                          </FormItem>
-                        )}/>
-                      </div>
-                  )}
-                </CardContent>
-              </Card>
-              
-               {calculatedSummaryForDisplay.items.length > 0 && (
-                <Card>
-                    <CardHeader>
-                        <CardTitle>Resumen Agrupado de Productos</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                         <div className="rounded-md border">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Producto</TableHead>
-                                        <TableHead>Temperatura (°C)</TableHead>
-                                        <TableHead className="text-right">Total Cantidad</TableHead>
-                                        <TableHead className="text-right">Total Paletas</TableHead>
-                                        <TableHead className="text-right">Total Peso (kg)</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {calculatedSummaryForDisplay.items.map((summaryItem) => {
-                                        const summaryIndex = form.getValues('summary')?.findIndex(s => s.descripcion === summaryItem.descripcion) ?? -1;
-                                        return (
-                                        <TableRow key={summaryItem.descripcion}>
-                                            <TableCell className="font-medium">{summaryItem.descripcion}</TableCell>
-                                            <TableCell>
-                                                { summaryIndex > -1 ? (
-                                                  <div className="flex items-center gap-1">
-                                                      <FormField
-                                                          control={form.control}
-                                                          name={`summary.${summaryIndex}.temperatura`}
-                                                          render={({ field }) => (
-                                                            <FormItem>
-                                                              <FormControl><Input type="text" inputMode="decimal" placeholder="Temp" {...field} 
-                                                                      onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} 
-                                                                      value={field.value ?? ''}
-                                                                  className="w-20 h-9 text-center" /></FormControl>
-                                                              <FormMessage className="text-xs"/>
-                                                            </FormItem>
-                                                          )} />
-                                                  </div>
-                                                ) : (
-                                                  <div className="h-10 w-full" />
-                                                )}
-                                            </TableCell>
-                                            <TableCell className="text-right">{summaryItem.totalCantidad}</TableCell>
-                                            <TableCell className="text-right">{summaryItem.totalPaletas}</TableCell>
-                                            <TableCell className="text-right">{summaryItem.totalPeso.toFixed(2)}</TableCell>
-                                        </TableRow>
-                                    )})}
-                                </TableBody>
-                                <TableRow className="font-bold bg-muted hover:bg-muted">
-                                    <TableCell colSpan={2} className="text-right">TOTALES GENERALES:</TableCell>
-                                    <TableCell className="text-right">{calculatedSummaryForDisplay.items.reduce((acc, item) => acc + item.totalCantidad, 0)}</TableCell>
-                                    <TableCell className="text-right">{calculatedSummaryForDisplay.totalGeneralPaletas}</TableCell>
-                                    <TableCell className="text-right">{calculatedSummaryForDisplay.items.reduce((acc, item) => acc + item.totalPeso, 0).toFixed(2)}</TableCell>
-                                </TableRow>
-                            </Table>
-                        </div>
-                    </CardContent>
-                </Card>
-              )}
-
-
-              <Card>
-                  <CardHeader>
-                      <CardTitle>Tiempo y Observaciones de la Operación</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-6">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <FormField control={form.control} name="horaInicio" render={({ field }) => (
-                          <FormItem>
-                              <FormLabel>Hora Inicio</FormLabel>
-                               <div className="flex items-center gap-2">
-                                <FormControl>
-                                    <Input type="time" placeholder="HH:MM" {...field} className="flex-grow" />
-                                </FormControl>
-                                <Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('horaInicio')}>
-                                    <Clock className="h-4 w-4" />
-                                </Button>
-                              </div>
-                              <FormMessage />
-                          </FormItem>
-                          )}/>
-                          <FormField control={form.control} name="horaFin" render={({ field }) => (
-                          <FormItem>
-                              <FormLabel>Hora Fin</FormLabel>
-                              <div className="flex items-center gap-2">
-                                <FormControl>
-                                    <Input type="time" placeholder="HH:MM" {...field} className="flex-grow" />
-                                </FormControl>
-                                 <Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('horaFin')}>
-                                    <Clock className="h-4 w-4" />
-                                </Button>
-                              </div>
-                              <FormMessage />
-                          </FormItem>
-                          )}/>
-                      </div>
-                       <div>
-                        <Label>Observaciones</Label>
-                        <div className="space-y-4 mt-2">
-                            {observationFields.map((field, index) => {
-                                const selectedObservation = watchedObservations?.[index];
-                                const stdObsData = standardObservations.find(obs => obs.name === selectedObservation?.type);
-                                const isOtherType = selectedObservation?.type === 'OTRAS OBSERVACIONES';
-                                const showCrewCheckbox = selectedObservation?.type === 'REESTIBADO' || selectedObservation?.type === 'TRANSBORDO CANASTILLA';
-                                return (
-                                <div key={field.id} className="p-4 border rounded-lg relative bg-white space-y-4">
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="icon"
-                                        className="absolute top-2 right-2 text-destructive hover:bg-destructive/10"
-                                        onClick={() => removeObservation(index)}
-                                    >
-                                        <Trash2 className="h-4 w-4" />
-                                    </Button>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
-                                        <FormField
-                                            control={form.control}
-                                            name={`observaciones.${index}.type`}
-                                            render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel>Tipo de Observación</FormLabel>
-                                                     <Button
-                                                        type="button"
-                                                        variant="outline"
-                                                        className="w-full justify-between text-left font-normal h-10"
-                                                        onClick={() => handleObservationDialogOpening(index)}
-                                                        >
-                                                        <span className="truncate">{field.value || "Seleccionar observación..."}</span>
-                                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                                    </Button>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-                                        {isOtherType ? (
-                                            <FormField
-                                                control={form.control}
-                                                name={`observaciones.${index}.customType`}
-                                                render={({ field }) => (
-                                                    <FormItem className="lg:col-span-3">
-                                                        <FormLabel>Descripción</FormLabel>
-                                                        <FormControl>
-                                                            <Textarea placeholder="Describa la observación" {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} />
-                                                        </FormControl>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-                                        ) : (
-                                        <>
-                                            <FormField
-                                                control={form.control}
-                                                name={`observaciones.${index}.quantity`}
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <FormLabel>Cantidad ({stdObsData?.quantityType || 'N/A'})</FormLabel>
-                                                        <FormControl>
-                                                            <Input type="number" placeholder="0" {...field} />
-                                                        </FormControl>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-                                            {showCrewCheckbox && (
-                                                <FormField
-                                                    control={form.control}
-                                                    name={`observaciones.${index}.executedByGrupoRosales`}
-                                                    render={({ field }) => (
-                                                        <FormItem className="flex flex-row items-end space-x-2 pb-2">
-                                                            <FormControl>
-                                                                <Checkbox
-                                                                    checked={field.value}
-                                                                    onCheckedChange={field.onChange}
-                                                                />
-                                                            </FormControl>
-                                                            <div className="space-y-1 leading-none">
-                                                                <Label htmlFor={`obs-check-${index}`} className="font-normal cursor-pointer uppercase">
-                                                                    REALIZADO POR CUADRILLA
-                                                                </Label>
-                                                            </div>
-                                                        </FormItem>
-                                                    )}
-                                                />
-                                            )}
-                                        </>
-                                        )}
-                                    </div>
-                                </div>
-                            )})}
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={() => appendObservation({ type: '', quantity: 0, executedByGrupoRosales: false, customType: '', quantityType: '' })}
-                                className="mt-4"
-                            >
-                                <PlusCircle className="mr-2 h-4 w-4" />
-                                Agregar Observación
-                            </Button>
-                        </div>
-                    </div>
-                  </CardContent>
-              </Card>
-
-              <Card>
-                  <CardHeader><CardTitle>Responsables de la Operación</CardTitle></CardHeader>
-                  <CardContent>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-10 gap-4 items-center">
-                        <FormField control={form.control} name="coordinador" render={({ field }) => (
-                            <FormItem className="lg:col-span-2"><FormLabel>Coordinador Responsable</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
-                        )}/>
-                        
-                        {submissionId && isAdmin ? (
-                             <FormField control={form.control} name="operarioResponsable" render={({ field }) => (
-                                <FormItem className="lg:col-span-2">
-                                    <FormLabel>Operario Responsable</FormLabel>
+                                <FormItem>
+                                    <FormLabel>Tipo de Pedido</FormLabel>
                                     <Select onValueChange={field.onChange} value={field.value}>
-                                        <FormControl><SelectTrigger><SelectValue placeholder="Seleccione un operario" /></SelectTrigger></FormControl>
-                                        <SelectContent>
-                                            {allUsers.map(u => <SelectItem key={u.uid} value={u.uid}>{u.displayName}</SelectItem>)}
-                                        </SelectContent>
+                                    <FormControl>
+                                        <SelectTrigger>
+                                        <SelectValue placeholder="Seleccione un tipo de pedido" />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="GENERICO">GENERICO</SelectItem>
+                                        <SelectItem value="TUNEL">TUNEL</SelectItem>
+                                    </SelectContent>
                                     </Select>
                                     <FormMessage />
                                 </FormItem>
-                            )}/>
-                        ) : (
-                            <FormItem className="lg:col-span-2">
-                                <FormLabel>Operario Responsable</FormLabel>
-                                <FormControl><Input disabled value={submissionId ? originalSubmission?.userDisplayName : displayName || ''} /></FormControl>
-                            </FormItem>
-                        )}
-
-                        <FormField
-                            control={form.control}
-                            name="aplicaCuadrilla"
-                            render={({ field }) => (
-                                <FormItem className="space-y-1 lg:col-span-4">
-                                    <FormLabel>Operación Realizada por Cuadrilla</FormLabel>
-                                    <FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-2"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="cuadrilla-si" /><Label htmlFor="cuadrilla-si">Sí</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="cuadrilla-no" /><Label htmlFor="cuadrilla-no">No</Label></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>
-                            )}
-                        />
-                        {watchedAplicaCuadrilla === 'si' && form.getValues('tipoPedido') === 'MAQUILA' && (
-                            <FormField
-                                control={form.control}
-                                name="numeroOperariosCuadrilla"
-                                render={({ field }) => (
-                                    <FormItem className="lg:col-span-2">
-                                    <FormLabel>No. de Operarios de Cuadrilla</FormLabel>
-                                    <FormControl>
-                                        <Input 
-                                            type="number"
-                                            min="1"
-                                            placeholder="Ej: 3" 
-                                            {...field} 
-                                            value={field.value ?? ''}
-                                            onChange={e => field.onChange(parseInt(e.target.value, 10) || undefined)}
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
-                                    </FormItem>
                                 )}
                             />
-                        )}
-                    </div>
-                  </CardContent>
-              </Card>
-
-              <Card>
-                  <CardHeader><CardTitle>Anexos</CardTitle></CardHeader>
-                  <CardContent className="space-y-4">
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          <div 
-                              className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-lg cursor-pointer hover:bg-gray-100"
-                              onClick={() => fileInputRef.current?.click()}
-                          >
-                              <UploadCloud className="w-10 h-10 text-gray-400 mb-2"/>
-                              <p className="text-sm text-gray-600 font-semibold">Subir archivos o arrastre y suelte</p>
-                              <p className="text-xs text-gray-500">Max. de 30 imágenes / 10MB Total</p>
-                              <Input type="file" ref={fileInputRef} className="hidden" multiple accept="image/*" onChange={handleFileChange} />
-                          </div>
-                          <div 
-                              className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-lg cursor-pointer hover:bg-gray-100"
-                              onClick={handleOpenCamera}
-                          >
-                              <Camera className="w-10 h-10 text-gray-400 mb-2"/>
-                              <p className="text-sm text-gray-600 font-semibold">Tomar Foto</p>
-                              <p className="text-xs text-gray-500">Usar la cámara del dispositivo</p>
-                          </div>
+                             {showDespachoPorDestino && (
+                                <FormField
+                                    control={form.control}
+                                    name="despachoPorDestino"
+                                    render={({ field }) => (
+                                        <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm md:col-span-3">
+                                        <div className="space-y-0.5">
+                                            <FormLabel>Pedido por Destino</FormLabel>
+                                            <FormDescription>
+                                            Marque esta opción si este despacho tiene múltiples destinos.
+                                            </FormDescription>
+                                        </div>
+                                        <FormControl>
+                                            <Checkbox
+                                            checked={field.value}
+                                            onCheckedChange={field.onChange}
+                                            />
+                                        </FormControl>
+                                        </FormItem>
+                                    )}
+                                />
+                            )}
                       </div>
-                      {attachments.length > 0 && (
-                          <div>
-                            <div className="flex justify-between items-center mb-2">
-                                <h4 className="text-sm font-medium">Archivos Adjuntos ({attachments.length}/{MAX_ATTACHMENTS}):</h4>
-                                <AlertDialog open={isDeleteAllAlertOpen} onOpenChange={setDeleteAllAlertOpen}>
-                                    <AlertDialogTrigger asChild>
-                                        <Button type="button" variant="outline" size="sm" className="text-destructive hover:text-destructive border-destructive/50 hover:bg-destructive/10">
-                                            <Trash2 className="mr-2 h-3 w-3" />
-                                            Eliminar Todos
-                                        </Button>
-                                    </AlertDialogTrigger>
-                                    <AlertDialogContent>
-                                        <AlertDialogHeader>
-                                            <AlertDialogTitle>¿Está seguro de eliminar todos los anexos?</AlertDialogTitle>
-                                            <AlertDialogDesc>
-                                                Esta acción no se puede deshacer. Se eliminarán permanentemente todos los archivos adjuntos.
-                                            </AlertDialogDesc>
-                                        </AlertDialogHeader>
-                                        <AlertDialogFooter>
-                                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                            <AlertDialogAction onClick={handleRemoveAllAttachments} className="bg-destructive hover:bg-destructive/90">
-                                                Eliminar Todos
-                                            </AlertDialogAction>
-                                        </AlertDialogFooter>
-                                    </AlertDialogContent>
-                                </AlertDialog>
-                            </div>
-                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
-                                  {attachments.map((src, index) => (
-                                      <div key={index} className="relative group aspect-square">
-                                          <Image src={src} alt={`Anexo ${index + 1}`} fill className="rounded-md object-cover" />
-                                          <Button
-                                              type="button"
-                                              variant="destructive"
-                                              size="icon"
-                                              className="absolute top-1 right-1 h-6 w-6"
-                                              onClick={() => handleRemoveAttachment(index)}
-                                          >
-                                              <Trash2 className="h-4 w-4" />
-                                              <span className="sr-only">Eliminar imagen</span>
-                                          </Button>
-                                      </div>
-                                  ))}
-                              </div>
-                          </div>
-                      )}
-                  </CardContent>
-              </Card>
-
-              <footer className="flex flex-col sm:flex-row items-center justify-end gap-4 pt-4">
-                  <Button type="button" variant="outline" onClick={() => setDiscardAlertOpen(true)} className="w-full sm:w-auto"><RotateCcw className="mr-2 h-4 w-4"/>Limpiar Formato</Button>
-                  <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto">
-                      {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4"/>}
-                      {isSubmitting ? 'Guardando...' : 'Guardar y Enviar'}
-                  </Button>
-              </footer>
+                    </CardContent>
+                </Card>
           </form>
         </div>
 
