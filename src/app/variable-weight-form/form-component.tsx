@@ -357,8 +357,6 @@ function ItemsPorDestino({ control, remove, handleProductDialogOpening, destinoI
 const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, destinoIndex }: { control: any, itemIndex: number, handleProductDialogOpening: (context: { itemIndex: number, destinoIndex?: number }) => void, remove?: (index: number) => void, destinoIndex?: number }) => {
     const basePath = destinoIndex !== undefined ? `destinos.${destinoIndex}.items` : 'items';
     const watchedItem = useWatch({ control, name: `${basePath}.${itemIndex}` });
-    const isSummaryRow = watchedItem?.paleta === 0;
-
     const { setValue } = useFormContext();
 
     useEffect(() => {
@@ -380,6 +378,7 @@ const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, de
         }
     }, [watchedItem?.cantidadPorPaleta, watchedItem?.taraCaja, watchedItem?.pesoBruto, watchedItem?.taraEstiba, watchedItem?.paleta, basePath, itemIndex, setValue, watchedItem]);
 
+    const isSummaryRow = watchedItem?.paleta === 0;
     const pesoNeto = watchedItem?.pesoNeto;
     
     return (
@@ -1433,7 +1432,7 @@ export default function VariableWeightFormComponent() {
                                                       <div className="flex items-center gap-1">
                                                           <FormField
                                                               control={form.control}
-                                                              name={`summary.${summaryIndex}.temperatura`}
+                                                              name={`summary.${summaryIndex}.temperatura1`}
                                                               render={({ field }) => (
                                                                 <FormItem>
                                                                   <FormControl><Input type="text" inputMode="decimal" placeholder="T1" {...field} 
@@ -1761,7 +1760,7 @@ export default function VariableWeightFormComponent() {
                 <Button type="button" variant="outline" onClick={() => setDiscardAlertOpen(true)} className="w-full sm:w-auto"><RotateCcw className="mr-2 h-4 w-4"/>Limpiar Formato</Button>
                 <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto">
                     {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4"/>}
-                    {isSubmitting ? 'Guardando...' : 'Guardar Formato y Enviar'}
+                    {isSubmitting ? 'Guardando...' : 'Guardar y Enviar'}
                 </Button>
               </footer>
             </form>
