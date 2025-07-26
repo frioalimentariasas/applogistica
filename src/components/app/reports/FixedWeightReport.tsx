@@ -141,20 +141,25 @@ export function FixedWeightReport({ formData, userDisplayName, attachments, form
                             <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>No. Cajas</th>
                             <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Paletas</th>
                             {showPesoNetoColumn && <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Peso Neto (kg)</th>}
-                            <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Temp(°C)</th>
+                            <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Temperaturas (°C)</th>
                         </tr>
                     </thead>
                     <tbody>
-                        {formData.productos.map((p: any, i: number) => (
-                            <tr key={i} style={{ borderBottom: '1px solid #ddd' }}>
-                                <td style={{ padding: '4px' }}>{p.codigo}</td>
-                                <td style={{ padding: '4px' }}>{p.descripcion}</td>
-                                <td style={{ textAlign: 'right', padding: '4px' }}>{p.cajas}</td>
-                                <td style={{ textAlign: 'right', padding: '4px' }}>{formatPaletas(p.totalPaletas ?? p.paletas)}</td>
-                                {showPesoNetoColumn && <td style={{ textAlign: 'right', padding: '4px' }}>{Number(p.pesoNetoKg) > 0 ? Number(p.pesoNetoKg).toFixed(2) : ''}</td>}
-                                <td style={{ textAlign: 'right', padding: '4px' }}>{p.temperatura}</td>
-                            </tr>
-                        ))}
+                        {formData.productos.map((p: any, i: number) => {
+                            const temps = [p.temperatura1, p.temperatura2, p.temperatura3]
+                                .filter(t => t != null && !isNaN(Number(t)));
+                            const tempString = temps.join(' / ');
+                            return (
+                                <tr key={i} style={{ borderBottom: '1px solid #ddd' }}>
+                                    <td style={{ padding: '4px' }}>{p.codigo}</td>
+                                    <td style={{ padding: '4px' }}>{p.descripcion}</td>
+                                    <td style={{ textAlign: 'right', padding: '4px' }}>{p.cajas}</td>
+                                    <td style={{ textAlign: 'right', padding: '4px' }}>{formatPaletas(p.totalPaletas ?? p.paletas)}</td>
+                                    {showPesoNetoColumn && <td style={{ textAlign: 'right', padding: '4px' }}>{Number(p.pesoNetoKg) > 0 ? Number(p.pesoNetoKg).toFixed(2) : ''}</td>}
+                                    <td style={{ textAlign: 'right', padding: '4px' }}>{tempString}</td>
+                                </tr>
+                            )
+                        })}
                          <tr style={{ fontWeight: 'bold', backgroundColor: '#f1f5f9' }}>
                             <td style={{ padding: '4px', textAlign: 'right' }} colSpan={2}>TOTALES:</td>
                             <td style={{ textAlign: 'right', padding: '4px' }}>{totalCajas}</td>

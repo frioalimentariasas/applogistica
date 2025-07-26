@@ -71,6 +71,16 @@ import { RestoreDialog } from "@/components/app/restore-dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDialogDesc, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger, } from "@/components/ui/alert-dialog";
 import { Calendar } from "@/components/ui/calendar";
 
+const tempSchema = z.preprocess(
+    (val) => (val === "" ? null : val),
+    z.coerce.number({ 
+        invalid_type_error: "La temperatura debe ser un número." 
+    })
+      .min(-99, "El valor debe estar entre -99 y 99.")
+      .max(99, "El valor debe estar entre -99 y 99.")
+      .nullable()
+);
+
 
 const productSchema = z.object({
   codigo: z.string().min(1, "El código es requerido."),
@@ -81,13 +91,14 @@ const productSchema = z.object({
     .min(0, "Peso Bruto (kg) debe ser un número no negativo."),
   pesoNetoKg: z.coerce.number({ required_error: "El peso neto es requerido.", invalid_type_error: "Peso Neto (kg) debe ser un número."})
     .min(0, "Peso Neto (kg) debe ser un número no negativo."),
-  temperatura: z.preprocess(
-    (val) => (val === "" || val === null ? null : val),
-    z.coerce.number({ 
-        required_error: "La temperatura es requerida.", 
-        invalid_type_error: "La temperatura es requerida." 
-    }).min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99.")
-  ),
+  temperatura1: tempSchema,
+  temperatura2: tempSchema,
+  temperatura3: tempSchema,
+}).refine(data => {
+    return data.temperatura1 !== null || data.temperatura2 !== null || data.temperatura3 !== null;
+}, {
+    message: "Debe ingresar al menos una temperatura.",
+    path: ["temperatura1"],
 });
 
 const observationSchema = z.object({
@@ -369,7 +380,7 @@ export default function FixedWeightFormComponent() {
         form.reset({
             ...originalDefaultValues,
             productos: [ // Start with one empty product
-                { codigo: '', descripcion: '', cajas: 0, totalPaletas: 0, pesoBrutoKg: 0, pesoNetoKg: 0, temperatura: null }
+                { codigo: '', descripcion: '', cajas: 0, totalPaletas: 0, pesoBrutoKg: 0, pesoNetoKg: 0, temperatura1: null, temperatura2: null, temperatura3: null }
             ]
         });
     }
@@ -409,7 +420,9 @@ export default function FixedWeightFormComponent() {
                   // Handle old 'cantidadKg' field for backward compatibility
                   pesoNetoKg: p.pesoNetoKg ?? p.cantidadKg ?? 0,
                   pesoBrutoKg: p.pesoBrutoKg ?? 0,
-                  temperatura: p.temperatura ?? null,
+                  temperatura1: p.temperatura1 ?? p.temperatura ?? null,
+                  temperatura2: p.temperatura2 ?? null,
+                  temperatura3: p.temperatura3 ?? null,
               })),
           };
 
@@ -729,7 +742,7 @@ export default function FixedWeightFormComponent() {
       setClientSearch('');
   
       // Reset dependent fields
-      form.setValue('productos', [{ codigo: '', descripcion: '', cajas: 0, totalPaletas: 0, pesoBrutoKg: 0, pesoNetoKg: 0, temperatura: null }]);
+      form.setValue('productos', [{ codigo: '', descripcion: '', cajas: 0, totalPaletas: 0, pesoBrutoKg: 0, pesoNetoKg: 0, temperatura1: null, temperatura2: null, temperatura3: null }]);
       setArticulos([]);
   };
 
@@ -1146,7 +1159,7 @@ export default function FixedWeightFormComponent() {
                                     </FormItem>
                                 )}/>
                             </div>
-                            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+                            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                                 <FormField control={form.control} name={`productos.${index}.cajas`} render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>No. de Cajas</FormLabel>
@@ -1177,18 +1190,19 @@ export default function FixedWeightFormComponent() {
                                         <FormMessage />
                                     </FormItem>
                                 )}/>
-                                <FormField control={form.control} name={`productos.${index}.temperatura`} render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Temperatura (°C)</FormLabel>
-                                        <FormControl><Input type="text" inputMode="decimal" placeholder="0" {...field} onChange={e => field.onChange(e.target.value)} value={field.value ?? ''} /></FormControl>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}/>
+                            </div>
+                             <div className="space-y-2">
+                                <FormLabel>Temperaturas (°C)</FormLabel>
+                                <div className="flex items-center gap-2">
+                                     <FormField control={form.control} name={`productos.${index}.temperatura1`} render={({ field }) => (<FormItem className="flex-1"><FormControl><Input type="text" inputMode="decimal" placeholder="T1" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} className="text-center" /></FormControl><FormMessage className="text-xs" /></FormItem>)} />
+                                     <FormField control={form.control} name={`productos.${index}.temperatura2`} render={({ field }) => (<FormItem className="flex-1"><FormControl><Input type="text" inputMode="decimal" placeholder="T2" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} className="text-center" /></FormControl><FormMessage className="text-xs" /></FormItem>)} />
+                                     <FormField control={form.control} name={`productos.${index}.temperatura3`} render={({ field }) => (<FormItem className="flex-1"><FormControl><Input type="text" inputMode="decimal" placeholder="T3" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} className="text-center" /></FormControl><FormMessage className="text-xs" /></FormItem>)} />
+                                </div>
                             </div>
                         </div>
                     </div>
                 ))}
-                <Button type="button" variant="outline" onClick={() => append({ codigo: '', descripcion: '', cajas: 0, totalPaletas: 0, pesoBrutoKg: 0, pesoNetoKg: 0, temperatura: null })}>
+                <Button type="button" variant="outline" onClick={() => append({ codigo: '', descripcion: '', cajas: 0, totalPaletas: 0, pesoBrutoKg: 0, pesoNetoKg: 0, temperatura1: null, temperatura2: null, temperatura3: null })}>
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Agregar Producto
                 </Button>
