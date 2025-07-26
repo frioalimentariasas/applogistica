@@ -491,7 +491,7 @@ export default function VariableWeightFormComponent() {
   const [originalSubmission, setOriginalSubmission] = useState<SubmissionResult | null>(null);
   const [isMixErrorDialogOpen, setMixErrorDialogOpen] = useState(false);
   const [standardObservations, setStandardObservations] = useState<StandardObservation[]>([]);
-  const [isObservationDialogOpen, setIsObservationDialogOpen] = useState(false);
+  const [isObservationDialogOpen, setObservationDialogOpen] = useState(false);
   const [observationDialogIndex, setObservationDialogIndex] = useState<number | null>(null);
 
   const isAdmin = permissions.canManageSessions;
@@ -1113,7 +1113,198 @@ export default function VariableWeightFormComponent() {
           </header>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                {/* OMITTED FOR BREVITY */}
+              <Card>
+                  <CardHeader>
+                      <CardTitle>Información General del Despacho</CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          <FormField control={form.control} name="pedidoSislog" render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Pedido SISLOG</FormLabel>
+                                <FormControl><Input placeholder="Máximo 15 caracteres" {...field} /></FormControl>
+                                <FormMessage />
+                              </FormItem>
+                          )}/>
+                          <FormField
+                            control={form.control}
+                            name="cliente"
+                            render={({ field }) => (
+                                <FormItem className="flex flex-col">
+                                    <FormLabel>Cliente</FormLabel>
+                                    <Dialog open={isClientDialogOpen} onOpenChange={(isOpen) => {
+                                        if (!isOpen) setClientSearch('');
+                                        setClientDialogOpen(isOpen);
+                                    }}>
+                                        <DialogTrigger asChild>
+                                            <Button
+                                                variant="outline"
+                                                className="w-full justify-between text-left font-normal"
+                                                disabled={isClientChangeDisabled}
+                                            >
+                                                {field.value || "Seleccione un cliente..."}
+                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                            </Button>
+                                        </DialogTrigger>
+                                        <DialogContent className="sm:max-w-[425px]">
+                                            <DialogHeader>
+                                                <DialogTitle>Seleccionar Cliente</DialogTitle>
+                                                <DialogDescription>Busque y seleccione un cliente de la lista. Esto cargará los productos asociados.</DialogDescription>
+                                            </DialogHeader>
+                                            <div className="p-4">
+                                                <Input
+                                                    placeholder="Buscar cliente..."
+                                                    value={clientSearch}
+                                                    onChange={(e) => setClientSearch(e.target.value)}
+                                                    className="mb-4"
+                                                />
+                                                <ScrollArea className="h-72">
+                                                    <div className="space-y-1">
+                                                        {filteredClients.map((cliente) => (
+                                                            <Button
+                                                                key={cliente.id}
+                                                                variant="ghost"
+                                                                className="w-full justify-start"
+                                                                onClick={() => handleClientSelection(cliente.razonSocial)}
+                                                            >
+                                                                {cliente.razonSocial}
+                                                            </Button>
+                                                        ))}
+                                                        {filteredClients.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron clientes.</p>}
+                                                    </div>
+                                                </ScrollArea>
+                                            </div>
+                                        </DialogContent>
+                                    </Dialog>
+                                      {isClientChangeDisabled && (
+                                        <FormDescription>
+                                          Para cambiar de cliente, elimine todos los ítems.
+                                        </FormDescription>
+                                      )}
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                            />
+                          <FormField
+                            control={form.control}
+                            name="fecha"
+                            render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Fecha</FormLabel>
+                                {isAdmin ? (
+                                  <Popover>
+                                    <PopoverTrigger asChild>
+                                      <FormControl>
+                                        <Button
+                                          variant={"outline"}
+                                          className={cn(
+                                            "w-full pl-3 text-left font-normal",
+                                            !field.value && "text-muted-foreground"
+                                          )}
+                                        >
+                                          {field.value ? (
+                                            format(field.value, "PPP", { locale: es })
+                                          ) : (
+                                            <span>Seleccione una fecha</span>
+                                          )}
+                                          <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                        </Button>
+                                      </FormControl>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0" align="start">
+                                      <Calendar
+                                        mode="single"
+                                        selected={field.value}
+                                        onSelect={field.onChange}
+                                        initialFocus
+                                      />
+                                    </PopoverContent>
+                                  </Popover>
+                                ) : (
+                                  <FormControl>
+                                    <Input
+                                      disabled
+                                      value={field.value ? format(field.value, "dd/MM/yyyy") : ""}
+                                    />
+                                  </FormControl>
+                                )}
+                                <FormMessage />
+                              </FormItem>
+                            )}
+                          />
+                          <FormField control={form.control} name="conductor" render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Conductor</FormLabel>
+                                <FormControl><Input placeholder="Nombre del conductor" {...field} /></FormControl>
+                                <FormMessage />
+                              </FormItem>
+                          )}/>
+                          <FormField control={form.control} name="cedulaConductor" render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Cédula Conductor</FormLabel>
+                                <FormControl><Input placeholder="Número de cédula" {...field} inputMode="numeric" pattern="[0-9]*" /></FormControl>
+                                <FormMessage />
+                              </FormItem>
+                          )}/>
+                          <FormField control={form.control} name="placa" render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Placa del vehículo</FormLabel>
+                                <FormControl><Input placeholder="ABC123" {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} maxLength={6} /></FormControl>
+                                <FormMessage />
+                              </FormItem>
+                          )}/>
+                          <FormField control={form.control} name="precinto" render={({ field }) => (
+                              <FormItem>
+                                <FormLabel>Precinto</FormLabel>
+                                <FormControl><Input placeholder="Precinto (máx. 50 caracteres)" {...field} /></FormControl>
+                                <FormMessage />
+                              </FormItem>
+                          )}/>
+                          <FormField control={form.control} name="setPoint" render={({ field }) => (
+                              <FormItem>
+                                  <FormLabel>Set Point (°C)</FormLabel>
+                                  <FormControl><Input type="text" inputMode="decimal" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl>
+                                  <FormMessage />
+                              </FormItem>
+                          )}/>
+                           <FormField control={form.control} name="contenedor" render={({ field }) => (
+                              <FormItem>
+                                  <FormLabel>Contenedor</FormLabel>
+                                  <FormControl><Input
+                                      placeholder="ABCD1234567 o N/A"
+                                      {...field}
+                                      onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                                      value={field.value ?? ''}
+                                  /></FormControl>
+                                  <FormMessage />
+                              </FormItem>
+                          )}/>
+                          <FormField
+                              control={form.control}
+                              name="tipoPedido"
+                              render={({ field }) => (
+                              <FormItem>
+                                  <FormLabel>Tipo de Pedido</FormLabel>
+                                  <Select onValueChange={field.onChange} value={field.value}>
+                                  <FormControl>
+                                      <SelectTrigger>
+                                      <SelectValue placeholder="Seleccione un tipo de pedido" />
+                                      </SelectTrigger>
+                                  </FormControl>
+                                  <SelectContent>
+                                      <SelectItem value="GENERICO">GENERICO</SelectItem>
+                                      <SelectItem value="TUNEL">TUNEL</SelectItem>
+                                  </SelectContent>
+                                  </Select>
+                                  <FormMessage />
+                              </FormItem>
+                              )}
+                          />
+                      </div>
+                  </CardContent>
+              </Card>
+
+              {/* Form content goes here */}
             </form>
           </Form>
         </div>
@@ -1310,3 +1501,5 @@ function ProductSelectorDialog({
         </Dialog>
     );
 }
+
+    
