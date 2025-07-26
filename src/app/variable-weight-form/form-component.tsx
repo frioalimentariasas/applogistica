@@ -525,7 +525,7 @@ export default function VariableWeightFormComponent() {
     name: "destinos",
   });
 
-  const { fields: summaryFields, setValue: setSummaryValue } = useFieldArray({
+  const { fields: summaryFields } = useFieldArray({
     control: form.control,
     name: "summary"
   });
@@ -546,19 +546,17 @@ export default function VariableWeightFormComponent() {
 
   const showDespachoPorDestino = clientesEspeciales.includes(watchedCliente);
   
-  const allItems = useMemo(() => {
-    return watchedDespachoPorDestino ? (watchedDestinos || []).flatMap(d => d.items) : (watchedItems || []);
-  }, [watchedDespachoPorDestino, watchedItems, watchedDestinos]);
-
   const isSummaryMode = useMemo(() => {
+    const allItems = watchedDespachoPorDestino ? (watchedDestinos || []).flatMap(d => d.items) : (watchedItems || []);
     return allItems.some(item => item?.paleta === 0);
-  }, [allItems]);
+  }, [watchedDespachoPorDestino, watchedDestinos, watchedItems]);
 
 
   const isClientChangeDisabled = useMemo(() => {
+    const allItems = watchedDespachoPorDestino ? (watchedDestinos || []).flatMap(d => d.items) : (watchedItems || []);
     if (!allItems || allItems.length === 0) return false;
     return allItems.length > 1 || (allItems.length === 1 && !!allItems[0]?.descripcion);
-  }, [allItems]);
+  }, [watchedItems, watchedDestinos, watchedDespachoPorDestino]);
 
   
   const formIdentifier = submissionId ? `variable-weight-edit-${submissionId}` : `variable-weight-${operation}`;
@@ -570,6 +568,84 @@ export default function VariableWeightFormComponent() {
     setAttachments([]);
     setDiscardAlertOpen(false);
   };
+
+  const calculatedSummaryForDisplay = useMemo(() => {
+    const allItemsForSummary = watchedDespachoPorDestino ? (watchedDestinos || []).flatMap(d => d.items) : (watchedItems || []);
+
+    const grouped = allItemsForSummary.reduce((acc, item) => {
+        if (!item?.descripcion?.trim()) return acc;
+        const desc = item.descripcion.trim();
+
+        if (!acc[desc]) {
+            acc[desc] = {
+                descripcion: desc,
+                totalPeso: 0,
+                totalCantidad: 0,
+                paletas: new Set<number>(),
+            };
+        }
+
+        if (Number(item.paleta) === 0) {
+            acc[desc].totalPeso += Number(item.totalPesoNeto) || 0;
+            acc[desc].totalCantidad += Number(item.totalCantidad) || 0;
+            acc[desc].paletas.add(0);
+        } else {
+            acc[desc].totalPeso += Number(item.pesoNeto) || 0;
+            acc[desc].totalCantidad += Number(item.cantidadPorPaleta) || 0;
+            const paleta = Number(item.paleta);
+            if (!isNaN(paleta) && paleta > 0) {
+                acc[desc].paletas.add(paleta);
+            }
+        }
+        
+        return acc;
+    }, {} as Record<string, { descripcion: string; totalPeso: number; totalCantidad: number; paletas: Set<number> }>);
+
+    const totalGeneralPaletas = watchedDespachoPorDestino && isSummaryMode
+        ? watchedTotalPaletasDespacho || 0
+        : Object.values(grouped).reduce((sum, group) => {
+            const paletasCount = group.paletas.has(0)
+                ? allItemsForSummary.filter(item => item.descripcion === group.descripcion && Number(item.paleta) === 0).reduce((itemSum, item) => itemSum + (Number(item.totalPaletas) || 0), 0)
+                : group.paletas.size;
+            return sum + paletasCount;
+        }, 0);
+
+    return {
+        items: Object.values(grouped).map(group => {
+            const paletasCount = group.paletas.has(0)
+                ? allItemsForSummary.filter(item => item.descripcion === group.descripcion && Number(item.paleta) === 0).reduce((sum, item) => sum + (Number(item.totalPaletas) || 0), 0)
+                : group.paletas.size;
+    
+            return {
+                descripcion: group.descripcion,
+                totalPeso: group.totalPeso,
+                totalCantidad: group.totalCantidad,
+                totalPaletas: paletasCount,
+            };
+        }),
+        totalGeneralPaletas
+    };
+  }, [watchedItems, watchedDestinos, watchedDespachoPorDestino, watchedTotalPaletasDespacho, isSummaryMode]);
+
+  useEffect(() => {
+    const currentSummaryInForm = form.getValues('summary') || [];
+    const newSummaryState = calculatedSummaryForDisplay.items.map(newItem => {
+        const existingItem = currentSummaryInForm.find(oldItem => oldItem.descripcion === newItem.descripcion);
+        return {
+            ...newItem,
+            temperatura: existingItem?.temperatura ?? null,
+        };
+    });
+    
+    // Check if there is a real change to avoid infinite loops
+    if (JSON.stringify(newSummaryState) !== JSON.stringify(currentSummaryInForm)) {
+        form.setValue('summary', newSummaryState, { shouldValidate: true });
+    }
+  }, [calculatedSummaryForDisplay.items, form]);
+  
+  const showSummary = useMemo(() => {
+    return calculatedSummaryForDisplay.items.some(item => item && item.descripcion && item.descripcion.trim() !== '');
+  }, [calculatedSummaryForDisplay]);
 
   useEffect(() => {
     const fetchClientsAndObs = async () => {
@@ -906,10 +982,8 @@ export default function VariableWeightFormComponent() {
 
         const isUpdating = !!submissionId;
         
-        // Define who the editor is (the person logged in)
         const editor = { id: user.uid, displayName: displayName || 'N/A' };
 
-        // Define who the responsible user is
         let responsibleUser = { id: editor.id, displayName: editor.displayName };
         if (isUpdating && isAdmin && data.operarioResponsable) {
             const selectedUser = allUsers.find(u => u.uid === data.operarioResponsable);
@@ -947,7 +1021,6 @@ export default function VariableWeightFormComponent() {
   
   const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-
     const data = form.getValues();
     const allItems = data.despachoPorDestino ? data.destinos.flatMap(d => d.items) : data.items;
     const hasSummaryRow = allItems.some(item => Number(item.paleta) === 0);
@@ -957,7 +1030,6 @@ export default function VariableWeightFormComponent() {
       setMixErrorDialogOpen(true);
       return;
     }
-
     form.handleSubmit(onSubmit)(e);
   };
   
@@ -1002,87 +1074,7 @@ export default function VariableWeightFormComponent() {
     form.setValue(fieldName, `${hours}:${minutes}`, { shouldValidate: true });
   };
 
-
   const title = `${submissionId ? 'Editando' : 'Formato de'} ${operation.charAt(0).toUpperCase() + operation.slice(1)} - Peso Variable`;
-
-  const calculatedSummaryForDisplay = useMemo(() => {
-    const allItemsForSummary = watchedDespachoPorDestino ? (watchedDestinos || []).flatMap(d => d.items) : (watchedItems || []);
-
-    const grouped = allItemsForSummary.reduce((acc, item) => {
-        if (!item?.descripcion?.trim()) return acc;
-        const desc = item.descripcion.trim();
-
-        if (!acc[desc]) {
-            acc[desc] = {
-                descripcion: desc,
-                totalPeso: 0,
-                totalCantidad: 0,
-                paletas: new Set<number>(),
-            };
-        }
-
-        if (Number(item.paleta) === 0) {
-            acc[desc].totalPeso += Number(item.totalPesoNeto) || 0;
-            acc[desc].totalCantidad += Number(item.totalCantidad) || 0;
-            acc[desc].paletas.add(0);
-        } else {
-            acc[desc].totalPeso += Number(item.pesoNeto) || 0;
-            acc[desc].totalCantidad += Number(item.cantidadPorPaleta) || 0;
-            const paleta = Number(item.paleta);
-            if (!isNaN(paleta) && paleta > 0) {
-                acc[desc].paletas.add(paleta);
-            }
-        }
-        
-        return acc;
-    }, {} as Record<string, { descripcion: string; totalPeso: number; totalCantidad: number; paletas: Set<number> }>);
-
-    const totalGeneralPaletas = watchedDespachoPorDestino && isSummaryMode
-        ? watchedTotalPaletasDespacho || 0
-        : Object.values(grouped).reduce((sum, group) => {
-            const paletasCount = group.paletas.has(0)
-                ? allItemsForSummary.filter(item => item.descripcion === group.descripcion && Number(item.paleta) === 0).reduce((itemSum, item) => itemSum + (Number(item.totalPaletas) || 0), 0)
-                : group.paletas.size;
-            return sum + paletasCount;
-        }, 0);
-
-
-    return {
-        items: Object.values(grouped).map(group => {
-            const paletasCount = group.paletas.has(0)
-                ? allItemsForSummary.filter(item => item.descripcion === group.descripcion && Number(item.paleta) === 0).reduce((sum, item) => sum + (Number(item.totalPaletas) || 0), 0)
-                : group.paletas.size;
-    
-            return {
-                descripcion: group.descripcion,
-                totalPeso: group.totalPeso,
-                totalCantidad: group.totalCantidad,
-                totalPaletas: paletasCount,
-            };
-        }),
-        totalGeneralPaletas
-    };
-  }, [watchedItems, watchedDestinos, watchedDespachoPorDestino, watchedTotalPaletasDespacho, isSummaryMode]);
-  
-  const showSummary = useMemo(() => {
-    if (!calculatedSummaryForDisplay || !calculatedSummaryForDisplay.items) return false;
-    return calculatedSummaryForDisplay.items.some(item => item && item.descripcion && item.descripcion.trim() !== '');
-  }, [calculatedSummaryForDisplay]);
-
-  useEffect(() => {
-    const currentSummaryInForm = form.getValues('summary') || [];
-    const newSummaryState = calculatedSummaryForDisplay.items.map(newItem => {
-        const existingItem = currentSummaryInForm.find(oldItem => oldItem.descripcion === newItem.descripcion);
-        return {
-            ...newItem,
-            temperatura: existingItem?.temperatura ?? null,
-        };
-    });
-
-    if (JSON.stringify(newSummaryState) !== JSON.stringify(currentSummaryInForm)) {
-        form.setValue('summary', newSummaryState, { shouldValidate: true });
-    }
-  }, [calculatedSummaryForDisplay.items, form]);
 
   const handleAddItem = () => {
     const items = form.getValues('items');
@@ -1098,7 +1090,6 @@ export default function VariableWeightFormComponent() {
     }
     
     if (lastItem.paleta === 0) {
-        // Add a new summary row, copying relevant data.
         append({
             codigo: lastItem.codigo,
             paleta: 0,
@@ -1116,7 +1107,6 @@ export default function VariableWeightFormComponent() {
             pesoNeto: null,
         });
     } else {
-        // Add a new individual pallet row.
         append({
             codigo: lastItem.codigo,
             descripcion: lastItem.descripcion,
@@ -1512,16 +1502,18 @@ export default function VariableWeightFormComponent() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {calculatedSummaryForDisplay.items.length > 0 ? (
-                                        calculatedSummaryForDisplay.items.map((summaryItem, summaryIndex) => (
-                                            <TableRow key={summaryItem.descripcion}>
+                                    {summaryFields.length > 0 ? (
+                                        summaryFields.map((summaryItem, summaryIndex) => {
+                                            const displayData = calculatedSummaryForDisplay.items.find(d => d.descripcion === summaryItem.descripcion);
+                                            return (
+                                            <TableRow key={summaryItem.id}>
                                                 <TableCell className="font-medium">
                                                     <div className="bg-muted/50 p-2 rounded-md flex items-center h-10">
                                                         {summaryItem.descripcion}
                                                     </div>
                                                 </TableCell>
                                                 <TableCell>
-                                                     <FormField
+                                                    <FormField
                                                         control={form.control}
                                                         name={`summary.${summaryIndex}.temperatura`}
                                                         render={({ field }) => (
@@ -1534,11 +1526,6 @@ export default function VariableWeightFormComponent() {
                                                                 onChange={e => {
                                                                     const value = e.target.value === '' ? null : e.target.value;
                                                                     field.onChange(value);
-                                                                    const currentSummary = form.getValues('summary') || [];
-                                                                    const updatedSummary = currentSummary.map((item, idx) => 
-                                                                        idx === summaryIndex ? { ...item, temperatura: value } : item
-                                                                    );
-                                                                    form.setValue('summary', updatedSummary, { shouldValidate: true });
                                                                 }}
                                                                 value={field.value ?? ''}
                                                                 className="w-24 h-9 text-center" 
@@ -1550,21 +1537,21 @@ export default function VariableWeightFormComponent() {
                                                 </TableCell>
                                                 <TableCell className="text-right">
                                                   <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
-                                                    {summaryItem?.totalPaletas || 0}
+                                                    {displayData?.totalPaletas || 0}
                                                   </div>
                                                 </TableCell>
                                                 <TableCell className="text-right">
                                                   <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
-                                                    {(summaryItem?.totalPeso || 0).toFixed(2)}
+                                                    {(displayData?.totalPeso || 0).toFixed(2)}
                                                   </div>
                                                 </TableCell>
                                                 <TableCell className="text-right">
                                                   <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
-                                                    {summaryItem?.totalCantidad || 0}
+                                                    {displayData?.totalCantidad || 0}
                                                   </div>
                                                 </TableCell>
                                             </TableRow>
-                                        ))
+                                        )})
                                     ) : (
                                         <TableRow>
                                             <TableCell colSpan={5} className="h-24 text-center">
