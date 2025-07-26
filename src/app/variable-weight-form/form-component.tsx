@@ -236,9 +236,17 @@ const formSchema = z.object({
     message: "La hora de fin no puede ser igual a la de inicio.",
     path: ["horaFin"],
 }).superRefine((data, ctx) => {
-    const isSummaryMode = data.despachoPorDestino 
-        ? data.destinos.flatMap(d => d.items).some(item => Number(item.paleta) === 0)
-        : data.items.some(item => Number(item.paleta) === 0);
+    const allItems = data.despachoPorDestino ? data.destinos.flatMap(d => d.items) : data.items;
+    const hasSummaryRow = allItems.some(item => item.paleta === 0);
+    const hasDetailRow = allItems.some(item => item.paleta !== 0 && item.paleta !== null);
+    
+    if (hasSummaryRow && hasDetailRow) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "No se pueden mezclar ítems de resumen (Paleta 0) con ítems de paletas individuales.",
+            path: ["items"],
+        });
+    }
 
     if (data.despachoPorDestino && data.destinos.length === 0) {
         ctx.addIssue({
@@ -256,7 +264,7 @@ const formSchema = z.object({
         });
     }
 
-    if (data.despachoPorDestino && isSummaryMode && (data.totalPaletasDespacho === undefined || data.totalPaletasDespacho === null || data.totalPaletasDespacho <= 0)) {
+    if (data.despachoPorDestino && hasSummaryRow && (data.totalPaletasDespacho === undefined || data.totalPaletasDespacho === null || data.totalPaletasDespacho <= 0)) {
         ctx.addIssue({
             code: z.ZodIssueCode.custom,
             message: "El total de paletas del despacho es requerido.",
@@ -839,4 +847,144 @@ export default function VariableWeightFormComponent() {
       </div>
     </FormProvider>
   );
+}
+
+function ObservationSelectorDialog({
+    open,
+    onOpenChange,
+    standardObservations,
+    onSelect,
+}: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    standardObservations: StandardObservation[];
+    onSelect: (observation: { name: string, quantityType?: string }) => void;
+}) {
+    const [search, setSearch] = useState("");
+
+    const allObservations = useMemo(() => [
+        ...standardObservations,
+        { id: 'OTRAS', name: 'OTRAS OBSERVACIONES', quantityType: '' }
+    ], [standardObservations]);
+
+    const filteredObservations = useMemo(() => {
+        if (!search) return allObservations;
+        return allObservations.filter(obs => obs.name.toLowerCase().includes(search.toLowerCase()));
+    }, [search, allObservations]);
+
+    useEffect(() => {
+        if (!open) {
+            setSearch("");
+        }
+    }, [open]);
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Seleccionar Tipo de Observación</DialogTitle>
+                    <DialogDescription>Busque y seleccione un tipo de la lista.</DialogDescription>
+                </DialogHeader>
+                <Input
+                    placeholder="Buscar observación..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="my-4"
+                />
+                <ScrollArea className="h-72">
+                    <div className="space-y-1">
+                        {filteredObservations.map((obs) => (
+                            <Button
+                                key={obs.id}
+                                variant="ghost"
+                                className="w-full justify-start"
+                                onClick={() => {
+                                    onSelect({ name: obs.name, quantityType: obs.quantityType });
+                                    onOpenChange(false);
+                                }}
+                            >
+                                {obs.name}
+                            </Button>
+                        ))}
+                        {filteredObservations.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontró la observación.</p>}
+                    </div>
+                </ScrollArea>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+// Component for the product selector dialog
+function ProductSelectorDialog({
+    open,
+    onOpenChange,
+    articulos,
+    isLoading,
+    clientSelected,
+    onSelect,
+}: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    articulos: ArticuloInfo[];
+    isLoading: boolean;
+    clientSelected: boolean;
+    onSelect: (articulo: ArticuloInfo) => void;
+}) {
+    const [search, setSearch] = useState("");
+
+    const filteredArticulos = useMemo(() => {
+        if (!search) return articulos;
+        return articulos.filter(a => a.denominacionArticulo.toLowerCase().includes(search.toLowerCase()) || a.codigoProducto.toLowerCase().includes(search.toLowerCase()));
+    }, [search, articulos]);
+    
+    useEffect(() => {
+        if (!open) {
+            setSearch("");
+        }
+    }, [open]);
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Seleccionar Producto</DialogTitle>
+                    <DialogDescription>Busque y seleccione un producto de la lista del cliente.</DialogDescription>
+                </DialogHeader>
+                {!clientSelected ? (
+                    <div className="p-4 text-center text-muted-foreground">Debe escoger primero un cliente.</div>
+                ) : (
+                    <>
+                        <Input
+                            placeholder="Buscar producto por código o descripción..."
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            className="mb-4"
+                        />
+                        <ScrollArea className="h-72">
+                            <div className="space-y-1">
+                                {isLoading && <p className="text-center text-sm text-muted-foreground">Cargando...</p>}
+                                {!isLoading && filteredArticulos.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron productos.</p>}
+                                {filteredArticulos.map((p, i) => (
+                                    <Button
+                                        key={`${p.id}-${i}`}
+                                        variant="ghost"
+                                        className="w-full justify-start h-auto text-wrap"
+                                        onClick={() => {
+                                            onSelect(p);
+                                            onOpenChange(false);
+                                        }}
+                                    >
+                                        <div className="flex flex-col items-start">
+                                            <span>{p.denominacionArticulo}</span>
+                                            <span className="text-xs text-muted-foreground">{p.codigoProducto}</span>
+                                        </div>
+                                    </Button>
+                                ))}
+                            </div>
+                        </ScrollArea>
+                    </>
+                )}
+            </DialogContent>
+        </Dialog>
+    );
 }
