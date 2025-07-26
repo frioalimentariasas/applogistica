@@ -4,7 +4,7 @@
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useForm, useFieldArray, useWatch, FormProvider, useFormContext } from "react-hook-form";
+import { useForm, useFieldArray, useWatch, FormProvider, useFormContext, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format } from "date-fns";
@@ -158,19 +158,30 @@ const destinoSchema = z.object({
   items: z.array(itemSchema).min(1, "Debe agregar al menos un ítem al destino."),
 });
 
+const tempSchema = z.preprocess(
+    (val) => (val === "" ? null : val),
+    z.coerce.number({ 
+        invalid_type_error: "La temperatura debe ser un número." 
+    })
+      .min(-99, "El valor debe estar entre -99 y 99.")
+      .max(99, "El valor debe estar entre -99 y 99.")
+      .nullable()
+);
+
 const summaryItemSchema = z.object({
     descripcion: z.string(),
-    temperatura: z.preprocess(
-      (val) => (val === "" || val === null ? null : val),
-      z.coerce.number({ 
-          required_error: "La temperatura es requerida.", 
-          invalid_type_error: "La temperatura es requerida." 
-      }).min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99.").nullable()
-    ),
+    temperatura: tempSchema,
     totalPeso: z.number(),
     totalCantidad: z.number(),
     totalPaletas: z.number(),
-  });
+}).refine(data => {
+    // Al menos una temperatura es requerida.
+    return data.temperatura !== null;
+}, {
+    message: "Debe ingresar al menos una temperatura para el producto.",
+    path: ["temperatura"], // report error on the first temperature field
+});
+
 
 const observationSchema = z.object({
   type: z.string().min(1, "Debe seleccionar un tipo de observación."),
@@ -236,17 +247,7 @@ const formSchema = z.object({
     path: ["horaFin"],
 }).superRefine((data, ctx) => {
     const allItems = data.despachoPorDestino ? data.destinos.flatMap(d => d.items) : data.items;
-    const hasSummaryRow = allItems.some(item => item?.paleta === 0);
-    const hasDetailRow = allItems.some(item => item?.paleta !== 0 && item?.paleta !== null);
     
-    if (hasSummaryRow && hasDetailRow) {
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: "No se pueden mezclar ítems de resumen (Paleta 0) con ítems de paletas individuales.",
-            path: ["items"],
-        });
-    }
-
     if (data.despachoPorDestino && data.destinos.length === 0) {
         ctx.addIssue({
             code: z.ZodIssueCode.custom,
@@ -262,6 +263,8 @@ const formSchema = z.object({
             path: ["items"],
         });
     }
+
+    const hasSummaryRow = allItems.some(item => Number(item.paleta) === 0);
     if (data.despachoPorDestino && hasSummaryRow && (data.totalPaletasDespacho === undefined || data.totalPaletasDespacho === null || data.totalPaletasDespacho <= 0)) {
         ctx.addIssue({
             code: z.ZodIssueCode.custom,
@@ -983,8 +986,8 @@ export default function VariableWeightFormComponent() {
   };
 
   const handleObservationDialogOpening = (index: number) => {
-    setObservationDialogIndex(index);
     setObservationDialogOpen(true);
+    setObservationDialogIndex(index);
   };
   
   const handleCaptureTime = (fieldName: 'horaInicio' | 'horaFin') => {
@@ -1061,19 +1064,22 @@ export default function VariableWeightFormComponent() {
     return calculatedSummaryForDisplay.items.some(item => item && item.descripcion && item.descripcion.trim() !== '');
   }, [calculatedSummaryForDisplay]);
 
-   useEffect(() => {
-        const currentSummaryInForm = form.getValues('summary') || [];
-        const newSummaryState = calculatedSummaryForDisplay.items.map(newItem => {
-            const existingItem = currentSummaryInForm.find(oldItem => oldItem.descripcion === newItem.descripcion);
-            return {
-                ...newItem,
-                temperatura: existingItem?.temperatura ?? null,
-            };
-        });
-        if (JSON.stringify(newSummaryState) !== JSON.stringify(currentSummaryInForm)) {
-            form.setValue('summary', newSummaryState, { shouldValidate: true });
-        }
-    }, [calculatedSummaryForDisplay.items, form]);
+  useEffect(() => {
+    // This effect ensures the summary field in the form state is kept in sync with the calculated summary.
+    // This is crucial for validation and for ensuring the temperature fields are correctly associated.
+    const currentSummaryInForm = form.getValues('summary') || [];
+    const newSummaryState = calculatedSummaryForDisplay.items.map(newItem => {
+        const existingItem = currentSummaryInForm.find(oldItem => oldItem.descripcion === newItem.descripcion);
+        return {
+            ...newItem,
+            temperatura: existingItem?.temperatura ?? null, // Preserve existing temperature
+        };
+    });
+
+    if (JSON.stringify(newSummaryState) !== JSON.stringify(currentSummaryInForm)) {
+        form.setValue('summary', newSummaryState, { shouldValidate: true });
+    }
+  }, [calculatedSummaryForDisplay.items, form]);
 
 
   if (isLoadingForm) {
@@ -1451,41 +1457,61 @@ export default function VariableWeightFormComponent() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {summaryFields.length > 0 ? (
-                                        summaryFields.map((summaryItem, summaryIndex) => (
-                                            <TableRow key={summaryItem.id}>
+                                    {calculatedSummaryForDisplay.items.length > 0 ? (
+                                        calculatedSummaryForDisplay.items.map((summaryItem, summaryIndex) => (
+                                            <TableRow key={summaryItem.descripcion}>
                                                 <TableCell className="font-medium">
                                                     <div className="bg-muted/50 p-2 rounded-md flex items-center h-10">
                                                         {summaryItem.descripcion}
                                                     </div>
                                                 </TableCell>
                                                 <TableCell>
-                                                      <FormField
-                                                          control={form.control}
-                                                          name={`summary.${summaryIndex}.temperatura`}
-                                                          render={({ field }) => (
-                                                            <FormItem>
-                                                              <FormControl><Input type="text" inputMode="decimal" placeholder="Temp" {...field} 
-                                                                      onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} 
-                                                                      value={field.value ?? ''}
-                                                                  className="w-24 h-9 text-center" /></FormControl>
-                                                              <FormMessage className="text-xs"/>
-                                                            </FormItem>
-                                                          )} />
+                                                    <Controller
+                                                        name={`summary.${summaryIndex}.temperatura`}
+                                                        control={form.control}
+                                                        render={({ field }) => (
+                                                            <FormField
+                                                                control={form.control}
+                                                                name={`summary.${summaryIndex}.temperatura`}
+                                                                render={({ field }) => (
+                                                                <FormItem>
+                                                                    <FormControl><Input
+                                                                        type="text"
+                                                                        inputMode="decimal"
+                                                                        placeholder="Temp"
+                                                                        {...field}
+                                                                        onChange={e => {
+                                                                            const value = e.target.value === '' ? null : e.target.value;
+                                                                            field.onChange(value);
+                                                                            const currentSummary = form.getValues('summary') || [];
+                                                                            const updatedSummary = currentSummary.map((item, idx) => 
+                                                                                idx === summaryIndex ? { ...item, temperatura: value } : item
+                                                                            );
+                                                                            form.setValue('summary', updatedSummary, { shouldValidate: true });
+                                                                        }}
+                                                                        value={field.value ?? ''}
+                                                                        className="w-24 h-9 text-center" 
+                                                                    /></FormControl>
+                                                                    <FormMessage className="text-xs"/>
+                                                                </FormItem>
+                                                                )}
+                                                            />
+                                                        )}
+                                                    />
                                                 </TableCell>
                                                 <TableCell className="text-right">
                                                   <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
-                                                    {calculatedSummaryForDisplay[summaryIndex]?.totalPaletas || 0}
+                                                    {summaryItem?.totalPaletas || 0}
                                                   </div>
                                                 </TableCell>
                                                 <TableCell className="text-right">
                                                   <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
-                                                    {(calculatedSummaryForDisplay[summaryIndex]?.totalPeso || 0).toFixed(2)}
+                                                    {(summaryItem?.totalPeso || 0).toFixed(2)}
                                                   </div>
                                                 </TableCell>
                                                 <TableCell className="text-right">
                                                   <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
-                                                    {calculatedSummaryForDisplay[summaryIndex]?.totalCantidad || 0}
+                                                    {summaryItem?.totalCantidad || 0}
                                                   </div>
                                                 </TableCell>
                                             </TableRow>
