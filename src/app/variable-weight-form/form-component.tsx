@@ -4,7 +4,7 @@
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useForm, useFieldArray, Controller, useWatch, FormProvider, useFormContext } from "react-hook-form";
+import { useForm, useFieldArray, useWatch, FormProvider, useFormContext } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format } from "date-fns";
@@ -165,7 +165,7 @@ const summaryItemSchema = z.object({
       z.coerce.number({ 
           required_error: "La temperatura es requerida.", 
           invalid_type_error: "La temperatura es requerida." 
-      }).min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99.")
+      }).min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99.").nullable()
     ),
     totalPeso: z.number(),
     totalCantidad: z.number(),
@@ -1046,6 +1046,20 @@ export default function VariableWeightFormComponent() {
     return calculatedSummaryForDisplay.items.some(item => item && item.descripcion && item.descripcion.trim() !== '');
   }, [calculatedSummaryForDisplay]);
 
+   useEffect(() => {
+        const currentSummaryInForm = form.getValues('summary') || [];
+        const newSummaryState = calculatedSummaryForDisplay.items.map(newItem => {
+            const existingItem = currentSummaryInForm.find(oldItem => oldItem.descripcion === newItem.descripcion);
+            return {
+                ...newItem,
+                temperatura: existingItem?.temperatura ?? null,
+            };
+        });
+        if (JSON.stringify(newSummaryState) !== JSON.stringify(currentSummaryInForm)) {
+            form.setValue('summary', newSummaryState, { shouldValidate: true });
+        }
+    }, [calculatedSummaryForDisplay.items, form]);
+
 
   if (isLoadingForm) {
       return (
@@ -1414,42 +1428,36 @@ export default function VariableWeightFormComponent() {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead className="w-[120px]">Temperaturas (°C)</TableHead>
                                         <TableHead>Producto</TableHead>
+                                        <TableHead className="w-[120px]">Temperatura (°C)</TableHead>
                                         <TableHead className="text-right">Total Paletas</TableHead>
                                         <TableHead className="text-right">Total Peso (kg)</TableHead>
                                         <TableHead className="text-right">Cantidad Total</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {calculatedSummaryForDisplay.items.length > 0 ? (
-                                        calculatedSummaryForDisplay.items.map((summaryItem) => {
-                                            const summaryIndex = summaryFields.findIndex(f => f.descripcion === summaryItem.descripcion);
-                                            return (
-                                            <TableRow key={summaryItem.descripcion}>
-                                                <TableCell>
-                                                    { summaryIndex > -1 ? (
-                                                      <div className="flex items-center gap-1">
-                                                          <FormField
-                                                              control={form.control}
-                                                              name={`summary.${summaryIndex}.temperatura1`}
-                                                              render={({ field }) => (
-                                                                <FormItem>
-                                                                  <FormControl><Input type="text" inputMode="decimal" placeholder="T1" {...field} 
-                                                                          onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} 
-                                                                          value={field.value ?? ''}
-                                                                      className="w-20 h-9 text-center" /></FormControl>
-                                                                  <FormMessage className="text-xs"/>
-                                                                </FormItem>
-                                                              )} />
-                                                      </div>
-                                                    ) : (
-                                                      <div className="h-10 w-full" />
-                                                    )}
-                                                </TableCell>
+                                    {summaryFields.length > 0 ? (
+                                        summaryFields.map((summaryItem, summaryIndex) => (
+                                            <TableRow key={summaryItem.id}>
                                                 <TableCell className="font-medium">
-                                                  <div className="bg-muted/50 p-2 rounded-md flex items-center h-10">
-                                                    {summaryItem.descripcion}
+                                                    <div className="bg-muted/50 p-2 rounded-md flex items-center h-10">
+                                                        {summaryItem.descripcion}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                  <div className="flex items-center gap-1">
+                                                      <FormField
+                                                          control={form.control}
+                                                          name={`summary.${summaryIndex}.temperatura`}
+                                                          render={({ field }) => (
+                                                            <FormItem>
+                                                              <FormControl><Input type="text" inputMode="decimal" placeholder="T1" {...field} 
+                                                                      onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} 
+                                                                      value={field.value ?? ''}
+                                                                  className="w-20 h-9 text-center" /></FormControl>
+                                                              <FormMessage className="text-xs"/>
+                                                            </FormItem>
+                                                          )} />
                                                   </div>
                                                 </TableCell>
                                                 <TableCell className="text-right">
@@ -1468,7 +1476,7 @@ export default function VariableWeightFormComponent() {
                                                   </div>
                                                 </TableCell>
                                             </TableRow>
-                                        )})
+                                        ))
                                     ) : (
                                         <TableRow>
                                             <TableCell colSpan={5} className="h-24 text-center">
