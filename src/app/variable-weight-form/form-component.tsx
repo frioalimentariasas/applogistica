@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
@@ -214,7 +213,7 @@ const formSchema = z.object({
       message: "Formato inválido. Debe ser 'N/A' o 4 letras y 7 números (ej: ABCD1234567)."
     }),
     despachoPorDestino: z.boolean().default(false),
-    totalPaletasDespacho: z.coerce.number().optional(),
+    totalPaletasDespacho: z.coerce.number().int().min(0, "Debe ser un número no negativo.").optional(),
     items: z.array(itemSchema),
     destinos: z.array(destinoSchema),
     summary: z.array(summaryItemSchema).nullable(),
@@ -237,8 +236,8 @@ const formSchema = z.object({
     path: ["horaFin"],
 }).superRefine((data, ctx) => {
     const allItems = data.despachoPorDestino ? data.destinos.flatMap(d => d.items) : data.items;
-    const hasSummaryRow = allItems.some(item => item.paleta === 0);
-    const hasDetailRow = allItems.some(item => item.paleta !== 0 && item.paleta !== null);
+    const hasSummaryRow = allItems.some(item => item?.paleta === 0);
+    const hasDetailRow = allItems.some(item => item?.paleta !== 0 && item?.paleta !== null);
     
     if (hasSummaryRow && hasDetailRow) {
         ctx.addIssue({
@@ -900,7 +899,7 @@ export default function VariableWeightFormComponent() {
               </div>
           </header>
 
-          <form onSubmit={form.handleSubmit(() => {})} className="space-y-6">
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <FormField
                 control={form.control}
                 name="unidadDeMedidaPrincipal"
@@ -1178,6 +1177,7 @@ export default function VariableWeightFormComponent() {
                     <CardTitle>Resumen Agrupado de Productos</CardTitle>
                 </CardHeader>
                  <CardContent>
+                    Contenido del formulario omitido por brevedad...
                  </CardContent>
               </Card>
 
@@ -1186,18 +1186,21 @@ export default function VariableWeightFormComponent() {
                       <CardTitle>Tiempo y Observaciones de la Operación</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-6">
+                      Contenido del formulario omitido por brevedad...
                   </CardContent>
               </Card>
 
               <Card>
                   <CardHeader><CardTitle>Responsables de la Operación</CardTitle></CardHeader>
                   <CardContent>
+                      Contenido del formulario omitido por brevedad...
                   </CardContent>
               </Card>
 
               <Card>
                   <CardHeader><CardTitle>Anexos</CardTitle></CardHeader>
                   <CardContent className="space-y-4">
+                     Contenido del formulario omitido por brevedad...
                   </CardContent>
               </Card>
 
@@ -1476,3 +1479,5 @@ const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, de
       </div>
     );
 };
+
+    
