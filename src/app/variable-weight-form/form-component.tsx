@@ -295,7 +295,6 @@ function getByteSizeFromBase64(base64: string): number {
     return base64.length * (3 / 4) - (base64.endsWith('==') ? 2 : base64.endsWith('=') ? 1 : 0);
 }
 
-// Sub-component for a single item row to handle its own state and logic
 const FormItemRow = ({ index, control, remove, handleProductDialogOpening, despachoPorDestino }: { index: number, control: any, remove: (index: number) => void, handleProductDialogOpening: (index: number) => void, despachoPorDestino: boolean }) => {
     const watchedItem = useWatch({ control, name: `items.${index}` });
     const isSummaryRow = watchedItem?.paleta === 0;
@@ -434,7 +433,6 @@ const FormItemRow = ({ index, control, remove, handleProductDialogOpening, despa
         </div>
     );
 };
-
 
 export default function VariableWeightFormComponent() {
   const router = useRouter();
@@ -579,10 +577,7 @@ export default function VariableWeightFormComponent() {
                 if (Number(item.paleta) === 0) {
                     totalPeso += Number(item.totalPesoNeto) || 0;
                     totalCantidad += Number(item.totalCantidad) || 0;
-                    // This is handled globally for this mode
-                    if (!watchedDespachoPorDestino) {
-                        totalPaletas += Number(item.totalPaletas) || 0;
-                    }
+                    totalPaletas += Number(item.totalPaletas) || 0;
                 }
             });
         } else {
@@ -605,7 +600,7 @@ export default function VariableWeightFormComponent() {
             totalPaletas,
         };
     });
-  }, [watchedItems, watchedDespachoPorDestino]);
+  }, [watchedItems]);
 
 
   const formIdentifier = submissionId ? `variable-weight-edit-${submissionId}` : `variable-weight-${operation}`;
@@ -1456,7 +1451,16 @@ export default function VariableWeightFormComponent() {
                                 <FormItem>
                                     <FormLabel className="font-semibold">Cantidad Total de Paletas de Despacho</FormLabel>
                                     <FormControl>
-                                        <Input type="number" placeholder="Ingrese el total de paletas" {...field} value={field.value ?? ''} onChange={e => field.onChange(parseInt(e.target.value, 10))} />
+                                        <Input
+                                            type="number"
+                                            placeholder="Ingrese el total de paletas"
+                                            {...field}
+                                            value={field.value ?? ''}
+                                            onChange={e => {
+                                                const value = parseInt(e.target.value, 10);
+                                                field.onChange(isNaN(value) ? undefined : value);
+                                            }}
+                                        />
                                     </FormControl>
                                     <FormMessage />
                                 </FormItem>
