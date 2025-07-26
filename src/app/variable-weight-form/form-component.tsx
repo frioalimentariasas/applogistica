@@ -1118,7 +1118,7 @@ export default function VariableWeightFormComponent() {
                     </div>
                   </CardContent>
               </Card>
-
+              
               <Card>
                 <CardHeader>
                     <CardTitle>Detalle del Despacho</CardTitle>
@@ -1186,21 +1186,18 @@ export default function VariableWeightFormComponent() {
                       <CardTitle>Tiempo y Observaciones de la Operación</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-6">
-                      Contenido del formulario omitido por brevedad...
                   </CardContent>
               </Card>
 
               <Card>
                   <CardHeader><CardTitle>Responsables de la Operación</CardTitle></CardHeader>
                   <CardContent>
-                      Contenido del formulario omitido por brevedad...
                   </CardContent>
               </Card>
 
               <Card>
                   <CardHeader><CardTitle>Anexos</CardTitle></CardHeader>
                   <CardContent className="space-y-4">
-                     Contenido del formulario omitido por brevedad...
                   </CardContent>
               </Card>
 
@@ -1283,7 +1280,6 @@ function ObservationSelectorDialog({
     );
 }
 
-// Component for the product selector dialog
 function ProductSelectorDialog({
     open,
     onOpenChange,
@@ -1479,5 +1475,3 @@ const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, de
       </div>
     );
 };
-
-    
