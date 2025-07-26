@@ -229,7 +229,7 @@ const formSchema = z.object({
     message: "La hora de fin no puede ser igual a la de inicio.",
     path: ["horaFin"],
 }).superRefine((data, ctx) => {
-    if (data.despachoPorDestino && data.items.some(item => item.paleta === 0) && (data.totalPaletasDespacho === undefined || data.totalPaletasDespacho === null || data.totalPaletasDespacho <= 0)) {
+    if (data.despachoPorDestino && data.items.some(item => Number(item.paleta) === 0) && (data.totalPaletasDespacho === undefined || data.totalPaletasDespacho === null || data.totalPaletasDespacho <= 0)) {
         ctx.addIssue({
             code: z.ZodIssueCode.custom,
             message: "El total de paletas del despacho es requerido.",
@@ -509,7 +509,7 @@ export default function VariableWeightFormComponent() {
   const watchedTotalPaletasDespacho = useWatch({ control: form.control, name: 'totalPaletasDespacho' });
 
   const showDespachoPorDestino = clientesEspeciales.includes(watchedCliente);
-  const isSummaryMode = (watchedItems || []).some(item => item?.paleta === 0);
+  const isSummaryMode = (watchedItems || []).some(item => Number(item?.paleta) === 0);
 
 
   const isClientChangeDisabled = useMemo(() => {
@@ -572,28 +572,24 @@ export default function VariableWeightFormComponent() {
         
         let totalPeso = 0;
         let totalCantidad = 0;
+        let totalPaletas = 0;
         
         if (isGroupInSummaryMode) {
-             const summaryItem = itemsInGroup.find(item => Number(item.paleta) === 0);
-             totalPeso = Number(summaryItem?.totalPesoNeto) || 0;
-             totalCantidad = Number(summaryItem?.totalCantidad) || 0;
+             itemsInGroup.forEach(item => {
+                if (Number(item.paleta) === 0) {
+                    totalPeso += Number(item.totalPesoNeto) || 0;
+                    totalCantidad += Number(item.totalCantidad) || 0;
+                    // This is handled globally for this mode
+                    if (!watchedDespachoPorDestino) {
+                        totalPaletas += Number(item.totalPaletas) || 0;
+                    }
+                }
+            });
         } else {
              itemsInGroup.forEach(item => {
                 totalPeso += Number(item.pesoNeto) || 0;
                 totalCantidad += Number(item.cantidadPorPaleta) || 0;
             });
-        }
-        
-        let totalPaletas = 0;
-        if (watchedDespachoPorDestino && isGroupInSummaryMode) {
-             totalPaletas = watchedTotalPaletasDespacho || 0;
-        } else if (isGroupInSummaryMode) {
-            itemsInGroup.forEach(item => {
-                if (Number(item.paleta) === 0) {
-                    totalPaletas += Number(item.totalPaletas) || 0;
-                }
-            });
-        } else {
             const uniquePallets = new Set<number>();
             (watchedItems || []).forEach(item => { // Count across all items, not just this group for individual pallets
                 const paletaNum = Number(item.paleta);
@@ -611,7 +607,7 @@ export default function VariableWeightFormComponent() {
             totalPaletas,
         };
     });
-  }, [watchedItems, watchedDespachoPorDestino, watchedTotalPaletasDespacho]);
+  }, [watchedItems, watchedDespachoPorDestino]);
 
 
   const formIdentifier = submissionId ? `variable-weight-edit-${submissionId}` : `variable-weight-${operation}`;
@@ -639,6 +635,16 @@ export default function VariableWeightFormComponent() {
   }, [calculatedSummaryForDisplay, form]);
 
   const showSummary = (watchedItems || []).some(item => item && item.descripcion && item.descripcion.trim() !== '');
+
+  const totalGeneralPeso = useMemo(() => calculatedSummaryForDisplay.reduce((acc, p) => acc + (p.totalPeso || 0), 0), [calculatedSummaryForDisplay]);
+  const totalGeneralCantidad = useMemo(() => calculatedSummaryForDisplay.reduce((acc, p) => acc + (p.totalCantidad || 0), 0), [calculatedSummaryForDisplay]);
+  
+  const totalGeneralPaletas = useMemo(() => {
+    if (watchedDespachoPorDestino && isSummaryMode) {
+      return watchedTotalPaletasDespacho || 0;
+    }
+    return calculatedSummaryForDisplay.reduce((acc, p) => acc + (p.totalPaletas || 0), 0);
+  }, [calculatedSummaryForDisplay, watchedDespachoPorDestino, isSummaryMode, watchedTotalPaletasDespacho]);
 
 
   const handleAddItem = () => {
@@ -1537,6 +1543,14 @@ export default function VariableWeightFormComponent() {
                                       </TableRow>
                                   )}
                               </TableBody>
+                              <tfoot>
+                                  <TableRow className="font-bold bg-muted hover:bg-muted">
+                                    <TableCell colSpan={2} className="text-right">TOTALES:</TableCell>
+                                    <TableCell className="text-right">{totalGeneralCantidad}</TableCell>
+                                    <TableCell className="text-right">{totalGeneralPaletas}</TableCell>
+                                    <TableCell className="text-right">{totalGeneralPeso.toFixed(2)}</TableCell>
+                                  </TableRow>
+                              </tfoot>
                           </Table>
                       </div>
                   </CardContent>
