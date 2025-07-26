@@ -1057,7 +1057,7 @@ export default function VariableWeightFormComponent() {
 
   return (
     <FormProvider {...form}>
-      <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
+       <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
         <RestoreDialog
             open={isRestoreDialogOpen}
             onOpenChange={onOpenChange}
@@ -1113,7 +1113,7 @@ export default function VariableWeightFormComponent() {
           </header>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              <Card>
+                <Card>
                   <CardHeader>
                       <CardTitle>Información General del Despacho</CardTitle>
                   </CardHeader>
@@ -1302,9 +1302,469 @@ export default function VariableWeightFormComponent() {
                           />
                       </div>
                   </CardContent>
-              </Card>
+                </Card>
+                <Card>
+                    <CardHeader>
+                        <CardTitle>Detalle del Despacho</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                    {showDespachoPorDestino && (
+                        <div className="space-y-4 mb-6">
+                            <FormField
+                                control={form.control}
+                                name="despachoPorDestino"
+                                render={({ field }) => (
+                                    <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4">
+                                        <FormControl>
+                                            <Checkbox
+                                                checked={field.value}
+                                                onCheckedChange={(checked) => {
+                                                    field.onChange(checked);
+                                                    if(checked) {
+                                                        form.setValue('items', []);
+                                                    } else {
+                                                        form.setValue('destinos', []);
+                                                    }
+                                                }}
+                                            />
+                                        </FormControl>
+                                        <div className="space-y-1 leading-none">
+                                            <FormLabel>
+                                                Pedido por Destino
+                                            </FormLabel>
+                                            <FormDescription>
+                                                Marque esta opción para agrupar ítems por diferentes destinos de entrega.
+                                            </FormDescription>
+                                        </div>
+                                    </FormItem>
+                                )}
+                            />
+                            {watchedDespachoPorDestino && isSummaryMode && (
+                                <FormField
+                                    control={form.control}
+                                    name="totalPaletasDespacho"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Total Paletas del Despacho</FormLabel>
+                                            <FormControl>
+                                                <Input 
+                                                    type="number" 
+                                                    placeholder="0" 
+                                                    {...field}
+                                                    onChange={e => field.onChange(parseInt(e.target.value, 10) || undefined)}
+                                                    value={field.value ?? ''}
+                                                />
+                                            </FormControl>
+                                            <FormDescription>
+                                                Ingrese el número total de paletas para este despacho de resumen.
+                                            </FormDescription>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            )}
+                        </div>
+                        )}
 
-              {/* Form content goes here */}
+                        <div className="space-y-6">
+                           {watchedDespachoPorDestino ? (
+                                <div>
+                                    {destinoFields.map((field, index) => (
+                                        <div key={field.id} className="space-y-4 p-4 border rounded-md mb-4 bg-gray-50/50">
+                                            <div className="flex justify-between items-center">
+                                                <h3 className="text-lg font-semibold text-gray-700">Destino #{index + 1}</h3>
+                                                <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => removeDestino(index)}><Trash2 className="h-4 w-4"/></Button>
+                                            </div>
+                                            <FormField
+                                                control={form.control}
+                                                name={`destinos.${index}.nombreDestino`}
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>Nombre del Destino</FormLabel>
+                                                        <FormControl><Input placeholder="Ej: Bogotá" {...field} /></FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            <ItemsPorDestino control={form.control} remove={remove} destinoIndex={index} handleProductDialogOpening={handleProductDialogOpening} />
+                                        </div>
+                                    ))}
+                                    <Button type="button" variant="outline" onClick={() => appendDestino({ nombreDestino: '', items: [] })}><MapPin className="mr-2 h-4 w-4"/>Agregar Destino</Button>
+                                </div>
+                           ) : (
+                                <div>
+                                    {fields.map((field, index) => (
+                                        <ItemFields key={field.id} control={form.control} itemIndex={index} remove={remove} handleProductDialogOpening={handleProductDialogOpening} />
+                                    ))}
+                                    <Button type="button" variant="outline" onClick={() => append(originalDefaultValues.items[0])}><PlusCircle className="mr-2 h-4 w-4" />Agregar Ítem</Button>
+                                </div>
+                           )}
+                        </div>
+                    </CardContent>
+                </Card>
+                
+                 {showSummary && (
+                  <Card>
+                    <CardHeader>
+                        <CardTitle>Resumen Agrupado de Productos</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                        <div className="rounded-md border">
+                            <Table>
+                                <TableHeader>
+                                    <TableRow>
+                                        <TableHead className="w-[120px]">Temperaturas (°C)</TableHead>
+                                        <TableHead>Producto</TableHead>
+                                        <TableHead className="text-right">Total Paletas</TableHead>
+                                        <TableHead className="text-right">Total Peso (kg)</TableHead>
+                                        <TableHead className="text-right">Cantidad Total</TableHead>
+                                    </TableRow>
+                                </TableHeader>
+                                <TableBody>
+                                    {calculatedSummaryForDisplay.items.length > 0 ? (
+                                        calculatedSummaryForDisplay.items.map((summaryItem) => {
+                                            const summaryIndex = summaryFields.findIndex(f => f.descripcion === summaryItem.descripcion);
+                                            return (
+                                            <TableRow key={summaryItem.descripcion}>
+                                                <TableCell>
+                                                    { summaryIndex > -1 ? (
+                                                      <div className="flex items-center gap-1">
+                                                          <FormField
+                                                              control={form.control}
+                                                              name={`summary.${summaryIndex}.temperatura`}
+                                                              render={({ field }) => (
+                                                                <FormItem>
+                                                                  <FormControl><Input type="text" inputMode="decimal" placeholder="T1" {...field} 
+                                                                          onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} 
+                                                                          value={field.value ?? ''}
+                                                                      className="w-20 h-9 text-center" /></FormControl>
+                                                                  <FormMessage className="text-xs"/>
+                                                                </FormItem>
+                                                              )} />
+                                                      </div>
+                                                    ) : (
+                                                      <div className="h-10 w-full" />
+                                                    )}
+                                                </TableCell>
+                                                <TableCell className="font-medium">
+                                                  <div className="bg-muted/50 p-2 rounded-md flex items-center h-10">
+                                                    {summaryItem.descripcion}
+                                                  </div>
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                  <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
+                                                    {summaryItem.totalPaletas || 0}
+                                                  </div>
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                  <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
+                                                    {(summaryItem.totalPeso || 0).toFixed(2)}
+                                                  </div>
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                  <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
+                                                    {summaryItem.totalCantidad || 0}
+                                                  </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        )})
+                                    ) : (
+                                        <TableRow>
+                                            <TableCell colSpan={5} className="h-24 text-center">
+                                                Agregue ítems para ver el resumen.
+                                            </TableCell>
+                                        </TableRow>
+                                    )}
+                                </TableBody>
+                            </Table>
+                        </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                <Card>
+                  <CardHeader><CardTitle>Tiempo y Observaciones de la Operación</CardTitle></CardHeader>
+                  <CardContent className="space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <FormField control={form.control} name="horaInicio" render={({ field }) => (
+                          <FormItem>
+                              <FormLabel>Hora Inicio</FormLabel>
+                               <div className="flex items-center gap-2">
+                                <FormControl>
+                                    <Input type="time" placeholder="HH:MM" {...field} className="flex-grow" />
+                                </FormControl>
+                                <Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('horaInicio')}>
+                                    <Clock className="h-4 w-4" />
+                                </Button>
+                              </div>
+                              <FormMessage />
+                          </FormItem>
+                          )}/>
+                          <FormField control={form.control} name="horaFin" render={({ field }) => (
+                          <FormItem>
+                              <FormLabel>Hora Fin</FormLabel>
+                              <div className="flex items-center gap-2">
+                                <FormControl>
+                                    <Input type="time" placeholder="HH:MM" {...field} className="flex-grow" />
+                                </FormControl>
+                                 <Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('horaFin')}>
+                                    <Clock className="h-4 w-4" />
+                                </Button>
+                              </div>
+                              <FormMessage />
+                          </FormItem>
+                          )}/>
+                      </div>
+                       <div>
+                        <Label>Observaciones</Label>
+                        <div className="space-y-4 mt-2">
+                            {observationFields.map((field, index) => {
+                                const selectedObservation = watchedObservations?.[index];
+                                const stdObsData = standardObservations.find(obs => obs.name === selectedObservation?.type);
+                                const isOtherType = selectedObservation?.type === 'OTRAS OBSERVACIONES';
+                                const showCrewCheckbox = selectedObservation?.type === 'REESTIBADO' || selectedObservation?.type === 'TRANSBORDO CANASTILLA';
+                                return (
+                                <div key={field.id} className="p-4 border rounded-lg relative bg-white space-y-4">
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="absolute top-2 right-2 text-destructive hover:bg-destructive/10"
+                                        onClick={() => removeObservation(index)}
+                                    >
+                                        <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                                        <FormField
+                                            control={form.control}
+                                            name={`observaciones.${index}.type`}
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Tipo de Observación</FormLabel>
+                                                     <Button
+                                                        type="button"
+                                                        variant="outline"
+                                                        className="w-full justify-between text-left font-normal h-10"
+                                                        onClick={() => handleObservationDialogOpening(index)}
+                                                        >
+                                                        <span className="truncate">{field.value || "Seleccionar observación..."}</span>
+                                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                    </Button>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
+                                        {isOtherType ? (
+                                            <FormField
+                                                control={form.control}
+                                                name={`observaciones.${index}.customType`}
+                                                render={({ field }) => (
+                                                    <FormItem className="lg:col-span-3">
+                                                        <FormLabel>Descripción</FormLabel>
+                                                        <FormControl>
+                                                            <Textarea placeholder="Describa la observación" {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                        ) : (
+                                        <>
+                                            <FormField
+                                                control={form.control}
+                                                name={`observaciones.${index}.quantity`}
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>Cantidad ({stdObsData?.quantityType || 'N/A'})</FormLabel>
+                                                        <FormControl>
+                                                            <Input type="number" placeholder="0" {...field} />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
+                                            {showCrewCheckbox && (
+                                                <FormField
+                                                    control={form.control}
+                                                    name={`observaciones.${index}.executedByGrupoRosales`}
+                                                    render={({ field }) => (
+                                                        <FormItem className="flex flex-row items-end space-x-2 pb-2">
+                                                            <FormControl>
+                                                                <Checkbox
+                                                                    checked={field.value}
+                                                                    onCheckedChange={field.onChange}
+                                                                />
+                                                            </FormControl>
+                                                            <div className="space-y-1 leading-none">
+                                                                <Label htmlFor={`obs-check-${index}`} className="font-normal cursor-pointer uppercase">
+                                                                    REALIZADO POR CUADRILLA
+                                                                </Label>
+                                                            </div>
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            )}
+                                        </>
+                                        )}
+                                    </div>
+                                </div>
+                            )})}
+                            <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => appendObservation({ type: '', quantity: 0, executedByGrupoRosales: false, customType: '', quantityType: '' })}
+                                className="mt-4"
+                            >
+                                <PlusCircle className="mr-2 h-4 w-4" />
+                                Agregar Observación
+                            </Button>
+                        </div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader><CardTitle>Responsables de la Operación</CardTitle></CardHeader>
+                  <CardContent>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-10 gap-4 items-center">
+                        <FormField control={form.control} name="coordinador" render={({ field }) => (
+                            <FormItem className="lg:col-span-2"><FormLabel>Coordinador Responsable</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                        )}/>
+                        {submissionId && isAdmin ? (
+                             <FormField control={form.control} name="operarioResponsable" render={({ field }) => (
+                                <FormItem className="lg:col-span-2">
+                                    <FormLabel>Operario Responsable</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value}>
+                                        <FormControl><SelectTrigger><SelectValue placeholder="Seleccione un operario" /></SelectTrigger></FormControl>
+                                        <SelectContent>
+                                            {allUsers.map(u => <SelectItem key={u.uid} value={u.uid}>{u.displayName}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                            )}/>
+                        ) : (
+                            <FormItem className="lg:col-span-2">
+                                <FormLabel>Operario Responsable</FormLabel>
+                                <FormControl><Input disabled value={submissionId ? originalSubmission?.userDisplayName : displayName || ''} /></FormControl>
+                            </FormItem>
+                        )}
+                        <FormField
+                            control={form.control}
+                            name="aplicaCuadrilla"
+                            render={({ field }) => (
+                                <FormItem className="space-y-1 lg:col-span-4">
+                                    <FormLabel>Operación Realizada por Cuadrilla</FormLabel>
+                                    <FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-2"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="cuadrilla-si" /><Label htmlFor="cuadrilla-si">Sí</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="cuadrilla-no" /><Label htmlFor="cuadrilla-no">No</Label></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>
+                            )}
+                        />
+                        {watchedAplicaCuadrilla === 'si' && (
+                            <FormField
+                                control={form.control}
+                                name="numeroOperariosCuadrilla"
+                                render={({ field }) => (
+                                    <FormItem className="lg:col-span-2">
+                                    <FormLabel>No. de Operarios de Cuadrilla</FormLabel>
+                                    <FormControl>
+                                        <Input
+                                            type="number"
+                                            min="1"
+                                            placeholder="Ej: 3"
+                                            {...field}
+                                            value={field.value ?? ''}
+                                            onChange={e => field.onChange(parseInt(e.target.value, 10) || undefined)}
+                                        />
+                                    </FormControl>
+                                    <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        )}
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <Card>
+                  <CardHeader><CardTitle>Anexos</CardTitle></CardHeader>
+                  <CardContent className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div 
+                              className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-lg cursor-pointer hover:bg-gray-100"
+                              onClick={() => fileInputRef.current?.click()}
+                          >
+                              <UploadCloud className="w-10 h-10 text-gray-400 mb-2"/>
+                              <p className="text-sm text-gray-600 font-semibold">Subir archivos o arrastre y suelte</p>
+                              <p className="text-xs text-gray-500">Max. de 30 imágenes / 10MB Total</p>
+                              <Input type="file" ref={fileInputRef} className="hidden" multiple accept="image/*" onChange={handleFileChange} />
+                          </div>
+                          <div 
+                              className="flex flex-col items-center justify-center p-6 border-2 border-dashed rounded-lg cursor-pointer hover:bg-gray-100"
+                              onClick={handleOpenCamera}
+                          >
+                              <Camera className="w-10 h-10 text-gray-400 mb-2"/>
+                              <p className="text-sm text-gray-600 font-semibold">Tomar Foto</p>
+                              <p className="text-xs text-gray-500">Usar la cámara del dispositivo</p>
+                          </div>
+                      </div>
+                      {attachments.length > 0 && (
+                          <div>
+                            <div className="flex justify-between items-center mb-2">
+                                <h4 className="text-sm font-medium">Archivos Adjuntos ({attachments.length}/{MAX_ATTACHMENTS}):</h4>
+                                <AlertDialog open={isDeleteAllAlertOpen} onOpenChange={setDeleteAllAlertOpen}>
+                                    <AlertDialogTrigger asChild>
+                                        <Button type="button" variant="outline" size="sm" className="text-destructive hover:text-destructive border-destructive/50 hover:bg-destructive/10">
+                                            <Trash2 className="mr-2 h-3 w-3" />
+                                            Eliminar Todos
+                                        </Button>
+                                    </AlertDialogTrigger>
+                                    <AlertDialogContent>
+                                        <AlertDialogHeader>
+                                            <AlertDialogTitle>¿Está seguro de eliminar todos los anexos?</AlertDialogTitle>
+                                            <AlertDialogDesc>
+                                                Esta acción no se puede deshacer. Se eliminarán permanentemente todos los archivos adjuntos.
+                                            </AlertDialogDesc>
+                                        </AlertDialogHeader>
+                                        <AlertDialogFooter>
+                                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                            <AlertDialogAction onClick={handleRemoveAllAttachments} className="bg-destructive hover:bg-destructive/90">
+                                                Eliminar Todos
+                                            </AlertDialogAction>
+                                        </AlertDialogFooter>
+                                    </AlertDialogContent>
+                                </AlertDialog>
+                            </div>
+                              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                                  {attachments.map((src, index) => (
+                                      <div key={index} className="relative group aspect-square">
+                                          <Image src={src} alt={`Anexo ${index + 1}`} fill className="rounded-md object-cover" />
+                                          <Button
+                                              type="button"
+                                              variant="destructive"
+                                              size="icon"
+                                              className="absolute top-1 right-1 h-6 w-6"
+                                              onClick={() => handleRemoveAttachment(index)}
+                                          >
+                                              <Trash2 className="h-4 w-4" />
+                                              <span className="sr-only">Eliminar imagen</span>
+                                          </Button>
+                                      </div>
+                                  ))}
+                              </div>
+                          </div>
+                      )}
+                  </CardContent>
+                </Card>
+              
+              <footer className="flex flex-col sm:flex-row items-center justify-end gap-4 pt-4">
+                <Button type="button" variant="outline" onClick={() => setDiscardAlertOpen(true)} className="w-full sm:w-auto">
+                    <RotateCcw className="mr-2 h-4 w-4"/>
+                    Limpiar Formato
+                </Button>
+                <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto">
+                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4"/>}
+                    {isSubmitting ? 'Guardando...' : 'Guardar Formato y Enviar'}
+                </Button>
+              </footer>
             </form>
           </Form>
         </div>
@@ -1358,7 +1818,6 @@ export default function VariableWeightFormComponent() {
         </AlertDialog>
       </div>
     </FormProvider>
-    
   );
 }
 
@@ -1501,5 +1960,3 @@ function ProductSelectorDialog({
         </Dialog>
     );
 }
-
-    
