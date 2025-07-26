@@ -346,10 +346,7 @@ function ItemsPorDestino({ control, remove, handleProductDialogOpening, destinoI
     return (
         <div className="space-y-4 pl-4 border-l-2 ml-2">
             {fields.map((field, itemIndex) => (
-                <div key={field.id} className="p-4 border rounded-lg relative bg-white/50 space-y-4">
-                     <Button type="button" variant="ghost" size="icon" className="absolute top-2 right-2 text-destructive" onClick={() => removeItem(itemIndex)}><Trash2 className="h-4 w-4" /></Button>
-                    <ItemFields control={control} itemIndex={itemIndex} handleProductDialogOpening={handleProductDialogOpening} destinoIndex={destinoIndex} />
-                </div>
+                <ItemFields key={field.id} control={control} itemIndex={itemIndex} handleProductDialogOpening={handleProductDialogOpening} destinoIndex={destinoIndex} remove={removeItem} />
             ))}
             <Button type="button" variant="outline" size="sm" onClick={handleAddItem}><PlusCircle className="mr-2 h-4 w-4" />Agregar Ítem a Destino</Button>
         </div>
@@ -360,15 +357,40 @@ const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, de
     const basePath = destinoIndex !== undefined ? `destinos.${destinoIndex}.items` : 'items';
     const watchedItem = useWatch({ control, name: `${basePath}.${itemIndex}` });
     const isSummaryRow = watchedItem?.paleta === 0;
-    const pesoNeto = watchedItem?.pesoNeto;
 
+    const { setValue } = useFormContext();
+
+    useEffect(() => {
+        if (watchedItem && watchedItem.paleta !== 0) {
+            const cantidadPorPaleta = Number(watchedItem.cantidadPorPaleta) || 0;
+            const taraCaja = Number(watchedItem.taraCaja) || 0;
+            const pesoBruto = Number(watchedItem.pesoBruto) || 0;
+            const taraEstiba = Number(watchedItem.taraEstiba) || 0;
+
+            const calculatedTotalTaraCaja = cantidadPorPaleta * taraCaja;
+            const calculatedPesoNeto = pesoBruto - taraEstiba - calculatedTotalTaraCaja;
+
+            if (watchedItem.totalTaraCaja !== calculatedTotalTaraCaja) {
+                setValue(`${basePath}.${itemIndex}.totalTaraCaja`, calculatedTotalTaraCaja, { shouldValidate: false });
+            }
+            if (watchedItem.pesoNeto !== calculatedPesoNeto) {
+                setValue(`${basePath}.${itemIndex}.pesoNeto`, calculatedPesoNeto, { shouldValidate: false });
+            }
+        }
+    }, [watchedItem?.cantidadPorPaleta, watchedItem?.taraCaja, watchedItem?.pesoBruto, watchedItem?.taraEstiba, watchedItem?.paleta, basePath, itemIndex, setValue, watchedItem]);
+
+    const pesoNeto = watchedItem?.pesoNeto;
+    
     return (
       <div className="p-4 border rounded-lg relative bg-white space-y-4">
-         {remove && (
-           <Button type="button" variant="ghost" size="icon" className="absolute top-2 right-2 text-destructive" onClick={() => remove(itemIndex)}>
-             <Trash2 className="h-4 w-4" />
-           </Button>
-         )}
+         <div className="flex justify-between items-center">
+            <h4 className="text-lg font-semibold md:text-base">Ítem #{itemIndex + 1}</h4>
+            {remove && (
+                <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => remove(itemIndex)}>
+                    <Trash2 className="h-4 w-4" />
+                </Button>
+            )}
+        </div>
         <>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <FormField control={control} name={`${basePath}.${itemIndex}.codigo`} render={({ field }) => (
@@ -1747,6 +1769,72 @@ export default function VariableWeightFormComponent() {
   );
 }
 
+function ObservationSelectorDialog({
+    open,
+    onOpenChange,
+    standardObservations,
+    onSelect,
+}: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    standardObservations: StandardObservation[];
+    onSelect: (observation: { name: string, quantityType?: string }) => void;
+}) {
+    const [search, setSearch] = useState("");
+
+    const allObservations = useMemo(() => [
+        ...standardObservations,
+        { id: 'OTRAS', name: 'OTRAS OBSERVACIONES', quantityType: '' }
+    ], [standardObservations]);
+
+    const filteredObservations = useMemo(() => {
+        if (!search) return allObservations;
+        return allObservations.filter(obs => obs.name.toLowerCase().includes(search.toLowerCase()));
+    }, [search, allObservations]);
+
+    useEffect(() => {
+        if (!open) {
+            setSearch("");
+        }
+    }, [open]);
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Seleccionar Tipo de Observación</DialogTitle>
+                    <DialogDescription>Busque y seleccione un tipo de la lista.</DialogDescription>
+                </DialogHeader>
+                <Input
+                    placeholder="Buscar observación..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="my-4"
+                />
+                <ScrollArea className="h-72">
+                    <div className="space-y-1">
+                        {filteredObservations.map((obs) => (
+                            <Button
+                                key={obs.id}
+                                variant="ghost"
+                                className="w-full justify-start"
+                                onClick={() => {
+                                    onSelect({ name: obs.name, quantityType: obs.quantityType });
+                                    onOpenChange(false);
+                                }}
+                            >
+                                {obs.name}
+                            </Button>
+                        ))}
+                        {filteredObservations.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontró la observación.</p>}
+                    </div>
+                </ScrollArea>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+// Component for the product selector dialog
 function ProductSelectorDialog({
     open,
     onOpenChange,
@@ -1816,71 +1904,6 @@ function ProductSelectorDialog({
                         </ScrollArea>
                     </>
                 )}
-            </DialogContent>
-        </Dialog>
-    );
-}
-
-function ObservationSelectorDialog({
-    open,
-    onOpenChange,
-    standardObservations,
-    onSelect,
-}: {
-    open: boolean;
-    onOpenChange: (open: boolean) => void;
-    standardObservations: StandardObservation[];
-    onSelect: (observation: { name: string, quantityType?: string }) => void;
-}) {
-    const [search, setSearch] = useState("");
-
-    const allObservations = useMemo(() => [
-        ...standardObservations,
-        { id: 'OTRAS', name: 'OTRAS OBSERVACIONES', quantityType: '' }
-    ], [standardObservations]);
-
-    const filteredObservations = useMemo(() => {
-        if (!search) return allObservations;
-        return allObservations.filter(obs => obs.name.toLowerCase().includes(search.toLowerCase()));
-    }, [search, allObservations]);
-
-    useEffect(() => {
-        if (!open) {
-            setSearch("");
-        }
-    }, [open]);
-
-    return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Seleccionar Tipo de Observación</DialogTitle>
-                    <DialogDescription>Busque y seleccione un tipo de la lista.</DialogDescription>
-                </DialogHeader>
-                <Input
-                    placeholder="Buscar observación..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="my-4"
-                />
-                <ScrollArea className="h-72">
-                    <div className="space-y-1">
-                        {filteredObservations.map((obs) => (
-                            <Button
-                                key={obs.id}
-                                variant="ghost"
-                                className="w-full justify-start"
-                                onClick={() => {
-                                    onSelect({ name: obs.name, quantityType: obs.quantityType });
-                                    onOpenChange(false);
-                                }}
-                            >
-                                {obs.name}
-                            </Button>
-                        ))}
-                        {filteredObservations.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontró la observación.</p>}
-                    </div>
-                </ScrollArea>
             </DialogContent>
         </Dialog>
     );
