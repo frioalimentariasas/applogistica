@@ -77,7 +77,7 @@ const itemSchema = z.object({
     paleta: z.coerce.number({
           required_error: "La paleta es requerida.",
           invalid_type_error: "La paleta es requerida.",
-      }).int({ message: "La paleta debe ser un número entero." }).min(0, "Debe ser un número no negativo."),
+      }).int({ message: "La paleta debe ser un número entero." }).min(0, "Debe ser un número no negativo.").nullable(),
     descripcion: z.string().min(1, "La descripción es requerida."),
     lote: z.string().max(15, "Máximo 15 caracteres").optional(),
     presentacion: z.string().min(1, "Seleccione una presentación."),
@@ -1992,3 +1992,4 @@ function ProductSelectorDialog({
         </Dialog>
     );
 }
+
