@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
@@ -281,6 +280,8 @@ export default function FixedWeightFormComponent() {
   const [isObservationDialogOpen, setObservationDialogOpen] = useState(false);
   const [observationDialogIndex, setObservationDialogIndex] = useState<number | null>(null);
   const [pedidoTypes, setPedidoTypes] = useState<PedidoType[]>([]);
+  const [isPedidoTypeDialogOpen, setPedidoTypeDialogOpen] = useState(false);
+
 
   const isAdmin = permissions.canManageSessions;
 
@@ -827,6 +828,15 @@ export default function FixedWeightFormComponent() {
             }
         }}
        />
+      <PedidoTypeSelectorDialog
+        open={isPedidoTypeDialogOpen}
+        onOpenChange={setPedidoTypeDialogOpen}
+        pedidoTypes={pedidoTypes}
+        onSelect={(pt) => {
+            form.setValue('tipoPedido', pt.name);
+            setPedidoTypeDialogOpen(false);
+        }}
+        />
       <div className="max-w-6xl mx-auto">
         <header className="mb-6 md:mb-8">
             <div className="relative flex items-center justify-center text-center">
@@ -1041,26 +1051,23 @@ export default function FixedWeightFormComponent() {
                       )}
                     />
                     <FormField
-                        control={form.control}
-                        name="tipoPedido"
-                        render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Tipo de Pedido</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value}>
-                                <FormControl>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Seleccione un tipo de pedido" />
-                                    </SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                    {pedidoTypes.map(pt => (
-                                        <SelectItem key={pt.id} value={pt.name}>{pt.name}</SelectItem>
-                                    ))}
-                                </SelectContent>
-                            </Select>
-                            <FormMessage />
-                        </FormItem>
-                        )}
+                      control={form.control}
+                      name="tipoPedido"
+                      render={({ field }) => (
+                          <FormItem className="flex flex-col">
+                              <FormLabel>Tipo de Pedido</FormLabel>
+                              <Button
+                                  type="button"
+                                  variant="outline"
+                                  className="w-full justify-between text-left font-normal"
+                                  onClick={() => setPedidoTypeDialogOpen(true)}
+                              >
+                                  {field.value || "Seleccione un tipo..."}
+                                  <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                              </Button>
+                              <FormMessage />
+                          </FormItem>
+                      )}
                     />
                     {watchedTipoPedido === 'MAQUILA' && (
                         <FormField
@@ -1710,3 +1717,60 @@ function ProductSelectorDialog({
         </Dialog>
     );
 }
+
+function PedidoTypeSelectorDialog({
+    open,
+    onOpenChange,
+    pedidoTypes,
+    onSelect,
+}: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    pedidoTypes: PedidoType[];
+    onSelect: (pedidoType: PedidoType) => void;
+}) {
+    const [search, setSearch] = useState("");
+
+    const filteredTypes = useMemo(() => {
+        if (!search) return pedidoTypes;
+        return pedidoTypes.filter(pt => pt.name.toLowerCase().includes(search.toLowerCase()));
+    }, [search, pedidoTypes]);
+
+    useEffect(() => {
+        if (!open) setSearch("");
+    }, [open]);
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Seleccionar Tipo de Pedido</DialogTitle>
+                </DialogHeader>
+                <Input
+                    placeholder="Buscar tipo de pedido..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="my-4"
+                />
+                <ScrollArea className="h-72">
+                    <div className="space-y-1">
+                        {filteredTypes.length > 0 ? filteredTypes.map((pt) => (
+                            <Button
+                                key={pt.id}
+                                variant="ghost"
+                                className="w-full justify-start"
+                                onClick={() => onSelect(pt)}
+                            >
+                                {pt.name}
+                            </Button>
+                        )) : (
+                            <p className="text-center text-sm text-muted-foreground">No se encontraron tipos de pedido.</p>
+                        )}
+                    </div>
+                </ScrollArea>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
+  
