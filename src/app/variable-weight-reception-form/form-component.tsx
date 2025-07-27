@@ -296,7 +296,7 @@ function getByteSizeFromBase64(base64: string): number {
 }
 
 
-export default function VariableWeightReceptionFormComponent() {
+export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { pedidoTypes: PedidoType[] }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const operation = searchParams.get("operation") || "operación";
@@ -331,7 +331,6 @@ export default function VariableWeightReceptionFormComponent() {
   const [isObservationDialogOpen, setObservationDialogOpen] = useState(false);
   const [observationDialogIndex, setObservationDialogIndex] = useState<number | null>(null);
   const [isMixErrorDialogOpen, setMixErrorDialogOpen] = useState(false);
-  const [pedidoTypes, setPedidoTypes] = useState<PedidoType[]>([]);
   const [isPedidoTypeDialogOpen, setPedidoTypeDialogOpen] = useState(false);
 
 
@@ -532,16 +531,13 @@ export default function VariableWeightReceptionFormComponent() {
 
   useEffect(() => {
     const fetchClientsAndObs = async () => {
-      const formName = 'variable-weight-reception';
-      const [clientList, obsList, userList, pedidoTypeList] = await Promise.all([
+      const [clientList, obsList, userList] = await Promise.all([
         getClients(),
         getStandardObservations(),
         isAdmin ? getUsersList() : Promise.resolve([]),
-        getPedidoTypesForForm(formName),
       ]);
       setClientes(clientList);
       setStandardObservations(obsList);
-      setPedidoTypes(pedidoTypeList);
       if (isAdmin) {
           setAllUsers(userList);
       }
@@ -987,8 +983,8 @@ export default function VariableWeightReceptionFormComponent() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
-      <FormProvider {...form}>
+    <FormProvider {...form}>
+       <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
         <RestoreDialog
             open={isRestoreDialogOpen}
             onOpenChange={onOpenChange}
@@ -1626,7 +1622,7 @@ export default function VariableWeightReceptionFormComponent() {
                                         <AlertDialogHeader>
                                             <AlertDialogTitle>¿Está seguro de eliminar todos los anexos?</AlertDialogTitle>
                                             <AlertDialogDesc>
-                                                Esta acción no se puede deshacer. Se eliminarán permanentemente todos los archivos adjuntos.
+                                                Esta acción no se puede deshacer. Se eliminará toda la información que ha ingresado en el formato.
                                             </AlertDialogDesc>
                                         </AlertDialogHeader>
                                         <AlertDialogFooter>
@@ -1718,8 +1714,8 @@ export default function VariableWeightReceptionFormComponent() {
             </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
-      </FormProvider>
-    </div>
+      </div>
+    </FormProvider>
   );
 }
 

@@ -466,7 +466,7 @@ const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, de
     );
 };
 
-export default function VariableWeightFormComponent() {
+export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTypes: PedidoType[] }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const operation = searchParams.get("operation") || "operación";
@@ -501,7 +501,6 @@ export default function VariableWeightFormComponent() {
   const [standardObservations, setStandardObservations] = useState<StandardObservation[]>([]);
   const [isObservationDialogOpen, setObservationDialogOpen] = useState(false);
   const [observationDialogIndex, setObservationDialogIndex] = useState<number | null>(null);
-  const [pedidoTypes, setPedidoTypes] = useState<PedidoType[]>([]);
   const [isPedidoTypeDialogOpen, setPedidoTypeDialogOpen] = useState(false);
 
 
@@ -654,16 +653,13 @@ export default function VariableWeightFormComponent() {
 
   useEffect(() => {
     const fetchClientsAndObs = async () => {
-      const formName = 'variable-weight-despacho';
-      const [clientList, obsList, userList, pedidoTypeList] = await Promise.all([
+      const [clientList, obsList, userList] = await Promise.all([
         getClients(),
         getStandardObservations(),
         isAdmin ? getUsersList() : Promise.resolve([]),
-        getPedidoTypesForForm(formName),
       ]);
       setClientes(clientList);
       setStandardObservations(obsList);
-      setPedidoTypes(pedidoTypeList);
       if (isAdmin) {
           setAllUsers(userList);
       }

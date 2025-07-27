@@ -244,7 +244,7 @@ function getByteSizeFromBase64(base64: string): number {
 }
 
 
-export default function FixedWeightFormComponent() {
+export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes: PedidoType[] }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const operation = searchParams.get("operation") || "operación";
@@ -280,7 +280,6 @@ export default function FixedWeightFormComponent() {
   const [standardObservations, setStandardObservations] = useState<StandardObservation[]>([]);
   const [isObservationDialogOpen, setObservationDialogOpen] = useState(false);
   const [observationDialogIndex, setObservationDialogIndex] = useState<number | null>(null);
-  const [pedidoTypes, setPedidoTypes] = useState<PedidoType[]>([]);
   const [isPedidoTypeDialogOpen, setPedidoTypeDialogOpen] = useState(false);
 
 
@@ -367,16 +366,13 @@ export default function FixedWeightFormComponent() {
 
   useEffect(() => {
     const fetchInitialData = async () => {
-      const formName = isReception ? 'fixed-weight-reception' : 'fixed-weight-despacho';
-      const [clientList, obsList, userList, pedidoTypeList] = await Promise.all([
+      const [clientList, obsList, userList] = await Promise.all([
         getClients(),
         getStandardObservations(),
         isAdmin ? getUsersList() : Promise.resolve([]),
-        getPedidoTypesForForm(formName),
       ]);
       setClientes(clientList);
       setStandardObservations(obsList);
-      setPedidoTypes(pedidoTypeList);
       if (isAdmin) {
           setAllUsers(userList);
       }
@@ -1773,3 +1769,4 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
+
