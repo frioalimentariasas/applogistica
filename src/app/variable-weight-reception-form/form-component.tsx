@@ -78,7 +78,7 @@ const itemSchema = z.object({
     paleta: z.coerce.number({
           required_error: "La paleta es requerida.",
           invalid_type_error: "La paleta es requerida.",
-      }).int({ message: "La paleta debe ser un número entero." }).min(0, "Debe ser un número no negativo."),
+      }).int({ message: "La paleta debe ser un número entero." }).min(0, "Debe ser un número no negativo.").nullable(),
     descripcion: z.string().min(1, "La descripción es requerida."),
     lote: z.string().max(15, "Máx 15 caracteres").optional(),
     presentacion: z.string().min(1, "Seleccione una presentación."),
@@ -455,11 +455,15 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
         const desc = item.descripcion.trim();
 
         if (!acc[desc]) {
+            const summaryItem = form.getValues('summary')?.find(s => s.descripcion === desc);
             acc[desc] = {
                 descripcion: desc,
                 totalPeso: 0,
                 totalCantidad: 0,
                 paletas: new Set<number>(),
+                temperatura1: summaryItem?.temperatura1 ?? summaryItem?.temperatura, // Fallback for old data
+                temperatura2: summaryItem?.temperatura2,
+                temperatura3: summaryItem?.temperatura3,
             };
         }
 
@@ -477,17 +481,20 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
         }
         
         return acc;
-    }, {} as Record<string, { descripcion: string; totalPeso: number; totalCantidad: number; paletas: Set<number> }>);
+    }, {} as Record<string, { descripcion: string; totalPeso: number; totalCantidad: number; paletas: Set<number>; temperatura1: any; temperatura2: any; temperatura3: any; }>);
 
     return Object.values(grouped).map(group => ({
         descripcion: group.descripcion,
         totalPeso: group.totalPeso,
         totalCantidad: group.totalCantidad,
-        totalPaletas: group.paletas.has(0) 
-            ? (watchedItems || []).filter(item => item.descripcion === group.descripcion && Number(item.paleta) === 0).reduce((sum, item) => itemSum + (Number(item.totalPaletas) || 0), 0)
+        totalPaletas: group.paletas.has(0)
+            ? (watchedItems || []).filter(item => item.descripcion === group.descripcion && Number(item.paleta) === 0).reduce((sum, item) => sum + (Number(item.totalPaletas) || 0), 0)
             : group.paletas.size,
+        temperatura1: group.temperatura1,
+        temperatura2: group.temperatura2,
+        temperatura3: group.temperatura3,
     }));
-  }, [watchedItems]);
+  }, [watchedItems, form]);
 
   useEffect(() => {
       const currentSummaryInForm = form.getValues('summary') || [];
@@ -1010,8 +1017,8 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
-      <FormProvider {...form}>
+    <FormProvider {...form}>
+      <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
         <RestoreDialog
             open={isRestoreDialogOpen}
             onOpenChange={onOpenChange}
@@ -1752,8 +1759,8 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
             </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
-      </FormProvider>
-    </div>
+      </div>
+    </FormProvider>
   );
 }
 
