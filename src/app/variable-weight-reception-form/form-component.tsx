@@ -23,6 +23,7 @@ import { ref, uploadString, getDownloadURL } from "firebase/storage";
 import { optimizeImage } from "@/lib/image-optimizer";
 import { getSubmissionById, type SubmissionResult } from "@/app/actions/consultar-formatos";
 import { getStandardObservations, type StandardObservation } from "@/app/gestion-observaciones/actions";
+import { getPedidoTypesForForm, PedidoType } from "@/app/gestion-tipos-pedido/actions";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -226,7 +227,7 @@ const formSchema = z.object({
     coordinador: z.string().min(1, "Seleccione un coordinador."),
     aplicaCuadrilla: z.enum(["si", "no"], { required_error: "Seleccione una opción para 'Operación Realizada por Cuadrilla'." }),
     operarioResponsable: z.string().optional(),
-    tipoPedido: z.enum(['GENERICO', 'MAQUILA', 'TUNEL', 'INGRESO DE SALDO'], { required_error: "El tipo de pedido es obligatorio." }),
+    tipoPedido: z.string().min(1, "El tipo de pedido es obligatorio."),
     tipoEmpaqueMaquila: z.enum(['EMPAQUE DE SACOS', 'EMPAQUE DE CAJAS']).optional(),
     numeroOperariosCuadrilla: z.coerce.number().int().min(1, "Debe ser al menos 1.").optional(),
     unidadDeMedidaPrincipal: z.string().optional(),
@@ -266,7 +267,7 @@ const originalDefaultValues: FormValues = {
   setPoint: null,
   contenedor: "",
   facturaRemision: "",
-  items: [{ codigo: '', paleta: null, descripcion: "", lote: "", presentacion: "", cantidadPorPaleta: null, pesoBruto: null, taraEstiba: null, taraCaja: null, totalTaraCaja: null, pesoNeto: null }],
+  items: [{ codigo: '', paleta: null, descripcion: "", lote: "", presentacion: "", cantidadPorPaleta: null, pesoBruto: null, taraEstiba: null, taraCaja: null, totalTaraCaja: null, pesoNeto: null, totalCantidad: null, totalPaletas: null, totalPesoNeto: null }],
   summary: [],
   horaInicio: "",
   horaFin: "",
@@ -330,6 +331,8 @@ export default function VariableWeightReceptionFormComponent() {
   const [isObservationDialogOpen, setObservationDialogOpen] = useState(false);
   const [observationDialogIndex, setObservationDialogIndex] = useState<number | null>(null);
   const [isMixErrorDialogOpen, setMixErrorDialogOpen] = useState(false);
+  const [pedidoTypes, setPedidoTypes] = useState<PedidoType[]>([]);
+
 
   const isAdmin = permissions.canManageSessions;
 
@@ -403,7 +406,7 @@ export default function VariableWeightReceptionFormComponent() {
     }
   }, [watchedItems, form]);
 
-  const { fields: summaryFields } = useFieldArray({
+  const { fields: summaryFields, replace: replaceSummary } = useFieldArray({
     control: form.control,
     name: "summary"
   });
@@ -482,7 +485,7 @@ export default function VariableWeightReceptionFormComponent() {
     const lastItem = items.length > 0 ? items[items.length - 1] : null;
 
     if (!lastItem) {
-        append(originalDefaultValues.items[0]);
+        append({ ...originalDefaultValues.items[0] });
         return;
     }
     
@@ -528,13 +531,16 @@ export default function VariableWeightReceptionFormComponent() {
 
   useEffect(() => {
     const fetchClientsAndObs = async () => {
-      const [clientList, obsList, userList] = await Promise.all([
+      const formName = 'variable-weight-reception';
+      const [clientList, obsList, userList, pedidoTypeList] = await Promise.all([
         getClients(),
         getStandardObservations(),
-        isAdmin ? getUsersList() : Promise.resolve([])
+        isAdmin ? getUsersList() : Promise.resolve([]),
+        getPedidoTypesForForm(formName),
       ]);
       setClientes(clientList);
       setStandardObservations(obsList);
+      setPedidoTypes(pedidoTypeList);
       if (isAdmin) {
           setAllUsers(userList);
       }
@@ -931,7 +937,7 @@ export default function VariableWeightReceptionFormComponent() {
     setClientSearch('');
   
     // Reset dependent fields
-    form.setValue('items', [{ codigo: '', paleta: null, descripcion: "", lote: "", presentacion: "", cantidadPorPaleta: null, pesoBruto: null, taraEstiba: null, taraCaja: null, totalTaraCaja: null, pesoNeto: null }]);
+    form.setValue('items', [{ codigo: '', paleta: null, descripcion: "", lote: "", presentacion: "", cantidadPorPaleta: null, pesoBruto: null, taraEstiba: null, taraCaja: null, totalTaraCaja: null, pesoNeto: null, totalCantidad: null, totalPaletas: null, totalPesoNeto: null }]);
     setArticulos([]);
   };
 
@@ -980,6 +986,7 @@ export default function VariableWeightReceptionFormComponent() {
   }
 
   return (
+    <FormProvider {...form}>
       <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
         <RestoreDialog
             open={isRestoreDialogOpen}
@@ -1211,26 +1218,25 @@ export default function VariableWeightReceptionFormComponent() {
                                 </FormItem>
                             )}
                         />
-                        <FormField
+                         <FormField
                             control={form.control}
                             name="tipoPedido"
                             render={({ field }) => (
                                 <FormItem>
-                                <FormLabel>Tipo de Pedido</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value}>
-                                    <FormControl>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Seleccione un tipo de pedido" />
-                                    </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                    <SelectItem value="GENERICO">GENERICO</SelectItem>
-                                    <SelectItem value="MAQUILA">MAQUILA</SelectItem>
-                                    <SelectItem value="TUNEL">TUNEL</SelectItem>
-                                    <SelectItem value="INGRESO DE SALDO">INGRESO DE SALDO</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                                <FormMessage />
+                                    <FormLabel>Tipo de Pedido</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value}>
+                                        <FormControl>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Seleccione un tipo de pedido" />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            {pedidoTypes.map(pt => (
+                                                <SelectItem key={pt.id} value={pt.name}>{pt.name}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                    <FormMessage />
                                 </FormItem>
                             )}
                         />
@@ -1377,9 +1383,7 @@ export default function VariableWeightReceptionFormComponent() {
                 )}
               
                 <Card>
-                  <CardHeader>
-                      <CardTitle>Tiempo y Observaciones de la Operación</CardTitle>
-                  </CardHeader>
+                  <CardHeader><CardTitle>Tiempo y Observaciones de la Operación</CardTitle></CardHeader>
                   <CardContent className="space-y-6">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <FormField control={form.control} name="horaInicio" render={({ field }) => (
@@ -1710,6 +1714,7 @@ export default function VariableWeightReceptionFormComponent() {
             </AlertDialogContent>
         </AlertDialog>
       </div>
+    </FormProvider>
   );
 }
 
@@ -1855,9 +1860,8 @@ function ProductSelectorDialog({
 
 // Sub-component for a single item row to handle its own state and logic
 const FormItemRow = ({ index, control, remove, handleProductDialogOpening }: { index: number, control: any, remove: (index: number) => void, handleProductDialogOpening: (index: number) => void }) => {
-    const watchedItem = useWatch({ control, name: `items.${index}` });
-    const isSummaryRow = watchedItem?.paleta === 0;
-    const pesoNeto = watchedItem?.pesoNeto;
+    const isSummaryRow = useWatch({ control, name: `items.${index}.paleta` }) === 0;
+    const pesoNeto = useWatch({ control, name: `items.${index}.pesoNeto` });
 
     return (
         <div className="p-4 border rounded-lg relative bg-white space-y-4">

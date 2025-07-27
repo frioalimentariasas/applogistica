@@ -23,6 +23,7 @@ import { ref, uploadString, getDownloadURL } from "firebase/storage";
 import { optimizeImage } from "@/lib/image-optimizer";
 import { getSubmissionById, type SubmissionResult } from "@/app/actions/consultar-formatos";
 import { getStandardObservations, type StandardObservation } from "@/app/gestion-observaciones/actions";
+import { getPedidoTypesForForm, PedidoType } from "@/app/gestion-tipos-pedido/actions";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -152,7 +153,7 @@ const createFormSchema = (isReception: boolean) => z.object({
     coordinador: z.string().min(1, "Seleccione un coordinador."),
     aplicaCuadrilla: z.enum(["si", "no"], { required_error: "Seleccione una opción para 'Operación Realizada por Cuadrilla'." }),
     operarioResponsable: z.string().optional(),
-    tipoPedido: z.enum(['GENERICO', 'MAQUILA', 'TUNEL', 'INGRESO DE SALDO']).optional(),
+    tipoPedido: z.string().min(1, "El tipo de pedido es obligatorio.").optional(),
     tipoEmpaqueMaquila: z.enum(['EMPAQUE DE SACOS', 'EMPAQUE DE CAJAS']).optional(),
     numeroOperariosCuadrilla: z.coerce.number().int().min(1, "Debe ser al menos 1.").optional(),
     unidadDeMedidaPrincipal: z.string().optional(),
@@ -279,6 +280,7 @@ export default function FixedWeightFormComponent() {
   const [standardObservations, setStandardObservations] = useState<StandardObservation[]>([]);
   const [isObservationDialogOpen, setObservationDialogOpen] = useState(false);
   const [observationDialogIndex, setObservationDialogIndex] = useState<number | null>(null);
+  const [pedidoTypes, setPedidoTypes] = useState<PedidoType[]>([]);
 
   const isAdmin = permissions.canManageSessions;
 
@@ -363,13 +365,16 @@ export default function FixedWeightFormComponent() {
 
   useEffect(() => {
     const fetchInitialData = async () => {
-      const [clientList, obsList, userList] = await Promise.all([
+      const formName = isReception ? 'fixed-weight-reception' : 'fixed-weight-despacho';
+      const [clientList, obsList, userList, pedidoTypeList] = await Promise.all([
         getClients(),
         getStandardObservations(),
-        isAdmin ? getUsersList() : Promise.resolve([])
+        isAdmin ? getUsersList() : Promise.resolve([]),
+        getPedidoTypesForForm(formName),
       ]);
       setClientes(clientList);
       setStandardObservations(obsList);
+      setPedidoTypes(pedidoTypeList);
       if (isAdmin) {
           setAllUsers(userList);
       }
@@ -385,7 +390,7 @@ export default function FixedWeightFormComponent() {
         });
     }
     window.scrollTo(0, 0);
-  }, [submissionId, form, isAdmin]);
+  }, [submissionId, form, isAdmin, isReception]);
 
   useEffect(() => {
     const loadSubmissionData = async () => {
@@ -1035,77 +1040,49 @@ export default function FixedWeightFormComponent() {
                         </FormItem>
                       )}
                     />
-
-                    {operation === 'recepcion' ? (
-                        <>
-                            <FormField
-                                control={form.control}
-                                name="tipoPedido"
-                                render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Tipo de Pedido</FormLabel>
-                                    <Select onValueChange={field.onChange} value={field.value}>
-                                    <FormControl>
-                                        <SelectTrigger>
-                                        <SelectValue placeholder="Seleccione un tipo de pedido" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        <SelectItem value="GENERICO">GENERICO</SelectItem>
-                                        <SelectItem value="MAQUILA">MAQUILA</SelectItem>
-                                        <SelectItem value="TUNEL">TUNEL</SelectItem>
-                                        <SelectItem value="INGRESO DE SALDO">INGRESO DE SALDO</SelectItem>
-                                    </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                                )}
-                            />
-                            {watchedTipoPedido === 'MAQUILA' && (
-                                <FormField
-                                control={form.control}
-                                name="tipoEmpaqueMaquila"
-                                render={({ field }) => (
-                                    <FormItem>
-                                    <FormLabel>Tipo de Empaque (Maquila)</FormLabel>
-                                    <Select onValueChange={field.onChange} value={field.value}>
-                                        <FormControl>
-                                        <SelectTrigger>
-                                            <SelectValue placeholder="Seleccione tipo de empaque" />
-                                        </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                        <SelectItem value="EMPAQUE DE SACOS">EMPAQUE DE SACOS</SelectItem>
-                                        <SelectItem value="EMPAQUE DE CAJAS">EMPAQUE DE CAJAS</SelectItem>
-                                        </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                    </FormItem>
-                                )}
-                                />
-                            )}
-                        </>
-                    ) : (
-                         <FormField
-                            control={form.control}
-                            name="tipoPedido"
-                            render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Tipo de Pedido</FormLabel>
-                                <Select onValueChange={field.onChange} value={field.value}>
+                    <FormField
+                        control={form.control}
+                        name="tipoPedido"
+                        render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Tipo de Pedido</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
                                 <FormControl>
                                     <SelectTrigger>
-                                    <SelectValue placeholder="Seleccione un tipo de pedido" />
+                                        <SelectValue placeholder="Seleccione un tipo de pedido" />
                                     </SelectTrigger>
                                 </FormControl>
                                 <SelectContent>
-                                    <SelectItem value="GENERICO">GENERICO</SelectItem>
-                                    <SelectItem value="TUNEL">TUNEL</SelectItem>
+                                    {pedidoTypes.map(pt => (
+                                        <SelectItem key={pt.id} value={pt.name}>{pt.name}</SelectItem>
+                                    ))}
                                 </SelectContent>
-                                </Select>
-                                <FormMessage />
+                            </Select>
+                            <FormMessage />
+                        </FormItem>
+                        )}
+                    />
+                    {watchedTipoPedido === 'MAQUILA' && (
+                        <FormField
+                        control={form.control}
+                        name="tipoEmpaqueMaquila"
+                        render={({ field }) => (
+                            <FormItem>
+                            <FormLabel>Tipo de Empaque (Maquila)</FormLabel>
+                            <Select onValueChange={field.onChange} value={field.value}>
+                                <FormControl>
+                                <SelectTrigger>
+                                    <SelectValue placeholder="Seleccione tipo de empaque" />
+                                </SelectTrigger>
+                                </FormControl>
+                                <SelectContent>
+                                <SelectItem value="EMPAQUE DE SACOS">EMPAQUE DE SACOS</SelectItem>
+                                <SelectItem value="EMPAQUE DE CAJAS">EMPAQUE DE CAJAS</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <FormMessage />
                             </FormItem>
-                            )}
+                        )}
                         />
                     )}
                 </div>
