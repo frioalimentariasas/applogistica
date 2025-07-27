@@ -1,8 +1,10 @@
 
+
 import { Suspense } from 'react';
 import VariableWeightReceptionFormComponent from './form-component';
 import { getPedidoTypesForForm } from '../gestion-tipos-pedido/actions';
 import { notFound } from 'next/navigation';
+import type { PedidoType } from '@/app/gestion-tipos-pedido/actions';
 
 export default async function VariableWeightReceptionFormPage({
   searchParams,
@@ -14,7 +16,12 @@ export default async function VariableWeightReceptionFormPage({
     notFound();
   }
 
-  const pedidoTypes = await getPedidoTypesForForm('variable-weight-reception');
+  let pedidoTypes: PedidoType[] = [];
+  try {
+    pedidoTypes = await getPedidoTypesForForm('variable-weight-reception');
+  } catch (error) {
+    console.error(`Failed to fetch order types for variable-weight-reception:`, error);
+  }
 
   return (
     <Suspense fallback={<div>Loading...</div>}>

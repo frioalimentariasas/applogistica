@@ -23,7 +23,7 @@ import { ref, uploadString, getDownloadURL } from "firebase/storage";
 import { optimizeImage } from "@/lib/image-optimizer";
 import { getSubmissionById, type SubmissionResult } from "@/app/actions/consultar-formatos";
 import { getStandardObservations, type StandardObservation } from "@/app/gestion-observaciones/actions";
-import { getPedidoTypesForForm, PedidoType } from "@/app/gestion-tipos-pedido/actions";
+import { PedidoType } from "@/app/gestion-tipos-pedido/actions";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -2085,3 +2085,4 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
+

@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -15,8 +16,6 @@ export async function getPedidoTypes(): Promise<PedidoType[]> {
   try {
     const snapshot = await firestore.collection('pedido_types').orderBy('name').get();
     
-    // The logic to auto-create defaults if empty has been removed.
-    // Now it will simply return an empty array if no types are defined.
     if (snapshot.empty) {
         return [];
     }
@@ -92,17 +91,20 @@ export async function getPedidoTypesForForm(
 ): Promise<PedidoType[]> {
     if (!firestore) return [];
     try {
-        const snapshot = await firestore.collection('pedido_types')
-            .where('appliesTo', 'array-contains', formName)
-            .orderBy('name')
-            .get();
+        const snapshot = await firestore.collection('pedido_types').get();
             
         if (snapshot.empty) return [];
         
-        return snapshot.docs.map(doc => ({
+        const allTypes = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data(),
         } as PedidoType));
+
+        const filtered = allTypes.filter(type => type.appliesTo && type.appliesTo.includes(formName));
+        
+        filtered.sort((a, b) => a.name.localeCompare(b.name));
+
+        return filtered;
 
     } catch(error) {
         console.error(`Error fetching order types for form ${formName}:`, error);
