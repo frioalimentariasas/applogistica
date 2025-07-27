@@ -213,8 +213,7 @@ const formSchema = z.object({
         .min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99.").nullable()
     ),
     contenedor: z.string().refine(value => {
-      const formatRegex = /^[A-Z]{4}[0-9]{7}$/;
-      return !value || value.toUpperCase() === 'N/A' || formatRegex.test(value.toUpperCase());
+      return !value || value.toUpperCase() === 'N/A' || /^[A-Z]{4}[0-9]{7}$/.test(value.toUpperCase());
     }, {
       message: "Formato inválido. Debe ser 'N/A' o 4 letras y 7 números (ej: ABCD1234567)."
     }),
@@ -225,7 +224,7 @@ const formSchema = z.object({
     horaFin: z.string().min(1, "La hora de fin es obligatoria.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
     observaciones: z.array(observationSchema).optional(),
     coordinador: z.string().min(1, "Seleccione un coordinador."),
-    aplicaCuadrilla: z.enum(["si", "no"], { required_error: "Seleccione una opción para 'Operación Realizada por Cuadrilla'." }),
+    aplicaCuadrilla: z.enum(["si", "no"]).optional(),
     operarioResponsable: z.string().optional(),
     tipoPedido: z.string({required_error: "El tipo de pedido es obligatorio."}).min(1, "El tipo de pedido es obligatorio."),
     tipoEmpaqueMaquila: z.enum(['EMPAQUE DE SACOS', 'EMPAQUE DE CAJAS']).optional(),
@@ -266,6 +265,10 @@ const formSchema = z.object({
                 });
             }
         });
+    }
+
+    if (data.tipoPedido !== 'INGRESO DE SALDO' && !data.aplicaCuadrilla) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Seleccione una opción para 'Operación Realizada por Cuadrilla'.", path: ['aplicaCuadrilla'] });
     }
 });
 
@@ -366,6 +369,14 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
   
   const watchedTipoPedido = useWatch({ control: form.control, name: 'tipoPedido' });
   const watchedAplicaCuadrilla = useWatch({ control: form.control, name: 'aplicaCuadrilla' });
+
+  useEffect(() => {
+    if (watchedTipoPedido === 'INGRESO DE SALDO') {
+      if (form.getValues('aplicaCuadrilla') !== undefined) {
+        form.setValue('aplicaCuadrilla', undefined);
+      }
+    }
+  }, [watchedTipoPedido, form]);
 
 
   const { fields, append, remove } = useFieldArray({
@@ -1572,7 +1583,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                             render={({ field }) => (
                                 <FormItem className="space-y-1 lg:col-span-4">
                                     <FormLabel>Operación Realizada por Cuadrilla</FormLabel>
-                                    <FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-2"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="cuadrilla-si" /><Label htmlFor="cuadrilla-si">Sí</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="cuadrilla-no" /><Label htmlFor="cuadrilla-no">No</Label></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>
+                                    <FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-2" disabled={watchedTipoPedido === 'INGRESO DE SALDO'}><FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="cuadrilla-si" /><Label htmlFor="cuadrilla-si">Sí</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="cuadrilla-no" /><Label htmlFor="cuadrilla-no">No</Label></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>
                             )}
                         />
                         {watchedAplicaCuadrilla === 'si' && watchedTipoPedido === 'MAQUILA' && (

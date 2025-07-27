@@ -151,7 +151,7 @@ const createFormSchema = (isReception: boolean) => z.object({
     clienteRequiereTermoregistro: z.enum(["si", "no"], { required_error: "Seleccione una opción." }),
     observaciones: z.array(observationSchema).optional(),
     coordinador: z.string().min(1, "Seleccione un coordinador."),
-    aplicaCuadrilla: z.enum(["si", "no"], { required_error: "Seleccione una opción para 'Operación Realizada por Cuadrilla'." }),
+    aplicaCuadrilla: z.enum(["si", "no"]).optional(),
     operarioResponsable: z.string().optional(),
     tipoPedido: z.string({required_error: "El tipo de pedido es obligatorio."}).min(1, "El tipo de pedido es obligatorio."),
     tipoEmpaqueMaquila: z.enum(['EMPAQUE DE SACOS', 'EMPAQUE DE CAJAS']).optional(),
@@ -186,6 +186,10 @@ const createFormSchema = (isReception: boolean) => z.object({
             if (!data.contenedor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El contenedor es obligatorio.', path: ['contenedor'] });
         }
 
+        if (data.tipoPedido !== 'INGRESO DE SALDO' && !data.aplicaCuadrilla) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Seleccione una opción para 'Operación Realizada por Cuadrilla'.", path: ['aplicaCuadrilla'] });
+        }
+
       } else { // Despacho
         if (!data.tipoPedido) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El tipo de pedido es obligatorio.", path: ['tipoPedido'] });
@@ -195,6 +199,9 @@ const createFormSchema = (isReception: boolean) => z.object({
         if (!data.placa?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'La placa es obligatoria.', path: ['placa'] });
         if (!data.precinto?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El precinto es obligatorio.', path: ['precinto'] });
         if (!data.contenedor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El contenedor es obligatorio.', path: ['contenedor'] });
+        if (!data.aplicaCuadrilla) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Seleccione una opción para 'Operación Realizada por Cuadrilla'.", path: ['aplicaCuadrilla'] });
+        }
       }
   });
 
@@ -316,6 +323,15 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
   const watchedTipoPedido = useWatch({ control: form.control, name: 'tipoPedido' });
   const watchedAplicaCuadrilla = useWatch({ control: form.control, name: 'aplicaCuadrilla' });
   const watchedObservations = useWatch({ control: form.control, name: 'observaciones' });
+
+
+  useEffect(() => {
+    if (watchedTipoPedido === 'INGRESO DE SALDO') {
+      if (form.getValues('aplicaCuadrilla') !== undefined) {
+        form.setValue('aplicaCuadrilla', undefined);
+      }
+    }
+  }, [watchedTipoPedido, form]);
 
 
   const isClientChangeDisabled = useMemo(() => {
@@ -1417,7 +1433,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                                 <FormItem className="space-y-1 lg:col-span-4">
                                     <FormLabel>Operación Realizada por Cuadrilla</FormLabel>
                                     <FormControl>
-                                        <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-2">
+                                        <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-2" disabled={watchedTipoPedido === 'INGRESO DE SALDO'}>
                                             <FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="cuadrilla-si" /><Label htmlFor="cuadrilla-si">Sí</Label></FormItem>
                                             <FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="cuadrilla-no" /><Label htmlFor="cuadrilla-no">No</Label></FormItem></RadioGroup>
                                     </FormControl>
@@ -1769,6 +1785,7 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
+
 
 
 
