@@ -15,7 +15,9 @@ export default async function FixedWeightFormPage({
     notFound();
   }
 
-  const formName = `fixed-weight-${operation}` as const;
+  // Correctly build the form name identifier to match the database value
+  const formName = `fixed-weight-${operation === 'recepcion' ? 'reception' : 'despacho'}` as const;
+  
   let pedidoTypes: PedidoType[] = [];
   try {
     pedidoTypes = await getPedidoTypesForForm(formName);
