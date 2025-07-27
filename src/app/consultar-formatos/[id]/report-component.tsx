@@ -694,18 +694,8 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
             }
     
             if (base64Images.length > 0) {
-                const titleHeightEstimate = 30;
-                const firstImgData = base64Images[0];
-                const imgWidth = (pageWidth - margin * 2 - (margin / 2)) / 2;
-                const aspectRatio = firstImgData.height / firstImgData.width;
-                const imgHeight = imgWidth * aspectRatio;
-                const firstImageRowHeight = imgHeight + 20;
-
-                // Check if there is enough space for the title and the first row of images
-                if (yPos + titleHeightEstimate + firstImageRowHeight > pageHeight - margin) {
-                    doc.addPage();
-                    yPos = margin;
-                }
+                doc.addPage();
+                yPos = margin; // Reset Y position for the new page
                 
                 attachmentsStartPage = (doc as any).internal.getNumberOfPages();
 
