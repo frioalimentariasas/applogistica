@@ -23,6 +23,7 @@ import { ref, uploadString, getDownloadURL } from "firebase/storage";
 import { optimizeImage } from "@/lib/image-optimizer";
 import { getSubmissionById, type SubmissionResult } from "@/app/actions/consultar-formatos";
 import { getStandardObservations, type StandardObservation } from "@/app/gestion-observaciones/actions";
+import { getPedidoTypesForForm, PedidoType } from "@/app/gestion-tipos-pedido/actions";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -235,7 +236,7 @@ const formSchema = z.object({
     coordinador: z.string().min(1, "Seleccione un coordinador."),
     aplicaCuadrilla: z.enum(["si", "no"], { required_error: "Seleccione una opción para 'Operación Realizada por Cuadrilla'." }),
     operarioResponsable: z.string().optional(),
-    tipoPedido: z.enum(['GENERICO', 'TUNEL']),
+    tipoPedido: z.string().min(1, "El tipo de pedido es obligatorio."),
     unidadDeMedidaPrincipal: z.string().optional(),
 }).refine((data) => {
     if (data.horaInicio && data.horaFin && data.horaInicio === data.horaFin) {
@@ -297,7 +298,7 @@ const originalDefaultValues: FormValues = {
   coordinador: "",
   aplicaCuadrilla: undefined,
   operarioResponsable: undefined,
-  tipoPedido: 'GENERICO',
+  tipoPedido: undefined,
   unidadDeMedidaPrincipal: "PALETA",
 };
 
@@ -500,6 +501,8 @@ export default function VariableWeightFormComponent() {
   const [standardObservations, setStandardObservations] = useState<StandardObservation[]>([]);
   const [isObservationDialogOpen, setObservationDialogOpen] = useState(false);
   const [observationDialogIndex, setObservationDialogIndex] = useState<number | null>(null);
+  const [pedidoTypes, setPedidoTypes] = useState<PedidoType[]>([]);
+
 
   const isAdmin = permissions.canManageSessions;
 
@@ -525,7 +528,7 @@ export default function VariableWeightFormComponent() {
     name: "destinos",
   });
 
-  const { fields: summaryFields, replace: replaceSummary } = useFieldArray({
+  const { fields: summaryFields, setValue: setSummaryValue, replace: replaceSummary } = useFieldArray({
     control: form.control,
     name: "summary"
   });
@@ -628,15 +631,15 @@ export default function VariableWeightFormComponent() {
   }, [watchedItems, watchedDestinos, watchedDespachoPorDestino, watchedTotalPaletasDespacho, isSummaryMode]);
   
   useEffect(() => {
-      const currentSummaryInForm = form.getValues('summary') || [];
-      const newSummaryState = calculatedSummaryForDisplay.items.map(newItem => {
-          const existingItem = currentSummaryInForm.find(oldItem => oldItem.descripcion === newItem.descripcion);
-          return {
-              ...newItem,
-              temperatura: existingItem?.temperatura ?? null,
-          };
-      });
-      replaceSummary(newSummaryState);
+    const currentSummaryInForm = form.getValues('summary') || [];
+    const newSummaryState = calculatedSummaryForDisplay.items.map(newItem => {
+        const existingItem = currentSummaryInForm.find(oldItem => oldItem.descripcion === newItem.descripcion);
+        return {
+            ...newItem,
+            temperatura: existingItem?.temperatura ?? null,
+        };
+    });
+    replaceSummary(newSummaryState);
   }, [calculatedSummaryForDisplay.items, form, replaceSummary]);
 
   
@@ -646,13 +649,16 @@ export default function VariableWeightFormComponent() {
 
   useEffect(() => {
     const fetchClientsAndObs = async () => {
-      const [clientList, obsList, userList] = await Promise.all([
+      const formName = 'variable-weight-despacho';
+      const [clientList, obsList, userList, pedidoTypeList] = await Promise.all([
         getClients(),
         getStandardObservations(),
-        isAdmin ? getUsersList() : Promise.resolve([])
+        isAdmin ? getUsersList() : Promise.resolve([]),
+        getPedidoTypesForForm(formName),
       ]);
       setClientes(clientList);
       setStandardObservations(obsList);
+      setPedidoTypes(pedidoTypeList);
       if (isAdmin) {
           setAllUsers(userList);
       }
@@ -1017,17 +1023,18 @@ export default function VariableWeightFormComponent() {
   }
   
   const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const data = form.getValues();
-    const allItems = data.despachoPorDestino ? (data.destinos || []).flatMap(d => d.items) : (data.items || []);
-    const hasSummaryRow = allItems.some(item => Number(item.paleta) === 0);
-    const hasDetailRow = allItems.some(item => Number(item.paleta) > 0);
+    form.handleSubmit((data) => {
+        const allItems = data.despachoPorDestino ? (data.destinos || []).flatMap(d => d.items) : (data.items || []);
+        const hasSummaryRow = allItems.some(item => Number(item.paleta) === 0);
+        const hasDetailRow = allItems.some(item => Number(item.paleta) > 0);
 
-    if (hasSummaryRow && hasDetailRow) {
-      setMixErrorDialogOpen(true);
-      return;
-    }
-    form.handleSubmit(onSubmit)(e);
+        if (hasSummaryRow && hasDetailRow) {
+            setMixErrorDialogOpen(true);
+            return; // Stop submission
+        }
+        
+        onSubmit(data);
+    })(e);
   };
   
   const handleClientSelection = async (clientName: string) => {
@@ -1370,8 +1377,9 @@ export default function VariableWeightFormComponent() {
                                       </SelectTrigger>
                                   </FormControl>
                                   <SelectContent>
-                                      <SelectItem value="GENERICO">GENERICO</SelectItem>
-                                      <SelectItem value="TUNEL">TUNEL</SelectItem>
+                                      {pedidoTypes.map(pt => (
+                                          <SelectItem key={pt.id} value={pt.name}>{pt.name}</SelectItem>
+                                      ))}
                                   </SelectContent>
                                   </Select>
                                   <FormMessage />
@@ -1500,16 +1508,15 @@ export default function VariableWeightFormComponent() {
                                 </TableHeader>
                                 <TableBody>
                                     {calculatedSummaryForDisplay.items.length > 0 ? (
-                                        calculatedSummaryForDisplay.items.map((summaryItem, summaryIndex) => {
-                                            return (
+                                        calculatedSummaryForDisplay.items.map((summaryItem, summaryIndex) => (
                                             <TableRow key={summaryItem.descripcion}>
                                                 <TableCell className="font-medium">
-                                                    <div className="bg-muted/50 p-2 rounded-md flex items-center h-10">
-                                                        {summaryItem.descripcion}
-                                                    </div>
+                                                  <div className="bg-muted/50 p-2 rounded-md flex items-center h-10">
+                                                    {summaryItem.descripcion}
+                                                  </div>
                                                 </TableCell>
                                                 <TableCell>
-                                                    <FormField
+                                                     <FormField
                                                         control={form.control}
                                                         name={`summary.${summaryIndex}.temperatura`}
                                                         render={({ field }) => (
@@ -1522,10 +1529,11 @@ export default function VariableWeightFormComponent() {
                                                                     {...field}
                                                                     onChange={e => {
                                                                         const value = e.target.value === '' ? null : e.target.value;
-                                                                        const newSummary = form.getValues('summary');
-                                                                        if(newSummary && newSummary[summaryIndex]) {
-                                                                            newSummary[summaryIndex].temperatura = value;
-                                                                            form.setValue('summary', newSummary, { shouldValidate: true });
+                                                                        const currentSummary = form.getValues('summary');
+                                                                        if(currentSummary && currentSummary[summaryIndex]) {
+                                                                            currentSummary[summaryIndex].temperatura = value as any;
+                                                                            setSummaryValue(currentSummary);
+                                                                            form.trigger(`summary.${summaryIndex}.temperatura`);
                                                                         }
                                                                     }}
                                                                     className="w-24 h-9 text-center" 
@@ -1552,7 +1560,7 @@ export default function VariableWeightFormComponent() {
                                                   </div>
                                                 </TableCell>
                                             </TableRow>
-                                        )})
+                                        ))
                                     ) : (
                                         <TableRow>
                                             <TableCell colSpan={5} className="h-24 text-center">

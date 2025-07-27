@@ -153,7 +153,7 @@ const createFormSchema = (isReception: boolean) => z.object({
     coordinador: z.string().min(1, "Seleccione un coordinador."),
     aplicaCuadrilla: z.enum(["si", "no"], { required_error: "Seleccione una opción para 'Operación Realizada por Cuadrilla'." }),
     operarioResponsable: z.string().optional(),
-    tipoPedido: z.string().min(1, "El tipo de pedido es obligatorio.").optional(),
+    tipoPedido: z.string().min(1, "El tipo de pedido es obligatorio."),
     tipoEmpaqueMaquila: z.enum(['EMPAQUE DE SACOS', 'EMPAQUE DE CAJAS']).optional(),
     numeroOperariosCuadrilla: z.coerce.number().int().min(1, "Debe ser al menos 1.").optional(),
     unidadDeMedidaPrincipal: z.string().optional(),
