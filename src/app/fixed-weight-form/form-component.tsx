@@ -177,7 +177,7 @@ const createFormSchema = (isReception: boolean) => z.object({
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El número de operarios es obligatorio.", path: ['numeroOperariosCuadrilla'] });
         }
 
-        const isSpecialReception = data.tipoPedido === 'INGRESO DE SALDO' || data.tipoPedido === 'MAQUILA';
+        const isSpecialReception = data.tipoPedido === 'INGRESO DE SALDOS' || data.tipoPedido === 'MAQUILA';
         if (!isSpecialReception) {
             if (!data.nombreConductor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El nombre del conductor es obligatorio.', path: ['nombreConductor'] });
             if (!data.cedulaConductor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'La cédula del conductor es obligatoria.', path: ['cedulaConductor'] });
@@ -186,7 +186,7 @@ const createFormSchema = (isReception: boolean) => z.object({
             if (!data.contenedor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El contenedor es obligatorio.', path: ['contenedor'] });
         }
 
-        if (data.tipoPedido !== 'INGRESO DE SALDO' && !data.aplicaCuadrilla) {
+        if (data.tipoPedido !== 'INGRESO DE SALDOS' && !data.aplicaCuadrilla) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Seleccione una opción para 'Operación Realizada por Cuadrilla'.", path: ['aplicaCuadrilla'] });
         }
 
@@ -326,7 +326,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
 
 
   useEffect(() => {
-    if (watchedTipoPedido === 'INGRESO DE SALDO') {
+    if (watchedTipoPedido === 'INGRESO DE SALDOS') {
       if (form.getValues('aplicaCuadrilla') !== undefined) {
         form.setValue('aplicaCuadrilla', undefined);
       }
@@ -1425,43 +1425,47 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                                 <FormControl><Input disabled value={submissionId ? originalSubmission?.userDisplayName : displayName || ''} /></FormControl>
                             </FormItem>
                         )}
-
-                        <FormField
-                            control={form.control}
-                            name="aplicaCuadrilla"
-                            render={({ field }) => (
-                                <FormItem className="space-y-1 lg:col-span-4">
-                                    <FormLabel>Operación Realizada por Cuadrilla</FormLabel>
-                                    <FormControl>
-                                        <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-2" disabled={watchedTipoPedido === 'INGRESO DE SALDO'}>
-                                            <FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="cuadrilla-si" /><Label htmlFor="cuadrilla-si">Sí</Label></FormItem>
-                                            <FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="cuadrilla-no" /><Label htmlFor="cuadrilla-no">No</Label></FormItem></RadioGroup>
-                                    </FormControl>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        {watchedAplicaCuadrilla === 'si' && watchedTipoPedido === 'MAQUILA' && (
+                        {watchedTipoPedido !== 'INGRESO DE SALDOS' && (
+                            <>
                             <FormField
                                 control={form.control}
-                                name="numeroOperariosCuadrilla"
+                                name="aplicaCuadrilla"
                                 render={({ field }) => (
-                                    <FormItem className="lg:col-span-2">
-                                    <FormLabel>No. de Operarios de Cuadrilla</FormLabel>
-                                    <FormControl>
-                                        <Input 
-                                            type="number"
-                                            min="1"
-                                            placeholder="Ej: 3" 
-                                            {...field} 
-                                            value={field.value ?? ''}
-                                            onChange={e => field.onChange(parseInt(e.target.value, 10) || undefined)}
-                                        />
-                                    </FormControl>
-                                    <FormMessage />
+                                    <FormItem className="space-y-1 lg:col-span-4">
+                                        <FormLabel>Operación Realizada por Cuadrilla</FormLabel>
+                                        <FormControl>
+                                            <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-2">
+                                                <FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="cuadrilla-si" /><Label htmlFor="cuadrilla-si">Sí</Label></FormItem>
+                                                <FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="cuadrilla-no" /><Label htmlFor="cuadrilla-no">No</Label></FormItem>
+                                            </RadioGroup>
+                                        </FormControl>
+                                        <FormMessage />
                                     </FormItem>
                                 )}
                             />
+                            {watchedAplicaCuadrilla === 'si' && watchedTipoPedido === 'MAQUILA' && (
+                                <FormField
+                                    control={form.control}
+                                    name="numeroOperariosCuadrilla"
+                                    render={({ field }) => (
+                                        <FormItem className="lg:col-span-2">
+                                        <FormLabel>No. de Operarios de Cuadrilla</FormLabel>
+                                        <FormControl>
+                                            <Input 
+                                                type="number"
+                                                min="1"
+                                                placeholder="Ej: 3" 
+                                                {...field} 
+                                                value={field.value ?? ''}
+                                                onChange={e => field.onChange(parseInt(e.target.value, 10) || undefined)}
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            )}
+                            </>
                         )}
                     </div>
                 </CardContent>
@@ -1785,6 +1789,7 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
+
 
 
 
