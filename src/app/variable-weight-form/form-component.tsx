@@ -525,7 +525,7 @@ export default function VariableWeightFormComponent() {
     name: "destinos",
   });
 
-  const { fields: summaryFields } = useFieldArray({
+  const { fields: summaryFields, replace: replaceSummary } = useFieldArray({
     control: form.control,
     name: "summary"
   });
@@ -626,22 +626,19 @@ export default function VariableWeightFormComponent() {
         totalGeneralPaletas
     };
   }, [watchedItems, watchedDestinos, watchedDespachoPorDestino, watchedTotalPaletasDespacho, isSummaryMode]);
-
+  
   useEffect(() => {
-    const currentSummaryInForm = form.getValues('summary') || [];
-    const newSummaryState = calculatedSummaryForDisplay.items.map(newItem => {
-        const existingItem = currentSummaryInForm.find(oldItem => oldItem.descripcion === newItem.descripcion);
-        return {
-            ...newItem,
-            temperatura: existingItem?.temperatura ?? null,
-        };
-    });
-    
-    // Check if there is a real change to avoid infinite loops
-    if (JSON.stringify(newSummaryState) !== JSON.stringify(currentSummaryInForm)) {
-        form.setValue('summary', newSummaryState, { shouldValidate: true });
-    }
-  }, [calculatedSummaryForDisplay.items, form]);
+      const currentSummaryInForm = form.getValues('summary') || [];
+      const newSummaryState = calculatedSummaryForDisplay.items.map(newItem => {
+          const existingItem = currentSummaryInForm.find(oldItem => oldItem.descripcion === newItem.descripcion);
+          return {
+              ...newItem,
+              temperatura: existingItem?.temperatura ?? null,
+          };
+      });
+      replaceSummary(newSummaryState);
+  }, [calculatedSummaryForDisplay.items, form, replaceSummary]);
+
   
   const showSummary = useMemo(() => {
     return calculatedSummaryForDisplay.items.some(item => item && item.descripcion && item.descripcion.trim() !== '');
@@ -1022,7 +1019,7 @@ export default function VariableWeightFormComponent() {
   const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const data = form.getValues();
-    const allItems = data.despachoPorDestino ? data.destinos.flatMap(d => d.items) : data.items;
+    const allItems = data.despachoPorDestino ? (data.destinos || []).flatMap(d => d.items) : (data.items || []);
     const hasSummaryRow = allItems.some(item => Number(item.paleta) === 0);
     const hasDetailRow = allItems.some(item => Number(item.paleta) > 0);
 
@@ -1063,8 +1060,8 @@ export default function VariableWeightFormComponent() {
   };
 
   const handleObservationDialogOpening = (index: number) => {
-    setObservationDialogOpen(true);
     setObservationDialogIndex(index);
+    setObservationDialogOpen(true);
   };
   
   const handleCaptureTime = (fieldName: 'horaInicio' | 'horaFin') => {
@@ -1462,7 +1459,7 @@ export default function VariableWeightFormComponent() {
                                                 render={({ field }) => (
                                                     <FormItem>
                                                         <FormLabel>Nombre del Destino</FormLabel>
-                                                        <FormControl><Input placeholder="Ej: Bogotá" {...field} /></FormControl>
+                                                        <FormControl><Input placeholder="Ej: Bogotá" {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} /></FormControl>
                                                         <FormMessage />
                                                     </FormItem>
                                                 )}
@@ -1502,11 +1499,10 @@ export default function VariableWeightFormComponent() {
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {summaryFields.length > 0 ? (
-                                        summaryFields.map((summaryItem, summaryIndex) => {
-                                            const displayData = calculatedSummaryForDisplay.items.find(d => d.descripcion === summaryItem.descripcion);
+                                    {calculatedSummaryForDisplay.items.length > 0 ? (
+                                        calculatedSummaryForDisplay.items.map((summaryItem, summaryIndex) => {
                                             return (
-                                            <TableRow key={summaryItem.id}>
+                                            <TableRow key={summaryItem.descripcion}>
                                                 <TableCell className="font-medium">
                                                     <div className="bg-muted/50 p-2 rounded-md flex items-center h-10">
                                                         {summaryItem.descripcion}
@@ -1518,18 +1514,23 @@ export default function VariableWeightFormComponent() {
                                                         name={`summary.${summaryIndex}.temperatura`}
                                                         render={({ field }) => (
                                                         <FormItem>
-                                                            <FormControl><Input
-                                                                type="text"
-                                                                inputMode="decimal"
-                                                                placeholder="Temp"
-                                                                {...field}
-                                                                onChange={e => {
-                                                                    const value = e.target.value === '' ? null : e.target.value;
-                                                                    field.onChange(value);
-                                                                }}
-                                                                value={field.value ?? ''}
-                                                                className="w-24 h-9 text-center" 
-                                                            /></FormControl>
+                                                            <FormControl>
+                                                                <Input
+                                                                    type="text"
+                                                                    inputMode="decimal"
+                                                                    placeholder="Temp"
+                                                                    {...field}
+                                                                    onChange={e => {
+                                                                        const value = e.target.value === '' ? null : e.target.value;
+                                                                        const newSummary = form.getValues('summary');
+                                                                        if(newSummary && newSummary[summaryIndex]) {
+                                                                            newSummary[summaryIndex].temperatura = value;
+                                                                            form.setValue('summary', newSummary, { shouldValidate: true });
+                                                                        }
+                                                                    }}
+                                                                    className="w-24 h-9 text-center" 
+                                                                />
+                                                            </FormControl>
                                                             <FormMessage className="text-xs"/>
                                                         </FormItem>
                                                         )}
@@ -1537,17 +1538,17 @@ export default function VariableWeightFormComponent() {
                                                 </TableCell>
                                                 <TableCell className="text-right">
                                                   <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
-                                                    {displayData?.totalPaletas || 0}
+                                                    {summaryItem?.totalPaletas || 0}
                                                   </div>
                                                 </TableCell>
                                                 <TableCell className="text-right">
                                                   <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
-                                                    {(displayData?.totalPeso || 0).toFixed(2)}
+                                                    {(summaryItem?.totalPeso || 0).toFixed(2)}
                                                   </div>
                                                 </TableCell>
                                                 <TableCell className="text-right">
                                                   <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
-                                                    {displayData?.totalCantidad || 0}
+                                                    {summaryItem?.totalCantidad || 0}
                                                   </div>
                                                 </TableCell>
                                             </TableRow>
