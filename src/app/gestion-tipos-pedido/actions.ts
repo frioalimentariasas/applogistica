@@ -14,28 +14,18 @@ export async function getPedidoTypes(): Promise<PedidoType[]> {
   if (!firestore) return [];
   try {
     const snapshot = await firestore.collection('pedido_types').orderBy('name').get();
+    
+    // The logic to auto-create defaults if empty has been removed.
+    // Now it will simply return an empty array if no types are defined.
     if (snapshot.empty) {
-        // If empty, create the default ones
-        const defaults = [
-            { name: 'GENERICO', appliesTo: ['fixed-weight-reception', 'fixed-weight-despacho', 'variable-weight-reception', 'variable-weight-despacho'] },
-            { name: 'MAQUILA', appliesTo: ['fixed-weight-reception', 'variable-weight-reception'] },
-            { name: 'TUNEL', appliesTo: ['fixed-weight-reception', 'fixed-weight-despacho', 'variable-weight-reception', 'variable-weight-despacho'] },
-            { name: 'INGRESO DE SALDO', appliesTo: ['fixed-weight-reception', 'variable-weight-reception'] },
-        ];
-        const batch = firestore.batch();
-        const results: PedidoType[] = [];
-        defaults.forEach(item => {
-            const docRef = firestore.collection('pedido_types').doc();
-            batch.set(docRef, item);
-            results.push({ id: docRef.id, ...item } as PedidoType);
-        });
-        await batch.commit();
-        return results;
+        return [];
     }
+    
     return snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data(),
     } as PedidoType));
+
   } catch (error) {
     console.error("Error fetching 'Tipos de Pedido':", error);
     return [];
