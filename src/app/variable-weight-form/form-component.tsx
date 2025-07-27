@@ -617,7 +617,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
     return {
         items: Object.values(grouped).map(group => {
             const paletasCount = group.paletas.has(0)
-                ? allItemsForSummary.filter(item => item.descripcion === group.descripcion && Number(item.paleta) === 0).reduce((sum, item) => itemSum + (Number(item.totalPaletas) || 0), 0)
+                ? allItemsForSummary.filter(item => item.descripcion === group.descripcion && Number(item.paleta) === 0).reduce((sum, item) => sum + (Number(item.totalPaletas) || 0), 0)
                 : group.paletas.size;
     
             return {
@@ -2085,4 +2085,5 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
+
 
