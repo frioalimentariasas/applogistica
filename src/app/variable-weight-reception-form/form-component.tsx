@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
@@ -66,7 +67,7 @@ import {
 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { RestoreDialog } from "@/hooks/use-form-persistence";
+import { RestoreDialog } from "@/components/app/restore-dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDialogDesc, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
@@ -987,7 +988,7 @@ export default function VariableWeightReceptionFormComponent() {
 
   return (
     <FormProvider {...form}>
-       <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
+      <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
         <RestoreDialog
             open={isRestoreDialogOpen}
             onOpenChange={onOpenChange}
@@ -2037,3 +2038,4 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
+
