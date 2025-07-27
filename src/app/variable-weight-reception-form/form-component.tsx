@@ -2038,4 +2038,3 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
-
