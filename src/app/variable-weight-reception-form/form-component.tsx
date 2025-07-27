@@ -80,7 +80,7 @@ const itemSchema = z.object({
           invalid_type_error: "La paleta es requerida.",
       }).int({ message: "La paleta debe ser un número entero." }).min(0, "Debe ser un número no negativo."),
     descripcion: z.string().min(1, "La descripción es requerida."),
-    lote: z.string().min(1, "El lote es requerido.").max(15, "Máx 15 caracteres"),
+    lote: z.string().max(15, "Máx 15 caracteres").optional(),
     presentacion: z.string().min(1, "Seleccione una presentación."),
     // Conditional fields for individual pallets (paleta > 0)
     cantidadPorPaleta: z.preprocess(
@@ -237,19 +237,35 @@ const formSchema = z.object({
     message: "La hora de fin no puede ser igual a la de inicio.",
     path: ["horaFin"],
 }).superRefine((data, ctx) => {
-    if (data.tipoPedido === 'MAQUILA' && !data.tipoEmpaqueMaquila) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El tipo de empaque es obligatorio para maquila.", path: ['tipoEmpaqueMaquila'] });
-    }
-    if (data.aplicaCuadrilla === 'si' && data.tipoPedido === 'MAQUILA' && (data.numeroOperariosCuadrilla === undefined || data.numeroOperariosCuadrilla <= 0)) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El número de operarios es obligatorio.", path: ['numeroOperariosCuadrilla'] });
-    }
     const isSpecialReception = data.tipoPedido === 'INGRESO DE SALDO' || data.tipoPedido === 'MAQUILA';
+    
+    // Validate transport fields if it's NOT a special reception
     if (!isSpecialReception) {
         if (!data.conductor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El nombre del conductor es obligatorio.', path: ['conductor'] });
         if (!data.cedulaConductor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'La cédula del conductor es obligatoria.', path: ['cedulaConductor'] });
         if (!data.placa?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'La placa es obligatoria.', path: ['placa'] });
         if (!data.precinto?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El precinto es obligatorio.', path: ['precinto'] });
         if (!data.contenedor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El contenedor es obligatorio.', path: ['contenedor'] });
+    }
+
+    if (data.tipoPedido === 'MAQUILA' && !data.tipoEmpaqueMaquila) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El tipo de empaque es obligatorio para maquila.", path: ['tipoEmpaqueMaquila'] });
+    }
+    if (data.aplicaCuadrilla === 'si' && data.tipoPedido === 'MAQUILA' && (data.numeroOperariosCuadrilla === undefined || data.numeroOperariosCuadrilla <= 0)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El número de operarios es obligatorio.", path: ['numeroOperariosCuadrilla'] });
+    }
+
+    // Validate Lote field if it's NOT an "INGRESO DE SALDO"
+    if (data.tipoPedido !== 'INGRESO DE SALDO') {
+        data.items.forEach((item, index) => {
+            if (!item.lote?.trim()) {
+                ctx.addIssue({
+                    code: z.ZodIssueCode.custom,
+                    message: "El lote es obligatorio.",
+                    path: [`items.${index}.lote`],
+                });
+            }
+        });
     }
 });
 
@@ -984,7 +1000,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
 
   return (
     <FormProvider {...form}>
-       <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
+      <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
         <RestoreDialog
             open={isRestoreDialogOpen}
             onOpenChange={onOpenChange}
