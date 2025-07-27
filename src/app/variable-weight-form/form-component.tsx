@@ -236,7 +236,7 @@ const formSchema = z.object({
     coordinador: z.string().min(1, "Seleccione un coordinador."),
     aplicaCuadrilla: z.enum(["si", "no"], { required_error: "Seleccione una opción para 'Operación Realizada por Cuadrilla'." }),
     operarioResponsable: z.string().optional(),
-    tipoPedido: z.string().min(1, "El tipo de pedido es obligatorio."),
+    tipoPedido: z.string({required_error: "El tipo de pedido es obligatorio."}).min(1, "El tipo de pedido es obligatorio."),
     unidadDeMedidaPrincipal: z.string().optional(),
 }).refine((data) => {
     if (data.horaInicio && data.horaFin && data.horaInicio === data.horaFin) {
@@ -1511,36 +1511,31 @@ export default function VariableWeightFormComponent() {
                                         calculatedSummaryForDisplay.items.map((summaryItem, summaryIndex) => (
                                             <TableRow key={summaryItem.descripcion}>
                                                 <TableCell className="font-medium">
-                                                  <div className="bg-muted/50 p-2 rounded-md flex items-center h-10">
-                                                    {summaryItem.descripcion}
-                                                  </div>
+                                                    <div className="bg-muted/50 p-2 rounded-md flex items-center h-10">
+                                                        {summaryItem.descripcion}
+                                                    </div>
                                                 </TableCell>
                                                 <TableCell>
-                                                     <FormField
+                                                    <Controller
                                                         control={form.control}
                                                         name={`summary.${summaryIndex}.temperatura`}
-                                                        render={({ field }) => (
-                                                        <FormItem>
-                                                            <FormControl>
-                                                                <Input
-                                                                    type="text"
-                                                                    inputMode="decimal"
-                                                                    placeholder="Temp"
-                                                                    {...field}
-                                                                    onChange={e => {
-                                                                        const value = e.target.value === '' ? null : e.target.value;
-                                                                        const currentSummary = form.getValues('summary');
-                                                                        if(currentSummary && currentSummary[summaryIndex]) {
-                                                                            currentSummary[summaryIndex].temperatura = value as any;
-                                                                            setSummaryValue(currentSummary);
-                                                                            form.trigger(`summary.${summaryIndex}.temperatura`);
-                                                                        }
-                                                                    }}
-                                                                    className="w-24 h-9 text-center" 
-                                                                />
-                                                            </FormControl>
-                                                            <FormMessage className="text-xs"/>
-                                                        </FormItem>
+                                                        render={({ field, fieldState }) => (
+                                                            <FormItem>
+                                                                <FormControl>
+                                                                    <Input
+                                                                        type="text"
+                                                                        inputMode="decimal"
+                                                                        placeholder="Temp"
+                                                                        className="w-24 h-9 text-center"
+                                                                        value={field.value ?? ''}
+                                                                        onChange={e => {
+                                                                            const value = e.target.value === '' ? null : e.target.value;
+                                                                            field.onChange(value);
+                                                                        }}
+                                                                    />
+                                                                </FormControl>
+                                                                <FormMessage className="text-xs" />
+                                                            </FormItem>
                                                         )}
                                                     />
                                                 </TableCell>
