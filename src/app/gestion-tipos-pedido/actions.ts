@@ -92,19 +92,27 @@ export async function getPedidoTypesForForm(
 ): Promise<PedidoType[]> {
     if (!firestore) return [];
     try {
-        const snapshot = await firestore.collection('pedido_types')
-            .where('appliesTo', 'array-contains', formName)
-            .orderBy('name')
-            .get();
+        const snapshot = await firestore.collection('pedido_types').get();
             
         if (snapshot.empty) return [];
         
-        return snapshot.docs.map(doc => ({
+        const allTypes = snapshot.docs.map(doc => ({
             id: doc.id,
             ...doc.data(),
         } as PedidoType));
+
+        const filteredTypes = allTypes.filter(type => type.appliesTo.includes(formName));
+        
+        // Sort alphabetically by name
+        filteredTypes.sort((a, b) => a.name.localeCompare(b.name));
+        
+        return filteredTypes;
+
     } catch(error) {
         console.error(`Error fetching order types for form ${formName}:`, error);
-        return [];
+        if (error instanceof Error) {
+            throw new Error(error.message);
+        }
+        throw new Error('An unknown error occurred while fetching order types.');
     }
 }
