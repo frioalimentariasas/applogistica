@@ -3,7 +3,7 @@
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { useForm, useFieldArray, useWatch, FormProvider, Controller } from "react-hook-form";
+import { useForm, useFieldArray, useWatch, FormProvider, useFormContext, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
 import { format } from "date-fns";
@@ -902,12 +902,12 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
             try {
                 const optimizedImage = await optimizeImage(dataUrl);
 
-                const newImageSize = getByteSizeFromBase64(optimizedImage.split(',')[1]);
+                const newImagesSize = getByteSizeFromBase64(optimizedImage.split(',')[1]);
                 const existingImagesSize = attachments
                     .filter(a => a.startsWith('data:image'))
                     .reduce((sum, base64) => sum + getByteSizeFromBase64(base64.split(',')[1]), 0);
 
-                if (existingImagesSize + newImageSize > MAX_TOTAL_SIZE_BYTES) {
+                if (existingImagesSize + newImagesSize > MAX_TOTAL_SIZE_BYTES) {
                     toast({
                         variant: "destructive",
                         title: "Límite de tamaño excedido",
