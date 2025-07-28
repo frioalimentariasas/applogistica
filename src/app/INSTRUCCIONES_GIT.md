@@ -10,12 +10,12 @@ Git es una herramienta que se ejecuta en tu computadora local. Esta guía te mos
 
 Antes de poder usar Git, necesitas una copia local de tu código.
 
-1.  **Encuentra el menú de opciones:**
-    *   **Ubicación:** En la esquina superior derecha de la pantalla de Firebase Studio, busca el **ícono de código (`</>`)** que está a la izquierda del botón azul "Publish".
+1.  **Encuentra el menú de opciones del Explorador de Archivos:**
+    *   **Ubicación:** En la barra lateral izquierda, busca el título **"EXPLORER"**. Justo a la derecha de esa palabra, verás un botón con tres puntos horizontales (`...`).
 
 2.  **Descarga el código:**
-    *   Haz clic en el ícono de código (`</>`).
-    *   En el menú que aparece, selecciona la opción **"Download Code"** o **"Descargar Código"**.
+    *   Haz clic en el menú de los tres puntos (`...`).
+    *   En el menú que aparece, selecciona la opción **"Download..."**.
 
 3.  **Descomprime el archivo:**
     *   Esto descargará un archivo `.zip` con **todo tu proyecto**. No necesitas seleccionar carpetas individuales como `src`; el archivo ya lo incluye todo.
