@@ -320,6 +320,110 @@ function getByteSizeFromBase64(base64: string): number {
     return base64.length * (3 / 4) - (base64.endsWith('==') ? 2 : base64.endsWith('=') ? 1 : 0);
 }
 
+const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, isTunel = false, placaIndex }: { control: any, itemIndex: number, handleProductDialogOpening: (context: { itemIndex: number, placaIndex?: number }) => void, remove?: (index: number) => void, isTunel?: boolean, placaIndex?: number }) => {
+    const basePath = isTunel ? `placas.${placaIndex}.items` : 'items';
+    const watchedItem = useWatch({ control, name: `${basePath}.${itemIndex}` });
+    const { setValue } = useFormContext();
+
+    useEffect(() => {
+        if (watchedItem && watchedItem.paleta !== 0) {
+            const cantidadPorPaleta = Number(watchedItem.cantidadPorPaleta) || 0;
+            const taraCaja = Number(watchedItem.taraCaja) || 0;
+            const pesoBruto = Number(watchedItem.pesoBruto) || 0;
+            const taraEstiba = Number(watchedItem.taraEstiba) || 0;
+
+            const calculatedTotalTaraCaja = cantidadPorPaleta * taraCaja;
+            const calculatedPesoNeto = pesoBruto - taraEstiba - calculatedTotalTaraCaja;
+
+            if (watchedItem.totalTaraCaja !== calculatedTotalTaraCaja) {
+                setValue(`${basePath}.${itemIndex}.totalTaraCaja`, calculatedTotalTaraCaja, { shouldValidate: false });
+            }
+            if (watchedItem.pesoNeto !== calculatedPesoNeto) {
+                setValue(`${basePath}.${itemIndex}.pesoNeto`, calculatedPesoNeto, { shouldValidate: false });
+            }
+        }
+    }, [watchedItem?.cantidadPorPaleta, watchedItem?.taraCaja, watchedItem?.pesoBruto, watchedItem?.taraEstiba, watchedItem?.paleta, basePath, itemIndex, setValue, watchedItem]);
+
+    const isSummaryRow = watchedItem?.paleta === 0;
+    const pesoNeto = watchedItem?.pesoNeto;
+    
+    return (
+      <div className="p-4 border rounded-lg relative bg-white space-y-4">
+         <div className="flex justify-between items-center">
+            <h4 className="text-lg font-semibold md:text-base">Ítem #{itemIndex + 1}</h4>
+            {remove && (
+                <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => remove(itemIndex)}>
+                    <Trash2 className="h-4 w-4" />
+                </Button>
+            )}
+        </div>
+        <>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <FormField control={control} name={`${basePath}.${itemIndex}.codigo`} render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Código</FormLabel>
+                        <Button type="button" variant="outline" className="w-full justify-between h-10 text-left font-normal" onClick={() => handleProductDialogOpening({ itemIndex, placaIndex })}>
+                            <span className="truncate">{field.value || "Seleccionar código..."}</span>
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                        <FormMessage />
+                    </FormItem>
+                )} />
+                <FormField control={control} name={`${basePath}.${itemIndex}.descripcion`} render={({ field }) => (
+                    <FormItem className="md:col-span-2">
+                        <FormLabel>Descripción</FormLabel>
+                        <Button type="button" variant="outline" className="w-full justify-between h-10 text-left font-normal" onClick={() => handleProductDialogOpening({ itemIndex, placaIndex })}>
+                            <span className="truncate">{field.value || "Seleccionar producto..."}</span>
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                        <FormMessage />
+                    </FormItem>
+                )} />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <FormField control={control} name={`${basePath}.${itemIndex}.paleta`} render={({ field }) => (
+                    <FormItem><FormLabel>Paleta</FormLabel><FormControl><Input type="text" inputMode="numeric" placeholder="0 para resumen" {...field} onChange={e => field.onChange(e.target.value === '' ? null : Number(e.target.value))} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={control} name={`${basePath}.${itemIndex}.lote`} render={({ field }) => (
+                    <FormItem><FormLabel>Lote</FormLabel><FormControl><Input placeholder="Lote (máx. 15)" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={control} name={`${basePath}.${itemIndex}.presentacion`} render={({ field }) => (
+                    <FormItem><FormLabel>Presentación</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione" /></SelectTrigger></FormControl><SelectContent>{presentaciones.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                )} />
+            </div>
+            {isSummaryRow ? (
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <FormField control={control} name={`${basePath}.${itemIndex}.totalCantidad`} render={({ field }) => (
+                        <FormItem><FormLabel>Total Cantidad</FormLabel><FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={control} name={`${basePath}.${itemIndex}.totalPaletas`} render={({ field }) => (
+                        <FormItem><FormLabel>Total Paletas</FormLabel><FormControl><Input type="text" inputMode="numeric" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={control} name={`${basePath}.${itemIndex}.totalPesoNeto`} render={({ field }) => (
+                        <FormItem><FormLabel>Total Peso Neto (kg)</FormLabel><FormControl><Input type="text" inputMode="decimal" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
+                    <FormField control={control} name={`${basePath}.${itemIndex}.cantidadPorPaleta`} render={({ field }) => (
+                        <FormItem><FormLabel>Cant. Por Paleta</FormLabel><FormControl><Input type="text" inputMode="numeric" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={control} name={`${basePath}.${itemIndex}.pesoBruto`} render={({ field }) => (
+                        <FormItem><FormLabel>P. Bruto (kg)</FormLabel><FormControl><Input type="text" inputMode="decimal" min="0" step="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={control} name={`${basePath}.${itemIndex}.taraEstiba`} render={({ field }) => (
+                        <FormItem><FormLabel>T. Estiba (kg)</FormLabel><FormControl><Input type="text" inputMode="decimal" min="0" step="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={control} name={`${basePath}.${itemIndex}.taraCaja`} render={({ field }) => (
+                        <FormItem><FormLabel>T. Caja (kg)</FormLabel><FormControl><Input type="text" inputMode="decimal" min="0" step="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormItem><FormLabel>Peso Neto (kg)</FormLabel><FormControl><Input disabled readOnly value={pesoNeto != null && !isNaN(pesoNeto) ? pesoNeto.toFixed(2) : '0.00'} /></FormControl></FormItem>
+                </div>
+            )}
+        </>
+      </div>
+    );
+};
 
 export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { pedidoTypes: PedidoType[] }) {
   const router = useRouter();
@@ -1358,15 +1462,15 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                      ) : (
                         <div className="space-y-4">
                             {fields.map((field, index) => (
-                                <FormItemRow
+                                <ItemFields
                                     key={field.id}
-                                    index={index}
                                     control={form.control}
+                                    itemIndex={index}
                                     remove={remove}
                                     handleProductDialogOpening={handleProductDialogOpening}
                                 />
                             ))}
-                            <Button type="button" variant="outline" onClick={handleAddItem}><PlusCircle className="mr-2 h-4 w-4" />Agregar Item</Button>
+                            <Button type="button" variant="outline" onClick={handleAddItem}><PlusCircle className="mr-2 h-4 w-4" />Agregar Ítem</Button>
                         </div>
                      )}
                   </CardContent>
@@ -1382,59 +1486,56 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead className="w-[240px]">Temperaturas (°C)</TableHead>
                                         <TableHead>Producto</TableHead>
+                                        <TableHead className="w-[240px]">Temperaturas (°C)</TableHead>
                                         <TableHead className="text-right">Total Paletas</TableHead>
+                                        <TableHead className="text-right">Total Cantidad</TableHead>
                                         <TableHead className="text-right">Total Peso (kg)</TableHead>
-                                        <TableHead className="text-right">Cantidad Total</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {calculatedSummaryForDisplay.length > 0 ? (
-                                        calculatedSummaryForDisplay.map((summaryItem, summaryIndex) => (
+                                        calculatedSummaryForDisplay.map((summaryItem, summaryIndex) => {
+                                           return (
                                             <TableRow key={summaryItem.descripcion}>
-                                                <TableCell>
-                                                    { summaryIndex > -1 ? (
-                                                      <div className="flex items-center gap-1">
-                                                          <FormField
-                                                              control={form.control}
-                                                              name={`summary.${summaryIndex}.temperatura1`}
-                                                              render={({ field }) => (
-                                                                <FormItem>
-                                                                  <FormControl><Input type="text" inputMode="decimal" placeholder="T1" {...field} 
-                                                                          onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} 
-                                                                          value={field.value ?? ''}
-                                                                      className="w-20 h-9 text-center" /></FormControl>
-                                                                  <FormMessage className="text-xs"/>
-                                                                </FormItem>
-                                                              )} />
-                                                          <FormField
-                                                              control={form.control}
-                                                              name={`summary.${summaryIndex}.temperatura2`}
-                                                              render={({ field }) => (
-                                                                <FormItem>
-                                                                  <FormControl><Input type="text" inputMode="decimal" placeholder="T2" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} className="w-20 h-9 text-center" /></FormControl>
-                                                                  <FormMessage className="text-xs"/>
-                                                                </FormItem>
-                                                              )} />
-                                                          <FormField
-                                                              control={form.control}
-                                                              name={`summary.${summaryIndex}.temperatura3`}
-                                                              render={({ field }) => (
-                                                                <FormItem>
-                                                                  <FormControl><Input type="text" inputMode="decimal" placeholder="T3" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} className="w-20 h-9 text-center" /></FormControl>
-                                                                  <FormMessage className="text-xs"/>
-                                                                </FormItem>
-                                                              )} />
-                                                      </div>
-                                                    ) : (
-                                                      <div className="h-10 w-full" />
-                                                    )}
-                                                </TableCell>
                                                 <TableCell className="font-medium">
-                                                  <div className="bg-muted/50 p-2 rounded-md flex items-center h-10">
-                                                    {summaryItem.descripcion}
-                                                  </div>
+                                                    <div className="bg-muted/50 p-2 rounded-md flex items-center h-10">
+                                                        {summaryItem.descripcion}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex items-center gap-1">
+                                                        <FormField
+                                                            control={form.control}
+                                                            name={`summary.${summaryIndex}.temperatura1`}
+                                                            render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormControl><Input type="text" inputMode="decimal" placeholder="T1" {...field} 
+                                                                        onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} 
+                                                                        value={field.value ?? ''}
+                                                                    className="w-20 h-9 text-center" /></FormControl>
+                                                                <FormMessage className="text-xs"/>
+                                                            </FormItem>
+                                                            )} />
+                                                        <FormField
+                                                            control={form.control}
+                                                            name={`summary.${summaryIndex}.temperatura2`}
+                                                            render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormControl><Input type="text" inputMode="decimal" placeholder="T2" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} className="w-20 h-9 text-center" /></FormControl>
+                                                                <FormMessage className="text-xs"/>
+                                                            </FormItem>
+                                                            )} />
+                                                        <FormField
+                                                            control={form.control}
+                                                            name={`summary.${summaryIndex}.temperatura3`}
+                                                            render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormControl><Input type="text" inputMode="decimal" placeholder="T3" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} className="w-20 h-9 text-center" /></FormControl>
+                                                                <FormMessage className="text-xs"/>
+                                                            </FormItem>
+                                                            )} />
+                                                    </div>
                                                 </TableCell>
                                                 <TableCell className="text-right">
                                                   <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
@@ -1443,16 +1544,16 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                                 </TableCell>
                                                 <TableCell className="text-right">
                                                   <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
-                                                    {(summaryItem.totalPeso || 0).toFixed(2)}
+                                                    {summaryItem.totalCantidad || 0}
                                                   </div>
                                                 </TableCell>
                                                 <TableCell className="text-right">
                                                   <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
-                                                    {summaryItem.totalCantidad || 0}
+                                                    {(summaryItem.totalPeso || 0).toFixed(2)}
                                                   </div>
                                                 </TableCell>
                                             </TableRow>
-                                        ))
+                                        )})
                                     ) : (
                                         <TableRow>
                                             <TableCell colSpan={5} className="h-24 text-center">
@@ -1954,127 +2055,6 @@ function ProductSelectorDialog({
     );
 }
 
-// Sub-component for a single item row to handle its own state and logic
-const FormItemRow = ({ index, control, remove, handleProductDialogOpening }: { index: number, control: any, remove: (index: number) => void, handleProductDialogOpening: (index: number) => void }) => {
-    const isSummaryRow = useWatch({ control, name: `items.${index}.paleta` }) === 0;
-    const pesoNeto = useWatch({ control, name: `items.${index}.pesoNeto` });
-
-    return (
-        <div className="p-4 border rounded-lg relative bg-white space-y-4">
-            <div className="flex justify-between items-center">
-                <h4 className="text-lg font-semibold md:text-base">Ítem #{index + 1}</h4>
-                <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => remove(index)}><Trash2 className="h-4 w-4" /></Button>
-            </div>
-            <div className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <FormField control={control} name={`items.${index}.codigo`} render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Código</FormLabel>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                className="w-full justify-between h-10 text-left font-normal"
-                                onClick={() => handleProductDialogOpening(index)}
-                            >
-                                <span className="truncate">{field.value || "Seleccionar código..."}</span>
-                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                            </Button>
-                            <FormMessage />
-                        </FormItem>
-                    )} />
-                    <FormField control={control} name={`items.${index}.descripcion`} render={({ field: controllerField }) => (
-                        <FormItem className="md:col-span-2">
-                            <FormLabel>Descripción del Producto</FormLabel>
-                            <Button
-                                type="button"
-                                variant="outline"
-                                className="w-full justify-between h-10 text-left font-normal"
-                                onClick={() => handleProductDialogOpening(index)}
-                            >
-                                <span className="truncate">{controllerField.value || "Seleccionar producto..."}</span>
-                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                            </Button>
-                            <FormMessage />
-                        </FormItem>
-                    )} />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <FormField control={control} name={`items.${index}.paleta`} render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Paleta</FormLabel>
-                            <FormControl>
-                                <Input 
-                                    type="text" 
-                                    inputMode="numeric" 
-                                    placeholder="0 (para resumen)" 
-                                    {...field}
-                                    onChange={e => {
-                                        const value = e.target.value;
-                                        // Allow empty string to represent null, otherwise convert to number
-                                        field.onChange(value === '' ? null : Number(value));
-                                    }}
-                                    value={field.value ?? ''}
-                                />
-                            </FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )} />
-                    <FormField control={control} name={`items.${index}.lote`} render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Lote</FormLabel>
-                            <FormControl><Input placeholder="Lote (máx. 15 caracteres)" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value.toUpperCase())} /></FormControl>
-                            <FormMessage />
-                        </FormItem>
-                    )} />
-                    <FormField control={control} name={`items.${index}.presentacion`} render={({ field }) => (
-                        <FormItem>
-                            <FormLabel>Presentación</FormLabel>
-                            <Select onValueChange={field.onChange} value={field.value}>
-                                <FormControl>
-                                    <SelectTrigger><SelectValue placeholder="Seleccione presentación" /></SelectTrigger>
-                                </FormControl>
-                                <SelectContent>
-                                    {presentaciones.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                            <FormMessage />
-                        </FormItem>
-                    )} />
-                </div>
-                {isSummaryRow ? (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <FormField control={control} name={`items.${index}.totalCantidad`} render={({ field }) => (
-                            <FormItem><FormLabel>Total Cantidad</FormLabel><FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                        )} />
-                        <FormField control={control} name={`items.${index}.totalPaletas`} render={({ field }) => (
-                            <FormItem><FormLabel>Total Paletas</FormLabel><FormControl><Input type="text" inputMode="numeric" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                        )} />
-                        <FormField control={control} name={`items.${index}.totalPesoNeto`} render={({ field }) => (
-                            <FormItem><FormLabel>Total Peso Neto (kg)</FormLabel><FormControl><Input type="text" inputMode="decimal" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                        )} />
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
-                         <FormField control={control} name={`items.${index}.cantidadPorPaleta`} render={({ field }) => (
-                            <FormItem><FormLabel>Cantidad Por Paleta</FormLabel><FormControl><Input type="text" inputMode="numeric" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                        )} />
-                        <FormField control={control} name={`items.${index}.pesoBruto`} render={({ field }) => (
-                            <FormItem><FormLabel>Peso Bruto (kg)</FormLabel><FormControl><Input type="text" inputMode="decimal" min="0" step="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                        )} />
-                        <FormField control={control} name={`items.${index}.taraEstiba`} render={({ field }) => (
-                            <FormItem><FormLabel>Tara Estiba (kg)</FormLabel><FormControl><Input type="text" inputMode="decimal" min="0" step="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                        )} />
-                        <FormField control={control} name={`items.${index}.taraCaja`} render={({ field }) => (
-                            <FormItem><FormLabel>Tara Caja (kg)</FormLabel><FormControl><Input type="text" inputMode="decimal" min="0" step="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                        )} />
-                        <FormItem><FormLabel>Peso Neto (kg)</FormLabel><FormControl><Input disabled readOnly value={pesoNeto != null && !isNaN(pesoNeto) ? pesoNeto.toFixed(2) : '0.00'} /></FormControl></FormItem>
-                    </div>
-                )}
-            </div>
-        </div>
-    );
-};
-
 function PedidoTypeSelectorDialog({
     open,
     onOpenChange,
@@ -2157,13 +2137,14 @@ function ItemsPorPlaca({ placaIndex, handleProductDialogOpening }: { placaIndex:
         <div className="space-y-4">
             <h4 className="text-md font-semibold text-gray-600">Ítems de la Placa</h4>
             {fields.map((item, itemIndex) => (
-                <FormItemRow
+                <ItemFields
                     key={item.id}
-                    index={itemIndex}
+                    itemIndex={itemIndex}
                     control={control}
                     remove={remove}
-                    handleProductDialogOpening={(idx) => handleProductDialogOpening({ itemIndex: idx, placaIndex })}
+                    handleProductDialogOpening={(ctx) => handleProductDialogOpening({ ...ctx, placaIndex })}
                     isTunel
+                    placaIndex={placaIndex}
                 />
             ))}
             <Button type="button" variant="outline" size="sm" onClick={handleAddItemToPlaca}>
