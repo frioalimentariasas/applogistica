@@ -174,7 +174,7 @@ const optionalTempSchema = z.preprocess(
 );
 
 const requiredTempSchema = z.preprocess(
-    (val) => (val === "" || val === null ? undefined : val),
+    (val) => (val === "" ? undefined : val),
     z.coerce.number({
         required_error: "La Temp 1 es requerida.",
         invalid_type_error: "La temperatura debe ser un número."
@@ -230,7 +230,7 @@ const formSchema = z.object({
     }, {
       message: "Formato inválido. Debe ser 'N/A' o 4 letras y 7 números (ej: ABCD1234567)."
     }),
-    facturaRemision: z.string().max(15, "Máximo 15 caracteres.").optional(),
+    facturaRemision: z.string().max(15, "Máximo 15 caracteres.").optional().nullable(),
     items: z.array(itemSchema),
     placas: z.array(placaSchema), // For TUNEL type
     summary: z.array(summaryItemSchema).nullable(),
@@ -603,22 +603,23 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
 
   const { setValue: setFormValue, getValues: getFormValues } = form;
 
-  useEffect(() => {
-      const currentSummaryInForm = getFormValues('summary') || [];
-      const newSummaryState = calculatedSummaryForDisplay.map(newItem => {
-          const existingItem = currentSummaryInForm.find(oldItem => oldItem.descripcion === newItem.descripcion);
-          return {
-              ...newItem,
-              temperatura1: existingItem?.temperatura1 ?? null,
-              temperatura2: existingItem?.temperatura2 ?? null,
-              temperatura3: existingItem?.temperatura3 ?? null,
-          };
-      });
+  const currentSummaryFields = useMemo(() => {
+    const currentSummaryInForm = getFormValues('summary') || [];
+    const newSummaryState = calculatedSummaryForDisplay.map(newItem => {
+        const existingItem = currentSummaryInForm.find(oldItem => oldItem.descripcion === newItem.descripcion);
+        return {
+            ...newItem,
+            temperatura1: existingItem?.temperatura1 ?? null,
+            temperatura2: existingItem?.temperatura2 ?? null,
+            temperatura3: existingItem?.temperatura3 ?? null,
+        };
+    });
 
-      if (JSON.stringify(newSummaryState) !== JSON.stringify(currentSummaryInForm)) {
-          setFormValue('summary', newSummaryState, { shouldValidate: true });
-      }
-  }, [calculatedSummaryForDisplay, setFormValue, getFormValues]);
+    if (JSON.stringify(newSummaryState) !== JSON.stringify(currentSummaryInForm)) {
+        setFormValue('summary', newSummaryState, { shouldValidate: true });
+    }
+    return newSummaryState;
+  }, [calculatedSummaryForDisplay, getFormValues, setFormValue]);
 
   const showSummary = (itemsForCalculation || []).some(item => item && item.descripcion && item.descripcion.trim() !== '');
 
@@ -1498,18 +1499,17 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {calculatedSummaryForDisplay.length > 0 ? (
-                                        calculatedSummaryForDisplay.map((summaryItem, summaryIndex) => {
-                                            const currentItemInForm = form.getValues(`summary.${summaryIndex}`);
-                                            return (
-                                                <TableRow key={summaryItem.descripcion}>
-                                                    <TableCell className="font-medium">
-                                                        <div className="bg-muted/50 p-2 rounded-md flex items-center h-10">
-                                                            {summaryItem.descripcion}
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell>
-                                                        <div className="flex items-center gap-1">
+                                    {currentSummaryFields.length > 0 ? (
+                                        currentSummaryFields.map((summaryItem, summaryIndex) => {
+                                           return (
+                                            <TableRow key={summaryItem.descripcion}>
+                                                <TableCell className="font-medium">
+                                                    <div className="bg-muted/50 p-2 rounded-md flex items-center h-10">
+                                                        {summaryItem.descripcion}
+                                                    </div>
+                                                </TableCell>
+                                                <TableCell>
+                                                    <div className="flex items-center gap-1">
                                                             <FormField
                                                                 control={form.control}
                                                                 name={`summary.${summaryIndex}.temperatura1`}
@@ -1541,25 +1541,24 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                                                 </FormItem>
                                                                 )} />
                                                         </div>
-                                                    </TableCell>
-                                                    <TableCell className="text-right">
-                                                      <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
-                                                        {summaryItem.totalPaletas || 0}
-                                                      </div>
-                                                    </TableCell>
-                                                    <TableCell className="text-right">
-                                                      <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
-                                                        {summaryItem.totalCantidad || 0}
-                                                      </div>
-                                                    </TableCell>
-                                                    <TableCell className="text-right">
-                                                      <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
-                                                        {(summaryItem.totalPeso || 0).toFixed(2)}
-                                                      </div>
-                                                    </TableCell>
-                                                </TableRow>
-                                            )
-                                        })
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                  <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
+                                                    {summaryItem.totalPaletas || 0}
+                                                  </div>
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                  <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
+                                                    {summaryItem.totalCantidad || 0}
+                                                  </div>
+                                                </TableCell>
+                                                <TableCell className="text-right">
+                                                  <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
+                                                    {(summaryItem.totalPeso || 0).toFixed(2)}
+                                                  </div>
+                                                </TableCell>
+                                            </TableRow>
+                                        )})
                                     ) : (
                                         <TableRow>
                                             <TableCell colSpan={5} className="h-24 text-center">
@@ -2115,5 +2114,6 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
+
 
 
