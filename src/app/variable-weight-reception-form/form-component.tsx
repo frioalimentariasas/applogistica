@@ -278,49 +278,6 @@ const formSchema = z.object({
     }
 });
 
-
-type FormValues = z.infer<typeof formSchema>;
-
-const originalDefaultValues: FormValues = {
-  pedidoSislog: "",
-  cliente: "",
-  fecha: new Date(),
-  cedulaConductor: "",
-  conductor: "",
-  placa: "",
-  precinto: "",
-  setPoint: null,
-  contenedor: "",
-  facturaRemision: "",
-  items: [],
-  placas: [],
-  summary: [],
-  horaInicio: "",
-  horaFin: "",
-  observaciones: [],
-  coordinador: "",
-  aplicaCuadrilla: undefined,
-  operarioResponsable: undefined,
-  tipoPedido: undefined,
-  tipoEmpaqueMaquila: undefined,
-  numeroOperariosCuadrilla: undefined,
-  unidadDeMedidaPrincipal: "PALETA",
-};
-
-
-// Mock Data
-const coordinadores = ["Cristian Acuña", "Sergio Padilla"];
-const presentaciones = ["Cajas", "Sacos", "Canastillas"];
-
-// Attachment Constants
-const MAX_ATTACHMENTS = 30;
-const MAX_TOTAL_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
-
-function getByteSizeFromBase64(base64: string): number {
-    // This is an approximation
-    return base64.length * (3 / 4) - (base64.endsWith('==') ? 2 : base64.endsWith('=') ? 1 : 0);
-}
-
 const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, isTunel = false, placaIndex }: { control: any, itemIndex: number, handleProductDialogOpening: (context: { itemIndex: number, placaIndex?: number }) => void, remove?: (index: number) => void, isTunel?: boolean, placaIndex?: number }) => {
     const basePath = isTunel ? `placas.${placaIndex}.items` : 'items';
     const watchedItem = useWatch({ control, name: `${basePath}.${itemIndex}` });
@@ -470,6 +427,49 @@ const ItemsPorPlaca = ({ placaIndex, handleProductDialogOpening }: { placaIndex:
     );
 }
 
+type FormValues = z.infer<typeof formSchema>;
+
+const originalDefaultValues: FormValues = {
+  pedidoSislog: "",
+  cliente: "",
+  fecha: new Date(),
+  cedulaConductor: "",
+  conductor: "",
+  placa: "",
+  precinto: "",
+  setPoint: null,
+  contenedor: "",
+  facturaRemision: "",
+  items: [],
+  placas: [],
+  summary: [],
+  horaInicio: "",
+  horaFin: "",
+  observaciones: [],
+  coordinador: "",
+  aplicaCuadrilla: undefined,
+  operarioResponsable: undefined,
+  tipoPedido: undefined,
+  tipoEmpaqueMaquila: undefined,
+  numeroOperariosCuadrilla: undefined,
+  unidadDeMedidaPrincipal: "PALETA",
+};
+
+
+// Mock Data
+const coordinadores = ["Cristian Acuña", "Sergio Padilla"];
+const presentaciones = ["Cajas", "Sacos", "Canastillas"];
+
+// Attachment Constants
+const MAX_ATTACHMENTS = 30;
+const MAX_TOTAL_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
+
+function getByteSizeFromBase64(base64: string): number {
+    // This is an approximation
+    return base64.length * (3 / 4) - (base64.endsWith('==') ? 2 : base64.endsWith('=') ? 1 : 0);
+}
+
+
 export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { pedidoTypes: PedidoType[] }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -537,7 +537,8 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
   const formIdentifier = submissionId ? `variable-weight-reception-edit-${submissionId}` : `variable-weight-${operation}`;
   const { isRestoreDialogOpen, onRestore, onDiscard: onDiscardFromHook, onOpenChange, clearDraft } = useFormPersistence(formIdentifier, form, originalDefaultValues, attachments, setAttachments, !!submissionId);
   
-  const itemsForCalculation = isTunelMode ? watchedPlacas.flatMap(p => p.items) : watchedItems;
+  const itemsForCalculation = useMemo(() => isTunelMode ? (watchedPlacas || []).flatMap(p => p.items) : (watchedItems || []), [isTunelMode, watchedPlacas, watchedItems]);
+
   const isClientChangeDisabled = useMemo(() => {
     return itemsForCalculation.length > 1 || (itemsForCalculation.length === 1 && !!itemsForCalculation[0].descripcion);
   }, [itemsForCalculation]);
@@ -550,54 +551,13 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
     }
   }, [watchedTipoPedido, form]);
   
-  useEffect(() => {
-    if (!itemsForCalculation) return;
-
-    itemsForCalculation.forEach((item, index) => {
-        if (item && item.paleta !== 0) {
-            const pathPrefix = isTunelMode ? `placas.${Math.floor(index / (item.length || 1))}.items` : 'items';
-            const itemIndexInGroup = isTunelMode ? index % (item.length || 1) : index;
-
-            const cantidadPorPaleta = Number(item.cantidadPorPaleta) || 0;
-            const taraCaja = Number(item.taraCaja) || 0;
-            const pesoBruto = Number(item.pesoBruto) || 0;
-            const taraEstiba = Number(item.taraEstiba) || 0;
-
-            const calculatedTotalTaraCaja = cantidadPorPaleta * taraCaja;
-            const calculatedPesoNeto = pesoBruto - taraEstiba - calculatedTotalTaraCaja;
-          
-            if (item.totalTaraCaja !== calculatedTotalTaraCaja) {
-                form.setValue(`${pathPrefix}.${itemIndexInGroup}.totalTaraCaja`, calculatedTotalTaraCaja, { shouldValidate: false });
-            }
-            if (item.pesoNeto !== calculatedPesoNeto) {
-                form.setValue(`${pathPrefix}.${itemIndexInGroup}.pesoNeto`, calculatedPesoNeto, { shouldValidate: false });
-            }
-        }
-    });
-
-    if (itemsForCalculation[0]?.presentacion) {
-        let unit: string = itemsForCalculation[0].presentacion.toUpperCase();
-        if (unit === 'CAJAS') unit = 'CAJA';
-        if (unit === 'SACOS') unit = 'SACO';
-        if (unit === 'CANASTILLAS') unit = 'CANASTILLA';
-        if (['CAJA', 'SACO', 'CANASTILLA', 'PALETA'].includes(unit)) {
-            form.setValue('unidadDeMedidaPrincipal', unit);
-        } else {
-            form.setValue('unidadDeMedidaPrincipal', 'PALETA');
-        }
-    } else {
-        form.setValue('unidadDeMedidaPrincipal', 'PALETA');
-    }
-  }, [itemsForCalculation, form, isTunelMode]);
-  
   const handleDiscard = () => {
     onDiscardFromHook();
     form.reset(originalDefaultValues);
     setAttachments([]);
     setDiscardAlertOpen(false);
   };
-
-
+  
   const calculatedSummaryForDisplay = useMemo(() => {
     const grouped = (itemsForCalculation || []).reduce((acc, item) => {
         if (!item?.descripcion?.trim()) return acc;
@@ -1179,7 +1139,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
       <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
         <RestoreDialog
             open={isRestoreDialogOpen}
-            onOpenChange={onOpenChange}
+            onOpenChange={setRestoreDialogOpen}
             onRestore={onRestore}
             onDiscard={handleDiscard}
         />
