@@ -150,6 +150,34 @@ const formSchema = z.object({
     tipoEmpaqueMaquila: z.enum(['EMPAQUE DE SACOS', 'EMPAQUE DE CAJAS']).optional(),
     numeroOperariosCuadrilla: z.coerce.number().int().min(1, "Debe ser al menos 1.").optional(),
     unidadDeMedidaPrincipal: z.string().optional(),
+}).superRefine((data, ctx) => {
+      const isSpecialReception = data.tipoPedido === 'INGRESO DE SALDOS';
+
+      if (!isSpecialReception) {
+        if (!data.conductor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El nombre del conductor es obligatorio.', path: ['conductor'] });
+        if (!data.cedulaConductor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'La cédula del conductor es obligatoria.', path: ['cedulaConductor'] });
+        if (!data.placa?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'La placa es obligatoria.', path: ['placa'] });
+        if (!data.precinto?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El precinto es obligatorio.', path: ['precinto'] });
+        if (!data.contenedor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El contenedor es obligatorio.', path: ['contenedor'] });
+        if (data.setPoint === null || data.setPoint === undefined) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El Set Point es obligatorio.', path: ['setPoint'] });
+        if (!data.aplicaCuadrilla) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Seleccione una opción para 'Operación Realizada por Cuadrilla'.", path: ['aplicaCuadrilla'] });
+      }
+
+      if (data.tipoPedido === 'MAQUILA') {
+          if (!data.tipoEmpaqueMaquila) {
+              ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El tipo de empaque es obligatorio para maquila.", path: ['tipoEmpaqueMaquila'] });
+          }
+          if (data.aplicaCuadrilla === 'si' && (data.numeroOperariosCuadrilla === undefined || data.numeroOperariosCuadrilla <= 0)) {
+              ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El número de operarios es obligatorio.", path: ['numeroOperariosCuadrilla'] });
+          }
+      }
+
+      if (data.horaInicio && data.horaFin && data.horaInicio === data.horaFin) {
+          ctx.addIssue({
+              message: "La hora de fin no puede ser igual a la de inicio.",
+              path: ["horaFin"],
+          });
+      }
 });
 
 
@@ -315,7 +343,7 @@ const originalDefaultValues: FormValues = {
   precinto: "",
   setPoint: null,
   contenedor: "",
-  facturaRemision: "",
+  facturaRemision: "N/A",
   items: [],
   placas: [],
   summary: [],
@@ -1973,3 +2001,6 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
+
+
+    
