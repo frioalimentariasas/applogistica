@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
@@ -490,7 +489,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
   const [isClientDialogOpen, setClientDialogOpen] = useState(false);
   const [clientSearch, setClientSearch] = useState("");
 
-  const [attachments, setAttachments] = useState<string[]>([]);
+  const [attachments, setAttachments] useState<string[]>([]);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -605,22 +604,6 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
     }));
   }, [itemsForCalculation, form]);
 
-  useEffect(() => {
-      const currentSummaryInForm = form.getValues('summary') || [];
-      const newSummaryState = calculatedSummaryForDisplay.map(newItem => {
-          const existingItem = currentSummaryInForm.find(oldItem => oldItem.descripcion === newItem.descripcion);
-          return {
-              ...newItem,
-              temperatura1: existingItem?.temperatura1 ?? null,
-              temperatura2: existingItem?.temperatura2 ?? null,
-              temperatura3: existingItem?.temperatura3 ?? null,
-          };
-      });
-      if (JSON.stringify(newSummaryState) !== JSON.stringify(currentSummaryInForm)) {
-        form.setValue('summary', newSummaryState, { shouldValidate: true });
-      }
-  }, [calculatedSummaryForDisplay, form]);
-
   const showSummary = (itemsForCalculation || []).some(item => item && item.descripcion && item.descripcion.trim() !== '');
 
   const handleAddItem = () => {
@@ -650,6 +633,9 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
             taraCaja: null,
             totalTaraCaja: null,
             pesoNeto: null,
+            totalCantidad: null,
+            totalPaletas: null,
+            totalPesoNeto: null,
         });
     } else {
         // Add a new individual pallet row.
@@ -1139,7 +1125,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
       <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
         <RestoreDialog
             open={isRestoreDialogOpen}
-            onOpenChange={setRestoreDialogOpen}
+            onOpenChange={onOpenChange}
             onRestore={onRestore}
             onDiscard={handleDiscard}
         />
