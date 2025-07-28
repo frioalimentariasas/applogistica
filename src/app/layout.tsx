@@ -6,16 +6,6 @@ import { AuthProvider } from '@/hooks/use-auth';
 export const metadata: Metadata = {
   title: 'App Control de Operaciones Logísticas',
   description: 'Logística en alimentos congelados',
-  icons: {
-    icon: {
-      url: '/images/company-logo.png',
-      type: 'image/png',
-    },
-    shortcut: {
-      url: '/images/company-logo.png',
-      type: 'image/png',
-    }
-  },
 };
 
 export default function RootLayout({
