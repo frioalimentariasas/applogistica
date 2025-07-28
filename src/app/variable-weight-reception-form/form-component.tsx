@@ -77,209 +77,79 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 
 
 const itemSchema = z.object({
-    codigo: z.string().min(1, "El código es requerido."),
-    paleta: z.coerce.number({
-          required_error: "La paleta es requerida.",
-          invalid_type_error: "La paleta es requerida.",
-      }).int({ message: "La paleta debe ser un número entero." }).min(0, "Debe ser un número no negativo.").nullable(),
-    descripcion: z.string().min(1, "La descripción es requerida."),
-    lote: z.string().max(15, "Máx 15 caracteres").optional(),
-    presentacion: z.string().min(1, "Seleccione una presentación."),
-    // Conditional fields for individual pallets (paleta > 0)
-    cantidadPorPaleta: z.preprocess(
-        (val) => (val === "" || val === null ? null : val),
-        z.coerce.number({ invalid_type_error: "La cantidad debe ser un número." })
-          .int({ message: "La cantidad debe ser un número entero." }).min(0, "Debe ser un número no negativo.").nullable()
-    ),
-    pesoBruto: z.preprocess(
-        (val) => (val === "" || val === null ? null : val),
-        z.coerce.number({ invalid_type_error: "El peso bruto debe ser un número." })
-          .min(0, "Debe ser un número no negativo.").nullable()
-    ),
-    taraEstiba: z.preprocess(
-        (val) => (val === "" || val === null ? null : val),
-        z.coerce.number({ invalid_type_error: "La tara estiba debe ser un número." })
-          .min(0, "Debe ser un número no negativo.").nullable()
-    ),
-    taraCaja: z.preprocess(
-        (val) => (val === "" || val === null ? null : val),
-        z.coerce.number({ invalid_type_error: "La tara caja debe ser un número." })
-          .min(0, "Debe ser un número no negativo.").nullable()
-    ),
-    // Calculated fields
-    totalTaraCaja: z.number().nullable(),
-    pesoNeto: z.number().nullable(),
-    // Conditional fields for summary row (paleta === 0)
-    totalCantidad: z.preprocess(
-        (val) => (val === "" || val === null ? null : val),
-        z.coerce.number({ invalid_type_error: "El total de cantidad debe ser un número." })
-          .int({ message: "El total de cantidad debe ser un número entero." }).min(0, "Debe ser un número no negativo.").nullable()
-    ),
-    totalPaletas: z.preprocess(
-        (val) => (val === "" || val === null ? null : val),
-        z.coerce.number({ required_error: "El total de paletas es requerido.", invalid_type_error: "El total de paletas debe ser requerido." })
-          .int("El Total Paletas debe ser un número entero.").min(0, "Debe ser un número no negativo.").nullable()
-    ),
-    totalPesoNeto: z.preprocess(
-        (val) => (val === "" || val === null ? null : val),
-        z.coerce.number({ invalid_type_error: "El total de peso neto debe ser un número." })
-          .min(0, "Debe ser un número no negativo.").nullable()
-    ),
-  }).superRefine((data, ctx) => {
-    // If it's a summary row (paleta is exactly 0)
-    if (data.paleta === 0) {
-      if (data.totalCantidad === undefined || data.totalCantidad === null) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El Total Cantidad es requerido.", path: ["totalCantidad"] });
-      }
-      if (data.totalPaletas === undefined || data.totalPaletas === null) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El Total Paletas es requerido.", path: ["totalPaletas"] });
-      }
-      if (data.totalPesoNeto === undefined || data.totalPesoNeto === null) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El Total Peso Neto es requerido.", path: ["totalPesoNeto"] });
-      }
-    } 
-    // Otherwise, it's an individual pallet row
-    else {
-      if (data.paleta === null || data.paleta <= 0) {
-          ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La paleta debe ser 1 o mayor.", path: ["paleta"] });
-      }
-      if (data.cantidadPorPaleta === undefined || data.cantidadPorPaleta === null) {
-          ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La Cantidad Por Paleta es requerida.", path: ["cantidadPorPaleta"] });
-      }
-      if (data.pesoBruto === undefined || data.pesoBruto === null) {
-          ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El Peso Bruto es requerido.", path: ["pesoBruto"] });
-      }
-      if (data.taraEstiba === undefined || data.taraEstiba === null) {
-          ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La Tara Estiba es requerida.", path: ["taraEstiba"] });
-      }
-      if (data.taraCaja === undefined || data.taraCaja === null) {
-          ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La Tara Caja es requerida.", path: ["taraCaja"] });
-      }
-    }
+    codigo: z.string().optional(),
+    paleta: z.coerce.number().int().min(0).nullable().optional(),
+    descripcion: z.string().optional(),
+    lote: z.string().max(15).optional(),
+    presentacion: z.string().optional(),
+    cantidadPorPaleta: z.preprocess((val) => (val === "" || val === null ? null : val), z.coerce.number().int().min(0).nullable().optional()),
+    pesoBruto: z.preprocess((val) => (val === "" || val === null ? null : val), z.coerce.number().min(0).nullable().optional()),
+    taraEstiba: z.preprocess((val) => (val === "" || val === null ? null : val), z.coerce.number().min(0).nullable().optional()),
+    taraCaja: z.preprocess((val) => (val === "" || val === null ? null : val), z.coerce.number().min(0).nullable().optional()),
+    totalTaraCaja: z.number().nullable().optional(),
+    pesoNeto: z.number().nullable().optional(),
+    totalCantidad: z.preprocess((val) => (val === "" || val === null ? null : val), z.coerce.number().int().min(0).nullable().optional()),
+    totalPaletas: z.preprocess((val) => (val === "" || val === null ? null : val), z.coerce.number().int().min(0).nullable().optional()),
+    totalPesoNeto: z.preprocess((val) => (val === "" || val === null ? null : val), z.coerce.number().min(0).nullable().optional()),
 });
 
 const placaSchema = z.object({
-  numeroPlaca: z.string().min(1, 'El número de placa es requerido.'),
-  items: z.array(itemSchema).min(1, "Debe agregar al menos un ítem a esta placa."),
+  numeroPlaca: z.string().optional(),
+  items: z.array(itemSchema).optional(),
 });
   
 const optionalTempSchema = z.preprocess(
     (val) => (val === "" || val === null ? null : val),
-    z.coerce.number({ 
-        invalid_type_error: "La temperatura debe ser un número." 
-    })
-      .min(-99, "El valor debe estar entre -99 y 99.")
-      .max(99, "El valor debe estar entre -99 y 99.")
-      .nullable()
+    z.coerce.number({ invalid_type_error: "La temperatura debe ser un número." }).min(-99).max(99).nullable().optional()
 );
 
 const requiredTempSchema = z.preprocess(
-    (val) => (val === "" ? undefined : val),
-    z.coerce.number({
-        required_error: "La Temp 1 es requerida.",
-        invalid_type_error: "La temperatura debe ser un número."
-    })
-      .min(-99, "El valor debe estar entre -99 y 99.")
-      .max(99, "El valor debe estar entre -99 y 99.")
+    (val) => (val === "" ? null : val),
+    z.coerce.number({ invalid_type_error: "La temperatura debe ser un número." }).min(-99).max(99).nullable().optional()
 );
 
-
 const summaryItemSchema = z.object({
-  descripcion: z.string(),
+  descripcion: z.string().optional(),
   temperatura1: requiredTempSchema,
   temperatura2: optionalTempSchema,
   temperatura3: optionalTempSchema,
-  totalPeso: z.number(),
-  totalCantidad: z.number(),
-  totalPaletas: z.number(),
+  totalPeso: z.number().optional(),
+  totalCantidad: z.number().optional(),
+  totalPaletas: z.number().optional(),
 });
 
 const observationSchema = z.object({
-  type: z.string().min(1, "Debe seleccionar un tipo de observación."),
+  type: z.string().optional(),
   customType: z.string().optional(),
-  quantity: z.coerce.number({invalid_type_error: "La cantidad debe ser un número."}).min(0, "La cantidad no puede ser negativa.").optional(),
+  quantity: z.coerce.number().min(0).optional(),
   quantityType: z.string().optional(),
-  executedByGrupoRosales: z.boolean().default(false),
-}).refine(data => {
-    if (data.type === 'OTRAS OBSERVACIONES' && !data.customType?.trim()) {
-        return false;
-    }
-    return true;
-}, {
-    message: "La descripción para 'OTRAS OBSERVACIONES' es obligatoria.",
-    path: ['customType']
+  executedByGrupoRosales: z.boolean().default(false).optional(),
 });
 
 const formSchema = z.object({
-    pedidoSislog: z.string()
-      .min(1, "El pedido SISLOG es obligatorio.")
-      .max(15, "El pedido SISLOG no puede exceder los 15 caracteres."),
-    cliente: z.string().min(1, "Seleccione un cliente."),
-    fecha: z.date({ required_error: "La fecha es obligatoria." }),
-    conductor: z.string(),
-    cedulaConductor: z.string().regex(/^[0-9]*$|^$/, "La cédula solo puede contener números."),
-    placa: z.string().regex(/^[A-Z]{3}[0-9]{3}$|^$/, "Formato inválido. Deben ser 3 letras y 3 números (ej: ABC123)."),
-    precinto: z.string(),
-    setPoint: z.preprocess(
-      (val) => (val === "" || val === null ? null : val),
-      z.coerce.number({ invalid_type_error: "Set Point debe ser un número."})
-        .min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99.").nullable()
-    ),
-    contenedor: z.string().refine(value => {
-      return !value || value.toUpperCase() === 'N/A' || /^[A-Z]{4}[0-9]{7}$/.test(value.toUpperCase());
-    }, {
-      message: "Formato inválido. Debe ser 'N/A' o 4 letras y 7 números (ej: ABCD1234567)."
-    }),
-    facturaRemision: z.string().max(15, "Máximo 15 caracteres.").optional().nullable(),
-    items: z.array(itemSchema),
-    placas: z.array(placaSchema), // For TUNEL type
-    summary: z.array(summaryItemSchema).nullable(),
-    horaInicio: z.string().min(1, "La hora de inicio es obligatoria.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
-    horaFin: z.string().min(1, "La hora de fin es obligatoria.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
+    pedidoSislog: z.string().max(15).optional(),
+    cliente: z.string().optional(),
+    fecha: z.date().optional(),
+    conductor: z.string().optional(),
+    cedulaConductor: z.string().regex(/^[0-9]*$|^$/, "La cédula solo puede contener números.").optional(),
+    placa: z.string().regex(/^[A-Z]{3}[0-9]{3}$|^$/, "Formato inválido. Deben ser 3 letras y 3 números (ej: ABC123).").optional(),
+    precinto: z.string().optional(),
+    setPoint: z.preprocess((val) => (val === "" || val === null ? null : val), z.coerce.number().min(-99).max(99).nullable().optional()),
+    contenedor: z.string().refine(value => !value || value.toUpperCase() === 'N/A' || /^[A-Z]{4}[0-9]{7}$/.test(value.toUpperCase()), { message: "Formato inválido. Debe ser 'N/A' o 4 letras y 7 números (ej: ABCD1234567)." }).optional(),
+    facturaRemision: z.string().max(15, "Máximo 15 caracteres.").nullable().optional(),
+    items: z.array(itemSchema).optional(),
+    placas: z.array(placaSchema).optional(),
+    summary: z.array(summaryItemSchema).nullable().optional(),
+    horaInicio: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$|^$/, "Formato de hora inválido (HH:MM).").optional(),
+    horaFin: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$|^$/, "Formato de hora inválido (HH:MM).").optional(),
     observaciones: z.array(observationSchema).optional(),
-    coordinador: z.string().min(1, "Seleccione un coordinador."),
+    coordinador: z.string().optional(),
     aplicaCuadrilla: z.enum(["si", "no"]).optional(),
     operarioResponsable: z.string().optional(),
-    tipoPedido: z.string({required_error: "El tipo de pedido es obligatorio."}).min(1, "El tipo de pedido es obligatorio."),
+    tipoPedido: z.string().optional(),
     tipoEmpaqueMaquila: z.enum(['EMPAQUE DE SACOS', 'EMPAQUE DE CAJAS']).optional(),
     numeroOperariosCuadrilla: z.coerce.number().int().min(1, "Debe ser al menos 1.").optional(),
     unidadDeMedidaPrincipal: z.string().optional(),
-}).refine((data) => {
-    return data.horaInicio !== data.horaFin;
-}, {
-    message: "La hora de fin no puede ser igual a la de inicio.",
-    path: ["horaFin"],
-}).superRefine((data, ctx) => {
-    if (data.tipoPedido === 'TUNEL') {
-      if (data.placas.length === 0) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Debe agregar al menos una placa para el tipo de pedido TUNEL.", path: ['placas'] });
-      }
-    } else {
-      if (data.items.length === 0) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Debe agregar al menos un ítem.", path: ['items'] });
-      }
-    }
-
-    const isSpecialReception = data.tipoPedido === 'INGRESO DE SALDOS';
-    
-    if (!isSpecialReception) {
-        if (!data.conductor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El nombre del conductor es obligatorio.', path: ['conductor'] });
-        if (!data.cedulaConductor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'La cédula del conductor es obligatoria.', path: ['cedulaConductor'] });
-        if (!data.placa?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'La placa es obligatoria.', path: ['placa'] });
-        if (!data.precinto?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El precinto es obligatorio.', path: ['precinto'] });
-        if (!data.contenedor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El contenedor es obligatorio.', path: ['contenedor'] });
-    }
-
-    if (data.tipoPedido === 'MAQUILA' && !data.tipoEmpaqueMaquila) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El tipo de empaque es obligatorio para maquila.", path: ['tipoEmpaqueMaquila'] });
-    }
-    if (data.aplicaCuadrilla === 'si' && data.tipoPedido === 'MAQUILA' && (data.numeroOperariosCuadrilla === undefined || data.numeroOperariosCuadrilla <= 0)) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El número de operarios es obligatorio.", path: ['numeroOperariosCuadrilla'] });
-    }
-
-    if (data.tipoPedido !== 'INGRESO DE SALDOS' && !data.aplicaCuadrilla) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Seleccione una opción para 'Operación Realizada por Cuadrilla'.", path: ['aplicaCuadrilla'] });
-    }
 });
 
 const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, isTunel = false, placaIndex }: { control: any, itemIndex: number, handleProductDialogOpening: (context: { itemIndex: number, placaIndex?: number }) => void, remove?: (index: number) => void, isTunel?: boolean, placaIndex?: number }) => {
@@ -614,12 +484,13 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
             temperatura3: existingItem?.temperatura3 ?? null,
         };
     });
-
+    
+    // Prevent infinite loop by checking for actual changes
     if (JSON.stringify(newSummaryState) !== JSON.stringify(currentSummaryInForm)) {
         setFormValue('summary', newSummaryState, { shouldValidate: true });
     }
     return newSummaryState;
-  }, [calculatedSummaryForDisplay, getFormValues, setFormValue]);
+}, [calculatedSummaryForDisplay, getFormValues, setFormValue]);
 
   const showSummary = (itemsForCalculation || []).some(item => item && item.descripcion && item.descripcion.trim() !== '');
 
@@ -2114,6 +1985,7 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
+
 
 
 
