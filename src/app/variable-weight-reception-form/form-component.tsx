@@ -277,6 +277,7 @@ const formSchema = z.object({
     }
 });
 
+
 const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, isTunel = false, placaIndex }: { control: any, itemIndex: number, handleProductDialogOpening: (context: { itemIndex: number, placaIndex?: number }) => void, remove?: (index: number) => void, isTunel?: boolean, placaIndex?: number }) => {
     const basePath = isTunel ? `placas.${placaIndex}.items` : 'items';
     const watchedItem = useWatch({ control, name: `${basePath}.${itemIndex}` });
@@ -424,7 +425,7 @@ const ItemsPorPlaca = ({ placaIndex, handleProductDialogOpening }: { placaIndex:
             </Button>
         </div>
     );
-}
+};
 
 type FormValues = z.infer<typeof formSchema>;
 
@@ -489,7 +490,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
   const [isClientDialogOpen, setClientDialogOpen] = useState(false);
   const [clientSearch, setClientSearch] = useState("");
 
-  const [attachments, setAttachments] useState<string[]>([]);
+  const [attachments, setAttachments] = useState<string[]>([]);
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -531,7 +532,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "items" });
   const { fields: placaFields, append: appendPlaca, remove: removePlaca } = useFieldArray({ control: form.control, name: "placas" });
   const { fields: observationFields, append: appendObservation, remove: removeObservation } = useFieldArray({ control: form.control, name: "observaciones" });
-  const { fields: summaryFields, replace: replaceSummary } = useFieldArray({ control: form.control, name: "summary" });
+  const summary = useFieldArray({ control: form.control, name: "summary" });
   
   const formIdentifier = submissionId ? `variable-weight-reception-edit-${submissionId}` : `variable-weight-${operation}`;
   const { isRestoreDialogOpen, onRestore, onDiscard: onDiscardFromHook, onOpenChange, clearDraft } = useFormPersistence(formIdentifier, form, originalDefaultValues, attachments, setAttachments, !!submissionId);
@@ -569,16 +570,16 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                 totalPeso: 0,
                 totalCantidad: 0,
                 paletas: new Set<number>(),
-                temperatura1: summaryItem?.temperatura1 ?? summaryItem?.temperatura, // Fallback for old data
-                temperatura2: summaryItem?.temperatura2,
-                temperatura3: summaryItem?.temperatura3,
+                temperatura1: summaryItem?.temperatura1 ?? null, 
+                temperatura2: summaryItem?.temperatura2 ?? null,
+                temperatura3: summaryItem?.temperatura3 ?? null,
             };
         }
 
         if (Number(item.paleta) === 0) {
             acc[desc].totalPeso += Number(item.totalPesoNeto) || 0;
             acc[desc].totalCantidad += Number(item.totalCantidad) || 0;
-            acc[desc].paletas.add(0); // Special handling for summary rows
+            acc[desc].paletas.add(0);
         } else {
             acc[desc].totalPeso += Number(item.pesoNeto) || 0;
             acc[desc].totalCantidad += Number(item.cantidadPorPaleta) || 0;
@@ -619,41 +620,24 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
     if (lastItem.paleta === 0) {
         // Add a new summary row, copying relevant data.
         append({
+            ...originalDefaultValues.items[0],
             codigo: lastItem.codigo,
             paleta: 0,
             descripcion: lastItem.descripcion,
             lote: lastItem.lote,
             presentacion: lastItem.presentacion,
-            totalCantidad: null, 
-            totalPaletas: null, 
-            totalPesoNeto: null, 
-            cantidadPorPaleta: null,
-            pesoBruto: null,
-            taraEstiba: null,
-            taraCaja: null,
-            totalTaraCaja: null,
-            pesoNeto: null,
-            totalCantidad: null,
-            totalPaletas: null,
-            totalPesoNeto: null,
         });
     } else {
         // Add a new individual pallet row.
         append({
+            ...originalDefaultValues.items[0],
             codigo: lastItem.codigo,
-            paleta: null, // New pallet number should be entered by user
+            paleta: null,
             descripcion: lastItem.descripcion,
             lote: lastItem.lote,
             presentacion: lastItem.presentacion,
             cantidadPorPaleta: lastItem.cantidadPorPaleta,
-            pesoBruto: null,
-            taraEstiba: null,
             taraCaja: lastItem.taraCaja,
-            totalTaraCaja: null,
-            pesoNeto: null,
-            totalCantidad: null,
-            totalPaletas: null,
-            totalPesoNeto: null,
         });
     }
   };
