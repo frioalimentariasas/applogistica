@@ -374,6 +374,7 @@ function ItemsPorDestino({ control, remove, handleProductDialogOpening, destinoI
 const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, destinoIndex }: { control: any, itemIndex: number, handleProductDialogOpening: (context: { itemIndex: number, destinoIndex?: number }) => void, remove?: (index: number) => void, destinoIndex?: number }) => {
     const basePath = destinoIndex !== undefined ? `destinos.${destinoIndex}.items` : 'items';
     const watchedItem = useWatch({ control, name: `${basePath}.${itemIndex}` });
+    const isDespachoPorDestino = useWatch({ control, name: 'despachoPorDestino' });
     const { setValue } = useFormContext();
 
     useEffect(() => {
@@ -443,10 +444,15 @@ const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, de
                 )} />
             </div>
             {isSummaryRow ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className={cn("grid grid-cols-1 gap-4", isDespachoPorDestino ? 'md:grid-cols-2' : 'md:grid-cols-3')}>
                     <FormField control={control} name={`${basePath}.${itemIndex}.totalCantidad`} render={({ field }) => (
                         <FormItem><FormLabel>Total Cantidad</FormLabel><FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                     )} />
+                    {!isDespachoPorDestino && (
+                        <FormField control={control} name={`${basePath}.${itemIndex}.totalPaletas`} render={({ field }) => (
+                            <FormItem><FormLabel>Total Paletas</FormLabel><FormControl><Input type="text" inputMode="numeric" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                        )} />
+                    )}
                     <FormField control={control} name={`${basePath}.${itemIndex}.totalPesoNeto`} render={({ field }) => (
                         <FormItem><FormLabel>Total Peso Neto (kg)</FormLabel><FormControl><Input type="text" inputMode="decimal" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                     )} />
@@ -616,7 +622,10 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
   
       const totalGeneralPaletas = (() => {
           if (isSummaryMode) {
-              return watchedTotalPaletasDespacho || 0;
+            if (watchedDespachoPorDestino) {
+                return watchedTotalPaletasDespacho || 0;
+            }
+            return allItemsForSummary.reduce((sum, item) => sum + (Number(item.totalPaletas) || 0), 0);
           }
           const uniquePallets = new Set<number>();
           allItemsForSummary.forEach(item => {
@@ -630,11 +639,17 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
   
       return {
           items: Object.values(grouped).map(group => {
+              const totalPaletas = isSummaryMode
+                ? allItemsForSummary
+                    .filter(item => item.descripcion === group.descripcion && Number(item.paleta) === 0)
+                    .reduce((sum, item) => sum + (Number(item.totalPaletas) || 0), 0)
+                : group.paletas.size;
+
               return {
                   descripcion: group.descripcion,
                   totalPeso: group.totalPeso,
                   totalCantidad: group.totalCantidad,
-                  totalPaletas: group.paletas.size,
+                  totalPaletas: totalPaletas,
                   temperatura: group.temperatura,
               };
           }),
@@ -1529,7 +1544,9 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                                 </TableHeader>
                                 <TableBody>
                                     {form.watch('summary')?.length > 0 ? (
-                                        form.watch('summary')?.map((summaryItem, summaryIndex) => (
+                                        form.watch('summary')?.map((summaryItem, summaryIndex) => {
+                                           const itemData = calculatedSummaryForDisplay.items.find(i => i.descripcion === summaryItem.descripcion);
+                                           return (
                                             <TableRow key={summaryItem.descripcion}>
                                                 <TableCell className="font-medium">
                                                     <div className="bg-muted/50 p-2 rounded-md flex items-center h-10">
@@ -1563,22 +1580,22 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                                                 {!isSummaryMode && (
                                                     <TableCell className="text-right">
                                                         <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
-                                                            {calculatedSummaryForDisplay.items.find(i => i.descripcion === summaryItem.descripcion)?.totalPaletas || 0}
+                                                            {itemData?.totalPaletas || 0}
                                                         </div>
                                                     </TableCell>
                                                 )}
                                                 <TableCell className="text-right">
                                                   <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
-                                                    {calculatedSummaryForDisplay.items.find(i => i.descripcion === summaryItem.descripcion)?.totalCantidad || 0}
+                                                    {itemData?.totalCantidad || 0}
                                                   </div>
                                                 </TableCell>
                                                 <TableCell className="text-right">
                                                   <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
-                                                    {(calculatedSummaryForDisplay.items.find(i => i.descripcion === summaryItem.descripcion)?.totalPeso || 0).toFixed(2)}
+                                                    {(itemData?.totalPeso || 0).toFixed(2)}
                                                   </div>
                                                 </TableCell>
                                             </TableRow>
-                                        ))
+                                        )})
                                     ) : (
                                         <TableRow>
                                             <TableCell colSpan={isSummaryMode ? 4 : 5} className="h-24 text-center">
@@ -1587,8 +1604,8 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                                         </TableRow>
                                     )}
                                     <TableRow className="font-bold bg-muted hover:bg-muted">
-                                        <TableCell colSpan={isSummaryMode ? 2 : 3} className="text-right">TOTAL GENERAL PALETAS:</TableCell>
-                                        <TableCell colSpan={2} className="text-left pl-4">{calculatedSummaryForDisplay.totalGeneralPaletas}</TableCell>
+                                        <TableCell colSpan={isSummaryMode ? 1 : 2} className="text-right">TOTAL GENERAL PALETAS:</TableCell>
+                                        <TableCell colSpan={3} className="text-left pl-4">{calculatedSummaryForDisplay.totalGeneralPaletas}</TableCell>
                                     </TableRow>
                                 </TableBody>
                             </Table>
@@ -2105,6 +2122,7 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
+
 
 
 
