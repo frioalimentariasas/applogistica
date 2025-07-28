@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
@@ -64,6 +63,7 @@ import {
     Check,
     CalendarIcon,
     Clock,
+    Truck
 } from "lucide-react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -72,6 +72,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+
 
 const itemSchema = z.object({
     codigo: z.string().min(1, "El código es requerido."),
@@ -154,6 +156,11 @@ const itemSchema = z.object({
       }
     }
 });
+
+const placaSchema = z.object({
+  numeroPlaca: z.string().min(1, 'El número de placa es requerido.'),
+  items: z.array(itemSchema).min(1, "Debe agregar al menos un ítem a esta placa."),
+});
   
 const tempSchema = z.preprocess(
     (val) => (val === "" ? null : val),
@@ -218,7 +225,8 @@ const formSchema = z.object({
       message: "Formato inválido. Debe ser 'N/A' o 4 letras y 7 números (ej: ABCD1234567)."
     }),
     facturaRemision: z.string().max(15, "Máximo 15 caracteres.").optional(),
-    items: z.array(itemSchema).min(1, "Debe agregar al menos un item."),
+    items: z.array(itemSchema),
+    placas: z.array(placaSchema), // For TUNEL type
     summary: z.array(summaryItemSchema).nullable(),
     horaInicio: z.string().min(1, "La hora de inicio es obligatoria.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
     horaFin: z.string().min(1, "La hora de fin es obligatoria.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
@@ -236,6 +244,16 @@ const formSchema = z.object({
     message: "La hora de fin no puede ser igual a la de inicio.",
     path: ["horaFin"],
 }).superRefine((data, ctx) => {
+    if (data.tipoPedido === 'TUNEL') {
+      if (data.placas.length === 0) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Debe agregar al menos una placa para el tipo de pedido TUNEL.", path: ['placas'] });
+      }
+    } else {
+      if (data.items.length === 0) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Debe agregar al menos un ítem.", path: ['items'] });
+      }
+    }
+
     const isSpecialReception = data.tipoPedido === 'INGRESO DE SALDOS' || data.tipoPedido === 'MAQUILA';
     
     // Validate transport fields if it's NOT a special reception
@@ -252,19 +270,6 @@ const formSchema = z.object({
     }
     if (data.aplicaCuadrilla === 'si' && data.tipoPedido === 'MAQUILA' && (data.numeroOperariosCuadrilla === undefined || data.numeroOperariosCuadrilla <= 0)) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El número de operarios es obligatorio.", path: ['numeroOperariosCuadrilla'] });
-    }
-
-    // Validate Lote field if it's NOT an "INGRESO DE SALDOS"
-    if (data.tipoPedido !== 'INGRESO DE SALDOS') {
-        data.items.forEach((item, index) => {
-            if (!item.lote?.trim()) {
-                ctx.addIssue({
-                    code: z.ZodIssueCode.custom,
-                    message: "El lote es obligatorio.",
-                    path: [`items.${index}.lote`],
-                });
-            }
-        });
     }
 
     if (data.tipoPedido !== 'INGRESO DE SALDOS' && !data.aplicaCuadrilla) {
@@ -286,7 +291,8 @@ const originalDefaultValues: FormValues = {
   setPoint: null,
   contenedor: "",
   facturaRemision: "",
-  items: [{ codigo: '', paleta: null, descripcion: "", lote: "", presentacion: "", cantidadPorPaleta: null, pesoBruto: null, taraEstiba: null, taraCaja: null, totalTaraCaja: null, pesoNeto: null, totalCantidad: null, totalPaletas: null, totalPesoNeto: null }],
+  items: [],
+  placas: [],
   summary: [],
   horaInicio: "",
   horaFin: "",
@@ -331,7 +337,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
   const [isLoadingArticulos, setIsLoadingArticulos] = useState(false);
 
   const [isProductDialogOpen, setProductDialogOpen] = useState(false);
-  const [productDialogIndex, setProductDialogIndex] = useState<number | null>(null);
+  const [productDialogContext, setProductDialogContext] = useState<{placaIndex?: number, itemIndex: number} | null>(null);
   const [isClientDialogOpen, setClientDialogOpen] = useState(false);
   const [clientSearch, setClientSearch] = useState("");
 
@@ -368,7 +374,24 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
   });
   
   const watchedTipoPedido = useWatch({ control: form.control, name: 'tipoPedido' });
+  const isTunelMode = watchedTipoPedido === 'TUNEL';
   const watchedAplicaCuadrilla = useWatch({ control: form.control, name: 'aplicaCuadrilla' });
+  const watchedItems = useWatch({ control: form.control, name: "items" });
+  const watchedPlacas = useWatch({ control: form.control, name: "placas" });
+  const watchedObservations = useWatch({ control: form.control, name: "observaciones" });
+
+  const { fields, append, remove } = useFieldArray({ control: form.control, name: "items" });
+  const { fields: placaFields, append: appendPlaca, remove: removePlaca } = useFieldArray({ control: form.control, name: "placas" });
+  const { fields: observationFields, append: appendObservation, remove: removeObservation } = useFieldArray({ control: form.control, name: "observaciones" });
+  const { fields: summaryFields, replace: replaceSummary } = useFieldArray({ control: form.control, name: "summary" });
+  
+  const formIdentifier = submissionId ? `variable-weight-reception-edit-${submissionId}` : `variable-weight-${operation}`;
+  const { isRestoreDialogOpen, onRestore, onDiscard: onDiscardFromHook, onOpenChange, clearDraft } = useFormPersistence(formIdentifier, form, originalDefaultValues, attachments, setAttachments, !!submissionId);
+  
+  const itemsForCalculation = isTunelMode ? watchedPlacas.flatMap(p => p.items) : watchedItems;
+  const isClientChangeDisabled = useMemo(() => {
+    return itemsForCalculation.length > 1 || (itemsForCalculation.length === 1 && !!itemsForCalculation[0].descripcion);
+  }, [itemsForCalculation]);
 
   useEffect(() => {
     if (watchedTipoPedido === 'INGRESO DE SALDOS') {
@@ -377,30 +400,15 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
       }
     }
   }, [watchedTipoPedido, form]);
-
-
-  const { fields, append, remove } = useFieldArray({
-    control: form.control,
-    name: "items",
-  });
-  
-  const { fields: observationFields, append: appendObservation, remove: removeObservation } = useFieldArray({
-    control: form.control,
-    name: "observaciones",
-  });
-
-  const watchedItems = useWatch({ control: form.control, name: "items" });
-  const watchedObservations = useWatch({ control: form.control, name: "observaciones" });
-
-  const isClientChangeDisabled = useMemo(() => {
-    return watchedItems.length > 1 || (watchedItems.length === 1 && !!watchedItems[0].descripcion);
-  }, [watchedItems]);
   
   useEffect(() => {
-    if (!watchedItems) return;
+    if (!itemsForCalculation) return;
 
-    watchedItems.forEach((item, index) => {
+    itemsForCalculation.forEach((item, index) => {
         if (item && item.paleta !== 0) {
+            const pathPrefix = isTunelMode ? `placas.${Math.floor(index / (item.length || 1))}.items` : 'items';
+            const itemIndexInGroup = isTunelMode ? index % (item.length || 1) : index;
+
             const cantidadPorPaleta = Number(item.cantidadPorPaleta) || 0;
             const taraCaja = Number(item.taraCaja) || 0;
             const pesoBruto = Number(item.pesoBruto) || 0;
@@ -410,16 +418,16 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
             const calculatedPesoNeto = pesoBruto - taraEstiba - calculatedTotalTaraCaja;
           
             if (item.totalTaraCaja !== calculatedTotalTaraCaja) {
-                form.setValue(`items.${index}.totalTaraCaja`, calculatedTotalTaraCaja, { shouldValidate: false });
+                form.setValue(`${pathPrefix}.${itemIndexInGroup}.totalTaraCaja`, calculatedTotalTaraCaja, { shouldValidate: false });
             }
             if (item.pesoNeto !== calculatedPesoNeto) {
-                form.setValue(`items.${index}.pesoNeto`, calculatedPesoNeto, { shouldValidate: false });
+                form.setValue(`${pathPrefix}.${itemIndexInGroup}.pesoNeto`, calculatedPesoNeto, { shouldValidate: false });
             }
         }
     });
 
-    if (watchedItems[0]?.presentacion) {
-        let unit: string = watchedItems[0].presentacion.toUpperCase();
+    if (itemsForCalculation[0]?.presentacion) {
+        let unit: string = itemsForCalculation[0].presentacion.toUpperCase();
         if (unit === 'CAJAS') unit = 'CAJA';
         if (unit === 'SACOS') unit = 'SACO';
         if (unit === 'CANASTILLAS') unit = 'CANASTILLA';
@@ -431,16 +439,8 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
     } else {
         form.setValue('unidadDeMedidaPrincipal', 'PALETA');
     }
-  }, [watchedItems, form]);
-
-  const { fields: summaryFields, replace: replaceSummary } = useFieldArray({
-    control: form.control,
-    name: "summary"
-  });
-
-  const formIdentifier = submissionId ? `variable-weight-reception-edit-${submissionId}` : `variable-weight-${operation}`;
-  const { isRestoreDialogOpen, onRestore, onDiscard: onDiscardFromHook, onOpenChange, clearDraft } = useFormPersistence(formIdentifier, form, originalDefaultValues, attachments, setAttachments, !!submissionId);
-
+  }, [itemsForCalculation, form, isTunelMode]);
+  
   const handleDiscard = () => {
     onDiscardFromHook();
     form.reset(originalDefaultValues);
@@ -450,7 +450,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
 
 
   const calculatedSummaryForDisplay = useMemo(() => {
-    const grouped = (watchedItems || []).reduce((acc, item) => {
+    const grouped = (itemsForCalculation || []).reduce((acc, item) => {
         if (!item?.descripcion?.trim()) return acc;
         const desc = item.descripcion.trim();
 
@@ -488,13 +488,13 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
         totalPeso: group.totalPeso,
         totalCantidad: group.totalCantidad,
         totalPaletas: group.paletas.has(0)
-            ? (watchedItems || []).filter(item => item.descripcion === group.descripcion && Number(item.paleta) === 0).reduce((sum, item) => sum + (Number(item.totalPaletas) || 0), 0)
+            ? (itemsForCalculation || []).filter(item => item.descripcion === group.descripcion && Number(item.paleta) === 0).reduce((sum, item) => sum + (Number(item.totalPaletas) || 0), 0)
             : group.paletas.size,
         temperatura1: group.temperatura1,
         temperatura2: group.temperatura2,
         temperatura3: group.temperatura3,
     }));
-  }, [watchedItems, form]);
+  }, [itemsForCalculation, form]);
 
   useEffect(() => {
       const currentSummaryInForm = form.getValues('summary') || [];
@@ -512,7 +512,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
       }
   }, [calculatedSummaryForDisplay, form]);
 
-  const showSummary = (watchedItems || []).some(item => item && item.descripcion && item.descripcion.trim() !== '');
+  const showSummary = (itemsForCalculation || []).some(item => item && item.descripcion && item.descripcion.trim() !== '');
 
   const handleAddItem = () => {
     const items = form.getValues('items');
@@ -631,6 +631,13 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                   totalCantidad: item.totalCantidad ?? null,
                   totalPaletas: item.totalPaletas ?? null,
                   totalPesoNeto: item.totalPesoNeto ?? null,
+              })),
+              placas: (formData.placas || []).map((placa: any) => ({
+                ...placa,
+                items: (placa.items || []).map((item: any) => ({
+                    ...originalDefaultValues.items[0],
+                    ...item
+                }))
               }))
           };
 
@@ -885,8 +892,9 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
         return;
     }
 
-    const hasSummaryRow = data.items.some(item => Number(item.paleta) === 0);
-    const hasDetailRow = data.items.some(item => Number(item.paleta) > 0);
+    const itemsToCheck = isTunelMode ? data.placas.flatMap(p => p.items) : data.items;
+    const hasSummaryRow = itemsToCheck.some(item => Number(item.paleta) === 0);
+    const hasDetailRow = itemsToCheck.some(item => Number(item.paleta) > 0);
 
     if (hasSummaryRow && hasDetailRow) {
         setMixErrorDialogOpen(true);
@@ -968,12 +976,13 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
     setClientSearch('');
   
     // Reset dependent fields
-    form.setValue('items', [{ codigo: '', paleta: null, descripcion: "", lote: "", presentacion: "", cantidadPorPaleta: null, pesoBruto: null, taraEstiba: null, taraCaja: null, totalTaraCaja: null, pesoNeto: null, totalCantidad: null, totalPaletas: null, totalPesoNeto: null }]);
+    form.setValue('items', []);
+    form.setValue('placas', []);
     setArticulos([]);
   };
 
-  const handleProductDialogOpening = async (index: number) => {
-      setProductDialogIndex(index);
+  const handleProductDialogOpening = async (context: { itemIndex: number, placaIndex?: number }) => {
+      setProductDialogContext(context);
       const clientName = form.getValues('cliente');
       if (!clientName) {
           toast({ variant: 'destructive', title: 'Error', description: 'Por favor, seleccione un cliente primero.' });
@@ -1032,9 +1041,11 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
             isLoading={isLoadingArticulos}
             clientSelected={!!form.getValues('cliente')}
             onSelect={(articulo) => {
-                if (productDialogIndex !== null) {
-                    form.setValue(`items.${productDialogIndex}.descripcion`, articulo.denominacionArticulo);
-                    form.setValue(`items.${productDialogIndex}.codigo`, articulo.codigoProducto);
+                if (productDialogContext) {
+                    const { itemIndex, placaIndex } = productDialogContext;
+                    const basePath = isTunelMode ? `placas.${placaIndex}.items` : 'items';
+                    form.setValue(`${basePath}.${itemIndex}.descripcion`, articulo.denominacionArticulo);
+                    form.setValue(`${basePath}.${itemIndex}.codigo`, articulo.codigoProducto);
                 }
             }}
         />
@@ -1307,18 +1318,57 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                 <Card>
                   <CardHeader><CardTitle>Detalle de la Recepción</CardTitle></CardHeader>
                   <CardContent className="space-y-4">
-                      <div className="space-y-4">
-                        {fields.map((field, index) => (
-                            <FormItemRow
-                                key={field.id}
-                                index={index}
-                                control={form.control}
-                                remove={remove}
-                                handleProductDialogOpening={handleProductDialogOpening}
-                            />
-                        ))}
-                      </div>
-                      <Button type="button" variant="outline" onClick={handleAddItem}><PlusCircle className="mr-2 h-4 w-4" />Agregar Item</Button>
+                     {isTunelMode ? (
+                        <div className="space-y-4">
+                            <Accordion type="multiple" className="w-full">
+                                {placaFields.map((placaField, placaIndex) => (
+                                    <AccordionItem key={placaField.id} value={`placa-${placaIndex}`}>
+                                        <div className="flex items-center">
+                                            <AccordionTrigger className="flex-grow">
+                                                <div className="flex items-center gap-2">
+                                                    <Truck className="h-5 w-5 text-gray-600" />
+                                                    Placa #{placaIndex + 1}: {watchedPlacas[placaIndex]?.numeroPlaca || '(Sin número)'}
+                                                </div>
+                                            </AccordionTrigger>
+                                            <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => removePlaca(placaIndex)}>
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                        <AccordionContent className="pl-2 pr-2 md:pl-6 md:pr-0">
+                                            <div className="space-y-4 rounded-md border bg-gray-50 p-4">
+                                                <FormField
+                                                    control={form.control}
+                                                    name={`placas.${placaIndex}.numeroPlaca`}
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel>Número de Placa</FormLabel>
+                                                            <FormControl><Input placeholder="Número de la placa del vehículo" {...field} /></FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                                <ItemsPorPlaca placaIndex={placaIndex} handleProductDialogOpening={handleProductDialogOpening} />
+                                            </div>
+                                        </AccordionContent>
+                                    </AccordionItem>
+                                ))}
+                            </Accordion>
+                            <Button type="button" variant="outline" onClick={() => appendPlaca({ numeroPlaca: '', items: [] })}><Truck className="mr-2 h-4 w-4"/>Agregar Placa</Button>
+                        </div>
+                     ) : (
+                        <div className="space-y-4">
+                            {fields.map((field, index) => (
+                                <FormItemRow
+                                    key={field.id}
+                                    index={index}
+                                    control={form.control}
+                                    remove={remove}
+                                    handleProductDialogOpening={handleProductDialogOpening}
+                                />
+                            ))}
+                            <Button type="button" variant="outline" onClick={handleAddItem}><PlusCircle className="mr-2 h-4 w-4" />Agregar Item</Button>
+                        </div>
+                     )}
                   </CardContent>
                 </Card>
 
@@ -2077,5 +2127,48 @@ function PedidoTypeSelectorDialog({
                 </ScrollArea>
             </DialogContent>
         </Dialog>
+    );
+}
+
+function ItemsPorPlaca({ placaIndex, handleProductDialogOpening }: { placaIndex: number, handleProductDialogOpening: (context: { itemIndex: number, placaIndex: number }) => void }) {
+    const { control, getValues } = useFormContext();
+    const { fields, append, remove } = useFieldArray({
+        control,
+        name: `placas.${placaIndex}.items`,
+    });
+
+    const handleAddItemToPlaca = () => {
+        const items = getValues(`placas.${placaIndex}.items`);
+        const lastItem = items.length > 0 ? items[items.length - 1] : null;
+
+        const newItemPayload = lastItem ? {
+            ...originalDefaultValues.items[0],
+            codigo: lastItem.codigo,
+            descripcion: lastItem.descripcion,
+            lote: lastItem.lote,
+            presentacion: lastItem.presentacion,
+            paleta: lastItem.paleta === 0 ? 0 : null,
+        } : { ...originalDefaultValues.items[0] };
+        
+        append(newItemPayload);
+    };
+
+    return (
+        <div className="space-y-4">
+            <h4 className="text-md font-semibold text-gray-600">Ítems de la Placa</h4>
+            {fields.map((item, itemIndex) => (
+                <FormItemRow
+                    key={item.id}
+                    index={itemIndex}
+                    control={control}
+                    remove={remove}
+                    handleProductDialogOpening={(idx) => handleProductDialogOpening({ itemIndex: idx, placaIndex })}
+                    isTunel
+                />
+            ))}
+            <Button type="button" variant="outline" size="sm" onClick={handleAddItemToPlaca}>
+                <PlusCircle className="mr-2 h-4 w-4" /> Agregar Ítem a Placa
+            </Button>
+        </div>
     );
 }
