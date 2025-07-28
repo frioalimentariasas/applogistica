@@ -18,7 +18,8 @@ Antes de poder usar Git, necesitas una copia local de tu código.
     *   En el menú que aparece, selecciona la opción **"Download Code"** o **"Descargar Código"**.
 
 3.  **Descomprime el archivo:**
-    *   Esto descargará un archivo `.zip` con todo tu proyecto. Descomprímelo en una carpeta fácil de encontrar (por ejemplo, `C:\proyectos\mi-app-logistica` o `/Users/TuUsuario/proyectos/mi-app-logistica`).
+    *   Esto descargará un archivo `.zip` con **todo tu proyecto**. No necesitas seleccionar carpetas individuales como `src`; el archivo ya lo incluye todo.
+    *   Descomprímelo en una carpeta fácil de encontrar (por ejemplo, `C:\proyectos\mi-app-logistica` o `/Users/TuUsuario/proyectos/mi-app-logistica`).
 
 ---
 
