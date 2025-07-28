@@ -75,11 +75,10 @@ import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 
-
 const itemSchema = z.object({
-    codigo: z.string().optional(),
+    codigo: z.string().min(1, "El código es requerido."),
     paleta: z.coerce.number().int().min(0).nullable().optional(),
-    descripcion: z.string().optional(),
+    descripcion: z.string().min(1, "La descripción es requerida."),
     lote: z.string().max(15).optional(),
     presentacion: z.string().optional(),
     cantidadPorPaleta: z.preprocess((val) => (val === "" || val === null ? null : val), z.coerce.number().int().min(0).nullable().optional()),
@@ -94,8 +93,8 @@ const itemSchema = z.object({
 });
 
 const placaSchema = z.object({
-  numeroPlaca: z.string().optional(),
-  items: z.array(itemSchema).optional(),
+  numeroPlaca: z.string().min(1, "El número de placa es obligatorio."),
+  items: z.array(itemSchema).min(1, "Debe agregar al menos un ítem a la placa."),
 });
   
 const optionalTempSchema = z.preprocess(
@@ -104,8 +103,8 @@ const optionalTempSchema = z.preprocess(
 );
 
 const requiredTempSchema = z.preprocess(
-    (val) => (val === "" ? null : val),
-    z.coerce.number({ invalid_type_error: "La temperatura debe ser un número." }).min(-99).max(99).nullable().optional()
+    (val) => (val === "" || val === null ? undefined : val),
+    z.coerce.number({ required_error: "La temperatura es requerida.", invalid_type_error: "La temperatura debe ser un número." }).min(-99).max(99)
 );
 
 const summaryItemSchema = z.object({
@@ -118,6 +117,7 @@ const summaryItemSchema = z.object({
   totalPaletas: z.number().optional(),
 });
 
+
 const observationSchema = z.object({
   type: z.string().optional(),
   customType: z.string().optional(),
@@ -127,9 +127,9 @@ const observationSchema = z.object({
 });
 
 const formSchema = z.object({
-    pedidoSislog: z.string().max(15).optional(),
-    cliente: z.string().optional(),
-    fecha: z.date().optional(),
+    pedidoSislog: z.string().min(1, "El pedido SISLOG es obligatorio.").max(15, "El pedido SISLOG no puede exceder los 15 caracteres."),
+    cliente: z.string().min(1, "Seleccione un cliente."),
+    fecha: z.date({ required_error: "La fecha es obligatoria." }),
     conductor: z.string().optional(),
     cedulaConductor: z.string().regex(/^[0-9]*$|^$/, "La cédula solo puede contener números.").optional(),
     placa: z.string().regex(/^[A-Z]{3}[0-9]{3}$|^$/, "Formato inválido. Deben ser 3 letras y 3 números (ej: ABC123).").optional(),
@@ -137,20 +137,21 @@ const formSchema = z.object({
     setPoint: z.preprocess((val) => (val === "" || val === null ? null : val), z.coerce.number().min(-99).max(99).nullable().optional()),
     contenedor: z.string().refine(value => !value || value.toUpperCase() === 'N/A' || /^[A-Z]{4}[0-9]{7}$/.test(value.toUpperCase()), { message: "Formato inválido. Debe ser 'N/A' o 4 letras y 7 números (ej: ABCD1234567)." }).optional(),
     facturaRemision: z.string().max(15, "Máximo 15 caracteres.").nullable().optional(),
-    items: z.array(itemSchema).optional(),
+    items: z.array(itemSchema).min(1, "Debe agregar al menos un ítem.").optional(),
     placas: z.array(placaSchema).optional(),
     summary: z.array(summaryItemSchema).nullable().optional(),
-    horaInicio: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$|^$/, "Formato de hora inválido (HH:MM).").optional(),
-    horaFin: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$|^$/, "Formato de hora inválido (HH:MM).").optional(),
+    horaInicio: z.string().min(1, "La hora de inicio es obligatoria.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
+    horaFin: z.string().min(1, "La hora de fin es obligatoria.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
     observaciones: z.array(observationSchema).optional(),
-    coordinador: z.string().optional(),
+    coordinador: z.string().min(1, "Seleccione un coordinador."),
     aplicaCuadrilla: z.enum(["si", "no"]).optional(),
     operarioResponsable: z.string().optional(),
-    tipoPedido: z.string().optional(),
+    tipoPedido: z.string({required_error: "El tipo de pedido es obligatorio."}).min(1, "El tipo de pedido es obligatorio."),
     tipoEmpaqueMaquila: z.enum(['EMPAQUE DE SACOS', 'EMPAQUE DE CAJAS']).optional(),
     numeroOperariosCuadrilla: z.coerce.number().int().min(1, "Debe ser al menos 1.").optional(),
     unidadDeMedidaPrincipal: z.string().optional(),
 });
+
 
 const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, isTunel = false, placaIndex }: { control: any, itemIndex: number, handleProductDialogOpening: (context: { itemIndex: number, placaIndex?: number }) => void, remove?: (index: number) => void, isTunel?: boolean, placaIndex?: number }) => {
     const basePath = isTunel ? `placas.${placaIndex}.items` : 'items';
@@ -301,6 +302,7 @@ const ItemsPorPlaca = ({ placaIndex, handleProductDialogOpening }: { placaIndex:
     );
 };
 
+
 type FormValues = z.infer<typeof formSchema>;
 
 const originalDefaultValues: FormValues = {
@@ -405,7 +407,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
 
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "items" });
   const { fields: placaFields, append: appendPlaca, remove: removePlaca } = useFieldArray({ control: form.control, name: "placas" });
-  const { fields: observationFields, append: appendObservation, remove: removeObservation } = useFieldArray({ control: form.control, name: "observations" });
+  const { fields: observationFields, append: appendObservation, remove: removeObservation } = useFieldArray({ control: form.control, name: "observaciones" });
   
   const formIdentifier = submissionId ? `variable-weight-reception-edit-${submissionId}` : `variable-weight-${operation}`;
   const { isRestoreDialogOpen, onOpenChange, onRestore, onDiscard: handleDiscardHook, clearDraft } = useFormPersistence(formIdentifier, form, originalDefaultValues, attachments, setAttachments, !!submissionId);
@@ -413,7 +415,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
   const itemsForCalculation = useMemo(() => isTunelMode ? (watchedPlacas || []).flatMap(p => p.items) : (watchedItems || []), [isTunelMode, watchedPlacas, watchedItems]);
 
   const isClientChangeDisabled = useMemo(() => {
-    return itemsForCalculation.length > 1 || (itemsForCalculation.length === 1 && !!itemsForCalculation[0].descripcion);
+    return itemsForCalculation.length > 1 || (itemsForCalculation.length === 1 && !!itemsForCalculation[0]?.descripcion);
   }, [itemsForCalculation]);
 
   useEffect(() => {
@@ -471,10 +473,8 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
     }));
   }, [itemsForCalculation]);
 
-  const { setValue: setFormValue, getValues: getFormValues } = form;
-
   const currentSummaryFields = useMemo(() => {
-    const currentSummaryInForm = getFormValues('summary') || [];
+    const currentSummaryInForm = form.getValues('summary') || [];
     const newSummaryState = calculatedSummaryForDisplay.map(newItem => {
         const existingItem = currentSummaryInForm.find(oldItem => oldItem.descripcion === newItem.descripcion);
         return {
@@ -487,10 +487,10 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
     
     // Prevent infinite loop by checking for actual changes
     if (JSON.stringify(newSummaryState) !== JSON.stringify(currentSummaryInForm)) {
-        setFormValue('summary', newSummaryState, { shouldValidate: true });
+        form.setValue('summary', newSummaryState, { shouldValidate: true });
     }
     return newSummaryState;
-}, [calculatedSummaryForDisplay, getFormValues, setFormValue]);
+}, [calculatedSummaryForDisplay, form]);
 
   const showSummary = (itemsForCalculation || []).some(item => item && item.descripcion && item.descripcion.trim() !== '');
 
@@ -503,9 +503,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
         return;
     }
     
-    // Check if the last item was explicitly a summary row (paleta === 0)
     if (lastItem.paleta === 0) {
-        // Add a new summary row, copying relevant data.
         append({
             ...originalDefaultValues.items[0],
             codigo: lastItem.codigo,
@@ -515,7 +513,6 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
             presentacion: lastItem.presentacion,
         });
     } else {
-        // Add a new individual pallet row.
         append({
             ...originalDefaultValues.items[0],
             codigo: lastItem.codigo,
@@ -563,7 +560,6 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
           setOriginalSubmission(submission);
           let formData = submission.formData;
           
-          // Ensure all optional fields have a default value to prevent uncontrolled -> controlled error
           const sanitizedFormData = {
               ...originalDefaultValues,
               ...formData,
@@ -607,15 +603,12 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
               }))
           };
 
-          // Convert date string back to Date object for the form
           if (sanitizedFormData.fecha && typeof sanitizedFormData.fecha === 'string') {
             sanitizedFormData.fecha = new Date(sanitizedFormData.fecha);
           }
           form.reset(sanitizedFormData);
-          // Set attachments, which are URLs in this case
           setAttachments(submission.attachmentUrls);
 
-          // Pre-load articulos for the client
           if (sanitizedFormData.cliente) {
             setIsLoadingArticulos(true);
             const fetchedArticulos = await getArticulosByClients([sanitizedFormData.cliente]);
@@ -790,7 +783,6 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                 processingToast.dismiss();
             }
         } else {
-          // Make sure camera is closed even if context is not available
           handleCloseCamera();
         }
     }
@@ -888,10 +880,8 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
 
         const isUpdating = !!submissionId;
         
-        // Define who the editor is (the person logged in)
         const editor = { id: user.uid, displayName: displayName || 'N/A' };
 
-        // Define who the responsible user is
         let responsibleUser = { id: editor.id, displayName: editor.displayName };
         if (isUpdating && isAdmin && data.operarioResponsable) {
             const selectedUser = allUsers.find(u => u.uid === data.operarioResponsable);
@@ -930,9 +920,9 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
   const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     form.handleSubmit((data) => {
-        const allItems = isTunelMode ? data.placas.flatMap(p => p.items) : data.items;
-        const hasSummaryRow = allItems.some(item => Number(item.paleta) === 0);
-        const hasDetailRow = allItems.some(item => Number(item.paleta) > 0);
+        const allItems = isTunelMode ? (data.placas || []).flatMap(p => p.items || []) : (data.items || []);
+        const hasSummaryRow = allItems.some(item => Number(item?.paleta) === 0);
+        const hasDetailRow = allItems.some(item => Number(item?.paleta) > 0);
 
         if (hasSummaryRow && hasDetailRow) {
             setMixErrorDialogOpen(true);
@@ -955,7 +945,6 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
     setClientDialogOpen(false);
     setClientSearch('');
   
-    // Reset dependent fields
     form.setValue('items', []);
     form.setValue('placas', []);
     setArticulos([]);
@@ -992,7 +981,6 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
     const minutes = String(now.getMinutes()).padStart(2, '0');
     form.setValue(fieldName, `${hours}:${minutes}`, { shouldValidate: true });
   };
-
   
   const title = `${submissionId ? 'Editando' : 'Formato de'} Recepción - Peso Variable`;
 
@@ -1387,7 +1375,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                                                 render={({ field }) => (
                                                                     <FormItem>
                                                                         <FormControl><Input type="text" inputMode="decimal" placeholder="T1" {...field} 
-                                                                                onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} 
+                                                                                onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.value)} 
                                                                                 value={field.value ?? ''}
                                                                             className="w-20 h-9 text-center" /></FormControl>
                                                                         <FormMessage className="text-xs"/>
@@ -1985,7 +1973,3 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
-
-
-
-
