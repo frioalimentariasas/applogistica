@@ -37,6 +37,7 @@ export default function Home() {
   const router = useRouter();
   const { toast } = useToast();
   const { user, loading, displayName, permissions } = useAuth();
+  const appVersion = "V.FAL.001";
 
   useEffect(() => {
     if (!loading && !user) {
@@ -221,6 +222,10 @@ export default function Home() {
         <div className="pt-4 max-w-xl mx-auto">
             <FirebaseChecker />
         </div>
+        
+        <footer className="text-center pt-6">
+            <p className="text-sm text-gray-500 font-mono">{appVersion}</p>
+        </footer>
 
       </div>
     </div>
