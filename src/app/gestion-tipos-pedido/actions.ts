@@ -89,7 +89,9 @@ export async function deletePedidoType(id: string): Promise<{ success: boolean; 
 export async function getPedidoTypesForForm(
   formName: 'fixed-weight-reception' | 'fixed-weight-despacho' | 'variable-weight-reception' | 'variable-weight-despacho'
 ): Promise<PedidoType[]> {
-    if (!firestore) return [];
+    if (!firestore) {
+      throw new Error('El servidor no está configurado correctamente. No se pudo conectar a Firestore.');
+    }
     try {
         const snapshot = await firestore.collection('pedido_types').get();
             
