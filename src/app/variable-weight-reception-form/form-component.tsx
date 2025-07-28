@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
@@ -425,6 +426,50 @@ const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, is
     );
 };
 
+const ItemsPorPlaca = ({ placaIndex, handleProductDialogOpening }: { placaIndex: number, handleProductDialogOpening: (context: { itemIndex: number, placaIndex: number }) => void }) => {
+    const { control, getValues } = useFormContext();
+    const { fields, append, remove } = useFieldArray({
+        control,
+        name: `placas.${placaIndex}.items`,
+    });
+
+    const handleAddItemToPlaca = () => {
+        const items = getValues(`placas.${placaIndex}.items`);
+        const lastItem = items.length > 0 ? items[items.length - 1] : null;
+
+        const newItemPayload = lastItem ? {
+            ...originalDefaultValues.items[0],
+            codigo: lastItem.codigo,
+            descripcion: lastItem.descripcion,
+            lote: lastItem.lote,
+            presentacion: lastItem.presentacion,
+            paleta: lastItem.paleta === 0 ? 0 : null,
+        } : { ...originalDefaultValues.items[0] };
+        
+        append(newItemPayload);
+    };
+
+    return (
+        <div className="space-y-4">
+            <h4 className="text-md font-semibold text-gray-600">Ítems de la Placa</h4>
+            {fields.map((item, itemIndex) => (
+                <ItemFields
+                    key={item.id}
+                    itemIndex={itemIndex}
+                    control={control}
+                    remove={remove}
+                    handleProductDialogOpening={(ctx) => handleProductDialogOpening({ ...ctx, placaIndex })}
+                    isTunel
+                    placaIndex={placaIndex}
+                />
+            ))}
+            <Button type="button" variant="outline" size="sm" onClick={handleAddItemToPlaca}>
+                <PlusCircle className="mr-2 h-4 w-4" /> Agregar Ítem a Placa
+            </Button>
+        </div>
+    );
+}
+
 export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { pedidoTypes: PedidoType[] }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -482,7 +527,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
   const watchedAplicaCuadrilla = useWatch({ control: form.control, name: 'aplicaCuadrilla' });
   const watchedItems = useWatch({ control: form.control, name: "items" });
   const watchedPlacas = useWatch({ control: form.control, name: "placas" });
-  const watchedObservations = useWatch({ control: form.control, name: "observaciones" });
+  const watchedObservations = useWatch({ control: form.control, name: "observations" });
 
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "items" });
   const { fields: placaFields, append: appendPlaca, remove: removePlaca } = useFieldArray({ control: form.control, name: "placas" });
@@ -2107,49 +2152,5 @@ function PedidoTypeSelectorDialog({
                 </ScrollArea>
             </DialogContent>
         </Dialog>
-    );
-}
-
-function ItemsPorPlaca({ placaIndex, handleProductDialogOpening }: { placaIndex: number, handleProductDialogOpening: (context: { itemIndex: number, placaIndex: number }) => void }) {
-    const { control, getValues } = useFormContext();
-    const { fields, append, remove } = useFieldArray({
-        control,
-        name: `placas.${placaIndex}.items`,
-    });
-
-    const handleAddItemToPlaca = () => {
-        const items = getValues(`placas.${placaIndex}.items`);
-        const lastItem = items.length > 0 ? items[items.length - 1] : null;
-
-        const newItemPayload = lastItem ? {
-            ...originalDefaultValues.items[0],
-            codigo: lastItem.codigo,
-            descripcion: lastItem.descripcion,
-            lote: lastItem.lote,
-            presentacion: lastItem.presentacion,
-            paleta: lastItem.paleta === 0 ? 0 : null,
-        } : { ...originalDefaultValues.items[0] };
-        
-        append(newItemPayload);
-    };
-
-    return (
-        <div className="space-y-4">
-            <h4 className="text-md font-semibold text-gray-600">Ítems de la Placa</h4>
-            {fields.map((item, itemIndex) => (
-                <ItemFields
-                    key={item.id}
-                    itemIndex={itemIndex}
-                    control={control}
-                    remove={remove}
-                    handleProductDialogOpening={(ctx) => handleProductDialogOpening({ ...ctx, placaIndex })}
-                    isTunel
-                    placaIndex={placaIndex}
-                />
-            ))}
-            <Button type="button" variant="outline" size="sm" onClick={handleAddItemToPlaca}>
-                <PlusCircle className="mr-2 h-4 w-4" /> Agregar Ítem a Placa
-            </Button>
-        </div>
     );
 }
