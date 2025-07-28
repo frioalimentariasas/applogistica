@@ -71,3 +71,37 @@ Estos son los comandos que "guardan" el estado actual de tu código. Ejecútalos
     ```bash
     git log
     ```
+
+---
+
+### ¡Ayuda! Cómo Restablecer tu Proyecto a un Punto Anterior
+
+Si algo sale mal y necesitas volver a una versión anterior que guardaste, puedes hacerlo con estos pasos.
+
+1.  **Encuentra el Punto de Restauración Correcto:**
+    Abre la terminal en la carpeta de tu proyecto y ejecuta el siguiente comando para ver tu historial:
+    ```bash
+    git log --oneline
+    ```
+    Verás una lista de todos tus commits, algo así:
+    ```
+    a1b2c3d Agregada la funcionalidad de reportes
+    e4f5g6h Corregido error en el formulario de despacho
+    i7j8k9l Punto de restauración inicial
+    ```
+    Cada línea tiene un código único (como `a1b2c3d`). Este es el "hash" del commit.
+
+2.  **Restaura el Código:**
+    Elige el hash del commit al que quieres volver. Luego, usa el siguiente comando, reemplazando `<hash-del-commit>` con el código que copiaste.
+    ```bash
+    git reset --hard <hash-del-commit>
+    ```
+    Por ejemplo, para volver al commit donde se corrigió el error:
+    ```bash
+    git reset --hard e4f5g6h
+    ```
+
+    **¡ADVERTENCIA!** Este comando es destructivo. Eliminará **permanentemente** cualquier cambio que hayas hecho en los archivos desde que creaste tu último commit. Úsalo solo cuando estés seguro de que quieres descartar todo lo nuevo y volver a ese punto exacto del historial.
+
+3.  **Continúa trabajando:**
+    ¡Listo! Todos los archivos en tu carpeta habrán vuelto exactamente al estado en que estaban cuando hiciste ese commit. Para continuar trabajando en Firebase Studio con esa versión restaurada, tendrías que copiar manualmente el contenido de los archivos de tu computadora y pegarlos en el editor de Studio.
