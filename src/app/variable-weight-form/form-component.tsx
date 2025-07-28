@@ -546,6 +546,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
   const watchedCliente = useWatch({ control: form.control, name: 'cliente' });
   const watchedDespachoPorDestino = useWatch({ control: form.control, name: 'despachoPorDestino' });
   const watchedTotalPaletasDespacho = useWatch({ control: form.control, name: 'totalPaletasDespacho' });
+  const watchedSummary = useWatch({ control: form.control, name: 'summary' });
 
 
   const showDespachoPorDestino = clientesEspeciales.includes(watchedCliente);
@@ -581,11 +582,13 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
         const desc = item.descripcion.trim();
 
         if (!acc[desc]) {
+            const summaryItem = form.getValues('summary')?.find(s => s.descripcion === desc);
             acc[desc] = {
                 descripcion: desc,
                 totalPeso: 0,
                 totalCantidad: 0,
                 paletas: new Set<number>(),
+                temperatura: summaryItem?.temperatura,
             };
         }
 
@@ -603,23 +606,24 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
         }
         
         return acc;
-    }, {} as Record<string, { descripcion: string; totalPeso: number; totalCantidad: number; paletas: Set<number> }>);
+    }, {} as Record<string, { descripcion: string; totalPeso: number; totalCantidad: number; paletas: Set<number>; temperatura: any; }>);
 
     const totalGeneralPaletas = (() => {
         if (watchedDespachoPorDestino) {
+            const uniquePallets = new Set<number>();
+            allItemsForSummary.forEach(item => {
+                const paletaNum = Number(item?.paleta);
+                if (!isNaN(paletaNum) && paletaNum > 0) {
+                    uniquePallets.add(paletaNum);
+                }
+            });
+
             if (isSummaryMode) {
                 return watchedTotalPaletasDespacho || 0;
-            } else {
-                const uniquePallets = new Set<number>();
-                allItemsForSummary.forEach(item => {
-                    const paletaNum = Number(item?.paleta);
-                    if (!isNaN(paletaNum) && paletaNum > 0) {
-                        uniquePallets.add(paletaNum);
-                    }
-                });
-                return uniquePallets.size;
             }
+            return uniquePallets.size;
         }
+        // Fallback for non-destination mode
         return Object.values(grouped).reduce((sum, group) => {
             const paletasCount = group.paletas.has(0)
                 ? allItemsForSummary.filter(item => item.descripcion === group.descripcion && Number(item.paleta) === 0).reduce((sum, item) => sum + (Number(item.totalPaletas) || 0), 0)
@@ -639,11 +643,12 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                 totalPeso: group.totalPeso,
                 totalCantidad: group.totalCantidad,
                 totalPaletas: paletasCount,
+                temperatura: group.temperatura,
             };
         }),
         totalGeneralPaletas
     };
-  }, [watchedItems, watchedDestinos, watchedDespachoPorDestino, watchedTotalPaletasDespacho, isSummaryMode]);
+  }, [watchedItems, watchedDestinos, watchedDespachoPorDestino, watchedTotalPaletasDespacho, isSummaryMode, form]);
   
   useEffect(() => {
     const currentSummaryInForm = form.getValues('summary') || [];
@@ -1528,8 +1533,8 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {calculatedSummaryForDisplay.items.length > 0 ? (
-                                        calculatedSummaryForDisplay.items.map((summaryItem, summaryIndex) => (
+                                    {(watchedSummary || []).length > 0 ? (
+                                        watchedSummary?.map((summaryItem, summaryIndex) => (
                                             <TableRow key={summaryItem.descripcion}>
                                                 <TableCell className="font-medium">
                                                     <div className="bg-muted/50 p-2 rounded-md flex items-center h-10">
@@ -1562,17 +1567,17 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                                                 </TableCell>
                                                 <TableCell className="text-right">
                                                   <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
-                                                    {summaryItem?.totalPaletas || 0}
+                                                    {calculatedSummaryForDisplay.items.find(i => i.descripcion === summaryItem.descripcion)?.totalPaletas || 0}
                                                   </div>
                                                 </TableCell>
                                                 <TableCell className="text-right">
                                                   <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
-                                                    {(summaryItem?.totalPeso || 0).toFixed(2)}
+                                                    {(calculatedSummaryForDisplay.items.find(i => i.descripcion === summaryItem.descripcion)?.totalPeso || 0).toFixed(2)}
                                                   </div>
                                                 </TableCell>
                                                 <TableCell className="text-right">
                                                   <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
-                                                    {summaryItem?.totalCantidad || 0}
+                                                    {calculatedSummaryForDisplay.items.find(i => i.descripcion === summaryItem.descripcion)?.totalCantidad || 0}
                                                   </div>
                                                 </TableCell>
                                             </TableRow>
@@ -2099,6 +2104,7 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
+
 
 
 
