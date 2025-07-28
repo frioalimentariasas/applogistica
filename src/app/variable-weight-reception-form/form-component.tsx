@@ -174,18 +174,14 @@ const tempSchema = z.preprocess(
 
 const summaryItemSchema = z.object({
   descripcion: z.string(),
-  temperatura1: tempSchema,
+  temperatura1: tempSchema.refine(val => val !== null, {
+    message: "La Temp 1 es requerida.",
+  }),
   temperatura2: tempSchema,
   temperatura3: tempSchema,
   totalPeso: z.number(),
   totalCantidad: z.number(),
   totalPaletas: z.number(),
-}).refine(data => {
-    // Al menos una temperatura es requerida.
-    return data.temperatura1 !== null || data.temperatura2 !== null || data.temperatura3 !== null;
-}, {
-    message: "Debe ingresar al menos una temperatura para el producto.",
-    path: ["temperatura1"], // report error on the first temperature field
 });
 
 const observationSchema = z.object({
@@ -256,7 +252,6 @@ const formSchema = z.object({
 
     const isSpecialReception = data.tipoPedido === 'INGRESO DE SALDOS' || data.tipoPedido === 'MAQUILA';
     
-    // Validate transport fields if it's NOT a special reception
     if (!isSpecialReception) {
         if (!data.conductor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El nombre del conductor es obligatorio.', path: ['conductor'] });
         if (!data.cedulaConductor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'La cédula del conductor es obligatoria.', path: ['cedulaConductor'] });
@@ -276,7 +271,6 @@ const formSchema = z.object({
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Seleccione una opción para 'Operación Realizada por Cuadrilla'.", path: ['aplicaCuadrilla'] });
     }
 });
-
 
 const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, isTunel = false, placaIndex }: { control: any, itemIndex: number, handleProductDialogOpening: (context: { itemIndex: number, placaIndex?: number }) => void, remove?: (index: number) => void, isTunel?: boolean, placaIndex?: number }) => {
     const basePath = isTunel ? `placas.${placaIndex}.items` : 'items';
@@ -427,8 +421,6 @@ const ItemsPorPlaca = ({ placaIndex, handleProductDialogOpening }: { placaIndex:
     );
 };
 
-type FormValues = z.infer<typeof formSchema>;
-
 const originalDefaultValues: FormValues = {
   pedidoSislog: "",
   cliente: "",
@@ -528,6 +520,8 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
   const watchedItems = useWatch({ control: form.control, name: "items" });
   const watchedPlacas = useWatch({ control: form.control, name: "placas" });
   const watchedObservations = useWatch({ control: form.control, name: "observations" });
+  const currentSummaryInForm = useWatch({ control: form.control, name: "summary" });
+
 
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "items" });
   const { fields: placaFields, append: appendPlaca, remove: removePlaca } = useFieldArray({ control: form.control, name: "placas" });
@@ -604,6 +598,21 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
         temperatura3: group.temperatura3,
     }));
   }, [itemsForCalculation, form]);
+
+  useEffect(() => {
+    const newSummaryState = calculatedSummaryForDisplay.map(newItem => {
+        const existingItem = currentSummaryInForm?.find(oldItem => oldItem.descripcion === newItem.descripcion);
+        return {
+            ...newItem,
+            temperatura1: existingItem?.temperatura1 ?? null,
+            temperatura2: existingItem?.temperatura2 ?? null,
+            temperatura3: existingItem?.temperatura3 ?? null,
+        };
+    });
+    if (JSON.stringify(newSummaryState) !== JSON.stringify(currentSummaryInForm)) {
+      form.setValue('summary', newSummaryState, { shouldValidate: true });
+    }
+  }, [calculatedSummaryForDisplay, form, currentSummaryInForm]);
 
   const showSummary = (itemsForCalculation || []).some(item => item && item.descripcion && item.descripcion.trim() !== '');
 
@@ -971,15 +980,6 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
         return;
     }
 
-    const itemsToCheck = isTunelMode ? data.placas.flatMap(p => p.items) : data.items;
-    const hasSummaryRow = itemsToCheck.some(item => Number(item.paleta) === 0);
-    const hasDetailRow = itemsToCheck.some(item => Number(item.paleta) > 0);
-
-    if (hasSummaryRow && hasDetailRow) {
-        setMixErrorDialogOpen(true);
-        return;
-    }
-
     setIsSubmitting(true);
     try {
         const finalSummary = calculatedSummaryForDisplay.map(summaryItem => {
@@ -1048,6 +1048,29 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
         setIsSubmitting(false);
     }
   }
+
+  const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    form.handleSubmit((data) => {
+        const allItems = isTunelMode ? data.placas.flatMap(p => p.items) : data.items;
+        const hasSummaryRow = allItems.some(item => Number(item.paleta) === 0);
+        const hasDetailRow = allItems.some(item => Number(item.paleta) > 0);
+
+        if (hasSummaryRow && hasDetailRow) {
+            setMixErrorDialogOpen(true);
+            return;
+        }
+        
+        onSubmit(data);
+    }, (errors) => {
+        console.log("Validation Errors:", errors);
+        toast({
+            variant: "destructive",
+            title: "Error de Validación",
+            description: "Por favor, revise los campos marcados en rojo.",
+        });
+    })(e);
+  };
   
   const handleClientSelection = async (clientName: string) => {
     form.setValue('cliente', clientName);
@@ -1165,7 +1188,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
           </header>
 
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <form onSubmit={handleFormSubmit} className="space-y-6">
                 <FormField
                   control={form.control}
                   name="unidadDeMedidaPrincipal"
