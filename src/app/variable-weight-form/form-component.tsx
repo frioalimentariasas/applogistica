@@ -605,14 +605,28 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
         return acc;
     }, {} as Record<string, { descripcion: string; totalPeso: number; totalCantidad: number; paletas: Set<number> }>);
 
-    const totalGeneralPaletas = watchedDespachoPorDestino && isSummaryMode
-        ? watchedTotalPaletasDespacho || 0
-        : Object.values(grouped).reduce((sum, group) => {
+    const totalGeneralPaletas = (() => {
+        if (watchedDespachoPorDestino) {
+            if (isSummaryMode) {
+                return watchedTotalPaletasDespacho || 0;
+            } else {
+                const uniquePallets = new Set<number>();
+                allItemsForSummary.forEach(item => {
+                    const paletaNum = Number(item?.paleta);
+                    if (!isNaN(paletaNum) && paletaNum > 0) {
+                        uniquePallets.add(paletaNum);
+                    }
+                });
+                return uniquePallets.size;
+            }
+        }
+        return Object.values(grouped).reduce((sum, group) => {
             const paletasCount = group.paletas.has(0)
-                ? allItemsForSummary.filter(item => item.descripcion === group.descripcion && Number(item.paleta) === 0).reduce((itemSum, item) => itemSum + (Number(item.totalPaletas) || 0), 0)
+                ? allItemsForSummary.filter(item => item.descripcion === group.descripcion && Number(item.paleta) === 0).reduce((sum, item) => sum + (Number(item.totalPaletas) || 0), 0)
                 : group.paletas.size;
             return sum + paletasCount;
         }, 0);
+    })();
 
     return {
         items: Object.values(grouped).map(group => {
@@ -2085,5 +2099,6 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
+
 
 
