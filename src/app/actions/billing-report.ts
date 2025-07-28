@@ -45,7 +45,7 @@ export interface BillingReportCriteria {
   endDate: string;
   sesion?: 'CO' | 'RE' | 'SE';
   tipoOperacion?: 'recepcion' | 'despacho';
-  tipoPedido?: string;
+  tiposPedido?: string[];
   pedidoSislog?: string;
 }
 
@@ -109,7 +109,7 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
             if (criteria.pedidoSislog && submission.formData.pedidoSislog !== criteria.pedidoSislog) {
                 return;
             }
-            if (criteria.tipoPedido && submission.formData.tipoPedido !== criteria.tipoPedido) {
+            if (criteria.tiposPedido && criteria.tiposPedido.length > 0 && !criteria.tiposPedido.includes(submission.formData.tipoPedido)) {
                 return;
             }
             if (criteria.tipoOperacion) {
