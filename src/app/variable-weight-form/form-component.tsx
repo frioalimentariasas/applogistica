@@ -608,6 +608,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
           if (Number(item.paleta) === 0) {
               acc[desc].totalPeso += Number(item.totalPesoNeto) || 0;
               acc[desc].totalCantidad += Number(item.totalCantidad) || 0;
+              acc[desc].paletas.add(0); // Special handling for summary rows
           } else {
               acc[desc].totalPeso += Number(item.pesoNeto) || 0;
               acc[desc].totalCantidad += Number(item.cantidadPorPaleta) || 0;
@@ -899,7 +900,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
             try {
                 const optimizedImage = await optimizeImage(dataUrl);
 
-                const newImageSize = getByteSizeFromBase64(optimizedImage.split(',')[1]);
+                const newImagesSize = getByteSizeFromBase64(optimizedImage.split(',')[1]);
                 const existingImagesSize = attachments
                     .filter(a => a.startsWith('data:image'))
                     .reduce((sum, base64) => sum + getByteSizeFromBase64(base64.split(',')[1]), 0);
@@ -1537,7 +1538,9 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                                     <TableRow>
                                         <TableHead>Producto</TableHead>
                                         <TableHead className="w-[120px]">Temperatura (°C)</TableHead>
-                                        {!isSummaryMode && (<TableHead className="text-right">Total Paletas</TableHead>)}
+                                        {!(isSummaryMode && watchedDespachoPorDestino) && (
+                                          <TableHead className="text-right">Total Paletas</TableHead>
+                                        )}
                                         <TableHead className="text-right">Total Cantidad</TableHead>
                                         <TableHead className="text-right">Total Peso (kg)</TableHead>
                                     </TableRow>
@@ -1577,7 +1580,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                                                         )}
                                                     />
                                                 </TableCell>
-                                                {!isSummaryMode && (
+                                                {!(isSummaryMode && watchedDespachoPorDestino) && (
                                                     <TableCell className="text-right">
                                                         <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
                                                             {itemData?.totalPaletas || 0}
@@ -1598,13 +1601,13 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                                         )})
                                     ) : (
                                         <TableRow>
-                                            <TableCell colSpan={isSummaryMode ? 4 : 5} className="h-24 text-center">
+                                            <TableCell colSpan={5} className="h-24 text-center">
                                                 Agregue ítems para ver el resumen.
                                             </TableCell>
                                         </TableRow>
                                     )}
                                     <TableRow className="font-bold bg-muted hover:bg-muted">
-                                        <TableCell colSpan={isSummaryMode ? 1 : 2} className="text-right">TOTAL GENERAL PALETAS:</TableCell>
+                                        <TableCell colSpan={isSummaryMode && watchedDespachoPorDestino ? 1 : 2} className="text-right">TOTAL GENERAL PALETAS:</TableCell>
                                         <TableCell colSpan={3} className="text-left pl-4">{calculatedSummaryForDisplay.totalGeneralPaletas}</TableCell>
                                     </TableRow>
                                 </TableBody>
@@ -2122,6 +2125,7 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
+
 
 
 
