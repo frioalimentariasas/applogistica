@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
@@ -162,8 +163,8 @@ const placaSchema = z.object({
   items: z.array(itemSchema).min(1, "Debe agregar al menos un ítem a esta placa."),
 });
   
-const tempSchema = z.preprocess(
-    (val) => (val === "" ? null : val),
+const optionalTempSchema = z.preprocess(
+    (val) => (val === "" || val === null ? null : val),
     z.coerce.number({ 
         invalid_type_error: "La temperatura debe ser un número." 
     })
@@ -172,13 +173,22 @@ const tempSchema = z.preprocess(
       .nullable()
 );
 
+const requiredTempSchema = z.preprocess(
+    (val) => (val === "" || val === null ? undefined : val),
+    z.coerce.number({
+        required_error: "La Temp 1 es requerida.",
+        invalid_type_error: "La temperatura debe ser un número."
+    })
+      .min(-99, "El valor debe estar entre -99 y 99.")
+      .max(99, "El valor debe estar entre -99 y 99.")
+);
+
+
 const summaryItemSchema = z.object({
   descripcion: z.string(),
-  temperatura1: tempSchema.refine(val => val !== null, {
-    message: "La Temp 1 es requerida.",
-  }),
-  temperatura2: tempSchema,
-  temperatura3: tempSchema,
+  temperatura1: requiredTempSchema,
+  temperatura2: optionalTempSchema,
+  temperatura3: optionalTempSchema,
   totalPeso: z.number(),
   totalCantidad: z.number(),
   totalPaletas: z.number(),
@@ -421,6 +431,8 @@ const ItemsPorPlaca = ({ placaIndex, handleProductDialogOpening }: { placaIndex:
     );
 };
 
+type FormValues = z.infer<typeof formSchema>;
+
 const originalDefaultValues: FormValues = {
   pedidoSislog: "",
   cliente: "",
@@ -529,7 +541,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
   const summary = useFieldArray({ control: form.control, name: "summary" });
   
   const formIdentifier = submissionId ? `variable-weight-reception-edit-${submissionId}` : `variable-weight-${operation}`;
-  const { isRestoreDialogOpen, onRestore, onDiscard: onDiscardFromHook, onOpenChange, clearDraft } = useFormPersistence(formIdentifier, form, originalDefaultValues, attachments, setAttachments, !!submissionId);
+  const { isRestoreDialogOpen, onOpenChange, onRestore, onDiscard, clearDraft } = useFormPersistence(formIdentifier, form, originalDefaultValues, attachments, setAttachments, !!submissionId);
   
   const itemsForCalculation = useMemo(() => isTunelMode ? (watchedPlacas || []).flatMap(p => p.items) : (watchedItems || []), [isTunelMode, watchedPlacas, watchedItems]);
 
@@ -546,7 +558,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
   }, [watchedTipoPedido, form]);
   
   const handleDiscard = () => {
-    onDiscardFromHook();
+    onDiscard();
     form.reset(originalDefaultValues);
     setAttachments([]);
     setDiscardAlertOpen(false);
@@ -2107,3 +2119,4 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
+
