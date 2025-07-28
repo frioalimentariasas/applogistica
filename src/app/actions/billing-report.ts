@@ -138,6 +138,7 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
             const formType = submission.formType;
             const items = submission.formData.items || [];
             const productos = submission.formData.productos || [];
+            const destinos = submission.formData.destinos || [];
 
             // Helper to check if a product belongs to the selected session
             const isInSession = (descripcion: string) => {
@@ -170,19 +171,30 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                 dailyData.fixedRecibidas += uniquePalletsInSession.size; // Using fixedRecibidas for simplicity
 
             } else if (formType === 'variable-weight-despacho') {
-                 const uniquePalletsInSession = new Set<number>();
-                 let summaryPallets = 0;
-                 items.forEach((item: any) => {
-                    const paletaValue = Number(item.paleta);
-                    if(isInSession(item.descripcion)){
-                        if (paletaValue === 0) { // Summary row
-                            summaryPallets += (Number(item.totalPaletas) || 0);
-                        } else if (!isNaN(paletaValue) && paletaValue > 0) { // Itemized row
-                            uniquePalletsInSession.add(paletaValue);
+                const isByDestination = submission.formData.despachoPorDestino === true;
+                const allItems = isByDestination ? destinos.flatMap((d: any) => d.items) : items;
+                const isSummaryFormat = allItems.some((item: any) => Number(item.paleta) === 0);
+
+                if (isByDestination && isSummaryFormat) {
+                    // New logic for Dispatch by Destination with Summary
+                    const totalPallets = Number(submission.formData.totalPaletasDespacho) || 0;
+                    dailyData.fixedDespachadas += totalPallets;
+                } else {
+                    // Original logic for other variable weight dispatches
+                    const uniquePalletsInSession = new Set<number>();
+                    let summaryPallets = 0;
+                    allItems.forEach((item: any) => {
+                        const paletaValue = Number(item.paleta);
+                        if(isInSession(item.descripcion)){
+                            if (paletaValue === 0) { // Summary row (non-destination format)
+                                summaryPallets += (Number(item.totalPaletas) || 0);
+                            } else if (!isNaN(paletaValue) && paletaValue > 0) { // Itemized row
+                                uniquePalletsInSession.add(paletaValue);
+                            }
                         }
-                    }
-                });
-                dailyData.fixedDespachadas += uniquePalletsInSession.size + summaryPallets; // Using fixedDespachadas
+                    });
+                    dailyData.fixedDespachadas += uniquePalletsInSession.size + summaryPallets; // Using fixedDespachadas
+                }
             }
         });
         
