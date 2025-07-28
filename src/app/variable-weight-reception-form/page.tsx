@@ -16,16 +16,12 @@ export default async function VariableWeightReceptionFormPage({
     notFound();
   }
 
-  let pedidoTypes: PedidoType[] = [];
-  try {
-    pedidoTypes = await getPedidoTypesForForm('variable-weight-reception');
-  } catch (error) {
-    console.error(`Failed to fetch order types for variable-weight-reception:`, error);
-  }
-
+  const pedidoTypes: PedidoType[] = await getPedidoTypesForForm('variable-weight-reception');
+  
   return (
     <Suspense fallback={<div>Loading...</div>}>
       <VariableWeightReceptionFormComponent pedidoTypes={pedidoTypes} />
     </Suspense>
   );
 }
+
