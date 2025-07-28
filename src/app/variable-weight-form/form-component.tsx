@@ -582,66 +582,64 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
   };
 
   const calculatedSummaryForDisplay = useMemo(() => {
-    const allItemsForSummary = watchedDespachoPorDestino ? (watchedDestinos || []).flatMap(d => d.items) : (watchedItems || []);
-
-    const grouped = allItemsForSummary.reduce((acc, item) => {
-        if (!item?.descripcion?.trim()) return acc;
-        const desc = item.descripcion.trim();
-
-        if (!acc[desc]) {
-            const summaryItem = form.getValues('summary')?.find(s => s.descripcion === desc);
-            acc[desc] = {
-                descripcion: desc,
-                totalPeso: 0,
-                totalCantidad: 0,
-                paletas: new Set<number>(),
-                temperatura: summaryItem?.temperatura,
-            };
-        }
-
-        if (Number(item.paleta) === 0) {
-            acc[desc].totalPeso += Number(item.totalPesoNeto) || 0;
-            acc[desc].totalCantidad += Number(item.totalCantidad) || 0;
-            // For summary rows, the pallet count is taken from the global field, not per item.
-        } else {
-            acc[desc].totalPeso += Number(item.pesoNeto) || 0;
-            acc[desc].totalCantidad += Number(item.cantidadPorPaleta) || 0;
-            const paleta = Number(item.paleta);
-            if (!isNaN(paleta) && paleta > 0) {
-                acc[desc].paletas.add(paleta);
-            }
-        }
-        
-        return acc;
-    }, {} as Record<string, { descripcion: string; totalPeso: number; totalCantidad: number; paletas: Set<number>; temperatura: any; }>);
-
-    const totalGeneralPaletas = (() => {
-        if (isSummaryMode) {
-            return watchedTotalPaletasDespacho || 0;
-        }
-        const uniquePallets = new Set<number>();
-        allItemsForSummary.forEach(item => {
-            const paletaNum = Number(item?.paleta);
-            if (!isNaN(paletaNum) && paletaNum > 0) {
-                uniquePallets.add(paletaNum);
-            }
-        });
-        return uniquePallets.size;
-    })();
-
-    return {
-        items: Object.values(grouped).map(group => {
-            return {
-                descripcion: group.descripcion,
-                totalPeso: group.totalPeso,
-                totalCantidad: group.totalCantidad,
-                // The per-product pallet count is not relevant in the new model, use the grand total.
-                totalPaletas: 0,
-                temperatura: group.temperatura,
-            };
-        }),
-        totalGeneralPaletas
-    };
+      const allItemsForSummary = watchedDespachoPorDestino ? (watchedDestinos || []).flatMap(d => d.items) : (watchedItems || []);
+  
+      const grouped = allItemsForSummary.reduce((acc, item) => {
+          if (!item?.descripcion?.trim()) return acc;
+          const desc = item.descripcion.trim();
+  
+          if (!acc[desc]) {
+              const summaryItem = form.getValues('summary')?.find(s => s.descripcion === desc);
+              acc[desc] = {
+                  descripcion: desc,
+                  totalPeso: 0,
+                  totalCantidad: 0,
+                  paletas: new Set<number>(),
+                  temperatura: summaryItem?.temperatura,
+              };
+          }
+  
+          if (Number(item.paleta) === 0) {
+              acc[desc].totalPeso += Number(item.totalPesoNeto) || 0;
+              acc[desc].totalCantidad += Number(item.totalCantidad) || 0;
+          } else {
+              acc[desc].totalPeso += Number(item.pesoNeto) || 0;
+              acc[desc].totalCantidad += Number(item.cantidadPorPaleta) || 0;
+              const paleta = Number(item.paleta);
+              if (!isNaN(paleta) && paleta > 0) {
+                  acc[desc].paletas.add(paleta);
+              }
+          }
+          
+          return acc;
+      }, {} as Record<string, { descripcion: string; totalPeso: number; totalCantidad: number; paletas: Set<number>; temperatura: any; }>);
+  
+      const totalGeneralPaletas = (() => {
+          if (isSummaryMode) {
+              return watchedTotalPaletasDespacho || 0;
+          }
+          const uniquePallets = new Set<number>();
+          allItemsForSummary.forEach(item => {
+              const paletaNum = Number(item?.paleta);
+              if (!isNaN(paletaNum) && paletaNum > 0) {
+                  uniquePallets.add(paletaNum);
+              }
+          });
+          return uniquePallets.size;
+      })();
+  
+      return {
+          items: Object.values(grouped).map(group => {
+              return {
+                  descripcion: group.descripcion,
+                  totalPeso: group.totalPeso,
+                  totalCantidad: group.totalCantidad,
+                  totalPaletas: group.paletas.size,
+                  temperatura: group.temperatura,
+              };
+          }),
+          totalGeneralPaletas
+      };
   }, [watchedItems, watchedDestinos, watchedDespachoPorDestino, watchedTotalPaletasDespacho, isSummaryMode, form]);
   
   useEffect(() => {
@@ -1473,33 +1471,6 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                                     ))}
                                     <Button type="button" variant="outline" onClick={() => appendDestino({ nombreDestino: '', items: [] })}><MapPin className="mr-2 h-4 w-4"/>Agregar Destino</Button>
                                     
-                                    {watchedDespachoPorDestino && isSummaryMode && (
-                                        <div className="mt-6 pt-6 border-t">
-                                            <FormField
-                                                control={form.control}
-                                                name="totalPaletasDespacho"
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <FormLabel>Total Paletas del Despacho</FormLabel>
-                                                        <FormControl>
-                                                            <Input 
-                                                                type="number" 
-                                                                placeholder="0" 
-                                                                {...field}
-                                                                onChange={e => field.onChange(parseInt(e.target.value, 10) || undefined)}
-                                                                value={field.value ?? ''}
-                                                            />
-                                                        </FormControl>
-                                                        <FormDescription>
-                                                            Ingrese el número total de paletas para este despacho de resumen.
-                                                        </FormDescription>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-                                        </div>
-                                    )}
-
                                 </div>
                            ) : (
                                 <div className="space-y-4">
@@ -1509,6 +1480,32 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                                     <Button type="button" variant="outline" onClick={handleAddItem}><PlusCircle className="mr-2 h-4 w-4" />Agregar Ítem</Button>
                                 </div>
                            )}
+                           {watchedDespachoPorDestino && isSummaryMode && (
+                                <div className="mt-6 pt-6 border-t">
+                                    <FormField
+                                        control={form.control}
+                                        name="totalPaletasDespacho"
+                                        render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Total Paletas del Despacho</FormLabel>
+                                                <FormControl>
+                                                    <Input 
+                                                        type="number" 
+                                                        placeholder="0" 
+                                                        {...field}
+                                                        onChange={e => field.onChange(parseInt(e.target.value, 10) || undefined)}
+                                                        value={field.value ?? ''}
+                                                    />
+                                                </FormControl>
+                                                <FormDescription>
+                                                    Ingrese el número total de paletas para este despacho de resumen.
+                                                </FormDescription>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )}
+                                    />
+                                </div>
+                            )}
                         </div>
                     </CardContent>
                 </Card>
@@ -1525,6 +1522,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                                     <TableRow>
                                         <TableHead>Producto</TableHead>
                                         <TableHead className="w-[120px]">Temperatura (°C)</TableHead>
+                                        {!isSummaryMode && (<TableHead className="text-right">Total Paletas</TableHead>)}
                                         <TableHead className="text-right">Total Cantidad</TableHead>
                                         <TableHead className="text-right">Total Peso (kg)</TableHead>
                                     </TableRow>
@@ -1562,6 +1560,13 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                                                         )}
                                                     />
                                                 </TableCell>
+                                                {!isSummaryMode && (
+                                                    <TableCell className="text-right">
+                                                        <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
+                                                            {calculatedSummaryForDisplay.items.find(i => i.descripcion === summaryItem.descripcion)?.totalPaletas || 0}
+                                                        </div>
+                                                    </TableCell>
+                                                )}
                                                 <TableCell className="text-right">
                                                   <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
                                                     {calculatedSummaryForDisplay.items.find(i => i.descripcion === summaryItem.descripcion)?.totalCantidad || 0}
@@ -1576,13 +1581,13 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                                         ))
                                     ) : (
                                         <TableRow>
-                                            <TableCell colSpan={4} className="h-24 text-center">
+                                            <TableCell colSpan={isSummaryMode ? 4 : 5} className="h-24 text-center">
                                                 Agregue ítems para ver el resumen.
                                             </TableCell>
                                         </TableRow>
                                     )}
                                     <TableRow className="font-bold bg-muted hover:bg-muted">
-                                        <TableCell colSpan={2} className="text-right">TOTAL GENERAL PALETAS:</TableCell>
+                                        <TableCell colSpan={isSummaryMode ? 2 : 3} className="text-right">TOTAL GENERAL PALETAS:</TableCell>
                                         <TableCell colSpan={2} className="text-left pl-4">{calculatedSummaryForDisplay.totalGeneralPaletas}</TableCell>
                                     </TableRow>
                                 </TableBody>
@@ -2100,6 +2105,7 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
+
 
 
 
