@@ -260,7 +260,7 @@ const formSchema = z.object({
       }
     }
 
-    const isSpecialReception = data.tipoPedido === 'INGRESO DE SALDOS' || data.tipoPedido === 'MAQUILA';
+    const isSpecialReception = data.tipoPedido === 'INGRESO DE SALDOS';
     
     if (!isSpecialReception) {
         if (!data.conductor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El nombre del conductor es obligatorio.', path: ['conductor'] });
@@ -532,16 +532,13 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
   const watchedItems = useWatch({ control: form.control, name: "items" });
   const watchedPlacas = useWatch({ control: form.control, name: "placas" });
   const watchedObservations = useWatch({ control: form.control, name: "observations" });
-  const currentSummaryInForm = useWatch({ control: form.control, name: "summary" });
-
 
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "items" });
   const { fields: placaFields, append: appendPlaca, remove: removePlaca } = useFieldArray({ control: form.control, name: "placas" });
-  const { fields: observationFields, append: appendObservation, remove: removeObservation } = useFieldArray({ control: form.control, name: "observaciones" });
-  const summary = useFieldArray({ control: form.control, name: "summary" });
+  const { fields: observationFields, append: appendObservation, remove: removeObservation } = useFieldArray({ control: form.control, name: "observations" });
   
   const formIdentifier = submissionId ? `variable-weight-reception-edit-${submissionId}` : `variable-weight-${operation}`;
-  const { isRestoreDialogOpen, onOpenChange, onRestore, onDiscard, clearDraft } = useFormPersistence(formIdentifier, form, originalDefaultValues, attachments, setAttachments, !!submissionId);
+  const { isRestoreDialogOpen, onOpenChange, onRestore, onDiscard: handleDiscardHook, clearDraft } = useFormPersistence(formIdentifier, form, originalDefaultValues, attachments, setAttachments, !!submissionId);
   
   const itemsForCalculation = useMemo(() => isTunelMode ? (watchedPlacas || []).flatMap(p => p.items) : (watchedItems || []), [isTunelMode, watchedPlacas, watchedItems]);
 
@@ -558,7 +555,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
   }, [watchedTipoPedido, form]);
   
   const handleDiscard = () => {
-    onDiscard();
+    handleDiscardHook();
     form.reset(originalDefaultValues);
     setAttachments([]);
     setDiscardAlertOpen(false);
@@ -570,15 +567,11 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
         const desc = item.descripcion.trim();
 
         if (!acc[desc]) {
-            const summaryItem = form.getValues('summary')?.find(s => s.descripcion === desc);
             acc[desc] = {
                 descripcion: desc,
                 totalPeso: 0,
                 totalCantidad: 0,
                 paletas: new Set<number>(),
-                temperatura1: summaryItem?.temperatura1 ?? null, 
-                temperatura2: summaryItem?.temperatura2 ?? null,
-                temperatura3: summaryItem?.temperatura3 ?? null,
             };
         }
 
@@ -596,7 +589,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
         }
         
         return acc;
-    }, {} as Record<string, { descripcion: string; totalPeso: number; totalCantidad: number; paletas: Set<number>; temperatura1: any; temperatura2: any; temperatura3: any; }>);
+    }, {} as Record<string, { descripcion: string; totalPeso: number; totalCantidad: number; paletas: Set<number>; }>);
 
     return Object.values(grouped).map(group => ({
         descripcion: group.descripcion,
@@ -605,26 +598,27 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
         totalPaletas: group.paletas.has(0)
             ? (itemsForCalculation || []).filter(item => item.descripcion === group.descripcion && Number(item.paleta) === 0).reduce((sum, item) => sum + (Number(item.totalPaletas) || 0), 0)
             : group.paletas.size,
-        temperatura1: group.temperatura1,
-        temperatura2: group.temperatura2,
-        temperatura3: group.temperatura3,
     }));
-  }, [itemsForCalculation, form]);
+  }, [itemsForCalculation]);
+
+  const { setValue: setFormValue, getValues: getFormValues } = form;
 
   useEffect(() => {
-    const newSummaryState = calculatedSummaryForDisplay.map(newItem => {
-        const existingItem = currentSummaryInForm?.find(oldItem => oldItem.descripcion === newItem.descripcion);
-        return {
-            ...newItem,
-            temperatura1: existingItem?.temperatura1 ?? null,
-            temperatura2: existingItem?.temperatura2 ?? null,
-            temperatura3: existingItem?.temperatura3 ?? null,
-        };
-    });
-    if (JSON.stringify(newSummaryState) !== JSON.stringify(currentSummaryInForm)) {
-      form.setValue('summary', newSummaryState, { shouldValidate: true });
-    }
-  }, [calculatedSummaryForDisplay, form, currentSummaryInForm]);
+      const currentSummaryInForm = getFormValues('summary') || [];
+      const newSummaryState = calculatedSummaryForDisplay.map(newItem => {
+          const existingItem = currentSummaryInForm.find(oldItem => oldItem.descripcion === newItem.descripcion);
+          return {
+              ...newItem,
+              temperatura1: existingItem?.temperatura1 ?? null,
+              temperatura2: existingItem?.temperatura2 ?? null,
+              temperatura3: existingItem?.temperatura3 ?? null,
+          };
+      });
+
+      if (JSON.stringify(newSummaryState) !== JSON.stringify(currentSummaryInForm)) {
+          setFormValue('summary', newSummaryState, { shouldValidate: true });
+      }
+  }, [calculatedSummaryForDisplay, setFormValue, getFormValues]);
 
   const showSummary = (itemsForCalculation || []).some(item => item && item.descripcion && item.descripcion.trim() !== '');
 
@@ -1506,64 +1500,66 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                 <TableBody>
                                     {calculatedSummaryForDisplay.length > 0 ? (
                                         calculatedSummaryForDisplay.map((summaryItem, summaryIndex) => {
-                                           return (
-                                            <TableRow key={summaryItem.descripcion}>
-                                                <TableCell className="font-medium">
-                                                    <div className="bg-muted/50 p-2 rounded-md flex items-center h-10">
-                                                        {summaryItem.descripcion}
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell>
-                                                    <div className="flex items-center gap-1">
-                                                        <FormField
-                                                            control={form.control}
-                                                            name={`summary.${summaryIndex}.temperatura1`}
-                                                            render={({ field }) => (
-                                                            <FormItem>
-                                                                <FormControl><Input type="text" inputMode="decimal" placeholder="T1" {...field} 
-                                                                        onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} 
-                                                                        value={field.value ?? ''}
-                                                                    className="w-20 h-9 text-center" /></FormControl>
-                                                                <FormMessage className="text-xs"/>
-                                                            </FormItem>
-                                                            )} />
-                                                        <FormField
-                                                            control={form.control}
-                                                            name={`summary.${summaryIndex}.temperatura2`}
-                                                            render={({ field }) => (
-                                                            <FormItem>
-                                                                <FormControl><Input type="text" inputMode="decimal" placeholder="T2" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} className="w-20 h-9 text-center" /></FormControl>
-                                                                <FormMessage className="text-xs"/>
-                                                            </FormItem>
-                                                            )} />
-                                                        <FormField
-                                                            control={form.control}
-                                                            name={`summary.${summaryIndex}.temperatura3`}
-                                                            render={({ field }) => (
-                                                            <FormItem>
-                                                                <FormControl><Input type="text" inputMode="decimal" placeholder="T3" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} className="w-20 h-9 text-center" /></FormControl>
-                                                                <FormMessage className="text-xs"/>
-                                                            </FormItem>
-                                                            )} />
-                                                    </div>
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                  <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
-                                                    {summaryItem.totalPaletas || 0}
-                                                  </div>
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                  <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
-                                                    {summaryItem.totalCantidad || 0}
-                                                  </div>
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                  <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
-                                                    {(summaryItem.totalPeso || 0).toFixed(2)}
-                                                  </div>
-                                                </TableCell>
-                                            </TableRow>
-                                        )})
+                                            const currentItemInForm = form.getValues(`summary.${summaryIndex}`);
+                                            return (
+                                                <TableRow key={summaryItem.descripcion}>
+                                                    <TableCell className="font-medium">
+                                                        <div className="bg-muted/50 p-2 rounded-md flex items-center h-10">
+                                                            {summaryItem.descripcion}
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell>
+                                                        <div className="flex items-center gap-1">
+                                                            <FormField
+                                                                control={form.control}
+                                                                name={`summary.${summaryIndex}.temperatura1`}
+                                                                render={({ field }) => (
+                                                                    <FormItem>
+                                                                        <FormControl><Input type="text" inputMode="decimal" placeholder="T1" {...field} 
+                                                                                onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} 
+                                                                                value={field.value ?? ''}
+                                                                            className="w-20 h-9 text-center" /></FormControl>
+                                                                        <FormMessage className="text-xs"/>
+                                                                    </FormItem>
+                                                                )} />
+                                                            <FormField
+                                                                control={form.control}
+                                                                name={`summary.${summaryIndex}.temperatura2`}
+                                                                render={({ field }) => (
+                                                                <FormItem>
+                                                                    <FormControl><Input type="text" inputMode="decimal" placeholder="T2" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} className="w-20 h-9 text-center" /></FormControl>
+                                                                    <FormMessage className="text-xs"/>
+                                                                </FormItem>
+                                                                )} />
+                                                            <FormField
+                                                                control={form.control}
+                                                                name={`summary.${summaryIndex}.temperatura3`}
+                                                                render={({ field }) => (
+                                                                <FormItem>
+                                                                    <FormControl><Input type="text" inputMode="decimal" placeholder="T3" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} className="w-20 h-9 text-center" /></FormControl>
+                                                                    <FormMessage className="text-xs"/>
+                                                                </FormItem>
+                                                                )} />
+                                                        </div>
+                                                    </TableCell>
+                                                    <TableCell className="text-right">
+                                                      <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
+                                                        {summaryItem.totalPaletas || 0}
+                                                      </div>
+                                                    </TableCell>
+                                                    <TableCell className="text-right">
+                                                      <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
+                                                        {summaryItem.totalCantidad || 0}
+                                                      </div>
+                                                    </TableCell>
+                                                    <TableCell className="text-right">
+                                                      <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
+                                                        {(summaryItem.totalPeso || 0).toFixed(2)}
+                                                      </div>
+                                                    </TableCell>
+                                                </TableRow>
+                                            )
+                                        })
                                     ) : (
                                         <TableRow>
                                             <TableCell colSpan={5} className="h-24 text-center">
@@ -2119,4 +2115,5 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
+
 
