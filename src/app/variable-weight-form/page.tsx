@@ -1,4 +1,5 @@
 
+
 import { Suspense } from 'react';
 import VariableWeightFormComponent from './form-component';
 import { getPedidoTypesForForm } from '@/app/gestion-tipos-pedido/actions';
@@ -15,12 +16,7 @@ export default async function VariableWeightFormPage({
     notFound();
   }
 
-  let pedidoTypes: PedidoType[] = [];
-  try {
-    pedidoTypes = await getPedidoTypesForForm('variable-weight-despacho');
-  } catch (error) {
-    console.error(`Failed to fetch order types for variable-weight-despacho:`, error);
-  }
+  const pedidoTypes: PedidoType[] = await getPedidoTypesForForm('variable-weight-despacho');
   
   return (
     <Suspense fallback={<div>Loading...</div>}>
