@@ -116,7 +116,6 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
             let totalCantidad = 0;
             let totalPaletas = 0;
             const uniquePallets = new Set<number>();
-
             if (isSummaryFormat) {
                 group.items.forEach(item => {
                     totalPeso += Number(item.totalPesoNeto) || 0;
@@ -128,26 +127,17 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                     totalPeso += Number(item.pesoNeto) || 0;
                     totalCantidad += Number(item.cantidadPorPaleta) || 0;
                     const paletaNum = Number(item.paleta);
-                    if (!isNaN(paletaNum) && paletaNum > 0) {
-                        uniquePallets.add(paletaNum);
-                    }
+                    if (!isNaN(paletaNum) && paletaNum > 0) uniquePallets.add(paletaNum);
                 });
                 totalPaletas = uniquePallets.size;
             }
-
-            return {
-                descripcion: group.descripcion,
-                destino: group.destino,
-                temperatura: group.temperatura,
-                totalPeso,
-                totalCantidad,
-                totalPaletas,
-            };
+            return { ...group, totalPeso, totalCantidad, totalPaletas };
         });
     })();
     
     const totalGeneralPeso = recalculatedSummary.reduce((acc, p) => acc + (p.totalPeso || 0), 0);
     const totalGeneralCantidad = recalculatedSummary.reduce((acc, p) => acc + (p.totalCantidad || 0), 0);
+    
     const totalGeneralPaletas = (() => {
         if (isSummaryFormat) {
             return formData.despachoPorDestino
@@ -256,7 +246,8 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                                 </tr>
                             ))}
                             <tr style={{ fontWeight: 'bold', backgroundColor: '#f1f5f9' }}>
-                                <td style={{ padding: '4px', textAlign: 'right' }} colSpan={formData.despachoPorDestino && !isSummaryFormat ? 3 : 2}>TOTALES:</td>
+                                <td style={{ padding: '4px', textAlign: 'right' }} colSpan={formData.despachoPorDestino && !isSummaryFormat ? 2 : 1}>TOTALES:</td>
+                                <td style={{ padding: '4px' }}></td>
                                 <td style={{ textAlign: 'right', padding: '4px' }}>{totalGeneralCantidad}</td>
                                 <td style={{ textAlign: 'right', padding: '4px' }}>{totalGeneralPaletas}</td>
                                 <td style={{ textAlign: 'right', padding: '4px' }}>{totalGeneralPeso.toFixed(2)}</td>
@@ -416,6 +407,7 @@ const ItemsTable = ({ items, isSummaryFormat }: { items: any[], isSummaryFormat:
         </tbody>
     </table>
 );
+
 
 
 

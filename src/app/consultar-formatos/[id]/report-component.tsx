@@ -582,25 +582,12 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 });
                 yPos = (doc as any).autoTable.previous.finalY;
 
-                const drawItemsTable = (items: any[], placa?: string, destino?: string) => {
-                    if(placa) {
+                const drawItemsTable = (items: any[], subtitle?: string) => {
+                    if(subtitle) {
                          autoTable(doc, {
                             startY: yPos,
                             body: [[{ 
-                                content: `Placa: ${placa}`,
-                                styles: { fontStyle: 'bold', fillColor: '#f1f5f9', textColor: '#1a202c' }
-                            }]],
-                            theme: 'grid',
-                            margin: { horizontal: margin },
-                        });
-                        yPos = (doc as any).autoTable.previous.finalY;
-                    }
-
-                    if (destino) {
-                         autoTable(doc, {
-                            startY: yPos,
-                            body: [[{ 
-                                content: `Destino: ${destino}`,
+                                content: subtitle,
                                 styles: { fontStyle: 'bold', fillColor: '#f1f5f9', textColor: '#1a202c' }
                             }]],
                             theme: 'grid',
@@ -641,8 +628,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     });
                     yPos = (doc as any).autoTable.previous.finalY;
 
-                    // Add subtotals for destination
-                    if (destino) {
+                    if (formData.despachoPorDestino) {
                         const subtotals = items.reduce((acc: {cantidad: number, paletas: number, peso: number}, item: any) => {
                             if (isSummaryFormat) {
                                 acc.cantidad += Number(item.totalCantidad) || 0;
@@ -651,16 +637,19 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             } else {
                                 acc.cantidad += Number(item.cantidadPorPaleta) || 0;
                                 acc.peso += Number(item.pesoNeto) || 0;
-                                const uniquePalletsInDest = new Set();
-                                items.forEach((i: any) => {
-                                    const pNum = Number(i.paleta);
-                                    if(!isNaN(pNum) && pNum > 0) uniquePalletsInDest.add(pNum);
-                                });
-                                acc.paletas = uniquePalletsInDest.size;
                             }
                             return acc;
                         }, { cantidad: 0, paletas: 0, peso: 0 });
                         
+                        if (!isSummaryFormat) {
+                            const uniquePalletsInDest = new Set();
+                            items.forEach((i: any) => {
+                                const pNum = Number(i.paleta);
+                                if(!isNaN(pNum) && pNum > 0) uniquePalletsInDest.add(pNum);
+                            });
+                            subtotals.paletas = uniquePalletsInDest.size;
+                        }
+
                         let subtotalRow: any[] = [{ content: 'SUBTOTAL DESTINO:', colSpan: isSummaryFormat ? 3 : 4, styles: { halign: 'right', fontStyle: 'bold' } }];
                         
                         if(isSummaryFormat) {
@@ -681,21 +670,21 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             startY: yPos,
                             body: [subtotalRow],
                             theme: 'grid',
-                            styles: { fontSize: 8, cellPadding: 3, fontStyle: 'bold' },
+                            styles: { fontSize: 8, cellPadding: 3, fontStyle: 'bold', fillColor: '#fafafa' },
                             margin: { horizontal: margin },
                         });
                         yPos = (doc as any).autoTable.previous.finalY;
                     }
                 };
-
+                
                 if (formData.despachoPorDestino && formData.destinos?.length > 0) {
                     formData.destinos.forEach((destino: any) => {
-                        drawItemsTable(destino.items || [], undefined, destino.nombreDestino);
+                        drawItemsTable(destino.items || [], `Destino: ${destino.nombreDestino}`);
                     });
                     yPos += 15;
-                } else if(formData.tipoPedido === 'TUNEL' && formData.placas?.length > 0) {
+                } else if(isTunelMode && formData.placas?.length > 0) {
                     formData.placas.forEach((placa: any) => {
-                        drawItemsTable(placa.items || [], placa.numeroPlaca);
+                        drawItemsTable(placa.items || [], `Placa: ${placa.numeroPlaca}`);
                     });
                     yPos += 15;
                 } else {
@@ -703,64 +692,84 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     yPos += 15;
                 }
                 
-                if (formData.summary?.length > 0) {
-                    const isSummaryFormat = (formData.items || []).some((p: any) => Number(p.paleta) === 0) || (formData.destinos || []).some((d: any) => d.items.some((i: any) => Number(i.paleta) === 0));
-                    const isDestinoSummary = formData.despachoPorDestino && !isSummaryFormat;
+                // Recalculated summary logic
+                const allItemsForSummary = formData.despachoPorDestino ? formData.destinos.flatMap((d: any) => d.items.map((i: any) => ({...i, destino: d.nombreDestino}))) : formData.items;
+                const isSummaryFormat = allItemsForSummary.some((p: any) => Number(p.paleta) === 0);
+                const isIndividualPalletMode = allItemsForSummary.every((item: any) => Number(item?.paleta) > 0);
+                const shouldGroupByDestino = formData.despachoPorDestino && isIndividualPalletMode;
+                const recalculatedSummary = (() => {
+                    const grouped = allItemsForSummary.reduce((acc, item) => {
+                        if (!item?.descripcion?.trim()) return acc;
+                        const key = shouldGroupByDestino ? `${item.destino}|${item.descripcion}` : item.descripcion;
 
+                        if (!acc[key]) {
+                            const summaryItem = formData.summary?.find((s: any) => (s.destino ? `${s.destino}|${s.descripcion}` : s.descripcion) === key);
+                            acc[key] = {
+                                descripcion: item.descripcion,
+                                destino: item.destino,
+                                items: [],
+                                temperatura: summaryItem?.temperatura,
+                            };
+                        }
+                        acc[key].items.push(item);
+                        return acc;
+                    }, {} as Record<string, { descripcion: string; destino?: string, items: any[], temperatura: any }>);
+
+                    return Object.values(grouped).map(group => {
+                        let totalPeso = 0, totalCantidad = 0, totalPaletas = 0;
+                        const uniquePallets = new Set<number>();
+                        if (isSummaryFormat) {
+                            group.items.forEach(item => {
+                                totalPeso += Number(item.totalPesoNeto) || 0;
+                                totalCantidad += Number(item.totalCantidad) || 0;
+                                totalPaletas += Number(item.totalPaletas) || 0;
+                            });
+                        } else {
+                            group.items.forEach(item => {
+                                totalPeso += Number(item.pesoNeto) || 0;
+                                totalCantidad += Number(item.cantidadPorPaleta) || 0;
+                                const paletaNum = Number(item.paleta);
+                                if (!isNaN(paletaNum) && paletaNum > 0) uniquePallets.add(paletaNum);
+                            });
+                            totalPaletas = uniquePallets.size;
+                        }
+                        return { ...group, totalPeso, totalCantidad, totalPaletas };
+                    });
+                })();
+                const totalGeneralPeso = recalculatedSummary.reduce((acc, p) => acc + (p.totalPeso || 0), 0);
+                const totalGeneralCantidad = recalculatedSummary.reduce((acc, p) => acc + (p.totalCantidad || 0), 0);
+                const totalGeneralPaletas = recalculateTotalPaletas(formData);
+
+                if (recalculatedSummary.length > 0) {
                     const summaryHead = [
-                        isTunelMode ? 'Placa' : isDestinoSummary ? 'Destino' : null, 
+                        shouldGroupByDestino ? 'Destino' : null, 
                         'Descripción', 'Temp(°C)', 'Total Cantidad', 
-                        isSummaryFormat && formData.despachoPorDestino ? null : 'Total Paletas',
+                        !isSummaryFormat ? 'Total Paletas' : null,
                         'Total Peso (kg)'
                     ].filter(Boolean) as string[];
 
-                    const summaryBody = formData.summary.map((p: any) => {
-                        const temps = [p.temperatura1, p.temperatura2, p.temperatura3].filter(t => t != null && !isNaN(t)).join(' / ');
+                    const summaryBody = recalculatedSummary.map((p: any) => {
                         const row: any[] = [];
-                        if (isTunelMode) row.push(p.placa);
-                        else if (isDestinoSummary) row.push(p.destino);
-
-                        row.push(p.descripcion, temps, p.totalCantidad);
-
-                        if (!(isSummaryFormat && formData.despachoPorDestino)) {
-                            row.push(p.totalPaletas);
-                        }
-                        
+                        if (shouldGroupByDestino) row.push(p.destino);
+                        row.push(p.descripcion);
+                        row.push(p.temperatura);
+                        row.push(p.totalCantidad);
+                        if (!isSummaryFormat) row.push(p.totalPaletas);
                         row.push(p.totalPeso?.toFixed(2));
                         return row;
                     });
                     
-                    const totalCantidad = formData.summary.reduce((acc: any, p: any) => acc + (p.totalCantidad || 0), 0);
-                    const totalPeso = formData.summary.reduce((acc: any, p: any) => acc + (p.totalPeso || 0), 0);
-                    
-                    const allItems = formData.despachoPorDestino ? formData.destinos.flatMap((d: any) => d.items) : formData.items;
-                    const uniquePallets = new Set();
-                    allItems.forEach((i: any) => {
-                        const pNum = Number(i.paleta);
-                        if(!isNaN(pNum) && pNum > 0) uniquePallets.add(pNum);
-                    });
-                    
-                    const totalGeneralPaletas = isSummaryFormat
-                        ? (formData.despachoPorDestino ? formData.totalPaletasDespacho : formData.summary.reduce((acc: any, p: any) => acc + (p.totalPaletas || 0), 0))
-                        : uniquePallets.size;
-
-                    const footRow: any[] = [
-                        { content: 'TOTALES:', colSpan: isTunelMode || isDestinoSummary ? 2 : 1, styles: { halign: 'right', fontStyle: 'bold' } }, 
-                        ''
-                    ];
-                    
-                    if (!(isSummaryFormat && formData.despachoPorDestino)) {
-                        footRow.push(totalGeneralPaletas);
+                    const footColSpan = shouldGroupByDestino ? 2 : 1;
+                    const footRow: any[] = [ { content: 'TOTALES:', colSpan: footColSpan, styles: { halign: 'right', fontStyle: 'bold' } }, '' ];
+                    footRow.push({ content: totalGeneralCantidad, styles: { halign: 'right' } });
+                    if (!isSummaryFormat) {
+                       footRow.push({ content: totalGeneralPaletas, styles: { halign: 'right' } });
                     }
-                    footRow.push(totalCantidad, totalPeso.toFixed(2));
-
+                    footRow.push({ content: totalGeneralPeso.toFixed(2), styles: { halign: 'right' } });
 
                     autoTable(doc, {
                         startY: yPos,
-                        head: [
-                            [{ content: 'Resumen de Productos', colSpan: summaryHead.length, styles: { halign: 'center', fillColor: '#e2e8f0' } }], 
-                            summaryHead
-                        ],
+                        head: [[{ content: 'Resumen de Productos', colSpan: summaryHead.length, styles: { halign: 'center', fillColor: '#e2e8f0' } }], summaryHead],
                         body: summaryBody,
                         foot: [footRow],
                         theme: 'grid',
@@ -772,7 +781,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     yPos = (doc as any).autoTable.previous.finalY + 15;
                 }
 
-                 addObservationsTable();
+                addObservationsTable();
     
                 autoTable(doc, { 
                     startY: yPos, 
@@ -860,16 +869,18 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
         }
     };
     
-    const recalculateTotalPaletas = (formData: any, forDescription?: string): number => {
+    const recalculateTotalPaletas = (formData: any): number => {
         const allItems = formData.despachoPorDestino ? formData.destinos.flatMap((d: any) => d.items) : formData.items;
-        const targetItems = forDescription ? allItems.filter((i: any) => i.descripcion === forDescription) : allItems;
-        const isSummary = targetItems.some((p: any) => Number(p.paleta) === 0);
+        const isSummary = allItems.some((p: any) => Number(p.paleta) === 0);
 
         if (isSummary) {
-            return targetItems.reduce((sum: number, item: any) => sum + (Number(item.totalPaletas) || 0), 0);
+            if (formData.despachoPorDestino) {
+                return Number(formData.totalPaletasDespacho) || 0;
+            }
+            return allItems.reduce((sum: number, item: any) => sum + (Number(item.totalPaletas) || 0), 0);
         } else {
             const uniquePallets = new Set<number>();
-            targetItems.forEach((item: any) => {
+            allItems.forEach((item: any) => {
                 const paletaNum = Number(item.paleta);
                 if (!isNaN(paletaNum) && paletaNum > 0) {
                     uniquePallets.add(paletaNum);
@@ -953,6 +964,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
         </div>
     );
 }
+
 
 
 
