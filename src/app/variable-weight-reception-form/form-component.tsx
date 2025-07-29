@@ -194,6 +194,7 @@ const formSchema = z.object({
 
 
 const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, isTunel = false, placaIndex }: { control: any, itemIndex: number, handleProductDialogOpening: (context: { itemIndex: number, placaIndex?: number }) => void, remove?: (index: number) => void, isTunel?: boolean, placaIndex?: number }) => {
+    const { getValues } = useFormContext();
     const basePath = isTunel ? `placas.${placaIndex}.items` : 'items';
     const watchedItem = useWatch({ control, name: `${basePath}.${itemIndex}` });
     const { setValue } = useFormContext();
@@ -254,9 +255,11 @@ const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, is
                 )} />
             </div>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <FormField control={control} name={`${basePath}.${itemIndex}.paleta`} render={({ field }) => (
-                    <FormItem><FormLabel>Paleta</FormLabel><FormControl><Input type="text" inputMode="numeric" placeholder="0 para resumen" {...field} onChange={e => field.onChange(e.target.value === '' ? null : Number(e.target.value))} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                )} />
+                 {!isTunel && (
+                    <FormField control={control} name={`${basePath}.${itemIndex}.paleta`} render={({ field }) => (
+                        <FormItem><FormLabel>Paleta</FormLabel><FormControl><Input type="text" inputMode="numeric" placeholder="0 para resumen" {...field} onChange={e => field.onChange(e.target.value === '' ? null : Number(e.target.value))} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                )}
                 <FormField control={control} name={`${basePath}.${itemIndex}.lote`} render={({ field }) => (
                     <FormItem><FormLabel>Lote</FormLabel><FormControl><Input placeholder="Lote (máx. 15)" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>
                 )} />
@@ -264,7 +267,7 @@ const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, is
                     <FormItem><FormLabel>Presentación</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione" /></SelectTrigger></FormControl><SelectContent>{presentaciones.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                 )} />
             </div>
-            {isSummaryRow ? (
+            {isSummaryRow && !isTunel ? (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <FormField control={control} name={`${basePath}.${itemIndex}.totalCantidad`} render={({ field }) => (
                         <FormItem><FormLabel>Total Cantidad</FormLabel><FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
@@ -315,7 +318,7 @@ const ItemsPorPlaca = ({ placaIndex, handleProductDialogOpening }: { placaIndex:
             descripcion: lastItem.descripcion,
             lote: lastItem.lote,
             presentacion: lastItem.presentacion,
-            paleta: lastItem.paleta === 0 ? 0 : null,
+            paleta: isNaN(Number(lastItem.paleta)) ? null : Number(lastItem.paleta),
         } : { ...originalDefaultValues.items![0] };
         
         append(newItemPayload);
@@ -487,6 +490,19 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
   };
   
   const calculatedSummaryForDisplay = useMemo(() => {
+    if (isTunelMode) {
+      const groupedByPlaca = (watchedPlacas || []).map(placa => {
+        const totalPeso = (placa.items || []).reduce((acc, item) => acc + (Number(item.pesoNeto) || 0), 0);
+        const totalCantidad = (placa.items || []).reduce((acc, item) => acc + (Number(item.cantidadPorPaleta) || 0), 0);
+        return {
+          descripcion: placa.numeroPlaca, // Use placa number as description
+          totalPeso,
+          totalCantidad
+        };
+      });
+      return { items: groupedByPlaca, totalGeneralPaletas: 0 };
+    }
+
     const grouped = (itemsForCalculation || []).reduce((acc, item) => {
         if (!item?.descripcion?.trim()) return acc;
         const desc = item.descripcion.trim();
@@ -516,7 +532,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
         return acc;
     }, {} as Record<string, { descripcion: string; totalPeso: number; totalCantidad: number; paletas: Set<number>; }>);
 
-    return Object.values(grouped).map(group => ({
+    const items = Object.values(grouped).map(group => ({
         descripcion: group.descripcion,
         totalPeso: group.totalPeso,
         totalCantidad: group.totalCantidad,
@@ -524,11 +540,16 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
             ? (itemsForCalculation || []).filter(item => item.descripcion === group.descripcion && Number(item.paleta) === 0).reduce((sum, item) => sum + (Number(item.totalPaletas) || 0), 0)
             : group.paletas.size,
     }));
-  }, [itemsForCalculation]);
+    
+    const totalGeneralPaletas = items.reduce((acc, item) => acc + (item.totalPaletas || 0), 0);
+    
+    return { items, totalGeneralPaletas };
+
+  }, [itemsForCalculation, isTunelMode, watchedPlacas]);
 
   const currentSummaryFields = useMemo(() => {
     const currentSummaryInForm = form.getValues('summary') || [];
-    const newSummaryState = calculatedSummaryForDisplay.map(newItem => {
+    const newSummaryState = calculatedSummaryForDisplay.items.map(newItem => {
         const existingItem = currentSummaryInForm.find(oldItem => oldItem.descripcion === newItem.descripcion);
         return {
             ...newItem,
@@ -543,9 +564,9 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
         form.setValue('summary', newSummaryState, { shouldValidate: true });
     }
     return newSummaryState;
-}, [calculatedSummaryForDisplay, form]);
+}, [calculatedSummaryForDisplay.items, form]);
 
-  const showSummary = (itemsForCalculation || []).some(item => item && item.descripcion && item.descripcion.trim() !== '');
+  const showSummary = (itemsForCalculation || []).some(item => item && (item.descripcion || (isTunelMode && item.numeroPlaca)) && (item.descripcion?.trim() !== '' || item.numeroPlaca?.trim() !== ''));
 
   useEffect(() => {
     const fetchClientsAndObs = async () => {
@@ -873,7 +894,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
 
     setIsSubmitting(true);
     try {
-        const finalSummary = calculatedSummaryForDisplay.map(summaryItem => {
+        const finalSummary = calculatedSummaryForDisplay.items.map(summaryItem => {
             const formItem = (data.summary || []).find(s => s.descripcion === summaryItem.descripcion);
             return {
                 ...summaryItem,
@@ -1418,9 +1439,9 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>Producto</TableHead>
+                                        <TableHead>{isTunelMode ? 'Placa' : 'Producto'}</TableHead>
                                         <TableHead className="w-[240px]">Temperaturas (°C)</TableHead>
-                                        <TableHead className="text-right">Total Paletas</TableHead>
+                                        {!isTunelMode && <TableHead className="text-right">Total Paletas</TableHead>}
                                         <TableHead className="text-right">Total Cantidad</TableHead>
                                         <TableHead className="text-right">Total Peso (kg)</TableHead>
                                     </TableRow>
@@ -1469,11 +1490,13 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                                                 )} />
                                                         </div>
                                                 </TableCell>
-                                                <TableCell className="text-right">
-                                                  <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
-                                                    {summaryItem.totalPaletas || 0}
-                                                  </div>
-                                                </TableCell>
+                                                {!isTunelMode &&
+                                                    <TableCell className="text-right">
+                                                      <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
+                                                        {summaryItem.totalPaletas || 0}
+                                                      </div>
+                                                    </TableCell>
+                                                }
                                                 <TableCell className="text-right">
                                                   <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
                                                     {summaryItem.totalCantidad || 0}
@@ -1493,6 +1516,12 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                             </TableCell>
                                         </TableRow>
                                     )}
+                                    <TableRow className="font-bold bg-muted hover:bg-muted">
+                                        <TableCell colSpan={isTunelMode ? 1 : 2} className="text-right">TOTAL GENERAL:</TableCell>
+                                        {!isTunelMode && <TableCell className="text-right pl-4">{calculatedSummaryForDisplay.totalGeneralPaletas}</TableCell>}
+                                        <TableCell className="text-right">{calculatedSummaryForDisplay.items.reduce((acc, item) => acc + (item.totalCantidad || 0), 0)}</TableCell>
+                                        <TableCell className="text-right">{(calculatedSummaryForDisplay.items.reduce((acc, item) => acc + (item.totalPeso || 0), 0)).toFixed(2)}</TableCell>
+                                    </TableRow>
                                 </TableBody>
                             </Table>
                         </div>
@@ -2036,4 +2065,5 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
+
 
