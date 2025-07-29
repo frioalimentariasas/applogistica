@@ -138,7 +138,7 @@ export default function LoginForm() {
                 )}
               />
               <div className="flex items-center justify-between gap-4 pt-2">
-                <Button type="submit" className="flex-grow" disabled={isLoading}>
+                <Button type="submit" disabled={isLoading}>
                   {isLoading ? (
                     <Loader2 className="animate-spin" />
                   ) : (
@@ -148,7 +148,7 @@ export default function LoginForm() {
                     </>
                   )}
                 </Button>
-                 <p className="text-sm text-gray-500 font-mono whitespace-nowrap">{appVersion}</p>
+                <p className="text-sm text-gray-500 font-mono whitespace-nowrap">{appVersion}</p>
               </div>
             </form>
           </Form>
