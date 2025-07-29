@@ -400,7 +400,7 @@ function ItemsPorDestino({ control, remove, handleProductDialogOpening, destinoI
                 <Button type="button" variant="outline" size="sm" onClick={handleAddItem}><PlusCircle className="mr-2 h-4 w-4" />Agregar Ítem a Destino</Button>
                 <div className="flex gap-4 text-sm font-medium">
                     <span>Subtotal Cantidad: {subtotals.cantidad}</span>
-                    <span>Subtotal Paletas: {subtotals.paletas}</span>
+                    {!isSummaryFormat && <span>Subtotal Paletas: {subtotals.paletas}</span>}
                     <span>Subtotal Peso: {subtotals.peso.toFixed(2)} kg</span>
                 </div>
             </div>
@@ -2178,4 +2178,5 @@ function PedidoTypeSelectorDialog({
 }
 
     
+
 
