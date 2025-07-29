@@ -609,11 +609,11 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         yPos = (doc as any).autoTable.previous.finalY;
                     }
 
-                    const isSummary = items.some((p: any) => Number(p.paleta) === 0);
+                    const isSummaryFormat = items.some((p: any) => Number(p.paleta) === 0);
                     let detailHead: any[];
                     let detailBody: any[][];
 
-                    if (!isSummary) {
+                    if (!isSummaryFormat) {
                         detailHead = [[isTunelMode ? null : 'Paleta', 'Descripción', 'Lote', 'Presentación', 'Cant.', 'P. Bruto', 'T. Estiba', 'T. Caja', 'Total Tara', 'P. Neto'].filter(Boolean)];
                         detailBody = items.map((p: any) => [
                             isTunelMode ? null : p.paleta, 
@@ -644,31 +644,33 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     // Add subtotals for destination
                     if (destino) {
                         const subtotals = items.reduce((acc: {cantidad: number, paletas: number, peso: number}, item: any) => {
-                            if (isSummary) {
+                            if (isSummaryFormat) {
                                 acc.cantidad += Number(item.totalCantidad) || 0;
                                 acc.paletas += Number(item.totalPaletas) || 0;
                                 acc.peso += Number(item.totalPesoNeto) || 0;
                             } else {
                                 acc.cantidad += Number(item.cantidadPorPaleta) || 0;
                                 acc.peso += Number(item.pesoNeto) || 0;
-                                const paletaNum = Number(item.paleta);
-                                if (!isNaN(paletaNum) && paletaNum > 0) acc.paletas++;
+                                const uniquePalletsInDest = new Set();
+                                items.forEach((i: any) => {
+                                    const pNum = Number(i.paleta);
+                                    if(!isNaN(pNum) && pNum > 0) uniquePalletsInDest.add(pNum);
+                                });
+                                acc.paletas = uniquePalletsInDest.size;
                             }
                             return acc;
                         }, { cantidad: 0, paletas: 0, peso: 0 });
                         
-                        let subtotalRow: any[] = [{ content: 'SUBTOTAL DESTINO:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }];
+                        let subtotalRow: any[] = [{ content: 'SUBTOTAL DESTINO:', colSpan: isSummaryFormat ? 3 : 4, styles: { halign: 'right', fontStyle: 'bold' } }];
                         
                         if(isSummaryFormat) {
                             subtotalRow.push(
-                                { content: '', colSpan: 1 },
                                 { content: subtotals.cantidad, styles: { halign: 'right' } },
                                 { content: subtotals.paletas, styles: { halign: 'right' } },
                                 { content: subtotals.peso.toFixed(2), styles: { halign: 'right' } }
                             );
                         } else {
                              subtotalRow.push(
-                                { content: '', colSpan: 2 },
                                 { content: subtotals.cantidad, styles: { halign: 'right' } },
                                 { content: '', colSpan: 4 },
                                 { content: subtotals.peso.toFixed(2), styles: { halign: 'right' } }
@@ -730,9 +732,17 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     
                     const totalCantidad = formData.summary.reduce((acc: any, p: any) => acc + (p.totalCantidad || 0), 0);
                     const totalPeso = formData.summary.reduce((acc: any, p: any) => acc + (p.totalPeso || 0), 0);
-                    const totalGeneralPaletas = isSummaryFormat && formData.despachoPorDestino 
-                        ? formData.totalPaletasDespacho 
-                        : formData.summary.reduce((acc: any, p: any) => acc + (p.totalPaletas || 0), 0);
+                    
+                    const allItems = formData.despachoPorDestino ? formData.destinos.flatMap((d: any) => d.items) : formData.items;
+                    const uniquePallets = new Set();
+                    allItems.forEach((i: any) => {
+                        const pNum = Number(i.paleta);
+                        if(!isNaN(pNum) && pNum > 0) uniquePallets.add(pNum);
+                    });
+                    
+                    const totalGeneralPaletas = isSummaryFormat
+                        ? (formData.despachoPorDestino ? formData.totalPaletasDespacho : formData.summary.reduce((acc: any, p: any) => acc + (p.totalPaletas || 0), 0))
+                        : uniquePallets.size;
 
                     const footRow: any[] = [
                         { content: 'TOTALES:', colSpan: isTunelMode || isDestinoSummary ? 2 : 1, styles: { halign: 'right', fontStyle: 'bold' } }, 
@@ -943,6 +953,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
         </div>
     );
 }
+
 
 
 

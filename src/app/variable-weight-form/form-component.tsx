@@ -400,7 +400,7 @@ function ItemsPorDestino({ control, remove, handleProductDialogOpening, destinoI
                 <Button type="button" variant="outline" size="sm" onClick={handleAddItem}><PlusCircle className="mr-2 h-4 w-4" />Agregar Ítem a Destino</Button>
                 <div className="flex gap-4 text-sm font-medium">
                     <span>Subtotal Cantidad: {subtotals.cantidad}</span>
-                    {!isSummaryFormat && <span>Subtotal Paletas: {subtotals.paletas}</span>}
+                     {!isSummaryFormat && <span>Subtotal Paletas: {subtotals.paletas}</span>}
                     <span>Subtotal Peso: {subtotals.peso.toFixed(2)} kg</span>
                 </div>
             </div>
@@ -1098,6 +1098,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
   }
   
   const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
     form.handleSubmit((data) => {
         const allItems = data.despachoPorDestino ? (data.destinos || []).flatMap(d => d.items) : (data.items || []);
         const hasSummaryRow = allItems.some(item => Number(item.paleta) === 0);
@@ -1812,7 +1813,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                 <Card>
                   <CardHeader><CardTitle>Responsables de la Operación</CardTitle></CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-center">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
                         <FormField control={form.control} name="coordinador" render={({ field }) => (
                             <FormItem><FormLabel>Coordinador Responsable</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                         )}/>
@@ -2178,5 +2179,6 @@ function PedidoTypeSelectorDialog({
 }
 
     
+
 
 

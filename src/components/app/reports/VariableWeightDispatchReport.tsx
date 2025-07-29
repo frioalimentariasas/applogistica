@@ -148,9 +148,19 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
     
     const totalGeneralPeso = recalculatedSummary.reduce((acc, p) => acc + (p.totalPeso || 0), 0);
     const totalGeneralCantidad = recalculatedSummary.reduce((acc, p) => acc + (p.totalCantidad || 0), 0);
-    const totalGeneralPaletas = formData.despachoPorDestino && isSummaryFormat 
-        ? formData.totalPaletasDespacho
-        : recalculatedSummary.reduce((acc, p) => acc + (p.totalPaletas || 0), 0);
+    const totalGeneralPaletas = (() => {
+        if (isSummaryFormat) {
+            return formData.despachoPorDestino
+                ? formData.totalPaletasDespacho
+                : recalculatedSummary.reduce((acc, p) => acc + (p.totalPaletas || 0), 0);
+        }
+        const uniquePallets = new Set<number>();
+        allItems.forEach((i: any) => {
+            const pNum = Number(i.paleta);
+            if (!isNaN(pNum) && pNum > 0) uniquePallets.add(pNum);
+        });
+        return uniquePallets.size;
+    })();
 
 
     return (
@@ -209,7 +219,9 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                                 </div>
                                 <ItemsTable items={destino.items} isSummaryFormat={isSummaryFormat} />
                                 <div style={{padding: '4px 12px', backgroundColor: '#fafafa', borderTop: '1px solid #ddd', textAlign: 'right', fontSize: '11px', fontWeight: 'bold'}}>
-                                    Subtotales Destino: Cantidad: {subtotals.cantidad}, Paletas: {subtotals.paletas}, Peso: {subtotals.peso.toFixed(2)} kg
+                                    Subtotales Destino: Cantidad: {subtotals.cantidad},
+                                    {!isSummaryFormat && ` Paletas: ${subtotals.paletas},`}
+                                    Peso: {subtotals.peso.toFixed(2)} kg
                                 </div>
                             </div>
                         )})
@@ -404,5 +416,6 @@ const ItemsTable = ({ items, isSummaryFormat }: { items: any[], isSummaryFormat:
         </tbody>
     </table>
 );
+
 
 
