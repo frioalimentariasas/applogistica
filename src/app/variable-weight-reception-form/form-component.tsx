@@ -137,8 +137,11 @@ const formSchema = z.object({
     setPoint: z.preprocess((val) => (val === "" || val === null ? undefined : val), z.coerce.number({ required_error: "El Set Point es requerido." }).min(-99).max(99).nullable().optional()),
     contenedor: z.string().optional(),
     facturaRemision: z.string().max(15, "Máximo 15 caracteres.").nullable().optional(),
+    
+    recepcionPorPlaca: z.boolean().default(false),
     items: z.array(itemSchema).optional(),
     placas: z.array(placaSchema).optional(),
+    
     summary: z.array(summaryItemSchema).nullable().optional(),
     horaInicio: z.string().min(1, "La hora de inicio es obligatoria.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
     horaFin: z.string().min(1, "La hora de fin es obligatoria.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
@@ -176,8 +179,10 @@ const formSchema = z.object({
       }
 
       if(data.tipoPedido === 'TUNEL') {
-        if (!data.placas || data.placas.length === 0) {
-          ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Debe agregar al menos una placa para el tipo de pedido TUNEL.', path: ['placas'] });
+        if (data.recepcionPorPlaca && (!data.placas || data.placas.length === 0)) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Debe agregar al menos una placa.', path: ['placas'] });
+        } else if (!data.recepcionPorPlaca && (!data.items || data.items.length === 0)) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Debe agregar al menos un ítem.', path: ['items'] });
         }
       } else {
         if (!data.items || data.items.length === 0) {
@@ -360,6 +365,7 @@ const originalDefaultValues: FormValues = {
   setPoint: undefined,
   contenedor: "",
   facturaRemision: "N/A",
+  recepcionPorPlaca: false,
   items: [],
   placas: [],
   summary: [],
@@ -443,6 +449,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
   });
   
   const watchedTipoPedido = useWatch({ control: form.control, name: 'tipoPedido' });
+  const watchedRecepcionPorPlaca = useWatch({ control: form.control, name: 'recepcionPorPlaca' });
   const isTunelMode = watchedTipoPedido === 'TUNEL';
   const watchedAplicaCuadrilla = useWatch({ control: form.control, name: 'aplicaCuadrilla' });
   const watchedItems = useWatch({ control: form.control, name: "items" });
@@ -450,7 +457,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
   const watchedObservations = useWatch({ control: form.control, name: "observations" });
 
   useEffect(() => {
-    if (isTunelMode) {
+    if (isTunelMode && watchedRecepcionPorPlaca) {
         const placaNumbers = (watchedPlacas || [])
             .map(p => p.numeroPlaca?.trim())
             .filter(Boolean)
@@ -460,7 +467,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
             form.setValue('placa', placaNumbers, { shouldValidate: true });
         }
     }
-  }, [watchedPlacas, isTunelMode, form]);
+  }, [watchedPlacas, isTunelMode, watchedRecepcionPorPlaca, form]);
 
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "items" });
   const { fields: placaFields, append: appendPlaca, remove: removePlaca } = useFieldArray({ control: form.control, name: "placas" });
@@ -469,7 +476,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
   const formIdentifier = submissionId ? `variable-weight-reception-edit-${submissionId}` : `variable-weight-${operation}`;
   const { isRestoreDialogOpen, onOpenChange, onRestore, onDiscard: handleDiscardHook, clearDraft } = useFormPersistence(formIdentifier, form, originalDefaultValues, attachments, setAttachments, !!submissionId);
   
-  const itemsForCalculation = useMemo(() => isTunelMode ? (watchedPlacas || []).flatMap(p => p.items) : (watchedItems || []), [isTunelMode, watchedPlacas, watchedItems]);
+  const itemsForCalculation = useMemo(() => (isTunelMode && watchedRecepcionPorPlaca) ? (watchedPlacas || []).flatMap(p => p.items) : (watchedItems || []), [isTunelMode, watchedRecepcionPorPlaca, watchedPlacas, watchedItems]);
 
   const isClientChangeDisabled = useMemo(() => {
     return itemsForCalculation.length > 1 || (itemsForCalculation.length === 1 && !!itemsForCalculation[0]?.descripcion);
@@ -491,7 +498,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
   };
   
   const calculatedSummaryForDisplay = useMemo(() => {
-    if (isTunelMode) {
+    if (isTunelMode && watchedRecepcionPorPlaca) {
       const allItemsByPlaca = (watchedPlacas || []).flatMap(placa => 
           (placa.items || []).map(item => ({ ...item, placa: placa.numeroPlaca }))
       );
@@ -559,13 +566,13 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
     
     return { items, totalGeneralPaletas };
 
-  }, [itemsForCalculation, isTunelMode, watchedPlacas]);
+  }, [itemsForCalculation, isTunelMode, watchedRecepcionPorPlaca, watchedPlacas]);
 
   const currentSummaryFields = useMemo(() => {
     const currentSummaryInForm = form.getValues('summary') || [];
     const newSummaryState = calculatedSummaryForDisplay.items.map(newItem => {
         const existingItem = currentSummaryInForm.find(oldItem => 
-            isTunelMode 
+            (isTunelMode && watchedRecepcionPorPlaca) 
             ? oldItem.descripcion === newItem.descripcion && oldItem.placa === newItem.placa
             : oldItem.descripcion === newItem.descripcion
         );
@@ -582,7 +589,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
         form.setValue('summary', newSummaryState, { shouldValidate: true });
     }
     return newSummaryState;
-}, [calculatedSummaryForDisplay.items, form, isTunelMode]);
+}, [calculatedSummaryForDisplay.items, form, isTunelMode, watchedRecepcionPorPlaca]);
 
   const showSummary = (itemsForCalculation || []).some(item => item && (item.descripcion || (isTunelMode && item.numeroPlaca)) && (item.descripcion?.trim() !== '' || item.numeroPlaca?.trim() !== ''));
 
@@ -632,6 +639,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
               facturaRemision: formData.facturaRemision ?? "",
               operarioResponsable: submission.userId,
               unidadDeMedidaPrincipal: formData.unidadDeMedidaPrincipal ?? 'PALETA',
+              recepcionPorPlaca: formData.recepcionPorPlaca ?? false,
               summary: (formData.summary || []).map((s: any) => ({
                   ...s,
                   temperatura1: s.temperatura1 ?? s.temperatura ?? null,
@@ -1005,7 +1013,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
   const handleFormSubmit = (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     form.handleSubmit((data) => {
-        const allItems = isTunelMode ? (data.placas || []).flatMap(p => p.items || []) : (data.items || []);
+        const allItems = (isTunelMode && data.recepcionPorPlaca) ? (data.placas || []).flatMap(p => p.items || []) : (data.items || []);
         const hasSummaryRow = allItems.some(item => Number(item?.paleta) === 0);
         const hasDetailRow = allItems.some(item => Number(item?.paleta) > 0);
 
@@ -1313,7 +1321,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                         <FormField control={form.control} name="placa" render={({ field }) => (
                             <FormItem>
                               <FormLabel>Placa del vehículo</FormLabel>
-                              <FormControl><Input placeholder="ABC123" {...field} disabled={isTunelMode} onChange={(e) => field.onChange(e.target.value.toUpperCase())} maxLength={isTunelMode ? undefined : 6} /></FormControl>
+                              <FormControl><Input placeholder="ABC123" {...field} disabled={isTunelMode && watchedRecepcionPorPlaca} onChange={(e) => field.onChange(e.target.value.toUpperCase())} maxLength={isTunelMode ? undefined : 6} /></FormControl>
                               <FormMessage />
                             </FormItem>
                         )}/>
@@ -1405,40 +1413,78 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                   <CardContent className="space-y-4">
                      {isTunelMode ? (
                         <div className="space-y-4">
-                            <Accordion type="multiple" className="w-full">
-                                {placaFields.map((placaField, placaIndex) => (
-                                    <AccordionItem key={placaField.id} value={`placa-${placaIndex}`}>
-                                        <div className="flex items-center">
-                                            <AccordionTrigger className="flex-grow">
-                                                <div className="flex items-center gap-2">
-                                                    <Truck className="h-5 w-5 text-gray-600" />
-                                                    Placa #{placaIndex + 1}: {watchedPlacas?.[placaIndex]?.numeroPlaca || '(Sin número)'}
-                                                </div>
-                                            </AccordionTrigger>
-                                            <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => removePlaca(placaIndex)}>
-                                                <Trash2 className="h-4 w-4" />
-                                            </Button>
+                            <FormField
+                                control={form.control}
+                                name="recepcionPorPlaca"
+                                render={({ field }) => (
+                                    <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4">
+                                        <FormControl>
+                                            <Checkbox
+                                                checked={field.value}
+                                                onCheckedChange={(checked) => {
+                                                    field.onChange(checked);
+                                                    if (checked) form.setValue('items', []); else form.setValue('placas', []);
+                                                }}
+                                            />
+                                        </FormControl>
+                                        <div className="space-y-1 leading-none">
+                                            <FormLabel>Recepción por Placa</FormLabel>
+                                            <FormDescription>Marque esta opción para agrupar ítems por placa de vehículo.</FormDescription>
                                         </div>
-                                        <AccordionContent className="pl-2 pr-2 md:pl-6 md:pr-0">
-                                            <div className="space-y-4 rounded-md border bg-gray-50 p-4">
-                                                <FormField
-                                                    control={form.control}
-                                                    name={`placas.${placaIndex}.numeroPlaca`}
-                                                    render={({ field }) => (
-                                                        <FormItem>
-                                                            <FormLabel>Número de Placa</FormLabel>
-                                                            <FormControl><Input placeholder="ABC123" {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl>
-                                                            <FormMessage />
-                                                        </FormItem>
-                                                    )}
-                                                />
-                                                <ItemsPorPlaca placaIndex={placaIndex} handleProductDialogOpening={handleProductDialogOpening} />
-                                            </div>
-                                        </AccordionContent>
-                                    </AccordionItem>
-                                ))}
-                            </Accordion>
-                            <Button type="button" variant="outline" onClick={() => appendPlaca({ numeroPlaca: '', items: [] })}><Truck className="mr-2 h-4 w-4"/>Agregar Placa</Button>
+                                    </FormItem>
+                                )}
+                            />
+                            {watchedRecepcionPorPlaca ? (
+                                <div className="space-y-4">
+                                    <Accordion type="multiple" className="w-full">
+                                        {placaFields.map((placaField, placaIndex) => (
+                                            <AccordionItem key={placaField.id} value={`placa-${placaIndex}`}>
+                                                <div className="flex items-center">
+                                                    <AccordionTrigger className="flex-grow">
+                                                        <div className="flex items-center gap-2">
+                                                            <Truck className="h-5 w-5 text-gray-600" />
+                                                            Placa #{placaIndex + 1}: {watchedPlacas?.[placaIndex]?.numeroPlaca || '(Sin número)'}
+                                                        </div>
+                                                    </AccordionTrigger>
+                                                    <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => removePlaca(placaIndex)}>
+                                                        <Trash2 className="h-4 w-4" />
+                                                    </Button>
+                                                </div>
+                                                <AccordionContent className="pl-2 pr-2 md:pl-6 md:pr-0">
+                                                    <div className="space-y-4 rounded-md border bg-gray-50 p-4">
+                                                        <FormField
+                                                            control={form.control}
+                                                            name={`placas.${placaIndex}.numeroPlaca`}
+                                                            render={({ field }) => (
+                                                                <FormItem>
+                                                                    <FormLabel>Número de Placa</FormLabel>
+                                                                    <FormControl><Input placeholder="ABC123" {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl>
+                                                                    <FormMessage />
+                                                                </FormItem>
+                                                            )}
+                                                        />
+                                                        <ItemsPorPlaca placaIndex={placaIndex} handleProductDialogOpening={handleProductDialogOpening} />
+                                                    </div>
+                                                </AccordionContent>
+                                            </AccordionItem>
+                                        ))}
+                                    </Accordion>
+                                    <Button type="button" variant="outline" onClick={() => appendPlaca({ numeroPlaca: '', items: [] })}><Truck className="mr-2 h-4 w-4"/>Agregar Placa</Button>
+                                </div>
+                            ) : (
+                                <div className="space-y-4">
+                                    {fields.map((field, index) => (
+                                        <ItemFields
+                                            key={field.id}
+                                            control={form.control}
+                                            itemIndex={index}
+                                            remove={remove}
+                                            handleProductDialogOpening={handleProductDialogOpening}
+                                        />
+                                    ))}
+                                    <Button type="button" variant="outline" onClick={handleAddItem}><PlusCircle className="mr-2 h-4 w-4" />Agregar Ítem</Button>
+                                </div>
+                            )}
                         </div>
                      ) : (
                         <div className="space-y-4">
@@ -1467,7 +1513,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        {isTunelMode && <TableHead>Placa</TableHead>}
+                                        {isTunelMode && watchedRecepcionPorPlaca && <TableHead>Placa</TableHead>}
                                         <TableHead>{isTunelMode ? 'Producto' : 'Descripción'}</TableHead>
                                         <TableHead className="w-[240px]">Temperaturas (°C)</TableHead>
                                         {!isTunelMode && <TableHead className="text-right">Total Paletas</TableHead>}
@@ -1480,7 +1526,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                         currentSummaryFields.map((summaryItem, summaryIndex) => {
                                            return (
                                             <TableRow key={summaryIndex}>
-                                                {isTunelMode && (
+                                                {isTunelMode && watchedRecepcionPorPlaca && (
                                                     <TableCell className="font-medium">
                                                         <div className="bg-muted/50 p-2 rounded-md flex items-center h-10">
                                                             {summaryItem.placa}
@@ -1553,7 +1599,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                         </TableRow>
                                     )}
                                     <TableRow className="font-bold bg-muted hover:bg-muted">
-                                        <TableCell colSpan={isTunelMode ? 3 : 2} className="text-right">TOTAL GENERAL:</TableCell>
+                                        <TableCell colSpan={(isTunelMode && watchedRecepcionPorPlaca) ? 3 : 2} className="text-right">TOTAL GENERAL:</TableCell>
                                         {!isTunelMode && <TableCell className="text-right pl-4">{calculatedSummaryForDisplay.totalGeneralPaletas}</TableCell>}
                                         <TableCell className="text-right">{calculatedSummaryForDisplay.items.reduce((acc, item) => acc + (item.totalCantidad || 0), 0)}</TableCell>
                                         <TableCell className="text-right">{(calculatedSummaryForDisplay.items.reduce((acc, item) => acc + (item.totalPeso || 0), 0)).toFixed(2)}</TableCell>
@@ -2101,6 +2147,7 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
+
 
 
 
