@@ -99,14 +99,14 @@ const placaSchema = z.object({
   items: z.array(itemSchema).min(1, "Debe agregar al menos un ítem a la placa."),
 });
   
-const optionalTempSchema = z.preprocess(
-    (val) => (val === "" || val === null ? null : val),
-    z.coerce.number({ invalid_type_error: "La temperatura debe ser un número." }).min(-99).max(99).nullable().optional()
-);
-
 const requiredTempSchema = z.preprocess(
     (val) => (val === "" || val === null ? undefined : val),
     z.coerce.number({ required_error: "La temperatura es requerida.", invalid_type_error: "La temperatura debe ser un número." }).min(-99).max(99)
+);
+
+const optionalTempSchema = z.preprocess(
+    (val) => (val === "" || val === null ? null : val),
+    z.coerce.number({ invalid_type_error: "La temperatura debe ser un número." }).min(-99).max(99).nullable().optional()
 );
 
 const summaryItemSchema = z.object({
@@ -136,8 +136,8 @@ const formSchema = z.object({
     cedulaConductor: z.string().regex(/^[0-9]*$|^$/, "La cédula solo puede contener números.").optional(),
     placa: z.string().regex(/^[A-Z]{3}[0-9]{3}$|^$/, "Formato inválido. Deben ser 3 letras y 3 números (ej: ABC123).").optional(),
     precinto: z.string().optional(),
-    setPoint: z.preprocess((val) => (val === "" || val === null ? null : val), z.coerce.number().min(-99).max(99).nullable().optional()),
-    contenedor: z.string().refine(value => !value || value.toUpperCase() === 'N/A' || /^[A-Z]{4}[0-9]{7}$/.test(value.toUpperCase()), { message: "Formato inválido. Debe ser 'N/A' o 4 letras y 7 números (ej: ABCD1234567)." }).optional(),
+    setPoint: z.preprocess((val) => (val === "" || val === null ? undefined : val), z.coerce.number({ required_error: "El Set Point es requerido." }).min(-99).max(99).nullable().optional()),
+    contenedor: z.string().optional(),
     facturaRemision: z.string().max(15, "Máximo 15 caracteres.").nullable().optional(),
     items: z.array(itemSchema).optional(),
     placas: z.array(placaSchema).optional(),
@@ -172,6 +172,16 @@ const formSchema = z.object({
           if (data.aplicaCuadrilla === 'si' && (data.numeroOperariosCuadrilla === undefined || data.numeroOperariosCuadrilla <= 0)) {
               ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El número de operarios es obligatorio.", path: ['numeroOperariosCuadrilla'] });
           }
+      }
+
+      if(data.tipoPedido === 'TUNEL') {
+        if (!data.placas || data.placas.length === 0) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Debe agregar al menos una placa para el tipo de pedido TUNEL.', path: ['placas'] });
+        }
+      } else {
+        if (!data.items || data.items.length === 0) {
+           ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Debe agregar al menos un ítem.', path: ['items'] });
+        }
       }
 
       if (data.horaInicio && data.horaFin && data.horaInicio === data.horaFin) {
@@ -343,7 +353,7 @@ const originalDefaultValues: FormValues = {
   conductor: "",
   placa: "",
   precinto: "",
-  setPoint: null,
+  setPoint: undefined,
   contenedor: "",
   facturaRemision: "N/A",
   items: [],
@@ -526,16 +536,16 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
 
   const handleAddItem = () => {
     const items = form.getValues('items');
-    const lastItem = items.length > 0 ? items[items.length - 1] : null;
+    const lastItem = items && items.length > 0 ? items[items.length - 1] : null;
 
     if (!lastItem) {
-        append({ ...originalDefaultValues.items[0] });
+        append({ ...originalDefaultValues.items![0] });
         return;
     }
     
     if (lastItem.paleta === 0) {
         append({
-            ...originalDefaultValues.items[0],
+            ...originalDefaultValues.items![0],
             codigo: lastItem.codigo,
             paleta: 0,
             descripcion: lastItem.descripcion,
@@ -544,7 +554,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
         });
     } else {
         append({
-            ...originalDefaultValues.items[0],
+            ...originalDefaultValues.items![0],
             codigo: lastItem.codigo,
             paleta: null,
             descripcion: lastItem.descripcion,
@@ -609,7 +619,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                   temperatura3: s.temperatura3 ?? null,
               })),
               items: (formData.items || []).map((item: any) => ({
-                  ...originalDefaultValues.items[0],
+                  ...originalDefaultValues.items![0],
                   ...item,
                   paleta: item.paleta, // Keep 0 if it exists
                   lote: item.lote ?? '',
@@ -627,7 +637,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
               placas: (formData.placas || []).map((placa: any) => ({
                 ...placa,
                 items: (placa.items || []).map((item: any) => ({
-                    ...originalDefaultValues.items[0],
+                    ...originalDefaultValues.items![0],
                     ...item
                 }))
               }))
@@ -1240,7 +1250,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                         <FormField control={form.control} name="setPoint" render={({ field }) => (
                             <FormItem>
                                 <FormLabel>Set Point (°C)</FormLabel>
-                                <FormControl><Input type="text" inputMode="decimal" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl>
+                                <FormControl><Input type="text" inputMode="decimal" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.value)} value={field.value ?? ''} /></FormControl>
                                 <FormMessage />
                             </FormItem>
                         )}/>
@@ -1325,7 +1335,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                             <AccordionTrigger className="flex-grow">
                                                 <div className="flex items-center gap-2">
                                                     <Truck className="h-5 w-5 text-gray-600" />
-                                                    Placa #{placaIndex + 1}: {watchedPlacas[placaIndex]?.numeroPlaca || '(Sin número)'}
+                                                    Placa #{placaIndex + 1}: {watchedPlacas?.[placaIndex]?.numeroPlaca || '(Sin número)'}
                                                 </div>
                                             </AccordionTrigger>
                                             <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => removePlaca(placaIndex)}>
@@ -1391,7 +1401,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                     {currentSummaryFields.length > 0 ? (
                                         currentSummaryFields.map((summaryItem, summaryIndex) => {
                                            return (
-                                            <TableRow key={summaryItem.descripcion}>
+                                            <TableRow key={summaryIndex}>
                                                 <TableCell className="font-medium">
                                                     <div className="bg-muted/50 p-2 rounded-md flex items-center h-10">
                                                         {summaryItem.descripcion}
@@ -2000,5 +2010,3 @@ function PedidoTypeSelectorDialog({
     );
 }
 
-
-    
