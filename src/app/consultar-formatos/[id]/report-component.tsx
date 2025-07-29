@@ -580,7 +580,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 });
                 yPos = (doc as any).autoTable.previous.finalY;
 
-                const drawItemsTable = (items: any[], placa?: string) => {
+                const drawItemsTable = (items: any[], placa?: string, destino?: string) => {
                     const isTunel = !!placa;
                     if(isTunel) {
                          autoTable(doc, {
@@ -594,6 +594,20 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         });
                         yPos = (doc as any).autoTable.previous.finalY;
                     }
+
+                    if (destino) {
+                         autoTable(doc, {
+                            startY: yPos,
+                            body: [[{ 
+                                content: `Destino: ${destino}`,
+                                styles: { fontStyle: 'bold', fillColor: '#f1f5f9', textColor: '#1a202c' }
+                            }]],
+                            theme: 'grid',
+                            margin: { horizontal: margin },
+                        });
+                        yPos = (doc as any).autoTable.previous.finalY;
+                    }
+
                     const isSummary = items.some(p => Number(p.paleta) === 0);
                     let detailHead: any[];
                     let detailBody: any[][];
@@ -610,7 +624,6 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         if(isTunel) {
                             detailHead[0].unshift('Descripción');
                             detailBody.forEach((row, i) => row.unshift(items[i].descripcion));
-                            // remove paleta if tunel
                             const paletaIndex = detailHead[0].indexOf('Paleta');
                             if(paletaIndex > -1) {
                                 detailHead[0].splice(paletaIndex, 1);
@@ -639,18 +652,8 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 };
 
                 if (formData.despachoPorDestino && formData.destinos?.length > 0) {
-                    formData.destinos.forEach((destino: any, index: number) => {
-                        autoTable(doc, {
-                            startY: yPos,
-                            body: [[{ 
-                                content: `Destino: ${destino.nombreDestino}`,
-                                styles: { fontStyle: 'bold', fillColor: '#f1f5f9', textColor: '#1a202c' }
-                            }]],
-                            theme: 'grid',
-                            margin: { horizontal: margin },
-                        });
-                        yPos = (doc as any).autoTable.previous.finalY;
-                        drawItemsTable(destino.items || []);
+                    formData.destinos.forEach((destino: any) => {
+                        drawItemsTable(destino.items || [], undefined, destino.nombreDestino);
                     });
                     yPos += 15;
                 } else if(formData.tipoPedido === 'TUNEL' && formData.placas?.length > 0) {
@@ -665,29 +668,30 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 
                 if (formData.summary?.length > 0) {
                     const isTunelSummary = formData.tipoPedido === 'TUNEL';
-                    const summaryHead = isTunelSummary 
-                        ? [['Placa', 'Descripción', 'Temp(°C)', 'Total Cantidad', 'Total Peso (kg)']]
-                        : [[ 'Descripción', 'Temp(°C)', 'Total Cantidad', 'Total Paletas', 'Total Peso (kg)']];
+                    const isDestinoSummary = formData.despachoPorDestino;
+
+                    const summaryHead = [isTunelSummary ? 'Placa' : isDestinoSummary ? 'Destino' : null, 'Descripción', 'Temp(°C)', 'Total Cantidad', isSummaryFormat && !isDestinoSummary ? 'Total Paletas' : 'Total Paletas', 'Total Peso (kg)'].filter(Boolean) as string[];
 
                     const summaryBody = formData.summary.map((p: any) => {
                         const temps = [p.temperatura1, p.temperatura2, p.temperatura3].filter(t => t != null && !isNaN(t)).join(' / ');
-                        const row = [ p.descripcion, temps, p.totalCantidad, p.totalPeso?.toFixed(2) ];
-                        if (isTunelSummary) {
-                            row.unshift(p.placa);
-                        } else {
-                            row.splice(3, 0, p.totalPaletas);
-                        }
+                        const row = [];
+                        if (isTunelSummary) row.push(p.placa);
+                        if (isDestinoSummary) row.push(p.destino);
+                        row.push(p.descripcion, temps, p.totalCantidad);
+                        if(isSummaryFormat && !isDestinoSummary) row.push(p.totalPaletas);
+                        else if (!isSummaryFormat) row.push(p.totalPaletas);
+                        row.push(p.totalPeso?.toFixed(2));
                         return row;
                     });
                     
                     const totalCantidad = formData.summary.reduce((acc: any, p: any) => acc + (p.totalCantidad || 0), 0);
                     const totalPeso = formData.summary.reduce((acc: any, p: any) => acc + (p.totalPeso || 0), 0);
                     
-                    const footRow: any[] = [{ content: 'TOTALES:', colSpan: isTunelSummary ? 2 : 1, styles: { halign: 'right', fontStyle: 'bold' } }, ''];
-                    if (!isTunelSummary) {
-                        const totalGeneralPaletas = formData.summary.reduce((acc: any, p: any) => acc + (p.totalPaletas || 0), 0);
-                        footRow.push(totalGeneralPaletas);
-                    }
+                    const footRow: any[] = [{ content: 'TOTALES:', colSpan: isTunelSummary || isDestinoSummary ? 2 : 1, styles: { halign: 'right', fontStyle: 'bold' } }, ''];
+                    const totalGeneralPaletas = formData.despachoPorDestino && isSummaryFormat ? formData.totalPaletasDespacho : formData.summary.reduce((acc: any, p: any) => acc + (p.totalPaletas || 0), 0);
+                    if(isSummaryFormat && !isDestinoSummary) footRow.push(totalGeneralPaletas);
+                    else if (!isSummaryFormat) footRow.push(totalGeneralPaletas);
+
                     footRow.push(totalCantidad);
                     footRow.push(totalPeso.toFixed(2));
 
@@ -695,8 +699,8 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     autoTable(doc, {
                         startY: yPos,
                         head: [
-                            [{ content: 'Resumen de Productos', colSpan: summaryHead[0].length, styles: { halign: 'center', fillColor: '#e2e8f0' } }], 
-                            summaryHead[0]
+                            [{ content: 'Resumen de Productos', colSpan: summaryHead.length, styles: { halign: 'center', fillColor: '#e2e8f0' } }], 
+                            summaryHead
                         ],
                         body: summaryBody,
                         foot: [footRow],
@@ -890,3 +894,4 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
         </div>
     );
 }
+

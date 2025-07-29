@@ -69,30 +69,46 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
     const operationTerm = 'Cargue';
     const fieldCellStyle: React.CSSProperties = { padding: '2px', fontSize: '11px', lineHeight: '1.4', verticalAlign: 'top' };
     
-    const allItems = formData.despachoPorDestino ? formData.destinos.flatMap((d: any) => d.items) : formData.items;
+    const allItems = formData.despachoPorDestino ? formData.destinos.flatMap((d: any) => d.items.map((i: any) => ({ ...i, destino: d.nombreDestino }))) : formData.items;
     const isSummaryFormat = allItems.some((p: any) => Number(p.paleta) === 0);
 
     const hasStandardObservations = (formData.observaciones || []).some(
         (obs: any) => obs.type !== 'OTRAS OBSERVACIONES'
     );
+    
+    const getSubtotalsForDestino = (items: any[]) => {
+        return items.reduce((acc, item) => {
+            if (isSummaryFormat) {
+                acc.cantidad += Number(item.totalCantidad) || 0;
+                acc.paletas += Number(item.totalPaletas) || 0;
+                acc.peso += Number(item.totalPesoNeto) || 0;
+            } else {
+                acc.cantidad += Number(item.cantidadPorPaleta) || 0;
+                acc.peso += Number(item.pesoNeto) || 0;
+            }
+            return acc;
+        }, { cantidad: 0, paletas: 0, peso: 0 });
+    };
 
     const recalculatedSummary = (() => {
-        const groupedByDesc = allItems.reduce((acc, item) => {
+        const grouped = allItems.reduce((acc, item) => {
             if (!item?.descripcion?.trim()) return acc;
-            const desc = item.descripcion.trim();
-            if (!acc[desc]) {
-                const summaryItem = formData.summary?.find(s => s.descripcion === desc);
-                acc[desc] = {
-                    descripcion: desc,
+            const key = formData.despachoPorDestino ? `${item.destino}|${item.descripcion}` : item.descripcion;
+
+            if (!acc[key]) {
+                 const summaryItem = formData.summary?.find((s: any) => (s.destino ? `${s.destino}|${s.descripcion}` : s.descripcion) === key);
+                acc[key] = {
+                    descripcion: item.descripcion,
+                    destino: item.destino,
                     items: [],
                     temperatura: summaryItem?.temperatura,
                 };
             }
-            acc[desc].items.push(item);
+            acc[key].items.push(item);
             return acc;
-        }, {} as Record<string, { descripcion: string; items: any[], temperatura: any }>);
+        }, {} as Record<string, { descripcion: string; destino?: string, items: any[], temperatura: any }>);
 
-        return Object.values(groupedByDesc).map(group => {
+        return Object.values(grouped).map(group => {
             let totalPeso = 0;
             let totalCantidad = 0;
             let totalPaletas = 0;
@@ -100,11 +116,9 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
 
             if (isSummaryFormat) {
                 group.items.forEach(item => {
-                    if (Number(item.paleta) === 0) {
-                        totalPeso += Number(item.totalPesoNeto) || 0;
-                        totalCantidad += Number(item.totalCantidad) || 0;
-                        totalPaletas += Number(item.totalPaletas) || 0;
-                    }
+                    totalPeso += Number(item.totalPesoNeto) || 0;
+                    totalCantidad += Number(item.totalCantidad) || 0;
+                    totalPaletas += Number(item.totalPaletas) || 0;
                 });
             } else {
                 group.items.forEach(item => {
@@ -120,6 +134,7 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
 
             return {
                 descripcion: group.descripcion,
+                destino: group.destino,
                 temperatura: group.temperatura,
                 totalPeso,
                 totalCantidad,
@@ -174,14 +189,27 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
             <ReportSection title="Detalle del Despacho" noPadding>
                  <div style={{overflowX: 'auto'}}>
                     {formData.despachoPorDestino ? (
-                        formData.destinos.map((destino: any, destinoIndex: number) => (
+                        formData.destinos.map((destino: any, destinoIndex: number) => {
+                            const subtotals = getSubtotalsForDestino(destino.items);
+                            if (!isSummaryFormat) {
+                                const uniquePallets = new Set();
+                                destino.items.forEach((item: any) => {
+                                    const paletaNum = Number(item.paleta);
+                                    if (!isNaN(paletaNum) && paletaNum > 0) uniquePallets.add(paletaNum);
+                                });
+                                subtotals.paletas = uniquePallets.size;
+                            }
+                            return (
                             <div key={destinoIndex} style={{ marginBottom: '10px', breakInside: 'avoid', pageBreakInside: 'avoid' }}>
                                 <div style={{ backgroundColor: '#f1f5f9', padding: '6px 12px', fontWeight: 'bold', borderBottom: '1px solid #ddd', borderTop: destinoIndex > 0 ? '1px solid #aaa' : 'none' }}>
                                     Destino: {destino.nombreDestino}
                                 </div>
                                 <ItemsTable items={destino.items} isSummaryFormat={isSummaryFormat} />
+                                <div style={{padding: '4px 12px', backgroundColor: '#fafafa', borderTop: '1px solid #ddd', textAlign: 'right', fontSize: '11px', fontWeight: 'bold'}}>
+                                    Subtotales Destino: Cantidad: {subtotals.cantidad}, Paletas: {subtotals.paletas}, Peso: {subtotals.peso.toFixed(2)} kg
+                                </div>
                             </div>
-                        ))
+                        )})
                     ) : (
                         <ItemsTable items={formData.items} isSummaryFormat={isSummaryFormat} />
                     )}
@@ -193,6 +221,7 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                     <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse' }}>
                         <thead>
                              <tr style={{ borderBottom: '1px solid #aaa' }}>
+                                {formData.despachoPorDestino && <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Destino</th>}
                                 <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Descripción</th>
                                 <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Temp(°C)</th>
                                 <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Cantidad</th>
@@ -203,6 +232,7 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                         <tbody>
                             {recalculatedSummary.map((p, i) => (
                                 <tr key={i} style={{ borderBottom: '1px solid #ddd' }}>
+                                    {formData.despachoPorDestino && <td style={{ padding: '4px' }}>{p.destino}</td>}
                                     <td style={{ padding: '4px' }}>{p.descripcion}</td>
                                     <td style={{ textAlign: 'right', padding: '4px' }}>{p.temperatura}</td>
                                     <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalCantidad}</td>
@@ -211,7 +241,7 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                                 </tr>
                             ))}
                             <tr style={{ fontWeight: 'bold', backgroundColor: '#f1f5f9' }}>
-                                <td style={{ padding: '4px', textAlign: 'right' }} colSpan={2}>TOTALES:</td>
+                                <td style={{ padding: '4px', textAlign: 'right' }} colSpan={formData.despachoPorDestino ? 3 : 2}>TOTALES:</td>
                                 <td style={{ textAlign: 'right', padding: '4px' }}>{totalGeneralCantidad}</td>
                                 <td style={{ textAlign: 'right', padding: '4px' }}>{totalGeneralPaletas}</td>
                                 <td style={{ textAlign: 'right', padding: '4px' }}>{totalGeneralPeso.toFixed(2)}</td>
@@ -371,3 +401,4 @@ const ItemsTable = ({ items, isSummaryFormat }: { items: any[], isSummaryFormat:
         </tbody>
     </table>
 );
+

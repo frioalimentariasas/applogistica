@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useForm, useFieldArray, useWatch, FormProvider, useFormContext, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import * * as z from "zod";
+import * as z from "zod";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -174,6 +174,7 @@ const summaryItemSchema = z.object({
     totalPeso: z.number(),
     totalCantidad: z.number(),
     totalPaletas: z.number(),
+    destino: z.string().optional(),
 }).refine(data => {
     // Al menos una temperatura es requerida.
     return data.temperatura !== null;
@@ -321,6 +322,35 @@ function ItemsPorDestino({ control, remove, handleProductDialogOpening, destinoI
         name: `destinos.${destinoIndex}.items`,
     });
 
+    const watchedItems = useWatch({ control, name: `destinos.${destinoIndex}.items` }) || [];
+    const isSummaryFormat = watchedItems.some((item: any) => Number(item?.paleta) === 0);
+
+    const subtotals = useMemo(() => {
+        return watchedItems.reduce((acc: {cantidad: number, paletas: number, peso: number}, item: any) => {
+            if (isSummaryFormat) {
+                acc.cantidad += Number(item.totalCantidad) || 0;
+                acc.paletas += Number(item.totalPaletas) || 0;
+                acc.peso += Number(item.totalPesoNeto) || 0;
+            } else {
+                acc.cantidad += Number(item.cantidadPorPaleta) || 0;
+                acc.peso += Number(item.pesoNeto) || 0;
+            }
+            return acc;
+        }, { cantidad: 0, paletas: 0, peso: 0 });
+    }, [watchedItems, isSummaryFormat]);
+
+    if (!isSummaryFormat) {
+        const uniquePallets = new Set();
+        watchedItems.forEach((item: any) => {
+            const paletaNum = Number(item.paleta);
+            if (!isNaN(paletaNum) && paletaNum > 0) {
+                uniquePallets.add(paletaNum);
+            }
+        });
+        subtotals.paletas = uniquePallets.size;
+    }
+
+
     const handleAddItem = () => {
         const items = getValues(`destinos.${destinoIndex}.items`);
         const lastItem = items.length > 0 ? items[items.length - 1] : null;
@@ -365,7 +395,14 @@ function ItemsPorDestino({ control, remove, handleProductDialogOpening, destinoI
             {fields.map((field, itemIndex) => (
                 <ItemFields key={field.id} control={control} itemIndex={itemIndex} handleProductDialogOpening={handleProductDialogOpening} destinoIndex={destinoIndex} remove={removeItem} />
             ))}
-            <Button type="button" variant="outline" size="sm" onClick={handleAddItem}><PlusCircle className="mr-2 h-4 w-4" />Agregar Ítem a Destino</Button>
+            <div className="flex justify-between items-center mt-4 pt-4 border-t">
+                <Button type="button" variant="outline" size="sm" onClick={handleAddItem}><PlusCircle className="mr-2 h-4 w-4" />Agregar Ítem a Destino</Button>
+                <div className="flex gap-4 text-sm font-medium">
+                    <span>Subtotal Cantidad: {subtotals.cantidad}</span>
+                    <span>Subtotal Paletas: {subtotals.paletas}</span>
+                    <span>Subtotal Peso: {subtotals.peso.toFixed(2)} kg</span>
+                </div>
+            </div>
         </div>
     );
 }
@@ -585,82 +622,88 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
     setAttachments([]);
     setDiscardAlertOpen(false);
   };
+  
+    const calculatedSummaryForDisplay = useMemo(() => {
+        const allItemsForSummary = watchedDespachoPorDestino ? (watchedDestinos || []).flatMap(d => d.items.map(i => ({...i, destino: d.nombreDestino}))) : (watchedItems || []);
 
-  const calculatedSummaryForDisplay = useMemo(() => {
-      const allItemsForSummary = watchedDespachoPorDestino ? (watchedDestinos || []).flatMap(d => d.items) : (watchedItems || []);
-  
-      const grouped = allItemsForSummary.reduce((acc, item) => {
-          if (!item?.descripcion?.trim()) return acc;
-          const desc = item.descripcion.trim();
-  
-          if (!acc[desc]) {
-              const summaryItem = form.getValues('summary')?.find(s => s.descripcion === desc);
-              acc[desc] = {
-                  descripcion: desc,
-                  totalPeso: 0,
-                  totalCantidad: 0,
-                  paletas: new Set<number>(),
-                  temperatura: summaryItem?.temperatura,
-              };
-          }
-  
-          if (Number(item.paleta) === 0) {
-              acc[desc].totalPeso += Number(item.totalPesoNeto) || 0;
-              acc[desc].totalCantidad += Number(item.totalCantidad) || 0;
-              acc[desc].paletas.add(0); // Special handling for summary rows
-          } else {
-              acc[desc].totalPeso += Number(item.pesoNeto) || 0;
-              acc[desc].totalCantidad += Number(item.cantidadPorPaleta) || 0;
-              const paleta = Number(item.paleta);
-              if (!isNaN(paleta) && paleta > 0) {
-                  acc[desc].paletas.add(paleta);
-              }
-          }
-          
-          return acc;
-      }, {} as Record<string, { descripcion: string; totalPeso: number; totalCantidad: number; paletas: Set<number>; temperatura: any; }>);
-  
-      const totalGeneralPaletas = (() => {
-          if (isSummaryMode) {
-            if (watchedDespachoPorDestino) {
-                return watchedTotalPaletasDespacho || 0;
+        const grouped = allItemsForSummary.reduce((acc, item) => {
+            if (!item?.descripcion?.trim()) return acc;
+            
+            const key = watchedDespachoPorDestino ? `${item.destino}|${item.descripcion}` : item.descripcion;
+            
+            if (!acc[key]) {
+                const summaryItem = form.getValues('summary')?.find(s => (s.destino ? `${s.destino}|${s.descripcion}` : s.descripcion) === key);
+                acc[key] = {
+                    descripcion: item.descripcion,
+                    destino: item.destino,
+                    totalPeso: 0,
+                    totalCantidad: 0,
+                    paletas: new Set<number>(),
+                    temperatura: summaryItem?.temperatura,
+                };
             }
-            return allItemsForSummary.reduce((sum, item) => sum + (Number(item.totalPaletas) || 0), 0);
-          }
-          const uniquePallets = new Set<number>();
-          allItemsForSummary.forEach(item => {
-              const paletaNum = Number(item?.paleta);
-              if (!isNaN(paletaNum) && paletaNum > 0) {
-                  uniquePallets.add(paletaNum);
+    
+            if (Number(item.paleta) === 0) {
+                acc[key].totalPeso += Number(item.totalPesoNeto) || 0;
+                acc[key].totalCantidad += Number(item.totalCantidad) || 0;
+                acc[key].paletas.add(0); // Special handling for summary rows
+            } else {
+                acc[key].totalPeso += Number(item.pesoNeto) || 0;
+                acc[key].totalCantidad += Number(item.cantidadPorPaleta) || 0;
+                const paleta = Number(item.paleta);
+                if (!isNaN(paleta) && paleta > 0) {
+                    acc[key].paletas.add(paleta);
+                }
+            }
+            
+            return acc;
+        }, {} as Record<string, { descripcion: string; destino?: string; totalPeso: number; totalCantidad: number; paletas: Set<number>; temperatura: any; }>);
+    
+        const totalGeneralPaletas = (() => {
+            if (isSummaryMode) {
+              if (watchedDespachoPorDestino) {
+                  return watchedTotalPaletasDespacho || 0;
               }
-          });
-          return uniquePallets.size;
-      })();
-  
-      return {
-          items: Object.values(grouped).map(group => {
-              const totalPaletas = isSummaryMode
-                ? allItemsForSummary
-                    .filter(item => item.descripcion === group.descripcion && Number(item.paleta) === 0)
-                    .reduce((sum, item) => sum + (Number(item.totalPaletas) || 0), 0)
-                : group.paletas.size;
+              return allItemsForSummary.reduce((sum, item) => sum + (Number(item.totalPaletas) || 0), 0);
+            }
+            const uniquePallets = new Set<number>();
+            allItemsForSummary.forEach(item => {
+                const paletaNum = Number(item?.paleta);
+                if (!isNaN(paletaNum) && paletaNum > 0) {
+                    uniquePallets.add(paletaNum);
+                }
+            });
+            return uniquePallets.size;
+        })();
+    
+        return {
+            items: Object.values(grouped).map(group => {
+                const totalPaletas = isSummaryMode
+                  ? allItemsForSummary
+                      .filter(item => item.descripcion === group.descripcion && (watchedDespachoPorDestino ? item.destino === group.destino : true) && Number(item.paleta) === 0)
+                      .reduce((sum, item) => sum + (Number(item.totalPaletas) || 0), 0)
+                  : group.paletas.size;
 
-              return {
-                  descripcion: group.descripcion,
-                  totalPeso: group.totalPeso,
-                  totalCantidad: group.totalCantidad,
-                  totalPaletas: totalPaletas,
-                  temperatura: group.temperatura,
-              };
-          }),
-          totalGeneralPaletas
-      };
-  }, [watchedItems, watchedDestinos, watchedDespachoPorDestino, watchedTotalPaletasDespacho, isSummaryMode, form]);
-  
+                return {
+                    descripcion: group.descripcion,
+                    destino: group.destino,
+                    totalPeso: group.totalPeso,
+                    totalCantidad: group.totalCantidad,
+                    totalPaletas: totalPaletas,
+                    temperatura: group.temperatura,
+                };
+            }),
+            totalGeneralPaletas
+        };
+    }, [watchedItems, watchedDestinos, watchedDespachoPorDestino, watchedTotalPaletasDespacho, isSummaryMode, form]);
+
   useEffect(() => {
     const currentSummaryInForm = form.getValues('summary') || [];
     const newSummaryState = calculatedSummaryForDisplay.items.map(newItem => {
-        const existingItem = currentSummaryInForm.find(oldItem => oldItem.descripcion === newItem.descripcion);
+        const existingItem = currentSummaryInForm.find(oldItem => 
+            (watchedDespachoPorDestino && oldItem.destino ? `${oldItem.destino}|${oldItem.descripcion}` : oldItem.descripcion) ===
+            (newItem.destino ? `${newItem.destino}|${newItem.descripcion}` : newItem.descripcion)
+        );
         return {
             ...newItem,
             temperatura: existingItem?.temperatura ?? null,
@@ -671,7 +714,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
     if (JSON.stringify(newSummaryState) !== JSON.stringify(currentSummaryInForm)) {
       form.setValue('summary', newSummaryState, { shouldValidate: true });
     }
-}, [calculatedSummaryForDisplay.items, form]);
+}, [calculatedSummaryForDisplay.items, form, watchedDespachoPorDestino]);
   
   const showSummary = useMemo(() => {
     return calculatedSummaryForDisplay.items.some(item => item && item.descripcion && item.descripcion.trim() !== '');
@@ -1535,6 +1578,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                             <Table>
                                 <TableHeader>
                                     <TableRow>
+                                        {watchedDespachoPorDestino && <TableHead>Destino</TableHead>}
                                         <TableHead>Producto</TableHead>
                                         <TableHead className="w-[120px]">Temperatura (°C)</TableHead>
                                         {!(isSummaryMode && watchedDespachoPorDestino) && (
@@ -1547,9 +1591,12 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                                 <TableBody>
                                     {form.watch('summary')?.length > 0 ? (
                                         form.watch('summary')?.map((summaryItem, summaryIndex) => {
-                                           const itemData = calculatedSummaryForDisplay.items.find(i => i.descripcion === summaryItem.descripcion);
+                                           const itemData = calculatedSummaryForDisplay.items.find(i => (
+                                                watchedDespachoPorDestino && i.destino ? `${i.destino}|${i.descripcion}` : i.descripcion
+                                           ) === (summaryItem.destino ? `${summaryItem.destino}|${summaryItem.descripcion}`: summaryItem.descripcion));
                                            return (
-                                            <TableRow key={summaryItem.descripcion}>
+                                            <TableRow key={summaryIndex}>
+                                                {watchedDespachoPorDestino && <TableCell>{summaryItem.destino}</TableCell>}
                                                 <TableCell className="font-medium">
                                                     <div className="bg-muted/50 p-2 rounded-md flex items-center h-10">
                                                         {summaryItem.descripcion}
@@ -1600,13 +1647,13 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                                         )})
                                     ) : (
                                         <TableRow>
-                                            <TableCell colSpan={5} className="h-24 text-center">
+                                            <TableCell colSpan={6} className="h-24 text-center">
                                                 Agregue ítems para ver el resumen.
                                             </TableCell>
                                         </TableRow>
                                     )}
                                     <TableRow className="font-bold bg-muted hover:bg-muted">
-                                        <TableCell colSpan={isSummaryMode && watchedDespachoPorDestino ? 1 : 2} className="text-right">TOTAL GENERAL PALETAS:</TableCell>
+                                        <TableCell colSpan={watchedDespachoPorDestino ? 3 : 2} className="text-right">TOTAL GENERAL PALETAS:</TableCell>
                                         <TableCell colSpan={3} className="text-left pl-4">{calculatedSummaryForDisplay.totalGeneralPaletas}</TableCell>
                                     </TableRow>
                                 </TableBody>
