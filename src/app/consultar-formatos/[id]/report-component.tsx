@@ -686,9 +686,11 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 
                 const allItemsForSummary = formData.despachoPorDestino ? formData.destinos.flatMap((d: any) => d.items.map((i: any) => ({...i, destino: d.nombreDestino}))) : formData.items;
                 const isSummaryFormat = allItemsForSummary.some((p: any) => Number(p.paleta) === 0);
-                const isIndividualPalletMode = allItemsForSummary.every((item: any) => Number(item?.paleta) > 0);
-                const shouldGroupByDestino = formData.despachoPorDestino && isIndividualPalletMode;
+                
                 const recalculatedSummary = (() => {
+                    const isIndividualPalletMode = allItemsForSummary.every((item: any) => Number(item?.paleta) > 0);
+                    const shouldGroupByDestino = formData.despachoPorDestino && isIndividualPalletMode;
+
                     const grouped = allItemsForSummary.reduce((acc, item) => {
                         if (!item?.descripcion?.trim()) return acc;
                         const key = shouldGroupByDestino ? `${item.destino}|${item.descripcion}` : item.descripcion;
@@ -732,7 +734,14 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 const totalGeneralPaletas = recalculateTotalPaletas(formData);
 
                 if (recalculatedSummary.length > 0) {
+                    const isIndividualPalletMode = allItemsForSummary.every((item: any) => Number(item?.paleta) > 0);
+                    const shouldGroupByDestino = formData.despachoPorDestino && isIndividualPalletMode;
+
                     const summaryHead = [
+                        { content: 'Resumen de Productos', colSpan: shouldGroupByDestino ? 6 : 5, styles: { halign: 'center', fillColor: '#e2e8f0' } },
+                    ];
+                    
+                    const summarySubHead = [
                         shouldGroupByDestino ? 'Destino' : null, 
                         'Descripción', 'Temp(°C)', 'Total Cantidad', 
                         !isSummaryFormat ? 'Total Paletas' : null,
@@ -750,24 +759,58 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         return row;
                     });
                     
-                    const footColSpan = shouldGroupByDestino ? 2 : 1;
-                    const footRow: any[] = [ { content: 'TOTALES:', colSpan: footColSpan, styles: { halign: 'right', fontStyle: 'bold' } }, '' ];
-                    footRow.push({ content: totalGeneralCantidad, styles: { halign: 'right' } });
-                    if (!isSummaryFormat) {
-                       footRow.push({ content: totalGeneralPaletas, styles: { halign: 'right' } });
+                    const footRow: any[] = [
+                        { content: 'TOTALES:', colSpan: shouldGroupByDestino ? 2 : 1, styles: { halign: 'right', fontStyle: 'bold' } }, 
+                        '', 
+                        { content: totalGeneralCantidad, styles: { halign: 'right' } }
+                    ];
+                     if (!isSummaryFormat) {
+                        footRow.push({ content: totalGeneralPaletas, styles: { halign: 'right' } });
                     }
                     footRow.push({ content: totalGeneralPeso.toFixed(2), styles: { halign: 'right' } });
 
+                     // Calculate table height to check for page break
+                    let tempDoc = new jsPDF();
+                    autoTable(tempDoc, {
+                        head: [summarySubHead],
+                        body: summaryBody,
+                        foot: [footRow],
+                        styles: { fontSize: 8, cellPadding: 4 },
+                        headStyles: { fillColor: '#f8fafc', textColor: '#334155' },
+                        footStyles: { fillColor: '#f1f5f9', fontStyle: 'bold', textColor: '#1a202c' },
+                        margin: { horizontal: margin },
+                    });
+                    const tableHeight = (tempDoc as any).lastAutoTable.finalY;
+                    const headerHeight = 20; // Approx height for the main title
+                    const neededHeight = headerHeight + tableHeight;
+                    const remainingSpace = pageHeight - yPos - margin; // margin at the bottom
+
+                    if (neededHeight > remainingSpace) {
+                        doc.addPage();
+                        yPos = margin;
+                    }
+
+                    // Now draw the actual table
                     autoTable(doc, {
                         startY: yPos,
-                        head: [[{ content: 'Resumen de Productos', colSpan: summaryHead.length, styles: { halign: 'center', fillColor: '#e2e8f0' } }], summaryHead],
+                        head: [summaryHead],
+                        body: [],
+                        theme: 'grid',
+                        margin: { horizontal: margin },
+                        styles: { fontSize: 8, cellPadding: 4 },
+                    });
+                    yPos = (doc as any).autoTable.previous.finalY;
+    
+                    autoTable(doc, {
+                        startY: yPos,
+                        head: [summarySubHead],
                         body: summaryBody,
                         foot: [footRow],
                         theme: 'grid',
                         footStyles: { fillColor: '#f1f5f9', fontStyle: 'bold', textColor: '#1a202c' },
                         styles: { fontSize: 8, cellPadding: 4 },
                         headStyles: { fillColor: '#f8fafc', textColor: '#334155' },
-                        margin: { horizontal: margin },
+                        margin: { horizontal: margin, bottom: 40 },
                     });
                     yPos = (doc as any).autoTable.previous.finalY + 15;
                 }
@@ -955,6 +998,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
         </div>
     );
 }
+
 
 
 
