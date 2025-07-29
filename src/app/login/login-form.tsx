@@ -93,7 +93,7 @@ export default function LoginForm() {
   return (
     <div className="flex w-full items-center justify-center bg-gray-100 p-4">
       <Card className="w-full max-w-md">
-        <CardHeader className="text-center">
+        <CardHeader className="text-center pb-2">
             <div className="mx-auto mb-4">
                 <Image
                     src="/images/company-logo.png"
@@ -152,8 +152,10 @@ export default function LoginForm() {
             </form>
           </Form>
         </CardContent>
-        <CardFooter className="flex justify-end">
-            <p className="text-sm text-gray-500 font-mono">{appVersion}</p>
+        <CardFooter className="flex flex-col items-end">
+            <div className="w-full text-right">
+                <p className="text-sm text-gray-500 font-mono">{appVersion}</p>
+            </div>
         </CardFooter>
       </Card>
     </div>
