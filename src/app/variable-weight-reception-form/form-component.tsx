@@ -97,11 +97,8 @@ const placaSchema = z.object({
     .regex(/^[A-Z]{3}[0-9]{3}$/, "Formato de placa inválido. Deben ser 3 letras y 3 números (ej: ABC123)."),
   items: z.array(itemSchema).min(1, "Debe agregar al menos un ítem a la placa."),
 });
-  
-const requiredTempSchema = z.preprocess(
-    (val) => (val === "" || val === null ? undefined : val),
-    z.coerce.number({ required_error: "La temperatura es requerida.", invalid_type_error: "La temperatura debe ser un número." }).min(-99).max(99)
-);
+
+const requiredTempSchema = z.coerce.number({ required_error: "La temperatura es requerida.", invalid_type_error: "La temperatura debe ser un número." }).min(-99).max(99);
 
 const optionalTempSchema = z.preprocess(
     (val) => (val === "" || val === null ? null : val),
@@ -133,7 +130,7 @@ const formSchema = z.object({
     fecha: z.date({ required_error: "La fecha es obligatoria." }),
     conductor: z.string().optional(),
     cedulaConductor: z.string().regex(/^[0-9]*$|^$/, "La cédula solo puede contener números.").optional(),
-    placa: z.string().regex(/^[A-Z]{3}[0-9]{3}$|^$/, "Formato inválido. Deben ser 3 letras y 3 números (ej: ABC123).").optional(),
+    placa: z.string().optional(),
     precinto: z.string().optional(),
     setPoint: z.preprocess((val) => (val === "" || val === null ? undefined : val), z.coerce.number({ required_error: "El Set Point es requerido." }).min(-99).max(99).nullable().optional()),
     contenedor: z.string().optional(),
@@ -163,7 +160,6 @@ const formSchema = z.object({
         if (data.setPoint === null || data.setPoint === undefined) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El Set Point es obligatorio.', path: ['setPoint'] });
       }
 
-      // AplicaCuadrilla is mandatory for all except INGRESO DE SALDOS
       if (data.tipoPedido !== 'INGRESO DE SALDOS' && !data.aplicaCuadrilla) {
           ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Seleccione una opción para 'Operación Realizada por Cuadrilla'.", path: ['aplicaCuadrilla'] });
       }
@@ -448,9 +444,22 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
   const watchedPlacas = useWatch({ control: form.control, name: "placas" });
   const watchedObservations = useWatch({ control: form.control, name: "observations" });
 
+  useEffect(() => {
+    if (isTunelMode) {
+        const placaNumbers = (watchedPlacas || [])
+            .map(p => p.numeroPlaca?.trim())
+            .filter(Boolean)
+            .join(' / ');
+        
+        if (form.getValues('placa') !== placaNumbers) {
+            form.setValue('placa', placaNumbers, { shouldValidate: true });
+        }
+    }
+  }, [watchedPlacas, isTunelMode, form]);
+
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "items" });
   const { fields: placaFields, append: appendPlaca, remove: removePlaca } = useFieldArray({ control: form.control, name: "placas" });
-  const { fields: observationFields, append: appendObservation, remove: removeObservation } = useFieldArray({ control: form.control, name: "observaciones" });
+  const { fields: observationFields, append: appendObservation, remove: removeObservation } = useFieldArray({ control: form.control, name: "observations" });
   
   const formIdentifier = submissionId ? `variable-weight-reception-edit-${submissionId}` : `variable-weight-${operation}`;
   const { isRestoreDialogOpen, onOpenChange, onRestore, onDiscard: handleDiscardHook, clearDraft } = useFormPersistence(formIdentifier, form, originalDefaultValues, attachments, setAttachments, !!submissionId);
@@ -536,38 +545,6 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
 }, [calculatedSummaryForDisplay, form]);
 
   const showSummary = (itemsForCalculation || []).some(item => item && item.descripcion && item.descripcion.trim() !== '');
-
-  const handleAddItem = () => {
-    const items = form.getValues('items');
-    const lastItem = items && items.length > 0 ? items[items.length - 1] : null;
-
-    if (!lastItem) {
-        append({ ...originalDefaultValues.items![0] });
-        return;
-    }
-    
-    if (lastItem.paleta === 0) {
-        append({
-            ...originalDefaultValues.items![0],
-            codigo: lastItem.codigo,
-            paleta: 0,
-            descripcion: lastItem.descripcion,
-            lote: lastItem.lote,
-            presentacion: lastItem.presentacion,
-        });
-    } else {
-        append({
-            ...originalDefaultValues.items![0],
-            codigo: lastItem.codigo,
-            paleta: null,
-            descripcion: lastItem.descripcion,
-            lote: lastItem.lote,
-            presentacion: lastItem.presentacion,
-            cantidadPorPaleta: lastItem.cantidadPorPaleta,
-            taraCaja: lastItem.taraCaja,
-        });
-    }
-  };
 
   useEffect(() => {
     const fetchClientsAndObs = async () => {
@@ -912,7 +889,6 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
             ...dataWithFinalSummary,
             conductor: data.conductor?.trim() || 'N/A',
             cedulaConductor: data.cedulaConductor?.trim() || 'N/A',
-            placa: data.placa?.trim() || 'N/A',
             precinto: data.precinto?.trim() || 'N/A',
             setPoint: data.setPoint ?? null,
             contenedor: data.contenedor?.trim() || 'N/A',
@@ -1040,6 +1016,38 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
   };
   
   const title = `${submissionId ? 'Editando' : 'Formato de'} Recepción - Peso Variable`;
+
+  const handleAddItem = () => {
+    const items = form.getValues('items');
+    const lastItem = items && items.length > 0 ? items[items.length - 1] : null;
+
+    if (!lastItem) {
+        append({ ...originalDefaultValues.items![0] });
+        return;
+    }
+    
+    if (lastItem.paleta === 0) {
+        append({
+            ...originalDefaultValues.items![0],
+            codigo: lastItem.codigo,
+            paleta: 0,
+            descripcion: lastItem.descripcion,
+            lote: lastItem.lote,
+            presentacion: lastItem.presentacion,
+        });
+    } else {
+        append({
+            ...originalDefaultValues.items![0],
+            codigo: lastItem.codigo,
+            paleta: null,
+            descripcion: lastItem.descripcion,
+            lote: lastItem.lote,
+            presentacion: lastItem.presentacion,
+            cantidadPorPaleta: lastItem.cantidadPorPaleta,
+            taraCaja: lastItem.taraCaja,
+        });
+    }
+  };
 
   if (isLoadingForm) {
       return (
@@ -1253,7 +1261,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                         <FormField control={form.control} name="placa" render={({ field }) => (
                             <FormItem>
                               <FormLabel>Placa del vehículo</FormLabel>
-                              <FormControl><Input placeholder="ABC123" {...field} onChange={(e) => field.onChange(e.target.value.toUpperCase())} maxLength={6} /></FormControl>
+                              <FormControl><Input placeholder="ABC123" {...field} disabled={isTunelMode} onChange={(e) => field.onChange(e.target.value.toUpperCase())} maxLength={isTunelMode ? undefined : 6} /></FormControl>
                               <FormMessage />
                             </FormItem>
                         )}/>
