@@ -93,7 +93,9 @@ const itemSchema = z.object({
 });
 
 const placaSchema = z.object({
-  numeroPlaca: z.string().min(1, "El número de placa es obligatorio."),
+  numeroPlaca: z.string()
+    .min(1, "El número de placa es obligatorio.")
+    .regex(/^[A-Z]{3}[0-9]{3}$/, "Formato de placa inválido. Deben ser 3 letras y 3 números (ej: ABC123)."),
   items: z.array(itemSchema).min(1, "Debe agregar al menos un ítem a la placa."),
 });
   
@@ -137,7 +139,7 @@ const formSchema = z.object({
     setPoint: z.preprocess((val) => (val === "" || val === null ? null : val), z.coerce.number().min(-99).max(99).nullable().optional()),
     contenedor: z.string().refine(value => !value || value.toUpperCase() === 'N/A' || /^[A-Z]{4}[0-9]{7}$/.test(value.toUpperCase()), { message: "Formato inválido. Debe ser 'N/A' o 4 letras y 7 números (ej: ABCD1234567)." }).optional(),
     facturaRemision: z.string().max(15, "Máximo 15 caracteres.").nullable().optional(),
-    items: z.array(itemSchema).min(1, "Debe agregar al menos un ítem.").optional(),
+    items: z.array(itemSchema).optional(),
     placas: z.array(placaSchema).optional(),
     summary: z.array(summaryItemSchema).nullable().optional(),
     horaInicio: z.string().min(1, "La hora de inicio es obligatoria.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
@@ -507,7 +509,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
         const existingItem = currentSummaryInForm.find(oldItem => oldItem.descripcion === newItem.descripcion);
         return {
             ...newItem,
-            temperatura1: existingItem?.temperatura1 ?? null,
+            temperatura1: existingItem?.temperatura1,
             temperatura2: existingItem?.temperatura2 ?? null,
             temperatura3: existingItem?.temperatura3 ?? null,
         };
@@ -1338,7 +1340,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                                     render={({ field }) => (
                                                         <FormItem>
                                                             <FormLabel>Número de Placa</FormLabel>
-                                                            <FormControl><Input placeholder="Número de la placa del vehículo" {...field} /></FormControl>
+                                                            <FormControl><Input placeholder="ABC123" {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl>
                                                             <FormMessage />
                                                         </FormItem>
                                                     )}
@@ -1636,11 +1638,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                         <FormItem className="space-y-1 lg:col-span-4">
                                             <FormLabel>Operación Realizada por Cuadrilla</FormLabel>
                                             <FormControl>
-                                                <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-2">
-                                                    <FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="cuadrilla-si" /><Label htmlFor="cuadrilla-si">Sí</Label></FormItem>
-                                                    <FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="cuadrilla-no" /><Label htmlFor="cuadrilla-no">No</Label></FormItem>
-                                                </RadioGroup>
-                                            </FormControl>
+                                                <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-2"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="cuadrilla-si" /><Label htmlFor="cuadrilla-si">Sí</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="cuadrilla-no" /><Label htmlFor="cuadrilla-no">No</Label></FormItem></RadioGroup></FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )}
