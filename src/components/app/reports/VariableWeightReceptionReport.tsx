@@ -195,7 +195,7 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                                 <div style={{ backgroundColor: '#f1f5f9', padding: '6px 12px', fontWeight: 'bold', borderBottom: '1px solid #ddd', borderTop: placaIndex > 0 ? '1px solid #aaa' : 'none' }}>
                                     Placa: {placa.numeroPlaca}
                                 </div>
-                                <ItemsTable items={placa.items || []} isSummaryFormat={isSummaryFormat} />
+                                <ItemsTable items={placa.items || []} isSummaryFormat={false} />
                             </div>
                         ))
                     ) : (
@@ -387,4 +387,3 @@ const ItemsTable = ({ items, isSummaryFormat }: { items: any[], isSummaryFormat:
         </tbody>
     </table>
 );
-
