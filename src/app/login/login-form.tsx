@@ -137,8 +137,8 @@ export default function LoginForm() {
                   </FormItem>
                 )}
               />
-              <div className="pt-2">
-                <Button type="submit" disabled={isLoading} className="w-full">
+               <div className="pt-2">
+                 <Button type="submit" disabled={isLoading} className="w-full">
                   {isLoading ? (
                     <Loader2 className="animate-spin" />
                   ) : (
@@ -148,11 +148,11 @@ export default function LoginForm() {
                     </>
                   )}
                 </Button>
-              </div>
+               </div>
             </form>
           </Form>
         </CardContent>
-        <CardFooter className="flex flex-col items-end">
+        <CardFooter>
             <div className="w-full text-right">
                 <p className="text-sm text-gray-500 font-mono">{appVersion}</p>
             </div>
