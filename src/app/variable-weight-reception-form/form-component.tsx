@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
@@ -149,7 +150,7 @@ const formSchema = z.object({
     numeroOperariosCuadrilla: z.coerce.number().int().min(1, "Debe ser al menos 1.").optional(),
     unidadDeMedidaPrincipal: z.string().optional(),
 }).superRefine((data, ctx) => {
-      const isSpecialReception = data.tipoPedido === 'INGRESO DE SALDOS' || data.tipoPedido === 'TUNEL';
+      const isSpecialReception = data.tipoPedido === 'INGRESO DE SALDOS' || data.tipoPedido === 'TUNEL' || data.tipoPedido === 'MAQUILA';
 
       if (!isSpecialReception) {
         if (!data.conductor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El nombre del conductor es obligatorio.', path: ['conductor'] });
@@ -884,7 +885,8 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
         
         let dataWithFinalSummary = { ...data, summary: finalSummary };
         
-        if(data.tipoPedido === "TUNEL" || data.tipoPedido === "INGRESO DE SALDOS") {
+        const isSpecialReception = data.tipoPedido === "TUNEL" || data.tipoPedido === "INGRESO DE SALDOS" || data.tipoPedido === "MAQUILA";
+        if(isSpecialReception) {
           dataWithFinalSummary = {
             ...dataWithFinalSummary,
             conductor: data.conductor?.trim() || 'N/A',
@@ -892,6 +894,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
             precinto: data.precinto?.trim() || 'N/A',
             setPoint: data.setPoint ?? null,
             contenedor: data.contenedor?.trim() || 'N/A',
+            placa: data.placa?.trim() || 'N/A',
           };
         }
 
@@ -2033,3 +2036,4 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
+
