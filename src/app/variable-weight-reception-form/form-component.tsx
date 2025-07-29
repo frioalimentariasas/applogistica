@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
@@ -153,7 +152,7 @@ const formSchema = z.object({
     numeroOperariosCuadrilla: z.coerce.number().int().min(1, "Debe ser al menos 1.").optional(),
     unidadDeMedidaPrincipal: z.string().optional(),
 }).superRefine((data, ctx) => {
-      const isSpecialReception = data.tipoPedido === 'INGRESO DE SALDOS';
+      const isSpecialReception = data.tipoPedido === 'INGRESO DE SALDOS' || data.tipoPedido === 'TUNEL';
 
       if (!isSpecialReception) {
         if (!data.conductor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El nombre del conductor es obligatorio.', path: ['conductor'] });
@@ -162,7 +161,11 @@ const formSchema = z.object({
         if (!data.precinto?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El precinto es obligatorio.', path: ['precinto'] });
         if (!data.contenedor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El contenedor es obligatorio.', path: ['contenedor'] });
         if (data.setPoint === null || data.setPoint === undefined) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El Set Point es obligatorio.', path: ['setPoint'] });
-        if (!data.aplicaCuadrilla) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Seleccione una opción para 'Operación Realizada por Cuadrilla'.", path: ['aplicaCuadrilla'] });
+      }
+
+      // AplicaCuadrilla is mandatory for all except INGRESO DE SALDOS
+      if (data.tipoPedido !== 'INGRESO DE SALDOS' && !data.aplicaCuadrilla) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Seleccione una opción para 'Operación Realizada por Cuadrilla'.", path: ['aplicaCuadrilla'] });
       }
 
       if (data.tipoPedido === 'MAQUILA') {
@@ -310,13 +313,13 @@ const ItemsPorPlaca = ({ placaIndex, handleProductDialogOpening }: { placaIndex:
         const lastItem = items.length > 0 ? items[items.length - 1] : null;
 
         const newItemPayload = lastItem ? {
-            ...originalDefaultValues.items[0],
+            ...originalDefaultValues.items![0],
             codigo: lastItem.codigo,
             descripcion: lastItem.descripcion,
             lote: lastItem.lote,
             presentacion: lastItem.presentacion,
             paleta: lastItem.paleta === 0 ? 0 : null,
-        } : { ...originalDefaultValues.items[0] };
+        } : { ...originalDefaultValues.items![0] };
         
         append(newItemPayload);
     };
@@ -901,7 +904,22 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                 temperatura3: formItem?.temperatura3 ?? null,
             }
         });
-        const dataWithFinalSummary = { ...data, summary: finalSummary };
+        
+        let dataWithFinalSummary = { ...data, summary: finalSummary };
+        
+        // Add N/A to empty optional fields for TUNEL type
+        if(data.tipoPedido === "TUNEL" || data.tipoPedido === "INGRESO DE SALDOS") {
+          dataWithFinalSummary = {
+            ...dataWithFinalSummary,
+            conductor: data.conductor?.trim() || 'N/A',
+            cedulaConductor: data.cedulaConductor?.trim() || 'N/A',
+            placa: data.placa?.trim() || 'N/A',
+            precinto: data.precinto?.trim() || 'N/A',
+            setPoint: data.setPoint ?? null, // Use null for numbers
+            contenedor: data.contenedor?.trim() || 'N/A',
+          };
+        }
+
 
         const newAttachmentsBase64 = attachments.filter(a => a.startsWith('data:image'));
         const existingAttachmentUrls = attachments.filter(a => a.startsWith('http'));
@@ -2009,4 +2027,3 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
-
