@@ -98,8 +98,8 @@ export default function LoginForm() {
                 <Image
                     src="/images/company-logo.png"
                     alt="Logotipo de Frio Alimentaria"
-                    width={250}
-                    height={72}
+                    width={175}
+                    height={50}
                     priority
                 />
             </div>
