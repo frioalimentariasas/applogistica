@@ -666,7 +666,13 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
           if (sanitizedFormData.fecha && typeof sanitizedFormData.fecha === 'string') {
             sanitizedFormData.fecha = new Date(sanitizedFormData.fecha);
           }
+          
           form.reset(sanitizedFormData);
+          
+          if (formData.tipoPedido === 'TUNEL') {
+            form.setValue('items', []); // Ensure items is empty for TUNEL mode
+          }
+
           setAttachments(submission.attachmentUrls);
 
           if (sanitizedFormData.cliente) {
@@ -2095,6 +2101,7 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
+
 
 
 
