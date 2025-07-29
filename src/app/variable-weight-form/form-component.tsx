@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
@@ -305,7 +304,7 @@ const originalDefaultValues: FormValues = {
 // Mock data
 const coordinadores = ["Cristian Acuña", "Sergio Padilla"];
 const presentaciones = ["Cajas", "Sacos", "Canastillas"];
-const clientesEspeciales = ["AVICOLA EL MADROÑO S.A.", "SMYL TRANSPORTE Y LOGISTICA SAS"];
+const clientesEspeciales = ["AVICOLA EL MADROÑO S.A.", "SMYL TRANSPORTE Y LOGISTICA SAS", "AVICOLA EMBUTIDOS"];
 
 // Attachment Constants
 const MAX_ATTACHMENTS = 30;
@@ -905,7 +904,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                     .filter(a => a.startsWith('data:image'))
                     .reduce((sum, base64) => sum + getByteSizeFromBase64(base64.split(',')[1]), 0);
 
-                if (existingImagesSize + newImageSize > MAX_TOTAL_SIZE_BYTES) {
+                if (existingImagesSize + newImagesSize > MAX_TOTAL_SIZE_BYTES) {
                     toast({
                         variant: "destructive",
                         title: "Límite de tamaño excedido",
@@ -2125,6 +2124,7 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
+
 
 
 
