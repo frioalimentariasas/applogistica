@@ -114,6 +114,7 @@ const summaryItemSchema = z.object({
   totalPeso: z.number().optional(),
   totalCantidad: z.number().optional(),
   totalPaletas: z.number().optional(),
+  placa: z.string().optional(),
 });
 
 
@@ -491,16 +492,29 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
   
   const calculatedSummaryForDisplay = useMemo(() => {
     if (isTunelMode) {
-      const groupedByPlaca = (watchedPlacas || []).map(placa => {
-        const totalPeso = (placa.items || []).reduce((acc, item) => acc + (Number(item.pesoNeto) || 0), 0);
-        const totalCantidad = (placa.items || []).reduce((acc, item) => acc + (Number(item.cantidadPorPaleta) || 0), 0);
-        return {
-          descripcion: placa.numeroPlaca, // Use placa number as description
-          totalPeso,
-          totalCantidad
-        };
-      });
-      return { items: groupedByPlaca, totalGeneralPaletas: 0 };
+      const allItemsByPlaca = (watchedPlacas || []).flatMap(placa => 
+          (placa.items || []).map(item => ({ ...item, placa: placa.numeroPlaca }))
+      );
+
+      const groupedByPlacaAndDesc = allItemsByPlaca.reduce((acc, item) => {
+          if (!item?.descripcion?.trim() || !item?.placa?.trim()) return acc;
+          const key = `${item.placa}|${item.descripcion}`;
+          
+          if (!acc[key]) {
+              acc[key] = {
+                  placa: item.placa,
+                  descripcion: item.descripcion,
+                  totalPeso: 0,
+                  totalCantidad: 0,
+              };
+          }
+          acc[key].totalPeso += Number(item.pesoNeto) || 0;
+          acc[key].totalCantidad += Number(item.cantidadPorPaleta) || 0;
+          
+          return acc;
+      }, {} as Record<string, { placa: string; descripcion: string; totalPeso: number; totalCantidad: number; }>);
+      
+      return { items: Object.values(groupedByPlacaAndDesc), totalGeneralPaletas: 0 };
     }
 
     const grouped = (itemsForCalculation || []).reduce((acc, item) => {
@@ -550,7 +564,11 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
   const currentSummaryFields = useMemo(() => {
     const currentSummaryInForm = form.getValues('summary') || [];
     const newSummaryState = calculatedSummaryForDisplay.items.map(newItem => {
-        const existingItem = currentSummaryInForm.find(oldItem => oldItem.descripcion === newItem.descripcion);
+        const existingItem = currentSummaryInForm.find(oldItem => 
+            isTunelMode 
+            ? oldItem.descripcion === newItem.descripcion && oldItem.placa === newItem.placa
+            : oldItem.descripcion === newItem.descripcion
+        );
         return {
             ...newItem,
             temperatura1: existingItem?.temperatura1,
@@ -564,7 +582,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
         form.setValue('summary', newSummaryState, { shouldValidate: true });
     }
     return newSummaryState;
-}, [calculatedSummaryForDisplay.items, form]);
+}, [calculatedSummaryForDisplay.items, form, isTunelMode]);
 
   const showSummary = (itemsForCalculation || []).some(item => item && (item.descripcion || (isTunelMode && item.numeroPlaca)) && (item.descripcion?.trim() !== '' || item.numeroPlaca?.trim() !== ''));
 
@@ -895,7 +913,11 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
     setIsSubmitting(true);
     try {
         const finalSummary = calculatedSummaryForDisplay.items.map(summaryItem => {
-            const formItem = (data.summary || []).find(s => s.descripcion === summaryItem.descripcion);
+            const formItem = (data.summary || []).find(s => 
+              isTunelMode 
+              ? s.descripcion === summaryItem.descripcion && s.placa === summaryItem.placa
+              : s.descripcion === summaryItem.descripcion
+            );
             return {
                 ...summaryItem,
                 temperatura1: formItem?.temperatura1 ?? null,
@@ -1439,7 +1461,8 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>{isTunelMode ? 'Placa' : 'Producto'}</TableHead>
+                                        {isTunelMode && <TableHead>Placa</TableHead>}
+                                        <TableHead>{isTunelMode ? 'Producto' : 'Descripción'}</TableHead>
                                         <TableHead className="w-[240px]">Temperaturas (°C)</TableHead>
                                         {!isTunelMode && <TableHead className="text-right">Total Paletas</TableHead>}
                                         <TableHead className="text-right">Total Cantidad</TableHead>
@@ -1451,6 +1474,13 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                         currentSummaryFields.map((summaryItem, summaryIndex) => {
                                            return (
                                             <TableRow key={summaryIndex}>
+                                                {isTunelMode && (
+                                                    <TableCell className="font-medium">
+                                                        <div className="bg-muted/50 p-2 rounded-md flex items-center h-10">
+                                                            {summaryItem.placa}
+                                                        </div>
+                                                    </TableCell>
+                                                )}
                                                 <TableCell className="font-medium">
                                                     <div className="bg-muted/50 p-2 rounded-md flex items-center h-10">
                                                         {summaryItem.descripcion}
@@ -1517,7 +1547,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                         </TableRow>
                                     )}
                                     <TableRow className="font-bold bg-muted hover:bg-muted">
-                                        <TableCell colSpan={isTunelMode ? 1 : 2} className="text-right">TOTAL GENERAL:</TableCell>
+                                        <TableCell colSpan={isTunelMode ? 3 : 2} className="text-right">TOTAL GENERAL:</TableCell>
                                         {!isTunelMode && <TableCell className="text-right pl-4">{calculatedSummaryForDisplay.totalGeneralPaletas}</TableCell>}
                                         <TableCell className="text-right">{calculatedSummaryForDisplay.items.reduce((acc, item) => acc + (item.totalCantidad || 0), 0)}</TableCell>
                                         <TableCell className="text-right">{(calculatedSummaryForDisplay.items.reduce((acc, item) => acc + (item.totalPeso || 0), 0)).toFixed(2)}</TableCell>
@@ -2065,5 +2095,6 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
+
 
 
