@@ -907,7 +907,6 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
         
         let dataWithFinalSummary = { ...data, summary: finalSummary };
         
-        // Add N/A to empty optional fields for TUNEL type
         if(data.tipoPedido === "TUNEL" || data.tipoPedido === "INGRESO DE SALDOS") {
           dataWithFinalSummary = {
             ...dataWithFinalSummary,
@@ -915,7 +914,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
             cedulaConductor: data.cedulaConductor?.trim() || 'N/A',
             placa: data.placa?.trim() || 'N/A',
             precinto: data.precinto?.trim() || 'N/A',
-            setPoint: data.setPoint ?? null, // Use null for numbers
+            setPoint: data.setPoint ?? null,
             contenedor: data.contenedor?.trim() || 'N/A',
           };
         }
@@ -1665,8 +1664,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                     render={({ field }) => (
                                         <FormItem className="space-y-1 lg:col-span-4">
                                             <FormLabel>Operación Realizada por Cuadrilla</FormLabel>
-                                            <FormControl>
-                                                <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-2"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="cuadrilla-si" /><Label htmlFor="cuadrilla-si">Sí</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="cuadrilla-no" /><Label htmlFor="cuadrilla-no">No</Label></FormItem></RadioGroup></FormControl>
+                                            <FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-2"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="cuadrilla-si" /><Label htmlFor="cuadrilla-si">Sí</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="cuadrilla-no" /><Label htmlFor="cuadrilla-no">No</Label></FormItem></RadioGroup></FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )}
