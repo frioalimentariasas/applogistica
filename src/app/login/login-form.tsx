@@ -19,7 +19,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
 import { Loader2, LogIn } from 'lucide-react';
 import Image from 'next/image';
 
@@ -91,7 +91,7 @@ export default function LoginForm() {
   };
 
   return (
-    <div className="flex w-full items-center justify-center bg-gray-100 p-4 py-8">
+    <div className="flex w-full items-center justify-center bg-gray-100 p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
             <div className="mx-auto mb-4">
@@ -137,8 +137,8 @@ export default function LoginForm() {
                   </FormItem>
                 )}
               />
-              <div className="flex items-center justify-between gap-4 pt-2">
-                <Button type="submit" disabled={isLoading}>
+              <div className="pt-2">
+                <Button type="submit" disabled={isLoading} className="w-full">
                   {isLoading ? (
                     <Loader2 className="animate-spin" />
                   ) : (
@@ -148,11 +148,13 @@ export default function LoginForm() {
                     </>
                   )}
                 </Button>
-                <p className="text-sm text-gray-500 font-mono whitespace-nowrap">{appVersion}</p>
               </div>
             </form>
           </Form>
         </CardContent>
+        <CardFooter className="flex justify-end">
+            <p className="text-sm text-gray-500 font-mono">{appVersion}</p>
+        </CardFooter>
       </Card>
     </div>
   );
