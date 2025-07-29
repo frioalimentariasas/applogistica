@@ -632,7 +632,6 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         const subtotals = items.reduce((acc: {cantidad: number, paletas: number, peso: number}, item: any) => {
                             if (isSummaryFormat) {
                                 acc.cantidad += Number(item.totalCantidad) || 0;
-                                acc.paletas += Number(item.totalPaletas) || 0;
                                 acc.peso += Number(item.totalPesoNeto) || 0;
                             } else {
                                 acc.cantidad += Number(item.cantidadPorPaleta) || 0;
@@ -649,28 +648,21 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             });
                             subtotals.paletas = uniquePalletsInDest.size;
                         }
-
-                        let subtotalRow: any[] = [{ content: 'SUBTOTAL DESTINO:', colSpan: isSummaryFormat ? 3 : 4, styles: { halign: 'right', fontStyle: 'bold' } }];
                         
-                        if(isSummaryFormat) {
-                            subtotalRow.push(
-                                { content: subtotals.cantidad, styles: { halign: 'right' } },
-                                { content: subtotals.paletas, styles: { halign: 'right' } },
-                                { content: subtotals.peso.toFixed(2), styles: { halign: 'right' } }
-                            );
-                        } else {
-                             subtotalRow.push(
-                                { content: subtotals.cantidad, styles: { halign: 'right' } },
-                                { content: '', colSpan: 4 },
-                                { content: subtotals.peso.toFixed(2), styles: { halign: 'right' } }
-                            );
+                        let subtotalRowContent = `Subtotal Destino: Cantidad: ${subtotals.cantidad}`;
+                        if (!isSummaryFormat) {
+                            subtotalRowContent += `, Paletas: ${subtotals.paletas}`;
                         }
+                        subtotalRowContent += `, Peso: ${subtotals.peso.toFixed(2)} kg`;
 
                         autoTable(doc, {
                             startY: yPos,
-                            body: [subtotalRow],
+                            body: [[{ 
+                                content: subtotalRowContent,
+                                styles: { halign: 'right', fontStyle: 'bold', fillColor: '#fafafa' }
+                            }]],
                             theme: 'grid',
-                            styles: { fontSize: 8, cellPadding: 3, fontStyle: 'bold', fillColor: '#fafafa' },
+                            styles: { fontSize: 8, cellPadding: 3 },
                             margin: { horizontal: margin },
                         });
                         yPos = (doc as any).autoTable.previous.finalY;
@@ -692,7 +684,6 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     yPos += 15;
                 }
                 
-                // Recalculated summary logic
                 const allItemsForSummary = formData.despachoPorDestino ? formData.destinos.flatMap((d: any) => d.items.map((i: any) => ({...i, destino: d.nombreDestino}))) : formData.items;
                 const isSummaryFormat = allItemsForSummary.some((p: any) => Number(p.paleta) === 0);
                 const isIndividualPalletMode = allItemsForSummary.every((item: any) => Number(item?.paleta) > 0);
@@ -964,6 +955,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
         </div>
     );
 }
+
 
 
 
