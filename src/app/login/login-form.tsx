@@ -18,7 +18,7 @@ import {
   FormMessage,
 } from '@/components/ui/form';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Loader2, LogIn } from 'lucide-react';
 import Image from 'next/image';
 
@@ -31,6 +31,7 @@ export default function LoginForm() {
   const router = useRouter();
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
+  const appVersion = "V.FAL.001";
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -148,6 +149,9 @@ export default function LoginForm() {
             </form>
           </Form>
         </CardContent>
+        <CardFooter className="justify-center">
+             <p className="text-sm text-gray-500 font-mono">{appVersion}</p>
+        </CardFooter>
       </Card>
     </div>
   );
