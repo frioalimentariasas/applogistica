@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -520,6 +521,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
             } else if (formType.startsWith('variable-weight-')) {
                  const isReception = formType.includes('recepcion') || formType.includes('reception');
                  const operationTerm = isReception ? 'Descargue' : 'Cargue';
+                 const isTunelMode = formData.tipoPedido === 'TUNEL';
                  
                  const generalInfoBody: any[][] = [
                      [
@@ -581,8 +583,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 yPos = (doc as any).autoTable.previous.finalY;
 
                 const drawItemsTable = (items: any[], placa?: string, destino?: string) => {
-                    const isTunel = !!placa;
-                    if(isTunel) {
+                    if(placa) {
                          autoTable(doc, {
                             startY: yPos,
                             body: [[{ 
@@ -613,24 +614,14 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     let detailBody: any[][];
 
                     if (!isSummary) {
-                        detailHead = [[isTunel ? 'Descripción' : 'Paleta', 'Lote', 'Presentación', 'Cant.', 'P. Bruto', 'T. Estiba', 'T. Caja', 'Total Tara', 'P. Neto']];
+                        detailHead = [[isTunelMode ? null : 'Paleta', 'Descripción', 'Lote', 'Presentación', 'Cant.', 'P. Bruto', 'T. Estiba', 'T. Caja', 'Total Tara', 'P. Neto'].filter(Boolean)];
                         detailBody = items.map((p: any) => [
-                            isTunel ? p.descripcion : p.paleta, 
+                            isTunelMode ? null : p.paleta, 
+                            p.descripcion,
                             p.lote, p.presentacion, p.cantidadPorPaleta,
                             p.pesoBruto?.toFixed(2), p.taraEstiba?.toFixed(2), p.taraCaja?.toFixed(2),
                             p.totalTaraCaja?.toFixed(2), p.pesoNeto?.toFixed(2)
-                        ].filter(val => !isTunel || val !== p.descripcion));
-
-                        if(isTunel) {
-                            detailHead[0].unshift('Descripción');
-                            detailBody.forEach((row, i) => row.unshift(items[i].descripcion));
-                            const paletaIndex = detailHead[0].indexOf('Paleta');
-                            if(paletaIndex > -1) {
-                                detailHead[0].splice(paletaIndex, 1);
-                                detailBody.forEach(row => row.splice(paletaIndex, 1));
-                            }
-                        }
-
+                        ].filter(val => val !== null));
                     } else {
                         detailHead = [['Descripción', 'Lote', 'Presentación', 'Total Cant.', 'Total Paletas', 'Total P. Neto']];
                         detailBody = items.map((p: any) => [
@@ -667,33 +658,47 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 }
                 
                 if (formData.summary?.length > 0) {
-                    const isTunelSummary = formData.tipoPedido === 'TUNEL';
-                    const isDestinoSummary = formData.despachoPorDestino;
+                    const isSummaryFormat = (formData.items || []).some((p: any) => Number(p.paleta) === 0) || (formData.destinos || []).some((d: any) => d.items.some((i: any) => Number(i.paleta) === 0));
+                    const isDestinoSummary = formData.despachoPorDestino && !isSummaryFormat;
 
-                    const summaryHead = [isTunelSummary ? 'Placa' : isDestinoSummary ? 'Destino' : null, 'Descripción', 'Temp(°C)', 'Total Cantidad', isSummaryFormat && !isDestinoSummary ? 'Total Paletas' : 'Total Paletas', 'Total Peso (kg)'].filter(Boolean) as string[];
+                    const summaryHead = [
+                        isTunelMode ? 'Placa' : isDestinoSummary ? 'Destino' : null, 
+                        'Descripción', 'Temp(°C)', 'Total Cantidad', 
+                        isSummaryFormat && formData.despachoPorDestino ? null : 'Total Paletas',
+                        'Total Peso (kg)'
+                    ].filter(Boolean) as string[];
 
                     const summaryBody = formData.summary.map((p: any) => {
                         const temps = [p.temperatura1, p.temperatura2, p.temperatura3].filter(t => t != null && !isNaN(t)).join(' / ');
-                        const row = [];
-                        if (isTunelSummary) row.push(p.placa);
-                        if (isDestinoSummary) row.push(p.destino);
+                        const row: any[] = [];
+                        if (isTunelMode) row.push(p.placa);
+                        else if (isDestinoSummary) row.push(p.destino);
+
                         row.push(p.descripcion, temps, p.totalCantidad);
-                        if(isSummaryFormat && !isDestinoSummary) row.push(p.totalPaletas);
-                        else if (!isSummaryFormat) row.push(p.totalPaletas);
+
+                        if (!(isSummaryFormat && formData.despachoPorDestino)) {
+                            row.push(p.totalPaletas);
+                        }
+                        
                         row.push(p.totalPeso?.toFixed(2));
                         return row;
                     });
                     
                     const totalCantidad = formData.summary.reduce((acc: any, p: any) => acc + (p.totalCantidad || 0), 0);
                     const totalPeso = formData.summary.reduce((acc: any, p: any) => acc + (p.totalPeso || 0), 0);
-                    
-                    const footRow: any[] = [{ content: 'TOTALES:', colSpan: isTunelSummary || isDestinoSummary ? 2 : 1, styles: { halign: 'right', fontStyle: 'bold' } }, ''];
-                    const totalGeneralPaletas = formData.despachoPorDestino && isSummaryFormat ? formData.totalPaletasDespacho : formData.summary.reduce((acc: any, p: any) => acc + (p.totalPaletas || 0), 0);
-                    if(isSummaryFormat && !isDestinoSummary) footRow.push(totalGeneralPaletas);
-                    else if (!isSummaryFormat) footRow.push(totalGeneralPaletas);
+                    const totalGeneralPaletas = isSummaryFormat && formData.despachoPorDestino 
+                        ? formData.totalPaletasDespacho 
+                        : formData.summary.reduce((acc: any, p: any) => acc + (p.totalPaletas || 0), 0);
 
-                    footRow.push(totalCantidad);
-                    footRow.push(totalPeso.toFixed(2));
+                    const footRow: any[] = [
+                        { content: 'TOTALES:', colSpan: isTunelMode || isDestinoSummary ? 2 : 1, styles: { halign: 'right', fontStyle: 'bold' } }, 
+                        ''
+                    ];
+                    
+                    if (!(isSummaryFormat && formData.despachoPorDestino)) {
+                        footRow.push(totalGeneralPaletas);
+                    }
+                    footRow.push(totalCantidad, totalPeso.toFixed(2));
 
 
                     autoTable(doc, {
@@ -894,4 +899,5 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
         </div>
     );
 }
+
 

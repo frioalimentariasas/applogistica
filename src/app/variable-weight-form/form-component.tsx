@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
@@ -625,11 +626,15 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
   
     const calculatedSummaryForDisplay = useMemo(() => {
         const allItemsForSummary = watchedDespachoPorDestino ? (watchedDestinos || []).flatMap(d => d.items.map(i => ({...i, destino: d.nombreDestino}))) : (watchedItems || []);
+        
+        const isIndividualPalletMode = allItemsForSummary.every(item => Number(item?.paleta) > 0);
+
+        const shouldGroupByDestino = watchedDespachoPorDestino && isIndividualPalletMode;
 
         const grouped = allItemsForSummary.reduce((acc, item) => {
             if (!item?.descripcion?.trim()) return acc;
             
-            const key = watchedDespachoPorDestino ? `${item.destino}|${item.descripcion}` : item.descripcion;
+            const key = shouldGroupByDestino ? `${item.destino}|${item.descripcion}` : item.descripcion;
             
             if (!acc[key]) {
                 const summaryItem = form.getValues('summary')?.find(s => (s.destino ? `${s.destino}|${s.descripcion}` : s.descripcion) === key);
@@ -680,7 +685,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
             items: Object.values(grouped).map(group => {
                 const totalPaletas = isSummaryMode
                   ? allItemsForSummary
-                      .filter(item => item.descripcion === group.descripcion && (watchedDespachoPorDestino ? item.destino === group.destino : true) && Number(item.paleta) === 0)
+                      .filter(item => item.descripcion === group.descripcion && (shouldGroupByDestino ? item.destino === group.destino : true) && Number(item.paleta) === 0)
                       .reduce((sum, item) => sum + (Number(item.totalPaletas) || 0), 0)
                   : group.paletas.size;
 
@@ -1578,7 +1583,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        {watchedDespachoPorDestino && <TableHead>Destino</TableHead>}
+                                        {watchedDespachoPorDestino && !isSummaryMode && <TableHead>Destino</TableHead>}
                                         <TableHead>Producto</TableHead>
                                         <TableHead className="w-[120px]">Temperatura (°C)</TableHead>
                                         {!(isSummaryMode && watchedDespachoPorDestino) && (
@@ -1596,7 +1601,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                                            ) === (summaryItem.destino ? `${summaryItem.destino}|${summaryItem.descripcion}`: summaryItem.descripcion));
                                            return (
                                             <TableRow key={summaryIndex}>
-                                                {watchedDespachoPorDestino && <TableCell>{summaryItem.destino}</TableCell>}
+                                                {watchedDespachoPorDestino && !isSummaryMode && <TableCell>{summaryItem.destino}</TableCell>}
                                                 <TableCell className="font-medium">
                                                     <div className="bg-muted/50 p-2 rounded-md flex items-center h-10">
                                                         {summaryItem.descripcion}
@@ -1653,7 +1658,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                                         </TableRow>
                                     )}
                                     <TableRow className="font-bold bg-muted hover:bg-muted">
-                                        <TableCell colSpan={watchedDespachoPorDestino ? 3 : 2} className="text-right">TOTAL GENERAL PALETAS:</TableCell>
+                                        <TableCell colSpan={watchedDespachoPorDestino && !isSummaryMode ? 3 : 2} className="text-right">TOTAL GENERAL PALETAS:</TableCell>
                                         <TableCell colSpan={3} className="text-left pl-4">{calculatedSummaryForDisplay.totalGeneralPaletas}</TableCell>
                                     </TableRow>
                                 </TableBody>
@@ -2173,3 +2178,4 @@ function PedidoTypeSelectorDialog({
 }
 
     
+

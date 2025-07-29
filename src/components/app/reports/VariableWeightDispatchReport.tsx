@@ -91,9 +91,12 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
     };
 
     const recalculatedSummary = (() => {
+        const isIndividualPalletMode = allItems.every((item: any) => Number(item?.paleta) > 0);
+        const shouldGroupByDestino = formData.despachoPorDestino && isIndividualPalletMode;
+
         const grouped = allItems.reduce((acc, item) => {
             if (!item?.descripcion?.trim()) return acc;
-            const key = formData.despachoPorDestino ? `${item.destino}|${item.descripcion}` : item.descripcion;
+            const key = shouldGroupByDestino ? `${item.destino}|${item.descripcion}` : item.descripcion;
 
             if (!acc[key]) {
                  const summaryItem = formData.summary?.find((s: any) => (s.destino ? `${s.destino}|${s.descripcion}` : s.descripcion) === key);
@@ -221,7 +224,7 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                     <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse' }}>
                         <thead>
                              <tr style={{ borderBottom: '1px solid #aaa' }}>
-                                {formData.despachoPorDestino && <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Destino</th>}
+                                {formData.despachoPorDestino && !isSummaryFormat && <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Destino</th>}
                                 <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Descripción</th>
                                 <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Temp(°C)</th>
                                 <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Cantidad</th>
@@ -232,7 +235,7 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                         <tbody>
                             {recalculatedSummary.map((p, i) => (
                                 <tr key={i} style={{ borderBottom: '1px solid #ddd' }}>
-                                    {formData.despachoPorDestino && <td style={{ padding: '4px' }}>{p.destino}</td>}
+                                    {formData.despachoPorDestino && !isSummaryFormat && <td style={{ padding: '4px' }}>{p.destino}</td>}
                                     <td style={{ padding: '4px' }}>{p.descripcion}</td>
                                     <td style={{ textAlign: 'right', padding: '4px' }}>{p.temperatura}</td>
                                     <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalCantidad}</td>
@@ -241,7 +244,7 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                                 </tr>
                             ))}
                             <tr style={{ fontWeight: 'bold', backgroundColor: '#f1f5f9' }}>
-                                <td style={{ padding: '4px', textAlign: 'right' }} colSpan={formData.despachoPorDestino ? 3 : 2}>TOTALES:</td>
+                                <td style={{ padding: '4px', textAlign: 'right' }} colSpan={formData.despachoPorDestino && !isSummaryFormat ? 3 : 2}>TOTALES:</td>
                                 <td style={{ textAlign: 'right', padding: '4px' }}>{totalGeneralCantidad}</td>
                                 <td style={{ textAlign: 'right', padding: '4px' }}>{totalGeneralPaletas}</td>
                                 <td style={{ textAlign: 'right', padding: '4px' }}>{totalGeneralPeso.toFixed(2)}</td>
@@ -401,4 +404,5 @@ const ItemsTable = ({ items, isSummaryFormat }: { items: any[], isSummaryFormat:
         </tbody>
     </table>
 );
+
 
