@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -90,7 +91,7 @@ export default function LoginForm() {
   };
 
   return (
-    <div className="flex min-h-screen w-full items-center justify-center bg-gray-100 p-4">
+    <div className="flex w-full items-center justify-center bg-gray-100 p-4 py-12">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
             <div className="mx-auto mb-4">
