@@ -573,25 +573,51 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 
                 autoTable(doc, {
                     startY: yPos,
-                    head: [[{ content: 'Detalle del Despacho', styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]],
+                    head: [[{ content: `Detalle de la ${isReception ? 'Recepción' : 'Despacho'}`, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]],
                     body: [],
                     theme: 'grid',
                     margin: { horizontal: margin },
                 });
                 yPos = (doc as any).autoTable.previous.finalY;
 
-                const drawItemsTable = (items: any[]) => {
+                const drawItemsTable = (items: any[], placa?: string) => {
+                    const isTunel = !!placa;
+                    if(isTunel) {
+                         autoTable(doc, {
+                            startY: yPos,
+                            body: [[{ 
+                                content: `Placa: ${placa}`,
+                                styles: { fontStyle: 'bold', fillColor: '#f1f5f9', textColor: '#1a202c' }
+                            }]],
+                            theme: 'grid',
+                            margin: { horizontal: margin },
+                        });
+                        yPos = (doc as any).autoTable.previous.finalY;
+                    }
                     const isSummary = items.some(p => Number(p.paleta) === 0);
                     let detailHead: any[];
                     let detailBody: any[][];
 
                     if (!isSummary) {
-                        detailHead = [['Paleta', 'Descripción', 'Lote', 'Presentación', 'Cant.', 'P. Bruto', 'T. Estiba', 'T. Caja', 'Total Tara', 'P. Neto']];
+                        detailHead = [[isTunel ? 'Descripción' : 'Paleta', 'Lote', 'Presentación', 'Cant.', 'P. Bruto', 'T. Estiba', 'T. Caja', 'Total Tara', 'P. Neto']];
                         detailBody = items.map((p: any) => [
-                            p.paleta, p.descripcion, p.lote, p.presentacion, p.cantidadPorPaleta,
+                            isTunel ? p.descripcion : p.paleta, 
+                            p.lote, p.presentacion, p.cantidadPorPaleta,
                             p.pesoBruto?.toFixed(2), p.taraEstiba?.toFixed(2), p.taraCaja?.toFixed(2),
                             p.totalTaraCaja?.toFixed(2), p.pesoNeto?.toFixed(2)
-                        ]);
+                        ].filter(val => !isTunel || val !== p.descripcion));
+
+                        if(isTunel) {
+                            detailHead[0].unshift('Descripción');
+                            detailBody.forEach((row, i) => row.unshift(items[i].descripcion));
+                            // remove paleta if tunel
+                            const paletaIndex = detailHead[0].indexOf('Paleta');
+                            if(paletaIndex > -1) {
+                                detailHead[0].splice(paletaIndex, 1);
+                                detailBody.forEach(row => row.splice(paletaIndex, 1));
+                            }
+                        }
+
                     } else {
                         detailHead = [['Descripción', 'Lote', 'Presentación', 'Total Cant.', 'Total Paletas', 'Total P. Neto']];
                         detailBody = items.map((p: any) => [
@@ -627,34 +653,51 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         drawItemsTable(destino.items || []);
                     });
                     yPos += 15;
+                } else if(formData.tipoPedido === 'TUNEL' && formData.placas?.length > 0) {
+                    formData.placas.forEach((placa: any) => {
+                        drawItemsTable(placa.items || [], placa.numeroPlaca);
+                    });
+                    yPos += 15;
                 } else {
                     drawItemsTable(formData.items || []);
                     yPos += 15;
                 }
-
+                
                 if (formData.summary?.length > 0) {
+                    const isTunelSummary = formData.tipoPedido === 'TUNEL';
+                    const summaryHead = isTunelSummary 
+                        ? [['Placa', 'Descripción', 'Temp(°C)', 'Total Cantidad', 'Total Peso (kg)']]
+                        : [[ 'Descripción', 'Temp(°C)', 'Total Cantidad', 'Total Paletas', 'Total Peso (kg)']];
+
                     const summaryBody = formData.summary.map((p: any) => {
-                        const totalPaletas = recalculateTotalPaletas(formData, p.descripcion);
-                        return [
-                            p.descripcion,
-                            p.temperatura,
-                            p.totalCantidad,
-                            totalPaletas,
-                            p.totalPeso?.toFixed(2)
-                        ];
+                        const temps = [p.temperatura1, p.temperatura2, p.temperatura3].filter(t => t != null && !isNaN(t)).join(' / ');
+                        const row = [ p.descripcion, temps, p.totalCantidad, p.totalPeso?.toFixed(2) ];
+                        if (isTunelSummary) {
+                            row.unshift(p.placa);
+                        } else {
+                            row.splice(3, 0, p.totalPaletas);
+                        }
+                        return row;
                     });
-
-                    const totalPeso = formData.summary.reduce((acc: any, p: any) => acc + (p.totalPeso || 0), 0);
-                    const totalCantidad = formData.summary.reduce((acc: any, p: any) => acc + (p.totalCantidad || 0), 0);
-                    const totalGeneralPaletas = isReception
-                        ? recalculateTotalPaletas(formData)
-                        : formData.totalPaletasDespacho || recalculateTotalPaletas(formData);
-
-                    const footRow = [{ content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }, totalCantidad, totalGeneralPaletas, totalPeso.toFixed(2)];
                     
+                    const totalCantidad = formData.summary.reduce((acc: any, p: any) => acc + (p.totalCantidad || 0), 0);
+                    const totalPeso = formData.summary.reduce((acc: any, p: any) => acc + (p.totalPeso || 0), 0);
+                    
+                    const footRow: any[] = [{ content: 'TOTALES:', colSpan: isTunelSummary ? 2 : 1, styles: { halign: 'right', fontStyle: 'bold' } }, ''];
+                    if (!isTunelSummary) {
+                        const totalGeneralPaletas = formData.summary.reduce((acc: any, p: any) => acc + (p.totalPaletas || 0), 0);
+                        footRow.push(totalGeneralPaletas);
+                    }
+                    footRow.push(totalCantidad);
+                    footRow.push(totalPeso.toFixed(2));
+
+
                     autoTable(doc, {
                         startY: yPos,
-                        head: [[{ content: 'Resumen de Productos', colSpan: 5, styles: { halign: 'center', fillColor: '#e2e8f0' } }], ['Descripción', 'Temp(°C)', 'Total Cantidad', 'Total Paletas', 'Total Peso (kg)']],
+                        head: [
+                            [{ content: 'Resumen de Productos', colSpan: summaryHead[0].length, styles: { halign: 'center', fillColor: '#e2e8f0' } }], 
+                            summaryHead[0]
+                        ],
                         body: summaryBody,
                         foot: [footRow],
                         theme: 'grid',
