@@ -609,7 +609,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         yPos = (doc as any).autoTable.previous.finalY;
                     }
 
-                    const isSummary = items.some(p => Number(p.paleta) === 0);
+                    const isSummary = items.some((p: any) => Number(p.paleta) === 0);
                     let detailHead: any[];
                     let detailBody: any[][];
 
@@ -640,6 +640,50 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         margin: { horizontal: margin },
                     });
                     yPos = (doc as any).autoTable.previous.finalY;
+
+                    // Add subtotals for destination
+                    if (destino) {
+                        const subtotals = items.reduce((acc: {cantidad: number, paletas: number, peso: number}, item: any) => {
+                            if (isSummary) {
+                                acc.cantidad += Number(item.totalCantidad) || 0;
+                                acc.paletas += Number(item.totalPaletas) || 0;
+                                acc.peso += Number(item.totalPesoNeto) || 0;
+                            } else {
+                                acc.cantidad += Number(item.cantidadPorPaleta) || 0;
+                                acc.peso += Number(item.pesoNeto) || 0;
+                                const paletaNum = Number(item.paleta);
+                                if (!isNaN(paletaNum) && paletaNum > 0) acc.paletas++;
+                            }
+                            return acc;
+                        }, { cantidad: 0, paletas: 0, peso: 0 });
+                        
+                        let subtotalRow: any[] = [{ content: 'SUBTOTAL DESTINO:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }];
+                        
+                        if(isSummaryFormat) {
+                            subtotalRow.push(
+                                { content: '', colSpan: 1 },
+                                { content: subtotals.cantidad, styles: { halign: 'right' } },
+                                { content: subtotals.paletas, styles: { halign: 'right' } },
+                                { content: subtotals.peso.toFixed(2), styles: { halign: 'right' } }
+                            );
+                        } else {
+                             subtotalRow.push(
+                                { content: '', colSpan: 2 },
+                                { content: subtotals.cantidad, styles: { halign: 'right' } },
+                                { content: '', colSpan: 4 },
+                                { content: subtotals.peso.toFixed(2), styles: { halign: 'right' } }
+                            );
+                        }
+
+                        autoTable(doc, {
+                            startY: yPos,
+                            body: [subtotalRow],
+                            theme: 'grid',
+                            styles: { fontSize: 8, cellPadding: 3, fontStyle: 'bold' },
+                            margin: { horizontal: margin },
+                        });
+                        yPos = (doc as any).autoTable.previous.finalY;
+                    }
                 };
 
                 if (formData.despachoPorDestino && formData.destinos?.length > 0) {
@@ -899,5 +943,6 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
         </div>
     );
 }
+
 
 
