@@ -5,7 +5,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useForm, useFieldArray, useWatch, FormProvider, useFormContext, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
+import * * as z from "zod";
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
@@ -304,7 +304,7 @@ const originalDefaultValues: FormValues = {
 // Mock data
 const coordinadores = ["Cristian Acuña", "Sergio Padilla"];
 const presentaciones = ["Cajas", "Sacos", "Canastillas"];
-const clientesEspeciales = ["AVICOLA EL MADROÑO S.A.", "SMYL TRANSPORTE Y LOGISTICA SAS", "AVICOLA EMBUTIDOS"];
+const clientesEspeciales = ["AVICOLA EL MADROÑO S.A.", "SMYL TRANSPORTE Y LOGISTICA SAS", "AVICOLA EMBUTIDOS", "COMERCIALIZADORA FRESMAR SAS", "W&L WORLDWIDE TRADING SAS"];
 
 // Attachment Constants
 const MAX_ATTACHMENTS = 30;
@@ -2125,11 +2125,4 @@ function PedidoTypeSelectorDialog({
     );
 }
 
-
-
-
-
-
-
-
-
+    
