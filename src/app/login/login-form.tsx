@@ -91,8 +91,8 @@ export default function LoginForm() {
   };
 
   return (
-    <div className="flex w-full items-center justify-center bg-gray-100 p-4 py-12">
-      <Card className="w-full max-w-sm">
+    <div className="flex w-full items-center justify-center bg-gray-100 p-4 py-8">
+      <Card className="w-full max-w-md">
         <CardHeader className="text-center">
             <div className="mx-auto mb-4">
                 <Image
@@ -110,7 +110,7 @@ export default function LoginForm() {
         </CardHeader>
         <CardContent>
           <Form {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
               <FormField
                 control={form.control}
                 name="email"
@@ -150,7 +150,7 @@ export default function LoginForm() {
             </form>
           </Form>
         </CardContent>
-        <CardFooter className="justify-center">
+        <CardFooter className="flex flex-col items-center justify-center pt-4">
              <p className="text-sm text-gray-500 font-mono">{appVersion}</p>
         </CardFooter>
       </Card>
