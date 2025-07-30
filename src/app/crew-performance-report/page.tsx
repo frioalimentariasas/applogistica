@@ -497,10 +497,12 @@ export default function CrewPerformanceReportPage() {
 
     const handleExportPDF = async () => {
         if (reportData.length === 0 || !logoBase64 || !logoDimensions) return;
-        
+
         const doc = new jsPDF({ orientation: 'landscape' });
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
+        const headerHeight = 60; // Estimated header height
+        const footerHeight = 20; // Estimated footer height
 
         const addHeader = (doc: jsPDF, pageNumber: number, totalPages: number) => {
             const logoWidth = 60;
@@ -508,9 +510,8 @@ export default function CrewPerformanceReportPage() {
             const logoHeight = logoWidth / aspectRatio;
             const logoX = (pageWidth - logoWidth) / 2;
             doc.addImage(logoBase64, 'PNG', logoX, 10, logoWidth, logoHeight);
-    
+
             const titleY = 10 + logoHeight + 5;
-            
             doc.setFontSize(11);
             doc.setFont('helvetica', 'bold');
             doc.text(`Informe de Liquidación de Cuadrilla`, pageWidth / 2, titleY, { align: 'center' });
@@ -519,18 +520,24 @@ export default function CrewPerformanceReportPage() {
             doc.setFont('helvetica', 'normal');
             doc.setTextColor(0, 0, 0); // Black color
             doc.text(`Periodo: ${format(dateRange!.from!, 'dd/MM/yyyy')} - ${format(dateRange!.to!, 'dd/MM/yyyy')}`, pageWidth / 2, titleY + 10, {align: 'center'});
-            
-            // Page number
+        };
+
+        const addFooter = (doc: jsPDF, pageNumber: number, totalPages: number) => {
             doc.setFontSize(8);
             doc.text(`Página ${pageNumber} de ${totalPages}`, pageWidth - 14, pageHeight - 10, { align: 'right' });
-        };
+        }
 
         const drawSummaryTable = (doc: jsPDF, title: string, headers: string[][], body: any[][], foot?: any[][]) => {
             autoTable(doc, {
                 head: [[{ content: title, styles: { halign: 'center', fillColor: [33, 150, 243], textColor: 255, fontStyle: 'bold' } }]],
                 body: [],
                 theme: 'plain',
-                startY: 55
+                startY: headerHeight,
+                pageBreak: 'auto',
+                didDrawPage: (data) => {
+                    addHeader(doc, data.pageNumber, (doc as any).internal.getNumberOfPages());
+                    addFooter(doc, data.pageNumber, (doc as any).internal.getNumberOfPages());
+                },
             });
             autoTable(doc, {
                  startY: (doc as any).lastAutoTable.finalY,
@@ -539,11 +546,16 @@ export default function CrewPerformanceReportPage() {
                  foot: foot,
                  theme: 'grid',
                  headStyles: { fillColor: [226, 232, 240], textColor: 0, fontStyle: 'bold' },
-                 footStyles: { fillColor: [226, 232, 240], textColor: 0, fontStyle: 'bold' }
+                 footStyles: { fillColor: [226, 232, 240], textColor: 0, fontStyle: 'bold' },
+                 pageBreak: 'auto',
+                 didDrawPage: (data) => {
+                    addHeader(doc, data.pageNumber, (doc as any).internal.getNumberOfPages());
+                    addFooter(doc, data.pageNumber, (doc as any).internal.getNumberOfPages());
+                 },
             });
         };
         
-        // --- Page 1: Detailed Report ---
+        // --- Page 1 and beyond: Detailed Report ---
         autoTable(doc, {
             head: [['Fecha', 'Operario', 'Cliente', 'Tipo Op.', 'Tipo Prod.', 'Pedido', 'Placa', 'Cant.', 'Duración', 'Productividad', 'Concepto', 'Vlr. Unit', 'Vlr. Total']],
             body: reportData.map(row => {
@@ -568,13 +580,15 @@ export default function CrewPerformanceReportPage() {
             theme: 'grid',
             styles: { fontSize: 6, cellPadding: 1, overflow: 'linebreak' },
             headStyles: { fillColor: [33, 150, 243], fontSize: 6, cellPadding: 1 },
+            startY: headerHeight,
+            pageBreak: 'auto',
             didDrawPage: (data) => {
                 addHeader(doc, data.pageNumber, (doc as any).internal.getNumberOfPages());
+                addFooter(doc, data.pageNumber, (doc as any).internal.getNumberOfPages());
             },
-            startY: 55
         });
         
-        // --- Page 2: Productivity Summary ---
+        // --- Productivity Summary Page ---
         if (performanceSummary) {
             doc.addPage();
             const evaluableOps = (performanceSummary.totalOperations || 0) - (performanceSummary.summary['Pendiente (P. Bruto)']?.count || 0);
@@ -594,7 +608,7 @@ export default function CrewPerformanceReportPage() {
             );
         }
 
-        // --- Page 3: Concepts Summary ---
+        // --- Concepts Summary Page ---
         if (conceptSummary) {
             doc.addPage();
             const conceptsBody = conceptSummary.map(c => [
@@ -613,14 +627,7 @@ export default function CrewPerformanceReportPage() {
                 [['', '', '', '', { content: 'TOTAL LIQUIDACIÓN:', styles: { halign: 'right' } }, { content: totalLiquidacion.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }) }]]
             );
         }
-
-        // Final loop to add headers to summary pages
-        const totalPages = (doc as any).internal.getNumberOfPages();
-        for (let i = 1; i <= totalPages; i++) {
-            doc.setPage(i);
-            addHeader(doc, i, totalPages);
-        }
-
+        
         const fileName = `Reporte_Liquidacion_Cuadrilla_${format(dateRange!.from!, 'yyyy-MM-dd')}_a_${format(dateRange!.to!, 'yyyy-MM-dd')}.pdf`;
         doc.save(fileName);
     };
@@ -920,13 +927,3 @@ export default function CrewPerformanceReportPage() {
         </div>
     );
 }
-
-    
-
-    
-
-
-
-    
-
-
