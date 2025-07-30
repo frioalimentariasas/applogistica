@@ -170,7 +170,7 @@ const formSchema = z.object({
       
       if (!isSpecialReception) {
         if (!data.conductor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El nombre del conductor es obligatorio.', path: ['conductor'] });
-        if (!data.cedulaConductor?.trim() || !/^[0-9]*$/.test(data.cedulaConductor)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'La cédula es obligatoria y debe contener solo números.', path: ['cedulaConductor'] });
+        if (!data.cedulaConductor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'La cédula del conductor es obligatoria.', path: ['cedulaConductor'] });
         if (!data.placa?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'La placa es obligatoria.', path: ['placa'] });
         if (!data.precinto?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El precinto es obligatorio.', path: ['precinto'] });
         if (!data.contenedor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El contenedor es obligatorio.', path: ['contenedor'] });
@@ -477,7 +477,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
   const watchedAplicaCuadrilla = useWatch({ control: form.control, name: 'aplicaCuadrilla' });
   const watchedItems = useWatch({ control: form.control, name: "items" });
   const watchedPlacas = useWatch({ control: form.control, name: "placas" });
-  const watchedObservations = useWatch({ control: form.control, name: "observations" });
+  const watchedObservations = useWatch({ control: form.control, name: "observaciones" });
   const isSpecialReception = watchedTipoPedido === 'INGRESO DE SALDOS' || watchedTipoPedido === 'TUNEL' || watchedTipoPedido === 'TUNEL A CÁMARA CONGELADOS' || watchedTipoPedido === 'MAQUILA' || watchedTipoPedido === 'TUNEL DE CONGELACIÓN';
 
   useEffect(() => {
@@ -2270,6 +2270,7 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
+
 
 
 
