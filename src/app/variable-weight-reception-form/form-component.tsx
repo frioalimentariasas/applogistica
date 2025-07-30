@@ -141,7 +141,7 @@ const formSchema = z.object({
     cliente: z.string().min(1, "Seleccione un cliente."),
     fecha: z.date({ required_error: "La fecha es obligatoria." }),
     conductor: z.string().optional(),
-    cedulaConductor: z.string().regex(/^[0-9]*$|^$/, "La cédula solo puede contener números.").optional(),
+    cedulaConductor: z.string().optional(),
     placa: z.string().optional(),
     precinto: z.string().optional(),
     setPoint: z.preprocess((val) => (val === "" || val === null ? undefined : val), z.coerce.number({ required_error: "El Set Point es requerido." }).min(-99).max(99).nullable().optional()),
@@ -165,10 +165,12 @@ const formSchema = z.object({
     unidadDeMedidaPrincipal: z.string().optional(),
 }).superRefine((data, ctx) => {
       const isSpecialReception = data.tipoPedido === 'INGRESO DE SALDOS' || data.tipoPedido === 'TUNEL' || data.tipoPedido === 'TUNEL A CÁMARA CONGELADOS' || data.tipoPedido === 'MAQUILA' || data.tipoPedido === 'TUNEL DE CONGELACIÓN';
+      const numericRegex = /^[0-9]*$/;
 
       if (!isSpecialReception) {
         if (!data.conductor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El nombre del conductor es obligatorio.', path: ['conductor'] });
         if (!data.cedulaConductor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'La cédula del conductor es obligatoria.', path: ['cedulaConductor'] });
+        if (data.cedulaConductor && !numericRegex.test(data.cedulaConductor)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'La cédula solo puede contener números.', path: ['cedulaConductor'] });
         if (!data.placa?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'La placa es obligatoria.', path: ['placa'] });
         if (!data.precinto?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El precinto es obligatorio.', path: ['precinto'] });
         if (!data.contenedor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El contenedor es obligatorio.', path: ['contenedor'] });
@@ -465,7 +467,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
   const watchedAplicaCuadrilla = useWatch({ control: form.control, name: 'aplicaCuadrilla' });
   const watchedItems = useWatch({ control: form.control, name: "items" });
   const watchedPlacas = useWatch({ control: form.control, name: "placas" });
-  const watchedObservations = useWatch({ control: form.control, name: "observaciones" });
+  const watchedObservations = useWatch({ control: form.control, name: "observations" });
   const isSpecialReception = watchedTipoPedido === 'INGRESO DE SALDOS' || watchedTipoPedido === 'TUNEL' || watchedTipoPedido === 'TUNEL A CÁMARA CONGELADOS' || watchedTipoPedido === 'MAQUILA' || watchedTipoPedido === 'TUNEL DE CONGELACIÓN';
 
   useEffect(() => {
@@ -1409,7 +1411,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                         <FormField control={form.control} name="cedulaConductor" render={({ field }) => (
                             <FormItem>
                               <FormLabel>Cédula Conductor {!isSpecialReception && <span className="text-destructive">*</span>}</FormLabel>
-                              <FormControl><Input placeholder="Número de cédula" {...field} inputMode="numeric" pattern="[0-9]*" disabled={isTunelMode && watchedRecepcionPorPlaca} /></FormControl>
+                              <FormControl><Input placeholder="Número de cédula" {...field} disabled={isTunelMode && watchedRecepcionPorPlaca} /></FormControl>
                               {isSpecialReception && <FormDescription>Si se deja vacío, se guardará como N/A.</FormDescription>}
                               <FormMessage />
                             </FormItem>
@@ -1842,13 +1844,13 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                 <Card>
                   <CardHeader><CardTitle>Responsables de la Operación</CardTitle></CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-10 gap-4 items-center">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
                         <FormField control={form.control} name="coordinador" render={({ field }) => (
-                            <FormItem className="lg:col-span-2"><FormLabel>Coordinador Responsable <span className="text-destructive">*</span></FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                            <FormItem><FormLabel>Coordinador Responsable <span className="text-destructive">*</span></FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                         )}/>
                         {submissionId && isAdmin ? (
                              <FormField control={form.control} name="operarioResponsable" render={({ field }) => (
-                                <FormItem className="lg:col-span-2">
+                                <FormItem>
                                     <FormLabel>Operario Responsable</FormLabel>
                                     <Select onValueChange={field.onChange} value={field.value}>
                                         <FormControl><SelectTrigger><SelectValue placeholder="Seleccione un operario" /></SelectTrigger></FormControl>
@@ -1860,7 +1862,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                 </FormItem>
                             )}/>
                         ) : (
-                            <FormItem className="lg:col-span-2">
+                            <FormItem>
                                 <FormLabel>Operario Responsable</FormLabel>
                                 <FormControl><Input disabled value={submissionId ? originalSubmission?.userDisplayName : displayName || ''} /></FormControl>
                             </FormItem>
@@ -1871,11 +1873,9 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                     control={form.control}
                                     name="aplicaCuadrilla"
                                     render={({ field }) => (
-                                        <FormItem className="space-y-1 lg:col-span-4">
+                                        <FormItem className="space-y-1">
                                             <FormLabel>Operación Realizada por Cuadrilla <span className="text-destructive">*</span></FormLabel>
-                                            <FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-2"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="cuadrilla-si" /><Label htmlFor="cuadrilla-si">Sí</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="cuadrilla-no" /><Label htmlFor="cuadrilla-no">No</Label></FormItem></RadioGroup></FormControl>
-                                            <FormMessage />
-                                        </FormItem>
+                                            <FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-2"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="cuadrilla-si" /><Label htmlFor="cuadrilla-si">Sí</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="cuadrilla-no" /><Label htmlFor="cuadrilla-no">No</Label></FormItem></RadioGroup></FormControl><FormMessage /></FormItem>
                                     )}
                                 />
                                 {watchedAplicaCuadrilla === 'si' && watchedTipoPedido === 'MAQUILA' && (
@@ -1883,7 +1883,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                         control={form.control}
                                         name="numeroOperariosCuadrilla"
                                         render={({ field }) => (
-                                            <FormItem className="lg:col-span-2">
+                                            <FormItem>
                                             <FormLabel>No. de Operarios <span className="text-destructive">*</span></FormLabel>
                                             <FormControl>
                                                 <Input
@@ -2234,6 +2234,7 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
+
 
 
 
