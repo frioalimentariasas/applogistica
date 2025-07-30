@@ -551,7 +551,7 @@ export default function CrewPerformanceReportPage() {
         const drawSummaryTable = (startY: number, title: string, headers: string[][], body: any[][], foot?: any[][]) => {
             autoTable(doc, {
                 startY: startY,
-                head: [[{ content: title, styles: { halign: 'center', fillColor: [33, 150, 243], textColor: 255 } }]],
+                head: [[{ content: title, styles: { halign: 'center', fillColor: [33, 150, 243], textColor: 0, fontStyle: 'bold' } }]],
                 body: [],
                 theme: 'plain',
             });
