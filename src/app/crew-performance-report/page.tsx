@@ -35,7 +35,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 const EmptyState = ({ searched }: { searched: boolean; }) => (
     <TableRow>
-        <TableCell colSpan={13} className="py-20 text-center">
+        <TableCell colSpan={14} className="py-20 text-center">
             <div className="flex flex-col items-center gap-4">
                 <div className="rounded-full bg-primary/10 p-4">
                     <FolderSearch className="h-12 w-12 text-primary" />
@@ -443,7 +443,7 @@ export default function CrewPerformanceReportPage() {
 
         autoTable(doc, {
             startY: mainTableStartY,
-            head: [['Fecha', 'Operario', 'Cliente', 'Tipo Op.', 'Pedido', 'Placa', 'Contenedor', 'Cant.', 'Duración', 'Indicador', 'Concepto', 'Vlr. Unit', 'Vlr. Total']],
+            head: [['Fecha', 'Operario', 'Cliente', 'Tipo Op.', 'Tipo Prod.', 'Pedido', 'Placa', 'Cant.', 'Duración', 'Indicador', 'Concepto', 'Vlr. Unit', 'Vlr. Total']],
             body: reportData.map(row => {
                 const indicator = getPerformanceIndicator(row);
                 return [
@@ -451,9 +451,9 @@ export default function CrewPerformanceReportPage() {
                     row.operario,
                     row.cliente,
                     row.tipoOperacion,
+                    row.tipoProducto,
                     row.pedidoSislog,
                     row.placa,
-                    row.contenedor,
                     row.cantidadConcepto,
                     formatDuration(row.duracionMinutos),
                     indicator.text,
@@ -716,6 +716,7 @@ export default function CrewPerformanceReportPage() {
                                         <TableHead>Operario</TableHead>
                                         <TableHead>Cliente</TableHead>
                                         <TableHead>Tipo Op.</TableHead>
+                                        <TableHead>Tipo Prod.</TableHead>
                                         <TableHead>Pedido</TableHead>
                                         <TableHead>Placa</TableHead>
                                         <TableHead>Contenedor</TableHead>
@@ -729,7 +730,7 @@ export default function CrewPerformanceReportPage() {
                                 </TableHeader>
                                 <TableBody>
                                     {isLoading ? (
-                                        <TableRow><TableCell colSpan={13}><Skeleton className="h-20 w-full" /></TableCell></TableRow>
+                                        <TableRow><TableCell colSpan={14}><Skeleton className="h-20 w-full" /></TableCell></TableRow>
                                     ) : displayedData.length > 0 ? (
                                         displayedData.map((row) => {
                                             const indicator = getPerformanceIndicator(row);
@@ -739,6 +740,7 @@ export default function CrewPerformanceReportPage() {
                                                     <TableCell className="text-xs">{row.operario}</TableCell>
                                                     <TableCell className="text-xs max-w-[150px] truncate" title={row.cliente}>{row.cliente}</TableCell>
                                                     <TableCell className="text-xs">{row.tipoOperacion}</TableCell>
+                                                    <TableCell className="text-xs">{row.tipoProducto}</TableCell>
                                                     <TableCell className="text-xs">{row.pedidoSislog}</TableCell>
                                                     <TableCell className="text-xs">{row.placa}</TableCell>
                                                     <TableCell className="text-xs">{row.contenedor}</TableCell>
@@ -765,7 +767,7 @@ export default function CrewPerformanceReportPage() {
                                     )}
                                      {!isLoading && reportData.length > 0 && (
                                         <TableRow className="font-bold bg-muted hover:bg-muted">
-                                            <TableCell colSpan={12} className="text-right">TOTAL GENERAL LIQUIDACIÓN</TableCell>
+                                            <TableCell colSpan={13} className="text-right">TOTAL GENERAL LIQUIDACIÓN</TableCell>
                                             <TableCell className="text-right">{totalLiquidacion.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell>
                                         </TableRow>
                                      )}
