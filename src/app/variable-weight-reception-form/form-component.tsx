@@ -110,6 +110,7 @@ const optionalTempSchema = z.preprocess(
 
 const summaryItemSchema = z.object({
   descripcion: z.string().optional(),
+  presentacion: z.string().optional(),
   temperatura1: requiredTempSchema,
   temperatura2: optionalTempSchema,
   temperatura3: optionalTempSchema,
@@ -549,95 +550,84 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
   };
   
   const calculatedSummaryForDisplay = useMemo(() => {
-    if (isTunelMode && watchedRecepcionPorPlaca) {
-      const allItemsByPlaca = (watchedPlacas || []).flatMap(placa => 
-          (placa.items || []).map(item => ({ ...item, placa: placa.numeroPlaca }))
-      );
+    const allItems = (isTunelMode && watchedRecepcionPorPlaca) 
+        ? (watchedPlacas || []).flatMap(p => (p.items || []).map(i => ({ ...i, placa: p.numeroPlaca })))
+        : (watchedItems || []);
 
-      const groupedByPlacaAndDesc = allItemsByPlaca.reduce((acc, item) => {
-          if (!item?.descripcion?.trim() || !item?.placa?.trim()) return acc;
-          const key = `${item.placa}|${item.descripcion}`;
-          
-          if (!acc[key]) {
-              const summaryItem = form.getValues('summary')?.find((s: any) => s.descripcion === item.descripcion && s.placa === item.placa);
-              acc[key] = {
-                  placa: item.placa,
-                  descripcion: item.descripcion,
-                  totalPeso: 0,
-                  totalCantidad: 0,
-                  temperatura1: summaryItem?.temperatura1,
-                  temperatura2: summaryItem?.temperatura2,
-                  temperatura3: summaryItem?.temperatura3,
-              };
-          }
-          acc[key].totalPeso += Number(item.pesoNeto) || 0;
-          acc[key].totalCantidad += Number(item.cantidadPorPaleta) || 0;
-          
-          return acc;
-      }, {} as Record<string, { placa: string; descripcion: string; totalPeso: number; totalCantidad: number; temperatura1: any; temperatura2: any; temperatura3: any; }>);
-      
-      return { items: Object.values(groupedByPlacaAndDesc), totalGeneralPaletas: form.getValues('totalPaletasTunel') || 0 };
-    }
-
-    const grouped = (itemsForCalculation || []).reduce((acc, item) => {
+    const grouped = allItems.reduce((acc, item) => {
         if (!item?.descripcion?.trim()) return acc;
-        const desc = item.descripcion.trim();
+        
+        const presentacion = item.presentacion || 'N/A';
+        const key = isTunelMode && watchedRecepcionPorPlaca 
+            ? `${item.placa}|${item.descripcion}|${presentacion}`
+            : `${item.descripcion}|${presentacion}`;
 
-        if (!acc[desc]) {
-            const summaryItem = form.getValues('summary')?.find((s: any) => s.descripcion === desc);
-            acc[desc] = {
-                descripcion: desc,
+        if (!acc[key]) {
+            const summaryItem = form.getValues('summary')?.find(s => {
+                const sKey = isTunelMode && watchedRecepcionPorPlaca
+                    ? `${s.placa}|${s.descripcion}|${s.presentacion || 'N/A'}`
+                    : `${s.descripcion}|${s.presentacion || 'N/A'}`;
+                return sKey === key;
+            });
+            acc[key] = {
+                placa: item.placa,
+                descripcion: item.descripcion,
+                presentacion: presentacion,
                 totalPeso: 0,
                 totalCantidad: 0,
                 paletas: new Set<number>(),
-                temperatura1: summaryItem?.temperatura1 ?? summaryItem?.temperatura,
+                temperatura1: summaryItem?.temperatura1,
                 temperatura2: summaryItem?.temperatura2,
                 temperatura3: summaryItem?.temperatura3,
             };
         }
 
         if (Number(item.paleta) === 0) {
-            acc[desc].totalPeso += Number(item.totalPesoNeto) || 0;
-            acc[desc].totalCantidad += Number(item.totalCantidad) || 0;
-            acc[desc].paletas.add(0);
+            acc[key].totalPeso += Number(item.totalPesoNeto) || 0;
+            acc[key].totalCantidad += Number(item.totalCantidad) || 0;
+            acc[key].paletas.add(0);
         } else {
-            acc[desc].totalPeso += Number(item.pesoNeto) || 0;
-            acc[desc].totalCantidad += Number(item.cantidadPorPaleta) || 0;
+            acc[key].totalPeso += Number(item.pesoNeto) || 0;
+            acc[key].totalCantidad += Number(item.cantidadPorPaleta) || 0;
             const paleta = Number(item.paleta);
             if (!isNaN(paleta) && paleta > 0) {
-                acc[desc].paletas.add(paleta);
+                acc[key].paletas.add(paleta);
             }
         }
         
         return acc;
-    }, {} as Record<string, { descripcion: string; totalPeso: number; totalCantidad: number; paletas: Set<number>; temperatura1: any; temperatura2: any; temperatura3: any; }>);
+    }, {} as Record<string, { placa?: string; descripcion: string; presentacion: string; totalPeso: number; totalCantidad: number; paletas: Set<number>; temperatura1: any; temperatura2: any; temperatura3: any; }>);
 
     const items = Object.values(grouped).map(group => ({
-        descripcion: group.descripcion,
-        totalPeso: group.totalPeso,
-        totalCantidad: group.totalCantidad,
+        ...group,
         totalPaletas: group.paletas.has(0)
-            ? (itemsForCalculation || []).filter(item => item.descripcion === group.descripcion && Number(item.paleta) === 0).reduce((sum, item) => sum + (Number(item.totalPaletas) || 0), 0)
+            ? allItems
+                .filter(item => item.descripcion === group.descripcion && (item.presentacion || 'N/A') === group.presentacion && Number(item.paleta) === 0)
+                .reduce((sum, item) => sum + (Number(item.totalPaletas) || 0), 0)
             : group.paletas.size,
-        temperatura1: group.temperatura1,
-        temperatura2: group.temperatura2,
-        temperatura3: group.temperatura3,
     }));
     
-    const totalGeneralPaletas = items.reduce((acc, item) => acc + (item.totalPaletas || 0), 0);
+    const totalGeneralPaletas = (isTunelMode && form.getValues('totalPaletasTunel')) 
+        ? form.getValues('totalPaletasTunel')
+        : items.reduce((acc, item) => acc + (item.totalPaletas || 0), 0);
     
     return { items, totalGeneralPaletas };
 
-  }, [itemsForCalculation, isTunelMode, watchedRecepcionPorPlaca, watchedPlacas, form]);
+}, [itemsForCalculation, isTunelMode, watchedRecepcionPorPlaca, watchedPlacas, form]);
   
     useEffect(() => {
         const currentSummaryInForm = form.getValues('summary') || [];
         const newSummaryState = calculatedSummaryForDisplay.items.map(newItem => {
-            const existingItem = currentSummaryInForm.find(oldItem => 
-                (isTunelMode && watchedRecepcionPorPlaca && oldItem.placa)
-                ? oldItem.descripcion === newItem.descripcion && oldItem.placa === (newItem as any).placa
-                : oldItem.descripcion === newItem.descripcion
-            );
+            const existingItem = currentSummaryInForm.find(oldItem => {
+              const oldKey = (isTunelMode && watchedRecepcionPorPlaca && oldItem.placa)
+                ? `${oldItem.placa}|${oldItem.descripcion}|${oldItem.presentacion || 'N/A'}`
+                : `${oldItem.descripcion}|${oldItem.presentacion || 'N/A'}`;
+              const newKey = (isTunelMode && watchedRecepcionPorPlaca && newItem.placa)
+                ? `${newItem.placa}|${newItem.descripcion}|${newItem.presentacion || 'N/A'}`
+                : `${newItem.descripcion}|${newItem.presentacion || 'N/A'}`;
+              return oldKey === newKey;
+            });
+
             return {
                 ...newItem,
                 temperatura1: existingItem?.temperatura1 ?? null,
@@ -986,8 +976,8 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
         const finalSummary = calculatedSummaryForDisplay.items.map(summaryItem => {
             const formItem = (data.summary || []).find(s => 
               (isTunelMode && watchedRecepcionPorPlaca)
-              ? s.descripcion === summaryItem.descripcion && s.placa === (summaryItem as any).placa
-              : s.descripcion === summaryItem.descripcion
+              ? s.descripcion === summaryItem.descripcion && s.placa === (summaryItem as any).placa && s.presentacion === (summaryItem as any).presentacion
+              : s.descripcion === summaryItem.descripcion && s.presentacion === (summaryItem as any).presentacion
             );
             return {
                 ...summaryItem,
@@ -1632,7 +1622,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                 <TableHeader>
                                     <TableRow>
                                         {(isTunelMode && watchedRecepcionPorPlaca) && <TableHead>Placa</TableHead>}
-                                        <TableHead>{isTunelMode ? 'Producto' : 'Descripción'}</TableHead>
+                                        <TableHead>Producto (Presentación)</TableHead>
                                         <TableHead className="w-[240px]">Temperaturas (°C) <span className="text-destructive">*</span></TableHead>
                                         <TableHead className="text-right">Total Paletas</TableHead>
                                         <TableHead className="text-right">Total Cantidad</TableHead>
@@ -1642,9 +1632,15 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                 <TableBody>
                                     {form.getValues('summary')?.length > 0 ? (
                                         form.getValues('summary')?.map((summaryItem, summaryIndex) => {
-                                           const itemData = calculatedSummaryForDisplay.items.find(i => (
-                                                isTunelMode && watchedRecepcionPorPlaca && (i as any).placa ? `${(i as any).placa}|${i.descripcion}` : i.descripcion
-                                           ) === (summaryItem.placa ? `${summaryItem.placa}|${summaryItem.descripcion}`: summaryItem.descripcion));
+                                           const itemData = calculatedSummaryForDisplay.items.find(i => {
+                                              const iKey = (isTunelMode && watchedRecepcionPorPlaca)
+                                                ? `${(i as any).placa}|${i.descripcion}|${i.presentacion}`
+                                                : `${i.descripcion}|${i.presentacion}`;
+                                              const sKey = (isTunelMode && watchedRecepcionPorPlaca)
+                                                ? `${(summaryItem as any).placa}|${summaryItem.descripcion}|${summaryItem.presentacion}`
+                                                : `${summaryItem.descripcion}|${summaryItem.presentacion}`;
+                                              return iKey === sKey;
+                                           });
                                            return (
                                             <TableRow key={summaryIndex}>
                                                 {(isTunelMode && watchedRecepcionPorPlaca) && (
@@ -1656,7 +1652,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                                 )}
                                                 <TableCell className="font-medium">
                                                     <div className="bg-muted/50 p-2 rounded-md flex items-center h-10">
-                                                        {summaryItem.descripcion}
+                                                        {summaryItem.descripcion} {summaryItem.presentacion !== 'N/A' ? `(${summaryItem.presentacion})` : ''}
                                                     </div>
                                                 </TableCell>
                                                 <TableCell>
@@ -2265,6 +2261,7 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
+
 
 
 
