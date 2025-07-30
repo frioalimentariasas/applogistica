@@ -84,6 +84,7 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
         pedidoSislog: '',
         nombreCliente: '',
         operationType: undefined,
+        productType: undefined,
         tipoPedido: undefined,
     });
     const [date, setDate] = useState<Date | undefined>(undefined);
@@ -155,6 +156,7 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
                     pedidoSislog: savedCriteria.pedidoSislog || '',
                     nombreCliente: savedCriteria.nombreCliente || '',
                     operationType: savedCriteria.operationType,
+                    productType: savedCriteria.productType,
                     tipoPedido: savedCriteria.tipoPedido,
                 };
                 const restoredDate = savedCriteria.searchDateStart ? parseISO(savedCriteria.searchDateStart) : undefined;
@@ -209,6 +211,7 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
             pedidoSislog: '',
             nombreCliente: '',
             operationType: undefined,
+            productType: undefined,
             tipoPedido: undefined,
         });
         setDate(undefined);
@@ -238,8 +241,8 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
     };
     
     const getFormTypeName = (formType: string) => {
-        if (formType.startsWith('fixed-weight-')) return 'Peso Fijo';
-        if (formType.startsWith('variable-weight-')) return 'Peso Variable';
+        if (formType.includes('fixed-weight')) return 'Peso Fijo';
+        if (formType.includes('variable-weight')) return 'Peso Variable';
         return formType;
     };
     
@@ -389,7 +392,24 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
                                     </SelectContent>
                                 </Select>
                             </div>
-                            <div className="space-y-2 xl:col-span-1">
+                            <div className="space-y-2">
+                                <Label htmlFor="productType">Tipo de Producto</Label>
+                                <Select
+                                    value={criteria.productType || 'all'}
+                                    onValueChange={(value) => setCriteria({ ...criteria, productType: value === 'all' ? undefined : (value as 'fijo' | 'variable') })}
+                                    disabled={isLoading}
+                                >
+                                    <SelectTrigger id="productType">
+                                        <SelectValue placeholder="Todos" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="all">Todos</SelectItem>
+                                        <SelectItem value="fijo">Peso Fijo</SelectItem>
+                                        <SelectItem value="variable">Peso Variable</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2 xl:col-span-2">
                                 <Label htmlFor="tipoPedido">Tipo de Pedido</Label>
                                 <Dialog open={isTipoPedidoDialogOpen} onOpenChange={setIsTipoPedidoDialogOpen}>
                                     <DialogTrigger asChild>

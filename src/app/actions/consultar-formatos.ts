@@ -11,6 +11,7 @@ export interface SearchCriteria {
   searchDateStart?: string; // ISO String
   searchDateEnd?: string; // ISO String
   operationType?: 'recepcion' | 'despacho';
+  productType?: 'fijo' | 'variable';
   tipoPedido?: string; // Added this line
   requestingUser?: {
     id: string;
@@ -77,7 +78,7 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
             query = query.where('formData.pedidoSislog', '==', criteria.pedidoSislog.trim());
         }
         
-        const noFilters = !criteria.pedidoSislog && !criteria.nombreCliente && !criteria.searchDateStart && !criteria.operationType && !criteria.tipoPedido;
+        const noFilters = !criteria.pedidoSislog && !criteria.nombreCliente && !criteria.searchDateStart && !criteria.operationType && !criteria.tipoPedido && !criteria.productType;
 
         // For non-operarios with no filters, we must limit the query to avoid reading the whole collection.
         // We query the last 7 days. This is safe as createdAt will have a single-field index.
@@ -150,6 +151,15 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
                 }
                 return true;
             });
+        }
+
+        // Filter by product type
+        if (criteria.productType) {
+            if (criteria.productType === 'fijo') {
+                results = results.filter(sub => sub.formType.includes('fixed-weight'));
+            } else if (criteria.productType === 'variable') {
+                results = results.filter(sub => sub.formType.includes('variable-weight'));
+            }
         }
 
         // Filter by Tipo Pedido
