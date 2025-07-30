@@ -95,7 +95,10 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                 return acc;
             }, {} as Record<string, { placa: string; descripcion: string; totalPeso: number; totalCantidad: number; temperatura1: any; temperatura2: any; temperatura3: any; }>);
             
-            return Object.values(groupedByPlacaAndDesc);
+            return Object.values(groupedByPlacaAndDesc).map(group => ({
+                ...group,
+                totalPaletas: (formData.placas || []).flatMap((p:any) => p.items).filter((i:any) => i.descripcion === group.descripcion && p.numeroPlaca === group.placa).length
+            }));
         }
 
         const grouped = (itemsForCalculation || []).reduce((acc, item) => {
@@ -149,7 +152,7 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
     
     const totalGeneralPaletas = (formData.tipoPedido === 'TUNEL DE CONGELACIÓN') 
         ? formData.totalPaletasTunel
-        : recalculatedSummary.reduce((acc, p) => acc + (p.totalPaletas || 0), 0);
+        : recalculatedSummary.reduce((acc, p) => acc + ((p as any).totalPaletas || 0), 0);
 
 
     const operationTerm = 'Descargue';

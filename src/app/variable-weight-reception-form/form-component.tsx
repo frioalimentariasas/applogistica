@@ -732,18 +732,25 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
               }))
           };
 
+          // If loading a "TUNEL" form that was previously saved without placas,
+          // migrate the items into a single placa structure to fix the editing view.
+          if (formData.tipoPedido === 'TUNEL' && !formData.recepcionPorPlaca && formData.items?.length > 0 && formData.placas?.length === 0) {
+              sanitizedFormData.recepcionPorPlaca = true;
+              sanitizedFormData.placas = [{
+                  numeroPlaca: formData.placa,
+                  conductor: formData.conductor,
+                  cedulaConductor: formData.cedulaConductor,
+                  items: sanitizedFormData.items
+              }];
+              sanitizedFormData.items = []; // Clear the old items array
+          }
+
           if (sanitizedFormData.fecha && typeof sanitizedFormData.fecha === 'string') {
             sanitizedFormData.fecha = new Date(sanitizedFormData.fecha);
           }
           
           form.reset(sanitizedFormData);
           
-          if (formData.tipoPedido === 'TUNEL' || formData.tipoPedido === 'TUNEL DE CONGELACIÓN') {
-            if(formData.recepcionPorPlaca) {
-              form.setValue('items', []); // Ensure items is empty for TUNEL mode
-            }
-          }
-
           setAttachments(submission.attachmentUrls);
 
           if (sanitizedFormData.cliente) {
@@ -1701,7 +1708,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                                 </TableCell>
                                                 <TableCell className="text-right">
                                                     <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
-                                                        {itemData?.totalPaletas || 0}
+                                                        {(itemData as any)?.totalPaletas || 0}
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="text-right">
@@ -1774,7 +1781,8 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                         <div className="space-y-4 mt-2">
                             {observationFields.map((field, index) => {
                                 const selectedObservation = watchedObservations?.[index];
-                                const stdObsData = standardObservations.find(obs => obs.name === selectedObservation?.type);
+                                const allObservations = [...standardObservations, {id: 'OTRAS', name: 'OTRAS OBSERVACIONES', quantityType: ''}]
+                                const stdObsData = allObservations.find(obs => obs.name === selectedObservation?.type);
                                 const isOtherType = selectedObservation?.type === 'OTRAS OBSERVACIONES';
                                 const showCrewCheckbox = selectedObservation?.type === 'REESTIBADO' || selectedObservation?.type === 'TRANSBORDO CANASTILLA' || selectedObservation?.type === 'SALIDA PALETAS TUNEL';
                                 return (
@@ -2270,6 +2278,7 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
+
 
 
 
