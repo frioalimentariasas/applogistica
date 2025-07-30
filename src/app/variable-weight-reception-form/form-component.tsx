@@ -1243,6 +1243,48 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                   </CardHeader>
                   <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                       <FormField
+                            control={form.control}
+                            name="tipoPedido"
+                            render={({ field }) => (
+                                <FormItem className="flex flex-col">
+                                    <FormLabel>Tipo de Pedido <span className="text-destructive">*</span></FormLabel>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        className="w-full justify-between text-left font-normal"
+                                        onClick={() => setPedidoTypeDialogOpen(true)}
+                                    >
+                                        {field.value || "Seleccione un tipo..."}
+                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                    </Button>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                        {watchedTipoPedido === 'MAQUILA' && (
+                            <FormField
+                                control={form.control}
+                                name="tipoEmpaqueMaquila"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Tipo de Empaque (Maquila) <span className="text-destructive">*</span></FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value}>
+                                    <FormControl>
+                                        <SelectTrigger>
+                                        <SelectValue placeholder="Seleccione tipo de empaque" />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="EMPAQUE DE SACOS">EMPAQUE DE SACOS</SelectItem>
+                                        <SelectItem value="EMPAQUE DE CAJAS">EMPAQUE DE CAJAS</SelectItem>
+                                    </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
+                        )}
                         <FormField control={form.control} name="pedidoSislog" render={({ field }) => (
                             <FormItem>
                               <FormLabel>Pedido SISLOG <span className="text-destructive">*</span></FormLabel>
@@ -1420,48 +1462,6 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                 </FormItem>
                             )}
                         />
-                         <FormField
-                            control={form.control}
-                            name="tipoPedido"
-                            render={({ field }) => (
-                                <FormItem className="flex flex-col">
-                                    <FormLabel>Tipo de Pedido <span className="text-destructive">*</span></FormLabel>
-                                    <Button
-                                        type="button"
-                                        variant="outline"
-                                        className="w-full justify-between text-left font-normal"
-                                        onClick={() => setPedidoTypeDialogOpen(true)}
-                                    >
-                                        {field.value || "Seleccione un tipo..."}
-                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                    </Button>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                        {watchedTipoPedido === 'MAQUILA' && (
-                            <FormField
-                                control={form.control}
-                                name="tipoEmpaqueMaquila"
-                                render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Tipo de Empaque (Maquila) <span className="text-destructive">*</span></FormLabel>
-                                    <Select onValueChange={field.onChange} value={field.value}>
-                                    <FormControl>
-                                        <SelectTrigger>
-                                        <SelectValue placeholder="Seleccione tipo de empaque" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        <SelectItem value="EMPAQUE DE SACOS">EMPAQUE DE SACOS</SelectItem>
-                                        <SelectItem value="EMPAQUE DE CAJAS">EMPAQUE DE CAJAS</SelectItem>
-                                    </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                                )}
-                            />
-                        )}
                     </div>
                   </CardContent>
                 </Card>
@@ -2234,6 +2234,7 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
+
 
 
 
