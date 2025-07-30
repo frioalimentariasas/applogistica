@@ -397,7 +397,10 @@ export default function CrewPerformanceReportPage() {
 
     const handleExportExcel = () => {
         if (reportData.length === 0) return;
+        
+        const workbook = XLSX.utils.book_new();
 
+        // --- Sheet 1: Detalle Liquidación ---
         const mainDataToSheet = reportData.map(row => {
             const indicator = getPerformanceIndicator(row);
             const isPending = row.cantidadConcepto === -1;
@@ -412,65 +415,55 @@ export default function CrewPerformanceReportPage() {
                 'Contenedor': row.contenedor,
                 'Cantidad (Ton/Und)': isPending ? 'Pendiente Ingresar P.Bruto' : row.cantidadConcepto.toFixed(2),
                 'Duración': formatDuration(row.duracionMinutos),
-                'Indicador': indicator.text,
+                'Productividad': indicator.text,
                 'Concepto': row.conceptoLiquidado,
                 'Valor Unitario (COP)': isPending ? 'N/A' : row.valorUnitario,
                 'Unidad Medida': row.unidadMedidaConcepto,
                 'Valor Total Concepto (COP)': isPending ? 'N/A' : row.valorTotalConcepto,
             }
         });
-
-        const workbook = XLSX.utils.book_new();
-        const mainWorksheet = XLSX.utils.json_to_sheet(mainDataToSheet, { origin: 'A1' });
+        const mainWorksheet = XLSX.utils.json_to_sheet(mainDataToSheet);
         XLSX.utils.book_append_sheet(workbook, mainWorksheet, 'Detalle Liquidación');
-        
-        let startRow = mainDataToSheet.length + 3; // Start after main data + spacing
 
+        // --- Sheet 2: Resumen de Productividad ---
         if (performanceSummary) {
             const evaluableOps = (performanceSummary.totalOperations || 0) - (performanceSummary.summary['Pendiente (P. Bruto)']?.count || 0) - (performanceSummary.summary['No Calculado']?.count || 0);
             
-            const performanceHeader = [['Resumen de Rendimiento (Cargue/Descargue)']];
-            const performanceTableHeaders = [['Indicador', 'Total Operaciones', 'Porcentaje (%)']];
-            const performanceData = Object.entries(performanceSummary.summary).map(([key, value]) => {
-                if (key === 'No Calculado' || key === 'Pendiente (P. Bruto)') return [key, value.count, 'N/A'];
-                const percentage = evaluableOps > 0 ? (value.count / evaluableOps * 100).toFixed(2) + '%' : '0.00%';
-                return [key, value.count, percentage];
-            });
-            const qualificationRow = [['Calificación General de Rendimiento:', performanceSummary.qualification]];
-            
-            XLSX.utils.sheet_add_aoa(mainWorksheet, performanceHeader, { origin: `A${startRow}` });
-            startRow++;
-            XLSX.utils.sheet_add_aoa(mainWorksheet, performanceTableHeaders, { origin: `A${startRow}` });
-            startRow++;
-            XLSX.utils.sheet_add_aoa(mainWorksheet, performanceData, { origin: `A${startRow}` });
-            startRow += performanceData.length;
-            XLSX.utils.sheet_add_aoa(mainWorksheet, [[]], { origin: `A${startRow}` }); // Spacer
-            startRow++;
-            XLSX.utils.sheet_add_aoa(mainWorksheet, qualificationRow, { origin: `A${startRow}` });
-            startRow += 2;
+            const performanceData = [
+                ['Resumen de Productividad (Cargue/Descargue)'],
+                [],
+                ['Indicador', 'Total Operaciones', 'Porcentaje (%)'],
+                ...Object.entries(performanceSummary.summary).map(([key, value]) => {
+                    if (key === 'No Calculado' || key === 'Pendiente (P. Bruto)') return [key, value.count, 'N/A'];
+                    const percentage = evaluableOps > 0 ? (value.count / evaluableOps * 100).toFixed(2) + '%' : '0.00%';
+                    return [key, value.count, percentage];
+                }),
+                [],
+                ['Calificación General de Productividad:', performanceSummary.qualification]
+            ];
+            const performanceWorksheet = XLSX.utils.aoa_to_sheet(performanceData);
+            XLSX.utils.book_append_sheet(workbook, performanceWorksheet, 'Resumen de Productividad');
         }
 
+        // --- Sheet 3: Resumen de Liquidación Conceptos ---
         if (conceptSummary) {
-             const conceptsHeader = [['Resumen de Conceptos Liquidados']];
-             const conceptsTableHeaders = [['Ítem', 'Nombre del Concepto', 'Cantidad Total', 'Valor Total (COP)']];
-             const conceptsData = conceptSummary.map(c => [
-                c.item,
-                c.name,
-                `${c.totalCantidad.toFixed(2)} ${c.unidadMedida}`,
-                c.totalValor
-             ]);
-             const totalConceptRow = [['', 'TOTAL LIQUIDACIÓN:', '', totalLiquidacion]];
-
-             XLSX.utils.sheet_add_aoa(mainWorksheet, conceptsHeader, { origin: `A${startRow}` });
-             startRow++;
-             XLSX.utils.sheet_add_aoa(mainWorksheet, conceptsTableHeaders, { origin: `A${startRow}` });
-             startRow++;
-             XLSX.utils.sheet_add_aoa(mainWorksheet, conceptsData, { origin: `A${startRow}` });
-             startRow += conceptsData.length;
-             XLSX.utils.sheet_add_aoa(mainWorksheet, totalConceptRow, { origin: `A${startRow}` });
+             const conceptsData = [
+                 ['Resumen de Conceptos Liquidados'],
+                 [],
+                 ['Ítem', 'Nombre del Concepto', 'Cantidad Total', 'Valor Total (COP)'],
+                 ...conceptSummary.map(c => [
+                    c.item,
+                    c.name,
+                    `${c.totalCantidad.toFixed(2)} ${c.unidadMedida}`,
+                    c.totalValor
+                 ]),
+                 [],
+                 ['', 'TOTAL LIQUIDACIÓN:', '', totalLiquidacion]
+             ];
+             const conceptsWorksheet = XLSX.utils.aoa_to_sheet(conceptsData);
+             XLSX.utils.book_append_sheet(workbook, conceptsWorksheet, 'Resumen de Liquidación');
         }
-
-
+        
         const fileName = `Reporte_Liquidacion_Cuadrilla_${format(dateRange!.from!, 'yyyy-MM-dd')}_a_${format(dateRange!.to!, 'yyyy-MM-dd')}.xlsx`;
         XLSX.writeFile(workbook, fileName);
     };
@@ -501,7 +494,7 @@ export default function CrewPerformanceReportPage() {
 
         autoTable(doc, {
             startY: mainTableStartY,
-            head: [['Fecha', 'Operario', 'Cliente', 'Tipo Op.', 'Tipo Prod.', 'Pedido', 'Placa', 'Cant.', 'Duración', 'Indicador', 'Concepto', 'Vlr. Unit', 'Vlr. Total']],
+            head: [['Fecha', 'Operario', 'Cliente', 'Tipo Op.', 'Tipo Prod.', 'Pedido', 'Placa', 'Cant.', 'Duración', 'Productividad', 'Concepto', 'Vlr. Unit', 'Vlr. Total']],
             body: reportData.map(row => {
                 const indicator = getPerformanceIndicator(row);
                 const isPending = row.cantidadConcepto === -1;
@@ -559,7 +552,7 @@ export default function CrewPerformanceReportPage() {
             });
              currentY = drawSummaryTable(
                 currentY, 
-                'Resumen de Rendimiento (Cargue/Descargue)',
+                'Resumen de Productividad (Cargue/Descargue)',
                 [['Indicador', 'Total Operaciones', 'Porcentaje (%)']],
                 performanceBody,
                 [['Calificación General:', {content: performanceSummary.qualification, colSpan: 2, styles: {halign: 'left'}}]]
@@ -628,7 +621,7 @@ export default function CrewPerformanceReportPage() {
                                 <TrendingUp className="h-8 w-8 text-primary" />
                                 <h1 className="text-2xl font-bold text-primary">Indicadores y Liquidación Cuadrilla</h1>
                             </div>
-                             <p className="text-sm text-gray-500">Analice los indicadores de rendimiento y liquide las operaciones de cuadrilla.</p>
+                             <p className="text-sm text-gray-500">Analice los indicadores de productividad y liquide las operaciones de cuadrilla.</p>
                         </div>
                     </div>
                 </header>
@@ -638,7 +631,7 @@ export default function CrewPerformanceReportPage() {
                          <div className='flex justify-between items-center'>
                             <div>
                                 <CardTitle>Filtros del Reporte</CardTitle>
-                                <CardDescription>Seleccione los filtros para generar el informe de desempeño de cuadrilla.</CardDescription>
+                                <CardDescription>Seleccione los filtros para generar el informe de productividad de cuadrilla.</CardDescription>
                             </div>
                             <Button asChild variant="outline">
                                 <Link href="/gestion-estandares">
@@ -806,7 +799,7 @@ export default function CrewPerformanceReportPage() {
                                         <TableHead>Contenedor</TableHead>
                                         <TableHead className="text-right">Cantidad (Ton/Und)</TableHead>
                                         <TableHead className="text-right">Duración</TableHead>
-                                        <TableHead className="text-right">Indicador</TableHead>
+                                        <TableHead className="text-right">Productividad</TableHead>
                                         <TableHead>Concepto</TableHead>
                                         <TableHead className="text-right">Vlr. Unitario</TableHead>
                                         <TableHead className="text-right">Vlr. Total Concepto</TableHead>
@@ -882,3 +875,5 @@ export default function CrewPerformanceReportPage() {
         </div>
     );
 }
+
+    
