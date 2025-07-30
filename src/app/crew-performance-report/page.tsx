@@ -433,11 +433,13 @@ export default function CrewPerformanceReportPage() {
                 ['Resumen de Productividad (Cargue/Descargue)'],
                 [],
                 ['Indicador', 'Total Operaciones', 'Porcentaje (%)'],
-                ...Object.entries(performanceSummary.summary).map(([key, value]) => {
-                    if (key === 'No Calculado' || key === 'Pendiente (P. Bruto)') return [key, value.count, 'N/A'];
-                    const percentage = evaluableOps > 0 ? (value.count / evaluableOps * 100).toFixed(2) + '%' : '0.00%';
-                    return [key, value.count, percentage];
-                }),
+                ...Object.entries(performanceSummary.summary)
+                    .filter(([key]) => key !== 'No Calculado')
+                    .map(([key, value]) => {
+                        if (key === 'Pendiente (P. Bruto)') return [key, value.count, 'N/A'];
+                        const percentage = evaluableOps > 0 ? (value.count / evaluableOps * 100).toFixed(2) + '%' : '0.00%';
+                        return [key, value.count, percentage];
+                    }),
                 [],
                 ['Calificación General de Productividad:', performanceSummary.qualification]
             ];
@@ -545,11 +547,14 @@ export default function CrewPerformanceReportPage() {
 
         if (performanceSummary) {
             const evaluableOps = (performanceSummary.totalOperations || 0) - (performanceSummary.summary['Pendiente (P. Bruto)']?.count || 0) - (performanceSummary.summary['No Calculado']?.count || 0);
-            const performanceBody = Object.entries(performanceSummary.summary).map(([key, value]) => {
-                if (key === 'No Calculado' || key === 'Pendiente (P. Bruto)') return [key, value.count, 'N/A'];
-                const percentage = evaluableOps > 0 ? (value.count / evaluableOps * 100).toFixed(2) + '%' : '0.00%';
-                return [key, value.count, percentage];
-            });
+            const performanceBody = Object.entries(performanceSummary.summary)
+                .filter(([key]) => key !== 'No Calculado')
+                .map(([key, value]) => {
+                    if (key === 'Pendiente (P. Bruto)') return [key, value.count, 'N/A'];
+                    const percentage = evaluableOps > 0 ? (value.count / evaluableOps * 100).toFixed(2) + '%' : '0.00%';
+                    return [key, value.count, percentage];
+                });
+
              currentY = drawSummaryTable(
                 currentY, 
                 'Resumen de Productividad (Cargue/Descargue)',
