@@ -443,6 +443,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
   const [isPedidoTypeDialogOpen, setPedidoTypeDialogOpen] = useState(false);
 
 
+
   const isAdmin = permissions.canManageSessions;
 
   const filteredClients = useMemo(() => {
@@ -464,6 +465,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
   const watchedItems = useWatch({ control: form.control, name: "items" });
   const watchedPlacas = useWatch({ control: form.control, name: "placas" });
   const watchedObservations = useWatch({ control: form.control, name: "observaciones" });
+  const isSpecialReception = watchedTipoPedido === 'INGRESO DE SALDOS' || watchedTipoPedido === 'TUNEL' || watchedTipoPedido === 'TUNEL A CÁMARA CONGELADOS' || watchedTipoPedido === 'MAQUILA' || watchedTipoPedido === 'TUNEL DE CONGELACIÓN';
 
   useEffect(() => {
     if (watchedTipoPedido === 'TUNEL DE CONGELACIÓN') {
@@ -1357,6 +1359,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                             <FormItem>
                               <FormLabel>Conductor</FormLabel>
                               <FormControl><Input placeholder="Nombre del conductor" {...field} disabled={isTunelMode && watchedRecepcionPorPlaca} /></FormControl>
+                              {isSpecialReception && <FormDescription>Si se deja vacío, se guardará como N/A.</FormDescription>}
                               <FormMessage />
                             </FormItem>
                         )}/>
@@ -1364,6 +1367,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                             <FormItem>
                               <FormLabel>Cédula Conductor</FormLabel>
                               <FormControl><Input placeholder="Número de cédula" {...field} inputMode="numeric" pattern="[0-9]*" disabled={isTunelMode && watchedRecepcionPorPlaca} /></FormControl>
+                              {isSpecialReception && <FormDescription>Si se deja vacío, se guardará como N/A.</FormDescription>}
                               <FormMessage />
                             </FormItem>
                         )}/>
@@ -1371,6 +1375,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                             <FormItem>
                               <FormLabel>Placa del vehículo</FormLabel>
                               <FormControl><Input placeholder="ABC123" {...field} disabled={isTunelMode && watchedRecepcionPorPlaca} onChange={(e) => field.onChange(e.target.value.toUpperCase())} maxLength={isTunelMode ? undefined : 6} /></FormControl>
+                                {isSpecialReception && <FormDescription>Si se deja vacío, se guardará como N/A.</FormDescription>}
                               <FormMessage />
                             </FormItem>
                         )}/>
@@ -1378,6 +1383,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                             <FormItem>
                               <FormLabel>Precinto</FormLabel>
                               <FormControl><Input placeholder="Precinto (máx. 50 caracteres)" {...field} /></FormControl>
+                              {isSpecialReception && <FormDescription>Si se deja vacío, se guardará como N/A.</FormDescription>}
                               <FormMessage />
                             </FormItem>
                         )}/>
@@ -1385,6 +1391,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                             <FormItem>
                                 <FormLabel>Set Point (°C)</FormLabel>
                                 <FormControl><Input type="text" inputMode="decimal" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.value)} value={field.value ?? ''} /></FormControl>
+                                {isSpecialReception && <FormDescription>Si se deja vacío, se guardará como N/A.</FormDescription>}
                                 <FormMessage />
                             </FormItem>
                         )}/>
@@ -1397,6 +1404,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                     onChange={(e) => field.onChange(e.target.value.toUpperCase())}
                                     value={field.value ?? ''}
                                 /></FormControl>
+                                {isSpecialReception && <FormDescription>Si se deja vacío, se guardará como N/A.</FormDescription>}
                                 <FormMessage />
                             </FormItem>
                         )}/>
@@ -2225,4 +2233,5 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
+
 
