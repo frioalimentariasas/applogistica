@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
@@ -119,11 +118,19 @@ const summaryItemSchema = z.object({
 
 
 const observationSchema = z.object({
-  type: z.string().optional(),
+  type: z.string().min(1, "Debe seleccionar un tipo de observación."),
   customType: z.string().optional(),
-  quantity: z.coerce.number().min(0).optional(),
+  quantity: z.coerce.number({invalid_type_error: "La cantidad debe ser un número."}).min(0, "La cantidad no puede ser negativa.").optional(),
   quantityType: z.string().optional(),
-  executedByGrupoRosales: z.boolean().default(false).optional(),
+  executedByGrupoRosales: z.boolean().default(false),
+}).refine(data => {
+    if (data.type === 'OTRAS OBSERVACIONES' && !data.customType?.trim()) {
+        return false;
+    }
+    return true;
+}, {
+    message: "La descripción para 'OTRAS OBSERVACIONES' es obligatoria.",
+    path: ['customType']
 });
 
 const formSchema = z.object({
@@ -454,7 +461,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
   const watchedAplicaCuadrilla = useWatch({ control: form.control, name: 'aplicaCuadrilla' });
   const watchedItems = useWatch({ control: form.control, name: "items" });
   const watchedPlacas = useWatch({ control: form.control, name: "placas" });
-  const watchedObservations = useWatch({ control: form.control, name: "observations" });
+  const watchedObservations = useWatch({ control: form.control, name: "observaciones" });
 
   useEffect(() => {
     if (isTunelMode && watchedRecepcionPorPlaca) {
@@ -2147,6 +2154,7 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
+
 
 
 
