@@ -500,27 +500,31 @@ export default function CrewPerformanceReportPage() {
         
         const doc = new jsPDF({ orientation: 'landscape' });
         const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const margin = 14;
 
-        const logoWidth = 60;
-        const aspectRatio = logoDimensions.width / logoDimensions.height;
-        const logoHeight = logoWidth / aspectRatio;
-        const logoX = (pageWidth - logoWidth) / 2;
-        doc.addImage(logoBase64, 'PNG', logoX, 10, logoWidth, logoHeight);
+        const addHeader = () => {
+             const logoWidth = 60;
+            const aspectRatio = logoDimensions.width / logoDimensions.height;
+            const logoHeight = logoWidth / aspectRatio;
+            const logoX = (pageWidth - logoWidth) / 2;
+            doc.addImage(logoBase64, 'PNG', logoX, 10, logoWidth, logoHeight);
 
-        const titleY = 10 + logoHeight + 5;
-        
-        doc.setFontSize(11);
-        doc.setFont('helvetica', 'bold');
-        doc.text(`Informe de Liquidación de Cuadrilla`, pageWidth / 2, titleY, { align: 'center' });
-        
-        doc.setFontSize(9);
-        doc.setFont('helvetica', 'normal');
-        doc.text(`Periodo: ${format(dateRange!.from!, 'dd/MM/yyyy')} - ${format(dateRange!.to!, 'dd/MM/yyyy')}`, 14, titleY + 10);
-        
-        const mainTableStartY = titleY + 15;
+            const titleY = 10 + logoHeight + 5;
+            
+            doc.setFontSize(11);
+            doc.setFont('helvetica', 'bold');
+            doc.text(`Informe de Liquidación de Cuadrilla`, pageWidth / 2, titleY, { align: 'center' });
+            
+            doc.setFontSize(9);
+            doc.setFont('helvetica', 'normal');
+            doc.text(`Periodo: ${format(dateRange!.from!, 'dd/MM/yyyy')} - ${format(dateRange!.to!, 'dd/MM/yyyy')}`, pageWidth / 2, titleY + 10, {align: 'center'});
+        }
+
+        addHeader();
 
         autoTable(doc, {
-            startY: mainTableStartY,
+            startY: 55,
             head: [['Fecha', 'Operario', 'Cliente', 'Tipo Op.', 'Tipo Prod.', 'Pedido', 'Placa', 'Cant.', 'Duración', 'Productividad', 'Concepto', 'Vlr. Unit', 'Vlr. Total']],
             body: reportData.map(row => {
                 const indicator = getPerformanceIndicator(row);
@@ -545,12 +549,9 @@ export default function CrewPerformanceReportPage() {
             styles: { fontSize: 6, cellPadding: 1, overflow: 'linebreak' },
             headStyles: { fillColor: [33, 150, 243], fontSize: 6, cellPadding: 1 },
         });
-
-        let finalY = (doc as any).lastAutoTable.finalY + 15;
         
-        const drawSummaryTable = (startY: number, title: string, headers: string[][], body: any[][], foot?: any[][]) => {
+        const drawSummaryTable = (title: string, headers: string[][], body: any[][], foot?: any[][]) => {
             autoTable(doc, {
-                startY: startY,
                 head: [[{ content: title, styles: { halign: 'center', fillColor: [33, 150, 243], textColor: 255, fontStyle: 'bold' } }]],
                 body: [],
                 theme: 'plain',
@@ -561,16 +562,15 @@ export default function CrewPerformanceReportPage() {
                  body: body,
                  foot: foot,
                  theme: 'grid',
-                 headStyles: { fillColor: [226, 232, 240], textColor: 0 },
-                 footStyles: { fillColor: [226, 232, 240], fontStyle: 'bold' }
+                 headStyles: { fillColor: [226, 232, 240], textColor: 0, fontStyle: 'bold' },
+                 footStyles: { fillColor: [226, 232, 240], fontStyle: 'bold', textColor: 0 }
             });
              return (doc as any).lastAutoTable.finalY;
         };
-        
-        const summaryTablesStartY = finalY + 10;
-        let currentY = summaryTablesStartY;
 
         if (performanceSummary) {
+            doc.addPage();
+            addHeader();
             const evaluableOps = (performanceSummary.totalOperations || 0) - (performanceSummary.summary['Pendiente (P. Bruto)']?.count || 0) - (performanceSummary.summary['No Calculado']?.count || 0);
             const performanceBody = Object.entries(performanceSummary.summary)
                 .filter(([key]) => key !== 'No Calculado')
@@ -580,8 +580,8 @@ export default function CrewPerformanceReportPage() {
                     return [key, value.count, percentage];
                 });
 
-             currentY = drawSummaryTable(
-                currentY, 
+             drawSummaryTable(
+                55,
                 'Resumen de Productividad (Cargue/Descargue)',
                 [['Indicador', 'Total Operaciones', 'Porcentaje (%)']],
                 performanceBody,
@@ -590,6 +590,8 @@ export default function CrewPerformanceReportPage() {
         }
 
         if (conceptSummary) {
+            doc.addPage();
+            addHeader();
             const conceptsBody = conceptSummary.map(c => [
                 c.item,
                 c.name,
@@ -598,8 +600,8 @@ export default function CrewPerformanceReportPage() {
                 c.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }),
                 c.totalValor.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
             ]);
-            currentY = drawSummaryTable(
-                currentY + 15,
+            drawSummaryTable(
+                55,
                 'Resumen de Conceptos Liquidados',
                 [['Ítem', 'Nombre del Concepto', 'Cantidad Total', 'Presentación', 'Valor Unitario (COP)', 'Valor Total (COP)']],
                 conceptsBody,
