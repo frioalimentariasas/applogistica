@@ -168,7 +168,8 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
     }
 
     // --- Concept: CARGUE / DESCARGUE (By Ton for GENERICO and TUNEL DE CONGELACIÓN) ---
-    const isGenericOrTunel = formData.tipoPedido === 'GENERICO' || formData.tipoPedido === 'DESPACHO GENERICO' || formData.tipoPedido === 'TUNEL DE CONGELACIÓN';
+    const isGenericOrTunel = formData.tipoPedido === 'GENERICO' || formData.tipoPedido === 'TUNEL DE CONGELACIÓN';
+    
     if (formData.aplicaCuadrilla === 'si' && isGenericOrTunel) {
         const isReception = formType.includes('recepcion') || formType.includes('reception');
         const conceptName = isReception ? 'DESCARGUE' : 'CARGUE';
@@ -218,7 +219,7 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
     // --- Concept: SALIDA PALETAS TUNEL ---
     if (formData.tipoPedido === 'TUNEL A CÁMARA CONGELADOS') {
         const salidaTunelObservation = observations.find(
-            (obs: any) => obs.type === 'SALIDA PALETAS TUNEL'
+            (obs: any) => obs.type === 'SALIDA PALETAS TUNEL' && obs.executedByGrupoRosales === true
         );
         if (salidaTunelObservation && salidaTunelObservation.quantity > 0) {
             const salidaTunelConcept = billingConcepts.find(
