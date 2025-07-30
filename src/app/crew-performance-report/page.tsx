@@ -402,6 +402,7 @@ export default function CrewPerformanceReportPage() {
         if (reportData.length === 0) return;
         
         const workbook = XLSX.utils.book_new();
+        const periodText = `Periodo: ${format(dateRange!.from!, 'dd/MM/yyyy')} - ${format(dateRange!.to!, 'dd/MM/yyyy')}`;
 
         // --- Sheet 1: Detalle Liquidación ---
         const mainDataToSheet = reportData.map(row => {
@@ -425,7 +426,9 @@ export default function CrewPerformanceReportPage() {
                 'Valor Total Concepto (COP)': isPending ? 'N/A' : row.valorTotalConcepto,
             }
         });
-        const mainWorksheet = XLSX.utils.json_to_sheet(mainDataToSheet);
+        const mainWorksheet = XLSX.utils.json_to_sheet([]);
+        XLSX.utils.sheet_add_aoa(mainWorksheet, [[periodText]], { origin: 'A1' });
+        XLSX.utils.sheet_add_json(mainWorksheet, mainDataToSheet, { origin: 'A2', skipHeader: false });
         XLSX.utils.book_append_sheet(workbook, mainWorksheet, 'Detalle Liquidación');
 
         // --- Sheet 2: Resumen de Productividad ---
@@ -446,7 +449,9 @@ export default function CrewPerformanceReportPage() {
                 [],
                 ['Calificación General de Productividad:', performanceSummary.qualification]
             ];
-            const performanceWorksheet = XLSX.utils.aoa_to_sheet(performanceData);
+            const performanceWorksheet = XLSX.utils.aoa_to_sheet([]);
+            XLSX.utils.sheet_add_aoa(performanceWorksheet, [[periodText]], { origin: 'A1' });
+            XLSX.utils.sheet_add_aoa(performanceWorksheet, performanceData, { origin: 'A3' });
             XLSX.utils.book_append_sheet(workbook, performanceWorksheet, 'Resumen de Productividad');
         }
 
@@ -460,24 +465,26 @@ export default function CrewPerformanceReportPage() {
                 'Valor Unitario (COP)': c.valorUnitario,
                 'Valor Total (COP)': c.totalValor
              }));
-             const conceptsWorksheet = XLSX.utils.json_to_sheet(conceptsDataToSheet);
+             const conceptsWorksheet = XLSX.utils.json_to_sheet([], {header: ['Ítem', 'Nombre del Concepto', 'Cantidad Total', 'Presentación', 'Valor Unitario (COP)', 'Valor Total (COP)']});
+             XLSX.utils.sheet_add_aoa(conceptsWorksheet, [[periodText]], { origin: 'A1' });
+             XLSX.utils.sheet_add_json(conceptsWorksheet, conceptsDataToSheet, { origin: 'A3', skipHeader: false });
              
              // Add total row
              XLSX.utils.sheet_add_aoa(conceptsWorksheet, [
-                ['', '', '', 'TOTAL LIQUIDACIÓN:', '', totalLiquidacion]
+                ['', '', '', '', 'TOTAL LIQUIDACIÓN:', totalLiquidacion]
              ], { origin: -1 });
 
              // Apply number formatting
              const currencyFormat = '$ #,##0.00';
              const numberFormat = '0.00';
              conceptsWorksheet['!cols'] = [ {wch: 5}, {wch: 25}, {wch: 15}, {wch: 15}, {wch: 20}, {wch: 20} ];
-             for(let i = 2; i <= conceptsDataToSheet.length + 2; i++) {
+             for(let i = 4; i <= conceptsDataToSheet.length + 4; i++) {
                  if (conceptsWorksheet[`C${i}`]) conceptsWorksheet[`C${i}`].z = numberFormat;
                  if (conceptsWorksheet[`E${i}`]) conceptsWorksheet[`E${i}`].z = currencyFormat;
                  if (conceptsWorksheet[`F${i}`]) conceptsWorksheet[`F${i}`].z = currencyFormat;
              }
 
-             const totalRowIndex = conceptsDataToSheet.length + 2;
+             const totalRowIndex = conceptsDataToSheet.length + 4;
              if(conceptsWorksheet[`F${totalRowIndex}`]) conceptsWorksheet[`F${totalRowIndex}`].z = currencyFormat;
 
 
