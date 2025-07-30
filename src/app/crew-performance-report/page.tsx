@@ -518,6 +518,7 @@ export default function CrewPerformanceReportPage() {
             
             doc.setFontSize(9);
             doc.setFont('helvetica', 'normal');
+            doc.setTextColor(0, 0, 0); // Set text color to black
             doc.text(`Periodo: ${format(dateRange!.from!, 'dd/MM/yyyy')} - ${format(dateRange!.to!, 'dd/MM/yyyy')}`, pageWidth / 2, titleY + 10, {align: 'center'});
         }
 
