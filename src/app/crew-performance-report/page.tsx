@@ -177,6 +177,7 @@ export default function CrewPerformanceReportPage() {
     const [selectedClients, setSelectedClients] = useState<string[]>([]);
     const [isClientDialogOpen, setClientDialogOpen] = useState(false);
     const [clientSearch, setClientSearch] = useState('');
+    const [filterPending, setFilterPending] = useState(false);
 
     const [reportData, setReportData] = useState<CrewPerformanceReportRow[]>([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -260,6 +261,7 @@ export default function CrewPerformanceReportPage() {
                 operationType: operationType === 'all' ? undefined : operationType as 'recepcion' | 'despacho',
                 productType: productType === 'all' ? undefined : productType as 'fijo' | 'variable',
                 clientNames: selectedClients.length > 0 ? selectedClients : undefined,
+                filterPending: filterPending,
             };
 
             const results = await getCrewPerformanceReport(criteria);
@@ -285,7 +287,7 @@ export default function CrewPerformanceReportPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [dateRange, selectedOperario, operationType, productType, selectedClients, toast]);
+    }, [dateRange, selectedOperario, operationType, productType, selectedClients, filterPending, toast]);
     
     const handleClear = () => {
         setDateRange(undefined);
@@ -293,6 +295,7 @@ export default function CrewPerformanceReportPage() {
         setOperationType('all');
         setProductType('all');
         setSelectedClients([]);
+        setFilterPending(false);
         setReportData([]);
         setSearched(false);
         setCurrentPage(1);
@@ -464,7 +467,7 @@ export default function CrewPerformanceReportPage() {
                     formatDuration(row.duracionMinutos),
                     indicator.text,
                     row.conceptoLiquidado,
-                    isPending ? 'N/A' : row.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }),
+                    isPending ? 'N/A' : row.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }),
                     isPending ? 'N/A' : row.valorTotalConcepto.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }),
                 ]
             }),
@@ -683,6 +686,16 @@ export default function CrewPerformanceReportPage() {
                                         <SelectItem value="variable">Peso Variable</SelectItem>
                                     </SelectContent>
                                 </Select>
+                            </div>
+                             <div className="flex items-center space-x-2 self-end pb-2">
+                                <Checkbox
+                                    id="filter-pending"
+                                    checked={filterPending}
+                                    onCheckedChange={(checked) => setFilterPending(checked as boolean)}
+                                />
+                                <Label htmlFor="filter-pending" className="cursor-pointer">
+                                    Mostrar solo pendientes de Peso Bruto
+                                </Label>
                             </div>
                             <div className="flex gap-2 xl:col-start-4">
                                 <Button onClick={handleSearch} className="w-full" disabled={isLoading}>

@@ -71,6 +71,7 @@ export interface CrewPerformanceReportCriteria {
     operationType?: 'recepcion' | 'despacho';
     productType?: 'fijo' | 'variable';
     clientNames?: string[];
+    filterPending?: boolean;
 }
 
 export interface CrewPerformanceReportRow {
@@ -383,6 +384,9 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                 const rowOpType = (row.tipoOperacion === 'Recepción') ? 'recepcion' : (row.tipoOperacion === 'Despacho' ? 'despacho' : null);
                 return rowOpType === criteria.operationType;
             });
+        }
+        if (criteria.filterPending) {
+            filteredResults = filteredResults.filter(row => row.productType === 'fijo' && row.cantidadConcepto === -1);
         }
         
         filteredResults.sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
