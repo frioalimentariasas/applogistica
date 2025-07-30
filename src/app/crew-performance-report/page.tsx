@@ -367,17 +367,18 @@ export default function CrewPerformanceReportPage() {
         };
     }, [reportData]);
 
-     const conceptSummary = useMemo(() => {
+      const conceptSummary = useMemo(() => {
         if (reportData.length === 0) return null;
         
         const summary = reportData.reduce((acc, row) => {
             const { conceptoLiquidado, cantidadConcepto, valorUnitario, valorTotalConcepto, unidadMedidaConcepto } = row;
             if (!acc[conceptoLiquidado]) {
+                const firstValidEntry = reportData.find(r => r.conceptoLiquidado === conceptoLiquidado && r.valorUnitario > 0);
                 acc[conceptoLiquidado] = {
                     totalCantidad: 0,
                     totalValor: 0,
                     unidadMedida: unidadMedidaConcepto,
-                    valorUnitario: valorUnitario, // Assume it's the same for the same concept name
+                    valorUnitario: firstValidEntry ? firstValidEntry.valorUnitario : 0, 
                 };
             }
             if (cantidadConcepto !== -1) { // Exclude pending
@@ -440,9 +441,8 @@ export default function CrewPerformanceReportPage() {
                 [],
                 ['Indicador', 'Total Operaciones', 'Porcentaje (%)'],
                 ...Object.entries(performanceSummary.summary)
-                    .filter(([key]) => key !== 'No Calculado')
+                    .filter(([key]) => key !== 'No Calculado' && key !== 'Pendiente (P. Bruto)')
                     .map(([key, value]) => {
-                        if (key === 'Pendiente (P. Bruto)') return [key, value.count, 'N/A'];
                         const percentage = evaluableOps > 0 ? (value.count / evaluableOps * 100).toFixed(2) + '%' : '0.00%';
                         return [key, value.count, percentage];
                     }),
@@ -521,8 +521,27 @@ export default function CrewPerformanceReportPage() {
             doc.text(`Periodo: ${format(dateRange!.from!, 'dd/MM/yyyy')} - ${format(dateRange!.to!, 'dd/MM/yyyy')}`, pageWidth / 2, titleY + 10, {align: 'center'});
         }
 
+        const drawSummaryTable = (startY: number, title: string, headers: string[][], body: any[][], foot?: any[][]) => {
+            autoTable(doc, {
+                head: [[{ content: title, styles: { halign: 'center', fillColor: [33, 150, 243], textColor: 255, fontStyle: 'bold' } }]],
+                body: [],
+                theme: 'plain',
+                startY
+            });
+            autoTable(doc, {
+                 startY: (doc as any).lastAutoTable.finalY,
+                 head: headers,
+                 body: body,
+                 foot: foot,
+                 theme: 'grid',
+                 headStyles: { fillColor: [226, 232, 240], textColor: 0, fontStyle: 'bold' },
+                 footStyles: { fillColor: [226, 232, 240], fontStyle: 'bold', textColor: 0 }
+            });
+             return (doc as any).lastAutoTable.finalY;
+        };
+        
+        // Page 1: Detailed Report
         addHeader();
-
         autoTable(doc, {
             startY: 55,
             head: [['Fecha', 'Operario', 'Cliente', 'Tipo Op.', 'Tipo Prod.', 'Pedido', 'Placa', 'Cant.', 'Duración', 'Productividad', 'Concepto', 'Vlr. Unit', 'Vlr. Total']],
@@ -550,32 +569,14 @@ export default function CrewPerformanceReportPage() {
             headStyles: { fillColor: [33, 150, 243], fontSize: 6, cellPadding: 1 },
         });
         
-        const drawSummaryTable = (title: string, headers: string[][], body: any[][], foot?: any[][]) => {
-            autoTable(doc, {
-                head: [[{ content: title, styles: { halign: 'center', fillColor: [33, 150, 243], textColor: 255, fontStyle: 'bold' } }]],
-                body: [],
-                theme: 'plain',
-            });
-            autoTable(doc, {
-                 startY: (doc as any).lastAutoTable.finalY,
-                 head: headers,
-                 body: body,
-                 foot: foot,
-                 theme: 'grid',
-                 headStyles: { fillColor: [226, 232, 240], textColor: 0, fontStyle: 'bold' },
-                 footStyles: { fillColor: [226, 232, 240], fontStyle: 'bold', textColor: 0 }
-            });
-             return (doc as any).lastAutoTable.finalY;
-        };
-
+        // Page 2: Productivity Summary
         if (performanceSummary) {
             doc.addPage();
             addHeader();
             const evaluableOps = (performanceSummary.totalOperations || 0) - (performanceSummary.summary['Pendiente (P. Bruto)']?.count || 0) - (performanceSummary.summary['No Calculado']?.count || 0);
             const performanceBody = Object.entries(performanceSummary.summary)
-                .filter(([key]) => key !== 'No Calculado')
+                .filter(([key]) => key !== 'No Calculado' && key !== 'Pendiente (P. Bruto)')
                 .map(([key, value]) => {
-                    if (key === 'Pendiente (P. Bruto)') return [key, value.count, 'N/A'];
                     const percentage = evaluableOps > 0 ? (value.count / evaluableOps * 100).toFixed(2) + '%' : '0.00%';
                     return [key, value.count, percentage];
                 });
@@ -589,6 +590,7 @@ export default function CrewPerformanceReportPage() {
             );
         }
 
+        // Page 3: Concepts Summary
         if (conceptSummary) {
             doc.addPage();
             addHeader();
