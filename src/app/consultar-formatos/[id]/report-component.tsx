@@ -521,6 +521,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                  const isReception = formType.includes('recepcion') || formType.includes('reception');
                  const operationTerm = isReception ? 'Descargue' : 'Cargue';
                  const isTunelModeByPlate = (formData.tipoPedido === 'TUNEL' || formData.tipoPedido === 'TUNEL DE CONGELACIÓN') && formData.recepcionPorPlaca;
+                 const isStandardTunel = isTunelModeByPlate && (formData.tipoPedido === 'TUNEL' && !formData.recepcionPorPlaca);
                  
                  const generalInfoBody: any[][] = [
                      [
@@ -596,14 +597,13 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     const isSummaryFormat = items.some((p: any) => Number(p.paleta) === 0);
                     let detailHead: any[];
                     let detailBody: any[][];
-                    const isStandardTunel = (formData.tipoPedido === 'TUNEL' && !formData.recepcionPorPlaca);
-
+                   
                     if (!isSummaryFormat) {
-                        detailHead = [isTunelModeByPlate ? 
+                        detailHead = [isStandardTunel ? 
                             ['Descripción', 'Lote', 'Presentación', 'Cant.', 'P. Bruto', 'T. Estiba', 'T. Caja', 'Total Tara', 'P. Neto'] :
                             ['Paleta', 'Descripción', 'Lote', 'Presentación', 'Cant.', 'P. Bruto', 'T. Estiba', 'T. Caja', 'Total Tara', 'P. Neto']
                         ];
-                        detailBody = items.map((p: any) => isTunelModeByPlate ?
+                        detailBody = items.map((p: any) => isStandardTunel ?
                             [p.descripcion, p.lote, p.presentacion, p.cantidadPorPaleta, p.pesoBruto?.toFixed(2), p.taraEstiba?.toFixed(2), p.taraCaja?.toFixed(2), p.totalTaraCaja?.toFixed(2), p.pesoNeto?.toFixed(2)] :
                             [p.paleta, p.descripcion, p.lote, p.presentacion, p.cantidadPorPaleta, p.pesoBruto?.toFixed(2), p.taraEstiba?.toFixed(2), p.taraCaja?.toFixed(2), p.totalTaraCaja?.toFixed(2), p.pesoNeto?.toFixed(2)]
                         );
@@ -674,7 +674,8 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     yPos += 15;
                 } else if(isTunelModeByPlate) {
                     (formData.placas || []).forEach((placa: any) => {
-                        drawItemsTable(placa.items || [], `Placa: ${placa.numeroPlaca} | Conductor: ${placa.conductor} (C.C. ${placa.cedulaConductor})`);
+                        const subTitle = `Placa: ${placa.numeroPlaca} | Conductor: ${placa.conductor} (C.C. ${placa.cedulaConductor})`;
+                        drawItemsTable(placa.items || [], subTitle);
                     });
                     yPos += 15;
                 } else {
@@ -700,7 +701,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
 
                     autoTable(doc, {
                         startY: yPos,
-                        head: [[{ content: 'Resumen de Productos', colSpan: 6, styles: { halign: 'center', fillColor: '#e2e8f0' } }]],
+                        head: [[{ content: 'Resumen de Productos', colSpan: 6, styles: { halign: 'center', fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold' } }]],
                         body: [],
                         theme: 'grid',
                         margin: { horizontal: margin },
@@ -708,14 +709,23 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     });
                     yPos = (doc as any).autoTable.previous.finalY;
 
-                    const summaryHead = [isTunelModeByPlate ? 'Placa' : null, 'Descripción', 'Temp(°C)', 'Total Cantidad', isSummaryFormat ? null : 'Total Paletas', 'Total Peso (kg)'].filter(Boolean) as string[];
-                    
+                    const summaryHead = [
+                        (isTunelModeByPlate || (isReception && formData.tipoPedido === 'TUNEL DE CONGELACIÓN')) ? 'Placa' : null, 
+                        'Descripción', 'Temp(°C)', 'Total Cantidad', 
+                        (isSummaryFormat && !formData.despachoPorDestino) ? 'Total Paletas' : (isSummaryFormat ? null : 'Total Paletas'), 
+                        'Total Peso (kg)'
+                    ].filter(Boolean) as string[];
+
                     const summaryBody = allItemsForSummary.map((p: any) => {
                         const temps = [p.temperatura1, p.temperatura2, p.temperatura3].filter(t => t != null && !isNaN(t));
                         const row: any[] = [];
-                        if (isTunelModeByPlate) row.push(p.placa);
+                        if (isTunelModeByPlate || (isReception && formData.tipoPedido === 'TUNEL DE CONGELACIÓN')) row.push(p.placa);
                         row.push(p.descripcion, temps.join(' / '), p.totalCantidad);
-                        if(!isSummaryFormat) row.push(p.totalPaletas);
+                        if(isSummaryFormat && !formData.despachoPorDestino) {
+                            row.push(p.totalPaletas);
+                        } else if (!isSummaryFormat) {
+                             row.push(p.totalPaletas);
+                        }
                         row.push(p.totalPeso?.toFixed(2));
                         return row;
                     });
@@ -724,12 +734,13 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     const totalGeneralCantidad = allItemsForSummary.reduce((acc: number, p: any) => acc + (p.totalCantidad || 0), 0);
                     
                     const totalGeneralPaletas = (() => {
+                        if(isReception && (formData.tipoPedido === 'TUNEL DE CONGELACIÓN')) {
+                            return formData.totalPaletasTunel || 0;
+                        }
                         if (isSummaryFormat) {
                             return formData.despachoPorDestino
                                 ? formData.totalPaletasDespacho
                                 : allItemsForSummary.reduce((acc, p) => acc + (p.totalPaletas || 0), 0);
-                        } else if(formData.tipoPedido === 'TUNEL DE CONGELACIÓN') {
-                            return formData.totalPaletasTunel || 0;
                         }
                         const allItems = formData.despachoPorDestino ? formData.destinos.flatMap((d: any) => d.items) : formData.items;
                         const uniquePallets = new Set<number>();
@@ -742,7 +753,11 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     
                     const footColSpan = summaryHead.length - 3;
                     const footRow: any[] = [{ content: 'TOTALES:', colSpan: footColSpan, styles: { halign: 'right', fontStyle: 'bold' } }, totalGeneralCantidad];
-                    if(!isSummaryFormat) footRow.push(totalGeneralPaletas);
+                    if(isSummaryFormat && !formData.despachoPorDestino) {
+                        footRow.push(totalGeneralPaletas);
+                    } else if (!isSummaryFormat) {
+                         footRow.push(totalGeneralPaletas);
+                    }
                     footRow.push(totalGeneralPeso.toFixed(2));
 
                     autoTable(doc, {
@@ -761,7 +776,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
 
                 addObservationsTable();
                 
-                const showCrewField = formData.tipoPedido !== 'TUNEL A CÁMARA CONGELADOS';
+                const showCrewField = isReception ? formData.tipoPedido !== 'TUNEL A CÁMARA CONGELADOS' : true;
     
                 autoTable(doc, { 
                     startY: yPos, 
