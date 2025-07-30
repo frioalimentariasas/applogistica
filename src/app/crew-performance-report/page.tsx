@@ -551,7 +551,7 @@ export default function CrewPerformanceReportPage() {
         const drawSummaryTable = (startY: number, title: string, headers: string[][], body: any[][], foot?: any[][]) => {
             autoTable(doc, {
                 startY: startY,
-                head: [[{ content: title, styles: { halign: 'center', fillColor: [33, 150, 243], textColor: 0, fontStyle: 'bold' } }]],
+                head: [[{ content: title, styles: { halign: 'center', fillColor: [33, 150, 243], textColor: 255, fontStyle: 'bold' } }]],
                 body: [],
                 theme: 'plain',
             });
@@ -561,7 +561,7 @@ export default function CrewPerformanceReportPage() {
                  body: body,
                  foot: foot,
                  theme: 'grid',
-                 headStyles: { fillColor: [226, 232, 240] },
+                 headStyles: { fillColor: [226, 232, 240], textColor: 0 },
                  footStyles: { fillColor: [226, 232, 240], fontStyle: 'bold' }
             });
              return (doc as any).lastAutoTable.finalY;
@@ -907,5 +907,7 @@ export default function CrewPerformanceReportPage() {
         </div>
     );
 }
+
+    
 
     
