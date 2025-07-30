@@ -1456,7 +1456,11 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                         </FormControl>
                                         <div className="space-y-1 leading-none">
                                             <FormLabel>Recepción por Placa</FormLabel>
-                                            <FormDescription>Marque esta opción para agrupar ítems por placa de vehículo.</FormDescription>
+                                            {watchedTipoPedido !== 'TUNEL DE CONGELACIÓN' && (
+                                                <FormDescription>
+                                                    Marque esta opción para agrupar ítems por placa de vehículo.
+                                                </FormDescription>
+                                            )}
                                         </div>
                                     </FormItem>
                                 )}
