@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
@@ -475,13 +476,31 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
 
   useEffect(() => {
     if (isTunelMode && watchedRecepcionPorPlaca) {
-        const placaNumbers = (watchedPlacas || [])
+        const placasData = watchedPlacas || [];
+        
+        const placaNumbers = placasData
             .map(p => p.numeroPlaca?.trim())
             .filter(Boolean)
             .join(' / ');
         
+        const conductorNames = placasData
+            .map(p => p.conductor?.trim())
+            .filter(Boolean)
+            .join(' / ');
+
+        const conductorCedulas = placasData
+            .map(p => p.cedulaConductor?.trim())
+            .filter(Boolean)
+            .join(' / ');
+
         if (form.getValues('placa') !== placaNumbers) {
             form.setValue('placa', placaNumbers, { shouldValidate: true });
+        }
+        if (form.getValues('conductor') !== conductorNames) {
+            form.setValue('conductor', conductorNames, { shouldValidate: true });
+        }
+        if (form.getValues('cedulaConductor') !== conductorCedulas) {
+            form.setValue('cedulaConductor', conductorCedulas, { shouldValidate: true });
         }
     }
   }, [watchedPlacas, isTunelMode, watchedRecepcionPorPlaca, form]);
@@ -706,7 +725,9 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
           form.reset(sanitizedFormData);
           
           if (formData.tipoPedido === 'TUNEL' || formData.tipoPedido === 'TUNEL DE CONGELACIÓN') {
-            form.setValue('items', []); // Ensure items is empty for TUNEL mode
+            if(formData.recepcionPorPlaca) {
+              form.setValue('items', []); // Ensure items is empty for TUNEL mode
+            }
           }
 
           setAttachments(submission.attachmentUrls);
@@ -1335,14 +1356,14 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                         <FormField control={form.control} name="conductor" render={({ field }) => (
                             <FormItem>
                               <FormLabel>Conductor</FormLabel>
-                              <FormControl><Input placeholder="Nombre del conductor" {...field} /></FormControl>
+                              <FormControl><Input placeholder="Nombre del conductor" {...field} disabled={isTunelMode && watchedRecepcionPorPlaca} /></FormControl>
                               <FormMessage />
                             </FormItem>
                         )}/>
                         <FormField control={form.control} name="cedulaConductor" render={({ field }) => (
                             <FormItem>
                               <FormLabel>Cédula Conductor</FormLabel>
-                              <FormControl><Input placeholder="Número de cédula" {...field} inputMode="numeric" pattern="[0-9]*" /></FormControl>
+                              <FormControl><Input placeholder="Número de cédula" {...field} inputMode="numeric" pattern="[0-9]*" disabled={isTunelMode && watchedRecepcionPorPlaca} /></FormControl>
                               <FormMessage />
                             </FormItem>
                         )}/>
@@ -2204,3 +2225,4 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
+
