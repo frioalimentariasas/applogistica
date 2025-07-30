@@ -1,5 +1,3 @@
-
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
@@ -162,7 +160,7 @@ const formSchema = z.object({
     numeroOperariosCuadrilla: z.coerce.number().int().min(1, "Debe ser al menos 1.").optional(),
     unidadDeMedidaPrincipal: z.string().optional(),
 }).superRefine((data, ctx) => {
-      const isSpecialReception = data.tipoPedido === 'INGRESO DE SALDOS' || data.tipoPedido === 'TUNEL' || data.tipoPedido === 'TUNEL A CÁMARA CONGELADOS' || data.tipoPedido === 'MAQUILA';
+      const isSpecialReception = data.tipoPedido === 'INGRESO DE SALDOS' || data.tipoPedido === 'TUNEL' || data.tipoPedido === 'TUNEL A CÁMARA CONGELADOS' || data.tipoPedido === 'MAQUILA' || data.tipoPedido === 'TUNEL DE CONGELACIÓN';
 
       if (!isSpecialReception) {
         if (!data.conductor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El nombre del conductor es obligatorio.', path: ['conductor'] });
@@ -186,7 +184,7 @@ const formSchema = z.object({
           }
       }
 
-      if(data.tipoPedido === 'TUNEL') {
+      if(data.tipoPedido === 'TUNEL' || data.tipoPedido === 'TUNEL DE CONGELACIÓN') {
         if (data.recepcionPorPlaca && (!data.placas || data.placas.length === 0)) {
           ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Debe agregar al menos una placa.', path: ['placas'] });
         } else if (!data.recepcionPorPlaca && (!data.items || data.items.length === 0)) {
@@ -458,11 +456,20 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
   
   const watchedTipoPedido = useWatch({ control: form.control, name: 'tipoPedido' });
   const watchedRecepcionPorPlaca = useWatch({ control: form.control, name: 'recepcionPorPlaca' });
-  const isTunelMode = watchedTipoPedido === 'TUNEL';
+  const isTunelMode = watchedTipoPedido === 'TUNEL' || watchedTipoPedido === 'TUNEL DE CONGELACIÓN';
   const watchedAplicaCuadrilla = useWatch({ control: form.control, name: 'aplicaCuadrilla' });
   const watchedItems = useWatch({ control: form.control, name: "items" });
   const watchedPlacas = useWatch({ control: form.control, name: "placas" });
   const watchedObservations = useWatch({ control: form.control, name: "observaciones" });
+
+  useEffect(() => {
+    if (watchedTipoPedido === 'TUNEL DE CONGELACIÓN') {
+        if (!form.getValues('recepcionPorPlaca')) {
+            form.setValue('recepcionPorPlaca', true);
+            form.setValue('items', []);
+        }
+    }
+  }, [watchedTipoPedido, form]);
 
   useEffect(() => {
     if (isTunelMode && watchedRecepcionPorPlaca) {
@@ -696,7 +703,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
           
           form.reset(sanitizedFormData);
           
-          if (formData.tipoPedido === 'TUNEL') {
+          if (formData.tipoPedido === 'TUNEL' || formData.tipoPedido === 'TUNEL DE CONGELACIÓN') {
             form.setValue('items', []); // Ensure items is empty for TUNEL mode
           }
 
@@ -855,7 +862,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                     .filter(a => a.startsWith('data:image'))
                     .reduce((sum, base64) => sum + getByteSizeFromBase64(base64.split(',')[1]), 0);
 
-                if (existingImagesSize + newImagesSize > MAX_TOTAL_SIZE_BYTES) {
+                if (existingImagesSize + newImageSize > MAX_TOTAL_SIZE_BYTES) {
                     toast({
                         variant: "destructive",
                         title: "Límite de tamaño excedido",
@@ -947,7 +954,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
     try {
         const finalSummary = calculatedSummaryForDisplay.items.map(summaryItem => {
             const formItem = (data.summary || []).find(s => 
-              isTunelMode 
+              (isTunelMode && watchedRecepcionPorPlaca)
               ? s.descripcion === summaryItem.descripcion && s.placa === summaryItem.placa
               : s.descripcion === summaryItem.descripcion
             );
@@ -961,7 +968,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
         
         let dataWithFinalSummary = { ...data, summary: finalSummary };
         
-        const isSpecialReception = data.tipoPedido === "TUNEL" || data.tipoPedido === "INGRESO DE SALDOS" || data.tipoPedido === "MAQUILA" || data.tipoPedido === "TUNEL A CÁMARA CONGELADOS";
+        const isSpecialReception = data.tipoPedido === "TUNEL" || data.tipoPedido === "TUNEL DE CONGELACIÓN" || data.tipoPedido === "INGRESO DE SALDOS" || data.tipoPedido === "MAQUILA" || data.tipoPedido === "TUNEL A CÁMARA CONGELADOS";
         if(isSpecialReception) {
           dataWithFinalSummary = {
             ...dataWithFinalSummary,
@@ -1444,6 +1451,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                                     field.onChange(checked);
                                                     if (checked) form.setValue('items', []); else form.setValue('placas', []);
                                                 }}
+                                                disabled={watchedTipoPedido === 'TUNEL DE CONGELACIÓN'}
                                             />
                                         </FormControl>
                                         <div className="space-y-1 leading-none">
@@ -1532,7 +1540,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        {isTunelMode && watchedRecepcionPorPlaca && <TableHead>Placa</TableHead>}
+                                        {(isTunelMode && watchedRecepcionPorPlaca) && <TableHead>Placa</TableHead>}
                                         <TableHead>{isTunelMode ? 'Producto' : 'Descripción'}</TableHead>
                                         <TableHead className="w-[240px]">Temperaturas (°C)</TableHead>
                                         {!isTunelMode && <TableHead className="text-right">Total Paletas</TableHead>}
@@ -1545,7 +1553,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                         currentSummaryFields.map((summaryItem, summaryIndex) => {
                                            return (
                                             <TableRow key={summaryIndex}>
-                                                {isTunelMode && watchedRecepcionPorPlaca && (
+                                                {(isTunelMode && watchedRecepcionPorPlaca) && (
                                                     <TableCell className="font-medium">
                                                         <div className="bg-muted/50 p-2 rounded-md flex items-center h-10">
                                                             {summaryItem.placa}
@@ -1618,8 +1626,8 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                         </TableRow>
                                     )}
                                     <TableRow className="font-bold bg-muted hover:bg-muted">
-                                        <TableCell colSpan={(isTunelMode && watchedRecepcionPorPlaca) ? 3 : 2} className="text-right">TOTAL GENERAL:</TableCell>
-                                        {!isTunelMode && <TableCell className="text-right pl-4">{calculatedSummaryForDisplay.totalGeneralPaletas}</TableCell>}
+                                        <TableCell colSpan={(!isTunelMode || !watchedRecepcionPorPlaca) ? 3 : 2} className="text-right">TOTAL GENERAL:</TableCell>
+                                        {(!isTunelMode || !watchedRecepcionPorPlaca) && <TableCell className="text-right pl-4">{calculatedSummaryForDisplay.totalGeneralPaletas}</TableCell>}
                                         <TableCell className="text-right">{calculatedSummaryForDisplay.items.reduce((acc, item) => acc + (item.totalCantidad || 0), 0)}</TableCell>
                                         <TableCell className="text-right">{(calculatedSummaryForDisplay.items.reduce((acc, item) => acc + (item.totalPeso || 0), 0)).toFixed(2)}</TableCell>
                                     </TableRow>
