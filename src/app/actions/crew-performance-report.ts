@@ -45,9 +45,10 @@ const calculateDuration = (horaInicio: string, horaFin: string): number | null =
 };
 
 const calculateTotalKilos = (formType: string, formData: any): number => {
+    // For fixed weight, we must use BRUTO for settlement calculations
     if (formType.startsWith('fixed-weight-')) {
-        return (formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.pesoNetoKg) || 0), 0);
-    } 
+        return (formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.pesoBrutoKg) || 0), 0);
+    }
     
     if (formType.startsWith('variable-weight-')) {
         const items = formData.items || [];
