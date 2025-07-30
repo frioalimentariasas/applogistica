@@ -167,7 +167,7 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
         }
     }
 
-    // --- Concept: CARGUE / DESCARGUE (By Ton) ---
+    // --- Concept: CARGUE / DESCARGUE (By Ton for GENERICO and TUNEL DE CONGELACIÓN) ---
     const isGenericOrTunel = formData.tipoPedido === 'GENERICO' || formData.tipoPedido === 'DESPACHO GENERICO' || formData.tipoPedido === 'TUNEL DE CONGELACIÓN';
     if (formData.aplicaCuadrilla === 'si' && isGenericOrTunel) {
         const isReception = formType.includes('recepcion') || formType.includes('reception');
@@ -210,6 +210,28 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
                     quantity: quantity,
                     unitOfMeasure: maquilaConcept.unitOfMeasure,
                     totalValue: quantity * maquilaConcept.value
+                });
+            }
+        }
+    }
+
+    // --- Concept: SALIDA PALETAS TUNEL ---
+    if (formData.tipoPedido === 'TUNEL A CÁMARA CONGELADOS') {
+        const salidaTunelObservation = observations.find(
+            (obs: any) => obs.type === 'SALIDA PALETAS TUNEL'
+        );
+        if (salidaTunelObservation && salidaTunelObservation.quantity > 0) {
+            const salidaTunelConcept = billingConcepts.find(
+                c => c.conceptName === 'SALIDA PALETAS TUNEL' && c.unitOfMeasure === 'PALETA'
+            );
+            if (salidaTunelConcept) {
+                const totalPallets = Number(salidaTunelObservation.quantity) || 0;
+                settlements.push({
+                    conceptName: 'SALIDA PALETAS TUNEL',
+                    unitValue: salidaTunelConcept.value,
+                    quantity: totalPallets,
+                    unitOfMeasure: 'PALETA',
+                    totalValue: totalPallets * salidaTunelConcept.value,
                 });
             }
         }
