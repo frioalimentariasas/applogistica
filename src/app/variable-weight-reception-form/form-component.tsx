@@ -175,6 +175,10 @@ const formSchema = z.object({
         if (!data.precinto?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El precinto es obligatorio.', path: ['precinto'] });
         if (!data.contenedor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El contenedor es obligatorio.', path: ['contenedor'] });
         if (data.setPoint === null || data.setPoint === undefined) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El Set Point es obligatorio.', path: ['setPoint'] });
+      } else {
+        if (data.cedulaConductor && !isTunelCongelacion && !/^[0-9]*$/.test(data.cedulaConductor)) {
+           ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'La cédula solo puede contener números.', path: ['cedulaConductor'] });
+        }
       }
 
       if (data.tipoPedido !== 'INGRESO DE SALDOS' && data.tipoPedido !== 'TUNEL A CÁMARA CONGELADOS' && !data.aplicaCuadrilla) {
@@ -1636,7 +1640,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                         {(isTunelMode && watchedRecepcionPorPlaca) && <TableHead>Placa</TableHead>}
                                         <TableHead>{isTunelMode ? 'Producto' : 'Descripción'}</TableHead>
                                         <TableHead className="w-[240px]">Temperaturas (°C) <span className="text-destructive">*</span></TableHead>
-                                        {!isTunelMode && <TableHead className="text-right">Total Paletas</TableHead>}
+                                        <TableHead className="text-right">Total Paletas</TableHead>
                                         <TableHead className="text-right">Total Cantidad</TableHead>
                                         <TableHead className="text-right">Total Peso (kg)</TableHead>
                                     </TableRow>
@@ -1644,6 +1648,9 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                 <TableBody>
                                     {form.getValues('summary')?.length > 0 ? (
                                         form.getValues('summary')?.map((summaryItem, summaryIndex) => {
+                                           const itemData = calculatedSummaryForDisplay.items.find(i => (
+                                                isTunelMode && watchedRecepcionPorPlaca && (i as any).placa ? `${(i as any).placa}|${i.descripcion}` : i.descripcion
+                                           ) === (summaryItem.placa ? `${summaryItem.placa}|${summaryItem.descripcion}`: summaryItem.descripcion));
                                            return (
                                             <TableRow key={summaryIndex}>
                                                 {(isTunelMode && watchedRecepcionPorPlaca) && (
@@ -1692,35 +1699,33 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                                                 )} />
                                                         </div>
                                                 </TableCell>
-                                                {!isTunelMode &&
-                                                    <TableCell className="text-right">
-                                                      <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
-                                                        {summaryItem.totalPaletas || 0}
-                                                      </div>
-                                                    </TableCell>
-                                                }
+                                                <TableCell className="text-right">
+                                                    <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
+                                                        {itemData?.totalPaletas || 0}
+                                                    </div>
+                                                </TableCell>
                                                 <TableCell className="text-right">
                                                   <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
-                                                    {summaryItem.totalCantidad || 0}
+                                                    {itemData?.totalCantidad || 0}
                                                   </div>
                                                 </TableCell>
                                                 <TableCell className="text-right">
                                                   <div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">
-                                                    {(summaryItem.totalPeso || 0).toFixed(2)}
+                                                    {(itemData?.totalPeso || 0).toFixed(2)}
                                                   </div>
                                                 </TableCell>
                                             </TableRow>
                                         )})
                                     ) : (
                                         <TableRow>
-                                            <TableCell colSpan={5} className="h-24 text-center">
+                                            <TableCell colSpan={6} className="h-24 text-center">
                                                 Agregue ítems para ver el resumen.
                                             </TableCell>
                                         </TableRow>
                                     )}
                                     <TableRow className="font-bold bg-muted hover:bg-muted">
                                         <TableCell colSpan={(isTunelMode && watchedRecepcionPorPlaca) ? 3 : 2} className="text-right">TOTAL GENERAL:</TableCell>
-                                        {!isTunelMode && <TableCell className="text-right pl-4">{calculatedSummaryForDisplay.totalGeneralPaletas}</TableCell>}
+                                        <TableCell className="text-right pl-4">{calculatedSummaryForDisplay.totalGeneralPaletas}</TableCell>
                                         <TableCell className="text-right">{calculatedSummaryForDisplay.items.reduce((acc, item) => acc + (item.totalCantidad || 0), 0)}</TableCell>
                                         <TableCell className="text-right">{(calculatedSummaryForDisplay.items.reduce((acc, item) => acc + (item.totalPeso || 0), 0)).toFixed(2)}</TableCell>
                                     </TableRow>
@@ -2265,5 +2270,6 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
+
 
 
