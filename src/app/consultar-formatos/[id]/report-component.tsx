@@ -287,7 +287,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         const isOther = obs.type === 'OTRAS OBSERVACIONES';
                         let typeText = obs.customType || obs.type;
                         
-                        if (!isOther && obs.executedByGrupoRosales === true) {
+                        if (!isOther && (obs.type === 'REESTIBADO' || obs.type === 'TRANSBORDO CANASTILLA' || obs.type === 'SALIDA PALETAS TUNEL') && obs.executedByGrupoRosales === true) {
                             typeText += " (Realizado por Cuadrilla)";
                         }
 
@@ -359,15 +359,15 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             formData.documentoTransporte || 'N/A',
                             {content: 'Factura/Remisión:', styles: {fontStyle: 'bold'}},
                             formData.facturaRemision || 'N/A',
-                            {content: !isReception ? 'Tipo Pedido:' : '', styles: {fontStyle: 'bold'}},
-                            !isReception ? formatTipoPedido(formData.tipoPedido) : ''
+                            {content: 'Tipo Pedido:', styles: {fontStyle: 'bold'}},
+                            formatTipoPedido(formData.tipoPedido)
                         ]
                 ];
                 
-                if (isReception) {
+                if (isReception && formData.tipoPedido === 'MAQUILA') {
                     generalInfoBody.push([
                          {
-                            content: `Tipo Pedido: ${formData.tipoPedido || 'N/A'}${formData.tipoPedido === 'MAQUILA' ? ` (${formData.tipoEmpaqueMaquila || 'N/A'})` : ''}`,
+                            content: `Tipo Empaque: ${formData.tipoEmpaqueMaquila || 'N/A'}`,
                             styles: {fontStyle: 'bold'},
                             colSpan: 6
                         }
@@ -520,7 +520,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
             } else if (formType.startsWith('variable-weight-')) {
                  const isReception = formType.includes('recepcion') || formType.includes('reception');
                  const operationTerm = isReception ? 'Descargue' : 'Cargue';
-                 const isTunelMode = formData.tipoPedido === 'TUNEL' && formData.recepcionPorPlaca;
+                 const isTunelModeByPlate = (formData.tipoPedido === 'TUNEL' || formData.tipoPedido === 'TUNEL DE CONGELACIÓN') && formData.recepcionPorPlaca;
                  
                  const generalInfoBody: any[][] = [
                      [
@@ -546,13 +546,11 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                       ],
                  ];
                  
-                if (isReception) {
+                if (isReception && (formData.tipoPedido === 'MAQUILA' || formData.tipoPedido === 'TUNEL' || formData.tipoPedido === 'TUNEL A CÁMARA CONGELADOS' || formData.tipoPedido === 'TUNEL DE CONGELACIÓN')) {
+                    const tipoPedidoText = `Tipo Pedido: ${formData.tipoPedido || 'N/A'}`;
+                    const maquilaText = formData.tipoPedido === 'MAQUILA' ? ` (${formData.tipoEmpaqueMaquila || 'N/A'})` : '';
                     generalInfoBody.push([
-                        {
-                            content: `Tipo Pedido: ${formData.tipoPedido || 'N/A'}${formData.tipoPedido === 'MAQUILA' ? ` (${formData.tipoEmpaqueMaquila || 'N/A'})` : ''}`,
-                            styles: {fontStyle: 'bold'},
-                            colSpan: 6
-                        }
+                        { content: `${tipoPedidoText}${maquilaText}`, styles: { fontStyle: 'bold' }, colSpan: 6 }
                     ]);
                 }
 
@@ -600,33 +598,14 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     let detailBody: any[][];
 
                     if (!isSummaryFormat) {
-                        let headCols = ['Paleta', 'Descripción', 'Lote', 'Presentación', 'Cant.', 'P. Bruto', 'T. Estiba', 'T. Caja', 'Total Tara', 'P. Neto'];
-                        if (isReception && isTunelMode) {
-                            headCols = ['Conductor', 'Cédula', 'Descripción', 'Lote', 'Presentación', 'Cant.', 'P. Bruto', 'T. Estiba', 'T. Caja', 'Total Tara', 'P. Neto'];
-                        } else if (isTunelMode) {
-                            headCols = ['Descripción', 'Lote', 'Presentación', 'Cant.', 'P. Bruto', 'T. Estiba', 'T. Caja', 'Total Tara', 'P. Neto'];
-                        }
-
-                        detailHead = [headCols];
-                        detailBody = items.map((p: any) => {
-                            let row = [
-                                p.paleta, p.descripcion, p.lote, p.presentacion, p.cantidadPorPaleta,
-                                p.pesoBruto?.toFixed(2), p.taraEstiba?.toFixed(2), p.taraCaja?.toFixed(2),
-                                p.totalTaraCaja?.toFixed(2), p.pesoNeto?.toFixed(2)
-                            ];
-
-                            if (isReception && isTunelMode) {
-                                // Find placa data for this item
-                                const placa = formData.placas.find((pl: any) => pl.items.some((i: any) => i === p));
-                                row.unshift(placa?.cedulaConductor || 'N/A');
-                                row.unshift(placa?.conductor || 'N/A');
-                            }
-                            if (isTunelMode && !isReception) {
-                                row.shift(); // remove paleta number for non-reception tunel
-                            }
-
-                            return row;
-                        });
+                        detailHead = [isTunelModeByPlate ? 
+                            ['Descripción', 'Lote', 'Presentación', 'Cant.', 'P. Bruto', 'T. Estiba', 'T. Caja', 'Total Tara', 'P. Neto'] :
+                            ['Paleta', 'Descripción', 'Lote', 'Presentación', 'Cant.', 'P. Bruto', 'T. Estiba', 'T. Caja', 'Total Tara', 'P. Neto']
+                        ];
+                        detailBody = items.map((p: any) => isTunelModeByPlate ?
+                            [p.descripcion, p.lote, p.presentacion, p.cantidadPorPaleta, p.pesoBruto?.toFixed(2), p.taraEstiba?.toFixed(2), p.taraCaja?.toFixed(2), p.totalTaraCaja?.toFixed(2), p.pesoNeto?.toFixed(2)] :
+                            [p.paleta, p.descripcion, p.lote, p.presentacion, p.cantidadPorPaleta, p.pesoBruto?.toFixed(2), p.taraEstiba?.toFixed(2), p.taraCaja?.toFixed(2), p.totalTaraCaja?.toFixed(2), p.pesoNeto?.toFixed(2)]
+                        );
                     } else {
                         detailHead = [['Descripción', 'Lote', 'Presentación', 'Total Cant.', 'Total Paletas', 'Total P. Neto']];
                         detailBody = items.map((p: any) => [
@@ -687,13 +666,13 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     }
                 };
                 
-                if (formData.despachoPorDestino && formData.destinos?.length > 0) {
-                    formData.destinos.forEach((destino: any) => {
+                if (formData.despachoPorDestino) {
+                    (formData.destinos || []).forEach((destino: any) => {
                         drawItemsTable(destino.items || [], `Destino: ${destino.nombreDestino}`);
                     });
                     yPos += 15;
-                } else if(isTunelMode && formData.placas?.length > 0) {
-                    formData.placas.forEach((placa: any) => {
+                } else if(isTunelModeByPlate) {
+                    (formData.placas || []).forEach((placa: any) => {
                         drawItemsTable(placa.items || [], `Placa: ${placa.numeroPlaca} | Conductor: ${placa.conductor} (C.C. ${placa.cedulaConductor})`);
                     });
                     yPos += 15;
@@ -702,21 +681,13 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     yPos += 15;
                 }
                 
-                const allItemsForSummary = formData.summary || [];
-                
+                const allItemsForSummary = (formData.summary || []);
                 const isSummaryFormat = formData.items.some((p: any) => Number(p.paleta) === 0);
                 
-                const totalGeneralPeso = allItemsForSummary.reduce((acc: number, p: any) => acc + (p.totalPeso || 0), 0);
-                const totalGeneralCantidad = allItemsForSummary.reduce((acc: number, p: any) => acc + (p.totalCantidad || 0), 0);
-                const totalGeneralPaletas = allItemsForSummary.reduce((acc: number, p: any) => acc + (p.totalPaletas || 0), 0);
-                
-                if (recalculatedSummary.length > 0) {
-                     const isIndividualPalletMode = allItemsForSummary.every((item: any) => Number(item?.paleta) > 0);
-                    const shouldGroupByDestino = formData.despachoPorDestino && isIndividualPalletMode;
-
+                if (allItemsForSummary.length > 0) {
                     let tempDoc = new jsPDF();
                     autoTable(tempDoc, {
-                        head: [['temp']], body: Array(recalculatedSummary.length + 2).fill(['temp'])
+                        head: [['temp']], body: Array(allItemsForSummary.length + 2).fill(['temp'])
                     });
                     const tableHeight = (tempDoc as any).lastAutoTable.finalY;
                     const remainingSpace = pageHeight - yPos - margin - 40;
@@ -736,34 +707,25 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     });
                     yPos = (doc as any).autoTable.previous.finalY;
 
-                    let summaryHead: string[] = [];
-                    if (shouldGroupByDestino) summaryHead.push('Destino');
-                    if (isTunelMode) summaryHead.push('Placa');
-                    summaryHead.push('Descripción', 'Temp(°C)', 'Total Cantidad');
-                    if (!isSummaryFormat) summaryHead.push('Total Paletas');
-                    summaryHead.push('Total Peso (kg)');
+                    const summaryHead = [isTunelModeByPlate ? 'Placa' : null, 'Descripción', 'Temp(°C)', 'Total Cantidad', isSummaryFormat ? null : 'Total Paletas', 'Total Peso (kg)'].filter(Boolean) as string[];
                     
-                    const summaryBody = recalculatedSummary.map((p: any) => {
-                        const row: any[] = [];
-                        if (shouldGroupByDestino) row.push(p.destino);
-                        if (isTunelMode) row.push(p.placa);
+                    const summaryBody = allItemsForSummary.map((p: any) => {
                         const temps = [p.temperatura1, p.temperatura2, p.temperatura3].filter(t => t != null && !isNaN(t));
-                        row.push(
-                            p.descripcion, 
-                            p.temperatura ?? temps.join(' / '),
-                            p.totalCantidad
-                        );
-                        if (!isSummaryFormat) row.push(p.totalPaletas);
+                        const row: any[] = [];
+                        if (isTunelModeByPlate) row.push(p.placa);
+                        row.push(p.descripcion, temps.join(' / '), p.totalCantidad);
+                        if(!isSummaryFormat) row.push(p.totalPaletas);
                         row.push(p.totalPeso?.toFixed(2));
                         return row;
                     });
                     
+                    const totalGeneralPeso = allItemsForSummary.reduce((acc: number, p: any) => acc + (p.totalPeso || 0), 0);
+                    const totalGeneralCantidad = allItemsForSummary.reduce((acc: number, p: any) => acc + (p.totalCantidad || 0), 0);
+                    const totalGeneralPaletas = isSummaryFormat ? allItemsForSummary.reduce((acc: number, p: any) => acc + (p.totalPaletas || 0), 0) : Array.from(new Set(formData.items.map((i: any) => i.paleta))).length;
+                    
                     const footColSpan = summaryHead.length - 3;
-                    const footRow = [
-                        { content: 'TOTALES:', colSpan: footColSpan, styles: { halign: 'right', fontStyle: 'bold' } },
-                        totalGeneralCantidad,
-                    ];
-                    if (!isSummaryFormat) footRow.push(totalGeneralPaletas);
+                    const footRow: any[] = [{ content: 'TOTALES:', colSpan: footColSpan, styles: { halign: 'right', fontStyle: 'bold' } }, totalGeneralCantidad];
+                    if(!isSummaryFormat) footRow.push(totalGeneralPaletas);
                     footRow.push(totalGeneralPeso.toFixed(2));
 
                     autoTable(doc, {

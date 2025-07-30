@@ -63,7 +63,12 @@ interface VariableWeightReceptionReportProps {
 export function VariableWeightReceptionReport({ formData, userDisplayName, attachments }: VariableWeightReceptionReportProps) {
     const isTunelMode = formData.tipoPedido === 'TUNEL' || formData.tipoPedido === 'TUNEL DE CONGELACIÓN';
     const recepcionPorPlaca = formData.recepcionPorPlaca === true;
-    const itemsForCalculation = (isTunelMode && recepcionPorPlaca) ? (formData.placas || []).flatMap((p: any) => p.items.map((i: any) => ({ ...i, placa: p.numeroPlaca }))) : formData.items;
+    const isStandardTunel = isTunelMode && !recepcionPorPlaca;
+
+    const itemsForCalculation = (isTunelMode && recepcionPorPlaca) 
+        ? (formData.placas || []).flatMap((p: any) => p.items.map((i: any) => ({ ...i, placa: p.numeroPlaca }))) 
+        : formData.items;
+
     const isSummaryFormat = (formData.items || []).some((p: any) => Number(p.paleta) === 0);
 
     const recalculatedSummary = (() => {
@@ -201,7 +206,7 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                             </div>
                         ))
                     ) : (
-                        <ItemsTable items={formData.items || []} isSummaryFormat={isSummaryFormat} isTunel={false}/>
+                        <ItemsTable items={formData.items || []} isSummaryFormat={isSummaryFormat} isTunel={isStandardTunel}/>
                     )}
                 </div>
             </ReportSection>
