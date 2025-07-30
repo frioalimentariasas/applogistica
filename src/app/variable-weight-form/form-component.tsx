@@ -947,12 +947,12 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
             try {
                 const optimizedImage = await optimizeImage(dataUrl);
 
-                const newImagesSize = getByteSizeFromBase64(optimizedImage.split(',')[1]);
+                const newImageSize = getByteSizeFromBase64(optimizedImage.split(',')[1]);
                 const existingImagesSize = attachments
                     .filter(a => a.startsWith('data:image'))
                     .reduce((sum, base64) => sum + getByteSizeFromBase64(base64.split(',')[1]), 0);
 
-                if (existingImagesSize + newImagesSize > MAX_TOTAL_SIZE_BYTES) {
+                if (existingImagesSize + newImageSize > MAX_TOTAL_SIZE_BYTES) {
                     toast({
                         variant: "destructive",
                         title: "Límite de tamaño excedido",
@@ -1556,7 +1556,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                                                     <Input 
                                                         type="number" 
                                                         placeholder="0" 
-                                                        {...field}
+                                                        {...field} 
                                                         onChange={e => field.onChange(parseInt(e.target.value, 10) || undefined)}
                                                         value={field.value ?? ''}
                                                     />
@@ -1709,7 +1709,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                                 const selectedObservation = watchedObservations?.[index];
                                 const stdObsData = standardObservations.find(obs => obs.name === selectedObservation?.type);
                                 const isOtherType = selectedObservation?.type === 'OTRAS OBSERVACIONES';
-                                const showCrewCheckbox = selectedObservation?.type === 'REESTIBADO' || selectedObservation?.type === 'TRANSBORDO CANASTILLA';
+                                const showCrewCheckbox = selectedObservation?.type === 'REESTIBADO' || selectedObservation?.type === 'TRANSBORDO CANASTILLA' || selectedObservation?.type === 'SALIDA PALETAS TUNEL';
                                 return (
                                 <div key={field.id} className="p-4 border rounded-lg relative bg-white space-y-4">
                                     <Button
@@ -2179,6 +2179,7 @@ function PedidoTypeSelectorDialog({
 }
 
     
+
 
 
 

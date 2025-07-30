@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
@@ -515,18 +516,22 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
           const key = `${item.placa}|${item.descripcion}`;
           
           if (!acc[key]) {
+              const summaryItem = form.getValues('summary')?.find((s: any) => s.descripcion === item.descripcion && s.placa === item.placa);
               acc[key] = {
                   placa: item.placa,
                   descripcion: item.descripcion,
                   totalPeso: 0,
                   totalCantidad: 0,
+                  temperatura1: summaryItem?.temperatura1,
+                  temperatura2: summaryItem?.temperatura2,
+                  temperatura3: summaryItem?.temperatura3,
               };
           }
           acc[key].totalPeso += Number(item.pesoNeto) || 0;
           acc[key].totalCantidad += Number(item.cantidadPorPaleta) || 0;
           
           return acc;
-      }, {} as Record<string, { placa: string; descripcion: string; totalPeso: number; totalCantidad: number; }>);
+      }, {} as Record<string, { placa: string; descripcion: string; totalPeso: number; totalCantidad: number; temperatura1: any; temperatura2: any; temperatura3: any; }>);
       
       return { items: Object.values(groupedByPlacaAndDesc), totalGeneralPaletas: 0 };
     }
@@ -536,11 +541,15 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
         const desc = item.descripcion.trim();
 
         if (!acc[desc]) {
+            const summaryItem = form.getValues('summary')?.find((s: any) => s.descripcion === desc);
             acc[desc] = {
                 descripcion: desc,
                 totalPeso: 0,
                 totalCantidad: 0,
                 paletas: new Set<number>(),
+                temperatura1: summaryItem?.temperatura1 ?? summaryItem?.temperatura,
+                temperatura2: summaryItem?.temperatura2,
+                temperatura3: summaryItem?.temperatura3,
             };
         }
 
@@ -558,7 +567,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
         }
         
         return acc;
-    }, {} as Record<string, { descripcion: string; totalPeso: number; totalCantidad: number; paletas: Set<number>; }>);
+    }, {} as Record<string, { descripcion: string; totalPeso: number; totalCantidad: number; paletas: Set<number>; temperatura1: any; temperatura2: any; temperatura3: any; }>);
 
     const items = Object.values(grouped).map(group => ({
         descripcion: group.descripcion,
@@ -567,13 +576,16 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
         totalPaletas: group.paletas.has(0)
             ? (itemsForCalculation || []).filter(item => item.descripcion === group.descripcion && Number(item.paleta) === 0).reduce((sum, item) => sum + (Number(item.totalPaletas) || 0), 0)
             : group.paletas.size,
+        temperatura1: group.temperatura1,
+        temperatura2: group.temperatura2,
+        temperatura3: group.temperatura3,
     }));
     
     const totalGeneralPaletas = items.reduce((acc, item) => acc + (item.totalPaletas || 0), 0);
     
     return { items, totalGeneralPaletas };
 
-  }, [itemsForCalculation, isTunelMode, watchedRecepcionPorPlaca, watchedPlacas]);
+  }, [itemsForCalculation, isTunelMode, watchedRecepcionPorPlaca, watchedPlacas, form]);
 
   const currentSummaryFields = useMemo(() => {
     const currentSummaryInForm = form.getValues('summary') || [];
@@ -1658,7 +1670,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                 const selectedObservation = watchedObservations?.[index];
                                 const stdObsData = standardObservations.find(obs => obs.name === selectedObservation?.type);
                                 const isOtherType = selectedObservation?.type === 'OTRAS OBSERVACIONES';
-                                const showCrewCheckbox = selectedObservation?.type === 'REESTIBADO' || selectedObservation?.type === 'TRANSBORDO CANASTILLA';
+                                const showCrewCheckbox = selectedObservation?.type === 'REESTIBADO' || selectedObservation?.type === 'TRANSBORDO CANASTILLA' || selectedObservation?.type === 'SALIDA PALETAS TUNEL';
                                 return (
                                 <div key={field.id} className="p-4 border rounded-lg relative bg-white space-y-4">
                                     <Button
@@ -2154,6 +2166,7 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
+
 
 
 

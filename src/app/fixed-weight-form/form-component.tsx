@@ -1293,7 +1293,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                        const selectedObservation = watchedObservations?.[index];
                        const stdObsData = standardObservations.find(obs => obs.name === selectedObservation?.type);
                        const isOtherType = selectedObservation?.type === 'OTRAS OBSERVACIONES';
-                       const showCrewCheckbox = selectedObservation?.type === 'REESTIBADO' || selectedObservation?.type === 'TRANSBORDO CANASTILLA';
+                       const showCrewCheckbox = selectedObservation?.type === 'REESTIBADO' || selectedObservation?.type === 'TRANSBORDO CANASTILLA' || selectedObservation?.type === 'SALIDA PALETAS TUNEL';
                        
                        return (
                         <div key={field.id} className="p-4 border rounded-lg relative bg-white space-y-4">
@@ -1789,6 +1789,7 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
+
 
 
 
