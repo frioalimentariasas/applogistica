@@ -162,7 +162,7 @@ const formSchema = z.object({
     numeroOperariosCuadrilla: z.coerce.number().int().min(1, "Debe ser al menos 1.").optional(),
     unidadDeMedidaPrincipal: z.string().optional(),
 }).superRefine((data, ctx) => {
-      const isSpecialReception = data.tipoPedido === 'INGRESO DE SALDOS' || data.tipoPedido === 'TUNEL' || data.tipoPedido === 'MAQUILA';
+      const isSpecialReception = data.tipoPedido === 'INGRESO DE SALDOS' || data.tipoPedido === 'TUNEL' || data.tipoPedido === 'TUNEL A CÁMARA CONGELADOS' || data.tipoPedido === 'MAQUILA';
 
       if (!isSpecialReception) {
         if (!data.conductor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El nombre del conductor es obligatorio.', path: ['conductor'] });
@@ -173,7 +173,7 @@ const formSchema = z.object({
         if (data.setPoint === null || data.setPoint === undefined) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El Set Point es obligatorio.', path: ['setPoint'] });
       }
 
-      if (data.tipoPedido !== 'INGRESO DE SALDOS' && !data.aplicaCuadrilla) {
+      if (data.tipoPedido !== 'INGRESO DE SALDOS' && data.tipoPedido !== 'TUNEL A CÁMARA CONGELADOS' && !data.aplicaCuadrilla) {
           ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Seleccione una opción para 'Operación Realizada por Cuadrilla'.", path: ['aplicaCuadrilla'] });
       }
 
@@ -491,7 +491,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
   }, [itemsForCalculation]);
 
   useEffect(() => {
-    if (watchedTipoPedido === 'INGRESO DE SALDOS') {
+    if (watchedTipoPedido === 'INGRESO DE SALDOS' || watchedTipoPedido === 'TUNEL A CÁMARA CONGELADOS') {
       if (form.getValues('aplicaCuadrilla') !== undefined) {
         form.setValue('aplicaCuadrilla', undefined);
       }
@@ -850,7 +850,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
             try {
                 const optimizedImage = await optimizeImage(dataUrl);
 
-                const newImagesSize = getByteSizeFromBase64(optimizedImage.split(',')[1]);
+                const newImageSize = getByteSizeFromBase64(optimizedImage.split(',')[1]);
                 const existingImagesSize = attachments
                     .filter(a => a.startsWith('data:image'))
                     .reduce((sum, base64) => sum + getByteSizeFromBase64(base64.split(',')[1]), 0);
@@ -961,7 +961,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
         
         let dataWithFinalSummary = { ...data, summary: finalSummary };
         
-        const isSpecialReception = data.tipoPedido === "TUNEL" || data.tipoPedido === "INGRESO DE SALDOS" || data.tipoPedido === "MAQUILA";
+        const isSpecialReception = data.tipoPedido === "TUNEL" || data.tipoPedido === "INGRESO DE SALDOS" || data.tipoPedido === "MAQUILA" || data.tipoPedido === "TUNEL A CÁMARA CONGELADOS";
         if(isSpecialReception) {
           dataWithFinalSummary = {
             ...dataWithFinalSummary,
@@ -1155,7 +1155,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
             onSelect={(articulo) => {
                 if (productDialogContext) {
                     const { itemIndex, placaIndex } = productDialogContext;
-                    const basePath = isTunelMode ? `placas.${placaIndex}.items` : 'items';
+                    const basePath = (isTunelMode && placaIndex !== undefined) ? `placas.${placaIndex}.items` : 'items';
                     form.setValue(`${basePath}.${itemIndex}.descripcion`, articulo.denominacionArticulo);
                     form.setValue(`${basePath}.${itemIndex}.codigo`, articulo.codigoProducto);
                 }
@@ -1797,7 +1797,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                 <FormControl><Input disabled value={submissionId ? originalSubmission?.userDisplayName : displayName || ''} /></FormControl>
                             </FormItem>
                         )}
-                        {watchedTipoPedido !== 'INGRESO DE SALDOS' && (
+                        {watchedTipoPedido !== 'INGRESO DE SALDOS' && watchedTipoPedido !== 'TUNEL A CÁMARA CONGELADOS' && (
                             <>
                                 <FormField
                                     control={form.control}
@@ -2166,11 +2166,3 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
-
-
-
-
-
-
-
-
