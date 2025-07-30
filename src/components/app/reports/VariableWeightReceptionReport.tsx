@@ -61,11 +61,12 @@ interface VariableWeightReceptionReportProps {
 
 export function VariableWeightReceptionReport({ formData, userDisplayName, attachments }: VariableWeightReceptionReportProps) {
     const isTunelMode = formData.tipoPedido === 'TUNEL';
-    const itemsForCalculation = isTunelMode ? (formData.placas || []).flatMap((p: any) => p.items.map((i: any) => ({ ...i, placa: p.numeroPlaca }))) : formData.items;
+    const recepcionPorPlaca = formData.recepcionPorPlaca === true;
+    const itemsForCalculation = (isTunelMode && recepcionPorPlaca) ? (formData.placas || []).flatMap((p: any) => p.items.map((i: any) => ({ ...i, placa: p.numeroPlaca }))) : formData.items;
     const isSummaryFormat = (formData.items || []).some((p: any) => Number(p.paleta) === 0);
 
     const recalculatedSummary = (() => {
-        if (isTunelMode) {
+        if (isTunelMode && recepcionPorPlaca) {
              const groupedByPlacaAndDesc = itemsForCalculation.reduce((acc, item) => {
                 if (!item?.descripcion?.trim() || !item?.placa?.trim()) return acc;
                 const key = `${item.placa}|${item.descripcion}`;
@@ -189,7 +190,7 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
             
             <ReportSection title="Detalle de la Recepción" noPadding>
                 <div style={{overflowX: 'auto'}}>
-                    {isTunelMode ? (
+                    {(isTunelMode && recepcionPorPlaca) ? (
                         (formData.placas || []).map((placa: any, placaIndex: number) => (
                              <div key={placaIndex} style={{ marginBottom: '10px', breakInside: 'avoid', pageBreakInside: 'avoid' }}>
                                 <div style={{ backgroundColor: '#f1f5f9', padding: '6px 12px', fontWeight: 'bold', borderBottom: '1px solid #ddd', borderTop: placaIndex > 0 ? '1px solid #aaa' : 'none' }}>
@@ -257,7 +258,7 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                         <tbody>
                             {formData.observaciones.map((obs: any, i: number) => {
                                 const isOther = obs.type === 'OTRAS OBSERVACIONES';
-                                const showCrewCheckbox = obs.type === 'REESTIBADO' || obs.type === 'TRANSBORDO CANASTILLA';
+                                const showCrewCheckbox = obs.type === 'REESTIBADO' || obs.type === 'TRANSBORDO CANASTILLA' || obs.type === 'SALIDA PALETAS TUNEL';
                                 return (
                                 <tr key={i} style={{ borderBottom: '1px solid #ddd' }}>
                                     {isOther ? (

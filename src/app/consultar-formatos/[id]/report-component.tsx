@@ -288,24 +288,23 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         if (isOther) {
                             return [{ 
                                 content: `OTRAS OBSERVACIONES: ${obs.customType || ''}`,
-                                colSpan: 3,
+                                colSpan: 2,
                                 styles: { halign: 'left', fontStyle: 'normal' }
                             }];
                         } else {
-                            const typeText = { content: obs.type, styles: { fontStyle: 'bold' } };
+                            const showCrewCheckbox = obs.type === 'REESTIBADO' || obs.type === 'TRANSBORDO CANASTILLA' || obs.type === 'SALIDA PALETAS TUNEL';
+                            let typeText = obs.type;
+                            if (showCrewCheckbox && obs.executedByGrupoRosales) {
+                                typeText += " (Realizado por Cuadrilla)";
+                            }
                             const quantityText = `${obs.quantity ?? ''} ${obs.quantityType || ''}`.trim();
-                            const executedText = obs.executedByGrupoRosales ? 'Sí' : 'No';
-                            return [
-                                typeText,
-                                { content: quantityText, styles: { halign: 'right' } },
-                                { content: executedText, styles: { halign: 'center' } }
-                            ];
+                            return [typeText, { content: quantityText, styles: { halign: 'right' } }];
                         }
                     });
 
                     autoTable(doc, {
                         startY: yPos,
-                        head: [[{ content: 'Observaciones', colSpan: 3, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]],
+                        head: [[{ content: 'Observaciones', colSpan: 2, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]],
                         body: [],
                         theme: 'grid',
                         margin: { horizontal: margin },
@@ -314,7 +313,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     
                     autoTable(doc, {
                         startY: (doc as any).autoTable.previous.finalY,
-                        head: [['Tipo de Observación', 'Cantidad', 'Ejecutado por Grupo Rosales']],
+                        head: [['Tipo de Observación', 'Cantidad']],
                         body: obsBody,
                         theme: 'grid',
                         margin: { horizontal: margin },
@@ -323,7 +322,6 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         columnStyles: {
                             0: { cellWidth: '*' },
                             1: { cellWidth: 'auto', halign: 'right' },
-                            2: { cellWidth: 'auto', halign: 'center' },
                         },
                     });
 
@@ -529,11 +527,11 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         {content: 'Cliente:', styles: {fontStyle: 'bold'}}, formData.cliente || 'N/A',
                         {content: 'Fecha:', styles: {fontStyle: 'bold'}}, formData.fecha ? format(new Date(formData.fecha), "dd/MM/yyyy") : 'N/A'
                      ],
-                     [
+                      [
                         {content: 'Conductor:', styles: {fontStyle: 'bold'}}, formData.conductor || 'N/A',
                         {content: 'Cédula:', styles: {fontStyle: 'bold'}}, formData.cedulaConductor || 'N/A',
                         {content: 'Placa:', styles: {fontStyle: 'bold'}}, formData.placa || 'N/A'
-                     ],
+                      ],
                       [
                         {content: 'Precinto:', styles: {fontStyle: 'bold'}}, formData.precinto || 'N/A',
                         {content: 'Set Point (°C):', styles: {fontStyle: 'bold'}}, formatOptionalNumber(formData.setPoint),
@@ -674,7 +672,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         drawItemsTable(destino.items || [], `Destino: ${destino.nombreDestino}`);
                     });
                     yPos += 15;
-                } else if(isTunelMode && formData.placas?.length > 0) {
+                } else if(isTunelMode && formData.recepcionPorPlaca && formData.placas?.length > 0) {
                     formData.placas.forEach((placa: any) => {
                         drawItemsTable(placa.items || [], `Placa: ${placa.numeroPlaca}`);
                     });
@@ -738,7 +736,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     const shouldGroupByDestino = formData.despachoPorDestino && isIndividualPalletMode;
 
                     const summaryHead = [
-                        { content: 'Resumen de Productos', colSpan: shouldGroupByDestino ? 6 : 5, styles: { halign: 'center', fillColor: '#e2e8f0' } },
+                        { content: 'Resumen de Productos', colSpan: shouldGroupByDestino ? 5 : 4, styles: { halign: 'center', fillColor: '#e2e8f0' } },
                     ];
                     
                     const summarySubHead = [
@@ -759,15 +757,15 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         return row;
                     });
                     
-                    const footRow: any[] = [
-                        { content: 'TOTALES:', colSpan: shouldGroupByDestino ? 2 : 1, styles: { halign: 'right', fontStyle: 'bold' } }, 
-                        '', 
-                        { content: totalGeneralCantidad, styles: { halign: 'right' } }
+                    const footRowContent = [
+                        { content: 'TOTALES:', styles: { halign: 'right', fontStyle: 'bold' } },
+                        { content: totalGeneralCantidad, styles: { halign: 'right' } },
+                        { content: totalGeneralPaletas, styles: { halign: 'right' } },
+                        { content: totalGeneralPeso.toFixed(2), styles: { halign: 'right' } }
                     ];
-                     if (!isSummaryFormat) {
-                        footRow.push({ content: totalGeneralPaletas, styles: { halign: 'right' } });
-                    }
-                    footRow.push({ content: totalGeneralPeso.toFixed(2), styles: { halign: 'right' } });
+
+                    const footRow = [{ content: 'TOTALES:', styles: { halign: 'right', fontStyle: 'bold' } }, '', '', totalGeneralCantidad, totalGeneralPaletas, totalGeneralPeso.toFixed(2)];
+
 
                      // Calculate table height to check for page break
                     let tempDoc = new jsPDF();
@@ -998,10 +996,4 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
         </div>
     );
 }
-
-
-
-
-
-
 
