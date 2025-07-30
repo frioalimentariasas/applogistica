@@ -168,7 +168,8 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
     }
 
     // --- Concept: CARGUE / DESCARGUE (By Ton) ---
-    if (formData.aplicaCuadrilla === 'si') {
+    const isGenericOrTunel = formData.tipoPedido === 'GENERICO' || formData.tipoPedido === 'DESPACHO GENERICO' || formData.tipoPedido === 'TUNEL DE CONGELACIÓN';
+    if (formData.aplicaCuadrilla === 'si' && isGenericOrTunel) {
         const isReception = formType.includes('recepcion') || formType.includes('reception');
         const conceptName = isReception ? 'DESCARGUE' : 'CARGUE';
         const kilos = calculateTotalKilos(formType, formData);
