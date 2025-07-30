@@ -504,12 +504,12 @@ export default function CrewPerformanceReportPage() {
         const margin = 14;
 
         const addHeader = () => {
-             const logoWidth = 60;
+            const logoWidth = 60;
             const aspectRatio = logoDimensions.width / logoDimensions.height;
             const logoHeight = logoWidth / aspectRatio;
             const logoX = (pageWidth - logoWidth) / 2;
             doc.addImage(logoBase64, 'PNG', logoX, 10, logoWidth, logoHeight);
-
+    
             const titleY = 10 + logoHeight + 5;
             
             doc.setFontSize(11);
@@ -916,3 +916,6 @@ export default function CrewPerformanceReportPage() {
 
     
 
+
+
+    
