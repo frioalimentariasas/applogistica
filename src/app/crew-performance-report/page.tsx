@@ -305,8 +305,6 @@ export default function CrewPerformanceReportPage() {
         return reportData.filter(row => getPerformanceIndicator(row).text !== 'N/A' && row.cantidadConcepto !== -1);
     }, [reportData]);
 
-    const totalDuration = useMemo(() => dataForExport.reduce((acc, row) => acc + (row.duracionMinutos || 0), 0), [dataForExport]);
-    const totalToneladas = useMemo(() => dataForExport.reduce((acc, row) => acc + (row.kilos || 0), 0) / 1000, [dataForExport]);
     const totalLiquidacion = useMemo(() => reportData.reduce((acc, row) => acc + (row.valorTotalConcepto || 0), 0), [reportData]);
     
     const getSelectedClientsText = () => {
@@ -317,27 +315,33 @@ export default function CrewPerformanceReportPage() {
     };
 
     const performanceSummary = useMemo(() => {
-        if (dataForExport.length === 0) return null;
+        const cargaDescargaData = reportData.filter(row => row.conceptoLiquidado === 'CARGUE' || row.conceptoLiquidado === 'DESCARGUE');
+
+        if (cargaDescargaData.length === 0) return null;
 
         const summary: Record<string, { count: number }> = {
             'Óptimo': { count: 0 },
             'Normal': { count: 0 },
             'Lento': { count: 0 },
+            'Pendiente (P. Bruto)': { count: 0 },
             'No Calculado': { count: 0 },
         };
 
-        dataForExport.forEach(row => {
+        cargaDescargaData.forEach(row => {
             const indicator = getPerformanceIndicator(row).text;
              if (indicator in summary) {
                 summary[indicator as keyof typeof summary].count++;
             }
         });
         
-        const totalEvaluableOperations = dataForExport.filter(r => getPerformanceIndicator(r).text !== 'No Calculado').length;
+        const totalEvaluableOperations = Object.entries(summary).reduce((acc, [key, value]) => {
+            return (key !== 'No Calculado' && key !== 'Pendiente (P. Bruto)') ? acc + value.count : acc;
+        }, 0);
+
         if (totalEvaluableOperations === 0) {
              return {
                 summary,
-                totalOperations: dataForExport.length,
+                totalOperations: cargaDescargaData.length,
                 qualification: "No Calculable"
             };
         }
@@ -357,15 +361,44 @@ export default function CrewPerformanceReportPage() {
 
         return {
             summary,
-            totalOperations: dataForExport.length,
+            totalOperations: cargaDescargaData.length,
             qualification
         };
-    }, [dataForExport]);
+    }, [reportData]);
+
+     const conceptSummary = useMemo(() => {
+        if (reportData.length === 0) return null;
+        
+        const summary = reportData.reduce((acc, row) => {
+            const { conceptoLiquidado, cantidadConcepto, valorTotalConcepto, unidadMedidaConcepto } = row;
+            if (!acc[conceptoLiquidado]) {
+                acc[conceptoLiquidado] = {
+                    totalCantidad: 0,
+                    totalValor: 0,
+                    unidadMedida: unidadMedidaConcepto
+                };
+            }
+            if (cantidadConcepto !== -1) { // Exclude pending
+                 acc[conceptoLiquidado].totalCantidad += cantidadConcepto;
+                 acc[conceptoLiquidado].totalValor += valorTotalConcepto;
+            }
+            return acc;
+        }, {} as Record<string, { totalCantidad: number, totalValor: number, unidadMedida: string }>);
+
+        return Object.entries(summary).map(([name, data], index) => ({
+            item: index + 1,
+            name,
+            totalCantidad: data.totalCantidad,
+            totalValor: data.totalValor,
+            unidadMedida: data.unidadMedida
+        }));
+     }, [reportData]);
+
 
     const handleExportExcel = () => {
         if (reportData.length === 0) return;
 
-        const dataToSheet = reportData.map(row => {
+        const mainDataToSheet = reportData.map(row => {
             const indicator = getPerformanceIndicator(row);
             const isPending = row.cantidadConcepto === -1;
             return {
@@ -387,40 +420,57 @@ export default function CrewPerformanceReportPage() {
             }
         });
 
-        const worksheet = XLSX.utils.json_to_sheet(dataToSheet, { origin: 'A1' });
+        const workbook = XLSX.utils.book_new();
+        const mainWorksheet = XLSX.utils.json_to_sheet(mainDataToSheet, { origin: 'A1' });
+        XLSX.utils.book_append_sheet(workbook, mainWorksheet, 'Detalle Liquidación');
+        
+        let startRow = mainDataToSheet.length + 3; // Start after main data + spacing
 
-        const totalRowIndex = dataToSheet.length + 2;
-        const totalRow = {
-            'Concepto': 'TOTAL LIQUIDACIÓN:',
-            'Valor Total Concepto (COP)': totalLiquidacion,
-        }
-        XLSX.utils.sheet_add_json(worksheet, [totalRow], { skipHeader: true, origin: -1 });
-
-        // Add summary section
         if (performanceSummary) {
-            const summaryHeader = [['Resumen de Rendimiento']];
-            const summaryTableHeaders = [['Indicador', 'Total Operaciones', 'Porcentaje (%)']];
-            const evaluableOps = dataForExport.filter(r => getPerformanceIndicator(r).text !== 'No Calculado').length;
-
-            const summaryData = Object.entries(performanceSummary.summary).map(([key, value]) => {
-                if (key === 'No Calculado') return [key, value.count, 'N/A'];
+            const evaluableOps = (performanceSummary.totalOperations || 0) - (performanceSummary.summary['Pendiente (P. Bruto)']?.count || 0) - (performanceSummary.summary['No Calculado']?.count || 0);
+            
+            const performanceHeader = [['Resumen de Rendimiento (Cargue/Descargue)']];
+            const performanceTableHeaders = [['Indicador', 'Total Operaciones', 'Porcentaje (%)']];
+            const performanceData = Object.entries(performanceSummary.summary).map(([key, value]) => {
+                if (key === 'No Calculado' || key === 'Pendiente (P. Bruto)') return [key, value.count, 'N/A'];
                 const percentage = evaluableOps > 0 ? (value.count / evaluableOps * 100).toFixed(2) + '%' : '0.00%';
                 return [key, value.count, percentage];
             });
-
             const qualificationRow = [['Calificación General de Rendimiento:', performanceSummary.qualification]];
             
-            XLSX.utils.sheet_add_aoa(worksheet, [[]], { origin: -1 }); // Spacer
-            XLSX.utils.sheet_add_aoa(worksheet, summaryHeader, { origin: -1 });
-            XLSX.utils.sheet_add_aoa(worksheet, summaryTableHeaders, { origin: -1 });
-            XLSX.utils.sheet_add_aoa(worksheet, summaryData, { origin: -1 });
-            XLSX.utils.sheet_add_aoa(worksheet, [[]], { origin: -1 }); // Spacer
-            XLSX.utils.sheet_add_aoa(worksheet, qualificationRow, { origin: -1 });
+            XLSX.utils.sheet_add_aoa(mainWorksheet, performanceHeader, { origin: `A${startRow}` });
+            startRow++;
+            XLSX.utils.sheet_add_aoa(mainWorksheet, performanceTableHeaders, { origin: `A${startRow}` });
+            startRow++;
+            XLSX.utils.sheet_add_aoa(mainWorksheet, performanceData, { origin: `A${startRow}` });
+            startRow += performanceData.length;
+            XLSX.utils.sheet_add_aoa(mainWorksheet, [[]], { origin: `A${startRow}` }); // Spacer
+            startRow++;
+            XLSX.utils.sheet_add_aoa(mainWorksheet, qualificationRow, { origin: `A${startRow}` });
+            startRow += 2;
+        }
+
+        if (conceptSummary) {
+             const conceptsHeader = [['Resumen de Conceptos Liquidados']];
+             const conceptsTableHeaders = [['Ítem', 'Nombre del Concepto', 'Cantidad Total', 'Valor Total (COP)']];
+             const conceptsData = conceptSummary.map(c => [
+                c.item,
+                c.name,
+                `${c.totalCantidad.toFixed(2)} ${c.unidadMedida}`,
+                c.totalValor
+             ]);
+             const totalConceptRow = [['', 'TOTAL LIQUIDACIÓN:', '', totalLiquidacion]];
+
+             XLSX.utils.sheet_add_aoa(mainWorksheet, conceptsHeader, { origin: `A${startRow}` });
+             startRow++;
+             XLSX.utils.sheet_add_aoa(mainWorksheet, conceptsTableHeaders, { origin: `A${startRow}` });
+             startRow++;
+             XLSX.utils.sheet_add_aoa(mainWorksheet, conceptsData, { origin: `A${startRow}` });
+             startRow += conceptsData.length;
+             XLSX.utils.sheet_add_aoa(mainWorksheet, totalConceptRow, { origin: `A${startRow}` });
         }
 
 
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'Liquidacion Cuadrilla');
         const fileName = `Reporte_Liquidacion_Cuadrilla_${format(dateRange!.from!, 'yyyy-MM-dd')}_a_${format(dateRange!.to!, 'yyyy-MM-dd')}.xlsx`;
         XLSX.writeFile(workbook, fileName);
     };
@@ -463,7 +513,7 @@ export default function CrewPerformanceReportPage() {
                     row.tipoProducto,
                     row.pedidoSislog,
                     row.placa,
-                    isPending ? 'Pendiente' : row.cantidadConcepto.toFixed(2),
+                    isPending ? 'Pendiente' : `${row.cantidadConcepto.toFixed(2)} ${row.unidadMedidaConcepto}`,
                     formatDuration(row.duracionMinutos),
                     indicator.text,
                     row.conceptoLiquidado,
@@ -471,50 +521,65 @@ export default function CrewPerformanceReportPage() {
                     isPending ? 'N/A' : row.valorTotalConcepto.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }),
                 ]
             }),
-            foot: [
-                [
-                    { content: 'TOTAL LIQUIDACIÓN:', colSpan: 12, styles: { halign: 'right', fontStyle: 'bold' } }, 
-                    { content: totalLiquidacion.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } }
-                ]
-            ],
-            headStyles: { fillColor: [33, 150, 243], fontSize: 6, cellPadding: 1 },
-            footStyles: { fillColor: [33, 150, 243], textColor: '#ffffff' },
             theme: 'grid',
             styles: { fontSize: 6, cellPadding: 1, overflow: 'linebreak' },
+            headStyles: { fillColor: [33, 150, 243], fontSize: 6, cellPadding: 1 },
         });
 
-        if (performanceSummary) {
-            const finalY = (doc as any).lastAutoTable.finalY + 15;
-            
+        let finalY = (doc as any).lastAutoTable.finalY + 15;
+        
+        const drawSummaryTable = (startY: number, title: string, headers: string[][], body: any[][], foot?: any[][]) => {
             autoTable(doc, {
-                startY: finalY,
-                head: [[{content: 'Resumen de Rendimiento', styles: { halign: 'center' }}]],
+                startY: startY,
+                head: [[{ content: title, styles: { halign: 'center', fillColor: [33, 150, 243], textColor: 255 } }]],
                 body: [],
-                theme: 'grid',
-                headStyles: { fillColor: [33, 150, 243] },
+                theme: 'plain',
             });
-            
-            const evaluableOps = dataForExport.filter(r => getPerformanceIndicator(r).text !== 'No Calculado').length;
-            
             autoTable(doc, {
                  startY: (doc as any).lastAutoTable.finalY,
-                 head: [['Indicador', 'Total Operaciones', 'Porcentaje (%)']],
-                 body: Object.entries(performanceSummary.summary).map(([key, value]) => {
-                    if (key === 'No Calculado') return [key, value.count, 'N/A'];
-                    const percentage = evaluableOps > 0 ? (value.count / evaluableOps * 100).toFixed(2) + '%' : '0.00%';
-                    return [key, value.count, percentage];
-                 }),
+                 head: headers,
+                 body: body,
+                 foot: foot,
                  theme: 'grid',
+                 headStyles: { fillColor: [226, 232, 240] },
+                 footStyles: { fillColor: [226, 232, 240], fontStyle: 'bold' }
             });
-            
-            autoTable(doc, {
-                startY: (doc as any).lastAutoTable.finalY + 5,
-                body: [[
-                    { content: 'Calificación General de Rendimiento:', styles: { fontStyle: 'bold' } },
-                    { content: performanceSummary.qualification, styles: { fontStyle: 'bold' } }
-                ]],
-                theme: 'plain'
+             return (doc as any).lastAutoTable.finalY;
+        };
+        
+        const summaryTablesStartY = finalY + 10;
+        let currentY = summaryTablesStartY;
+
+        if (performanceSummary) {
+            const evaluableOps = (performanceSummary.totalOperations || 0) - (performanceSummary.summary['Pendiente (P. Bruto)']?.count || 0) - (performanceSummary.summary['No Calculado']?.count || 0);
+            const performanceBody = Object.entries(performanceSummary.summary).map(([key, value]) => {
+                if (key === 'No Calculado' || key === 'Pendiente (P. Bruto)') return [key, value.count, 'N/A'];
+                const percentage = evaluableOps > 0 ? (value.count / evaluableOps * 100).toFixed(2) + '%' : '0.00%';
+                return [key, value.count, percentage];
             });
+             currentY = drawSummaryTable(
+                currentY, 
+                'Resumen de Rendimiento (Cargue/Descargue)',
+                [['Indicador', 'Total Operaciones', 'Porcentaje (%)']],
+                performanceBody,
+                [['Calificación General:', {content: performanceSummary.qualification, colSpan: 2, styles: {halign: 'left'}}]]
+            );
+        }
+
+        if (conceptSummary) {
+            const conceptsBody = conceptSummary.map(c => [
+                c.item,
+                c.name,
+                `${c.totalCantidad.toFixed(2)} ${c.unidadMedida}`,
+                c.totalValor.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
+            ]);
+            currentY = drawSummaryTable(
+                currentY + 15,
+                'Resumen de Conceptos Liquidados',
+                [['Ítem', 'Nombre del Concepto', 'Cantidad Total', 'Valor Total']],
+                conceptsBody,
+                [['', '', { content: 'TOTAL LIQUIDACIÓN:', styles: { halign: 'right' } }, { content: totalLiquidacion.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }) }]]
+            );
         }
 
 
