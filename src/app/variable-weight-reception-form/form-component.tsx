@@ -151,6 +151,7 @@ const formSchema = z.object({
     recepcionPorPlaca: z.boolean().default(false),
     items: z.array(itemSchema).optional(),
     placas: z.array(placaSchema).optional(),
+    totalPaletasTunel: z.coerce.number().int().min(0, "Debe ser un número no negativo.").optional(),
     
     summary: z.array(summaryItemSchema).nullable().optional(),
     horaInicio: z.string().min(1, "La hora de inicio es obligatoria.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
@@ -165,12 +166,11 @@ const formSchema = z.object({
     unidadDeMedidaPrincipal: z.string().optional(),
 }).superRefine((data, ctx) => {
       const isSpecialReception = data.tipoPedido === 'INGRESO DE SALDOS' || data.tipoPedido === 'TUNEL' || data.tipoPedido === 'TUNEL A CÁMARA CONGELADOS' || data.tipoPedido === 'MAQUILA' || data.tipoPedido === 'TUNEL DE CONGELACIÓN';
-      const numericRegex = /^[0-9]*$/;
-
+      const isTunelCongelacion = data.tipoPedido === 'TUNEL DE CONGELACIÓN';
+      
       if (!isSpecialReception) {
         if (!data.conductor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El nombre del conductor es obligatorio.', path: ['conductor'] });
-        if (!data.cedulaConductor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'La cédula del conductor es obligatoria.', path: ['cedulaConductor'] });
-        if (data.cedulaConductor && !numericRegex.test(data.cedulaConductor)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'La cédula solo puede contener números.', path: ['cedulaConductor'] });
+        if (data.cedulaConductor && !/^[0-9]*$/.test(data.cedulaConductor)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'La cédula solo puede contener números.', path: ['cedulaConductor'] });
         if (!data.placa?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'La placa es obligatoria.', path: ['placa'] });
         if (!data.precinto?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El precinto es obligatorio.', path: ['precinto'] });
         if (!data.contenedor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El contenedor es obligatorio.', path: ['contenedor'] });
@@ -188,6 +188,10 @@ const formSchema = z.object({
           if (data.aplicaCuadrilla === 'si' && (data.numeroOperariosCuadrilla === undefined || data.numeroOperariosCuadrilla <= 0)) {
               ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El número de operarios es obligatorio.", path: ['numeroOperariosCuadrilla'] });
           }
+      }
+
+      if (isTunelCongelacion && (data.totalPaletasTunel === undefined || data.totalPaletasTunel === null || data.totalPaletasTunel <= 0)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El total de paletas es requerido para este tipo de pedido.", path: ['totalPaletasTunel'] });
       }
 
       if(data.tipoPedido === 'TUNEL' || data.tipoPedido === 'TUNEL DE CONGELACIÓN') {
@@ -380,6 +384,7 @@ const originalDefaultValues: FormValues = {
   recepcionPorPlaca: false,
   items: [],
   placas: [],
+  totalPaletasTunel: undefined,
   summary: [],
   horaInicio: "",
   horaFin: "",
@@ -464,6 +469,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
   const watchedTipoPedido = useWatch({ control: form.control, name: 'tipoPedido' });
   const watchedRecepcionPorPlaca = useWatch({ control: form.control, name: 'recepcionPorPlaca' });
   const isTunelMode = watchedTipoPedido === 'TUNEL' || watchedTipoPedido === 'TUNEL DE CONGELACIÓN';
+  const isTunelCongelacion = watchedTipoPedido === 'TUNEL DE CONGELACIÓN';
   const watchedAplicaCuadrilla = useWatch({ control: form.control, name: 'aplicaCuadrilla' });
   const watchedItems = useWatch({ control: form.control, name: "items" });
   const watchedPlacas = useWatch({ control: form.control, name: "placas" });
@@ -566,7 +572,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
           return acc;
       }, {} as Record<string, { placa: string; descripcion: string; totalPeso: number; totalCantidad: number; temperatura1: any; temperatura2: any; temperatura3: any; }>);
       
-      return { items: Object.values(groupedByPlacaAndDesc), totalGeneralPaletas: 0 };
+      return { items: Object.values(groupedByPlacaAndDesc), totalGeneralPaletas: form.getValues('totalPaletasTunel') || 0 };
     }
 
     const grouped = (itemsForCalculation || []).reduce((acc, item) => {
@@ -643,7 +649,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
     return newSummaryState;
 }, [calculatedSummaryForDisplay.items, form, isTunelMode, watchedRecepcionPorPlaca]);
 
-  const showSummary = (itemsForCalculation || []).some(item => item && (item.descripcion || (isTunelMode && item.numeroPlaca)) && (item.descripcion?.trim() !== '' || item.numeroPlaca?.trim() !== ''));
+  const showSummary = (itemsForCalculation || []).some(item => item && (item.descripcion || (isTunelMode && (item as any).numeroPlaca)) && (item.descripcion?.trim() !== '' || (item as any).numeroPlaca?.trim() !== ''));
 
   useEffect(() => {
     const fetchClientsAndObs = async () => {
@@ -692,6 +698,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
               operarioResponsable: submission.userId,
               unidadDeMedidaPrincipal: formData.unidadDeMedidaPrincipal ?? 'PALETA',
               recepcionPorPlaca: formData.recepcionPorPlaca ?? false,
+              totalPaletasTunel: formData.totalPaletasTunel ?? undefined,
               summary: (formData.summary || []).map((s: any) => ({
                   ...s,
                   temperatura1: s.temperatura1 ?? s.temperatura ?? null,
@@ -1589,6 +1596,32 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                             <Button type="button" variant="outline" onClick={handleAddItem}><PlusCircle className="mr-2 h-4 w-4" />Agregar Ítem</Button>
                         </div>
                      )}
+                     {isTunelCongelacion && (
+                        <div className="mt-6 pt-6 border-t">
+                            <FormField
+                                control={form.control}
+                                name="totalPaletasTunel"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Total Paletas de la Recepción <span className="text-destructive">*</span></FormLabel>
+                                        <FormControl>
+                                            <Input
+                                                type="number"
+                                                placeholder="0"
+                                                {...field}
+                                                onChange={e => field.onChange(parseInt(e.target.value, 10) || undefined)}
+                                                value={field.value ?? ''}
+                                            />
+                                        </FormControl>
+                                        <FormDescription>
+                                            Ingrese el número total de paletas para toda esta recepción de túnel.
+                                        </FormDescription>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        </div>
+                    )}
                   </CardContent>
                 </Card>
 
@@ -1618,7 +1651,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                                 {(isTunelMode && watchedRecepcionPorPlaca) && (
                                                     <TableCell className="font-medium">
                                                         <div className="bg-muted/50 p-2 rounded-md flex items-center h-10">
-                                                            {summaryItem.placa}
+                                                            {(summaryItem as any).placa}
                                                         </div>
                                                     </TableCell>
                                                 )}
@@ -1688,8 +1721,8 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                         </TableRow>
                                     )}
                                     <TableRow className="font-bold bg-muted hover:bg-muted">
-                                        <TableCell colSpan={(!isTunelMode || !watchedRecepcionPorPlaca) ? 3 : 2} className="text-right">TOTAL GENERAL:</TableCell>
-                                        {(!isTunelMode || !watchedRecepcionPorPlaca) && <TableCell className="text-right pl-4">{calculatedSummaryForDisplay.totalGeneralPaletas}</TableCell>}
+                                        <TableCell colSpan={isTunelMode ? 3 : 2} className="text-right">TOTAL GENERAL:</TableCell>
+                                        {!isTunelMode && <TableCell className="text-right pl-4">{calculatedSummaryForDisplay.totalGeneralPaletas}</TableCell>}
                                         <TableCell className="text-right">{calculatedSummaryForDisplay.items.reduce((acc, item) => acc + (item.totalCantidad || 0), 0)}</TableCell>
                                         <TableCell className="text-right">{(calculatedSummaryForDisplay.items.reduce((acc, item) => acc + (item.totalPeso || 0), 0)).toFixed(2)}</TableCell>
                                     </TableRow>
@@ -2234,8 +2267,4 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
-
-
-
-
 

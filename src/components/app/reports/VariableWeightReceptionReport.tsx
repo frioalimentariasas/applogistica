@@ -146,7 +146,11 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
 
     const totalPeso = recalculatedSummary.reduce((acc, p) => acc + (p.totalPeso || 0), 0);
     const totalCantidad = recalculatedSummary.reduce((acc, p) => acc + (p.totalCantidad || 0), 0);
-    const totalGeneralPaletas = isTunelMode && recepcionPorPlaca ? 0 : recalculatedSummary.reduce((acc, p) => acc + (p.totalPaletas || 0), 0);
+    
+    const totalGeneralPaletas = (formData.tipoPedido === 'TUNEL DE CONGELACIÓN') 
+        ? formData.totalPaletasTunel
+        : recalculatedSummary.reduce((acc, p) => acc + (p.totalPaletas || 0), 0);
+
 
     const operationTerm = 'Descargue';
     const fieldCellStyle: React.CSSProperties = { padding: '2px', fontSize: '11px', lineHeight: '1.4', verticalAlign: 'top' };
@@ -232,10 +236,10 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                                 const tempString = temps.join(' / ');
                                 return (
                                 <tr key={i} style={{ borderBottom: '1px solid #ddd' }}>
-                                    {(isTunelMode && recepcionPorPlaca) && <td style={{ padding: '4px' }}>{p.placa}</td>}
+                                    {(isTunelMode && recepcionPorPlaca) && <td style={{ padding: '4px' }}>{(p as any).placa}</td>}
                                     <td style={{ padding: '4px' }}>{p.descripcion}</td>
                                     <td style={{ textAlign: 'right', padding: '4px' }}>{tempString}</td>
-                                    {(!isTunelMode || !recepcionPorPlaca) && <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPaletas || 0}</td>}
+                                    {(!isTunelMode || !recepcionPorPlaca) && <td style={{ textAlign: 'right', padding: '4px' }}>{(p as any).totalPaletas || 0}</td>}
                                     <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalCantidad}</td>
                                     <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPeso?.toFixed(2)}</td>
                                 </tr>

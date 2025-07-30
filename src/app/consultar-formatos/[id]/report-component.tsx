@@ -596,14 +596,14 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     const isSummaryFormat = items.some((p: any) => Number(p.paleta) === 0);
                     let detailHead: any[];
                     let detailBody: any[][];
+                    const isStandardTunel = (formData.tipoPedido === 'TUNEL' && !formData.recepcionPorPlaca);
 
                     if (!isSummaryFormat) {
-                        const isStandardTunel = (formData.tipoPedido === 'TUNEL' || formData.tipoPedido === 'TUNEL DE CONGELACIÓN') && !formData.recepcionPorPlaca;
-                        detailHead = [isTunelModeByPlate || isStandardTunel ? 
+                        detailHead = [isTunelModeByPlate ? 
                             ['Descripción', 'Lote', 'Presentación', 'Cant.', 'P. Bruto', 'T. Estiba', 'T. Caja', 'Total Tara', 'P. Neto'] :
                             ['Paleta', 'Descripción', 'Lote', 'Presentación', 'Cant.', 'P. Bruto', 'T. Estiba', 'T. Caja', 'Total Tara', 'P. Neto']
                         ];
-                        detailBody = items.map((p: any) => isTunelModeByPlate || isStandardTunel ?
+                        detailBody = items.map((p: any) => isTunelModeByPlate ?
                             [p.descripcion, p.lote, p.presentacion, p.cantidadPorPaleta, p.pesoBruto?.toFixed(2), p.taraEstiba?.toFixed(2), p.taraCaja?.toFixed(2), p.totalTaraCaja?.toFixed(2), p.pesoNeto?.toFixed(2)] :
                             [p.paleta, p.descripcion, p.lote, p.presentacion, p.cantidadPorPaleta, p.pesoBruto?.toFixed(2), p.taraEstiba?.toFixed(2), p.taraCaja?.toFixed(2), p.totalTaraCaja?.toFixed(2), p.pesoNeto?.toFixed(2)]
                         );
@@ -722,7 +722,23 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     
                     const totalGeneralPeso = allItemsForSummary.reduce((acc: number, p: any) => acc + (p.totalPeso || 0), 0);
                     const totalGeneralCantidad = allItemsForSummary.reduce((acc: number, p: any) => acc + (p.totalCantidad || 0), 0);
-                    const totalGeneralPaletas = isSummaryFormat ? allItemsForSummary.reduce((acc: number, p: any) => acc + (p.totalPaletas || 0), 0) : Array.from(new Set(formData.items.map((i: any) => i.paleta))).length;
+                    
+                    const totalGeneralPaletas = (() => {
+                        if (isSummaryFormat) {
+                            return formData.despachoPorDestino
+                                ? formData.totalPaletasDespacho
+                                : allItemsForSummary.reduce((acc, p) => acc + (p.totalPaletas || 0), 0);
+                        } else if(formData.tipoPedido === 'TUNEL DE CONGELACIÓN') {
+                            return formData.totalPaletasTunel || 0;
+                        }
+                        const allItems = formData.despachoPorDestino ? formData.destinos.flatMap((d: any) => d.items) : formData.items;
+                        const uniquePallets = new Set<number>();
+                        allItems.forEach((i: any) => {
+                            const pNum = Number(i.paleta);
+                            if (!isNaN(pNum) && pNum > 0) uniquePallets.add(pNum);
+                        });
+                        return uniquePallets.size;
+                    })();
                     
                     const footColSpan = summaryHead.length - 3;
                     const footRow: any[] = [{ content: 'TOTALES:', colSpan: footColSpan, styles: { halign: 'right', fontStyle: 'bold' } }, totalGeneralCantidad];
