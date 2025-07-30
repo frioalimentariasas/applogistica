@@ -15,6 +15,7 @@ import { getDetailedReport, type DetailedReportRow } from '@/app/actions/detaile
 import { getInventoryReport, uploadInventoryCsv, type InventoryPivotReport, getClientsWithInventory, getInventoryIdsByDateRange, deleteSingleInventoryDoc, getDetailedInventoryForExport } from '@/app/actions/inventory-report';
 import { getConsolidatedMovementReport, type ConsolidatedReportRow } from '@/app/actions/consolidated-movement-report';
 import type { ClientInfo } from '@/app/actions/clients';
+import { getPedidoTypes, type PedidoType } from '@/app/gestion-tipos-pedido/actions';
 import { useToast } from '@/hooks/use-toast';
 
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -141,13 +142,6 @@ const formatObservaciones = (observaciones: any): string => {
 const MAX_DATE_RANGE_DAYS = 31;
 
 
-const billingTipoPedidoOptions = [
-    { value: 'GENERICO', label: 'GENERICO' },
-    { value: 'MAQUILA', label: 'MAQUILA' },
-    { value: 'TUNEL', label: 'TUNEL' },
-    { value: 'INGRESO DE SALDO', label: 'INGRESO DE SALDO' }
-];
-
 export default function BillingReportComponent({ clients }: { clients: ClientInfo[] }) {
     const router = useRouter();
     const { toast } = useToast();
@@ -168,6 +162,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const [isClientDialogOpen, setClientDialogOpen] = useState(false);
     const [isBillingTipoPedidoOpen, setIsBillingTipoPedidoOpen] = useState(false);
     const [clientSearch, setClientSearch] = useState("");
+    const [allPedidoTypes, setAllPedidoTypes] = useState<PedidoType[]>([]);
 
     // State for detailed operation report
     const [detailedReportDateRange, setDetailedReportDateRange] = useState<DateRange | undefined>(undefined);
@@ -181,6 +176,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const [isDetailedClientDialogOpen, setDetailedClientDialogOpen] = useState(false);
     const [isDetailedTipoPedidoDialogOpen, setIsDetailedTipoPedidoDialogOpen] = useState(false);
     const [detailedClientSearch, setDetailedClientSearch] = useState("");
+    const [detailedTipoPedidoSearch, setDetailedTipoPedidoSearch] = useState('');
 
     // State for CSV inventory report
     const [isUploading, setIsUploading] = useState(false);
@@ -225,6 +221,10 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const [logoBase64, setLogoBase64] = useState<string | null>(null);
     const [logoDimensions, setLogoDimensions] = useState<{ width: number, height: number } | null>(null);
     const [isLogoLoading, setIsLogoLoading] = useState(true);
+
+    useEffect(() => {
+        getPedidoTypes().then(setAllPedidoTypes);
+    }, []);
 
     useEffect(() => {
         const fetchLogo = async () => {
@@ -303,6 +303,11 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         if (!inventoryClientSearch) return availableInventoryClients;
         return availableInventoryClients.filter(c => c.toLowerCase().includes(inventoryClientSearch.toLowerCase()));
     }, [inventoryClientSearch, availableInventoryClients]);
+
+    const filteredDetailedPedidoTypes = useMemo(() => {
+        if (!detailedTipoPedidoSearch) return allPedidoTypes;
+        return allPedidoTypes.filter(pt => pt.name.toLowerCase().includes(detailedTipoPedidoSearch.toLowerCase()));
+    }, [detailedTipoPedidoSearch, allPedidoTypes]);
 
 
     const handleSearch = async () => {
@@ -1019,24 +1024,18 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             setIsExporting(false);
         }
     };
-
-    const tipoPedidoOptions = [
-        { value: 'GENERICO', label: 'GENERICO' },
-        { value: 'MAQUILA', label: 'MAQUILA' },
-        { value: 'TUNEL', label: 'TUNEL' },
-        { value: 'INGRESO DE SALDO', label: 'INGRESO DE SALDO' }
-    ];
-
+    
     const getTipoPedidoButtonText = () => {
-        if (detailedReportTipoPedido.length === 0) return "Seleccionar tipo(s)...";
+        if (detailedReportTipoPedido.length === 0) return "Todos";
         if (detailedReportTipoPedido.length === 1) return detailedReportTipoPedido[0];
+        if (detailedReportTipoPedido.length === allPedidoTypes.length) return "Todos";
         return `${detailedReportTipoPedido.length} tipos seleccionados`;
     };
 
     const getBillingTiposPedidoText = () => {
         if (billingTiposPedido.length === 0) return "Todos";
         if (billingTiposPedido.length === 1) return billingTiposPedido[0];
-        if (billingTiposPedido.length === billingTipoPedidoOptions.length) return "Todos";
+        if (billingTiposPedido.length === allPedidoTypes.length) return "Todos";
         return `${billingTiposPedido.length} tipos seleccionados`;
     };
     
@@ -1209,21 +1208,21 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                     <DialogTitle>Seleccionar Tipo(s) de Pedido</DialogTitle>
                                                 </DialogHeader>
                                                 <div className="space-y-2 py-4">
-                                                {billingTipoPedidoOptions.map((option) => (
-                                                    <div key={option.value} className="flex items-center space-x-2">
+                                                {allPedidoTypes.map((option) => (
+                                                    <div key={option.id} className="flex items-center space-x-2">
                                                     <Checkbox
-                                                        id={`billing-tipo-pedido-${option.value}`}
-                                                        checked={billingTiposPedido.includes(option.value)}
+                                                        id={`billing-tipo-pedido-${option.id}`}
+                                                        checked={billingTiposPedido.includes(option.name)}
                                                         onCheckedChange={(checked) => {
                                                             setBillingTiposPedido((prev) =>
                                                             checked
-                                                            ? [...prev, option.value]
-                                                            : prev.filter((value) => value !== option.value)
+                                                            ? [...prev, option.name]
+                                                            : prev.filter((value) => value !== option.name)
                                                         );
                                                         }}
                                                     />
-                                                    <Label htmlFor={`billing-tipo-pedido-${option.value}`} className="font-normal cursor-pointer">
-                                                        {option.label}
+                                                    <Label htmlFor={`billing-tipo-pedido-${option.id}`} className="font-normal cursor-pointer">
+                                                        {option.name}
                                                     </Label>
                                                     </div>
                                                 ))}
@@ -1380,26 +1379,34 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                 <DialogHeader>
                                                     <DialogTitle>Seleccionar Tipo(s) de Pedido</DialogTitle>
                                                 </DialogHeader>
-                                                <div className="space-y-2 py-4">
-                                                {tipoPedidoOptions.map((option) => (
-                                                    <div key={option.value} className="flex items-center space-x-2">
-                                                    <Checkbox
-                                                        id={`tipo-pedido-${option.value}`}
-                                                        checked={detailedReportTipoPedido.includes(option.value)}
-                                                        onCheckedChange={(checked) => {
-                                                        setDetailedReportTipoPedido((prev) =>
-                                                            checked
-                                                            ? [...prev, option.value]
-                                                            : prev.filter((value) => value !== option.value)
-                                                        );
-                                                        }}
-                                                    />
-                                                    <Label htmlFor={`tipo-pedido-${option.value}`} className="font-normal cursor-pointer">
-                                                        {option.label}
-                                                    </Label>
+                                                <Input
+                                                    placeholder="Buscar tipo..."
+                                                    value={detailedTipoPedidoSearch}
+                                                    onChange={(e) => setDetailedTipoPedidoSearch(e.target.value)}
+                                                    className="my-4"
+                                                />
+                                                <ScrollArea className="h-72">
+                                                    <div className="space-y-2 py-4">
+                                                    {filteredDetailedPedidoTypes.map((option) => (
+                                                        <div key={option.id} className="flex items-center space-x-2">
+                                                        <Checkbox
+                                                            id={`tipo-pedido-${option.id}`}
+                                                            checked={detailedReportTipoPedido.includes(option.name)}
+                                                            onCheckedChange={(checked) => {
+                                                            setDetailedReportTipoPedido((prev) =>
+                                                                checked
+                                                                ? [...prev, option.name]
+                                                                : prev.filter((value) => value !== option.name)
+                                                            );
+                                                            }}
+                                                        />
+                                                        <Label htmlFor={`tipo-pedido-${option.id}`} className="font-normal cursor-pointer">
+                                                            {option.name}
+                                                        </Label>
+                                                        </div>
+                                                    ))}
                                                     </div>
-                                                ))}
-                                                </div>
+                                                </ScrollArea>
                                                 <DialogFooter>
                                                     <Button onClick={() => setIsDetailedTipoPedidoDialogOpen(false)}>Cerrar</Button>
                                                 </DialogFooter>
@@ -2042,4 +2049,3 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         </div>
     );
 }
-

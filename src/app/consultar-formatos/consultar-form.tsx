@@ -11,6 +11,8 @@ import { searchSubmissions, SubmissionResult, SearchCriteria, deleteSubmission }
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import type { ClientInfo } from '@/app/actions/clients';
+import { getPedidoTypes, type PedidoType } from '@/app/gestion-tipos-pedido/actions';
+
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -92,11 +94,23 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
     const [submissionToDelete, setSubmissionToDelete] = useState<SubmissionResult | null>(null);
     const [isClientDialogOpen, setClientDialogOpen] = useState(false);
     const [clientSearch, setClientSearch] = useState("");
+    const [pedidoTypes, setPedidoTypes] = useState<PedidoType[]>([]);
+    const [isTipoPedidoDialogOpen, setIsTipoPedidoDialogOpen] = useState(false);
+    const [tipoPedidoSearch, setTipoPedidoSearch] = useState('');
+
+    useEffect(() => {
+        getPedidoTypes().then(setPedidoTypes);
+    }, []);
 
     const filteredClients = useMemo(() => {
         if (!clientSearch) return clients;
         return clients.filter(c => c.razonSocial.toLowerCase().includes(clientSearch.toLowerCase()));
     }, [clientSearch, clients]);
+    
+    const filteredPedidoTypes = useMemo(() => {
+        if (!tipoPedidoSearch) return pedidoTypes;
+        return pedidoTypes.filter(pt => pt.name.toLowerCase().includes(tipoPedidoSearch.toLowerCase()));
+    }, [tipoPedidoSearch, pedidoTypes]);
 
     const runSearch = useCallback(async (searchCriteria: SearchCriteria, isAutoSearch = false) => {
         setIsLoading(true);
@@ -377,22 +391,43 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
                             </div>
                             <div className="space-y-2 xl:col-span-1">
                                 <Label htmlFor="tipoPedido">Tipo de Pedido</Label>
-                                <Select
-                                    value={criteria.tipoPedido || 'all'}
-                                    onValueChange={(value) => setCriteria({ ...criteria, tipoPedido: value === 'all' ? undefined : value })}
-                                    disabled={isLoading}
-                                >
-                                    <SelectTrigger id="tipoPedido">
-                                        <SelectValue placeholder="Todos" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">Todos</SelectItem>
-                                        <SelectItem value="GENERICO">GENERICO</SelectItem>
-                                        <SelectItem value="MAQUILA">MAQUILA</SelectItem>
-                                        <SelectItem value="TUNEL">TUNEL</SelectItem>
-                                        <SelectItem value="INGRESO DE SALDO">INGRESO DE SALDO</SelectItem>
-                                    </SelectContent>
-                                </Select>
+                                <Dialog open={isTipoPedidoDialogOpen} onOpenChange={setIsTipoPedidoDialogOpen}>
+                                    <DialogTrigger asChild>
+                                        <Button variant="outline" className="w-full justify-between font-normal">
+                                            <span className="truncate">{criteria.tipoPedido || 'Todos'}</span>
+                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                        </Button>
+                                    </DialogTrigger>
+                                    <DialogContent>
+                                        <DialogHeader>
+                                            <DialogTitle>Seleccionar Tipo de Pedido</DialogTitle>
+                                        </DialogHeader>
+                                        <Input
+                                            placeholder="Buscar tipo..."
+                                            value={tipoPedidoSearch}
+                                            onChange={(e) => setTipoPedidoSearch(e.target.value)}
+                                            className="my-4"
+                                        />
+                                        <ScrollArea className="h-72">
+                                            <div className="space-y-1">
+                                                <Button variant="ghost" className="w-full justify-start" onClick={() => { setCriteria({ ...criteria, tipoPedido: undefined }); setIsTipoPedidoDialogOpen(false); }}>-- Todos --</Button>
+                                                {filteredPedidoTypes.map((pt) => (
+                                                    <Button
+                                                        key={pt.id}
+                                                        variant="ghost"
+                                                        className="w-full justify-start"
+                                                        onClick={() => {
+                                                            setCriteria({ ...criteria, tipoPedido: pt.name });
+                                                            setIsTipoPedidoDialogOpen(false);
+                                                        }}
+                                                    >
+                                                        {pt.name}
+                                                    </Button>
+                                                ))}
+                                            </div>
+                                        </ScrollArea>
+                                    </DialogContent>
+                                </Dialog>
                             </div>
                             <div className="flex flex-col sm:flex-row gap-2 xl:col-span-full">
                                 <Button onClick={handleSearch} className="w-full" disabled={isLoading}>
