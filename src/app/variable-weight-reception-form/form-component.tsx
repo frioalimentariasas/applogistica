@@ -625,29 +625,27 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
     return { items, totalGeneralPaletas };
 
   }, [itemsForCalculation, isTunelMode, watchedRecepcionPorPlaca, watchedPlacas, form]);
+  
+    useEffect(() => {
+        const currentSummaryInForm = form.getValues('summary') || [];
+        const newSummaryState = calculatedSummaryForDisplay.items.map(newItem => {
+            const existingItem = currentSummaryInForm.find(oldItem => 
+                (isTunelMode && watchedRecepcionPorPlaca && oldItem.placa)
+                ? oldItem.descripcion === newItem.descripcion && oldItem.placa === (newItem as any).placa
+                : oldItem.descripcion === newItem.descripcion
+            );
+            return {
+                ...newItem,
+                temperatura1: existingItem?.temperatura1 ?? null,
+                temperatura2: existingItem?.temperatura2 ?? null,
+                temperatura3: existingItem?.temperatura3 ?? null,
+            };
+        });
 
-  const currentSummaryFields = useMemo(() => {
-    const currentSummaryInForm = form.getValues('summary') || [];
-    const newSummaryState = calculatedSummaryForDisplay.items.map(newItem => {
-        const existingItem = currentSummaryInForm.find(oldItem => 
-            (isTunelMode && watchedRecepcionPorPlaca) 
-            ? oldItem.descripcion === newItem.descripcion && oldItem.placa === newItem.placa
-            : oldItem.descripcion === newItem.descripcion
-        );
-        return {
-            ...newItem,
-            temperatura1: existingItem?.temperatura1,
-            temperatura2: existingItem?.temperatura2 ?? null,
-            temperatura3: existingItem?.temperatura3 ?? null,
-        };
-    });
-    
-    // Prevent infinite loop by checking for actual changes
-    if (JSON.stringify(newSummaryState) !== JSON.stringify(currentSummaryInForm)) {
-        form.setValue('summary', newSummaryState, { shouldValidate: true });
-    }
-    return newSummaryState;
-}, [calculatedSummaryForDisplay.items, form, isTunelMode, watchedRecepcionPorPlaca]);
+        if (JSON.stringify(newSummaryState) !== JSON.stringify(currentSummaryInForm)) {
+            form.setValue('summary', newSummaryState, { shouldValidate: true });
+        }
+    }, [calculatedSummaryForDisplay.items, form, isTunelMode, watchedRecepcionPorPlaca]);
 
   const showSummary = (itemsForCalculation || []).some(item => item && (item.descripcion || (isTunelMode && (item as any).numeroPlaca)) && (item.descripcion?.trim() !== '' || (item as any).numeroPlaca?.trim() !== ''));
 
@@ -990,7 +988,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
         const finalSummary = calculatedSummaryForDisplay.items.map(summaryItem => {
             const formItem = (data.summary || []).find(s => 
               (isTunelMode && watchedRecepcionPorPlaca)
-              ? s.descripcion === summaryItem.descripcion && s.placa === summaryItem.placa
+              ? s.descripcion === summaryItem.descripcion && s.placa === (summaryItem as any).placa
               : s.descripcion === summaryItem.descripcion
             );
             return {
@@ -1644,8 +1642,8 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {currentSummaryFields.length > 0 ? (
-                                        currentSummaryFields.map((summaryItem, summaryIndex) => {
+                                    {form.getValues('summary')?.length > 0 ? (
+                                        form.getValues('summary')?.map((summaryItem, summaryIndex) => {
                                            return (
                                             <TableRow key={summaryIndex}>
                                                 {(isTunelMode && watchedRecepcionPorPlaca) && (
@@ -1721,7 +1719,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                         </TableRow>
                                     )}
                                     <TableRow className="font-bold bg-muted hover:bg-muted">
-                                        <TableCell colSpan={isTunelMode ? 3 : 2} className="text-right">TOTAL GENERAL:</TableCell>
+                                        <TableCell colSpan={(isTunelMode && watchedRecepcionPorPlaca) ? 3 : 2} className="text-right">TOTAL GENERAL:</TableCell>
                                         {!isTunelMode && <TableCell className="text-right pl-4">{calculatedSummaryForDisplay.totalGeneralPaletas}</TableCell>}
                                         <TableCell className="text-right">{calculatedSummaryForDisplay.items.reduce((acc, item) => acc + (item.totalCantidad || 0), 0)}</TableCell>
                                         <TableCell className="text-right">{(calculatedSummaryForDisplay.items.reduce((acc, item) => acc + (item.totalPeso || 0), 0)).toFixed(2)}</TableCell>
@@ -2267,4 +2265,5 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
+
 
