@@ -169,9 +169,10 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
     }
 
     // --- Concept: CARGUE / DESCARGUE (By Ton for GENERICO and TUNEL DE CONGELACIÓN) ---
-    const isGenericOrTunel = formData.tipoPedido === 'GENERICO' || formData.tipoPedido === 'TUNEL DE CONGELACIÓN';
-    
-    if (formData.aplicaCuadrilla === 'si' && isGenericOrTunel) {
+    const isVariableWeightGenericOrTunel = (formType.startsWith('variable-weight-')) && (formData.tipoPedido === 'GENERICO' || formData.tipoPedido === 'TUNEL DE CONGELACIÓN');
+    const isFixedWeightGeneric = (formType.startsWith('fixed-weight-')) && (formData.tipoPedido === 'GENERICO');
+
+    if (formData.aplicaCuadrilla === 'si' && (isVariableWeightGenericOrTunel || isFixedWeightGeneric)) {
         const isReception = formType.includes('recepcion') || formType.includes('reception');
         const conceptName = isReception ? 'DESCARGUE' : 'CARGUE';
         const kilos = calculateTotalKilos(formType, formData);
