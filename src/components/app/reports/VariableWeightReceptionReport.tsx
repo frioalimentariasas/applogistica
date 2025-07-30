@@ -140,7 +140,7 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
 
     const totalPeso = recalculatedSummary.reduce((acc, p) => acc + (p.totalPeso || 0), 0);
     const totalCantidad = recalculatedSummary.reduce((acc, p) => acc + (p.totalCantidad || 0), 0);
-    const totalGeneralPaletas = isTunelMode ? 0 : recalculatedSummary.reduce((acc, p) => acc + (p.totalPaletas || 0), 0);
+    const totalGeneralPaletas = isTunelMode && recepcionPorPlaca ? 0 : recalculatedSummary.reduce((acc, p) => acc + (p.totalPaletas || 0), 0);
 
     const operationTerm = 'Descargue';
     const fieldCellStyle: React.CSSProperties = { padding: '2px', fontSize: '11px', lineHeight: '1.4', verticalAlign: 'top' };
@@ -205,15 +205,15 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                 </div>
             </ReportSection>
 
-             {recalculatedSummary && recalculatedSummary.length > 0 && (
+            {recalculatedSummary && recalculatedSummary.length > 0 && (
                 <ReportSection title="Resumen de Productos">
                     <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse' }}>
                         <thead>
                             <tr style={{ borderBottom: '1px solid #aaa' }}>
-                                {isTunelMode && <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Placa</th>}
+                                {(isTunelMode && recepcionPorPlaca) && <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Placa</th>}
                                 <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Descripción</th>
                                 <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Temperaturas(°C)</th>
-                                {!isTunelMode && <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Paletas</th>}
+                                {(!isTunelMode || !recepcionPorPlaca) && <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Paletas</th>}
                                 <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Cantidad</th>
                                 <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Peso (kg)</th>
                             </tr>
@@ -224,17 +224,17 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                                 const tempString = temps.join(' / ');
                                 return (
                                 <tr key={i} style={{ borderBottom: '1px solid #ddd' }}>
-                                    {isTunelMode && <td style={{ padding: '4px' }}>{p.placa}</td>}
+                                    {(isTunelMode && recepcionPorPlaca) && <td style={{ padding: '4px' }}>{p.placa}</td>}
                                     <td style={{ padding: '4px' }}>{p.descripcion}</td>
                                     <td style={{ textAlign: 'right', padding: '4px' }}>{tempString}</td>
-                                    {!isTunelMode && <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPaletas || 0}</td>}
+                                    {(!isTunelMode || !recepcionPorPlaca) && <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPaletas || 0}</td>}
                                     <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalCantidad}</td>
                                     <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPeso?.toFixed(2)}</td>
                                 </tr>
                             )})}
                             <tr style={{ fontWeight: 'bold', backgroundColor: '#f1f5f9' }}>
-                                <td style={{ padding: '4px', textAlign: 'right' }} colSpan={isTunelMode ? 3 : 2}>TOTALES:</td>
-                                {!isTunelMode && <td style={{ textAlign: 'right', padding: '4px' }}>{totalGeneralPaletas}</td>}
+                                <td style={{ padding: '4px', textAlign: 'right' }} colSpan={(isTunelMode && recepcionPorPlaca) ? 3 : 2}>TOTALES:</td>
+                                {(!isTunelMode || !recepcionPorPlaca) && <td style={{ textAlign: 'right', padding: '4px' }}>{totalGeneralPaletas}</td>}
                                 <td style={{ textAlign: 'right', padding: '4px' }}>{totalCantidad}</td>
                                 <td style={{ textAlign: 'right', padding: '4px' }}>{totalPeso.toFixed(2)}</td>
                             </tr>
