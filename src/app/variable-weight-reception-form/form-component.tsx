@@ -170,14 +170,14 @@ const formSchema = z.object({
       
       if (!isSpecialReception) {
         if (!data.conductor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El nombre del conductor es obligatorio.', path: ['conductor'] });
-        if (data.cedulaConductor && !/^[0-9]*$/.test(data.cedulaConductor)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'La cédula solo puede contener números.', path: ['cedulaConductor'] });
+        if (!data.cedulaConductor?.trim() || !/^[0-9]*$/.test(data.cedulaConductor)) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'La cédula es obligatoria y debe contener solo números.', path: ['cedulaConductor'] });
         if (!data.placa?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'La placa es obligatoria.', path: ['placa'] });
         if (!data.precinto?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El precinto es obligatorio.', path: ['precinto'] });
         if (!data.contenedor?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El contenedor es obligatorio.', path: ['contenedor'] });
         if (data.setPoint === null || data.setPoint === undefined) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'El Set Point es obligatorio.', path: ['setPoint'] });
       } else {
-        if (data.cedulaConductor && !isTunelCongelacion && !/^[0-9]*$/.test(data.cedulaConductor)) {
-           ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'La cédula solo puede contener números.', path: ['cedulaConductor'] });
+        if (data.cedulaConductor && !isTunelCongelacion && !/^[0-9\/ ]*$/.test(data.cedulaConductor)) {
+           ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'La cédula solo puede contener números y /', path: ['cedulaConductor'] });
         }
       }
 
@@ -2270,6 +2270,7 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
+
 
 
 
