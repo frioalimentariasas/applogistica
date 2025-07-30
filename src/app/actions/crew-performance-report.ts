@@ -176,18 +176,29 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
         const isReception = formType.includes('recepcion') || formType.includes('reception');
         const conceptName = isReception ? 'DESCARGUE' : 'CARGUE';
         const kilos = calculateTotalKilos(formType, formData);
-        const toneladas = kilos / 1000;
         
         const operationConcept = billingConcepts.find(c => c.conceptName === conceptName && c.unitOfMeasure === 'TONELADA');
 
-        if (operationConcept && toneladas > 0) {
-             settlements.push({
-                conceptName: conceptName,
-                unitValue: operationConcept.value,
-                quantity: toneladas,
-                unitOfMeasure: 'TONELADA',
-                totalValue: toneladas * operationConcept.value
-            });
+        if (operationConcept) {
+            if (formType.startsWith('fixed-weight-') && kilos === 0) {
+                // Special case: Fixed weight with 0 gross weight, mark as pending
+                settlements.push({
+                    conceptName: conceptName,
+                    unitValue: 0,
+                    quantity: -1, // Use -1 as a flag for "Pending"
+                    unitOfMeasure: 'TONELADA',
+                    totalValue: 0
+                });
+            } else if (kilos > 0) {
+                const toneladas = kilos / 1000;
+                 settlements.push({
+                    conceptName: conceptName,
+                    unitValue: operationConcept.value,
+                    quantity: toneladas,
+                    unitOfMeasure: 'TONELADA',
+                    totalValue: toneladas * operationConcept.value
+                });
+            }
         }
     }
 

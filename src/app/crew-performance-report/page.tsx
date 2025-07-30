@@ -120,7 +120,11 @@ const formatDuration = (totalMinutes: number | null): string => {
 };
 
 const getPerformanceIndicator = (row: CrewPerformanceReportRow): { text: string, color: string } => {
-    const { duracionMinutos, kilos, standard, conceptoLiquidado } = row;
+    const { duracionMinutos, kilos, standard, conceptoLiquidado, cantidadConcepto } = row;
+
+    if (cantidadConcepto === -1 && (conceptoLiquidado === 'CARGUE' || conceptoLiquidado === 'DESCARGUE')) {
+        return { text: 'Pendiente (P. Bruto)', color: 'text-orange-600' };
+    }
 
     if (conceptoLiquidado !== 'CARGUE' && conceptoLiquidado !== 'DESCARGUE') {
         return { text: 'No Aplica', color: 'text-gray-500' };
@@ -295,7 +299,7 @@ export default function CrewPerformanceReportPage() {
     };
     
     const dataForExport = useMemo(() => {
-        return reportData.filter(row => getPerformanceIndicator(row).text !== 'N/A');
+        return reportData.filter(row => getPerformanceIndicator(row).text !== 'N/A' && row.cantidadConcepto !== -1);
     }, [reportData]);
 
     const totalDuration = useMemo(() => dataForExport.reduce((acc, row) => acc + (row.duracionMinutos || 0), 0), [dataForExport]);
@@ -360,6 +364,7 @@ export default function CrewPerformanceReportPage() {
 
         const dataToSheet = reportData.map(row => {
             const indicator = getPerformanceIndicator(row);
+            const isPending = row.cantidadConcepto === -1;
             return {
                 'Fecha': format(new Date(row.fecha), 'dd/MM/yyyy'),
                 'Operario Responsable': row.operario,
@@ -369,13 +374,13 @@ export default function CrewPerformanceReportPage() {
                 'Pedido SISLOG': row.pedidoSislog,
                 'Placa': row.placa,
                 'Contenedor': row.contenedor,
-                'Cantidad (Ton/Und)': row.cantidadConcepto,
+                'Cantidad (Ton/Und)': isPending ? 'Pendiente Ingresar P.Bruto' : row.cantidadConcepto.toFixed(2),
                 'Duración': formatDuration(row.duracionMinutos),
                 'Indicador': indicator.text,
                 'Concepto': row.conceptoLiquidado,
-                'Valor Unitario (COP)': row.valorUnitario,
+                'Valor Unitario (COP)': isPending ? 'N/A' : row.valorUnitario,
                 'Unidad Medida': row.unidadMedidaConcepto,
-                'Valor Total Concepto (COP)': row.valorTotalConcepto,
+                'Valor Total Concepto (COP)': isPending ? 'N/A' : row.valorTotalConcepto,
             }
         });
 
@@ -446,6 +451,7 @@ export default function CrewPerformanceReportPage() {
             head: [['Fecha', 'Operario', 'Cliente', 'Tipo Op.', 'Tipo Prod.', 'Pedido', 'Placa', 'Cant.', 'Duración', 'Indicador', 'Concepto', 'Vlr. Unit', 'Vlr. Total']],
             body: reportData.map(row => {
                 const indicator = getPerformanceIndicator(row);
+                const isPending = row.cantidadConcepto === -1;
                 return [
                     format(new Date(row.fecha), 'dd/MM/yy'),
                     row.operario,
@@ -454,12 +460,12 @@ export default function CrewPerformanceReportPage() {
                     row.tipoProducto,
                     row.pedidoSislog,
                     row.placa,
-                    row.cantidadConcepto,
+                    isPending ? 'Pendiente' : row.cantidadConcepto.toFixed(2),
                     formatDuration(row.duracionMinutos),
                     indicator.text,
                     row.conceptoLiquidado,
-                    row.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }),
-                    row.valorTotalConcepto.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }),
+                    isPending ? 'N/A' : row.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }),
+                    isPending ? 'N/A' : row.valorTotalConcepto.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }),
                 ]
             }),
             foot: [
@@ -734,6 +740,7 @@ export default function CrewPerformanceReportPage() {
                                     ) : displayedData.length > 0 ? (
                                         displayedData.map((row) => {
                                             const indicator = getPerformanceIndicator(row);
+                                            const isPending = row.cantidadConcepto === -1;
                                             return (
                                                 <TableRow key={row.id}>
                                                     <TableCell className="text-xs">{format(new Date(row.fecha), 'dd/MM/yyyy')}</TableCell>
@@ -744,7 +751,7 @@ export default function CrewPerformanceReportPage() {
                                                     <TableCell className="text-xs">{row.pedidoSislog}</TableCell>
                                                     <TableCell className="text-xs">{row.placa}</TableCell>
                                                     <TableCell className="text-xs">{row.contenedor}</TableCell>
-                                                    <TableCell className="text-xs text-right font-mono">{row.cantidadConcepto.toFixed(2)}</TableCell>
+                                                    <TableCell className="text-xs text-right font-mono">{isPending ? 'Pendiente Ingresar P.Bruto' : row.cantidadConcepto.toFixed(2)}</TableCell>
                                                     <TableCell className="text-xs text-right font-medium">{formatDuration(row.duracionMinutos)}</TableCell>
                                                     <TableCell className={cn("text-xs text-right font-semibold", indicator.color)}>
                                                         <div className="flex items-center justify-end gap-1.5">
@@ -754,10 +761,10 @@ export default function CrewPerformanceReportPage() {
                                                     </TableCell>
                                                     <TableCell className="text-xs font-semibold">{row.conceptoLiquidado}</TableCell>
                                                      <TableCell className="text-xs text-right font-mono">
-                                                        {row.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 })}
+                                                        {isPending ? 'N/A' : row.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 })}
                                                      </TableCell>
                                                      <TableCell className="text-xs text-right font-mono">
-                                                        {row.valorTotalConcepto.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}
+                                                        {isPending ? 'N/A' : row.valorTotalConcepto.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}
                                                      </TableCell>
                                                 </TableRow>
                                             )
