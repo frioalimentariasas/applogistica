@@ -497,65 +497,44 @@ export default function CrewPerformanceReportPage() {
 
     const handleExportPDF = async () => {
         if (reportData.length === 0 || !logoBase64 || !logoDimensions) return;
-
+    
         const doc = new jsPDF({ orientation: 'landscape' });
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
-        const headerHeight = 60; // Estimated header height
-        const footerHeight = 20; // Estimated footer height
-
-        const addHeader = (doc: jsPDF, pageNumber: number, totalPages: number) => {
+        const margin = 14;
+    
+        // --- Calculate Header Height ---
+        const logoHeight = logoDimensions ? (60 / (logoDimensions.width / logoDimensions.height)) : 0;
+        const headerContentHeight = 10 + logoHeight + 5 + 10; // logo + title + date
+        const headerHeightWithMargin = headerContentHeight + 15; // Add some bottom margin
+    
+        // --- Header Drawing Function ---
+        const addHeader = (docInstance: jsPDF) => {
             const logoWidth = 60;
             const aspectRatio = logoDimensions.width / logoDimensions.height;
-            const logoHeight = logoWidth / aspectRatio;
+            const logoPdfHeight = logoWidth / aspectRatio;
             const logoX = (pageWidth - logoWidth) / 2;
-            doc.addImage(logoBase64, 'PNG', logoX, 10, logoWidth, logoHeight);
-
-            const titleY = 10 + logoHeight + 5;
-            doc.setFontSize(11);
-            doc.setFont('helvetica', 'bold');
-            doc.text(`Informe de Liquidación de Cuadrilla`, pageWidth / 2, titleY, { align: 'center' });
+            docInstance.addImage(logoBase64, 'PNG', logoX, 10, logoWidth, logoPdfHeight);
+    
+            const titleY = 10 + logoPdfHeight + 5;
+            docInstance.setFontSize(11);
+            docInstance.setFont('helvetica', 'bold');
+            docInstance.setTextColor(0, 0, 0); // Black
+            docInstance.text(`Informe de Liquidación de Cuadrilla`, pageWidth / 2, titleY, { align: 'center' });
             
-            doc.setFontSize(9);
-            doc.setFont('helvetica', 'normal');
-            doc.setTextColor(0, 0, 0); // Black color
-            doc.text(`Periodo: ${format(dateRange!.from!, 'dd/MM/yyyy')} - ${format(dateRange!.to!, 'dd/MM/yyyy')}`, pageWidth / 2, titleY + 10, {align: 'center'});
+            docInstance.setFontSize(9);
+            docInstance.setFont('helvetica', 'normal');
+            docInstance.setTextColor(0, 0, 0); // Black
+            docInstance.text(`Periodo: ${format(dateRange!.from!, 'dd/MM/yyyy')} - ${format(dateRange!.to!, 'dd/MM/yyyy')}`, pageWidth / 2, titleY + 10, {align: 'center'});
         };
-
-        const addFooter = (doc: jsPDF, pageNumber: number, totalPages: number) => {
-            doc.setFontSize(8);
-            doc.text(`Página ${pageNumber} de ${totalPages}`, pageWidth - 14, pageHeight - 10, { align: 'right' });
-        }
-
-        const drawSummaryTable = (doc: jsPDF, title: string, headers: string[][], body: any[][], foot?: any[][]) => {
-            autoTable(doc, {
-                head: [[{ content: title, styles: { halign: 'center', fillColor: [33, 150, 243], textColor: 255, fontStyle: 'bold' } }]],
-                body: [],
-                theme: 'plain',
-                startY: headerHeight,
-                pageBreak: 'auto',
-                didDrawPage: (data) => {
-                    addHeader(doc, data.pageNumber, (doc as any).internal.getNumberOfPages());
-                    addFooter(doc, data.pageNumber, (doc as any).internal.getNumberOfPages());
-                },
-            });
-            autoTable(doc, {
-                 startY: (doc as any).lastAutoTable.finalY,
-                 head: headers,
-                 body: body,
-                 foot: foot,
-                 theme: 'grid',
-                 headStyles: { fillColor: [226, 232, 240], textColor: 0, fontStyle: 'bold' },
-                 footStyles: { fillColor: [226, 232, 240], textColor: 0, fontStyle: 'bold' },
-                 pageBreak: 'auto',
-                 didDrawPage: (data) => {
-                    addHeader(doc, data.pageNumber, (doc as any).internal.getNumberOfPages());
-                    addFooter(doc, data.pageNumber, (doc as any).internal.getNumberOfPages());
-                 },
-            });
+    
+        // --- Footer Drawing Function ---
+        const addFooter = (docInstance: jsPDF, pageNumber: number, totalPages: number) => {
+            docInstance.setFontSize(8);
+            docInstance.text(`Página ${pageNumber} de ${totalPages}`, pageWidth - margin, pageHeight - 10, { align: 'right' });
         };
-        
-        // --- Page 1 and beyond: Detailed Report ---
+    
+        // --- Draw Detailed Report Table ---
         autoTable(doc, {
             head: [['Fecha', 'Operario', 'Cliente', 'Tipo Op.', 'Tipo Prod.', 'Pedido', 'Placa', 'Cant.', 'Duración', 'Productividad', 'Concepto', 'Vlr. Unit', 'Vlr. Total']],
             body: reportData.map(row => {
@@ -580,10 +559,9 @@ export default function CrewPerformanceReportPage() {
             theme: 'grid',
             styles: { fontSize: 6, cellPadding: 1, overflow: 'linebreak' },
             headStyles: { fillColor: [33, 150, 243], fontSize: 6, cellPadding: 1 },
-            startY: headerHeight,
-            pageBreak: 'auto',
+            margin: { top: headerHeightWithMargin },
             didDrawPage: (data) => {
-                addHeader(doc, data.pageNumber, (doc as any).internal.getNumberOfPages());
+                addHeader(doc);
                 addFooter(doc, data.pageNumber, (doc as any).internal.getNumberOfPages());
             },
         });
@@ -591,7 +569,7 @@ export default function CrewPerformanceReportPage() {
         // --- Productivity Summary Page ---
         if (performanceSummary) {
             doc.addPage();
-            const evaluableOps = (performanceSummary.totalOperations || 0) - (performanceSummary.summary['Pendiente (P. Bruto)']?.count || 0);
+            const evaluableOps = (performanceSummary.totalOperations || 0) - (performanceSummary.summary['Pendiente (P. Bruto)']?.count || 0) - (performanceSummary.summary['No Calculado']?.count || 0);
             const performanceBody = Object.entries(performanceSummary.summary)
                 .filter(([key]) => key !== 'No Calculado' && key !== 'Pendiente (P. Bruto)')
                 .map(([key, value]) => {
@@ -599,15 +577,28 @@ export default function CrewPerformanceReportPage() {
                     return [key, value.count, percentage];
                 });
 
-             drawSummaryTable(
-                doc,
-                'Resumen de Productividad (Cargue/Descargue)',
-                [['Indicador', 'Total Operaciones', 'Porcentaje (%)']],
-                performanceBody,
-                [['Calificación General:', {content: performanceSummary.qualification, colSpan: 2, styles: {halign: 'left'}}]]
-            );
-        }
+            autoTable(doc, {
+                head: [[{ content: 'Resumen de Productividad (Cargue/Descargue)', styles: { halign: 'center', fillColor: [33, 150, 243], textColor: 255, fontStyle: 'bold' } }]],
+                body: [],
+                theme: 'plain',
+                margin: { top: headerHeightWithMargin },
+                didDrawPage: (data) => {
+                    addHeader(doc);
+                    addFooter(doc, data.pageNumber, (doc as any).internal.getNumberOfPages());
+                },
+            });
 
+             autoTable(doc, {
+                 startY: (doc as any).lastAutoTable.finalY,
+                 head: [['Indicador', 'Total Operaciones', 'Porcentaje (%)']],
+                 body: performanceBody,
+                 foot: [[{ content: 'Calificación General:', styles: { halign: 'right'} }, {content: performanceSummary.qualification, colSpan: 2, styles: {halign: 'left'}}]],
+                 theme: 'grid',
+                 headStyles: { fillColor: [226, 232, 240], textColor: 0, fontStyle: 'bold' },
+                 footStyles: { fillColor: [226, 232, 240], textColor: 0, fontStyle: 'bold' },
+            });
+        }
+    
         // --- Concepts Summary Page ---
         if (conceptSummary) {
             doc.addPage();
@@ -619,18 +610,33 @@ export default function CrewPerformanceReportPage() {
                 c.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }),
                 c.totalValor.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
             ]);
-            drawSummaryTable(
-                doc,
-                'Resumen de Conceptos Liquidados',
-                [['Ítem', 'Nombre del Concepto', 'Cantidad Total', 'Presentación', 'Valor Unitario (COP)', 'Valor Total (COP)']],
-                conceptsBody,
-                [['', '', '', '', { content: 'TOTAL LIQUIDACIÓN:', styles: { halign: 'right' } }, { content: totalLiquidacion.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }) }]]
-            );
+
+            autoTable(doc, {
+                head: [[{ content: 'Resumen de Conceptos Liquidados', styles: { halign: 'center', fillColor: [33, 150, 243], textColor: 255, fontStyle: 'bold' } }]],
+                body: [],
+                theme: 'plain',
+                margin: { top: headerHeightWithMargin },
+                didDrawPage: (data) => {
+                    addHeader(doc);
+                    addFooter(doc, data.pageNumber, (doc as any).internal.getNumberOfPages());
+                },
+            });
+
+            autoTable(doc, {
+                startY: (doc as any).lastAutoTable.finalY,
+                 head: [['Ítem', 'Nombre del Concepto', 'Cantidad Total', 'Presentación', 'Valor Unitario (COP)', 'Valor Total (COP)']],
+                 body: conceptsBody,
+                 foot: [['', '', '', '', { content: 'TOTAL LIQUIDACIÓN:', styles: { halign: 'right' } }, { content: totalLiquidacion.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }) }]],
+                 theme: 'grid',
+                 headStyles: { fillColor: [226, 232, 240], textColor: 0, fontStyle: 'bold' },
+                 footStyles: { fillColor: [226, 232, 240], textColor: 0, fontStyle: 'bold' },
+            });
         }
         
         const fileName = `Reporte_Liquidacion_Cuadrilla_${format(dateRange!.from!, 'yyyy-MM-dd')}_a_${format(dateRange!.to!, 'yyyy-MM-dd')}.pdf`;
         doc.save(fileName);
     };
+
 
     if (authLoading) {
         return (
