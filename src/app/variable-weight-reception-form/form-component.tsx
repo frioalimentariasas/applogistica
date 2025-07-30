@@ -732,19 +732,6 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
               }))
           };
 
-          // If loading a "TUNEL" form that was previously saved without placas,
-          // migrate the items into a single placa structure to fix the editing view.
-          if (formData.tipoPedido === 'TUNEL' && !formData.recepcionPorPlaca && formData.items?.length > 0 && formData.placas?.length === 0) {
-              sanitizedFormData.recepcionPorPlaca = true;
-              sanitizedFormData.placas = [{
-                  numeroPlaca: formData.placa,
-                  conductor: formData.conductor,
-                  cedulaConductor: formData.cedulaConductor,
-                  items: sanitizedFormData.items
-              }];
-              sanitizedFormData.items = []; // Clear the old items array
-          }
-
           if (sanitizedFormData.fecha && typeof sanitizedFormData.fecha === 'string') {
             sanitizedFormData.fecha = new Date(sanitizedFormData.fecha);
           }
@@ -2278,6 +2265,7 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
+
 
 
 
