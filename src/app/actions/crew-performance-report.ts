@@ -265,47 +265,49 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         throw new Error('Se requiere un rango de fechas para generar este informe.');
     }
     
-    let query: admin.firestore.Query = firestore.collection('submissions');
-    
-    query = query.where('formData.aplicaCuadrilla', '==', 'si');
+    const submissionsRef = firestore.collection('submissions');
 
-    if (criteria.operario) {
-        query = query.where('userDisplayName', '==', criteria.operario);
-    }
-    
     const serverQueryStartDate = new Date(criteria.startDate);
     const serverQueryEndDate = addDays(new Date(criteria.endDate), 1);
     
-    query = query.where('createdAt', '>=', serverQueryStartDate.toISOString().split('T')[0])
-                 .where('createdAt', '<', serverQueryEndDate.toISOString().split('T')[0]);
+    // Create two separate queries
+    const queryByCuadrilla = submissionsRef
+        .where('formData.aplicaCuadrilla', '==', 'si');
 
-
+    const queryByTunel = submissionsRef
+        .where('formData.tipoPedido', '==', 'TUNEL A CÁMARA CONGELADOS');
+    
     try {
-        const [snapshot, billingConcepts] = await Promise.all([
-            query.get(),
+        const [cuadrillaSnapshot, tunelSnapshot, billingConcepts] = await Promise.all([
+            queryByCuadrilla.get(),
+            queryByTunel.get(),
             getBillingConcepts()
         ]);
         
-        const allResults = snapshot.docs.map(submissionDoc => {
-             const submission = {
-                id: submissionDoc.id,
-                ...serializeTimestamps(submissionDoc.data())
-            };
-            return submission;
-        });
+        const combinedResults = new Map<string, any>();
+        cuadrillaSnapshot.docs.forEach(doc => combinedResults.set(doc.id, { id: doc.id, ...serializeTimestamps(doc.data()) }));
+        tunelSnapshot.docs.forEach(doc => combinedResults.set(doc.id, { id: doc.id, ...serializeTimestamps(doc.data()) }));
 
-        const dateFilteredResults = allResults.filter(submission => {
+        const allResults = Array.from(combinedResults.values());
+        
+        let filteredResults = allResults.filter(submission => {
             const formIsoDate = submission.formData?.fecha;
             if (!formIsoDate || typeof formIsoDate !== 'string') {
                 return false;
             }
+            // Date filtering needs to be done in memory to account for timezone
             const formDatePart = getLocalGroupingDate(formIsoDate);
             return formDatePart >= criteria.startDate! && formDatePart <= criteria.endDate!;
         });
 
+        // Apply remaining server-side style filters in memory
+        if (criteria.operario) {
+            filteredResults = filteredResults.filter(sub => sub.userDisplayName === criteria.operario);
+        }
+
         const finalReportRows: CrewPerformanceReportRow[] = [];
 
-        for (const submission of dateFilteredResults) {
+        for (const submission of filteredResults) {
             const { id, formType, formData, userDisplayName } = submission;
 
             let tipoOperacion: 'Recepción' | 'Despacho' | 'N/A' = 'N/A';
@@ -372,33 +374,28 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             }
         }
         
-        let filteredResults = finalReportRows;
+        let clientFilteredResults = finalReportRows;
         if (criteria.clientNames && criteria.clientNames.length > 0) {
-            filteredResults = filteredResults.filter(row => criteria.clientNames!.includes(row.cliente));
+            clientFilteredResults = clientFilteredResults.filter(row => criteria.clientNames!.includes(row.cliente));
         }
         if (criteria.productType) {
-            filteredResults = filteredResults.filter(row => row.productType === criteria.productType);
+            clientFilteredResults = clientFilteredResults.filter(row => row.productType === criteria.productType);
         }
         if (criteria.operationType) {
-             filteredResults = filteredResults.filter(row => {
+             clientFilteredResults = clientFilteredResults.filter(row => {
                 const rowOpType = (row.tipoOperacion === 'Recepción') ? 'recepcion' : (row.tipoOperacion === 'Despacho' ? 'despacho' : null);
                 return rowOpType === criteria.operationType;
             });
         }
         if (criteria.filterPending) {
-            filteredResults = filteredResults.filter(row => row.productType === 'fijo' && row.cantidadConcepto === -1);
+            clientFilteredResults = clientFilteredResults.filter(row => row.productType === 'fijo' && row.cantidadConcepto === -1);
         }
         
-        filteredResults.sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
+        clientFilteredResults.sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
 
-        return filteredResults;
+        return clientFilteredResults;
     } catch (error: any) {
-        if (error instanceof Error && error.message.includes('requires an index')) {
-            console.error("Firestore composite index required. See the full error log for the creation link.", error);
-            throw new Error(error.message);
-        }
         console.error('Error fetching crew performance report:', error);
         throw error;
     }
 }
-
