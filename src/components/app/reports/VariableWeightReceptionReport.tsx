@@ -154,6 +154,8 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
     const hasStandardObservations = (formData.observaciones || []).some(
         (obs: any) => obs.type !== 'OTRAS OBSERVACIONES'
     );
+    
+    const showCrewField = formData.tipoPedido !== 'TUNEL A CÁMARA CONGELADOS';
 
     return (
         <>
@@ -298,14 +300,16 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                         <tr>
                             <td style={{...fieldCellStyle, width: '33.33%'}}><ReportField label="Coordinador" value={formData.coordinador} /></td>
                             <td style={{...fieldCellStyle, width: '33.33%'}}><ReportField label="Operario" value={userDisplayName} /></td>
-                            <td style={{...fieldCellStyle, width: '33.33%'}}>
-                                <ReportField label="Operación Realizada por Cuadrilla" value={formData.aplicaCuadrilla ? formData.aplicaCuadrilla.charAt(0).toUpperCase() + formData.aplicaCuadrilla.slice(1) : 'N/A'} />
-                                {formData.aplicaCuadrilla === 'si' && formData.tipoPedido === 'MAQUILA' && formData.numeroOperariosCuadrilla && (
-                                    <div style={{ marginLeft: '8px', fontSize: '10px' }}>
-                                        ↳ No. Operarios: {formData.numeroOperariosCuadrilla}
-                                    </div>
-                                )}
-                            </td>
+                            {showCrewField && (
+                                <td style={{...fieldCellStyle, width: '33.33%'}}>
+                                    <ReportField label="Operación Realizada por Cuadrilla" value={formData.aplicaCuadrilla ? formData.aplicaCuadrilla.charAt(0).toUpperCase() + formData.aplicaCuadrilla.slice(1) : 'N/A'} />
+                                    {formData.aplicaCuadrilla === 'si' && formData.tipoPedido === 'MAQUILA' && formData.numeroOperariosCuadrilla && (
+                                        <div style={{ marginLeft: '8px', fontSize: '10px' }}>
+                                            ↳ No. Operarios: {formData.numeroOperariosCuadrilla}
+                                        </div>
+                                    )}
+                                </td>
+                            )}
                         </tr>
                     </tbody>
                 </table>

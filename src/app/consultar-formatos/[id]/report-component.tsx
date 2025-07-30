@@ -598,11 +598,12 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     let detailBody: any[][];
 
                     if (!isSummaryFormat) {
-                        detailHead = [isTunelModeByPlate ? 
+                        const isStandardTunel = (formData.tipoPedido === 'TUNEL' || formData.tipoPedido === 'TUNEL DE CONGELACIÓN') && !formData.recepcionPorPlaca;
+                        detailHead = [isTunelModeByPlate || isStandardTunel ? 
                             ['Descripción', 'Lote', 'Presentación', 'Cant.', 'P. Bruto', 'T. Estiba', 'T. Caja', 'Total Tara', 'P. Neto'] :
                             ['Paleta', 'Descripción', 'Lote', 'Presentación', 'Cant.', 'P. Bruto', 'T. Estiba', 'T. Caja', 'Total Tara', 'P. Neto']
                         ];
-                        detailBody = items.map((p: any) => isTunelModeByPlate ?
+                        detailBody = items.map((p: any) => isTunelModeByPlate || isStandardTunel ?
                             [p.descripcion, p.lote, p.presentacion, p.cantidadPorPaleta, p.pesoBruto?.toFixed(2), p.taraEstiba?.toFixed(2), p.taraCaja?.toFixed(2), p.totalTaraCaja?.toFixed(2), p.pesoNeto?.toFixed(2)] :
                             [p.paleta, p.descripcion, p.lote, p.presentacion, p.cantidadPorPaleta, p.pesoBruto?.toFixed(2), p.taraEstiba?.toFixed(2), p.taraCaja?.toFixed(2), p.totalTaraCaja?.toFixed(2), p.pesoNeto?.toFixed(2)]
                         );
@@ -743,18 +744,22 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 }
 
                 addObservationsTable();
+                
+                const showCrewField = formData.tipoPedido !== 'TUNEL A CÁMARA CONGELADOS';
     
                 autoTable(doc, { 
                     startY: yPos, 
-                    head: [[{ content: 'Responsables de la Operación', colSpan: 6, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]], 
+                    head: [[{ content: 'Responsables de la Operación', colSpan: showCrewField ? 6 : 4, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]], 
                     body: [
                         [
                            {content: 'Coordinador:', styles: {fontStyle: 'bold'}},
                             formData.coordinador || 'N/A',
                             {content: 'Operario:', styles: {fontStyle: 'bold'}},
                             userDisplayName || 'N/A',
-                             {content: 'Operación Realizada por Cuadrilla:', styles: {fontStyle: 'bold'}},
-                            `${formData.aplicaCuadrilla ? formData.aplicaCuadrilla.charAt(0).toUpperCase() + formData.aplicaCuadrilla.slice(1) : 'N/A'}${formData.aplicaCuadrilla === 'si' && isReception && formData.tipoPedido === 'MAQUILA' && formData.numeroOperariosCuadrilla ? ` (${formData.numeroOperariosCuadrilla} operarios)`: ''}`
+                             ...(showCrewField ? [
+                                {content: 'Operación Realizada por Cuadrilla:', styles: {fontStyle: 'bold'}},
+                                `${formData.aplicaCuadrilla ? formData.aplicaCuadrilla.charAt(0).toUpperCase() + formData.aplicaCuadrilla.slice(1) : 'N/A'}${formData.aplicaCuadrilla === 'si' && isReception && formData.tipoPedido === 'MAQUILA' && formData.numeroOperariosCuadrilla ? ` (${formData.numeroOperariosCuadrilla} operarios)`: ''}`
+                             ] : [])
                         ],
                     ].filter(row => row.length > 0 && row.some(cell => typeof cell === 'string' ? cell.length > 0 : (cell as any).content.length > 0)), 
                     theme: 'grid', 
