@@ -94,6 +94,8 @@ const placaSchema = z.object({
   numeroPlaca: z.string()
     .min(1, "El número de placa es obligatorio.")
     .regex(/^[A-Z]{3}[0-9]{3}$/, "Formato de placa inválido. Deben ser 3 letras y 3 números (ej: ABC123)."),
+  conductor: z.string().min(1, "El nombre del conductor es obligatorio."),
+  cedulaConductor: z.string().min(1, "La cédula del conductor es obligatoria.").regex(/^[0-9]*$/, "La cédula solo puede contener números."),
   items: z.array(itemSchema).min(1, "Debe agregar al menos un ítem a la placa."),
 });
 
@@ -1483,24 +1485,48 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                                 </div>
                                                 <AccordionContent className="pl-2 pr-2 md:pl-6 md:pr-0">
                                                     <div className="space-y-4 rounded-md border bg-gray-50 p-4">
-                                                        <FormField
-                                                            control={form.control}
-                                                            name={`placas.${placaIndex}.numeroPlaca`}
-                                                            render={({ field }) => (
-                                                                <FormItem>
-                                                                    <FormLabel>Número de Placa</FormLabel>
-                                                                    <FormControl><Input placeholder="ABC123" {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl>
-                                                                    <FormMessage />
-                                                                </FormItem>
-                                                            )}
-                                                        />
+                                                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                                            <FormField
+                                                                control={form.control}
+                                                                name={`placas.${placaIndex}.numeroPlaca`}
+                                                                render={({ field }) => (
+                                                                    <FormItem>
+                                                                        <FormLabel>Número de Placa</FormLabel>
+                                                                        <FormControl><Input placeholder="ABC123" {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl>
+                                                                        <FormMessage />
+                                                                    </FormItem>
+                                                                )}
+                                                            />
+                                                            <FormField
+                                                                control={form.control}
+                                                                name={`placas.${placaIndex}.conductor`}
+                                                                render={({ field }) => (
+                                                                    <FormItem>
+                                                                        <FormLabel>Nombre Conductor</FormLabel>
+                                                                        <FormControl><Input placeholder="Nombre del conductor" {...field} /></FormControl>
+                                                                        <FormMessage />
+                                                                    </FormItem>
+                                                                )}
+                                                            />
+                                                            <FormField
+                                                                control={form.control}
+                                                                name={`placas.${placaIndex}.cedulaConductor`}
+                                                                render={({ field }) => (
+                                                                    <FormItem>
+                                                                        <FormLabel>Cédula Conductor</FormLabel>
+                                                                        <FormControl><Input placeholder="Número de cédula" {...field} /></FormControl>
+                                                                        <FormMessage />
+                                                                    </FormItem>
+                                                                )}
+                                                            />
+                                                        </div>
                                                         <ItemsPorPlaca placaIndex={placaIndex} handleProductDialogOpening={handleProductDialogOpening} />
                                                     </div>
                                                 </AccordionContent>
                                             </AccordionItem>
                                         ))}
                                     </Accordion>
-                                    <Button type="button" variant="outline" onClick={() => appendPlaca({ numeroPlaca: '', items: [] })}><Truck className="mr-2 h-4 w-4"/>Agregar Placa</Button>
+                                    <Button type="button" variant="outline" onClick={() => appendPlaca({ numeroPlaca: '', conductor: '', cedulaConductor: '', items: [] })}><Truck className="mr-2 h-4 w-4"/>Agregar Placa</Button>
                                 </div>
                             ) : (
                                 <div className="space-y-4">

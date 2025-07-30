@@ -285,18 +285,19 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 if (formData.observaciones && formData.observaciones.length > 0) {
                     const obsBody = formData.observaciones.map((obs: any) => {
                         const isOther = obs.type === 'OTRAS OBSERVACIONES';
+                        let typeText = obs.customType || obs.type;
+                        
+                        if (!isOther && obs.executedByGrupoRosales === true) {
+                            typeText += " (Realizado por Cuadrilla)";
+                        }
+
                         if (isOther) {
                             return [{ 
-                                content: `OTRAS OBSERVACIONES: ${obs.customType || ''}`,
+                                content: `OTRAS OBSERVACIONES: ${typeText}`,
                                 colSpan: 2,
                                 styles: { halign: 'left', fontStyle: 'normal' }
                             }];
                         } else {
-                            let typeText = obs.type;
-                            // Check if executedByGrupoRosales is explicitly true.
-                            if (obs.executedByGrupoRosales === true) {
-                                typeText += " (Realizado por Cuadrilla)";
-                            }
                             const quantityText = `${obs.quantity ?? ''} ${obs.quantityType || ''}`.trim();
                             return [typeText, { content: quantityText, styles: { halign: 'right' } }];
                         }
@@ -519,7 +520,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
             } else if (formType.startsWith('variable-weight-')) {
                  const isReception = formType.includes('recepcion') || formType.includes('reception');
                  const operationTerm = isReception ? 'Descargue' : 'Cargue';
-                 const isTunelMode = formData.tipoPedido === 'TUNEL' && formData.recepcionPorPlaca === true;
+                 const isTunelMode = formData.tipoPedido === 'TUNEL' && formData.recepcionPorPlaca;
                  
                  const generalInfoBody: any[][] = [
                      [
@@ -599,14 +600,33 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     let detailBody: any[][];
 
                     if (!isSummaryFormat) {
-                        detailHead = [[isTunelMode ? null : 'Paleta', 'Descripción', 'Lote', 'Presentación', 'Cant.', 'P. Bruto', 'T. Estiba', 'T. Caja', 'Total Tara', 'P. Neto'].filter(Boolean)];
-                        detailBody = items.map((p: any) => [
-                            isTunelMode ? null : p.paleta, 
-                            p.descripcion,
-                            p.lote, p.presentacion, p.cantidadPorPaleta,
-                            p.pesoBruto?.toFixed(2), p.taraEstiba?.toFixed(2), p.taraCaja?.toFixed(2),
-                            p.totalTaraCaja?.toFixed(2), p.pesoNeto?.toFixed(2)
-                        ].filter(val => val !== null));
+                        let headCols = ['Paleta', 'Descripción', 'Lote', 'Presentación', 'Cant.', 'P. Bruto', 'T. Estiba', 'T. Caja', 'Total Tara', 'P. Neto'];
+                        if (isReception && isTunelMode) {
+                            headCols = ['Conductor', 'Cédula', 'Descripción', 'Lote', 'Presentación', 'Cant.', 'P. Bruto', 'T. Estiba', 'T. Caja', 'Total Tara', 'P. Neto'];
+                        } else if (isTunelMode) {
+                            headCols = ['Descripción', 'Lote', 'Presentación', 'Cant.', 'P. Bruto', 'T. Estiba', 'T. Caja', 'Total Tara', 'P. Neto'];
+                        }
+
+                        detailHead = [headCols];
+                        detailBody = items.map((p: any) => {
+                            let row = [
+                                p.paleta, p.descripcion, p.lote, p.presentacion, p.cantidadPorPaleta,
+                                p.pesoBruto?.toFixed(2), p.taraEstiba?.toFixed(2), p.taraCaja?.toFixed(2),
+                                p.totalTaraCaja?.toFixed(2), p.pesoNeto?.toFixed(2)
+                            ];
+
+                            if (isReception && isTunelMode) {
+                                // Find placa data for this item
+                                const placa = formData.placas.find((pl: any) => pl.items.some((i: any) => i === p));
+                                row.unshift(placa?.cedulaConductor || 'N/A');
+                                row.unshift(placa?.conductor || 'N/A');
+                            }
+                            if (isTunelMode && !isReception) {
+                                row.shift(); // remove paleta number for non-reception tunel
+                            }
+
+                            return row;
+                        });
                     } else {
                         detailHead = [['Descripción', 'Lote', 'Presentación', 'Total Cant.', 'Total Paletas', 'Total P. Neto']];
                         detailBody = items.map((p: any) => [
@@ -674,7 +694,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     yPos += 15;
                 } else if(isTunelMode && formData.placas?.length > 0) {
                     formData.placas.forEach((placa: any) => {
-                        drawItemsTable(placa.items || [], `Placa: ${placa.numeroPlaca}`);
+                        drawItemsTable(placa.items || [], `Placa: ${placa.numeroPlaca} | Conductor: ${placa.conductor} (C.C. ${placa.cedulaConductor})`);
                     });
                     yPos += 15;
                 } else {
@@ -682,92 +702,22 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     yPos += 15;
                 }
                 
-                const allItemsForSummary = (formData.despachoPorDestino && formData.destinos)
-                    ? formData.destinos.flatMap((d: any) => (d.items || []).map((i: any) => ({ ...i, destino: d.nombreDestino })))
-                    : (isTunelMode && formData.placas)
-                        ? formData.placas.flatMap((p: any) => (p.items || []).map((i: any) => ({ ...i, placa: p.numeroPlaca })))
-                        : formData.items || [];
-                        
-                const isSummaryFormat = allItemsForSummary.some((p: any) => Number(p.paleta) === 0);
+                const allItemsForSummary = formData.summary || [];
                 
-                const recalculatedSummary = (() => {
-                    const isIndividualPalletMode = allItemsForSummary.every((item: any) => Number(item?.paleta) > 0);
-                    const shouldGroupByDestino = formData.despachoPorDestino && isIndividualPalletMode;
-                    const shouldGroupByPlaca = isTunelMode && isIndividualPalletMode;
-
-                    const grouped = allItemsForSummary.reduce((acc, item) => {
-                        if (!item?.descripcion?.trim()) return acc;
-
-                        let key = item.descripcion;
-                        if (shouldGroupByDestino) key = `${item.destino}|${item.descripcion}`;
-                        if (shouldGroupByPlaca) key = `${item.placa}|${item.descripcion}`;
-                        
-                        if (!acc[key]) {
-                            const summaryItem = (formData.summary || []).find((s: any) => {
-                                if (shouldGroupByDestino) return s.destino === item.destino && s.descripcion === item.descripcion;
-                                if (shouldGroupByPlaca) return s.placa === item.placa && s.descripcion === item.descripcion;
-                                return s.descripcion === item.descripcion;
-                            });
-                            acc[key] = {
-                                descripcion: item.descripcion,
-                                destino: item.destino,
-                                placa: item.placa,
-                                items: [],
-                                temperatura: summaryItem?.temperatura,
-                                temperatura1: summaryItem?.temperatura1,
-                                temperatura2: summaryItem?.temperatura2,
-                                temperatura3: summaryItem?.temperatura3,
-                            };
-                        }
-                        acc[key].items.push(item);
-                        return acc;
-                    }, {} as Record<string, { descripcion: string; destino?: string; placa?: string; items: any[], temperatura: any, temperatura1: any, temperatura2: any, temperatura3: any }>);
-
-                    return Object.values(grouped).map(group => {
-                        let totalPeso = 0, totalCantidad = 0, totalPaletas = 0;
-                        const uniquePallets = new Set<number>();
-                        if (isSummaryFormat) {
-                            group.items.forEach(item => {
-                                totalPeso += Number(item.totalPesoNeto) || 0;
-                                totalCantidad += Number(item.totalCantidad) || 0;
-                                totalPaletas += Number(item.totalPaletas) || 0;
-                            });
-                        } else {
-                            group.items.forEach(item => {
-                                totalPeso += Number(item.pesoNeto) || 0;
-                                totalCantidad += Number(item.cantidadPorPaleta) || 0;
-                                const paletaNum = Number(item.paleta);
-                                if (!isNaN(paletaNum) && paletaNum > 0) uniquePallets.add(paletaNum);
-                            });
-                            totalPaletas = uniquePallets.size;
-                        }
-                        return { ...group, totalPeso, totalCantidad, totalPaletas };
-                    });
-                })();
-
-                const totalGeneralPeso = recalculatedSummary.reduce((acc, p) => acc + (p.totalPeso || 0), 0);
-                const totalGeneralCantidad = recalculatedSummary.reduce((acc, p) => acc + (p.totalCantidad || 0), 0);
+                const isSummaryFormat = formData.items.some((p: any) => Number(p.paleta) === 0);
                 
-                const totalGeneralPaletas = (() => {
-                    if (isSummaryFormat) {
-                        return formData.despachoPorDestino
-                            ? formData.totalPaletasDespacho || 0
-                            : allItemsForSummary.reduce((sum, item) => sum + (Number(item.totalPaletas) || 0), 0);
-                    }
-                    const uniquePallets = new Set<number>();
-                    allItemsForSummary.forEach((i: any) => {
-                        const pNum = Number(i.paleta);
-                        if (!isNaN(pNum) && pNum > 0) uniquePallets.add(pNum);
-                    });
-                    return uniquePallets.size;
-                })();
-
+                const totalGeneralPeso = allItemsForSummary.reduce((acc: number, p: any) => acc + (p.totalPeso || 0), 0);
+                const totalGeneralCantidad = allItemsForSummary.reduce((acc: number, p: any) => acc + (p.totalCantidad || 0), 0);
+                const totalGeneralPaletas = allItemsForSummary.reduce((acc: number, p: any) => acc + (p.totalPaletas || 0), 0);
+                
                 if (recalculatedSummary.length > 0) {
                      const isIndividualPalletMode = allItemsForSummary.every((item: any) => Number(item?.paleta) > 0);
                     const shouldGroupByDestino = formData.despachoPorDestino && isIndividualPalletMode;
-                    const shouldGroupByPlaca = isTunelMode && isIndividualPalletMode;
 
                     let tempDoc = new jsPDF();
+                    autoTable(tempDoc, {
+                        head: [['temp']], body: Array(recalculatedSummary.length + 2).fill(['temp'])
+                    });
                     const tableHeight = (tempDoc as any).lastAutoTable.finalY;
                     const remainingSpace = pageHeight - yPos - margin - 40;
 
@@ -788,7 +738,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
 
                     let summaryHead: string[] = [];
                     if (shouldGroupByDestino) summaryHead.push('Destino');
-                    if (shouldGroupByPlaca) summaryHead.push('Placa');
+                    if (isTunelMode) summaryHead.push('Placa');
                     summaryHead.push('Descripción', 'Temp(°C)', 'Total Cantidad');
                     if (!isSummaryFormat) summaryHead.push('Total Paletas');
                     summaryHead.push('Total Peso (kg)');
@@ -796,7 +746,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     const summaryBody = recalculatedSummary.map((p: any) => {
                         const row: any[] = [];
                         if (shouldGroupByDestino) row.push(p.destino);
-                        if (shouldGroupByPlaca) row.push(p.placa);
+                        if (isTunelMode) row.push(p.placa);
                         const temps = [p.temperatura1, p.temperatura2, p.temperatura3].filter(t => t != null && !isNaN(t));
                         row.push(
                             p.descripcion, 
@@ -1013,4 +963,3 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
         </div>
     );
 }
-

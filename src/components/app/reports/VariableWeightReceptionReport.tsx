@@ -61,7 +61,7 @@ interface VariableWeightReceptionReportProps {
 }
 
 export function VariableWeightReceptionReport({ formData, userDisplayName, attachments }: VariableWeightReceptionReportProps) {
-    const isTunelMode = formData.tipoPedido === 'TUNEL';
+    const isTunelMode = formData.tipoPedido === 'TUNEL' || formData.tipoPedido === 'TUNEL DE CONGELACIÓN';
     const recepcionPorPlaca = formData.recepcionPorPlaca === true;
     const itemsForCalculation = (isTunelMode && recepcionPorPlaca) ? (formData.placas || []).flatMap((p: any) => p.items.map((i: any) => ({ ...i, placa: p.numeroPlaca }))) : formData.items;
     const isSummaryFormat = (formData.items || []).some((p: any) => Number(p.paleta) === 0);
@@ -195,13 +195,13 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                         (formData.placas || []).map((placa: any, placaIndex: number) => (
                              <div key={placaIndex} style={{ marginBottom: '10px', breakInside: 'avoid', pageBreakInside: 'avoid' }}>
                                 <div style={{ backgroundColor: '#f1f5f9', padding: '6px 12px', fontWeight: 'bold', borderBottom: '1px solid #ddd', borderTop: placaIndex > 0 ? '1px solid #aaa' : 'none' }}>
-                                    Placa: {placa.numeroPlaca}
+                                    Placa: {placa.numeroPlaca} | Conductor: {placa.conductor} (C.C. {placa.cedulaConductor})
                                 </div>
-                                <ItemsTable items={placa.items || []} isSummaryFormat={false} />
+                                <ItemsTable items={placa.items || []} isSummaryFormat={false} isTunel={true}/>
                             </div>
                         ))
                     ) : (
-                        <ItemsTable items={formData.items || []} isSummaryFormat={isSummaryFormat} />
+                        <ItemsTable items={formData.items || []} isSummaryFormat={isSummaryFormat} isTunel={false}/>
                     )}
                 </div>
             </ReportSection>
@@ -331,7 +331,7 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
     );
 }
 
-const ItemsTable = ({ items, isSummaryFormat }: { items: any[], isSummaryFormat: boolean }) => (
+const ItemsTable = ({ items, isSummaryFormat, isTunel }: { items: any[], isSummaryFormat: boolean, isTunel: boolean }) => (
     <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse', tableLayout: 'auto' }}>
         <thead>
             <tr style={{ borderBottom: '1px solid #ddd', backgroundColor: '#fafafa' }}>
@@ -346,7 +346,7 @@ const ItemsTable = ({ items, isSummaryFormat }: { items: any[], isSummaryFormat:
                     </>
                 ) : (
                     <>
-                        <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Paleta</th>
+                        {!isTunel && <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Paleta</th>}
                         <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Descripción</th>
                         <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Lote</th>
                         <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Presentación</th>
@@ -373,7 +373,7 @@ const ItemsTable = ({ items, isSummaryFormat }: { items: any[], isSummaryFormat:
                     </tr>
                 ) : (
                     <tr key={i} style={{ borderBottom: '1px solid #eee' }}>
-                        <td style={{ padding: '4px' }}>{p.paleta}</td>
+                        {!isTunel && <td style={{ padding: '4px' }}>{p.paleta}</td>}
                         <td style={{ padding: '4px' }}>{p.descripcion}</td>
                         <td style={{ padding: '4px' }}>{p.lote}</td>
                         <td style={{ padding: '4px' }}>{p.presentacion}</td>
