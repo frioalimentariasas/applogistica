@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
@@ -250,7 +251,7 @@ const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, is
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <FormField control={control} name={`${basePath}.${itemIndex}.codigo`} render={({ field }) => (
                     <FormItem>
-                        <FormLabel>Código</FormLabel>
+                        <FormLabel>Código <span className="text-destructive">*</span></FormLabel>
                         <Button type="button" variant="outline" className="w-full justify-between h-10 text-left font-normal" onClick={() => handleProductDialogOpening({ itemIndex, placaIndex })}>
                             <span className="truncate">{field.value || "Seleccionar código..."}</span>
                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -260,7 +261,7 @@ const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, is
                 )} />
                 <FormField control={control} name={`${basePath}.${itemIndex}.descripcion`} render={({ field }) => (
                     <FormItem className="md:col-span-2">
-                        <FormLabel>Descripción</FormLabel>
+                        <FormLabel>Descripción <span className="text-destructive">*</span></FormLabel>
                         <Button type="button" variant="outline" className="w-full justify-between h-10 text-left font-normal" onClick={() => handleProductDialogOpening({ itemIndex, placaIndex })}>
                             <span className="truncate">{field.value || "Seleccionar producto..."}</span>
                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
@@ -272,7 +273,7 @@ const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, is
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                  {!isTunel && (
                     <FormField control={control} name={`${basePath}.${itemIndex}.paleta`} render={({ field }) => (
-                        <FormItem><FormLabel>Paleta</FormLabel><FormControl><Input type="text" inputMode="numeric" placeholder="0 para resumen" {...field} onChange={e => field.onChange(e.target.value === '' ? null : Number(e.target.value))} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Paleta <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="numeric" placeholder="0 para resumen" {...field} onChange={e => field.onChange(e.target.value === '' ? null : Number(e.target.value))} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                     )} />
                 )}
                 <FormField control={control} name={`${basePath}.${itemIndex}.lote`} render={({ field }) => (
@@ -285,28 +286,28 @@ const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, is
             {isSummaryRow && !isTunel ? (
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <FormField control={control} name={`${basePath}.${itemIndex}.totalCantidad`} render={({ field }) => (
-                        <FormItem><FormLabel>Total Cantidad</FormLabel><FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Total Cantidad <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={control} name={`${basePath}.${itemIndex}.totalPaletas`} render={({ field }) => (
                         <FormItem><FormLabel>Total Paletas</FormLabel><FormControl><Input type="text" inputMode="numeric" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={control} name={`${basePath}.${itemIndex}.totalPesoNeto`} render={({ field }) => (
-                        <FormItem><FormLabel>Total Peso Neto (kg)</FormLabel><FormControl><Input type="text" inputMode="decimal" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Total Peso Neto (kg) <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="decimal" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                     )} />
                 </div>
             ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
                     <FormField control={control} name={`${basePath}.${itemIndex}.cantidadPorPaleta`} render={({ field }) => (
-                        <FormItem><FormLabel>Cant. Por Paleta</FormLabel><FormControl><Input type="text" inputMode="numeric" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Cant. Por Paleta <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="numeric" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={control} name={`${basePath}.${itemIndex}.pesoBruto`} render={({ field }) => (
-                        <FormItem><FormLabel>P. Bruto (kg)</FormLabel><FormControl><Input type="text" inputMode="decimal" min="0" step="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>P. Bruto (kg) <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="decimal" min="0" step="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={control} name={`${basePath}.${itemIndex}.taraEstiba`} render={({ field }) => (
-                        <FormItem><FormLabel>T. Estiba (kg)</FormLabel><FormControl><Input type="text" inputMode="decimal" min="0" step="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>T. Estiba (kg) <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="decimal" min="0" step="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={control} name={`${basePath}.${itemIndex}.taraCaja`} render={({ field }) => (
-                        <FormItem><FormLabel>T. Caja (kg)</FormLabel><FormControl><Input type="text" inputMode="decimal" min="0" step="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>T. Caja (kg) <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="decimal" min="0" step="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormItem><FormLabel>Peso Neto (kg)</FormLabel><FormControl><Input disabled readOnly value={pesoNeto != null && !isNaN(pesoNeto) ? pesoNeto.toFixed(2) : '0.00'} /></FormControl></FormItem>
                 </div>
@@ -1244,7 +1245,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                         <FormField control={form.control} name="pedidoSislog" render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Pedido SISLOG</FormLabel>
+                              <FormLabel>Pedido SISLOG <span className="text-destructive">*</span></FormLabel>
                               <FormControl><Input placeholder="Máximo 15 caracteres" {...field} /></FormControl>
                               <FormMessage />
                             </FormItem>
@@ -1254,7 +1255,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                           name="cliente"
                           render={({ field }) => (
                               <FormItem className="flex flex-col">
-                                  <FormLabel>Cliente</FormLabel>
+                                  <FormLabel>Cliente <span className="text-destructive">*</span></FormLabel>
                                   <Dialog open={isClientDialogOpen} onOpenChange={(isOpen) => {
                                       if (!isOpen) setClientSearch('');
                                       setClientDialogOpen(isOpen);
@@ -1313,7 +1314,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                           name="fecha"
                           render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Fecha</FormLabel>
+                              <FormLabel>Fecha <span className="text-destructive">*</span></FormLabel>
                               {isAdmin ? (
                                 <Popover>
                                   <PopoverTrigger asChild>
@@ -1357,7 +1358,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                         />
                         <FormField control={form.control} name="conductor" render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Conductor</FormLabel>
+                              <FormLabel>Conductor {!isSpecialReception && <span className="text-destructive">*</span>}</FormLabel>
                               <FormControl><Input placeholder="Nombre del conductor" {...field} disabled={isTunelMode && watchedRecepcionPorPlaca} /></FormControl>
                               {isSpecialReception && <FormDescription>Si se deja vacío, se guardará como N/A.</FormDescription>}
                               <FormMessage />
@@ -1365,7 +1366,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                         )}/>
                         <FormField control={form.control} name="cedulaConductor" render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Cédula Conductor</FormLabel>
+                              <FormLabel>Cédula Conductor {!isSpecialReception && <span className="text-destructive">*</span>}</FormLabel>
                               <FormControl><Input placeholder="Número de cédula" {...field} inputMode="numeric" pattern="[0-9]*" disabled={isTunelMode && watchedRecepcionPorPlaca} /></FormControl>
                               {isSpecialReception && <FormDescription>Si se deja vacío, se guardará como N/A.</FormDescription>}
                               <FormMessage />
@@ -1373,7 +1374,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                         )}/>
                         <FormField control={form.control} name="placa" render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Placa del vehículo</FormLabel>
+                              <FormLabel>Placa del vehículo {!isSpecialReception && <span className="text-destructive">*</span>}</FormLabel>
                               <FormControl><Input placeholder="ABC123" {...field} disabled={isTunelMode && watchedRecepcionPorPlaca} onChange={(e) => field.onChange(e.target.value.toUpperCase())} maxLength={isTunelMode ? undefined : 6} /></FormControl>
                                 {isSpecialReception && <FormDescription>Si se deja vacío, se guardará como N/A.</FormDescription>}
                               <FormMessage />
@@ -1381,7 +1382,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                         )}/>
                         <FormField control={form.control} name="precinto" render={({ field }) => (
                             <FormItem>
-                              <FormLabel>Precinto</FormLabel>
+                              <FormLabel>Precinto {!isSpecialReception && <span className="text-destructive">*</span>}</FormLabel>
                               <FormControl><Input placeholder="Precinto (máx. 50 caracteres)" {...field} /></FormControl>
                               {isSpecialReception && <FormDescription>Si se deja vacío, se guardará como N/A.</FormDescription>}
                               <FormMessage />
@@ -1389,7 +1390,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                         )}/>
                         <FormField control={form.control} name="setPoint" render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Set Point (°C)</FormLabel>
+                                <FormLabel>Set Point (°C) {!isSpecialReception && <span className="text-destructive">*</span>}</FormLabel>
                                 <FormControl><Input type="text" inputMode="decimal" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.value)} value={field.value ?? ''} /></FormControl>
                                 {isSpecialReception && <FormDescription>Si se deja vacío, se guardará como N/A.</FormDescription>}
                                 <FormMessage />
@@ -1397,7 +1398,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                         )}/>
                          <FormField control={form.control} name="contenedor" render={({ field }) => (
                             <FormItem>
-                                <FormLabel>Contenedor</FormLabel>
+                                <FormLabel>Contenedor {!isSpecialReception && <span className="text-destructive">*</span>}</FormLabel>
                                 <FormControl><Input
                                     placeholder="ABCD1234567 o N/A"
                                     {...field}
@@ -1424,7 +1425,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                             name="tipoPedido"
                             render={({ field }) => (
                                 <FormItem className="flex flex-col">
-                                    <FormLabel>Tipo de Pedido</FormLabel>
+                                    <FormLabel>Tipo de Pedido <span className="text-destructive">*</span></FormLabel>
                                     <Button
                                         type="button"
                                         variant="outline"
@@ -1444,7 +1445,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                 name="tipoEmpaqueMaquila"
                                 render={({ field }) => (
                                 <FormItem>
-                                    <FormLabel>Tipo de Empaque (Maquila)</FormLabel>
+                                    <FormLabel>Tipo de Empaque (Maquila) <span className="text-destructive">*</span></FormLabel>
                                     <Select onValueChange={field.onChange} value={field.value}>
                                     <FormControl>
                                         <SelectTrigger>
@@ -1466,7 +1467,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                 </Card>
               
                 <Card>
-                  <CardHeader><CardTitle>Detalle de la Recepción</CardTitle></CardHeader>
+                  <CardHeader><CardTitle>Detalle de la Recepción <span className="text-destructive">*</span></CardTitle></CardHeader>
                   <CardContent className="space-y-4">
                      {isTunelMode ? (
                         <div className="space-y-4">
@@ -1520,7 +1521,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                                                 name={`placas.${placaIndex}.numeroPlaca`}
                                                                 render={({ field }) => (
                                                                     <FormItem>
-                                                                        <FormLabel>Número de Placa</FormLabel>
+                                                                        <FormLabel>Número de Placa <span className="text-destructive">*</span></FormLabel>
                                                                         <FormControl><Input placeholder="ABC123" {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl>
                                                                         <FormMessage />
                                                                     </FormItem>
@@ -1531,7 +1532,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                                                 name={`placas.${placaIndex}.conductor`}
                                                                 render={({ field }) => (
                                                                     <FormItem>
-                                                                        <FormLabel>Nombre Conductor</FormLabel>
+                                                                        <FormLabel>Nombre Conductor <span className="text-destructive">*</span></FormLabel>
                                                                         <FormControl><Input placeholder="Nombre del conductor" {...field} /></FormControl>
                                                                         <FormMessage />
                                                                     </FormItem>
@@ -1542,7 +1543,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                                                 name={`placas.${placaIndex}.cedulaConductor`}
                                                                 render={({ field }) => (
                                                                     <FormItem>
-                                                                        <FormLabel>Cédula Conductor</FormLabel>
+                                                                        <FormLabel>Cédula Conductor <span className="text-destructive">*</span></FormLabel>
                                                                         <FormControl><Input placeholder="Número de cédula" {...field} /></FormControl>
                                                                         <FormMessage />
                                                                     </FormItem>
@@ -1601,7 +1602,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                     <TableRow>
                                         {(isTunelMode && watchedRecepcionPorPlaca) && <TableHead>Placa</TableHead>}
                                         <TableHead>{isTunelMode ? 'Producto' : 'Descripción'}</TableHead>
-                                        <TableHead className="w-[240px]">Temperaturas (°C)</TableHead>
+                                        <TableHead className="w-[240px]">Temperaturas (°C) <span className="text-destructive">*</span></TableHead>
                                         {!isTunelMode && <TableHead className="text-right">Total Paletas</TableHead>}
                                         <TableHead className="text-right">Total Cantidad</TableHead>
                                         <TableHead className="text-right">Total Peso (kg)</TableHead>
@@ -1703,7 +1704,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                           <FormField control={form.control} name="horaInicio" render={({ field }) => (
                           <FormItem>
-                              <FormLabel>Hora Inicio</FormLabel>
+                              <FormLabel>Hora Inicio <span className="text-destructive">*</span></FormLabel>
                                <div className="flex items-center gap-2">
                                 <FormControl>
                                     <Input type="time" placeholder="HH:MM" {...field} className="flex-grow" />
@@ -1717,7 +1718,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                           )}/>
                           <FormField control={form.control} name="horaFin" render={({ field }) => (
                           <FormItem>
-                              <FormLabel>Hora Fin</FormLabel>
+                              <FormLabel>Hora Fin <span className="text-destructive">*</span></FormLabel>
                               <div className="flex items-center gap-2">
                                 <FormControl>
                                     <Input type="time" placeholder="HH:MM" {...field} className="flex-grow" />
@@ -1843,7 +1844,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                   <CardContent>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-10 gap-4 items-center">
                         <FormField control={form.control} name="coordinador" render={({ field }) => (
-                            <FormItem className="lg:col-span-2"><FormLabel>Coordinador Responsable</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                            <FormItem className="lg:col-span-2"><FormLabel>Coordinador Responsable <span className="text-destructive">*</span></FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                         )}/>
                         {submissionId && isAdmin ? (
                              <FormField control={form.control} name="operarioResponsable" render={({ field }) => (
@@ -1871,7 +1872,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                     name="aplicaCuadrilla"
                                     render={({ field }) => (
                                         <FormItem className="space-y-1 lg:col-span-4">
-                                            <FormLabel>Operación Realizada por Cuadrilla</FormLabel>
+                                            <FormLabel>Operación Realizada por Cuadrilla <span className="text-destructive">*</span></FormLabel>
                                             <FormControl><RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4 pt-2"><FormItem className="flex items-center space-x-2"><RadioGroupItem value="si" id="cuadrilla-si" /><Label htmlFor="cuadrilla-si">Sí</Label></FormItem><FormItem className="flex items-center space-x-2"><RadioGroupItem value="no" id="cuadrilla-no" /><Label htmlFor="cuadrilla-no">No</Label></FormItem></RadioGroup></FormControl>
                                             <FormMessage />
                                         </FormItem>
@@ -1883,7 +1884,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                         name="numeroOperariosCuadrilla"
                                         render={({ field }) => (
                                             <FormItem className="lg:col-span-2">
-                                            <FormLabel>No. de Operarios de Cuadrilla</FormLabel>
+                                            <FormLabel>No. de Operarios <span className="text-destructive">*</span></FormLabel>
                                             <FormControl>
                                                 <Input
                                                     type="number"
@@ -2233,5 +2234,6 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
+
 
 
