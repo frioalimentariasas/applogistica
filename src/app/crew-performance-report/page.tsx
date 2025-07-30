@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -370,12 +371,13 @@ export default function CrewPerformanceReportPage() {
         if (reportData.length === 0) return null;
         
         const summary = reportData.reduce((acc, row) => {
-            const { conceptoLiquidado, cantidadConcepto, valorTotalConcepto, unidadMedidaConcepto } = row;
+            const { conceptoLiquidado, cantidadConcepto, valorUnitario, valorTotalConcepto, unidadMedidaConcepto } = row;
             if (!acc[conceptoLiquidado]) {
                 acc[conceptoLiquidado] = {
                     totalCantidad: 0,
                     totalValor: 0,
-                    unidadMedida: unidadMedidaConcepto
+                    unidadMedida: unidadMedidaConcepto,
+                    valorUnitario: valorUnitario, // Assume it's the same for the same concept name
                 };
             }
             if (cantidadConcepto !== -1) { // Exclude pending
@@ -383,12 +385,13 @@ export default function CrewPerformanceReportPage() {
                  acc[conceptoLiquidado].totalValor += valorTotalConcepto;
             }
             return acc;
-        }, {} as Record<string, { totalCantidad: number, totalValor: number, unidadMedida: string }>);
+        }, {} as Record<string, { totalCantidad: number, totalValor: number, unidadMedida: string, valorUnitario: number }>);
 
         return Object.entries(summary).map(([name, data], index) => ({
             item: index + 1,
             name,
             totalCantidad: data.totalCantidad,
+            valorUnitario: data.valorUnitario,
             totalValor: data.totalValor,
             unidadMedida: data.unidadMedida
         }));
@@ -449,20 +452,35 @@ export default function CrewPerformanceReportPage() {
 
         // --- Sheet 3: Resumen de Liquidación Conceptos ---
         if (conceptSummary) {
-             const conceptsData = [
-                 ['Resumen de Conceptos Liquidados'],
-                 [],
-                 ['Ítem', 'Nombre del Concepto', 'Cantidad Total', 'Valor Total (COP)'],
-                 ...conceptSummary.map(c => [
-                    c.item,
-                    c.name,
-                    `${c.totalCantidad.toFixed(2)} ${c.unidadMedida}`,
-                    c.totalValor
-                 ]),
-                 [],
-                 ['', 'TOTAL LIQUIDACIÓN:', '', totalLiquidacion]
-             ];
-             const conceptsWorksheet = XLSX.utils.aoa_to_sheet(conceptsData);
+             const conceptsDataToSheet = conceptSummary.map(c => ({
+                'Ítem': c.item,
+                'Nombre del Concepto': c.name,
+                'Cantidad Total': Number(c.totalCantidad.toFixed(2)),
+                'Presentación': c.unidadMedida,
+                'Valor Unitario (COP)': c.valorUnitario,
+                'Valor Total (COP)': c.totalValor
+             }));
+             const conceptsWorksheet = XLSX.utils.json_to_sheet(conceptsDataToSheet);
+             
+             // Add total row
+             XLSX.utils.sheet_add_aoa(conceptsWorksheet, [
+                ['', '', '', 'TOTAL LIQUIDACIÓN:', '', totalLiquidacion]
+             ], { origin: -1 });
+
+             // Apply number formatting
+             const currencyFormat = '$ #,##0.00';
+             const numberFormat = '0.00';
+             conceptsWorksheet['!cols'] = [ {wch: 5}, {wch: 25}, {wch: 15}, {wch: 15}, {wch: 20}, {wch: 20} ];
+             for(let i = 2; i <= conceptsDataToSheet.length + 2; i++) {
+                 if (conceptsWorksheet[`C${i}`]) conceptsWorksheet[`C${i}`].z = numberFormat;
+                 if (conceptsWorksheet[`E${i}`]) conceptsWorksheet[`E${i}`].z = currencyFormat;
+                 if (conceptsWorksheet[`F${i}`]) conceptsWorksheet[`F${i}`].z = currencyFormat;
+             }
+
+             const totalRowIndex = conceptsDataToSheet.length + 2;
+             if(conceptsWorksheet[`F${totalRowIndex}`]) conceptsWorksheet[`F${totalRowIndex}`].z = currencyFormat;
+
+
              XLSX.utils.book_append_sheet(workbook, conceptsWorksheet, 'Resumen de Liquidación');
         }
         
@@ -568,15 +586,17 @@ export default function CrewPerformanceReportPage() {
             const conceptsBody = conceptSummary.map(c => [
                 c.item,
                 c.name,
-                `${c.totalCantidad.toFixed(2)} ${c.unidadMedida}`,
+                `${c.totalCantidad.toFixed(2)}`,
+                c.unidadMedida,
+                c.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }),
                 c.totalValor.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
             ]);
             currentY = drawSummaryTable(
                 currentY + 15,
                 'Resumen de Conceptos Liquidados',
-                [['Ítem', 'Nombre del Concepto', 'Cantidad Total', 'Valor Total']],
+                [['Ítem', 'Nombre del Concepto', 'Cantidad Total', 'Presentación', 'Valor Unitario (COP)', 'Valor Total (COP)']],
                 conceptsBody,
-                [['', '', { content: 'TOTAL LIQUIDACIÓN:', styles: { halign: 'right' } }, { content: totalLiquidacion.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }) }]]
+                [['', '', '', '', { content: 'TOTAL LIQUIDACIÓN:', styles: { halign: 'right' } }, { content: totalLiquidacion.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }) }]]
             );
         }
 
