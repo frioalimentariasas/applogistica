@@ -60,73 +60,6 @@ const ReportField = ({ label, value }: { label: string, value: any }) => (
 
 // --- DATA PROCESSING LOGIC ---
 
-const processTunelData = (formData: any) => {
-    const placaGroups = (formData.placas || []).map((placa: any) => {
-        const itemsByPresentation = (placa.items || []).reduce((acc: any, item: any) => {
-            const key = item.presentacion || 'SIN PRESENTACIÓN';
-            if (!acc[key]) {
-                acc[key] = {
-                    presentation: key,
-                    items: [],
-                };
-            }
-            acc[key].items.push(item);
-            return acc;
-        }, {});
-
-        const presentationGroups = Object.values(itemsByPresentation).map((group: any) => {
-            const productsSummary = group.items.reduce((acc: any, item: any) => {
-                const productKey = item.descripcion;
-                if (!acc[productKey]) {
-                    const summaryItem = (formData.summary || []).find((s: any) =>
-                        s.descripcion === productKey &&
-                        s.presentacion === group.presentation &&
-                        s.placa === placa.numeroPlaca
-                    );
-                    acc[productKey] = {
-                        descripcion: productKey,
-                        totalPaletas: 0,
-                        totalCantidad: 0,
-                        totalPeso: 0,
-                        temperatura: [summaryItem?.temperatura1, summaryItem?.temperatura2, summaryItem?.temperatura3]
-                            .filter(t => t != null && !isNaN(t)).join(' / ')
-                    };
-                }
-                // For TUNEL, each item is considered one pallet
-                acc[productKey].totalPaletas += 1; 
-                acc[productKey].totalCantidad += Number(item.cantidadPorPaleta) || 0;
-                acc[productKey].totalPeso += Number(item.pesoNeto) || 0;
-                return acc;
-            }, {});
-
-            const subTotalPaletas = Object.values(productsSummary).reduce((sum: number, p: any) => sum + p.totalPaletas, 0);
-            const subTotalCantidad = Object.values(productsSummary).reduce((sum: number, p: any) => sum + p.totalCantidad, 0);
-            const subTotalPeso = Object.values(productsSummary).reduce((sum: number, p: any) => sum + p.totalPeso, 0);
-
-            return {
-                presentation: group.presentation,
-                products: Object.values(productsSummary),
-                subTotalPaletas,
-                subTotalCantidad,
-                subTotalPeso,
-            };
-        });
-
-        return {
-            placa: placa.numeroPlaca,
-            conductor: placa.conductor,
-            cedulaConductor: placa.cedulaConductor,
-            presentationGroups,
-        };
-    });
-
-    const totalGeneralPaletas = placaGroups.reduce((sum: number, placaGroup) => sum + placaGroup.presentationGroups.reduce((s: any, presGroup: any) => s + presGroup.subTotalPaletas, 0), 0);
-    const totalGeneralCantidad = placaGroups.reduce((sum: number, placaGroup) => sum + placaGroup.presentationGroups.reduce((s: any, presGroup: any) => s + presGroup.subTotalCantidad, 0), 0);
-    const totalGeneralPeso = placaGroups.reduce((sum: number, placaGroup) => sum + placaGroup.presentationGroups.reduce((s: any, presGroup: any) => s + presGroup.subTotalPeso, 0), 0);
-
-    return { placaGroups, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso };
-};
-
 const processDefaultData = (formData: any) => {
     const allItems = formData.items || [];
     const isSummaryMode = allItems.some((p: any) => Number(p.paleta) === 0);
@@ -362,7 +295,7 @@ const TunelCongelacionSummary = ({ formData }: { formData: any }) => {
     if (placaGroups.length === 0) return null;
 
     return (
-        <ReportSection title="Resumen Agrupado de Productos">
+        <ReportSection title="Resumen Agrupado de Productos" noPadding>
             <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse' }}>
                 <thead>
                     <tr style={{ borderBottom: '1px solid #aaa' }}>
