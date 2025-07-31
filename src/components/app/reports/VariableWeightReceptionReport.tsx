@@ -471,7 +471,7 @@ const ItemsTable = ({ items, isSummaryFormat, isTunel }: { items: any[], isSumma
                     ) : (
                         <>
                             {/* Hide Paleta column for TUNEL mode as it's not relevant */}
-                            {!isTunel && <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Paleta</th>}
+                            {!isDetailedTunel && <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Paleta</th>}
                             <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Descripción</th>
                             <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Lote</th>
                             <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Presentación</th>
@@ -498,7 +498,7 @@ const ItemsTable = ({ items, isSummaryFormat, isTunel }: { items: any[], isSumma
                         </tr>
                     ) : (
                         <tr key={i} style={{ borderBottom: '1px solid #eee' }}>
-                            {!isTunel && <td style={{ padding: '4px' }}>{p.paleta}</td>}
+                            {!isDetailedTunel && <td style={{ padding: '4px' }}>{p.paleta}</td>}
                             <td style={{ padding: '4px' }}>{p.descripcion}</td>
                             <td style={{ padding: '4px' }}>{p.lote}</td>
                             <td style={{ padding: '4px' }}>{p.presentacion}</td>
