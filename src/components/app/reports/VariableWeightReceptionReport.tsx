@@ -76,11 +76,11 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
             : (formData.items || []);
 
         const groupedByPresentation = allItems.reduce((acc, item) => {
-            const presentation = item.presentacion || 'SIN PRESENTACIÓN';
-            if (!acc[presentation]) {
-                acc[presentation] = [];
+            const presentacion = item.presentacion || 'SIN PRESENTACIÓN';
+            if (!acc[presentacion]) {
+                acc[presentacion] = [];
             }
-            acc[presentation].push(item);
+            acc[presentacion].push(item);
             return acc;
         }, {} as Record<string, any[]>);
 
