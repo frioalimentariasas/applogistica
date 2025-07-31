@@ -117,7 +117,7 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
             
             <ReportSection title="Detalle de la Recepción" noPadding>
                 <div style={{overflowX: 'auto'}}>
-                    {isTunelCongelacion ? (
+                    {(formData.recepcionPorPlaca || isTunelCongelacion) ? (
                         (formData.placas || []).map((placa: any, index: number) => (
                            <div key={`placa-${index}`} style={{marginBottom: '10px'}}>
                                 <div style={{ backgroundColor: '#ddebf7', padding: '6px 12px', fontWeight: 'bold', borderBottom: '1px solid #ddd', borderTop: index > 0 ? '1px solid #aaa' : 'none' }}>
@@ -285,53 +285,68 @@ const DefaultSummary = ({ formData }: { formData: any }) => {
 }
 
 const TunelCongelacionSummary = ({ formData }: { formData: any }) => {
-    // 1. Group items by placa and then by presentacion
-    const groupedData = (formData.placas || []).reduce((acc: any, placa: any) => {
-        const placaKey = placa.numeroPlaca;
-        if (!acc[placaKey]) {
-            acc[placaKey] = {};
-        }
-
-        (placa.items || []).forEach((item: any) => {
-            const presentacionKey = item.presentacion || 'SIN PRESENTACIÓN';
-            if (!acc[placaKey][presentacionKey]) {
-                acc[placaKey][presentacionKey] = {};
-            }
-
-            const productKey = item.descripcion;
-            if (!acc[placaKey][presentacionKey][productKey]) {
-                const summaryItem = (formData.summary || []).find((s: any) => s.descripcion === productKey && s.presentacion === presentacionKey && s.placa === placaKey);
-                acc[placaKey][presentacionKey][productKey] = {
-                    totalPaletas: 0,
-                    totalCantidad: 0,
-                    totalPeso: 0,
-                    temperatura: [summaryItem?.temperatura1, summaryItem?.temperatura2, summaryItem?.temperatura3]
-                        .filter(t => t != null && !isNaN(t)).join(' / ')
+    // 1. Group items by placa
+    const groupedByPlaca = (formData.placas || []).map((placa: any) => {
+        // 2. Group items within each placa by presentacion
+        const itemsByPresentation = (placa.items || []).reduce((acc: any, item: any) => {
+            const key = item.presentacion || 'SIN PRESENTACIÓN';
+            if (!acc[key]) {
+                acc[key] = {
+                    presentation: key,
+                    items: [],
                 };
             }
+            acc[key].items.push(item);
+            return acc;
+        }, {} as Record<string, { presentation: string; items: any[] }>);
 
-            acc[placaKey][presentacionKey][productKey].totalPaletas += 1;
-            acc[placaKey][presentacionKey][productKey].totalCantidad += Number(item.cantidadPorPaleta) || 0;
-            acc[placaKey][presentacionKey][productKey].totalPeso += Number(item.pesoNeto) || 0;
+        // 3. For each presentation group, consolidate products
+        const presentationGroups = Object.values(itemsByPresentation).map((group: any) => {
+            const productsSummary = group.items.reduce((acc: any, item: any) => {
+                const productKey = item.descripcion;
+                if (!acc[productKey]) {
+                    const summaryItem = (formData.summary || []).find((s: any) => 
+                        s.descripcion === productKey && 
+                        s.presentacion === group.presentation && 
+                        s.placa === placa.numeroPlaca
+                    );
+                    acc[productKey] = {
+                        descripcion: productKey,
+                        totalPaletas: 0,
+                        totalCantidad: 0,
+                        totalPeso: 0,
+                        temperatura: [summaryItem?.temperatura1, summaryItem?.temperatura2, summaryItem?.temperatura3]
+                            .filter(t => t != null && !isNaN(t)).join(' / ')
+                    };
+                }
+                acc[productKey].totalPaletas += 1;
+                acc[productKey].totalCantidad += Number(item.cantidadPorPaleta) || 0;
+                acc[productKey].totalPeso += Number(item.pesoNeto) || 0;
+                return acc;
+            }, {} as Record<string, { descripcion: string; totalPaletas: number; totalCantidad: number; totalPeso: number; temperatura: string; }>);
+            
+            const subTotalPaletas = Object.values(productsSummary).reduce((sum: number, p: any) => sum + p.totalPaletas, 0);
+            const subTotalCantidad = Object.values(productsSummary).reduce((sum: number, p: any) => sum + p.totalCantidad, 0);
+            const subTotalPeso = Object.values(productsSummary).reduce((sum: number, p: any) => sum + p.totalPeso, 0);
+            
+            return {
+                ...group,
+                products: Object.values(productsSummary),
+                subTotalPaletas,
+                subTotalCantidad,
+                subTotalPeso,
+            };
         });
 
-        return acc;
-    }, {});
-    
-    // 2. Calculate totals
-    let totalGeneralPaletas = 0;
-    let totalGeneralCantidad = 0;
-    let totalGeneralPeso = 0;
-
-    Object.values(groupedData).forEach((placaData: any) => {
-        Object.values(placaData).forEach((presentacionData: any) => {
-            Object.values(presentacionData).forEach((productData: any) => {
-                totalGeneralPaletas += productData.totalPaletas;
-                totalGeneralCantidad += productData.totalCantidad;
-                totalGeneralPeso += productData.totalPeso;
-            });
-        });
+        return {
+            placa: placa.numeroPlaca,
+            presentationGroups,
+        };
     });
+
+    const totalGeneralPaletas = groupedByPlaca.reduce((sum: number, placaGroup) => sum + placaGroup.presentationGroups.reduce((s: any, presGroup: any) => s + presGroup.subTotalPaletas, 0), 0);
+    const totalGeneralCantidad = groupedByPlaca.reduce((sum: number, placaGroup) => sum + placaGroup.presentationGroups.reduce((s: any, presGroup: any) => s + presGroup.subTotalCantidad, 0), 0);
+    const totalGeneralPeso = groupedByPlaca.reduce((sum: number, placaGroup) => sum + placaGroup.presentationGroups.reduce((s: any, presGroup: any) => s + presGroup.subTotalPeso, 0), 0);
 
     return (
         <ReportSection title="Resumen Agrupado de Productos">
@@ -345,55 +360,41 @@ const TunelCongelacionSummary = ({ formData }: { formData: any }) => {
                         <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Peso (kg)</th>
                     </tr>
                 </thead>
-                {Object.entries(groupedData).map(([placa, presentations]: [string, any], placaIndex) => {
-                    return (
-                        <React.Fragment key={`placa-group-${placa}-${placaIndex}`}>
-                            <tbody style={{breakInside: 'avoid'}}>
-                                <tr style={{ backgroundColor: '#ddebf7', borderTop: '2px solid #aaa' }}>
-                                    <td colSpan={5} style={{ padding: '6px 4px', fontWeight: 'bold', color: '#1f3e76' }}>
-                                        Placa: {placa}
+                {groupedByPlaca.map((placaGroup, placaIndex) => (
+                    <React.Fragment key={`placa-group-${placaGroup.placa}-${placaIndex}`}>
+                        <tbody style={{breakInside: 'avoid'}}>
+                            <tr style={{ backgroundColor: '#ddebf7', borderTop: '2px solid #aaa' }}>
+                                <td colSpan={5} style={{ padding: '6px 4px', fontWeight: 'bold', color: '#1f3e76' }}>
+                                    Placa: {placaGroup.placa}
+                                </td>
+                            </tr>
+                        </tbody>
+                        {placaGroup.presentationGroups.map((group, groupIndex) => (
+                            <tbody key={`${placaGroup.placa}-${group.presentation}`} style={{breakInside: 'avoid'}}>
+                                <tr style={{ backgroundColor: '#f9fafb' }}>
+                                    <td colSpan={5} style={{ padding: '4px 8px', fontWeight: 'bold', fontStyle: 'italic' }}>
+                                        Presentación: {group.presentation}
                                     </td>
                                 </tr>
+                                {group.products.map((product: any, productIndex: number) => (
+                                    <tr key={`${placaGroup.placa}-${group.presentation}-${productIndex}`} style={{ borderBottom: '1px solid #eee' }}>
+                                        <td style={{ padding: '4px 4px 4px 12px' }}>{product.descripcion}</td>
+                                        <td style={{ textAlign: 'right', padding: '4px' }}>{product.temperatura}</td>
+                                        <td style={{ textAlign: 'right', padding: '4px' }}>{product.totalPaletas}</td>
+                                        <td style={{ textAlign: 'right', padding: '4px' }}>{product.totalCantidad}</td>
+                                        <td style={{ textAlign: 'right', padding: '4px' }}>{product.totalPeso.toFixed(2)}</td>
+                                    </tr>
+                                ))}
+                                <tr style={{ fontWeight: 'bold', backgroundColor: '#f1f5f9' }}>
+                                    <td colSpan={2} style={{ textAlign: 'right', padding: '4px' }}>Subtotal Presentación:</td>
+                                    <td style={{ textAlign: 'right', padding: '4px' }}>{group.subTotalPaletas}</td>
+                                    <td style={{ textAlign: 'right', padding: '4px' }}>{group.subTotalCantidad}</td>
+                                    <td style={{ textAlign: 'right', padding: '4px' }}>{group.subTotalPeso.toFixed(2)}</td>
+                                </tr>
                             </tbody>
-                            {Object.entries(presentations).map(([presentation, products]: [string, any], groupIndex) => {
-                                let subTotalPaletas = 0;
-                                let subTotalCantidad = 0;
-                                let subTotalPeso = 0;
-
-                                Object.values(products).forEach((p: any) => {
-                                    subTotalPaletas += p.totalPaletas;
-                                    subTotalCantidad += p.totalCantidad;
-                                    subTotalPeso += p.totalPeso;
-                                });
-
-                                return (
-                                <tbody key={`${placa}-${presentation}`} style={{breakInside: 'avoid'}}>
-                                    <tr style={{ backgroundColor: '#f9fafb' }}>
-                                        <td colSpan={5} style={{ padding: '4px 8px', fontWeight: 'bold', fontStyle: 'italic' }}>
-                                            Presentación: {presentation}
-                                        </td>
-                                    </tr>
-                                    {Object.entries(products).map(([productName, productData]: [string, any]) => (
-                                        <tr key={`${placa}-${presentation}-${productName}`} style={{ borderBottom: '1px solid #eee' }}>
-                                            <td style={{ padding: '4px 4px 4px 12px' }}>{productName}</td>
-                                            <td style={{ textAlign: 'right', padding: '4px' }}>{productData.temperatura}</td>
-                                            <td style={{ textAlign: 'right', padding: '4px' }}>{productData.totalPaletas}</td>
-                                            <td style={{ textAlign: 'right', padding: '4px' }}>{productData.totalCantidad}</td>
-                                            <td style={{ textAlign: 'right', padding: '4px' }}>{productData.totalPeso.toFixed(2)}</td>
-                                        </tr>
-                                    ))}
-                                    <tr style={{ fontWeight: 'bold', backgroundColor: '#f1f5f9' }}>
-                                        <td colSpan={2} style={{ textAlign: 'right', padding: '4px' }}>Subtotal Presentación:</td>
-                                        <td style={{ textAlign: 'right', padding: '4px' }}>{subTotalPaletas}</td>
-                                        <td style={{ textAlign: 'right', padding: '4px' }}>{subTotalCantidad}</td>
-                                        <td style={{ textAlign: 'right', padding: '4px' }}>{subTotalPeso.toFixed(2)}</td>
-                                    </tr>
-                                </tbody>
-                                )
-                            })}
-                        </React.Fragment>
-                    )
-                })}
+                        ))}
+                    </React.Fragment>
+                ))}
                 <tbody>
                     <tr style={{ fontWeight: 'bold', backgroundColor: '#dbeafe', borderTop: '2px solid #aaa' }}>
                         <td colSpan={2} style={{ textAlign: 'right', padding: '6px 4px' }}>TOTAL GENERAL:</td>
@@ -469,6 +470,7 @@ const ItemsTable = ({ items, isSummaryFormat, isTunel }: { items: any[], isSumma
         </table>
     );
 }
+
 
 
 
