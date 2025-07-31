@@ -65,75 +65,72 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
     const isTunelMode = formData.tipoPedido === 'TUNEL' || isTunelCongelacion;
     const recepcionPorPlaca = formData.recepcionPorPlaca === true;
 
-    // For this report, 'isSummaryFormat' is always false for TUNEL DE CONGELACION to force detail view
     const isSummaryFormat = !isTunelCongelacion && (formData.items || []).some((p: any) => Number(p.paleta) === 0);
 
     const calculatedSummaryForDisplay = (() => {
         if (!isTunelCongelacion) {
-            // ... existing logic for other reception types ...
-             const allItems = (formData.items || []);
-             const groupedByPresentation = allItems.reduce((acc: any, item: any) => {
-                const presentacion = item.presentacion || 'SIN PRESENTACIÓN';
-                if (!acc[presentacion]) {
-                    acc[presentacion] = [];
-                }
-                acc[presentacion].push(item);
-                return acc;
-            }, {} as Record<string, any[]>);
+            const allItems = (formData.items || []);
+            const groupedByPresentation = allItems.reduce((acc: any, item: any) => {
+               const presentacion = item.presentacion || 'SIN PRESENTACIÓN';
+               if (!acc[presentacion]) {
+                   acc[presentacion] = [];
+               }
+               acc[presentacion].push(item);
+               return acc;
+           }, {} as Record<string, any[]>);
 
-            const presentationGroups = Object.entries(groupedByPresentation).map(([presentation, items]) => {
-                const groupedByProduct = items.reduce((acc, item) => {
-                    if (!item?.descripcion?.trim()) return acc;
-                    const key = item.descripcion;
+           const presentationGroups = Object.entries(groupedByPresentation).map(([presentation, items]) => {
+               const groupedByProduct = items.reduce((acc, item) => {
+                   if (!item?.descripcion?.trim()) return acc;
+                   const key = item.descripcion;
 
-                    if (!acc[key]) {
-                        const summaryItem = formData.summary?.find((s: any) => s.descripcion === key && s.presentacion === presentation);
-                        acc[key] = {
-                            descripcion: key,
-                            presentacion: item.presentacion,
-                            totalPeso: 0,
-                            totalCantidad: 0,
-                            paletas: new Set<number>(),
-                            temperatura1: summaryItem?.temperatura1,
-                            temperatura2: summaryItem?.temperatura2,
-                            temperatura3: summaryItem?.temperatura3,
-                        };
-                    }
+                   if (!acc[key]) {
+                       const summaryItem = formData.summary?.find((s: any) => s.descripcion === key && s.presentacion === presentation);
+                       acc[key] = {
+                           descripcion: key,
+                           presentacion: item.presentacion,
+                           totalPeso: 0,
+                           totalCantidad: 0,
+                           paletas: new Set<number>(),
+                           temperatura1: summaryItem?.temperatura1,
+                           temperatura2: summaryItem?.temperatura2,
+                           temperatura3: summaryItem?.temperatura3,
+                       };
+                   }
 
-                    if (Number(item.paleta) === 0) {
-                        acc[key].totalPeso += Number(item.totalPesoNeto) || 0;
-                        acc[key].totalCantidad += Number(item.totalCantidad) || 0;
-                        acc[key].paletas.add(0);
-                    } else {
-                        acc[key].totalPeso += Number(item.pesoNeto) || 0;
-                        acc[key].totalCantidad += Number(item.cantidadPorPaleta) || 0;
-                        if (item.paleta !== undefined && !isNaN(Number(item.paleta))) acc[key].paletas.add(Number(item.paleta));
-                    }
-                    return acc;
-                }, {} as any);
+                   if (Number(item.paleta) === 0) {
+                       acc[key].totalPeso += Number(item.totalPesoNeto) || 0;
+                       acc[key].totalCantidad += Number(item.totalCantidad) || 0;
+                       acc[key].paletas.add(0);
+                   } else {
+                       acc[key].totalPeso += Number(item.pesoNeto) || 0;
+                       acc[key].totalCantidad += Number(item.cantidadPorPaleta) || 0;
+                       if (item.paleta !== undefined && !isNaN(Number(item.paleta))) acc[key].paletas.add(Number(item.paleta));
+                   }
+                   return acc;
+               }, {} as any);
 
-                const products = Object.values(groupedByProduct).map((group: any) => ({
-                    ...group,
-                    totalPaletas: group.paletas.has(0)
-                        ? items.filter((item: any) => item.descripcion === group.descripcion && Number(item.paleta) === 0).reduce((sum: number, item: any) => sum + (Number(item.totalPaletas) || 0), 0)
-                        : group.paletas.size
-                }));
+               const products = Object.values(groupedByProduct).map((group: any) => ({
+                   ...group,
+                   totalPaletas: group.paletas.has(0)
+                       ? items.filter((item: any) => item.descripcion === group.descripcion && Number(item.paleta) === 0).reduce((sum: number, item: any) => sum + (Number(item.totalPaletas) || 0), 0)
+                       : group.paletas.size
+               }));
 
-                const subTotalPaletas = products.reduce((acc, p) => acc + p.totalPaletas, 0);
-                const subTotalCantidad = products.reduce((acc, p) => acc + p.totalCantidad, 0);
-                const subTotalPeso = products.reduce((acc, p) => acc + p.totalPeso, 0);
+               const subTotalPaletas = products.reduce((acc, p) => acc + p.totalPaletas, 0);
+               const subTotalCantidad = products.reduce((acc, p) => acc + p.totalCantidad, 0);
+               const subTotalPeso = products.reduce((acc, p) => acc + p.totalPeso, 0);
 
-                return { presentation, products, subTotalPaletas, subTotalCantidad, subTotalPeso };
-            });
-            
-            const totalGeneralPaletas = presentationGroups.reduce((acc, group) => acc + group.subTotalPaletas, 0);
-            const totalGeneralCantidad = presentationGroups.reduce((acc, group) => acc + group.subTotalCantidad, 0);
-            const totalGeneralPeso = presentationGroups.reduce((acc, group) => acc + group.subTotalPeso, 0);
+               return { presentation, products, subTotalPaletas, subTotalCantidad, subTotalPeso };
+           });
+           
+           const totalGeneralPaletas = presentationGroups.reduce((acc, group) => acc + group.subTotalPaletas, 0);
+           const totalGeneralCantidad = presentationGroups.reduce((acc, group) => acc + group.subTotalCantidad, 0);
+           const totalGeneralPeso = presentationGroups.reduce((acc, group) => acc + group.totalGeneralPeso, 0);
 
-            return { presentationGroups, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso, placaGroups: [] };
+           return { presentationGroups, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso, placaGroups: [] };
         }
 
-        // Specific logic for TUNEL DE CONGELACIÓN
         const placaGroups = (formData.placas || []).map((placa: any) => {
             const itemsByPresentation = (placa.items || []).reduce((acc: any, item: any) => {
                 const presentacionKey = item.presentacion || 'SIN PRESENTACIÓN';
@@ -167,7 +164,7 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                         };
                     }
                     acc[productKey].items.push(item);
-                    acc[productKey].totalPaletas += 1; // Each item is one pallet
+                    acc[productKey].totalPaletas += 1;
                     acc[productKey].totalCantidad += Number(item.cantidadPorPaleta) || 0;
                     acc[productKey].totalPeso += Number(item.pesoNeto) || 0;
                     return acc;
@@ -443,7 +440,6 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
     );
 }
 
-// Helper component to render the items table
 const ItemsTable = ({ items, isSummaryFormat, isTunel }: { items: any[], isSummaryFormat: boolean, isTunel: boolean }) => {
     const isDetailedTunel = isTunel && !isSummaryFormat;
     return (
@@ -505,4 +501,3 @@ const ItemsTable = ({ items, isSummaryFormat, isTunel }: { items: any[], isSumma
         </table>
     );
 }
-
