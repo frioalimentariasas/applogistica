@@ -1,5 +1,4 @@
 
-
 import React from 'react';
 import { parseISO } from 'date-fns';
 
@@ -64,7 +63,7 @@ interface VariableWeightReceptionReportProps {
 export function VariableWeightReceptionReport({ formData, userDisplayName, attachments }: VariableWeightReceptionReportProps) {
     const isTunelCongelacion = formData.tipoPedido === 'TUNEL DE CONGELACIÓN';
     
-    // This logic is now specifically for non-tunel-congelacion types
+    // For all other types except TUNEL DE CONGELACIÓN, check for summary rows.
     const isSummaryFormat = !isTunelCongelacion && (formData.items || []).some((p: any) => Number(p.paleta) === 0);
 
     const operationTerm = 'Descargue';
@@ -117,7 +116,7 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
             
             <ReportSection title="Detalle de la Recepción" noPadding>
                 <div style={{overflowX: 'auto'}}>
-                    {(formData.recepcionPorPlaca || isTunelCongelacion) ? (
+                    {formData.recepcionPorPlaca || isTunelCongelacion ? (
                         (formData.placas || []).map((placa: any, index: number) => (
                            <div key={`placa-${index}`} style={{marginBottom: '10px'}}>
                                 <div style={{ backgroundColor: '#ddebf7', padding: '6px 12px', fontWeight: 'bold', borderBottom: '1px solid #ddd', borderTop: index > 0 ? '1px solid #aaa' : 'none' }}>
@@ -470,7 +469,4 @@ const ItemsTable = ({ items, isSummaryFormat, isTunel }: { items: any[], isSumma
         </table>
     );
 }
-
-
-
 
