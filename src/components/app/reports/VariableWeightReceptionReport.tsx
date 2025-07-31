@@ -63,7 +63,6 @@ interface VariableWeightReceptionReportProps {
 export function VariableWeightReceptionReport({ formData, userDisplayName, attachments }: VariableWeightReceptionReportProps) {
     const isTunelMode = formData.tipoPedido === 'TUNEL' || formData.tipoPedido === 'TUNEL DE CONGELACIÓN';
     const recepcionPorPlaca = formData.recepcionPorPlaca === true;
-    const isStandardTunel = isTunelMode && !recepcionPorPlaca;
     const isTunelCongelacion = formData.tipoPedido === 'TUNEL DE CONGELACIÓN';
 
     const calculatedSummaryForDisplay = (() => {
@@ -254,7 +253,7 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                             </div>
                         ))
                     ) : (
-                        <ItemsTable items={formData.items || []} isSummaryFormat={(formData.items || []).some((p: any) => Number(p.paleta) === 0)} isTunel={isStandardTunel}/>
+                        <ItemsTable items={formData.items || []} isSummaryFormat={(formData.items || []).some((p: any) => Number(p.paleta) === 0)} isTunel={isTunelMode}/>
                     )}
                 </div>
             </ReportSection>
@@ -272,8 +271,8 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                             </tr>
                         </thead>
                         {isTunelCongelacion ? (
-                            calculatedSummaryForDisplay.placaGroups.map((placaGroup) => (
-                                <React.Fragment key={placaGroup.placa}>
+                            calculatedSummaryForDisplay.placaGroups.map((placaGroup, placaGroupIndex) => (
+                                <React.Fragment key={`placa-group-${placaGroup.placa}-${placaGroupIndex}`}>
                                     <tbody style={{breakInside: 'avoid'}}>
                                         <tr style={{ backgroundColor: '#ddebf7', borderTop: '2px solid #aaa' }}>
                                             <td colSpan={5} style={{ padding: '6px 4px', fontWeight: 'bold', color: '#1f3e76' }}>
@@ -288,7 +287,7 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                                                     Presentación: {group.presentation}
                                                 </td>
                                             </tr>
-                                            {group.products.map((p, pIndex) => {
+                                            {group.products.map((p: any, pIndex: number) => {
                                                 const temps = [p.temperatura1, p.temperatura2, p.temperatura3].filter(t => t != null && !isNaN(t));
                                                 const tempString = temps.join(' / ');
                                                 return(
@@ -320,7 +319,7 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                                                 Presentación: {group.presentation}
                                             </td>
                                         </tr>
-                                        {group.products.map((p, pIndex) => {
+                                        {group.products.map((p: any, pIndex: number) => {
                                             const temps = [p.temperatura1, p.temperatura2, p.temperatura3].filter(t => t != null && !isNaN(t));
                                             const tempString = temps.join(' / ');
                                             return (
