@@ -1,5 +1,4 @@
-
-
+import React from 'react';
 import { parseISO } from 'date-fns';
 
 const formatTime12Hour = (time24: string | undefined): string => {
@@ -410,4 +409,3 @@ const ItemsTable = ({ items, isSummaryFormat, isTunel }: { items: any[], isSumma
         </tbody>
     </table>
 );
-```
