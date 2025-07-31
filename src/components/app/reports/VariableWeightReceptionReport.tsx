@@ -453,63 +453,67 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
 }
 
 // Helper component to render the items table
-const ItemsTable = ({ items, isSummaryFormat, isTunel }: { items: any[], isSummaryFormat: boolean, isTunel: boolean }) => (
-    <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse', tableLayout: 'auto' }}>
-        <thead>
-            <tr style={{ borderBottom: '1px solid #ddd', backgroundColor: '#fafafa' }}>
-                {isSummaryFormat ? (
-                    <>
-                        <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Descripción</th>
-                        <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Lote</th>
-                        <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Presentación</th>
-                        <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Cant.</th>
-                        <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Paletas</th>
-                        <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total P. Neto</th>
-                    </>
-                ) : (
-                    <>
-                        {/* Hide Paleta column for TUNEL mode as it's not relevant */}
-                        {!isTunel && <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Paleta</th>}
-                        <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Descripción</th>
-                        <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Lote</th>
-                        <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Presentación</th>
-                        <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Cant.</th>
-                        <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Peso Bruto</th>
-                        <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Tara Estiba</th>
-                        <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Tara Caja</th>
-                        <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Tara</th>
-                        <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Peso Neto</th>
-                    </>
-                )}
-            </tr>
-        </thead>
-        <tbody>
-            {items.map((p: any, i: number) => (
-               isSummaryFormat ? (
-                    <tr key={i} style={{ borderBottom: '1px solid #eee' }}>
-                        <td style={{ padding: '4px' }}>{`${p.descripcion}`}</td>
-                        <td style={{ padding: '4px' }}>{p.lote}</td>
-                        <td style={{ padding: '4px' }}>{p.presentacion}</td>
-                        <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalCantidad}</td>
-                        <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPaletas}</td>
-                        <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPesoNeto?.toFixed(2)}</td>
-                    </tr>
-                ) : (
-                    <tr key={i} style={{ borderBottom: '1px solid #eee' }}>
-                        {!isTunel && <td style={{ padding: '4px' }}>{p.paleta}</td>}
-                        <td style={{ padding: '4px' }}>{p.descripcion}</td>
-                        <td style={{ padding: '4px' }}>{p.lote}</td>
-                        <td style={{ padding: '4px' }}>{p.presentacion}</td>
-                        <td style={{ textAlign: 'right', padding: '4px' }}>{p.cantidadPorPaleta}</td>
-                        <td style={{ textAlign: 'right', padding: '4px' }}>{p.pesoBruto?.toFixed(2)}</td>
-                        <td style={{ textAlign: 'right', padding: '4px' }}>{p.taraEstiba?.toFixed(2)}</td>
-                        <td style={{ textAlign: 'right', padding: '4px' }}>{p.taraCaja?.toFixed(2)}</td>
-                        <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalTaraCaja?.toFixed(2)}</td>
-                        <td style={{ textAlign: 'right', padding: '4px' }}>{p.pesoNeto?.toFixed(2)}</td>
-                    </tr>
-                )
-            ))}
-        </tbody>
-    </table>
-);
+const ItemsTable = ({ items, isSummaryFormat, isTunel }: { items: any[], isSummaryFormat: boolean, isTunel: boolean }) => {
+    const isDetailedTunel = isTunel && !isSummaryFormat;
+    return (
+        <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse', tableLayout: 'auto' }}>
+            <thead>
+                <tr style={{ borderBottom: '1px solid #ddd', backgroundColor: '#fafafa' }}>
+                    {isSummaryFormat ? (
+                        <>
+                            <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Descripción</th>
+                            <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Lote</th>
+                            <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Presentación</th>
+                            <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Cant.</th>
+                            <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Paletas</th>
+                            <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total P. Neto</th>
+                        </>
+                    ) : (
+                        <>
+                            {/* Hide Paleta column for TUNEL mode as it's not relevant */}
+                            {!isTunel && <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Paleta</th>}
+                            <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Descripción</th>
+                            <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Lote</th>
+                            <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Presentación</th>
+                            <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Cant.</th>
+                            <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Peso Bruto</th>
+                            <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Tara Estiba</th>
+                            <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Tara Caja</th>
+                            <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Tara</th>
+                            <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Peso Neto</th>
+                        </>
+                    )}
+                </tr>
+            </thead>
+            <tbody>
+                {items.map((p: any, i: number) => (
+                   isSummaryFormat ? (
+                        <tr key={i} style={{ borderBottom: '1px solid #eee' }}>
+                            <td style={{ padding: '4px' }}>{`${p.descripcion}`}</td>
+                            <td style={{ padding: '4px' }}>{p.lote}</td>
+                            <td style={{ padding: '4px' }}>{p.presentacion}</td>
+                            <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalCantidad}</td>
+                            <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPaletas}</td>
+                            <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPesoNeto?.toFixed(2)}</td>
+                        </tr>
+                    ) : (
+                        <tr key={i} style={{ borderBottom: '1px solid #eee' }}>
+                            {!isTunel && <td style={{ padding: '4px' }}>{p.paleta}</td>}
+                            <td style={{ padding: '4px' }}>{p.descripcion}</td>
+                            <td style={{ padding: '4px' }}>{p.lote}</td>
+                            <td style={{ padding: '4px' }}>{p.presentacion}</td>
+                            <td style={{ textAlign: 'right', padding: '4px' }}>{p.cantidadPorPaleta}</td>
+                            <td style={{ textAlign: 'right', padding: '4px' }}>{p.pesoBruto?.toFixed(2)}</td>
+                            <td style={{ textAlign: 'right', padding: '4px' }}>{p.taraEstiba?.toFixed(2)}</td>
+                            <td style={{ textAlign: 'right', padding: '4px' }}>{p.taraCaja?.toFixed(2)}</td>
+                            <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalTaraCaja?.toFixed(2)}</td>
+                            <td style={{ textAlign: 'right', padding: '4px' }}>{p.pesoNeto?.toFixed(2)}</td>
+                        </tr>
+                    )
+                ))}
+            </tbody>
+        </table>
+    );
+}
+
     
