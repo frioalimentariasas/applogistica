@@ -1,4 +1,5 @@
 
+"use client";
 
 import React from 'react';
 import { parseISO } from 'date-fns';
@@ -57,24 +58,29 @@ const ReportField = ({ label, value }: { label: string, value: any }) => (
     </>
 );
 
-// --- DATA PROCESSING LOGIC (MOVED TO "SERVER" CONTEXT) ---
+// --- DATA PROCESSING LOGIC ---
 
 const processTunelData = (formData: any) => {
     const placaGroups = (formData.placas || []).map((placa: any) => {
         const itemsByPresentation = (placa.items || []).reduce((acc: any, item: any) => {
             const key = item.presentacion || 'SIN PRESENTACIÓN';
-            if (!acc[key]) acc[key] = [];
-            acc[key].push(item);
+            if (!acc[key]) {
+                acc[key] = {
+                    presentation: key,
+                    items: [],
+                };
+            }
+            acc[key].items.push(item);
             return acc;
         }, {});
 
-        const presentationGroups = Object.entries(itemsByPresentation).map(([presentationName, items]: [string, any[]]) => {
-            const productsSummary = items.reduce((acc: any, item: any) => {
+        const presentationGroups = Object.values(itemsByPresentation).map((group: any) => {
+            const productsSummary = group.items.reduce((acc: any, item: any) => {
                 const productKey = item.descripcion;
                 if (!acc[productKey]) {
-                    const summaryItem = (formData.summary || []).find((s: any) => 
-                        s.descripcion === productKey && 
-                        s.presentacion === presentationName && 
+                    const summaryItem = (formData.summary || []).find((s: any) =>
+                        s.descripcion === productKey &&
+                        s.presentacion === group.presentation &&
                         s.placa === placa.numeroPlaca
                     );
                     acc[productKey] = {
@@ -86,7 +92,8 @@ const processTunelData = (formData: any) => {
                             .filter(t => t != null && !isNaN(t)).join(' / ')
                     };
                 }
-                acc[productKey].totalPaletas += 1;
+                // For TUNEL, each item is considered one pallet
+                acc[productKey].totalPaletas += 1; 
                 acc[productKey].totalCantidad += Number(item.cantidadPorPaleta) || 0;
                 acc[productKey].totalPeso += Number(item.pesoNeto) || 0;
                 return acc;
@@ -97,7 +104,7 @@ const processTunelData = (formData: any) => {
             const subTotalPeso = Object.values(productsSummary).reduce((sum: number, p: any) => sum + p.totalPeso, 0);
 
             return {
-                presentation: presentationName,
+                presentation: group.presentation,
                 products: Object.values(productsSummary),
                 subTotalPaletas,
                 subTotalCantidad,
@@ -414,8 +421,6 @@ const TunelCongelacionSummary = ({ formData }: { formData: any }) => {
     );
 }
 
-
-// Helper component to render the items table
 const ItemsTable = ({ items, isSummaryFormat, isTunel }: { items: any[], isSummaryFormat: boolean, isTunel: boolean }) => {
     return (
         <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse', tableLayout: 'auto' }}>
