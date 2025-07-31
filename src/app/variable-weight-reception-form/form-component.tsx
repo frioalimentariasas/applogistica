@@ -152,7 +152,6 @@ const formSchema = z.object({
     recepcionPorPlaca: z.boolean().default(false),
     items: z.array(itemSchema).optional(),
     placas: z.array(placaSchema).optional(),
-    totalPaletasTunel: z.coerce.number().int().min(0, "Debe ser un número no negativo.").optional(),
     
     summary: z.array(summaryItemSchema).nullable().optional(),
     horaInicio: z.string().min(1, "La hora de inicio es obligatoria.").regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, "Formato de hora inválido (HH:MM)."),
@@ -194,11 +193,7 @@ const formSchema = z.object({
               ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El número de operarios es obligatorio.", path: ['numeroOperariosCuadrilla'] });
           }
       }
-
-      if (isTunelCongelacion && (data.totalPaletasTunel === undefined || data.totalPaletasTunel === null || data.totalPaletasTunel <= 0)) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El total de paletas es requerido para este tipo de pedido.", path: ['totalPaletasTunel'] });
-      }
-
+      
       if(data.tipoPedido === 'TUNEL' || data.tipoPedido === 'TUNEL DE CONGELACIÓN') {
         if (data.recepcionPorPlaca && (!data.placas || data.placas.length === 0)) {
           ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Debe agregar al menos una placa.', path: ['placas'] });
@@ -389,7 +384,6 @@ const originalDefaultValues: FormValues = {
   recepcionPorPlaca: false,
   items: [],
   placas: [],
-  totalPaletasTunel: undefined,
   summary: [],
   horaInicio: "",
   horaFin: "",
@@ -554,6 +548,68 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
             ? (watchedPlacas || []).flatMap(p => (p.items || []).map(i => ({ ...i, placa: p.numeroPlaca })))
             : (watchedItems || []);
 
+        const isSummaryMode = allItems.some(item => Number(item?.paleta) === 0);
+
+        if (isTunelCongelacion) {
+            // Group by Placa -> Presentacion -> Product
+            const groupedByPlaca = (watchedPlacas || []).map(placa => {
+                const groupedByPresentation = (placa.items || []).reduce((acc, item) => {
+                    const presentacion = item.presentacion || 'SIN PRESENTACIÓN';
+                    if (!acc[presentacion]) {
+                        acc[presentacion] = {
+                            presentation: presentacion,
+                            products: [],
+                            subTotalPaletas: 0,
+                            subTotalCantidad: 0,
+                            subTotalPeso: 0,
+                        };
+                    }
+                    acc[presentacion].products.push(item);
+                    return acc;
+                }, {} as any);
+
+                Object.values(groupedByPresentation).forEach((group: any) => {
+                    const productsSummary = group.products.reduce((acc, item) => {
+                         const key = item.descripcion;
+                         if (!acc[key]) {
+                            const summaryItem = form.getValues('summary')?.find(s => s.descripcion === key && s.presentacion === group.presentation && s.placa === placa.numeroPlaca);
+                            acc[key] = {
+                                descripcion: key,
+                                placa: placa.numeroPlaca,
+                                presentacion: group.presentation,
+                                totalPeso: 0,
+                                totalCantidad: 0,
+                                totalPaletas: 0, // Pallets are counted per item
+                                temperatura1: summaryItem?.temperatura1,
+                                temperatura2: summaryItem?.temperatura2,
+                                temperatura3: summaryItem?.temperatura3,
+                            };
+                         }
+                        acc[key].totalPeso += Number(item.pesoNeto) || 0;
+                        acc[key].totalCantidad += Number(item.cantidadPorPaleta) || 0;
+                        acc[key].totalPaletas += 1; // Each item in TUNEL mode is one pallet
+                        return acc;
+                    }, {} as any);
+
+                    group.products = Object.values(productsSummary);
+                    group.subTotalPaletas = group.products.reduce((sum, p) => sum + p.totalPaletas, 0);
+                    group.subTotalCantidad = group.products.reduce((sum, p) => sum + p.totalCantidad, 0);
+                    group.subTotalPeso = group.products.reduce((sum, p) => sum + p.totalPeso, 0);
+                });
+
+                return {
+                    placa: placa.numeroPlaca,
+                    presentationGroups: Object.values(groupedByPresentation),
+                };
+            });
+            const totalGeneralPaletas = groupedByPlaca.reduce((sum, placaGroup) => sum + placaGroup.presentationGroups.reduce((s, presGroup) => s + presGroup.subTotalPaletas, 0), 0);
+            const totalGeneralCantidad = groupedByPlaca.reduce((sum, placaGroup) => sum + placaGroup.presentationGroups.reduce((s, presGroup) => s + presGroup.subTotalCantidad, 0), 0);
+            const totalGeneralPeso = groupedByPlaca.reduce((sum, placaGroup) => sum + placaGroup.presentationGroups.reduce((s, presGroup) => s + presGroup.subTotalPeso, 0), 0);
+
+            return { placaGroups: groupedByPlaca, presentationGroups: [], totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso };
+        }
+
+        // Original logic for other modes
         const groupedByPresentation = allItems.reduce((acc, item) => {
             const presentacion = item.presentacion || 'SIN PRESENTACIÓN';
             if (!acc[presentacion]) {
@@ -609,21 +665,24 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
             return { presentation, products, subTotalPaletas, subTotalCantidad, subTotalPeso };
         });
         
-        const totalGeneralPaletas = (isTunelMode && form.getValues('totalPaletasTunel'))
-            ? form.getValues('totalPaletasTunel')
-            : presentationGroups.reduce((acc, group) => acc + group.subTotalPaletas, 0);
-
+        const totalGeneralPaletas = presentationGroups.reduce((acc, group) => acc + group.subTotalPaletas, 0);
         const totalGeneralCantidad = presentationGroups.reduce((acc, group) => acc + group.subTotalCantidad, 0);
         const totalGeneralPeso = presentationGroups.reduce((acc, group) => acc + group.subTotalPeso, 0);
 
-        return { presentationGroups, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso };
-    }, [itemsForCalculation, isTunelMode, watchedRecepcionPorPlaca, form]);
+        return { presentationGroups, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso, placaGroups: [] };
+    }, [itemsForCalculation, isTunelMode, watchedRecepcionPorPlaca, form, isTunelCongelacion, watchedPlacas]);
 
     useEffect(() => {
         const currentSummaryInForm = form.getValues('summary') || [];
-        const newSummaryState = calculatedSummaryForDisplay.presentationGroups.flatMap(g => g.products).map(newItem => {
+        const allProductsFromSummary = isTunelCongelacion
+            ? calculatedSummaryForDisplay.placaGroups.flatMap(p => p.presentationGroups.flatMap(g => g.products))
+            : calculatedSummaryForDisplay.presentationGroups.flatMap(g => g.products);
+
+        const newSummaryState = allProductsFromSummary.map(newItem => {
             const existingItem = currentSummaryInForm.find(oldItem => 
-                oldItem.descripcion === newItem.descripcion && oldItem.presentacion === newItem.presentacion
+                oldItem.descripcion === newItem.descripcion && 
+                oldItem.presentacion === newItem.presentacion &&
+                (!isTunelCongelacion || oldItem.placa === newItem.placa)
             );
             return {
                 ...newItem,
@@ -636,7 +695,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
         if (JSON.stringify(newSummaryState) !== JSON.stringify(currentSummaryInForm)) {
             form.setValue('summary', newSummaryState, { shouldValidate: true });
         }
-    }, [calculatedSummaryForDisplay, form]);
+    }, [calculatedSummaryForDisplay, form, isTunelCongelacion]);
 
   const showSummary = (itemsForCalculation || []).some(item => item && (item.descripcion || (isTunelMode && (item as any).numeroPlaca)) && (item.descripcion?.trim() !== '' || (item as any).numeroPlaca?.trim() !== ''));
 
@@ -687,7 +746,6 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
               operarioResponsable: submission.userId,
               unidadDeMedidaPrincipal: formData.unidadDeMedidaPrincipal ?? 'PALETA',
               recepcionPorPlaca: formData.recepcionPorPlaca ?? false,
-              totalPaletasTunel: formData.totalPaletasTunel ?? undefined,
               summary: (formData.summary || []).map((s: any) => ({
                   ...s,
                   temperatura1: s.temperatura1 ?? s.temperatura ?? null,
@@ -1569,95 +1627,109 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                             <Button type="button" variant="outline" onClick={handleAddItem}><PlusCircle className="mr-2 h-4 w-4" />Agregar Ítem</Button>
                         </div>
                      )}
-                     {isTunelCongelacion && (
-                        <div className="mt-6 pt-6 border-t">
-                            <FormField
-                                control={form.control}
-                                name="totalPaletasTunel"
-                                render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Total Paletas de la Recepción <span className="text-destructive">*</span></FormLabel>
-                                        <FormControl>
-                                            <Input
-                                                type="number"
-                                                placeholder="0"
-                                                {...field}
-                                                onChange={e => field.onChange(parseInt(e.target.value, 10) || undefined)}
-                                                value={field.value ?? ''}
-                                            />
-                                        </FormControl>
-                                        <FormDescription>
-                                            Ingrese el número total de paletas para toda esta recepción de túnel.
-                                        </FormDescription>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                        </div>
-                    )}
                   </CardContent>
                 </Card>
 
-                {showSummary && (
+                 {showSummary && (
                     <Card>
                         <CardHeader>
                             <CardTitle>Resumen Agrupado de Productos</CardTitle>
                         </CardHeader>
                         <CardContent>
                             <div className="rounded-md border">
-                            <Table>
+                                <Table>
                                 <TableHeader>
-                                <TableRow>
+                                    <TableRow>
                                     <TableHead>Producto</TableHead>
                                     <TableHead className="w-[240px]">Temperaturas (°C) <span className="text-destructive">*</span></TableHead>
                                     <TableHead className="text-right">Total Paletas</TableHead>
                                     <TableHead className="text-right">Total Cantidad</TableHead>
                                     <TableHead className="text-right">Total Peso (kg)</TableHead>
-                                </TableRow>
+                                    </TableRow>
                                 </TableHeader>
-                                {calculatedSummaryForDisplay.presentationGroups.map((group, groupIndex) => (
-                                <React.Fragment key={group.presentation}>
-                                    <TableBody>
-                                    <TableRow className="bg-muted/50 hover:bg-muted/50">
-                                        <TableCell colSpan={5} className="font-semibold text-primary">
-                                        Presentación: {group.presentation}
-                                        </TableCell>
-                                    </TableRow>
-                                    {group.products.map((summaryItem, productIndex) => {
-                                        const summaryIndex = form.getValues('summary')?.findIndex(s => s.descripcion === summaryItem.descripcion && s.presentacion === group.presentation);
-                                        return (
-                                        <TableRow key={`${groupIndex}-${productIndex}`}>
-                                            <TableCell className="font-medium">
-                                            <div className="bg-muted/50 p-2 rounded-md flex items-center h-10">{summaryItem.descripcion}</div>
-                                            </TableCell>
-                                            <TableCell>
-                                            <div className="flex items-center gap-1">
-                                                <FormField control={form.control} name={`summary.${summaryIndex}.temperatura1`} render={({ field }) => (
-                                                <FormItem><FormControl><Input type="text" inputMode="decimal" placeholder="T1" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.value)} value={field.value ?? ''} className="w-20 h-9 text-center" /></FormControl><FormMessage className="text-xs"/></FormItem>
-                                                )} />
-                                                <FormField control={form.control} name={`summary.${summaryIndex}.temperatura2`} render={({ field }) => (
-                                                <FormItem><FormControl><Input type="text" inputMode="decimal" placeholder="T2" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} className="w-20 h-9 text-center" /></FormControl><FormMessage className="text-xs"/></FormItem>
-                                                )} />
-                                                <FormField control={form.control} name={`summary.${summaryIndex}.temperatura3`} render={({ field }) => (
-                                                <FormItem><FormControl><Input type="text" inputMode="decimal" placeholder="T3" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} className="w-20 h-9 text-center" /></FormControl><FormMessage className="text-xs"/></FormItem>
-                                                )} />
-                                            </div>
-                                            </TableCell>
-                                            <TableCell className="text-right"><div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">{summaryItem.totalPaletas}</div></TableCell>
-                                            <TableCell className="text-right"><div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">{summaryItem.totalCantidad}</div></TableCell>
-                                            <TableCell className="text-right"><div className="bg-muted/50 p-2 rounded-md flex items-center justify-end h-10">{summaryItem.totalPeso.toFixed(2)}</div></TableCell>
+
+                                {isTunelCongelacion ? (
+                                    calculatedSummaryForDisplay.placaGroups.map((placaGroup, placaGroupIndex) => (
+                                        <React.Fragment key={placaGroup.placa}>
+                                            <TableBody>
+                                                <TableRow className="bg-blue-50 hover:bg-blue-50/90">
+                                                    <TableCell colSpan={5} className="font-semibold text-blue-800">Placa: {placaGroup.placa}</TableCell>
+                                                </TableRow>
+                                            </TableBody>
+                                            {placaGroup.presentationGroups.map((group, groupIndex) => (
+                                                <React.Fragment key={`${placaGroup.placa}-${group.presentation}`}>
+                                                    <TableBody>
+                                                        <TableRow className="bg-muted/50 hover:bg-muted/50">
+                                                            <TableCell colSpan={5} className="font-semibold text-primary pl-8">Presentación: {group.presentation}</TableCell>
+                                                        </TableRow>
+                                                        {group.products.map((summaryItem, productIndex) => {
+                                                            const summaryIndex = (form.getValues('summary') || []).findIndex(s => s.descripcion === summaryItem.descripcion && s.presentacion === group.presentation && s.placa === placaGroup.placa);
+                                                            return (
+                                                                <TableRow key={`${placaGroupIndex}-${groupIndex}-${productIndex}`}>
+                                                                    <TableCell className="font-medium pl-12">
+                                                                        <div className="bg-background p-2 rounded-md flex items-center h-10">{summaryItem.descripcion}</div>
+                                                                    </TableCell>
+                                                                    <TableCell>
+                                                                        <div className="flex items-center gap-1">
+                                                                            <FormField control={form.control} name={`summary.${summaryIndex}.temperatura1`} render={({ field }) => ( <FormItem><FormControl><Input type="text" inputMode="decimal" placeholder="T1" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.value)} value={field.value ?? ''} className="w-20 h-9 text-center" /></FormControl><FormMessage className="text-xs"/></FormItem> )} />
+                                                                            <FormField control={form.control} name={`summary.${summaryIndex}.temperatura2`} render={({ field }) => ( <FormItem><FormControl><Input type="text" inputMode="decimal" placeholder="T2" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} className="w-20 h-9 text-center" /></FormControl><FormMessage className="text-xs"/></FormItem> )} />
+                                                                            <FormField control={form.control} name={`summary.${summaryIndex}.temperatura3`} render={({ field }) => ( <FormItem><FormControl><Input type="text" inputMode="decimal" placeholder="T3" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} className="w-20 h-9 text-center" /></FormControl><FormMessage className="text-xs"/></FormItem> )} />
+                                                                        </div>
+                                                                    </TableCell>
+                                                                    <TableCell className="text-right"><div className="bg-background p-2 rounded-md flex items-center justify-end h-10">{summaryItem.totalPaletas}</div></TableCell>
+                                                                    <TableCell className="text-right"><div className="bg-background p-2 rounded-md flex items-center justify-end h-10">{summaryItem.totalCantidad}</div></TableCell>
+                                                                    <TableCell className="text-right"><div className="bg-background p-2 rounded-md flex items-center justify-end h-10">{summaryItem.totalPeso.toFixed(2)}</div></TableCell>
+                                                                </TableRow>
+                                                            );
+                                                        })}
+                                                        <TableRow className="font-bold bg-secondary/70 hover:bg-secondary/70">
+                                                            <TableCell colSpan={2} className="text-right pl-8">Subtotal Presentación:</TableCell>
+                                                            <TableCell className="text-right">{group.subTotalPaletas}</TableCell>
+                                                            <TableCell className="text-right">{group.subTotalCantidad}</TableCell>
+                                                            <TableCell className="text-right">{group.subTotalPeso.toFixed(2)}</TableCell>
+                                                        </TableRow>
+                                                    </TableBody>
+                                                </React.Fragment>
+                                            ))}
+                                        </React.Fragment>
+                                    ))
+                                ) : (
+                                    calculatedSummaryForDisplay.presentationGroups.map((group, groupIndex) => (
+                                    <React.Fragment key={group.presentation}>
+                                        <TableBody>
+                                        <TableRow className="bg-muted/50 hover:bg-muted/50">
+                                            <TableCell colSpan={5} className="font-semibold text-primary">Presentación: {group.presentation}</TableCell>
                                         </TableRow>
-                                        );
-                                    })}
-                                    <TableRow className="font-bold bg-secondary/70 hover:bg-secondary/70">
-                                        <TableCell colSpan={2} className="text-right">Subtotal Presentación:</TableCell>
-                                        <TableCell className="text-right">{group.subTotalPaletas}</TableCell>
-                                        <TableCell className="text-right">{group.subTotalCantidad}</TableCell>
-                                        <TableCell className="text-right">{group.subTotalPeso.toFixed(2)}</TableCell>
-                                    </TableRow>
-                                    </TableBody>
-                                </React.Fragment>
-                                ))}
+                                        {group.products.map((summaryItem, productIndex) => {
+                                            const summaryIndex = (form.getValues('summary') || []).findIndex(s => s.descripcion === summaryItem.descripcion && s.presentacion === group.presentation);
+                                            return (
+                                            <TableRow key={`${groupIndex}-${productIndex}`}>
+                                                <TableCell className="font-medium">
+                                                <div className="bg-background p-2 rounded-md flex items-center h-10">{summaryItem.descripcion}</div>
+                                                </TableCell>
+                                                <TableCell>
+                                                <div className="flex items-center gap-1">
+                                                    <FormField control={form.control} name={`summary.${summaryIndex}.temperatura1`} render={({ field }) => ( <FormItem><FormControl><Input type="text" inputMode="decimal" placeholder="T1" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : e.target.value)} value={field.value ?? ''} className="w-20 h-9 text-center" /></FormControl><FormMessage className="text-xs"/></FormItem> )} />
+                                                    <FormField control={form.control} name={`summary.${summaryIndex}.temperatura2`} render={({ field }) => ( <FormItem><FormControl><Input type="text" inputMode="decimal" placeholder="T2" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} className="w-20 h-9 text-center" /></FormControl><FormMessage className="text-xs"/></FormItem> )} />
+                                                    <FormField control={form.control} name={`summary.${summaryIndex}.temperatura3`} render={({ field }) => ( <FormItem><FormControl><Input type="text" inputMode="decimal" placeholder="T3" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} className="w-20 h-9 text-center" /></FormControl><FormMessage className="text-xs"/></FormItem> )} />
+                                                </div>
+                                                </TableCell>
+                                                <TableCell className="text-right"><div className="bg-background p-2 rounded-md flex items-center justify-end h-10">{summaryItem.totalPaletas}</div></TableCell>
+                                                <TableCell className="text-right"><div className="bg-background p-2 rounded-md flex items-center justify-end h-10">{summaryItem.totalCantidad}</div></TableCell>
+                                                <TableCell className="text-right"><div className="bg-background p-2 rounded-md flex items-center justify-end h-10">{summaryItem.totalPeso.toFixed(2)}</div></TableCell>
+                                            </TableRow>
+                                            );
+                                        })}
+                                        <TableRow className="font-bold bg-secondary/70 hover:bg-secondary/70">
+                                            <TableCell colSpan={2} className="text-right">Subtotal Presentación:</TableCell>
+                                            <TableCell className="text-right">{group.subTotalPaletas}</TableCell>
+                                            <TableCell className="text-right">{group.subTotalCantidad}</TableCell>
+                                            <TableCell className="text-right">{group.subTotalPeso.toFixed(2)}</TableCell>
+                                        </TableRow>
+                                        </TableBody>
+                                    </React.Fragment>
+                                    ))
+                                )}
                                 <TableBody>
                                 <TableRow className="font-bold bg-primary/10 hover:bg-primary/10 text-primary">
                                     <TableCell colSpan={2} className="text-right text-lg">TOTAL GENERAL:</TableCell>
@@ -2207,4 +2279,5 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
+
 
