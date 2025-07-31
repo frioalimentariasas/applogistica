@@ -1,6 +1,9 @@
 
+
 import React from 'react';
 import { parseISO } from 'date-fns';
+
+// --- HELPER FUNCTIONS ---
 
 const formatTime12Hour = (time24: string | undefined): string => {
     if (!time24 || !time24.includes(':')) return 'N/A';
@@ -8,7 +11,7 @@ const formatTime12Hour = (time24: string | undefined): string => {
     let h = parseInt(hours, 10);
     const ampm = h >= 12 ? 'PM' : 'AM';
     h = h % 12;
-    h = h ? h : 12; // the hour '0' should be '12'
+    h = h ? h : 12;
     return `${h}:${minutes} ${ampm}`;
 };
 
@@ -54,6 +57,91 @@ const ReportField = ({ label, value }: { label: string, value: any }) => (
     </>
 );
 
+// --- DATA PROCESSING LOGIC (MOVED TO "SERVER" CONTEXT) ---
+
+const processTunelData = (formData: any) => {
+    const placaGroups = (formData.placas || []).map((placa: any) => {
+        const itemsByPresentation = (placa.items || []).reduce((acc: any, item: any) => {
+            const key = item.presentacion || 'SIN PRESENTACIÓN';
+            if (!acc[key]) acc[key] = [];
+            acc[key].push(item);
+            return acc;
+        }, {});
+
+        const presentationGroups = Object.entries(itemsByPresentation).map(([presentationName, items]: [string, any[]]) => {
+            const productsSummary = items.reduce((acc: any, item: any) => {
+                const productKey = item.descripcion;
+                if (!acc[productKey]) {
+                    const summaryItem = (formData.summary || []).find((s: any) => 
+                        s.descripcion === productKey && 
+                        s.presentacion === presentationName && 
+                        s.placa === placa.numeroPlaca
+                    );
+                    acc[productKey] = {
+                        descripcion: productKey,
+                        totalPaletas: 0,
+                        totalCantidad: 0,
+                        totalPeso: 0,
+                        temperatura: [summaryItem?.temperatura1, summaryItem?.temperatura2, summaryItem?.temperatura3]
+                            .filter(t => t != null && !isNaN(t)).join(' / ')
+                    };
+                }
+                acc[productKey].totalPaletas += 1;
+                acc[productKey].totalCantidad += Number(item.cantidadPorPaleta) || 0;
+                acc[productKey].totalPeso += Number(item.pesoNeto) || 0;
+                return acc;
+            }, {});
+
+            const subTotalPaletas = Object.values(productsSummary).reduce((sum: number, p: any) => sum + p.totalPaletas, 0);
+            const subTotalCantidad = Object.values(productsSummary).reduce((sum: number, p: any) => sum + p.totalCantidad, 0);
+            const subTotalPeso = Object.values(productsSummary).reduce((sum: number, p: any) => sum + p.totalPeso, 0);
+
+            return {
+                presentation: presentationName,
+                products: Object.values(productsSummary),
+                subTotalPaletas,
+                subTotalCantidad,
+                subTotalPeso,
+            };
+        });
+
+        return {
+            placa: placa.numeroPlaca,
+            conductor: placa.conductor,
+            cedulaConductor: placa.cedulaConductor,
+            presentationGroups,
+        };
+    });
+
+    const totalGeneralPaletas = placaGroups.reduce((sum: number, placaGroup) => sum + placaGroup.presentationGroups.reduce((s: any, presGroup: any) => s + presGroup.subTotalPaletas, 0), 0);
+    const totalGeneralCantidad = placaGroups.reduce((sum: number, placaGroup) => sum + placaGroup.presentationGroups.reduce((s: any, presGroup: any) => s + presGroup.subTotalCantidad, 0), 0);
+    const totalGeneralPeso = placaGroups.reduce((sum: number, placaGroup) => sum + placaGroup.presentationGroups.reduce((s: any, presGroup: any) => s + presGroup.subTotalPeso, 0), 0);
+
+    return { placaGroups, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso };
+};
+
+const processDefaultData = (formData: any) => {
+    const allItems = formData.items || [];
+    const isSummaryMode = allItems.some((p: any) => Number(p.paleta) === 0);
+    
+    const summaryData = (formData.summary || []).map((s: any) => {
+        const totalPaletas = isSummaryMode
+            ? allItems.filter((i: any) => i.descripcion === s.descripcion && Number(i.paleta) === 0).reduce((sum: number, i: any) => sum + (Number(i.totalPaletas) || 0), 0)
+            : new Set(allItems.filter((i: any) => i.descripcion === s.descripcion).map((i: any) => i.paleta)).size;
+        
+        return { ...s, totalPaletas };
+    });
+
+    const totalGeneralPaletas = summaryData.reduce((acc: number, p: any) => acc + p.totalPaletas, 0);
+    const totalGeneralCantidad = summaryData.reduce((acc: number, p: any) => acc + p.totalCantidad, 0);
+    const totalGeneralPeso = summaryData.reduce((acc: number, p: any) => acc + p.totalPeso, 0);
+
+    return { summaryData, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso, isSummaryMode };
+};
+
+
+// --- REACT COMPONENTS ---
+
 interface VariableWeightReceptionReportProps {
     formData: any;
     userDisplayName: string;
@@ -62,17 +150,9 @@ interface VariableWeightReceptionReportProps {
 
 export function VariableWeightReceptionReport({ formData, userDisplayName, attachments }: VariableWeightReceptionReportProps) {
     const isTunelCongelacion = formData.tipoPedido === 'TUNEL DE CONGELACIÓN';
-    
-    // For all other types except TUNEL DE CONGELACIÓN, check for summary rows.
-    const isSummaryFormat = !isTunelCongelacion && (formData.items || []).some((p: any) => Number(p.paleta) === 0);
-
     const operationTerm = 'Descargue';
     const fieldCellStyle: React.CSSProperties = { padding: '2px', fontSize: '11px', lineHeight: '1.4', verticalAlign: 'top' };
-    
-    const hasStandardObservations = (formData.observaciones || []).some(
-        (obs: any) => obs.type !== 'OTRAS OBSERVACIONES'
-    );
-    
+    const hasStandardObservations = (formData.observaciones || []).some((obs: any) => obs.type !== 'OTRAS OBSERVACIONES');
     const showCrewField = formData.tipoPedido !== 'TUNEL A CÁMARA CONGELADOS';
 
     return (
@@ -126,7 +206,7 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                            </div>
                         ))
                     ) : (
-                         <ItemsTable items={formData.items || []} isSummaryFormat={isSummaryFormat} isTunel={false} />
+                         <ItemsTable items={formData.items || []} isSummaryFormat={(formData.items || []).some((p: any) => Number(p.paleta) === 0)} isTunel={false} />
                     )}
                 </div>
             </ReportSection>
@@ -227,21 +307,7 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
 }
 
 const DefaultSummary = ({ formData }: { formData: any }) => {
-    // This is a simplified summary logic for non-Tunel Congelacion orders
-    const allItems = (formData.items || []);
-    const isSummaryMode = allItems.some((p: any) => Number(p.paleta) === 0);
-    
-    const summaryData = (formData.summary || []).map((s: any) => {
-        const totalPaletas = isSummaryMode
-            ? allItems.filter((i: any) => i.descripcion === s.descripcion && Number(i.paleta) === 0).reduce((sum: number, i: any) => sum + (Number(i.totalPaletas) || 0), 0)
-            : new Set(allItems.filter((i: any) => i.descripcion === s.descripcion).map((i: any) => i.paleta)).size;
-        
-        return { ...s, totalPaletas };
-    });
-
-    const totalGeneralPaletas = summaryData.reduce((acc: number, p: any) => acc + p.totalPaletas, 0);
-    const totalGeneralCantidad = summaryData.reduce((acc: number, p: any) => acc + p.totalCantidad, 0);
-    const totalGeneralPeso = summaryData.reduce((acc: number, p: any) => acc + p.totalPeso, 0);
+    const { summaryData, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso } = processDefaultData(formData);
 
     if (summaryData.length === 0) return null;
 
@@ -284,68 +350,9 @@ const DefaultSummary = ({ formData }: { formData: any }) => {
 }
 
 const TunelCongelacionSummary = ({ formData }: { formData: any }) => {
-    // 1. Group items by placa
-    const groupedByPlaca = (formData.placas || []).map((placa: any) => {
-        // 2. Group items within each placa by presentacion
-        const itemsByPresentation = (placa.items || []).reduce((acc: any, item: any) => {
-            const key = item.presentacion || 'SIN PRESENTACIÓN';
-            if (!acc[key]) {
-                acc[key] = {
-                    presentation: key,
-                    items: [],
-                };
-            }
-            acc[key].items.push(item);
-            return acc;
-        }, {} as Record<string, { presentation: string; items: any[] }>);
+    const { placaGroups, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso } = processTunelData(formData);
 
-        // 3. For each presentation group, consolidate products
-        const presentationGroups = Object.values(itemsByPresentation).map((group: any) => {
-            const productsSummary = group.items.reduce((acc: any, item: any) => {
-                const productKey = item.descripcion;
-                if (!acc[productKey]) {
-                    const summaryItem = (formData.summary || []).find((s: any) => 
-                        s.descripcion === productKey && 
-                        s.presentacion === group.presentation && 
-                        s.placa === placa.numeroPlaca
-                    );
-                    acc[productKey] = {
-                        descripcion: productKey,
-                        totalPaletas: 0,
-                        totalCantidad: 0,
-                        totalPeso: 0,
-                        temperatura: [summaryItem?.temperatura1, summaryItem?.temperatura2, summaryItem?.temperatura3]
-                            .filter(t => t != null && !isNaN(t)).join(' / ')
-                    };
-                }
-                acc[productKey].totalPaletas += 1;
-                acc[productKey].totalCantidad += Number(item.cantidadPorPaleta) || 0;
-                acc[productKey].totalPeso += Number(item.pesoNeto) || 0;
-                return acc;
-            }, {} as Record<string, { descripcion: string; totalPaletas: number; totalCantidad: number; totalPeso: number; temperatura: string; }>);
-            
-            const subTotalPaletas = Object.values(productsSummary).reduce((sum: number, p: any) => sum + p.totalPaletas, 0);
-            const subTotalCantidad = Object.values(productsSummary).reduce((sum: number, p: any) => sum + p.totalCantidad, 0);
-            const subTotalPeso = Object.values(productsSummary).reduce((sum: number, p: any) => sum + p.totalPeso, 0);
-            
-            return {
-                ...group,
-                products: Object.values(productsSummary),
-                subTotalPaletas,
-                subTotalCantidad,
-                subTotalPeso,
-            };
-        });
-
-        return {
-            placa: placa.numeroPlaca,
-            presentationGroups,
-        };
-    });
-
-    const totalGeneralPaletas = groupedByPlaca.reduce((sum: number, placaGroup) => sum + placaGroup.presentationGroups.reduce((s: any, presGroup: any) => s + presGroup.subTotalPaletas, 0), 0);
-    const totalGeneralCantidad = groupedByPlaca.reduce((sum: number, placaGroup) => sum + placaGroup.presentationGroups.reduce((s: any, presGroup: any) => s + presGroup.subTotalCantidad, 0), 0);
-    const totalGeneralPeso = groupedByPlaca.reduce((sum: number, placaGroup) => sum + placaGroup.presentationGroups.reduce((s: any, presGroup: any) => s + presGroup.subTotalPeso, 0), 0);
+    if (placaGroups.length === 0) return null;
 
     return (
         <ReportSection title="Resumen Agrupado de Productos">
@@ -359,7 +366,7 @@ const TunelCongelacionSummary = ({ formData }: { formData: any }) => {
                         <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Peso (kg)</th>
                     </tr>
                 </thead>
-                {groupedByPlaca.map((placaGroup, placaIndex) => (
+                {placaGroups.map((placaGroup, placaIndex) => (
                     <React.Fragment key={`placa-group-${placaGroup.placa}-${placaIndex}`}>
                         <tbody style={{breakInside: 'avoid'}}>
                             <tr style={{ backgroundColor: '#ddebf7', borderTop: '2px solid #aaa' }}>
