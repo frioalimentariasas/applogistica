@@ -232,17 +232,24 @@ const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, is
         const taraEstiba = Number(watchedTaraEstiba) || 0;
         const calculatedTotalTaraCaja = cantidadPorPaleta * taraCaja;
         
-        setValue(`${basePath}.${itemIndex}.totalTaraCaja`, calculatedTotalTaraCaja, { shouldValidate: false });
-        
         return pesoBruto - taraEstiba - calculatedTotalTaraCaja;
-    }, [watchedCantidad, watchedTaraCaja, watchedPesoBruto, watchedTaraEstiba, basePath, itemIndex, setValue]);
+    }, [watchedCantidad, watchedTaraCaja, watchedPesoBruto, watchedTaraEstiba]);
     
     useEffect(() => {
+        const cantidadPorPaleta = Number(watchedCantidad) || 0;
+        const taraCaja = Number(watchedTaraCaja) || 0;
+        const calculatedTotalTaraCaja = cantidadPorPaleta * taraCaja;
+        
+        const currentTotalTara = getValues(`${basePath}.${itemIndex}.totalTaraCaja`);
+        if (currentTotalTara !== calculatedTotalTaraCaja) {
+            setValue(`${basePath}.${itemIndex}.totalTaraCaja`, calculatedTotalTaraCaja, { shouldValidate: false });
+        }
+
         const currentPesoNeto = getValues(`${basePath}.${itemIndex}.pesoNeto`);
         if (currentPesoNeto !== calculatedPesoNeto) {
             setValue(`${basePath}.${itemIndex}.pesoNeto`, calculatedPesoNeto, { shouldValidate: false });
         }
-    }, [calculatedPesoNeto, basePath, itemIndex, getValues, setValue]);
+    }, [watchedCantidad, watchedTaraCaja, watchedPesoBruto, watchedTaraEstiba, basePath, itemIndex, getValues, setValue, calculatedPesoNeto]);
 
 
     const isSummaryRow = getValues(`${basePath}.${itemIndex}.paleta`) === 0;
@@ -477,7 +484,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
   const watchedAplicaCuadrilla = useWatch({ control: form.control, name: 'aplicaCuadrilla' });
   const watchedItems = useWatch({ control: form.control, name: "items" });
   const watchedPlacas = useWatch({ control: form.control, name: "placas" });
-  const watchedObservations = useWatch({ control: form.control, name: "observaciones" });
+  const watchedObservations = useWatch({ control: form.control, name: "observations" });
   const isSpecialReception = watchedTipoPedido === 'INGRESO DE SALDOS' || watchedTipoPedido === 'TUNEL' || watchedTipoPedido === 'TUNEL A CÁMARA CONGELADOS' || watchedTipoPedido === 'MAQUILA' || watchedTipoPedido === 'TUNEL DE CONGELACIÓN';
 
   useEffect(() => {
@@ -581,21 +588,26 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                 descripcion: key,
                                 placa: placa.numeroPlaca,
                                 presentacion: group.presentation,
+                                items: [], 
                                 totalPeso: 0,
                                 totalCantidad: 0,
-                                totalPaletas: 0, // Pallets are counted per item
+                                totalPaletas: 0,
                                 temperatura1: summaryItem?.temperatura1,
                                 temperatura2: summaryItem?.temperatura2,
                                 temperatura3: summaryItem?.temperatura3,
                             };
                          }
+                        acc[key].items.push(item);
                         acc[key].totalPeso += Number(item.pesoNeto) || 0;
                         acc[key].totalCantidad += Number(item.cantidadPorPaleta) || 0;
-                        acc[key].totalPaletas += 1; // Each item in TUNEL mode is one pallet
                         return acc;
                     }, {} as any);
-
-                    group.products = Object.values(productsSummary);
+                    
+                    group.products = Object.values(productsSummary).map((prod: any) => ({
+                        ...prod,
+                        totalPaletas: prod.items.length
+                    }));
+                    
                     group.subTotalPaletas = group.products.reduce((sum: number, p: any) => sum + p.totalPaletas, 0);
                     group.subTotalCantidad = group.products.reduce((sum: number, p: any) => sum + p.totalCantidad, 0);
                     group.subTotalPeso = group.products.reduce((sum: number, p: any) => sum + p.totalPeso, 0);
@@ -936,12 +948,12 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
             try {
                 const optimizedImage = await optimizeImage(dataUrl);
 
-                const newImageSize = getByteSizeFromBase64(optimizedImage.split(',')[1]);
+                const newImagesSize = getByteSizeFromBase64(optimizedImage.split(',')[1]);
                 const existingImagesSize = attachments
                     .filter(a => a.startsWith('data:image'))
                     .reduce((sum, base64) => sum + getByteSizeFromBase64(base64.split(',')[1]), 0);
 
-                if (existingImagesSize + newImageSize > MAX_TOTAL_SIZE_BYTES) {
+                if (existingImagesSize + newImagesSize > MAX_TOTAL_SIZE_BYTES) {
                     toast({
                         variant: "destructive",
                         title: "Límite de tamaño excedido",
