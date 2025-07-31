@@ -551,9 +551,8 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
         const isSummaryMode = allItems.some(item => Number(item?.paleta) === 0);
 
         if (isTunelCongelacion) {
-            // Group by Placa -> Presentacion -> Product
             const groupedByPlaca = (watchedPlacas || []).map(placa => {
-                const groupedByPresentation = (placa.items || []).reduce((acc, item) => {
+                const groupedByPresentation = (placa.items || []).reduce((acc: any, item: any) => {
                     const presentacion = item.presentacion || 'SIN PRESENTACIÓN';
                     if (!acc[presentacion]) {
                         acc[presentacion] = {
@@ -569,7 +568,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                 }, {} as any);
 
                 Object.values(groupedByPresentation).forEach((group: any) => {
-                    const productsSummary = group.products.reduce((acc, item) => {
+                    const productsSummary = group.products.reduce((acc: any, item: any) => {
                          const key = item.descripcion;
                          if (!acc[key]) {
                             const summaryItem = form.getValues('summary')?.find(s => s.descripcion === key && s.presentacion === group.presentation && s.placa === placa.numeroPlaca);
@@ -592,9 +591,9 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                     }, {} as any);
 
                     group.products = Object.values(productsSummary);
-                    group.subTotalPaletas = group.products.reduce((sum, p) => sum + p.totalPaletas, 0);
-                    group.subTotalCantidad = group.products.reduce((sum, p) => sum + p.totalCantidad, 0);
-                    group.subTotalPeso = group.products.reduce((sum, p) => sum + p.totalPeso, 0);
+                    group.subTotalPaletas = group.products.reduce((sum: number, p: any) => sum + p.totalPaletas, 0);
+                    group.subTotalCantidad = group.products.reduce((sum: number, p: any) => sum + p.totalCantidad, 0);
+                    group.subTotalPeso = group.products.reduce((sum: number, p: any) => sum + p.totalPeso, 0);
                 });
 
                 return {
@@ -602,15 +601,14 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                     presentationGroups: Object.values(groupedByPresentation),
                 };
             });
-            const totalGeneralPaletas = groupedByPlaca.reduce((sum, placaGroup) => sum + placaGroup.presentationGroups.reduce((s, presGroup) => s + presGroup.subTotalPaletas, 0), 0);
-            const totalGeneralCantidad = groupedByPlaca.reduce((sum, placaGroup) => sum + placaGroup.presentationGroups.reduce((s, presGroup) => s + presGroup.subTotalCantidad, 0), 0);
-            const totalGeneralPeso = groupedByPlaca.reduce((sum, placaGroup) => sum + placaGroup.presentationGroups.reduce((s, presGroup) => s + presGroup.subTotalPeso, 0), 0);
+            const totalGeneralPaletas = groupedByPlaca.reduce((sum, placaGroup) => sum + placaGroup.presentationGroups.reduce((s: any, presGroup: any) => s + presGroup.subTotalPaletas, 0), 0);
+            const totalGeneralCantidad = groupedByPlaca.reduce((sum, placaGroup) => sum + placaGroup.presentationGroups.reduce((s: any, presGroup: any) => s + presGroup.subTotalCantidad, 0), 0);
+            const totalGeneralPeso = groupedByPlaca.reduce((sum, placaGroup) => sum + placaGroup.presentationGroups.reduce((s: any, presGroup: any) => s + presGroup.subTotalPeso, 0), 0);
 
             return { placaGroups: groupedByPlaca, presentationGroups: [], totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso };
         }
 
-        // Original logic for other modes
-        const groupedByPresentation = allItems.reduce((acc, item) => {
+        const groupedByPresentation = allItems.reduce((acc: any, item: any) => {
             const presentacion = item.presentacion || 'SIN PRESENTACIÓN';
             if (!acc[presentacion]) {
                 acc[presentacion] = [];
@@ -933,12 +931,12 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
             try {
                 const optimizedImage = await optimizeImage(dataUrl);
 
-                const newImagesSize = getByteSizeFromBase64(optimizedImage.split(',')[1]);
+                const newImageSize = getByteSizeFromBase64(optimizedImage.split(',')[1]);
                 const existingImagesSize = attachments
                     .filter(a => a.startsWith('data:image'))
                     .reduce((sum, base64) => sum + getByteSizeFromBase64(base64.split(',')[1]), 0);
 
-                if (existingImagesSize + newImagesSize > MAX_TOTAL_SIZE_BYTES) {
+                if (existingImagesSize + newImageSize > MAX_TOTAL_SIZE_BYTES) {
                     toast({
                         variant: "destructive",
                         title: "Límite de tamaño excedido",
@@ -1650,7 +1648,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
 
                                 {isTunelCongelacion ? (
                                     calculatedSummaryForDisplay.placaGroups.map((placaGroup, placaGroupIndex) => (
-                                        <React.Fragment key={placaGroup.placa}>
+                                        <React.Fragment key={`placa-group-${placaGroup.placa}-${placaGroupIndex}`}>
                                             <TableBody>
                                                 <TableRow className="bg-blue-50 hover:bg-blue-50/90">
                                                     <TableCell colSpan={5} className="font-semibold text-blue-800">Placa: {placaGroup.placa}</TableCell>
@@ -2279,5 +2277,6 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
+
 
 
