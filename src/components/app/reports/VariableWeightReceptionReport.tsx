@@ -61,15 +61,15 @@ interface VariableWeightReceptionReportProps {
 }
 
 export function VariableWeightReceptionReport({ formData, userDisplayName, attachments }: VariableWeightReceptionReportProps) {
-    const isTunelMode = formData.tipoPedido === 'TUNEL' || formData.tipoPedido === 'TUNEL DE CONGELACIÓN';
-    const recepcionPorPlaca = formData.recepcionPorPlaca === true;
     const isTunelCongelacion = formData.tipoPedido === 'TUNEL DE CONGELACIÓN';
+    const isTunelMode = formData.tipoPedido === 'TUNEL' || isTunelCongelacion;
+    const recepcionPorPlaca = formData.recepcionPorPlaca === true;
 
     const allItems = (isTunelMode && recepcionPorPlaca) 
         ? (formData.placas || []).flatMap((p: any) => (p.items || []).map((i: any) => ({ ...i, placa: p.numeroPlaca })))
         : (formData.items || []);
 
-    const isSummaryFormat = isTunelCongelacion ? false : allItems.some((p: any) => Number(p.paleta) === 0);
+    const isSummaryFormat = !isTunelCongelacion && allItems.some((p: any) => Number(p.paleta) === 0);
 
     const calculatedSummaryForDisplay = (() => {
         const allItemsForSummary = (isTunelMode && recepcionPorPlaca) 
@@ -102,7 +102,7 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                                 descripcion: key,
                                 placa: placa.numeroPlaca,
                                 presentacion: group.presentation,
-                                items: [], // Initialize items array
+                                items: [], 
                                 totalPeso: 0,
                                 totalCantidad: 0,
                                 totalPaletas: 0,
@@ -468,6 +468,7 @@ const ItemsTable = ({ items, isSummaryFormat, isTunel }: { items: any[], isSumma
                     </>
                 ) : (
                     <>
+                        {/* Hide Paleta column for TUNEL mode as it's not relevant */}
                         {!isTunel && <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Paleta</th>}
                         <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Descripción</th>
                         <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Lote</th>
@@ -511,6 +512,4 @@ const ItemsTable = ({ items, isSummaryFormat, isTunel }: { items: any[], isSumma
         </tbody>
     </table>
 );
-
     
-
