@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef, useCallback, ReactNode } from "react";
@@ -101,7 +100,7 @@ const placaSchema = z.object({
   items: z.array(itemSchema).min(1, "Debe agregar al menos un ítem a la placa."),
 });
 
-const requiredTempSchema = z.coerce.number({ required_error: "La temperatura es requerida.", invalid_type_error: "La temperatura debe ser un número." }).min(-99).max(99);
+const requiredTempSchema = z.coerce.number({ required_error: "T1 es requerida.", invalid_type_error: "T1 debe ser un número." }).min(-99).max(99);
 
 const optionalTempSchema = z.preprocess(
     (val) => (val === "" || val === null ? null : val),
@@ -223,27 +222,27 @@ const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, is
     const watchedTaraCaja = useWatch({ control, name: `${basePath}.${itemIndex}.taraCaja` });
     const watchedPesoBruto = useWatch({ control, name: `${basePath}.${itemIndex}.pesoBruto` });
     const watchedTaraEstiba = useWatch({ control, name: `${basePath}.${itemIndex}.taraEstiba` });
+    const watchedItem = useWatch({ control, name: `${basePath}.${itemIndex}` });
 
-    const [pesoNeto, setPesoNeto] = useState<number | null>(null);
 
-    useEffect(() => {
+    const calculatedPesoNeto = useMemo(() => {
         const cantidadPorPaleta = Number(watchedCantidad) || 0;
         const taraCaja = Number(watchedTaraCaja) || 0;
         const pesoBruto = Number(watchedPesoBruto) || 0;
         const taraEstiba = Number(watchedTaraEstiba) || 0;
-
         const calculatedTotalTaraCaja = cantidadPorPaleta * taraCaja;
-        const calculatedPesoNeto = pesoBruto - taraEstiba - calculatedTotalTaraCaja;
-
+        
+        setValue(`${basePath}.${itemIndex}.totalTaraCaja`, calculatedTotalTaraCaja, { shouldValidate: false });
+        
+        return pesoBruto - taraEstiba - calculatedTotalTaraCaja;
+    }, [watchedCantidad, watchedTaraCaja, watchedPesoBruto, watchedTaraEstiba, basePath, itemIndex, setValue]);
+    
+    useEffect(() => {
         const currentPesoNeto = getValues(`${basePath}.${itemIndex}.pesoNeto`);
-
         if (currentPesoNeto !== calculatedPesoNeto) {
-            setValue(`${basePath}.${itemIndex}.totalTaraCaja`, calculatedTotalTaraCaja, { shouldValidate: false });
-            setValue(`${basePath}.${itemIndex}.pesoNeto`, calculatedPesoNeto, { shouldValidate: true });
+            setValue(`${basePath}.${itemIndex}.pesoNeto`, calculatedPesoNeto, { shouldValidate: false });
         }
-        setPesoNeto(calculatedPesoNeto);
-
-    }, [watchedCantidad, watchedTaraCaja, watchedPesoBruto, watchedTaraEstiba, basePath, itemIndex, setValue, getValues]);
+    }, [calculatedPesoNeto, basePath, itemIndex, getValues, setValue]);
 
 
     const isSummaryRow = getValues(`${basePath}.${itemIndex}.paleta`) === 0;
@@ -320,7 +319,7 @@ const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, is
                     <FormField control={control} name={`${basePath}.${itemIndex}.taraCaja`} render={({ field }) => (
                         <FormItem><FormLabel>T. Caja (kg) <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="decimal" min="0" step="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                     )} />
-                    <FormItem><FormLabel>Peso Neto (kg)</FormLabel><FormControl><Input disabled readOnly value={pesoNeto != null && !isNaN(pesoNeto) ? pesoNeto.toFixed(2) : '0.00'} /></FormControl></FormItem>
+                    <FormItem><FormLabel>Peso Neto (kg)</FormLabel><FormControl><Input disabled readOnly value={calculatedPesoNeto != null && !isNaN(calculatedPesoNeto) ? calculatedPesoNeto.toFixed(2) : '0.00'} /></FormControl></FormItem>
                 </div>
             )}
         </>
@@ -345,6 +344,8 @@ const ItemsPorPlaca = ({ placaIndex, handleProductDialogOpening }: { placaIndex:
             descripcion: lastItem.descripcion,
             lote: lastItem.lote,
             presentacion: lastItem.presentacion,
+             cantidadPorPaleta: lastItem.cantidadPorPaleta,
+            taraCaja: lastItem.taraCaja,
         } : { ...originalDefaultValues.items![0] };
         
         append(newItemPayload);
@@ -688,14 +689,14 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
             );
             return {
                 ...newItem,
-                temperatura1: existingItem?.temperatura1 ?? null,
-                temperatura2: existingItem?.temperatura2 ?? null,
-                temperatura3: existingItem?.temperatura3 ?? null,
+                temperatura1: existingItem?.temperatura1,
+                temperatura2: existingItem?.temperatura2,
+                temperatura3: existingItem?.temperatura3,
             };
         });
 
         if (JSON.stringify(newSummaryState) !== JSON.stringify(currentSummaryInForm)) {
-            form.setValue('summary', newSummaryState, { shouldValidate: true });
+            form.setValue('summary', newSummaryState, { shouldValidate: false });
         }
     }, [calculatedSummaryForDisplay, form, isTunelCongelacion]);
 
@@ -2282,3 +2283,6 @@ function PedidoTypeSelectorDialog({
     );
 }
 
+
+
+    

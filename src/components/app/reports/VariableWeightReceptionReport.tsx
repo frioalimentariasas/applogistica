@@ -66,16 +66,12 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
     const isStandardTunel = isTunelMode && !recepcionPorPlaca;
     const isTunelCongelacion = formData.tipoPedido === 'TUNEL DE CONGELACIÓN';
 
-    const itemsForCalculation = (isTunelMode && recepcionPorPlaca) 
-        ? (formData.placas || []).flatMap((p: any) => p.items.map((i: any) => ({ ...i, placa: p.numeroPlaca }))) 
-        : formData.items;
-
-    const isSummaryFormat = (formData.items || []).some((p: any) => Number(p.paleta) === 0);
-
-     const calculatedSummaryForDisplay = (() => {
+    const calculatedSummaryForDisplay = (() => {
         const allItems = (isTunelMode && recepcionPorPlaca) 
             ? (formData.placas || []).flatMap((p: any) => (p.items || []).map((i: any) => ({ ...i, placa: p.numeroPlaca })))
             : (formData.items || []);
+
+        const isSummaryMode = allItems.some((item: any) => Number(item?.paleta) === 0);
 
         if (isTunelCongelacion) {
             const groupedByPlaca = (formData.placas || []).map((placa: any) => {
@@ -105,7 +101,7 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                                 presentacion: group.presentation,
                                 totalPeso: 0,
                                 totalCantidad: 0,
-                                totalPaletas: 0,
+                                totalPaletas: 0, // Pallets are counted per item
                                 temperatura1: summaryItem?.temperatura1,
                                 temperatura2: summaryItem?.temperatura2,
                                 temperatura3: summaryItem?.temperatura3,
@@ -113,7 +109,7 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                          }
                         acc[key].totalPeso += Number(item.pesoNeto) || 0;
                         acc[key].totalCantidad += Number(item.cantidadPorPaleta) || 0;
-                        acc[key].totalPaletas += 1;
+                        acc[key].totalPaletas += 1; // Each item in TUNEL mode is one pallet
                         return acc;
                     }, {} as any);
 
@@ -258,7 +254,7 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                             </div>
                         ))
                     ) : (
-                        <ItemsTable items={formData.items || []} isSummaryFormat={isSummaryFormat} isTunel={isStandardTunel}/>
+                        <ItemsTable items={formData.items || []} isSummaryFormat={(formData.items || []).some((p: any) => Number(p.paleta) === 0)} isTunel={isStandardTunel}/>
                     )}
                 </div>
             </ReportSection>
@@ -288,7 +284,7 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                                     {placaGroup.presentationGroups.map((group, groupIndex) => (
                                         <tbody key={`${placaGroup.placa}-${group.presentation}`} style={{breakInside: 'avoid'}}>
                                             <tr style={{ backgroundColor: '#f9fafb' }}>
-                                                <td colSpan={5} style={{ padding: '4px 8px', fontWeight: 'semibold', fontStyle: 'italic' }}>
+                                                <td colSpan={5} style={{ padding: '4px 8px', fontWeight: 'bold', fontStyle: 'italic' }}>
                                                     Presentación: {group.presentation}
                                                 </td>
                                             </tr>
@@ -508,7 +504,4 @@ const ItemsTable = ({ items, isSummaryFormat, isTunel }: { items: any[], isSumma
     </table>
 );
 
-
-
-
-
+    
