@@ -65,140 +65,129 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
     const isTunelMode = formData.tipoPedido === 'TUNEL' || isTunelCongelacion;
     const recepcionPorPlaca = formData.recepcionPorPlaca === true;
 
-    const allItems = (isTunelMode && recepcionPorPlaca) 
-        ? (formData.placas || []).flatMap((p: any) => (p.items || []).map((i: any) => ({ ...i, placa: p.numeroPlaca })))
-        : (formData.items || []);
-
-    const isSummaryFormat = !isTunelCongelacion && allItems.some((p: any) => Number(p.paleta) === 0);
+    // For this report, 'isSummaryFormat' is always false for TUNEL DE CONGELACION to force detail view
+    const isSummaryFormat = !isTunelCongelacion && (formData.items || []).some((p: any) => Number(p.paleta) === 0);
 
     const calculatedSummaryForDisplay = (() => {
-        const allItemsForSummary = (isTunelMode && recepcionPorPlaca) 
-            ? (formData.placas || []).flatMap((p: any) => (p.items || []).map((i: any) => ({ ...i, placa: p.numeroPlaca })))
-            : (formData.items || []);
+        if (!isTunelCongelacion) {
+            // ... existing logic for other reception types ...
+             const allItems = (formData.items || []);
+             const groupedByPresentation = allItems.reduce((acc: any, item: any) => {
+                const presentacion = item.presentacion || 'SIN PRESENTACIÓN';
+                if (!acc[presentacion]) {
+                    acc[presentacion] = [];
+                }
+                acc[presentacion].push(item);
+                return acc;
+            }, {} as Record<string, any[]>);
 
-        if (isTunelCongelacion) {
-            const groupedByPlaca = (formData.placas || []).map((placa: any) => {
-                const groupedByPresentation = (placa.items || []).reduce((acc: any, item: any) => {
-                    const presentacion = item.presentacion || 'SIN PRESENTACIÓN';
-                    if (!acc[presentacion]) {
-                        acc[presentacion] = {
-                            presentation: presentacion,
-                            products: [],
-                            subTotalPaletas: 0,
-                            subTotalCantidad: 0,
-                            subTotalPeso: 0,
+            const presentationGroups = Object.entries(groupedByPresentation).map(([presentation, items]) => {
+                const groupedByProduct = items.reduce((acc, item) => {
+                    if (!item?.descripcion?.trim()) return acc;
+                    const key = item.descripcion;
+
+                    if (!acc[key]) {
+                        const summaryItem = formData.summary?.find((s: any) => s.descripcion === key && s.presentacion === presentation);
+                        acc[key] = {
+                            descripcion: key,
+                            presentacion: item.presentacion,
+                            totalPeso: 0,
+                            totalCantidad: 0,
+                            paletas: new Set<number>(),
+                            temperatura1: summaryItem?.temperatura1,
+                            temperatura2: summaryItem?.temperatura2,
+                            temperatura3: summaryItem?.temperatura3,
                         };
                     }
-                    acc[presentacion].products.push(item);
+
+                    if (Number(item.paleta) === 0) {
+                        acc[key].totalPeso += Number(item.totalPesoNeto) || 0;
+                        acc[key].totalCantidad += Number(item.totalCantidad) || 0;
+                        acc[key].paletas.add(0);
+                    } else {
+                        acc[key].totalPeso += Number(item.pesoNeto) || 0;
+                        acc[key].totalCantidad += Number(item.cantidadPorPaleta) || 0;
+                        if (item.paleta !== undefined && !isNaN(Number(item.paleta))) acc[key].paletas.add(Number(item.paleta));
+                    }
                     return acc;
                 }, {} as any);
 
-                Object.values(groupedByPresentation).forEach((group: any) => {
-                    const productsSummary = group.products.reduce((acc: any, item: any) => {
-                         const key = item.descripcion;
-                         if (!acc[key]) {
-                            const summaryItem = formData.summary?.find((s: any) => s.descripcion === key && s.presentacion === group.presentation && s.placa === placa.numeroPlaca);
-                            acc[key] = {
-                                descripcion: key,
-                                placa: placa.numeroPlaca,
-                                presentacion: group.presentation,
-                                items: [], 
-                                totalPeso: 0,
-                                totalCantidad: 0,
-                                totalPaletas: 0,
-                                temperatura1: summaryItem?.temperatura1,
-                                temperatura2: summaryItem?.temperatura2,
-                                temperatura3: summaryItem?.temperatura3,
-                            };
-                         }
-                        acc[key].items.push(item);
-                        acc[key].totalPeso += Number(item.pesoNeto) || 0;
-                        acc[key].totalCantidad += Number(item.cantidadPorPaleta) || 0;
-                        return acc;
-                    }, {} as any);
-                    
-                    group.products = Object.values(productsSummary).map((prod: any) => ({
-                        ...prod,
-                        totalPaletas: prod.items.length // In TUNEL DE CONGELACION, each item is a pallet
-                    }));
-                    
-                    group.subTotalPaletas = group.products.reduce((sum: number, p: any) => sum + p.totalPaletas, 0);
-                    group.subTotalCantidad = group.products.reduce((sum: number, p: any) => sum + p.totalCantidad, 0);
-                    group.subTotalPeso = group.products.reduce((sum: number, p: any) => sum + p.totalPeso, 0);
-                });
+                const products = Object.values(groupedByProduct).map((group: any) => ({
+                    ...group,
+                    totalPaletas: group.paletas.has(0)
+                        ? items.filter((item: any) => item.descripcion === group.descripcion && Number(item.paleta) === 0).reduce((sum: number, item: any) => sum + (Number(item.totalPaletas) || 0), 0)
+                        : group.paletas.size
+                }));
 
-                return {
-                    placa: placa.numeroPlaca,
-                    presentationGroups: Object.values(groupedByPresentation),
-                };
+                const subTotalPaletas = products.reduce((acc, p) => acc + p.totalPaletas, 0);
+                const subTotalCantidad = products.reduce((acc, p) => acc + p.totalCantidad, 0);
+                const subTotalPeso = products.reduce((acc, p) => acc + p.totalPeso, 0);
+
+                return { presentation, products, subTotalPaletas, subTotalCantidad, subTotalPeso };
             });
-            const totalGeneralPaletas = groupedByPlaca.reduce((sum, placaGroup) => sum + placaGroup.presentationGroups.reduce((s: any, presGroup: any) => s + presGroup.subTotalPaletas, 0), 0);
-            const totalGeneralCantidad = groupedByPlaca.reduce((sum, placaGroup) => sum + placaGroup.presentationGroups.reduce((s: any, presGroup: any) => s + presGroup.subTotalCantidad, 0), 0);
-            const totalGeneralPeso = groupedByPlaca.reduce((sum, placaGroup) => sum + placaGroup.presentationGroups.reduce((s: any, presGroup: any) => s + presGroup.subTotalPeso, 0), 0);
+            
+            const totalGeneralPaletas = presentationGroups.reduce((acc, group) => acc + group.subTotalPaletas, 0);
+            const totalGeneralCantidad = presentationGroups.reduce((acc, group) => acc + group.subTotalCantidad, 0);
+            const totalGeneralPeso = presentationGroups.reduce((acc, group) => acc + group.subTotalPeso, 0);
 
-            return { placaGroups: groupedByPlaca, presentationGroups: [], totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso };
+            return { presentationGroups, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso, placaGroups: [] };
         }
 
-        const groupedByPresentation = allItemsForSummary.reduce((acc: any, item: any) => {
-            const presentacion = item.presentacion || 'SIN PRESENTACIÓN';
-            if (!acc[presentacion]) {
-                acc[presentacion] = [];
-            }
-            acc[presentacion].push(item);
-            return acc;
-        }, {} as Record<string, any[]>);
-
-        const presentationGroups = Object.entries(groupedByPresentation).map(([presentation, items]) => {
-            const groupedByProduct = items.reduce((acc, item) => {
-                if (!item?.descripcion?.trim()) return acc;
-                const key = item.descripcion;
-
-                if (!acc[key]) {
-                    const summaryItem = formData.summary?.find((s: any) => s.descripcion === key && s.presentacion === presentation);
-                    acc[key] = {
-                        descripcion: key,
-                        presentacion: item.presentacion,
-                        placa: item.placa,
-                        totalPeso: 0,
-                        totalCantidad: 0,
-                        paletas: new Set<number>(),
-                        temperatura1: summaryItem?.temperatura1,
-                        temperatura2: summaryItem?.temperatura2,
-                        temperatura3: summaryItem?.temperatura3,
+        // Specific logic for TUNEL DE CONGELACIÓN
+        const placaGroups = (formData.placas || []).map((placa: any) => {
+            const itemsByPresentation = (placa.items || []).reduce((acc: any, item: any) => {
+                const presentacionKey = item.presentacion || 'SIN PRESENTACIÓN';
+                if (!acc[presentacionKey]) {
+                    acc[presentacionKey] = {
+                        presentation: presentacionKey,
+                        items: [],
+                        subTotalPaletas: 0,
+                        subTotalCantidad: 0,
+                        subTotalPeso: 0,
                     };
                 }
-
-                if (Number(item.paleta) === 0) {
-                    acc[key].totalPeso += Number(item.totalPesoNeto) || 0;
-                    acc[key].totalCantidad += Number(item.totalCantidad) || 0;
-                    acc[key].paletas.add(0);
-                } else {
-                    acc[key].totalPeso += Number(item.pesoNeto) || 0;
-                    acc[key].totalCantidad += Number(item.cantidadPorPaleta) || 0;
-                    if (item.paleta !== undefined && !isNaN(Number(item.paleta))) acc[key].paletas.add(Number(item.paleta));
-                }
+                acc[presentacionKey].items.push(item);
                 return acc;
-            }, {} as any);
+            }, {} as Record<string, { presentation: string; items: any[]; subTotalPaletas: number; subTotalCantidad: number; subTotalPeso: number; }>);
+            
+            Object.values(placasByPresentation).forEach((group: any) => {
+                const productsSummary = group.items.reduce((acc: any, item: any) => {
+                    const productKey = item.descripcion;
+                    if (!acc[productKey]) {
+                        const summaryItem = formData.summary?.find((s: any) => s.descripcion === productKey && s.presentacion === group.presentation && s.placa === placa.numeroPlaca);
+                        acc[productKey] = {
+                            descripcion: productKey,
+                            placa: placa.numeroPlaca,
+                            presentacion: group.presentation,
+                            totalPaletas: 0,
+                            totalCantidad: 0,
+                            totalPeso: 0,
+                            temperatura1: summaryItem?.temperatura1,
+                        };
+                    }
+                    acc[productKey].totalPaletas += 1; // Each item is one pallet
+                    acc[productKey].totalCantidad += Number(item.cantidadPorPaleta) || 0;
+                    acc[productKey].totalPeso += Number(item.pesoNeto) || 0;
+                    return acc;
+                }, {} as Record<string, any>);
 
-            const products = Object.values(groupedByProduct).map((group: any) => ({
-                ...group,
-                totalPaletas: group.paletas.has(0)
-                    ? items.filter((item: any) => item.descripcion === group.descripcion && Number(item.paleta) === 0).reduce((sum: number, item: any) => sum + (Number(item.totalPaletas) || 0), 0)
-                    : group.paletas.size
-            }));
-
-            const subTotalPaletas = products.reduce((acc, p) => acc + p.totalPaletas, 0);
-            const subTotalCantidad = products.reduce((acc, p) => acc + p.totalCantidad, 0);
-            const subTotalPeso = products.reduce((acc, p) => acc + p.totalPeso, 0);
-
-            return { presentation, products, subTotalPaletas, subTotalCantidad, subTotalPeso };
+                group.products = Object.values(productsSummary);
+                group.subTotalPaletas = group.products.reduce((sum: number, p: any) => sum + p.totalPaletas, 0);
+                group.subTotalCantidad = group.products.reduce((sum: number, p: any) => sum + p.totalCantidad, 0);
+                group.subTotalPeso = group.products.reduce((sum: number, p: any) => sum + p.totalPeso, 0);
+            });
+            
+            return {
+                placa: placa.numeroPlaca,
+                presentationGroups: Object.values(placasByPresentation),
+            };
         });
-        
-        const totalGeneralPaletas = presentationGroups.reduce((acc, group) => acc + group.subTotalPaletas, 0);
-        const totalGeneralCantidad = presentationGroups.reduce((acc, group) => acc + group.subTotalCantidad, 0);
-        const totalGeneralPeso = presentationGroups.reduce((acc, group) => acc + group.subTotalPeso, 0);
 
-        return { presentationGroups, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso, placaGroups: [] };
+        const totalGeneralPaletas = placaGroups.reduce((sum: number, placaGroup: any) => sum + placaGroup.presentationGroups.reduce((s: number, presGroup: any) => s + presGroup.subTotalPaletas, 0), 0);
+        const totalGeneralCantidad = placaGroups.reduce((sum: number, placaGroup: any) => sum + placaGroup.presentationGroups.reduce((s: number, presGroup: any) => s + presGroup.subTotalCantidad, 0), 0);
+        const totalGeneralPeso = placaGroups.reduce((sum: number, placaGroup: any) => sum + placaGroup.presentationGroups.reduce((s: number, presGroup: any) => s + presGroup.subTotalPeso, 0), 0);
+        
+        return { placaGroups, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso, presentationGroups: [] };
     })();
 
 
