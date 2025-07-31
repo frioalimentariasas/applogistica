@@ -238,7 +238,7 @@ const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, is
                 setValue(`${basePath}.${itemIndex}.pesoNeto`, calculatedPesoNeto, { shouldValidate: false });
             }
         }
-    }, [watchedItem?.cantidadPorPaleta, watchedItem?.taraCaja, watchedItem?.pesoBruto, watchedItem?.taraEstiba, watchedItem?.paleta, basePath, itemIndex, setValue, watchedItem]);
+    }, [watchedItem, basePath, itemIndex, setValue]);
 
     const isSummaryRow = watchedItem?.paleta === 0;
     const pesoNeto = watchedItem?.pesoNeto;
@@ -2277,6 +2277,3 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
-
-
-
