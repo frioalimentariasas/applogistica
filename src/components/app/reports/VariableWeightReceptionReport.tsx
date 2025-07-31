@@ -65,72 +65,19 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
     const recepcionPorPlaca = formData.recepcionPorPlaca === true;
     const isTunelCongelacion = formData.tipoPedido === 'TUNEL DE CONGELACIÓN';
 
+    const allItems = (isTunelMode && recepcionPorPlaca) 
+        ? (formData.placas || []).flatMap((p: any) => (p.items || []).map((i: any) => ({ ...i, placa: p.numeroPlaca })))
+        : (formData.items || []);
+
+    // For TUNEL DE CONGELACIÓN, it should never be summary format.
+    const isSummaryFormat = isTunelCongelacion ? false : allItems.some((p: any) => Number(p.paleta) === 0);
+
     const calculatedSummaryForDisplay = (() => {
-        const allItems = (isTunelMode && recepcionPorPlaca) 
+        const allItemsForSummary = (isTunelMode && recepcionPorPlaca) 
             ? (formData.placas || []).flatMap((p: any) => (p.items || []).map((i: any) => ({ ...i, placa: p.numeroPlaca })))
             : (formData.items || []);
 
-        const isSummaryMode = allItems.some((item: any) => Number(item?.paleta) === 0);
-
-        if (isTunelCongelacion) {
-            const groupedByPlaca = (formData.placas || []).map((placa: any) => {
-                const groupedByPresentation = (placa.items || []).reduce((acc: any, item: any) => {
-                    const presentacion = item.presentacion || 'SIN PRESENTACIÓN';
-                    if (!acc[presentacion]) {
-                        acc[presentacion] = {
-                            presentation: presentacion,
-                            products: [],
-                            subTotalPaletas: 0,
-                            subTotalCantidad: 0,
-                            subTotalPeso: 0,
-                        };
-                    }
-                    acc[presentacion].products.push(item);
-                    return acc;
-                }, {} as any);
-
-                Object.values(groupedByPresentation).forEach((group: any) => {
-                    const productsSummary = group.products.reduce((acc: any, item: any) => {
-                         const key = item.descripcion;
-                         if (!acc[key]) {
-                            const summaryItem = formData.summary?.find((s: any) => s.descripcion === key && s.presentacion === group.presentation && s.placa === placa.numeroPlaca);
-                            acc[key] = {
-                                descripcion: key,
-                                placa: placa.numeroPlaca,
-                                presentacion: group.presentation,
-                                totalPeso: 0,
-                                totalCantidad: 0,
-                                totalPaletas: 0, // Pallets are counted per item
-                                temperatura1: summaryItem?.temperatura1,
-                                temperatura2: summaryItem?.temperatura2,
-                                temperatura3: summaryItem?.temperatura3,
-                            };
-                         }
-                        acc[key].totalPeso += Number(item.pesoNeto) || 0;
-                        acc[key].totalCantidad += Number(item.cantidadPorPaleta) || 0;
-                        acc[key].totalPaletas += 1; // Each item in TUNEL mode is one pallet
-                        return acc;
-                    }, {} as any);
-
-                    group.products = Object.values(productsSummary);
-                    group.subTotalPaletas = group.products.reduce((sum: number, p: any) => sum + p.totalPaletas, 0);
-                    group.subTotalCantidad = group.products.reduce((sum: number, p: any) => sum + p.totalCantidad, 0);
-                    group.subTotalPeso = group.products.reduce((sum: number, p: any) => sum + p.totalPeso, 0);
-                });
-
-                return {
-                    placa: placa.numeroPlaca,
-                    presentationGroups: Object.values(groupedByPresentation),
-                };
-            });
-            const totalGeneralPaletas = groupedByPlaca.reduce((sum, placaGroup) => sum + placaGroup.presentationGroups.reduce((s: any, presGroup: any) => s + presGroup.subTotalPaletas, 0), 0);
-            const totalGeneralCantidad = groupedByPlaca.reduce((sum, placaGroup) => sum + placaGroup.presentationGroups.reduce((s: any, presGroup: any) => s + presGroup.subTotalCantidad, 0), 0);
-            const totalGeneralPeso = groupedByPlaca.reduce((sum, placaGroup) => sum + placaGroup.presentationGroups.reduce((s: any, presGroup: any) => s + presGroup.subTotalPeso, 0), 0);
-
-            return { placaGroups: groupedByPlaca, presentationGroups: [], totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso };
-        }
-
-        const groupedByPresentation = allItems.reduce((acc: any, item: any) => {
+        const groupedByPresentation = allItemsForSummary.reduce((acc: any, item: any) => {
             const presentacion = item.presentacion || 'SIN PRESENTACIÓN';
             if (!acc[presentacion]) {
                 acc[presentacion] = [];
@@ -159,21 +106,23 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                     };
                 }
 
-                if (Number(item.paleta) === 0) {
+                if (isSummaryFormat) {
                     acc[key].totalPeso += Number(item.totalPesoNeto) || 0;
                     acc[key].totalCantidad += Number(item.totalCantidad) || 0;
                     acc[key].paletas.add(0);
                 } else {
                     acc[key].totalPeso += Number(item.pesoNeto) || 0;
                     acc[key].totalCantidad += Number(item.cantidadPorPaleta) || 0;
-                    if (item.paleta !== undefined && !isNaN(Number(item.paleta))) acc[key].paletas.add(Number(item.paleta));
+                    if (item.paleta !== undefined && !isNaN(Number(item.paleta)) && !isTunelCongelacion) acc[key].paletas.add(Number(item.paleta));
                 }
                 return acc;
             }, {} as any);
 
             const products = Object.values(groupedByProduct).map((group: any) => ({
                 ...group,
-                totalPaletas: group.paletas.has(0)
+                totalPaletas: isTunelCongelacion
+                    ? group.items.length // In TUNEL DE CONGELACION, each item is a pallet
+                    : group.paletas.has(0)
                     ? items.filter((item: any) => item.descripcion === group.descripcion && Number(item.paleta) === 0).reduce((sum: number, item: any) => sum + (Number(item.totalPaletas) || 0), 0)
                     : group.paletas.size
             }));
@@ -253,7 +202,7 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                             </div>
                         ))
                     ) : (
-                        <ItemsTable items={formData.items || []} isSummaryFormat={(formData.items || []).some((p: any) => Number(p.paleta) === 0)} isTunel={isTunelMode}/>
+                        <ItemsTable items={formData.items || []} isSummaryFormat={isSummaryFormat} isTunel={isTunelMode}/>
                     )}
                 </div>
             </ReportSection>
@@ -288,7 +237,7 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                                                 </td>
                                             </tr>
                                             {group.products.map((p: any, pIndex: number) => {
-                                                const temps = [p.temperatura1, p.temperatura2, p.temperatura3].filter(t => t != null && !isNaN(t));
+                                                const temps = [p.temperatura1, p.temperatura2, p.temperatura3].filter((t: any) => t != null && !isNaN(t));
                                                 const tempString = temps.join(' / ');
                                                 return(
                                                      <tr key={`${groupIndex}-${pIndex}`} style={{ borderBottom: '1px solid #eee' }}>
@@ -320,7 +269,7 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                                             </td>
                                         </tr>
                                         {group.products.map((p: any, pIndex: number) => {
-                                            const temps = [p.temperatura1, p.temperatura2, p.temperatura3].filter(t => t != null && !isNaN(t));
+                                            const temps = [p.temperatura1, p.temperatura2, p.temperatura3].filter((t: any) => t != null && !isNaN(t));
                                             const tempString = temps.join(' / ');
                                             return (
                                                 <tr key={`${groupIndex}-${pIndex}`} style={{ borderBottom: '1px solid #eee' }}>
