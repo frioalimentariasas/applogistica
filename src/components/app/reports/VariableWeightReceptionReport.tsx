@@ -119,7 +119,7 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                     
                     group.products = Object.values(productsSummary).map((prod: any) => ({
                         ...prod,
-                        totalPaletas: prod.items.length
+                        totalPaletas: prod.items.length // In TUNEL DE CONGELACION, each item is a pallet
                     }));
                     
                     group.subTotalPaletas = group.products.reduce((sum: number, p: any) => sum + p.totalPaletas, 0);
@@ -470,7 +470,6 @@ const ItemsTable = ({ items, isSummaryFormat, isTunel }: { items: any[], isSumma
                         </>
                     ) : (
                         <>
-                            {/* Hide Paleta column for TUNEL mode as it's not relevant */}
                             {!isDetailedTunel && <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Paleta</th>}
                             <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Descripción</th>
                             <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Lote</th>
@@ -516,4 +515,3 @@ const ItemsTable = ({ items, isSummaryFormat, isTunel }: { items: any[], isSumma
     );
 }
 
-    
