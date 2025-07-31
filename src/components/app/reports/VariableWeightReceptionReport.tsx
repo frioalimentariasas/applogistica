@@ -93,7 +93,7 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                     const summaryItem = formData.summary?.find((s: any) => s.descripcion === key && s.presentacion === presentation);
                     acc[key] = {
                         descripcion: key,
-                        presentacion: presentation,
+                        presentacion: item.presentacion,
                         placa: item.placa,
                         totalPeso: 0,
                         totalCantidad: 0,
@@ -129,7 +129,7 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
 
             return { presentation, products, subTotalPaletas, subTotalCantidad, subTotalPeso };
         });
-
+        
         const totalGeneralPaletas = (isTunelMode && formData.totalPaletasTunel) 
             ? formData.totalPaletasTunel
             : presentationGroups.reduce((acc, group) => acc + group.subTotalPaletas, 0);

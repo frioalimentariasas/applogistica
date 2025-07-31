@@ -555,11 +555,11 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
             : (watchedItems || []);
 
         const groupedByPresentation = allItems.reduce((acc, item) => {
-            const presentation = item.presentacion || 'SIN PRESENTACIÓN';
-            if (!acc[presentation]) {
-                acc[presentation] = [];
+            const presentacion = item.presentacion || 'SIN PRESENTACIÓN';
+            if (!acc[presentacion]) {
+                acc[presentacion] = [];
             }
-            acc[presentation].push(item);
+            acc[presentacion].push(item);
             return acc;
         }, {} as Record<string, any[]>);
 
@@ -608,8 +608,8 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
 
             return { presentation, products, subTotalPaletas, subTotalCantidad, subTotalPeso };
         });
-
-        const totalGeneralPaletas = (isTunelMode && form.getValues('totalPaletasTunel')) 
+        
+        const totalGeneralPaletas = (isTunelMode && form.getValues('totalPaletasTunel'))
             ? form.getValues('totalPaletasTunel')
             : presentationGroups.reduce((acc, group) => acc + group.subTotalPaletas, 0);
 
@@ -970,9 +970,8 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
 
     setIsSubmitting(true);
     try {
-        // Create a serializable version of the summary by removing the 'paletas' Set object
         const finalSummary = (data.summary || []).map(item => {
-            const { paletas, ...rest } = item as any; // Destructure to remove paletas
+            const { paletas, ...rest } = item as any;
             return rest;
         });
 
@@ -1073,7 +1072,6 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
     form.setValue('cliente', clientName);
     setClientDialogOpen(false);
     setClientSearch('');
-  
     form.setValue('items', []);
     form.setValue('placas', []);
     setArticulos([]);
