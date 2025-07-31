@@ -38,6 +38,7 @@ const ResultsSkeleton = () => (
         <TableCell><Skeleton className="h-5 w-[100px] rounded-md" /></TableCell>
         <TableCell><Skeleton className="h-5 w-[80px] rounded-md" /></TableCell>
         <TableCell><Skeleton className="h-5 w-[100px] rounded-md" /></TableCell>
+        <TableCell><Skeleton className="h-5 w-[100px] rounded-md" /></TableCell>
         <TableCell><Skeleton className="h-5 w-[150px] rounded-md" /></TableCell>
         <TableCell><Skeleton className="h-5 w-[120px] rounded-md" /></TableCell>
         <TableCell className="text-right">
@@ -54,7 +55,7 @@ const ResultsSkeleton = () => (
 
 const EmptyState = ({ searched }: { searched: boolean }) => (
     <TableRow>
-        <TableCell colSpan={7} className="py-20 text-center">
+        <TableCell colSpan={8} className="py-20 text-center">
             <div className="flex flex-col items-center gap-4">
                 <div className="rounded-full bg-primary/10 p-4">
                     <FolderSearch className="h-12 w-12 text-primary" />
@@ -478,6 +479,7 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
                                         <TableHead>Fecha Operación</TableHead>
                                         <TableHead>Tipo Formato</TableHead>
                                         <TableHead>Operación</TableHead>
+                                        <TableHead>Tipo de Pedido</TableHead>
                                         <TableHead>Pedido SISLOG</TableHead>
                                         <TableHead>Cliente</TableHead>
                                         <TableHead>Operario</TableHead>
@@ -493,6 +495,7 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
                                                 <TableCell>{format(parseISO(sub.formData.fecha), 'dd/MM/yyyy', { locale: es })}</TableCell>
                                                 <TableCell>{getFormTypeName(sub.formType)}</TableCell>
                                                 <TableCell>{getOperationTypeName(sub.formType)}</TableCell>
+                                                <TableCell>{sub.formData.tipoPedido || 'N/A'}</TableCell>
                                                 <TableCell>{sub.formData.pedidoSislog}</TableCell>
                                                 <TableCell>{sub.formData.nombreCliente || sub.formData.cliente}</TableCell>
                                                 <TableCell>{sub.userDisplayName}</TableCell>
