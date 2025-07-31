@@ -1,7 +1,7 @@
 
 "use client";
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { parseISO } from 'date-fns';
 
 // --- HELPER FUNCTIONS ---
@@ -290,7 +290,67 @@ const DefaultSummary = ({ formData }: { formData: any }) => {
 }
 
 const TunelCongelacionSummary = ({ formData }: { formData: any }) => {
-    const { placaGroups, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso } = processTunelData(formData);
+    const { placaGroups, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso } = useMemo(() => {
+        const placaGroups = (formData.placas || []).map((placa: any) => {
+            const groupedByPresentation = (placa.items || []).reduce((acc: any, item: any) => {
+                const presentacion = item.presentacion || 'SIN PRESENTACIÓN';
+                if (!acc[presentacion]) {
+                    acc[presentacion] = {
+                        presentation: presentacion,
+                        products: [],
+                        subTotalPaletas: 0,
+                        subTotalCantidad: 0,
+                        subTotalPeso: 0,
+                    };
+                }
+                acc[presentacion].products.push(item);
+                return acc;
+            }, {} as any);
+
+            Object.values(groupedByPresentation).forEach((group: any) => {
+                const productsSummary = group.products.reduce((acc: any, item: any) => {
+                     const key = item.descripcion;
+                     if (!acc[key]) {
+                        const summaryItem = formData.summary?.find((s: any) => s.descripcion === key && s.presentacion === group.presentation && s.placa === placa.numeroPlaca);
+                        acc[key] = {
+                            descripcion: key,
+                            placa: placa.numeroPlaca,
+                            presentacion: group.presentation,
+                            items: [], 
+                            totalPeso: 0,
+                            totalCantidad: 0,
+                            temperatura: [summaryItem?.temperatura1, summaryItem?.temperatura2, summaryItem?.temperatura3].filter(Boolean).join(' / '),
+                        };
+                     }
+                    acc[key].items.push(item);
+                    acc[key].totalPeso += Number(item.pesoNeto) || 0;
+                    acc[key].totalCantidad += Number(item.cantidadPorPaleta) || 0;
+                    return acc;
+                }, {} as any);
+                
+                group.products = Object.values(productsSummary).map((prod: any) => ({
+                    ...prod,
+                    totalPaletas: prod.items.length
+                }));
+                
+                group.subTotalPaletas = group.products.reduce((sum: number, p: any) => sum + p.totalPaletas, 0);
+                group.subTotalCantidad = group.products.reduce((sum: number, p: any) => sum + p.totalCantidad, 0);
+                group.subTotalPeso = group.products.reduce((sum: number, p: any) => sum + p.totalPeso, 0);
+            });
+
+            return {
+                placa: placa.numeroPlaca,
+                presentationGroups: Object.values(groupedByPresentation),
+            };
+        });
+
+        const totalGeneralPaletas = placaGroups.reduce((sum, placaGroup) => sum + placaGroup.presentationGroups.reduce((s: any, presGroup: any) => s + presGroup.subTotalPaletas, 0), 0);
+        const totalGeneralCantidad = placaGroups.reduce((sum, placaGroup) => sum + placaGroup.presentationGroups.reduce((s: any, presGroup: any) => s + presGroup.subTotalCantidad, 0), 0);
+        const totalGeneralPeso = placaGroups.reduce((sum, placaGroup) => sum + placaGroup.presentationGroups.reduce((s: any, presGroup: any) => s + presGroup.subTotalPeso, 0), 0);
+
+        return { placaGroups, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso };
+
+    }, [formData]);
 
     if (placaGroups.length === 0) return null;
 
@@ -352,7 +412,7 @@ const TunelCongelacionSummary = ({ formData }: { formData: any }) => {
             </table>
         </ReportSection>
     );
-}
+};
 
 const ItemsTable = ({ items, isSummaryFormat, isTunel }: { items: any[], isSummaryFormat: boolean, isTunel: boolean }) => {
     return (
@@ -413,4 +473,4 @@ const ItemsTable = ({ items, isSummaryFormat, isTunel }: { items: any[], isSumma
             </tbody>
         </table>
     );
-}
+};
