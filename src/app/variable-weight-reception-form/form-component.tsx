@@ -572,7 +572,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                     const summaryItem = form.getValues('summary')?.find(s => s.descripcion === key && s.presentacion === presentation);
                     acc[key] = {
                         descripcion: key,
-                        presentacion,
+                        presentacion: item.presentacion,
                         placa: item.placa,
                         totalPeso: 0,
                         totalCantidad: 0,
