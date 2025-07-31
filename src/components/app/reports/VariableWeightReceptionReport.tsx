@@ -150,7 +150,7 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                 return acc;
             }, {} as Record<string, { presentation: string; items: any[]; subTotalPaletas: number; subTotalCantidad: number; subTotalPeso: number; }>);
             
-            Object.values(placasByPresentation).forEach((group: any) => {
+            Object.values(itemsByPresentation).forEach((group: any) => {
                 const productsSummary = group.items.reduce((acc: any, item: any) => {
                     const productKey = item.descripcion;
                     if (!acc[productKey]) {
@@ -159,12 +159,14 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                             descripcion: productKey,
                             placa: placa.numeroPlaca,
                             presentacion: group.presentation,
+                            items: [],
                             totalPaletas: 0,
                             totalCantidad: 0,
                             totalPeso: 0,
                             temperatura1: summaryItem?.temperatura1,
                         };
                     }
+                    acc[productKey].items.push(item);
                     acc[productKey].totalPaletas += 1; // Each item is one pallet
                     acc[productKey].totalCantidad += Number(item.cantidadPorPaleta) || 0;
                     acc[productKey].totalPeso += Number(item.pesoNeto) || 0;
@@ -179,7 +181,7 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
             
             return {
                 placa: placa.numeroPlaca,
-                presentationGroups: Object.values(placasByPresentation),
+                presentationGroups: Object.values(itemsByPresentation),
             };
         });
 
@@ -503,3 +505,4 @@ const ItemsTable = ({ items, isSummaryFormat, isTunel }: { items: any[], isSumma
         </table>
     );
 }
+
