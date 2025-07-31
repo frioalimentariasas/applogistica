@@ -319,7 +319,7 @@ const TunelCongelacionSummary = ({ formData }: { formData: any }) => {
                             items: [], 
                             totalPeso: 0,
                             totalCantidad: 0,
-                            temperatura: [summaryItem?.temperatura1, summaryItem?.temperatura2, summaryItem?.temperatura3].filter(Boolean).join(' / '),
+                            temperatura: [summaryItem?.temperatura1, summaryItem?.temperatura2, summaryItem?.temperatura3].filter(t => t !== null && t !== undefined).join(' / '),
                         };
                      }
                     acc[key].items.push(item);
