@@ -93,7 +93,7 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                     const summaryItem = formData.summary?.find((s: any) => s.descripcion === key && s.presentacion === presentation);
                     acc[key] = {
                         descripcion: key,
-                        presentacion,
+                        presentacion: presentation,
                         placa: item.placa,
                         totalPeso: 0,
                         totalCantidad: 0,
