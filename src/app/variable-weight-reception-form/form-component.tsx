@@ -970,22 +970,18 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
 
     setIsSubmitting(true);
     try {
-        const finalSummary = calculatedSummaryForDisplay.presentationGroups.flatMap(g => g.products).map(summaryItem => {
-            const formItem = (data.summary || []).find(s => s.descripcion === summaryItem.descripcion && s.presentacion === summaryItem.presentacion);
-            return {
-                ...summaryItem,
-                temperatura1: formItem?.temperatura1 ?? null,
-                temperatura2: formItem?.temperatura2 ?? null,
-                temperatura3: formItem?.temperatura3 ?? null,
-            };
+        // Create a serializable version of the summary by removing the 'paletas' Set object
+        const finalSummary = (data.summary || []).map(item => {
+            const { paletas, ...rest } = item as any; // Destructure to remove paletas
+            return rest;
         });
-        
-        let dataWithFinalSummary = { ...data, summary: finalSummary };
+
+        let dataToSave = { ...data, summary: finalSummary };
         
         const isSpecialReception = data.tipoPedido === "TUNEL" || data.tipoPedido === "TUNEL DE CONGELACIÓN" || data.tipoPedido === "INGRESO DE SALDOS" || data.tipoPedido === "MAQUILA" || data.tipoPedido === "TUNEL A CÁMARA CONGELADOS";
         if(isSpecialReception) {
-          dataWithFinalSummary = {
-            ...dataWithFinalSummary,
+          dataToSave = {
+            ...dataToSave,
             conductor: data.conductor?.trim() || 'N/A',
             cedulaConductor: data.cedulaConductor?.trim() || 'N/A',
             precinto: data.precinto?.trim() || 'N/A',
@@ -1026,7 +1022,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
         }
 
         const result = await saveForm({
-            formData: dataWithFinalSummary,
+            formData: dataToSave,
             formType: `variable-weight-reception`,
             attachmentUrls: finalAttachmentUrls,
             responsibleUser: responsibleUser,
@@ -2213,3 +2209,4 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
+
