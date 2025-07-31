@@ -216,32 +216,37 @@ const formSchema = z.object({
 
 
 const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, isTunel = false, placaIndex }: { control: any, itemIndex: number, handleProductDialogOpening: (context: { itemIndex: number, placaIndex?: number }) => void, remove?: (index: number) => void, isTunel?: boolean, placaIndex?: number }) => {
-    const { getValues } = useFormContext();
     const basePath = isTunel ? `placas.${placaIndex}.items` : 'items';
-    const watchedItem = useWatch({ control, name: `${basePath}.${itemIndex}` });
-    const { setValue } = useFormContext();
+    const { setValue, getValues } = useFormContext();
+
+    const watchedCantidad = useWatch({ control, name: `${basePath}.${itemIndex}.cantidadPorPaleta` });
+    const watchedTaraCaja = useWatch({ control, name: `${basePath}.${itemIndex}.taraCaja` });
+    const watchedPesoBruto = useWatch({ control, name: `${basePath}.${itemIndex}.pesoBruto` });
+    const watchedTaraEstiba = useWatch({ control, name: `${basePath}.${itemIndex}.taraEstiba` });
+
+    const [pesoNeto, setPesoNeto] = useState<number | null>(null);
 
     useEffect(() => {
-        if (watchedItem && watchedItem.paleta !== 0) {
-            const cantidadPorPaleta = Number(watchedItem.cantidadPorPaleta) || 0;
-            const taraCaja = Number(watchedItem.taraCaja) || 0;
-            const pesoBruto = Number(watchedItem.pesoBruto) || 0;
-            const taraEstiba = Number(watchedItem.taraEstiba) || 0;
+        const cantidadPorPaleta = Number(watchedCantidad) || 0;
+        const taraCaja = Number(watchedTaraCaja) || 0;
+        const pesoBruto = Number(watchedPesoBruto) || 0;
+        const taraEstiba = Number(watchedTaraEstiba) || 0;
 
-            const calculatedTotalTaraCaja = cantidadPorPaleta * taraCaja;
-            const calculatedPesoNeto = pesoBruto - taraEstiba - calculatedTotalTaraCaja;
+        const calculatedTotalTaraCaja = cantidadPorPaleta * taraCaja;
+        const calculatedPesoNeto = pesoBruto - taraEstiba - calculatedTotalTaraCaja;
 
-            if (watchedItem.totalTaraCaja !== calculatedTotalTaraCaja) {
-                setValue(`${basePath}.${itemIndex}.totalTaraCaja`, calculatedTotalTaraCaja, { shouldValidate: false });
-            }
-            if (watchedItem.pesoNeto !== calculatedPesoNeto) {
-                setValue(`${basePath}.${itemIndex}.pesoNeto`, calculatedPesoNeto, { shouldValidate: false });
-            }
+        const currentPesoNeto = getValues(`${basePath}.${itemIndex}.pesoNeto`);
+
+        if (currentPesoNeto !== calculatedPesoNeto) {
+            setValue(`${basePath}.${itemIndex}.totalTaraCaja`, calculatedTotalTaraCaja, { shouldValidate: false });
+            setValue(`${basePath}.${itemIndex}.pesoNeto`, calculatedPesoNeto, { shouldValidate: true });
         }
-    }, [watchedItem, basePath, itemIndex, setValue]);
+        setPesoNeto(calculatedPesoNeto);
 
-    const isSummaryRow = watchedItem?.paleta === 0;
-    const pesoNeto = watchedItem?.pesoNeto;
+    }, [watchedCantidad, watchedTaraCaja, watchedPesoBruto, watchedTaraEstiba, basePath, itemIndex, setValue, getValues]);
+
+
+    const isSummaryRow = getValues(`${basePath}.${itemIndex}.paleta`) === 0;
     
     return (
       <div className="p-4 border rounded-lg relative bg-white space-y-4">
@@ -332,7 +337,7 @@ const ItemsPorPlaca = ({ placaIndex, handleProductDialogOpening }: { placaIndex:
 
     const handleAddItemToPlaca = () => {
         const items = getValues(`placas.${placaIndex}.items`);
-        const lastItem = items.length > 0 ? items[items.length - 1] : null;
+        const lastItem = items && items.length > 0 ? items[items.length - 1] : null;
 
         const newItemPayload = lastItem ? {
             ...originalDefaultValues.items![0],
@@ -340,7 +345,6 @@ const ItemsPorPlaca = ({ placaIndex, handleProductDialogOpening }: { placaIndex:
             descripcion: lastItem.descripcion,
             lote: lastItem.lote,
             presentacion: lastItem.presentacion,
-            paleta: isNaN(Number(lastItem.paleta)) ? null : Number(lastItem.paleta),
         } : { ...originalDefaultValues.items![0] };
         
         append(newItemPayload);
@@ -2277,3 +2281,4 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
+
