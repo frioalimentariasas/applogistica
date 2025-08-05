@@ -142,11 +142,11 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
                                 <div style={{ backgroundColor: '#ddebf7', padding: '6px 12px', fontWeight: 'bold', borderBottom: '1px solid #ddd', borderTop: index > 0 ? '1px solid #aaa' : 'none' }}>
                                     Placa: {placa.numeroPlaca} | Conductor: {placa.conductor} (C.C. {placa.cedulaConductor})
                                 </div>
-                                <ItemsTable items={placa.items || []} isSummaryFormat={false} isTunel={true} />
+                                <ItemsTable items={placa.items || []} isSummaryFormat={false} tipoPedido={formData.tipoPedido} />
                            </div>
                         ))
                     ) : (
-                         <ItemsTable items={formData.items || []} isSummaryFormat={(formData.items || []).some((p: any) => Number(p.paleta) === 0)} isTunel={false} />
+                         <ItemsTable items={formData.items || []} isSummaryFormat={(formData.items || []).some((p: any) => Number(p.paleta) === 0)} tipoPedido={formData.tipoPedido} />
                     )}
                 </div>
             </ReportSection>
@@ -392,7 +392,9 @@ const TunelCongelacionSummary = ({ formData }: { formData: any }) => {
 };
 
 
-const ItemsTable = ({ items, isSummaryFormat, isTunel }: { items: any[], isSummaryFormat: boolean, isTunel: boolean }) => {
+const ItemsTable = ({ items, isSummaryFormat, tipoPedido }: { items: any[], isSummaryFormat: boolean, tipoPedido: string }) => {
+    const isTunelCongelacion = tipoPedido === 'TUNEL DE CONGELACIÓN';
+
     return (
         <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse', tableLayout: 'auto' }}>
             <thead>
@@ -408,7 +410,7 @@ const ItemsTable = ({ items, isSummaryFormat, isTunel }: { items: any[], isSumma
                         </>
                     ) : (
                         <>
-                            {!isTunel && <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Paleta</th>}
+                            {!isTunelCongelacion && <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Paleta</th>}
                             <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Descripción</th>
                             <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Lote</th>
                             <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Presentación</th>
@@ -426,14 +428,14 @@ const ItemsTable = ({ items, isSummaryFormat, isTunel }: { items: any[], isSumma
                 {items.map((p: any, i: number) => {
                     const columns = isSummaryFormat ?
                         [ p.descripcion, p.lote, p.presentacion, p.totalCantidad, p.totalPaletas, p.totalPesoNeto?.toFixed(2) ] :
-                        isTunel ?
+                        isTunelCongelacion ?
                         [ p.descripcion, p.lote, p.presentacion, p.cantidadPorPaleta, p.pesoBruto?.toFixed(2), p.taraEstiba?.toFixed(2), p.taraCaja?.toFixed(2), p.totalTaraCaja?.toFixed(2), p.pesoNeto?.toFixed(2) ] :
                         [ p.paleta, p.descripcion, p.lote, p.presentacion, p.cantidadPorPaleta, p.pesoBruto?.toFixed(2), p.taraEstiba?.toFixed(2), p.taraCaja?.toFixed(2), p.totalTaraCaja?.toFixed(2), p.pesoNeto?.toFixed(2) ];
                     
                     return (
                         <tr key={i} style={{ borderBottom: '1px solid #eee' }}>
                            {columns.map((col, j) => (
-                                <td key={j} style={{ padding: '4px', textAlign: j > (isSummaryFormat ? 2 : (isTunel ? 2 : 3)) ? 'right' : 'left' }}>
+                                <td key={j} style={{ padding: '4px', textAlign: j > (isSummaryFormat ? 2 : (isTunelCongelacion ? 2 : 3)) ? 'right' : 'left' }}>
                                     {col}
                                 </td>
                            ))}
