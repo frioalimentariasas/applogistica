@@ -81,20 +81,56 @@ const processDefaultData = (formData: any) => {
 };
 
 const processTunelData = (formData: any) => {
-    const summaryItems = (formData.summary || []);
-    let totalGeneralPaletas = 0;
-    let totalGeneralCantidad = 0;
-    let totalGeneralPeso = 0;
+    const allItemsByPlaca = (formData.placas || []).flatMap((placa: any) => 
+        (placa.items || []).map((item: any) => ({ ...item, placa: placa.numeroPlaca }))
+    );
 
-    summaryItems.forEach((item: any) => {
-        totalGeneralPaletas += (item.totalPaletas || 0);
-        totalGeneralCantidad += (item.totalCantidad || 0);
-        totalGeneralPeso += (item.totalPeso || 0);
+    const groupedByPlacaAndPresentation = allItemsByPlaca.reduce((acc, item) => {
+        const placaKey = item.placa || 'SIN PLACA';
+        const presentacionKey = item.presentacion || 'SIN PRESENTACIÓN';
+
+        if (!acc[placaKey]) {
+            acc[placaKey] = {};
+        }
+        if (!acc[placaKey][presentacionKey]) {
+            acc[placaKey][presentacionKey] = [];
+        }
+        acc[placaKey][presentacionKey].push(item);
+        return acc;
+    }, {} as Record<string, Record<string, any[]>>);
+
+    const summaryItems: any[] = [];
+    Object.entries(groupedByPlacaAndPresentation).forEach(([placa, presentations]) => {
+        Object.entries(presentations).forEach(([presentacion, items]) => {
+            const productSummary = items.reduce((acc, item) => {
+                const desc = item.descripcion;
+                if (!acc[desc]) {
+                    const summaryItem = formData.summary?.find((s: any) => s.descripcion === desc && s.presentacion === presentacion && s.placa === placa);
+                    acc[desc] = {
+                        descripcion: desc,
+                        placa: placa,
+                        presentacion: presentacion,
+                        totalCantidad: 0,
+                        totalPeso: 0,
+                        totalPaletas: 0,
+                        temperatura1: summaryItem?.temperatura1,
+                        temperatura2: summaryItem?.temperatura2,
+                        temperatura3: summaryItem?.temperatura3,
+                    };
+                }
+                acc[desc].totalCantidad += Number(item.cantidadPorPaleta) || 0;
+                acc[desc].totalPeso += Number(item.pesoNeto) || 0;
+                acc[desc].totalPaletas += 1;
+                return acc;
+            }, {} as Record<string, any>);
+            summaryItems.push(...Object.values(productSummary));
+        });
     });
 
-    // For TUNEL DE CONGELACIÓN, the total paletas is simply the count of summary items.
-    totalGeneralPaletas = summaryItems.length;
-
+    const totalGeneralPaletas = summaryItems.reduce((acc, item) => acc + (item.totalPaletas || 0), 0);
+    const totalGeneralCantidad = summaryItems.reduce((acc, item) => acc + (item.totalCantidad || 0), 0);
+    const totalGeneralPeso = summaryItems.reduce((acc, item) => acc + (item.totalPeso || 0), 0);
+    
     return { summaryData: summaryItems, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso };
 };
 
@@ -379,10 +415,12 @@ const ItemsTable = ({ items, tipoPedido }: { items: any[], tipoPedido: string })
         { key: 'totalPesoNeto', label: 'Total P. Neto', align: 'right', format: (val: any) => val?.toFixed(2) },
     ];
 
+    const tunelColumns = baseColumns.filter(c => c.key !== 'paleta');
+
     const columnsToRender = isSummaryFormat 
         ? summaryColumns 
         : isTunelCongelacion
-        ? baseColumns.filter(c => c.key !== 'paleta')
+        ? tunelColumns
         : baseColumns;
 
     return (
