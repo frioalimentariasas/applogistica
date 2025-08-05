@@ -391,8 +391,9 @@ const TunelCongelacionSummary = ({ formData }: { formData: any }) => {
     );
 };
 
-
-const ItemsTable = ({ items, isSummaryFormat, tipoPedido }: { items: any[], isSummaryFormat: boolean, tipoPedido: string }) => {
+const ItemsTable = ({ items, tipoPedido }: { items: any[], tipoPedido: string }) => {
+    const isTunelCongelacion = tipoPedido === 'TUNEL DE CONGELACIÓN';
+    const isSummaryFormat = items.some((p: any) => Number(p.paleta) === 0);
     
     // Define columns based on the type of report
     const detailColumns = [
@@ -401,11 +402,11 @@ const ItemsTable = ({ items, isSummaryFormat, tipoPedido }: { items: any[], isSu
         { key: 'lote', label: 'Lote' },
         { key: 'presentacion', label: 'Presentación' },
         { key: 'cantidadPorPaleta', label: 'Cant.', align: 'right' },
-        { key: 'pesoBruto', label: 'Peso Bruto', align: 'right', format: (val: any) => val?.toFixed(2) },
-        { key: 'taraEstiba', label: 'Tara Estiba', align: 'right', format: (val: any) => val?.toFixed(2) },
-        { key: 'taraCaja', label: 'Tara Caja', align: 'right', format: (val: any) => val?.toFixed(2) },
+        { key: 'pesoBruto', label: 'P. Bruto', align: 'right', format: (val: any) => val?.toFixed(2) },
+        { key: 'taraEstiba', label: 'T. Estiba', align: 'right', format: (val: any) => val?.toFixed(2) },
+        { key: 'taraCaja', label: 'T. Caja', align: 'right', format: (val: any) => val?.toFixed(2) },
         { key: 'totalTaraCaja', label: 'Total Tara', align: 'right', format: (val: any) => val?.toFixed(2) },
-        { key: 'pesoNeto', label: 'Peso Neto', align: 'right', format: (val: any) => val?.toFixed(2) },
+        { key: 'pesoNeto', label: 'P. Neto', align: 'right', format: (val: any) => val?.toFixed(2) },
     ];
 
     const tunelColumns = detailColumns.filter(c => c.key !== 'paleta');
@@ -421,7 +422,7 @@ const ItemsTable = ({ items, isSummaryFormat, tipoPedido }: { items: any[], isSu
 
     const columnsToRender = isSummaryFormat 
         ? summaryColumns 
-        : tipoPedido === 'TUNEL DE CONGELACIÓN' 
+        : isTunelCongelacion
         ? tunelColumns 
         : detailColumns;
 
