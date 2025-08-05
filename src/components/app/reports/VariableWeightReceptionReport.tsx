@@ -21,7 +21,7 @@ const formatDateLocal = (isoDateString: string | undefined): string => {
     try {
         const date = new Date(isoDateString.split('T')[0]);
         const day = String(date.getUTCDate()).padStart(2, '0');
-        const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+        const month = String(date.getUTCMonth() + 1).padStart(2, '0'); // Month is 0-indexed
         const year = date.getUTCFullYear();
         return `${day}/${month}/${year}`;
     } catch (e) {
@@ -393,55 +393,62 @@ const TunelCongelacionSummary = ({ formData }: { formData: any }) => {
 
 
 const ItemsTable = ({ items, isSummaryFormat, tipoPedido }: { items: any[], isSummaryFormat: boolean, tipoPedido: string }) => {
-    const isTunelCongelacion = tipoPedido === 'TUNEL DE CONGELACIÓN';
+    
+    // Define columns based on the type of report
+    const detailColumns = [
+        { key: 'paleta', label: 'Paleta' },
+        { key: 'descripcion', label: 'Descripción' },
+        { key: 'lote', label: 'Lote' },
+        { key: 'presentacion', label: 'Presentación' },
+        { key: 'cantidadPorPaleta', label: 'Cant.', align: 'right' },
+        { key: 'pesoBruto', label: 'Peso Bruto', align: 'right', format: (val: any) => val?.toFixed(2) },
+        { key: 'taraEstiba', label: 'Tara Estiba', align: 'right', format: (val: any) => val?.toFixed(2) },
+        { key: 'taraCaja', label: 'Tara Caja', align: 'right', format: (val: any) => val?.toFixed(2) },
+        { key: 'totalTaraCaja', label: 'Total Tara', align: 'right', format: (val: any) => val?.toFixed(2) },
+        { key: 'pesoNeto', label: 'Peso Neto', align: 'right', format: (val: any) => val?.toFixed(2) },
+    ];
+
+    const tunelColumns = detailColumns.filter(c => c.key !== 'paleta');
+
+    const summaryColumns = [
+        { key: 'descripcion', label: 'Descripción' },
+        { key: 'lote', label: 'Lote' },
+        { key: 'presentacion', label: 'Presentación' },
+        { key: 'totalCantidad', label: 'Total Cant.', align: 'right' },
+        { key: 'totalPaletas', label: 'Total Paletas', align: 'right' },
+        { key: 'totalPesoNeto', label: 'Total P. Neto', align: 'right', format: (val: any) => val?.toFixed(2) },
+    ];
+
+    const columnsToRender = isSummaryFormat 
+        ? summaryColumns 
+        : tipoPedido === 'TUNEL DE CONGELACIÓN' 
+        ? tunelColumns 
+        : detailColumns;
 
     return (
         <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse', tableLayout: 'auto' }}>
             <thead>
                 <tr style={{ borderBottom: '1px solid #ddd', backgroundColor: '#fafafa' }}>
-                    {isSummaryFormat ? (
-                        <>
-                            <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Descripción</th>
-                            <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Lote</th>
-                            <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Presentación</th>
-                            <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Cant.</th>
-                            <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Paletas</th>
-                            <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total P. Neto</th>
-                        </>
-                    ) : (
-                        <>
-                            {!isTunelCongelacion && <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Paleta</th>}
-                            <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Descripción</th>
-                            <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Lote</th>
-                            <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Presentación</th>
-                            <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Cant.</th>
-                            <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Peso Bruto</th>
-                            <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Tara Estiba</th>
-                            <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Tara Caja</th>
-                            <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Tara</th>
-                            <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Peso Neto</th>
-                        </>
-                    )}
+                    {columnsToRender.map(col => (
+                        <th key={col.key} style={{ textAlign: col.align || 'left', padding: '4px', fontWeight: 'bold' }}>
+                            {col.label}
+                        </th>
+                    ))}
                 </tr>
             </thead>
             <tbody>
-                {items.map((p: any, i: number) => {
-                    const columns = isSummaryFormat ?
-                        [ p.descripcion, p.lote, p.presentacion, p.totalCantidad, p.totalPaletas, p.totalPesoNeto?.toFixed(2) ] :
-                        isTunelCongelacion ?
-                        [ p.descripcion, p.lote, p.presentacion, p.cantidadPorPaleta, p.pesoBruto?.toFixed(2), p.taraEstiba?.toFixed(2), p.taraCaja?.toFixed(2), p.totalTaraCaja?.toFixed(2), p.pesoNeto?.toFixed(2) ] :
-                        [ p.paleta, p.descripcion, p.lote, p.presentacion, p.cantidadPorPaleta, p.pesoBruto?.toFixed(2), p.taraEstiba?.toFixed(2), p.taraCaja?.toFixed(2), p.totalTaraCaja?.toFixed(2), p.pesoNeto?.toFixed(2) ];
-                    
-                    return (
-                        <tr key={i} style={{ borderBottom: '1px solid #eee' }}>
-                           {columns.map((col, j) => (
-                                <td key={j} style={{ padding: '4px', textAlign: j > (isSummaryFormat ? 2 : (isTunelCongelacion ? 2 : 3)) ? 'right' : 'left' }}>
-                                    {col}
+                {items.map((item, index) => (
+                    <tr key={index} style={{ borderBottom: '1px solid #eee' }}>
+                        {columnsToRender.map(col => {
+                            const value = item[col.key as keyof typeof item];
+                            return (
+                                <td key={col.key} style={{ padding: '4px', textAlign: col.align || 'left' }}>
+                                    {col.format ? col.format(value) : value}
                                 </td>
-                           ))}
-                        </tr>
-                    );
-                })}
+                            );
+                        })}
+                    </tr>
+                ))}
             </tbody>
         </table>
     );
