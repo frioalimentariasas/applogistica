@@ -634,7 +634,6 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         
                         yPos += 15;
 
-                        // --- START: New Summary Logic for TUNEL DE CONGELACIÓN ---
                         const { placaGroups, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso } = processTunelCongelacionData(formData);
                         
                         if (placaGroups.length > 0) {
@@ -698,10 +697,8 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             });
                             yPos = (doc as any).autoTable.previous.finalY + 15;
                         }
-                        // --- END: New Summary Logic ---
-                        // --- END: Logic for TUNEL DE CONGELACIÓN ---
                     } else {
-                        // --- START: Existing logic for other Variable Weight Receptions ---
+                         // --- START: Existing logic for other Variable Weight Receptions ---
                         const operationTerm = 'Descargue';
                         const isTunelModeByPlate = (formData.tipoPedido === 'TUNEL') && formData.recepcionPorPlaca;
                         
@@ -793,10 +790,95 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                              });
                              yPos = (doc as any).autoTable.previous.finalY + 15;
                          }
-                         // --- END: Existing logic ---
                     }
                  } else { // Despacho Peso Variable
-                    // ... (Aquí iría la lógica de despacho de peso variable, que se mantiene sin cambios)
+                    // Restore logic for variable weight dispatch
+                    const operationTerm = 'Cargue';
+                    
+                    const generalInfoBody: any[][] = [
+                        [
+                            {content: 'Pedido SISLOG:', styles: {fontStyle: 'bold'}}, formData.pedidoSislog || 'N/A',
+                            {content: 'Cliente:', styles: {fontStyle: 'bold'}}, formData.cliente || 'N/A',
+                            {content: 'Fecha:', styles: {fontStyle: 'bold'}}, formData.fecha ? format(new Date(formData.fecha), "dd/MM/yyyy") : 'N/A'
+                        ],
+                        [
+                            {content: 'Conductor:', styles: {fontStyle: 'bold'}}, formData.conductor || 'N/A',
+                            {content: 'Cédula:', styles: {fontStyle: 'bold'}}, formData.cedulaConductor || 'N/A',
+                            {content: 'Placa:', styles: {fontStyle: 'bold'}}, formData.placa || 'N/A'
+                        ],
+                        [
+                            {content: 'Precinto:', styles: {fontStyle: 'bold'}}, formData.precinto || 'N/A',
+                            {content: 'Set Point (°C):', styles: {fontStyle: 'bold'}}, formatOptionalNumber(formData.setPoint),
+                            {content: 'Contenedor:', styles: {fontStyle: 'bold'}}, formData.contenedor || 'N/A'
+                        ],
+                        [
+                            {content: `H. Inicio ${operationTerm}:`, styles: {fontStyle: 'bold'}}, formatTime12Hour(formData.horaInicio),
+                            {content: `H. Fin ${operationTerm}:`, styles: {fontStyle: 'bold'}}, formatTime12Hour(formData.horaFin),
+                            {content: 'Tipo Pedido:', styles: {fontStyle: 'bold'}}, formatTipoPedido(formData.tipoPedido)
+                        ],
+                    ];
+
+                    autoTable(doc, {
+                        startY: yPos,
+                        head: [[{ content: `Datos de Despacho`, colSpan: 6, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]],
+                        body: generalInfoBody,
+                        theme: 'grid',
+                        styles: { fontSize: 8, cellPadding: 4, valign: 'middle' },
+                        columnStyles: { 0: { cellWidth: 'auto' }, 1: { cellWidth: '*' }, 2: { cellWidth: 'auto' }, 3: { cellWidth: '*' }, 4: { cellWidth: 'auto' }, 5: { cellWidth: '*' } },
+                        margin: { horizontal: margin },
+                    });
+                    yPos = (doc as any).autoTable.previous.finalY + 15;
+                    
+                    if (formData.despachoPorDestino) {
+                        (formData.destinos || []).forEach((destino: any, index: number) => {
+                            autoTable(doc, {
+                                startY: yPos,
+                                head: [[{ content: `Destino: ${destino.nombreDestino}`, colSpan: 10, styles: { fillColor: '#ddebf7', fontStyle: 'bold' } }]],
+                                theme: 'grid',
+                                margin: { horizontal: margin },
+                            });
+                             yPos = (doc as any).autoTable.previous.finalY;
+
+                             const isSummaryFormat = destino.items.some((p: any) => Number(p.paleta) === 0);
+                             const head = isSummaryFormat
+                                 ? [['Descripción', 'Lote', 'Presentación', 'Total Cant.', 'Total Paletas', 'Total P. Neto']]
+                                 : [['Paleta', 'Descripción', 'Lote', 'Presentación', 'Cant.', 'P. Bruto', 'T. Estiba', 'T. Caja', 'Total Tara', 'P. Neto']];
+                             const body = destino.items.map((p: any) => isSummaryFormat
+                                 ? [p.descripcion, p.lote, p.presentacion, p.totalCantidad, p.totalPaletas, p.totalPesoNeto?.toFixed(2)]
+                                 : [p.paleta, p.descripcion, p.lote, p.presentacion, p.cantidadPorPaleta, p.pesoBruto?.toFixed(2), p.taraEstiba?.toFixed(2), p.taraCaja?.toFixed(2), p.totalTaraCaja?.toFixed(2), p.pesoNeto?.toFixed(2)]
+                             );
+                             autoTable(doc, { startY: yPos, head, body, theme: 'grid', styles: { fontSize: 7, cellPadding: 3 }, headStyles: { fillColor: false, textColor: '#333', fontStyle: 'bold' }, margin: { horizontal: margin }, });
+                             yPos = (doc as any).autoTable.previous.finalY + 15;
+                        });
+
+                    } else {
+                         const isSummaryFormat = formData.items.some((p: any) => Number(p.paleta) === 0);
+                         const head = isSummaryFormat
+                             ? [['Descripción', 'Lote', 'Presentación', 'Total Cant.', 'Total Paletas', 'Total P. Neto']]
+                             : [['Paleta', 'Descripción', 'Lote', 'Presentación', 'Cant.', 'P. Bruto', 'T. Estiba', 'T. Caja', 'Total Tara', 'P. Neto']];
+                         const body = formData.items.map((p: any) => isSummaryFormat
+                             ? [p.descripcion, p.lote, p.presentacion, p.totalCantidad, p.totalPaletas, p.totalPesoNeto?.toFixed(2)]
+                             : [p.paleta, p.descripcion, p.lote, p.presentacion, p.cantidadPorPaleta, p.pesoBruto?.toFixed(2), p.taraEstiba?.toFixed(2), p.taraCaja?.toFixed(2), p.totalTaraCaja?.toFixed(2), p.pesoNeto?.toFixed(2)]
+                         );
+                         autoTable(doc, { startY: yPos, head, body, theme: 'grid', styles: { fontSize: 7, cellPadding: 3 }, headStyles: { fillColor: '#f8fafc', textColor: '#334155', fontStyle: 'bold' }, margin: { horizontal: margin }, });
+                         yPos = (doc as any).autoTable.previous.finalY + 15;
+                    }
+
+                    const { summaryData, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso } = processDefaultData(formData);
+                     if (summaryData.length > 0) {
+                         autoTable(doc, {
+                             startY: yPos,
+                             head: [['Descripción', 'Temp(°C)', 'Total Cantidad', 'Total Paletas', 'Total Peso (kg)']],
+                             body: summaryData.map((p: any) => [ p.descripcion, p.temperatura, p.totalCantidad, p.totalPaletas, p.totalPeso.toFixed(2) ]),
+                             foot: [[ { content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }, totalGeneralCantidad, totalGeneralPaletas, totalGeneralPeso.toFixed(2) ]],
+                             theme: 'grid',
+                             footStyles: { fillColor: '#f1f5f9', fontStyle: 'bold', textColor: '#1a202c' },
+                             styles: { fontSize: 8, cellPadding: 4 },
+                             headStyles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold' },
+                             margin: { horizontal: margin, bottom: 40 },
+                         });
+                         yPos = (doc as any).autoTable.previous.finalY + 15;
+                     }
                  }
                  addObservationsTable();
              }
