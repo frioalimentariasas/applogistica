@@ -633,7 +633,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         if (placaGroups.length > 0) {
                             autoTable(doc, {
                                 startY: yPos,
-                                head: [[{ content: 'Resumen de Productos', styles: {halign: 'center', fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold' } }]],
+                                head: [[{ content: 'Resumen Agrupado de Productos', styles: {halign: 'center', fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold' } }]],
                                 body: [],
                                 theme: 'grid',
                                 margin: { horizontal: margin },
@@ -771,8 +771,14 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
 
                         const { summaryData, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso } = processDefaultData(formData);
                          if (summaryData.length > 0) {
+                            autoTable(doc, {
+                                startY: yPos,
+                                head: [[{ content: 'Resumen Agrupado de Productos', styles: { halign: 'center', fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold' } }]],
+                                theme: 'grid',
+                                margin: { horizontal: margin },
+                            });
                              autoTable(doc, {
-                                 startY: yPos,
+                                 startY: (doc as any).autoTable.previous.finalY,
                                  head: [['Descripción', 'Temp(°C)', 'Total Cantidad', 'Total Paletas', 'Total Peso (kg)']],
                                  body: summaryData.map((p: any) => [ p.descripcion, [p.temperatura1, p.temperatura2, p.temperatura3].filter(t => t != null).join(' / '), p.totalCantidad, p.totalPaletas, p.totalPeso.toFixed(2) ]),
                                  foot: [[ { content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }, totalGeneralCantidad, totalGeneralPaletas, totalGeneralPeso.toFixed(2) ]],
@@ -860,7 +866,13 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     const { summaryData, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso } = processDefaultData(formData);
                      if (summaryData.length > 0) {
                          autoTable(doc, {
-                             startY: yPos,
+                            startY: yPos,
+                            head: [[{ content: 'Resumen Agrupado de Productos', styles: { halign: 'center', fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold' } }]],
+                            theme: 'grid',
+                            margin: { horizontal: margin },
+                        });
+                         autoTable(doc, {
+                             startY: (doc as any).autoTable.previous.finalY,
                              head: [['Descripción', 'Temp(°C)', 'Total Cantidad', 'Total Paletas', 'Total Peso (kg)']],
                              body: summaryData.map((p: any) => [ p.descripcion, p.temperatura, p.totalCantidad, p.totalPaletas, p.totalPeso.toFixed(2) ]),
                              foot: [[ { content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }, totalGeneralCantidad, totalGeneralPaletas, totalGeneralPeso.toFixed(2) ]],
