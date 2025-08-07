@@ -793,7 +793,71 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     }
                  } else { // Despacho Peso Variable
                     const operationTerm = 'Cargue';
+                    const allItems = formData.despachoPorDestino ? formData.destinos.flatMap((d: any) => d.items.map((i: any) => ({ ...i, destino: d.nombreDestino }))) : formData.items;
+                    const isSummaryFormat = allItems.some((p: any) => Number(p.paleta) === 0);
+
+                    const recalculatedSummary = (() => {
+                        const isIndividualPalletMode = allItems.every((item: any) => Number(item?.paleta) > 0);
+                        const shouldGroupByDestino = formData.despachoPorDestino && isIndividualPalletMode;
+                
+                        const grouped = allItems.reduce((acc:any, item:any) => {
+                            if (!item?.descripcion?.trim()) return acc;
+                            const key = shouldGroupByDestino ? `${item.destino}|${item.descripcion}` : item.descripcion;
+                
+                            if (!acc[key]) {
+                                const summaryItem = formData.summary?.find((s: any) => (s.destino ? `${s.destino}|${s.descripcion}` : s.descripcion) === key);
+                                acc[key] = {
+                                    descripcion: item.descripcion,
+                                    destino: item.destino,
+                                    items: [],
+                                    temperatura: summaryItem?.temperatura,
+                                };
+                            }
+                            acc[key].items.push(item);
+                            return acc;
+                        }, {} as Record<string, { descripcion: string; destino?: string, items: any[], temperatura: any }>);
+                
+                        return Object.values(grouped).map((group:any) => {
+                            let totalPeso = 0;
+                            let totalCantidad = 0;
+                            let totalPaletas = 0;
+                            const uniquePallets = new Set<number>();
+                            if (isSummaryFormat) {
+                                group.items.forEach((item:any) => {
+                                    totalPeso += Number(item.totalPesoNeto) || 0;
+                                    totalCantidad += Number(item.totalCantidad) || 0;
+                                    totalPaletas += Number(item.totalPaletas) || 0;
+                                });
+                            } else {
+                                group.items.forEach((item:any) => {
+                                    totalPeso += Number(item.pesoNeto) || 0;
+                                    totalCantidad += Number(item.cantidadPorPaleta) || 0;
+                                    const paletaNum = Number(item.paleta);
+                                    if (!isNaN(paletaNum) && paletaNum > 0) uniquePallets.add(paletaNum);
+                                });
+                                totalPaletas = uniquePallets.size;
+                            }
+                            return { ...group, totalPeso, totalCantidad, totalPaletas };
+                        });
+                    })();
                     
+                    const totalGeneralPeso = recalculatedSummary.reduce((acc: number, p: any) => acc + (p.totalPeso || 0), 0);
+                    const totalGeneralCantidad = recalculatedSummary.reduce((acc: number, p: any) => acc + (p.totalCantidad || 0), 0);
+                    
+                    const totalGeneralPaletas = (() => {
+                        if (isSummaryFormat) {
+                            return formData.despachoPorDestino
+                                ? formData.totalPaletasDespacho
+                                : recalculatedSummary.reduce((acc: number, p: any) => acc + (p.totalPaletas || 0), 0);
+                        }
+                        const uniquePallets = new Set<number>();
+                        allItems.forEach((i: any) => {
+                            const pNum = Number(i.paleta);
+                            if (!isNaN(pNum) && pNum > 0) uniquePallets.add(pNum);
+                        });
+                        return uniquePallets.size;
+                    })();
+
                     const generalInfoBody: any[][] = [
                         [
                             {content: 'Pedido SISLOG:', styles: {fontStyle: 'bold'}}, formData.pedidoSislog || 'N/A',
@@ -838,7 +902,6 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             });
                              yPos = (doc as any).autoTable.previous.finalY;
 
-                             const isSummaryFormat = destino.items.some((p: any) => Number(p.paleta) === 0);
                              const head = isSummaryFormat
                                  ? [['Descripción', 'Lote', 'Presentación', 'Total Cant.', 'Total Paletas', 'Total P. Neto']]
                                  : [['Paleta', 'Descripción', 'Lote', 'Presentación', 'Cant.', 'P. Bruto', 'T. Estiba', 'T. Caja', 'Total Tara', 'P. Neto']];
@@ -851,7 +914,6 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         });
 
                     } else {
-                         const isSummaryFormat = formData.items.some((p: any) => Number(p.paleta) === 0);
                          const head = isSummaryFormat
                              ? [['Descripción', 'Lote', 'Presentación', 'Total Cant.', 'Total Paletas', 'Total P. Neto']]
                              : [['Paleta', 'Descripción', 'Lote', 'Presentación', 'Cant.', 'P. Bruto', 'T. Estiba', 'T. Caja', 'Total Tara', 'P. Neto']];
@@ -862,19 +924,17 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                          autoTable(doc, { startY: yPos, head, body, theme: 'grid', styles: { fontSize: 7, cellPadding: 3 }, headStyles: { fillColor: '#f8fafc', textColor: '#334155', fontStyle: 'bold' }, margin: { horizontal: margin }, });
                          yPos = (doc as any).autoTable.previous.finalY + 15;
                     }
-
-                    const { summaryData, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso } = processDefaultData(formData);
-                     if (summaryData.length > 0) {
+                    if (recalculatedSummary.length > 0) {
                          autoTable(doc, {
                             startY: yPos,
                             head: [[{ content: 'Resumen Agrupado de Productos', styles: { halign: 'center', fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold' } }]],
                             theme: 'grid',
                             margin: { horizontal: margin },
-                        });
+                         });
                          autoTable(doc, {
                              startY: (doc as any).autoTable.previous.finalY,
                              head: [['Descripción', 'Temp(°C)', 'Total Cantidad', 'Total Paletas', 'Total Peso (kg)']],
-                             body: summaryData.map((p: any) => [ p.descripcion, p.temperatura, p.totalCantidad, p.totalPaletas, p.totalPeso.toFixed(2) ]),
+                             body: recalculatedSummary.map((p: any) => [ p.descripcion, p.temperatura, p.totalCantidad, p.totalPaletas, p.totalPeso.toFixed(2) ]),
                              foot: [[ { content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }, totalGeneralCantidad, totalGeneralPaletas, totalGeneralPeso.toFixed(2) ]],
                              theme: 'grid',
                              footStyles: { fillColor: '#f1f5f9', fontStyle: 'bold', textColor: '#1a202c' },
