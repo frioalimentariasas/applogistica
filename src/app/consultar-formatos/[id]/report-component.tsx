@@ -579,26 +579,23 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                  const isReception = formType.includes('recepcion') || formType.includes('reception');
                  if (isReception) {
                      if (formData.tipoPedido === 'TUNEL DE CONGELACIÓN') {
-                        // --- START: Logic for TUNEL DE CONGELACIÓN ---
-                        const operationTerm = 'Descargue';
+                        const { placaGroups, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso } = processTunelCongelacionData(formData);
                         
-                        const generalInfoBody: any[][] = [
-                             [
-                                {content: 'Pedido SISLOG:', styles: {fontStyle: 'bold'}}, formData.pedidoSislog || 'N/A',
-                                {content: 'Cliente:', styles: {fontStyle: 'bold'}}, formData.cliente || 'N/A',
-                                {content: 'Fecha:', styles: {fontStyle: 'bold'}}, formData.fecha ? format(new Date(formData.fecha), "dd/MM/yyyy") : 'N/A'
-                             ],
-                              [
-                                {content: `H. Inicio ${operationTerm}:`, styles: {fontStyle: 'bold'}}, formatTime12Hour(formData.horaInicio),
-                                {content: `H. Fin ${operationTerm}:`, styles: {fontStyle: 'bold'}}, formatTime12Hour(formData.horaFin),
-                                {content: 'Tipo Pedido:', styles: {fontStyle: 'bold'}}, formData.tipoPedido || 'N/A'
-                              ],
-                        ];
-
                         autoTable(doc, {
                             startY: yPos,
                             head: [[{ content: `Datos de Recepción`, colSpan: 6, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]],
-                            body: generalInfoBody,
+                            body: [
+                                [
+                                    {content: 'Pedido SISLOG:', styles: {fontStyle: 'bold'}}, formData.pedidoSislog || 'N/A',
+                                    {content: 'Cliente:', styles: {fontStyle: 'bold'}}, formData.cliente || 'N/A',
+                                    {content: 'Fecha:', styles: {fontStyle: 'bold'}}, formData.fecha ? format(new Date(formData.fecha), "dd/MM/yyyy") : 'N/A'
+                                ],
+                                [
+                                    {content: `H. Inicio Descargue:`, styles: {fontStyle: 'bold'}}, formatTime12Hour(formData.horaInicio),
+                                    {content: `H. Fin Descargue:`, styles: {fontStyle: 'bold'}}, formatTime12Hour(formData.horaFin),
+                                    {content: 'Tipo Pedido:', styles: {fontStyle: 'bold'}}, formData.tipoPedido || 'N/A'
+                                ],
+                            ],
                             theme: 'grid',
                             styles: { fontSize: 8, cellPadding: 4, valign: 'middle' },
                             columnStyles: { 0: { cellWidth: 'auto' }, 1: { cellWidth: '*' }, 2: { cellWidth: 'auto' }, 3: { cellWidth: '*' }, 4: { cellWidth: 'auto' }, 5: { cellWidth: '*' } },
@@ -606,7 +603,6 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         });
                         yPos = (doc as any).autoTable.previous.finalY + 15;
 
-                        // Detail Table
                         (formData.placas || []).forEach((placa: any) => {
                              autoTable(doc, {
                                 startY: yPos,
@@ -634,8 +630,6 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         
                         yPos += 15;
 
-                        const { placaGroups, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso } = processTunelCongelacionData(formData);
-                        
                         if (placaGroups.length > 0) {
                             autoTable(doc, {
                                 startY: yPos,
@@ -792,7 +786,6 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                          }
                     }
                  } else { // Despacho Peso Variable
-                    // Restore logic for variable weight dispatch
                     const operationTerm = 'Cargue';
                     
                     const generalInfoBody: any[][] = [
@@ -833,7 +826,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         (formData.destinos || []).forEach((destino: any, index: number) => {
                             autoTable(doc, {
                                 startY: yPos,
-                                head: [[{ content: `Destino: ${destino.nombreDestino}`, colSpan: 10, styles: { fillColor: '#ddebf7', fontStyle: 'bold' } }]],
+                                head: [[{ content: `Destino: ${destino.nombreDestino}`, colSpan: 10, styles: { fillColor: '#ddebf7', fontStyle: 'bold', textColor: '#000' } }]],
                                 theme: 'grid',
                                 margin: { horizontal: margin },
                             });
