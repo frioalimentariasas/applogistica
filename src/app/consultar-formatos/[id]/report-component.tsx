@@ -554,12 +554,12 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                              tableHtml.innerHTML = `
                                 <thead>
                                     <tr>
-                                        <th colspan="9" style="background-color: #ddebf7; padding: 6px 12px; font-weight: bold; border-bottom: 1px solid #ddd; border-top: 1px solid #aaa;">
+                                        <th colspan="8" style="background-color: #ddebf7; padding: 6px 12px; font-weight: bold; border-bottom: 1px solid #ddd; border-top: 1px solid #aaa;">
                                             Placa: ${placa.numeroPlaca} | Conductor: ${placa.conductor} (C.C. ${placa.cedulaConductor})
                                         </th>
                                     </tr>
                                     <tr style="background-color: #fafafa;">
-                                        <th>Descripción</th><th>Lote</th><th>Presentación</th><th>Cant.</th><th>P. Bruto</th><th>T. Estiba</th><th>T. Caja</th><th>Total Tara</th><th>P. Neto</th>
+                                        <th>Descripción</th><th>Lote</th><th>Presentación</th><th>Cant.</th><th>P. Bruto</th><th>T. Estiba</th><th>T. Caja</th><th>P. Neto</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -568,7 +568,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                                             <td>${p.descripcion || ''}</td><td>${p.lote || ''}</td><td>${p.presentacion || ''}</td>
                                             <td style="text-align: right;">${p.cantidadPorPaleta || 0}</td><td style="text-align: right;">${p.pesoBruto?.toFixed(2) || '0.00'}</td>
                                             <td style="text-align: right;">${p.taraEstiba?.toFixed(2) || '0.00'}</td><td style="text-align: right;">${p.taraCaja?.toFixed(2) || '0.00'}</td>
-                                            <td style="text-align: right;">${p.totalTaraCaja?.toFixed(2) || '0.00'}</td><td style="text-align: right;">${p.pesoNeto?.toFixed(2) || '0.00'}</td>
+                                            <td style="text-align: right;">${p.pesoNeto?.toFixed(2) || '0.00'}</td>
                                         </tr>
                                     `).join('')}
                                 </tbody>
@@ -612,8 +612,6 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             });
                              yPos = (doc as any).autoTable.previous.finalY + 15;
                          }
-
-
                         // --- END: Logic for TUNEL DE CONGELACIÓN ---
                     } else {
                         // --- START: Existing logic for other Variable Weight Receptions ---
@@ -936,4 +934,5 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
         </div>
     );
 }
+
 
