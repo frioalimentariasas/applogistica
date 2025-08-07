@@ -679,10 +679,11 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                                 }
                             }
 
-                            autoTable(doc, {
+                             autoTable(doc, {
                                 startY: yPos,
                                 body: [[
-                                    { content: 'TOTAL GENERAL:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold', fillColor: '#e2e8f0', textColor: '#1a202c' } },
+                                    { content: '', styles: { fillColor: '#e2e8f0' } }, // Empty cell for alignment
+                                    { content: 'TOTAL GENERAL:', styles: { halign: 'right', fontStyle: 'bold', fillColor: '#e2e8f0', textColor: '#1a202c' } },
                                     { content: totalGeneralPaletas, styles: { halign: 'right', fontStyle: 'bold', fillColor: '#e2e8f0', textColor: '#1a202c' } },
                                     { content: totalGeneralCantidad, styles: { halign: 'right', fontStyle: 'bold', fillColor: '#e2e8f0', textColor: '#1a202c' } },
                                     { content: totalGeneralPeso.toFixed(2), styles: { halign: 'right', fontStyle: 'bold', fillColor: '#e2e8f0', textColor: '#1a202c' } },
@@ -906,7 +907,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         (formData.destinos || []).forEach((destino: any, index: number) => {
                             autoTable(doc, {
                                 startY: yPos,
-                                head: [[{ content: `Destino: ${destino.nombreDestino}`, colSpan: 10, styles: { fillColor: '#ddebf7', fontStyle: 'bold', textColor: '#000' } }]],
+                                head: [[{ content: `Destino: ${destino.nombreDestino}`, colSpan: 10, styles: { fillColor: '#000', fontStyle: 'bold', textColor: '#fff' } }]],
                                 theme: 'grid',
                                 margin: { horizontal: margin },
                             });
@@ -1134,6 +1135,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
         </div>
     );
 }
+
 
 
 
