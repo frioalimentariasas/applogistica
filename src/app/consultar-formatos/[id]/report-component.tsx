@@ -313,8 +313,9 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
             const addWatermark = () => {
                 if (!logoBase64 || !logoDimensions) return;
                 
-                const watermarkImgWidth = pageWidth * 0.6; // Watermark covers 60% of page width
+                const watermarkImgHeight = pageHeight * 0.6; // Watermark covers 60% of page height
                 const watermarkAspectRatio = logoDimensions.width / logoDimensions.height; // Use real aspect ratio
+                const watermarkImgWidth = watermarkImgHeight * watermarkAspectRatio;
                 const watermarkX = (pageWidth - watermarkImgWidth) / 2;
                 const watermarkY = (pageHeight - watermarkImgHeight) / 2;
 
@@ -663,7 +664,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                                         head: [['Descripción', 'Temp(°C)', 'Total Paletas', 'Total Cantidad', 'Total Peso (kg)']],
                                         body: group.products.map((p: any) => [p.descripcion, p.temperatura, p.totalPaletas, p.totalCantidad, p.totalPeso.toFixed(2)]),
                                         foot: [[
-                                            { content: `Subtotal ${group.presentation}:`, colSpan: 2, styles: { halign: 'right', fontStyle: 'bold', textColor: '#000' } },
+                                            { content: `Subtotal ${group.presentation}:`, colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } },
                                             group.subTotalPaletas,
                                             group.subTotalCantidad,
                                             group.subTotalPeso.toFixed(2),
@@ -1125,5 +1126,6 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
         </div>
     );
 }
+
 
 
