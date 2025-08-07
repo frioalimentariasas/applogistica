@@ -728,7 +728,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                              ],
                         ];
                         
-                       if (formData.tipoPedido === 'MAQUILA' || formData.tipoPedido === 'TUNEL' || formData.tipoPedido === 'TUNEL A CÁMARA CONGELADOS') {
+                       if (formData.tipoPedido) {
                            const tipoPedidoText = `Tipo Pedido: ${formData.tipoPedido || 'N/A'}`;
                            const maquilaText = formData.tipoPedido === 'MAQUILA' ? ` (${formData.tipoEmpaqueMaquila || 'N/A'})` : '';
                            generalInfoBody.push([
@@ -977,6 +977,3 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
         </div>
     );
 }
-
-
-
