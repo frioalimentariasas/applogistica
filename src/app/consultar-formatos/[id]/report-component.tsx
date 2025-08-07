@@ -681,23 +681,24 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
 
                              autoTable(doc, {
                                 startY: yPos,
-                                body: [[
-                                    { content: '', styles: { fillColor: '#e2e8f0' } }, // Empty cell for alignment
-                                    { content: 'TOTAL GENERAL:', styles: { halign: 'right', fontStyle: 'bold', fillColor: '#e2e8f0', textColor: '#1a202c' } },
-                                    { content: totalGeneralPaletas, styles: { halign: 'right', fontStyle: 'bold', fillColor: '#e2e8f0', textColor: '#1a202c' } },
-                                    { content: totalGeneralCantidad, styles: { halign: 'right', fontStyle: 'bold', fillColor: '#e2e8f0', textColor: '#1a202c' } },
-                                    { content: totalGeneralPeso.toFixed(2), styles: { halign: 'right', fontStyle: 'bold', fillColor: '#e2e8f0', textColor: '#1a202c' } },
-                                ]],
+                                head: [['', 'TOTAL GENERAL:', totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso.toFixed(2)]],
+                                body: [],
                                 theme: 'grid',
+                                headStyles: {
+                                    fontStyle: 'bold',
+                                    fillColor: '#e2e8f0',
+                                    textColor: '#000',
+                                    halign: 'right',
+                                },
+                                columnStyles: {
+                                    0: { cellWidth: 260 },
+                                    1: { cellWidth: 80, halign: 'right' },
+                                    2: { cellWidth: 50, halign: 'right' },
+                                    3: { cellWidth: 50, halign: 'right' },
+                                    4: { cellWidth: 60, halign: 'right' },
+                                },
                                 margin: { horizontal: margin, left: margin + 10 },
                                 styles: { fontSize: 8, cellPadding: 4 },
-                                columnStyles: {
-                                  0: { cellWidth: 260 },
-                                  1: { cellWidth: 80 },
-                                  2: { cellWidth: 50 },
-                                  3: { cellWidth: 50 },
-                                  4: { cellWidth: 60 }
-                                }
                             });
                             yPos = (doc as any).autoTable.previous.finalY + 15;
                         }
@@ -1135,6 +1136,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
         </div>
     );
 }
+
 
 
 
