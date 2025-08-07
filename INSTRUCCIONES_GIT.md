@@ -14,9 +14,9 @@ Estos pasos guardan el estado actual de tu código en tu máquina.
 
 **Paso 1: Descargar tu Proyecto**
 
-1.  **Encuentra el menú de opciones:** En la esquina superior derecha de Firebase Studio, haz clic en el botón con tres puntos verticales (⋮).
-2.  **Descarga el código:** Selecciona la opción **"Download Code"** o **"Descargar Código"**.
-3.  **Descomprime el archivo:** Esto descargará un archivo `.zip`. Descomprímelo en una carpeta fácil de encontrar (por ejemplo, `C:\proyectos\mi-app-logistica` o `/Users/TuUsuario/proyectos/mi-app-logistica`). Si ya tenías una versión anterior, reemplaza los archivos con los nuevos.
+1.  **Encuentra el menú de opciones del Explorador de Archivos:** En la barra lateral izquierda de Firebase Studio, busca el título **"EXPLORER"**. Justo a la derecha de esa palabra, verás un botón con tres puntos horizontales (`...`).
+2.  **Descarga el código:** Haz clic en el menú de los tres puntos (`...`) y selecciona la opción **"Download..."**.
+3.  **Descomprime el archivo:** Esto descargará un archivo `.zip` que contiene **todo tu proyecto**. Descomprímelo en una carpeta fácil de encontrar (por ejemplo, `C:\proyectos\mi-app-logistica` o `/Users/TuUsuario/proyectos/mi-app-logistica`). Si ya tenías una versión anterior, reemplaza los archivos con los nuevos.
 
 **Paso 2: Abrir una Terminal en la Carpeta del Proyecto**
 
@@ -41,7 +41,7 @@ Estos pasos guardan el estado actual de tu código en tu máquina.
 3.  **Crear la "instantánea" con un mensaje descriptivo:**
     Este es el paso que guarda la copia local.
     ```bash
-    git commit -m "Versión final del proyecto lista para producción"
+    git commit -m "Proyecto Frio Alimentaria versión final"
     ```
 
 **¡Felicidades!** Tu código ya está guardado de forma segura en tu computadora. Ahora, vamos a subirlo a GitHub.
