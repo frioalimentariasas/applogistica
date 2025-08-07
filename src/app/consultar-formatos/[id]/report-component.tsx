@@ -685,6 +685,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             // Final totals table
                             autoTable(doc, {
                                 startY: yPos,
+                                head: [[{ content: 'TOTALES GENERALES', colSpan: 2, styles: { fillColor: '#1A90C8', textColor: '#FFFFFF', fontStyle: 'bold', halign: 'center' }}]],
                                 body: [
                                     [{ content: 'TOTAL GENERAL PALETAS:', styles: { fontStyle: 'bold' } }, { content: totalGeneralPaletas, styles: { halign: 'right' } }],
                                     [{ content: 'TOTAL GENERAL CANTIDAD:', styles: { fontStyle: 'bold' } }, { content: totalGeneralCantidad, styles: { halign: 'right' } }],
@@ -692,9 +693,9 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                                 ],
                                 theme: 'grid',
                                 styles: { fontSize: 8, cellPadding: 4 },
-                                headStyles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold' },
-                                margin: { horizontal: margin },
                                 columnStyles: { 0: { cellWidth: '*' } },
+                                alternateRowStyles: { fillColor: '#f8fafc' },
+                                margin: { horizontal: margin },
                             });
                             yPos = (doc as any).autoTable.previous.finalY + 15;
                         }
@@ -1132,3 +1133,4 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
         </div>
     );
 }
+
