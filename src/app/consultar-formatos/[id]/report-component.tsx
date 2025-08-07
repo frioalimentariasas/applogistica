@@ -606,7 +606,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         (formData.placas || []).forEach((placa: any) => {
                              autoTable(doc, {
                                 startY: yPos,
-                                head: [[{ content: `Placa: ${placa.numeroPlaca} | Conductor: ${placa.conductor} (C.C. ${placa.cedulaConductor})`, colSpan: 8, styles: { fillColor: '#ddebf7', fontStyle: 'bold' } }]],
+                                head: [[{ content: `Placa: ${placa.numeroPlaca} | Conductor: ${placa.conductor} (C.C. ${placa.cedulaConductor})`, colSpan: 8, styles: { fillColor: '#ddebf7', fontStyle: 'bold', textColor: '#000' } }]],
                                 theme: 'grid',
                                 margin: { horizontal: margin },
                                 styles: { fontSize: 7, cellPadding: 3 },
@@ -1124,3 +1124,4 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
         </div>
     );
 }
+
