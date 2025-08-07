@@ -138,6 +138,64 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
         }
         return 'Reporte de Formulario';
     };
+    
+    const processTunelCongelacionData = (formData: any) => {
+        const placaGroups = (formData.placas || []).map((placa: any) => {
+            const itemsByPresentation = (placa.items || []).reduce((acc: any, item: any) => {
+                const presentation = item.presentacion || 'SIN PRESENTACIÓN';
+                if (!acc[presentation]) {
+                    acc[presentation] = {
+                        presentation: presentation,
+                        products: [],
+                    };
+                }
+                acc[presentation].products.push(item);
+                return acc;
+            }, {});
+
+            const presentationGroups = Object.values(itemsByPresentation).map((group: any) => {
+                 const productsWithSummary = group.products.reduce((acc: any, item: any) => {
+                    const desc = item.descripcion;
+                    if (!acc[desc]) {
+                         const summaryItem = formData.summary?.find((s: any) => s.descripcion === desc && s.presentacion === group.presentation && s.placa === placa.numeroPlaca);
+                         acc[desc] = {
+                            descripcion: desc,
+                            temperatura: summaryItem?.temperatura1 || 'N/A',
+                            totalPaletas: 0,
+                            totalCantidad: 0,
+                            totalPeso: 0,
+                        };
+                    }
+                    acc[desc].totalPaletas += 1;
+                    acc[desc].totalCantidad += Number(item.cantidadPorPaleta) || 0;
+                    acc[desc].totalPeso += Number(item.pesoNeto) || 0;
+                    return acc;
+                 }, {});
+
+                 const subTotalPaletas = Object.values(productsWithSummary).reduce((sum: number, p: any) => sum + p.totalPaletas, 0);
+                 const subTotalCantidad = Object.values(productsWithSummary).reduce((sum: number, p: any) => sum + p.totalCantidad, 0);
+                 const subTotalPeso = Object.values(productsWithSummary).reduce((sum: number, p: any) => sum + p.totalPeso, 0);
+
+                return {
+                    presentation: group.presentation,
+                    products: Object.values(productsWithSummary),
+                    subTotalPaletas,
+                    subTotalCantidad,
+                    subTotalPeso,
+                };
+            });
+            return {
+                placa: placa.numeroPlaca,
+                presentationGroups: presentationGroups,
+            };
+        });
+
+        const totalGeneralPaletas = placaGroups.reduce((acc, placa) => acc + placa.presentationGroups.reduce((pAcc, pres) => pAcc + pres.subTotalPaletas, 0), 0);
+        const totalGeneralCantidad = placaGroups.reduce((acc, placa) => acc + placa.presentationGroups.reduce((pAcc, pres) => pAcc + pres.subTotalCantidad, 0), 0);
+        const totalGeneralPeso = placaGroups.reduce((acc, placa) => acc + placa.presentationGroups.reduce((pAcc, pres) => pAcc + pres.subTotalPeso, 0), 0);
+
+        return { placaGroups, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso };
+    };
 
     const handleDownload = async () => {
         if (areImagesLoading) return;
@@ -550,32 +608,22 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
 
                         // Detail Table
                         (formData.placas || []).forEach((placa: any) => {
-                             const tableHtml = document.createElement('table');
-                             tableHtml.innerHTML = `
-                                <thead>
-                                    <tr>
-                                        <th colspan="8" style="background-color: #ddebf7; padding: 6px 12px; font-weight: bold; border-bottom: 1px solid #ddd; border-top: 1px solid #aaa;">
-                                            Placa: ${placa.numeroPlaca} | Conductor: ${placa.conductor} (C.C. ${placa.cedulaConductor})
-                                        </th>
-                                    </tr>
-                                    <tr style="background-color: #fafafa;">
-                                        <th>Descripción</th><th>Lote</th><th>Presentación</th><th>Cant.</th><th>P. Bruto</th><th>T. Estiba</th><th>T. Caja</th><th>P. Neto</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${(placa.items || []).map((p: any) => `
-                                        <tr>
-                                            <td>${p.descripcion || ''}</td><td>${p.lote || ''}</td><td>${p.presentacion || ''}</td>
-                                            <td style="text-align: right;">${p.cantidadPorPaleta || 0}</td><td style="text-align: right;">${p.pesoBruto?.toFixed(2) || '0.00'}</td>
-                                            <td style="text-align: right;">${p.taraEstiba?.toFixed(2) || '0.00'}</td><td style="text-align: right;">${p.taraCaja?.toFixed(2) || '0.00'}</td>
-                                            <td style="text-align: right;">${p.pesoNeto?.toFixed(2) || '0.00'}</td>
-                                        </tr>
-                                    `).join('')}
-                                </tbody>
-                             `;
                              autoTable(doc, {
-                                html: tableHtml,
                                 startY: yPos,
+                                head: [[{ content: `Placa: ${placa.numeroPlaca} | Conductor: ${placa.conductor} (C.C. ${placa.cedulaConductor})`, colSpan: 8, styles: { fillColor: '#ddebf7', fontStyle: 'bold' } }]],
+                                theme: 'grid',
+                                margin: { horizontal: margin },
+                                styles: { fontSize: 7, cellPadding: 3 },
+                             });
+                             yPos = (doc as any).autoTable.previous.finalY;
+
+                             autoTable(doc, {
+                                startY: yPos,
+                                head: [['Descripción', 'Lote', 'Presentación', 'Cant.', 'P. Bruto', 'T. Estiba', 'T. Caja', 'P. Neto']],
+                                body: (placa.items || []).map((p: any) => [
+                                    p.descripcion, p.lote, p.presentacion, p.cantidadPorPaleta,
+                                    p.pesoBruto?.toFixed(2), p.taraEstiba?.toFixed(2), p.taraCaja?.toFixed(2), p.pesoNeto?.toFixed(2)
+                                ]),
                                 theme: 'grid',
                                 styles: { fontSize: 7, cellPadding: 3 },
                                 headStyles: { fillColor: false, textColor: '#333', fontStyle: 'bold' },
@@ -586,32 +634,71 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         
                         yPos += 15;
 
-                        // Summary Table
-                         const { summaryData, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso } = processTunelData(formData);
-                         
-                         if (summaryData.length > 0) {
+                        // --- START: New Summary Logic for TUNEL DE CONGELACIÓN ---
+                        const { placaGroups, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso } = processTunelCongelacionData(formData);
+                        
+                        if (placaGroups.length > 0) {
                             autoTable(doc, {
                                 startY: yPos,
-                                head: [['Placa', 'Descripción', 'Temp(°C)', 'Total Cantidad', 'Total Paletas', 'Total Peso (kg)']],
-                                body: summaryData.map((p: any) => {
-                                    const temps = [p.temperatura1, p.temperatura2, p.temperatura3].filter((t: any) => t != null && !isNaN(t));
-                                    const tempString = temps.join(' / ');
-                                    return [p.placa, p.descripcion, tempString, p.totalCantidad, p.totalPaletas, p.totalPeso.toFixed(2)];
-                                }),
-                                foot: [[
-                                    { content: 'TOTALES:', colSpan: 3, styles: { halign: 'right', fontStyle: 'bold' } },
-                                    totalGeneralCantidad,
-                                    totalGeneralPaletas,
-                                    totalGeneralPeso.toFixed(2),
-                                ]],
+                                head: [[{ content: 'Resumen de Productos', styles: {halign: 'center', fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold' } }]],
+                                body: [],
                                 theme: 'grid',
-                                footStyles: { fillColor: '#f1f5f9', fontStyle: 'bold', textColor: '#1a202c' },
-                                styles: { fontSize: 8, cellPadding: 4 },
-                                headStyles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold' },
                                 margin: { horizontal: margin },
                             });
-                             yPos = (doc as any).autoTable.previous.finalY + 15;
-                         }
+                            yPos = (doc as any).autoTable.previous.finalY;
+
+                            for (const placaGroup of placaGroups) {
+                                autoTable(doc, {
+                                    startY: yPos,
+                                    body: [[{ content: `Placa: ${placaGroup.placa}`, styles: { fontStyle: 'bold', fillColor: '#f1f5f9' } }]],
+                                    theme: 'grid',
+                                    margin: { horizontal: margin },
+                                });
+                                yPos = (doc as any).autoTable.previous.finalY;
+
+                                for (const group of placaGroup.presentationGroups) {
+                                    autoTable(doc, {
+                                        startY: yPos,
+                                        body: [[{ content: `Presentación: ${group.presentation}`, colSpan: 5, styles: { fontStyle: 'bold', fillColor: '#fafafa' } }]],
+                                        theme: 'grid',
+                                        margin: { horizontal: margin, left: margin + 10 },
+                                    });
+
+                                    autoTable(doc, {
+                                        startY: (doc as any).autoTable.previous.finalY,
+                                        head: [['Descripción', 'Temp(°C)', 'Total Paletas', 'Total Cantidad', 'Total Peso (kg)']],
+                                        body: group.products.map((p: any) => [p.descripcion, p.temperatura, p.totalPaletas, p.totalCantidad, p.totalPeso.toFixed(2)]),
+                                        foot: [[
+                                            { content: `Subtotal ${group.presentation}:`, colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } },
+                                            group.subTotalPaletas,
+                                            group.subTotalCantidad,
+                                            group.subTotalPeso.toFixed(2),
+                                        ]],
+                                        theme: 'grid',
+                                        styles: { fontSize: 7, cellPadding: 3 },
+                                        headStyles: { fillColor: '#fff', textColor: '#333' },
+                                        footStyles: { fillColor: '#f8f9fa', fontStyle: 'bold' },
+                                        margin: { horizontal: margin, left: margin + 10 },
+                                    });
+                                    yPos = (doc as any).autoTable.previous.finalY;
+                                }
+                            }
+
+                            autoTable(doc, {
+                                startY: yPos,
+                                body: [[
+                                    { content: 'TOTAL GENERAL:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold', fillColor: '#e2e8f0', textColor: '#1a202c' } },
+                                    { content: totalGeneralPaletas, styles: { halign: 'right', fontStyle: 'bold', fillColor: '#e2e8f0', textColor: '#1a202c' } },
+                                    { content: totalGeneralCantidad, styles: { halign: 'right', fontStyle: 'bold', fillColor: '#e2e8f0', textColor: '#1a202c' } },
+                                    { content: totalGeneralPeso.toFixed(2), styles: { halign: 'right', fontStyle: 'bold', fillColor: '#e2e8f0', textColor: '#1a202c' } },
+                                ]],
+                                theme: 'grid',
+                                margin: { horizontal: margin },
+                                styles: { fontSize: 8, cellPadding: 4 },
+                            });
+                            yPos = (doc as any).autoTable.previous.finalY + 15;
+                        }
+                        // --- END: New Summary Logic ---
                         // --- END: Logic for TUNEL DE CONGELACIÓN ---
                     } else {
                         // --- START: Existing logic for other Variable Weight Receptions ---
@@ -828,50 +915,6 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
         return undefined;
     };
     
-    const processTunelData = (formData: any) => {
-        const allItemsByPlaca = (formData.placas || []).flatMap((placa: any) => 
-            (placa.items || []).map((item: any) => ({ ...item, placa: placa.numeroPlaca }))
-        );
-
-        const summaryItems: any[] = [];
-        const groupedByPlaca = allItemsByPlaca.reduce((acc, item) => {
-            const placaKey = item.placa || 'SIN PLACA';
-            if (!acc[placaKey]) acc[placaKey] = [];
-            acc[placaKey].push(item);
-            return acc;
-        }, {} as Record<string, any[]>);
-        
-        Object.entries(groupedByPlaca).forEach(([placa, items]) => {
-            const productSummary = items.reduce((acc, item) => {
-                const desc = item.descripcion;
-                if (!acc[desc]) {
-                    const summaryItem = formData.summary?.find((s: any) => s.descripcion === desc && s.placa === placa);
-                    acc[desc] = {
-                        descripcion: desc,
-                        placa: placa,
-                        totalCantidad: 0,
-                        totalPeso: 0,
-                        totalPaletas: 0,
-                        temperatura1: summaryItem?.temperatura1,
-                        temperatura2: summaryItem?.temperatura2,
-                        temperatura3: summaryItem?.temperatura3,
-                    };
-                }
-                acc[desc].totalCantidad += Number(item.cantidadPorPaleta) || 0;
-                acc[desc].totalPeso += Number(item.pesoNeto) || 0;
-                acc[desc].totalPaletas += 1; // Each item is a pallet in this mode
-                return acc;
-            }, {} as Record<string, any>);
-            summaryItems.push(...Object.values(productSummary));
-        });
-
-        const totalGeneralPaletas = summaryItems.reduce((acc, item) => acc + (item.totalPaletas || 0), 0);
-        const totalGeneralCantidad = summaryItems.reduce((acc, item) => acc + (item.totalCantidad || 0), 0);
-        const totalGeneralPeso = summaryItems.reduce((acc, item) => acc + (item.totalPeso || 0), 0);
-        
-        return { summaryData: summaryItems, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso };
-    };
-    
     const processDefaultData = (formData: any) => {
         const allItems = formData.items || [];
         const isSummaryMode = allItems.some((p: any) => Number(p.paleta) === 0);
@@ -934,5 +977,6 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
         </div>
     );
 }
+
 
 
