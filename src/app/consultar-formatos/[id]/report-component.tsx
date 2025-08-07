@@ -160,7 +160,9 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                          const summaryItem = formData.summary?.find((s: any) => s.descripcion === desc && s.presentacion === group.presentation && s.placa === placa.numeroPlaca);
                          acc[desc] = {
                             descripcion: desc,
-                            temperatura: summaryItem?.temperatura1 || 'N/A',
+                            temperatura1: summaryItem?.temperatura1,
+                            temperatura2: summaryItem?.temperatura2,
+                            temperatura3: summaryItem?.temperatura3,
                             totalPaletas: 0,
                             totalCantidad: 0,
                             totalPeso: 0,
@@ -662,7 +664,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                                     autoTable(doc, {
                                         startY: (doc as any).autoTable.previous.finalY,
                                         head: [['Descripción', 'Temp(°C)', 'Total Paletas', 'Total Cantidad', 'Total Peso (kg)']],
-                                        body: group.products.map((p: any) => [p.descripcion, p.temperatura, p.totalPaletas, p.totalCantidad, p.totalPeso.toFixed(2)]),
+                                        body: group.products.map((p: any) => [p.descripcion, [p.temperatura1, p.temperatura2, p.temperatura3].filter(t => t != null).join(' / '), p.totalPaletas, p.totalCantidad, p.totalPeso.toFixed(2)]),
                                         foot: [[
                                             { content: `Subtotal ${group.presentation}:`, colSpan: 2, styles: { halign: 'right', fontStyle: 'bold', textColor: '#000' } },
                                             group.subTotalPaletas,
@@ -678,27 +680,21 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                                     yPos = (doc as any).autoTable.previous.finalY;
                                 }
                             }
-
-                             autoTable(doc, {
+                            
+                            yPos = (doc as any).autoTable.previous.finalY + 15;
+                            // Final totals table
+                            autoTable(doc, {
                                 startY: yPos,
-                                head: [['', 'TOTAL GENERAL:', totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso.toFixed(2)]],
-                                body: [],
+                                body: [
+                                    [{ content: 'TOTAL GENERAL PALETAS:', styles: { fontStyle: 'bold' } }, { content: totalGeneralPaletas, styles: { halign: 'right' } }],
+                                    [{ content: 'TOTAL GENERAL CANTIDAD:', styles: { fontStyle: 'bold' } }, { content: totalGeneralCantidad, styles: { halign: 'right' } }],
+                                    [{ content: 'TOTAL GENERAL PESO (kg):', styles: { fontStyle: 'bold' } }, { content: totalGeneralPeso.toFixed(2), styles: { halign: 'right' } }],
+                                ],
                                 theme: 'grid',
-                                headStyles: {
-                                    fontStyle: 'bold',
-                                    fillColor: '#e2e8f0',
-                                    textColor: '#000',
-                                    halign: 'right',
-                                },
-                                columnStyles: {
-                                    0: { cellWidth: 260 },
-                                    1: { cellWidth: 80, halign: 'right' },
-                                    2: { cellWidth: 50, halign: 'right' },
-                                    3: { cellWidth: 50, halign: 'right' },
-                                    4: { cellWidth: 60, halign: 'right' },
-                                },
-                                margin: { horizontal: margin, left: margin + 10 },
                                 styles: { fontSize: 8, cellPadding: 4 },
+                                headStyles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold' },
+                                margin: { horizontal: margin },
+                                columnStyles: { 0: { cellWidth: '*' } },
                             });
                             yPos = (doc as any).autoTable.previous.finalY + 15;
                         }
@@ -1136,10 +1132,3 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
         </div>
     );
 }
-
-
-
-
-
-
-
