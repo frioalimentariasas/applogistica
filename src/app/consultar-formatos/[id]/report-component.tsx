@@ -599,6 +599,11 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                                     {content: `H. Fin Descargue:`, styles: {fontStyle: 'bold'}}, formatTime12Hour(formData.horaFin),
                                     {content: 'Tipo Pedido:', styles: {fontStyle: 'bold'}}, formData.tipoPedido || 'N/A'
                                 ],
+                                [
+                                    {content: 'Precinto:', styles: {fontStyle: 'bold'}}, formData.precinto || 'N/A',
+                                    {content: 'Set Point (°C):', styles: {fontStyle: 'bold'}}, formatOptionalNumber(formData.setPoint),
+                                    {content: 'Contenedor:', styles: {fontStyle: 'bold'}}, formData.contenedor || 'N/A'
+                                ],
                             ],
                             theme: 'grid',
                             styles: { fontSize: 8, cellPadding: 4, valign: 'middle' },
@@ -682,6 +687,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             }
                             
                             yPos = (doc as any).autoTable.previous.finalY + 15;
+                            
                             // Final totals table
                             autoTable(doc, {
                                 startY: yPos,
@@ -1145,4 +1151,5 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
         </div>
     );
 }
+
 
