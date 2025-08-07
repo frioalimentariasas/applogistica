@@ -654,7 +654,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                                 for (const group of placaGroup.presentationGroups) {
                                     autoTable(doc, {
                                         startY: yPos,
-                                        body: [[{ content: `Presentación: ${group.presentation}`, colSpan: 5, styles: { fontStyle: 'bold', fillColor: '#fafafa' } }]],
+                                        body: [[{ content: `Presentación: ${group.presentation}`, colSpan: 5, styles: { fontStyle: 'bold', fillColor: '#fafafa', textColor: '#000' } }]],
                                         theme: 'grid',
                                         margin: { horizontal: margin, left: margin + 10 },
                                     });
@@ -682,8 +682,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             autoTable(doc, {
                                 startY: yPos,
                                 body: [[
-                                    { content: '', styles: { fillColor: '#e2e8f0' } },
-                                    { content: 'TOTAL GENERAL:', styles: { halign: 'right', fontStyle: 'bold', fillColor: '#e2e8f0', textColor: '#1a202c' } },
+                                    { content: 'TOTAL GENERAL:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold', fillColor: '#e2e8f0', textColor: '#1a202c' } },
                                     { content: totalGeneralPaletas, styles: { halign: 'right', fontStyle: 'bold', fillColor: '#e2e8f0', textColor: '#1a202c' } },
                                     { content: totalGeneralCantidad, styles: { halign: 'right', fontStyle: 'bold', fillColor: '#e2e8f0', textColor: '#1a202c' } },
                                     { content: totalGeneralPeso.toFixed(2), styles: { halign: 'right', fontStyle: 'bold', fillColor: '#e2e8f0', textColor: '#1a202c' } },
@@ -691,6 +690,13 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                                 theme: 'grid',
                                 margin: { horizontal: margin, left: margin + 10 },
                                 styles: { fontSize: 8, cellPadding: 4 },
+                                columnStyles: {
+                                  0: { cellWidth: 260 },
+                                  1: { cellWidth: 80 },
+                                  2: { cellWidth: 50 },
+                                  3: { cellWidth: 50 },
+                                  4: { cellWidth: 60 }
+                                }
                             });
                             yPos = (doc as any).autoTable.previous.finalY + 15;
                         }
@@ -849,9 +855,10 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     
                     const totalGeneralPaletas = (() => {
                         if (isSummaryFormat) {
-                            return formData.despachoPorDestino
-                                ? formData.totalPaletasDespacho
-                                : recalculatedSummary.reduce((acc: number, p: any) => acc + (p.totalPaletas || 0), 0);
+                            if (formData.despachoPorDestino) {
+                                return formData.totalPaletasDespacho || 0;
+                            }
+                            return recalculateTotalPaletas(formData);
                         }
                         const uniquePallets = new Set<number>();
                         allItems.forEach((i: any) => {
@@ -1127,6 +1134,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
         </div>
     );
 }
+
 
 
 
