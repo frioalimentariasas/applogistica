@@ -664,7 +664,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                                         head: [['Descripción', 'Temp(°C)', 'Total Paletas', 'Total Cantidad', 'Total Peso (kg)']],
                                         body: group.products.map((p: any) => [p.descripcion, p.temperatura, p.totalPaletas, p.totalCantidad, p.totalPeso.toFixed(2)]),
                                         foot: [[
-                                            { content: `Subtotal ${group.presentation}:`, colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } },
+                                            { content: `Subtotal ${group.presentation}:`, colSpan: 2, styles: { halign: 'right', fontStyle: 'bold', textColor: '#000' } },
                                             group.subTotalPaletas,
                                             group.subTotalCantidad,
                                             group.subTotalPeso.toFixed(2),
@@ -682,13 +682,14 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             autoTable(doc, {
                                 startY: yPos,
                                 body: [[
-                                    { content: 'TOTAL GENERAL:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold', fillColor: '#e2e8f0', textColor: '#1a202c' } },
+                                    { content: '', styles: { fillColor: '#e2e8f0' } },
+                                    { content: 'TOTAL GENERAL:', styles: { halign: 'right', fontStyle: 'bold', fillColor: '#e2e8f0', textColor: '#1a202c' } },
                                     { content: totalGeneralPaletas, styles: { halign: 'right', fontStyle: 'bold', fillColor: '#e2e8f0', textColor: '#1a202c' } },
                                     { content: totalGeneralCantidad, styles: { halign: 'right', fontStyle: 'bold', fillColor: '#e2e8f0', textColor: '#1a202c' } },
                                     { content: totalGeneralPeso.toFixed(2), styles: { halign: 'right', fontStyle: 'bold', fillColor: '#e2e8f0', textColor: '#1a202c' } },
                                 ]],
                                 theme: 'grid',
-                                margin: { horizontal: margin },
+                                margin: { horizontal: margin, left: margin + 10 },
                                 styles: { fontSize: 8, cellPadding: 4 },
                             });
                             yPos = (doc as any).autoTable.previous.finalY + 15;
@@ -908,7 +909,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                                  ? [['Descripción', 'Lote', 'Presentación', 'Total Cant.', 'Total Paletas', 'Total P. Neto']]
                                  : [['Paleta', 'Descripción', 'Lote', 'Presentación', 'Cant.', 'P. Bruto', 'T. Estiba', 'T. Caja', 'Total Tara', 'P. Neto']];
                              const body = destino.items.map((p: any) => isSummaryFormat
-                                 ? [p.descripcion, p.lote, p.presentación, p.totalCantidad, p.totalPaletas, p.totalPesoNeto?.toFixed(2)]
+                                 ? [p.descripcion, p.lote, p.presentacion, p.totalCantidad, p.totalPaletas, p.totalPesoNeto?.toFixed(2)]
                                  : [p.paleta, p.descripcion, p.lote, p.presentacion, p.cantidadPorPaleta, p.pesoBruto?.toFixed(2), p.taraEstiba?.toFixed(2), p.taraCaja?.toFixed(2), p.totalTaraCaja?.toFixed(2), p.pesoNeto?.toFixed(2)]
                              );
                              autoTable(doc, { startY: yPos, head, body, theme: 'grid', styles: { fontSize: 7, cellPadding: 3 }, headStyles: { fillColor: false, textColor: '#333', fontStyle: 'bold' }, margin: { horizontal: margin }, });
@@ -920,7 +921,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                              ? [['Descripción', 'Lote', 'Presentación', 'Total Cant.', 'Total Paletas', 'Total P. Neto']]
                              : [['Paleta', 'Descripción', 'Lote', 'Presentación', 'Cant.', 'P. Bruto', 'T. Estiba', 'T. Caja', 'Total Tara', 'P. Neto']];
                          const body = formData.items.map((p: any) => isSummaryFormat
-                             ? [p.descripcion, p.lote, p.presentación, p.totalCantidad, p.totalPaletas, p.totalPesoNeto?.toFixed(2)]
+                             ? [p.descripcion, p.lote, p.presentacion, p.totalCantidad, p.totalPaletas, p.totalPesoNeto?.toFixed(2)]
                              : [p.paleta, p.descripcion, p.lote, p.presentacion, p.cantidadPorPaleta, p.pesoBruto?.toFixed(2), p.taraEstiba?.toFixed(2), p.taraCaja?.toFixed(2), p.totalTaraCaja?.toFixed(2), p.pesoNeto?.toFixed(2)]
                          );
                          autoTable(doc, { startY: yPos, head, body, theme: 'grid', styles: { fontSize: 7, cellPadding: 3 }, headStyles: { fillColor: '#f8fafc', textColor: '#334155', fontStyle: 'bold' }, margin: { horizontal: margin }, });
@@ -1126,6 +1127,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
         </div>
     );
 }
+
 
 
 
