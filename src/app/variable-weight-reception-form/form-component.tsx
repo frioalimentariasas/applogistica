@@ -484,13 +484,9 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
   const watchedAplicaCuadrilla = useWatch({ control: form.control, name: 'aplicaCuadrilla' });
   const watchedItems = useWatch({ control: form.control, name: "items" });
   const watchedPlacas = useWatch({ control: form.control, name: "placas" });
-  const watchedObservations = useWatch({ control: form.control, name: "observations" });
+  const watchedObservations = useWatch({ control: form.control, name: "observaciones" });
   const isSpecialReception = watchedTipoPedido === 'INGRESO DE SALDOS' || watchedTipoPedido === 'TUNEL' || watchedTipoPedido === 'TUNEL A CÁMARA CONGELADOS' || watchedTipoPedido === 'MAQUILA' || watchedTipoPedido === 'TUNEL DE CONGELACIÓN';
   
-  const allStandardObservationsWithOptions = useMemo(() => [
-        ...standardObservations,
-        { id: 'OTRAS', name: 'OTRAS OBSERVACIONES', quantityType: '' }
-    ], [standardObservations]);
 
   useEffect(() => {
     if (watchedTipoPedido === 'TUNEL DE CONGELACIÓN') {
@@ -1802,7 +1798,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                         <div className="space-y-4 mt-2">
                             {observationFields.map((field, index) => {
                                 const selectedObservation = watchedObservations?.[index];
-                                const stdObsData = allStandardObservationsWithOptions.find(obs => obs.name === selectedObservation?.type);
+                                const stdObsData = standardObservations.find(obs => obs.name === selectedObservation?.type);
                                 const isOtherType = selectedObservation?.type === 'OTRAS OBSERVACIONES';
                                 const showCrewCheckbox = selectedObservation?.type === 'REESTIBADO' || selectedObservation?.type === 'TRANSBORDO CANASTILLA' || selectedObservation?.type === 'SALIDA PALETAS TUNEL';
                                 return (
@@ -2298,7 +2294,5 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
-
-
 
     
