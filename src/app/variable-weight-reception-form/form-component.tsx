@@ -486,6 +486,11 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
   const watchedPlacas = useWatch({ control: form.control, name: "placas" });
   const watchedObservations = useWatch({ control: form.control, name: "observations" });
   const isSpecialReception = watchedTipoPedido === 'INGRESO DE SALDOS' || watchedTipoPedido === 'TUNEL' || watchedTipoPedido === 'TUNEL A CÁMARA CONGELADOS' || watchedTipoPedido === 'MAQUILA' || watchedTipoPedido === 'TUNEL DE CONGELACIÓN';
+  
+  const allStandardObservationsWithOptions = useMemo(() => [
+        ...standardObservations,
+        { id: 'OTRAS', name: 'OTRAS OBSERVACIONES', quantityType: '' }
+    ], [standardObservations]);
 
   useEffect(() => {
     if (watchedTipoPedido === 'TUNEL DE CONGELACIÓN') {
@@ -948,12 +953,12 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
             try {
                 const optimizedImage = await optimizeImage(dataUrl);
 
-                const newImagesSize = getByteSizeFromBase64(optimizedImage.split(',')[1]);
+                const newImageSize = getByteSizeFromBase64(optimizedImage.split(',')[1]);
                 const existingImagesSize = attachments
                     .filter(a => a.startsWith('data:image'))
                     .reduce((sum, base64) => sum + getByteSizeFromBase64(base64.split(',')[1]), 0);
 
-                if (existingImagesSize + newImagesSize > MAX_TOTAL_SIZE_BYTES) {
+                if (existingImagesSize + newImageSize > MAX_TOTAL_SIZE_BYTES) {
                     toast({
                         variant: "destructive",
                         title: "Límite de tamaño excedido",
@@ -1797,8 +1802,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                         <div className="space-y-4 mt-2">
                             {observationFields.map((field, index) => {
                                 const selectedObservation = watchedObservations?.[index];
-                                const allObservations = [...standardObservations, {id: 'OTRAS', name: 'OTRAS OBSERVACIONES', quantityType: ''}]
-                                const stdObsData = allObservations.find(obs => obs.name === selectedObservation?.type);
+                                const stdObsData = allStandardObservationsWithOptions.find(obs => obs.name === selectedObservation?.type);
                                 const isOtherType = selectedObservation?.type === 'OTRAS OBSERVACIONES';
                                 const showCrewCheckbox = selectedObservation?.type === 'REESTIBADO' || selectedObservation?.type === 'TRANSBORDO CANASTILLA' || selectedObservation?.type === 'SALIDA PALETAS TUNEL';
                                 return (
