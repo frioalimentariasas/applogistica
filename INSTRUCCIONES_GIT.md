@@ -82,3 +82,45 @@ GitHub te mostrará una página con comandos. Busca la sección que dice **"...o
     ```
 
 ¡Y listo! Si ahora refrescas la página de tu repositorio en GitHub, verás todo el código de tu proyecto. Has creado exitosamente una copia de seguridad remota.
+
+---
+
+### Parte 3: Cómo Volver a una Versión Anterior (Punto de Restauración)
+
+Si necesitas descartar cambios y regresar a una versión guardada previamente en tu historial de Git, sigue estos pasos.
+
+**¡ADVERTENCIA!** Este proceso **descartará permanentemente** todos los cambios que hayas hecho después del punto al que quieres volver. Si tienes cambios importantes que no has guardado, asegúrate de hacer un `git commit` antes de continuar.
+
+**Paso 6: Encontrar el Punto de Restauración**
+
+1.  **Abre una terminal** en la carpeta de tu proyecto.
+2.  **Visualiza el historial de commits:** Ejecuta el siguiente comando para ver todos los puntos de restauración que has creado.
+    ```bash
+    git log --oneline
+    ```
+3.  **Identifica el commit:** Verás una lista de tus commits. Cada uno tiene un identificador único (un "hash") y el mensaje que escribiste. Por ejemplo:
+    ```
+    8547ee6 Proyecto Frio Alimentaria versión final
+    a1b2c3d Añadido formulario de despacho
+    f9d8e7c Primera versión funcional
+    ```
+4.  **Copia el ID del commit:** Copia el identificador (el hash) del punto al que quieres regresar. Por ejemplo, si quieres volver a la "versión final", copiarías `8547ee6`.
+
+**Paso 7: Restaurar el Código**
+
+1.  **Ejecuta el comando de restauración:** Usa `git reset --hard` con el ID que copiaste.
+    ```bash
+    git reset --hard 8547ee6
+    ```
+    Git te confirmará que tu proyecto local ahora está exactamente en ese punto.
+
+**Paso 8: Actualizar GitHub (Opcional, pero recomendado)**
+
+Tu repositorio local ahora está en la versión anterior, pero GitHub todavía tiene la versión más reciente. Para que GitHub refleje la restauración, debes "forzar" la subida.
+
+1.  **Sube los cambios forzadamente:**
+    ```bash
+    git push --force
+    ```
+
+Ahora, tanto tu computadora local como tu repositorio en GitHub estarán sincronizados en la versión que restauraste. Ya puedes seguir trabajando desde ese punto.
