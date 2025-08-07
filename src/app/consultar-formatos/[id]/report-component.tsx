@@ -315,7 +315,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
             const addWatermark = () => {
                 if (!logoBase64 || !logoDimensions) return;
                 
-                const watermarkImgHeight = pageHeight * 0.6; // Watermark covers 60% of page height
+                const watermarkImgHeight = pageHeight * 0.4; // Watermark covers 40% of page height
                 const watermarkAspectRatio = logoDimensions.width / logoDimensions.height; // Use real aspect ratio
                 const watermarkImgWidth = watermarkImgHeight * watermarkAspectRatio;
                 const watermarkX = (pageWidth - watermarkImgWidth) / 2;
@@ -685,17 +685,29 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             // Final totals table
                             autoTable(doc, {
                                 startY: yPos,
-                                head: [[{ content: 'TOTALES GENERALES', colSpan: 2, styles: { fillColor: '#1A90C8', textColor: '#FFFFFF', fontStyle: 'bold', halign: 'center' }}]],
+                                head: [[{ content: 'TOTALES GENERALES', colSpan: 5, styles: { fillColor: '#1A90C8', textColor: '#FFFFFF', fontStyle: 'bold', halign: 'center' } }]],
                                 body: [
-                                    [{ content: 'TOTAL GENERAL PALETAS:', styles: { fontStyle: 'bold' } }, { content: totalGeneralPaletas, styles: { halign: 'right' } }],
-                                    [{ content: 'TOTAL GENERAL CANTIDAD:', styles: { fontStyle: 'bold' } }, { content: totalGeneralCantidad, styles: { halign: 'right' } }],
-                                    [{ content: 'TOTAL GENERAL PESO (kg):', styles: { fontStyle: 'bold' } }, { content: totalGeneralPeso.toFixed(2), styles: { halign: 'right' } }],
+                                    [{ content: 'Total General Paletas:', styles: { fontStyle: 'bold' } }, { content: totalGeneralPaletas, styles: { halign: 'right' } }, '', '', ''],
+                                    [{ content: 'Total General Cantidad:', styles: { fontStyle: 'bold' } }, { content: totalGeneralCantidad, styles: { halign: 'right' } }, '', '', ''],
+                                    [{ content: 'Total General Peso (kg):', styles: { fontStyle: 'bold' } }, { content: totalGeneralPeso.toFixed(2), styles: { halign: 'right' } }, '', '', ''],
                                 ],
                                 theme: 'grid',
-                                styles: { fontSize: 8, cellPadding: 4 },
-                                columnStyles: { 0: { cellWidth: '*' } },
-                                alternateRowStyles: { fillColor: '#f8fafc' },
-                                margin: { horizontal: margin },
+                                styles: { fontSize: 8, cellPadding: 4, valign: 'middle' },
+                                headStyles: {
+                                    halign: 'center'
+                                },
+                                didParseCell: function (data) {
+                                    if (data.section === 'body') {
+                                        data.cell.styles.fillColor = '#f8fafc';
+                                    }
+                                },
+                                columnStyles: {
+                                    0: { cellWidth: 150, fontStyle: 'bold' },
+                                    1: { halign: 'right', cellWidth: '*' },
+                                    2: {cellWidth: 0.1},
+                                    3: {cellWidth: 0.1},
+                                    4: {cellWidth: 0.1},
+                                }
                             });
                             yPos = (doc as any).autoTable.previous.finalY + 15;
                         }
