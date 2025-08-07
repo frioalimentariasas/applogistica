@@ -80,58 +80,66 @@ const processDefaultData = (formData: any) => {
     return { summaryData, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso, isSummaryMode };
 };
 
-const processTunelData = (formData: any) => {
-    const allItemsByPlaca = (formData.placas || []).flatMap((placa: any) => 
-        (placa.items || []).map((item: any) => ({ ...item, placa: placa.numeroPlaca }))
-    );
+const processTunelCongelacionData = (formData: any) => {
+    const placaGroups = (formData.placas || []).map((placa: any) => {
+        const itemsByPresentation = (placa.items || []).reduce((acc: any, item: any) => {
+            const presentation = item.presentacion || 'SIN PRESENTACIÓN';
+            if (!acc[presentation]) {
+                acc[presentation] = {
+                    presentation: presentation,
+                    products: [],
+                };
+            }
+            acc[presentation].products.push(item);
+            return acc;
+        }, {});
 
-    const groupedByPlacaAndPresentation = allItemsByPlaca.reduce((acc, item) => {
-        const placaKey = item.placa || 'SIN PLACA';
-        const presentacionKey = item.presentacion || 'SIN PRESENTACIÓN';
-
-        if (!acc[placaKey]) {
-            acc[placaKey] = {};
-        }
-        if (!acc[placaKey][presentacionKey]) {
-            acc[placaKey][presentacionKey] = [];
-        }
-        acc[placaKey][presentacionKey].push(item);
-        return acc;
-    }, {} as Record<string, Record<string, any[]>>);
-
-    const summaryItems: any[] = [];
-    Object.entries(groupedByPlacaAndPresentation).forEach(([placa, presentations]) => {
-        Object.entries(presentations).forEach(([presentacion, items]) => {
-            const productSummary = items.reduce((acc, item) => {
+        const presentationGroups = Object.values(itemsByPresentation).map((group: any) => {
+             const productsWithSummary = group.products.reduce((acc: any, item: any) => {
                 const desc = item.descripcion;
                 if (!acc[desc]) {
-                    const summaryItem = formData.summary?.find((s: any) => s.descripcion === desc && s.presentacion === presentacion && s.placa === placa);
-                    acc[desc] = {
+                     const summaryItem = formData.summary?.find((s: any) => s.descripcion === desc && s.presentacion === group.presentation && s.placa === placa.numeroPlaca);
+                     acc[desc] = {
                         descripcion: desc,
-                        placa: placa,
-                        presentacion: presentacion,
+                        temperatura1: summaryItem?.temperatura1 || 'N/A',
+                        temperatura2: summaryItem?.temperatura2 || 'N/A',
+                        temperatura3: summaryItem?.temperatura3 || 'N/A',
+                        totalPaletas: 0,
                         totalCantidad: 0,
                         totalPeso: 0,
-                        totalPaletas: 0,
-                        temperatura1: summaryItem?.temperatura1,
-                        temperatura2: summaryItem?.temperatura2,
-                        temperatura3: summaryItem?.temperatura3,
                     };
                 }
+                acc[desc].totalPaletas += 1;
                 acc[desc].totalCantidad += Number(item.cantidadPorPaleta) || 0;
                 acc[desc].totalPeso += Number(item.pesoNeto) || 0;
-                acc[desc].totalPaletas += 1;
                 return acc;
-            }, {} as Record<string, any>);
-            summaryItems.push(...Object.values(productSummary));
+             }, {});
+
+             const subTotalPaletas = Object.values(productsWithSummary).reduce((sum: number, p: any) => sum + p.totalPaletas, 0);
+             const subTotalCantidad = Object.values(productsWithSummary).reduce((sum: number, p: any) => sum + p.totalCantidad, 0);
+             const subTotalPeso = Object.values(productsWithSummary).reduce((sum: number, p: any) => sum + p.totalPeso, 0);
+
+            return {
+                presentation: group.presentation,
+                products: Object.values(productsWithSummary),
+                subTotalPaletas,
+                subTotalCantidad,
+                subTotalPeso,
+            };
         });
+        return {
+            placa: placa.numeroPlaca,
+            conductor: placa.conductor,
+            cedulaConductor: placa.cedulaConductor,
+            presentationGroups: presentationGroups,
+        };
     });
 
-    const totalGeneralPaletas = summaryItems.reduce((acc, item) => acc + (item.totalPaletas || 0), 0);
-    const totalGeneralCantidad = summaryItems.reduce((acc, item) => acc + (item.totalCantidad || 0), 0);
-    const totalGeneralPeso = summaryItems.reduce((acc, item) => acc + (item.totalPeso || 0), 0);
-    
-    return { summaryData: summaryItems, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso };
+    const totalGeneralPaletas = placaGroups.reduce((acc, placa) => acc + placa.presentationGroups.reduce((pAcc, pres) => pAcc + pres.subTotalPaletas, 0), 0);
+    const totalGeneralCantidad = placaGroups.reduce((acc, placa) => acc + placa.presentationGroups.reduce((pAcc, pres) => pAcc + pres.subTotalCantidad, 0), 0);
+    const totalGeneralPeso = placaGroups.reduce((acc, placa) => acc + placa.presentationGroups.reduce((pAcc, pres) => pAcc + pres.subTotalPeso, 0), 0);
+
+    return { placaGroups, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso };
 };
 
 
@@ -345,43 +353,63 @@ const DefaultSummary = ({ formData }: { formData: any }) => {
 }
 
 const TunelCongelacionSummary = ({ formData }: { formData: any }) => {
-    const { summaryData, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso } = processTunelData(formData);
+    const { placaGroups, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso } = processTunelCongelacionData(formData);
     
-    if (summaryData.length === 0) return null;
+    if (placaGroups.length === 0) return null;
 
     return (
-        <ReportSection title="Resumen de Productos">
-            <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse' }}>
-                <thead>
-                    <tr style={{ borderBottom: '1px solid #aaa' }}>
-                        <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Placa</th>
-                        <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Descripción</th>
-                        <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Temp(°C)</th>
-                        <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Cantidad</th>
-                        <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Paletas</th>
-                        <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Peso (kg)</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {summaryData.map((p, i) => {
-                        const temps = [p.temperatura1, p.temperatura2, p.temperatura3].filter((t: any) => t != null && !isNaN(t));
-                        const tempString = temps.join(' / ');
-                        return (
-                            <tr key={i} style={{ borderBottom: '1px solid #eee' }}>
-                                <td style={{ padding: '4px' }}>{p.placa}</td>
-                                <td style={{ padding: '4px' }}>{p.descripcion}</td>
-                                <td style={{ textAlign: 'right', padding: '4px' }}>{tempString}</td>
-                                <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalCantidad}</td>
-                                <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPaletas}</td>
-                                <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPeso.toFixed(2)}</td>
-                            </tr>
-                        );
-                    })}
-                    <tr style={{ fontWeight: 'bold', backgroundColor: '#f1f5f9' }}>
-                        <td colSpan={3} style={{ textAlign: 'right', padding: '6px 4px' }}>TOTALES:</td>
-                        <td style={{ textAlign: 'right', padding: '6px 4px' }}>{totalGeneralCantidad}</td>
-                        <td style={{ textAlign: 'right', padding: '6px 4px' }}>{totalGeneralPaletas}</td>
-                        <td style={{ textAlign: 'right', padding: '6px 4px' }}>{totalGeneralPeso.toFixed(2)}</td>
+        <ReportSection title="Resumen Agrupado de Productos">
+            {placaGroups.map((placaGroup, placaIndex) => (
+                <div key={`placa-summary-${placaIndex}`} style={{ marginBottom: '15px' }}>
+                    <h3 style={{ backgroundColor: '#ddebf7', padding: '6px 12px', fontWeight: 'bold', borderBottom: '1px solid #ddd', borderTop: '1px solid #aaa' }}>
+                        Placa: {placaGroup.placa} | Conductor: {placaGroup.conductor} (C.C. {placaGroup.cedulaConductor})
+                    </h3>
+                    {placaGroup.presentationGroups.map((group, groupIndex) => (
+                        <div key={`presentation-summary-${groupIndex}`} style={{ paddingLeft: '15px', marginTop: '5px' }}>
+                             <h4 style={{ padding: '4px 0', fontWeight: 'bold' }}>Presentación: {group.presentation}</h4>
+                             <table style={{ width: '100%', fontSize: '10px', borderCollapse: 'collapse' }}>
+                                <thead>
+                                    <tr style={{ borderBottom: '1px solid #ccc', backgroundColor: '#fafafa' }}>
+                                        <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Descripción</th>
+                                        <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Temp(°C)</th>
+                                        <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Paletas</th>
+                                        <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Cantidad</th>
+                                        <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Peso (kg)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {group.products.map((p: any, productIndex: number) => {
+                                         const temps = [p.temperatura1, p.temperatura2, p.temperatura3].filter((t: any) => t != null && !isNaN(t));
+                                         const tempString = temps.join(' / ');
+                                         return (
+                                            <tr key={productIndex} style={{ borderBottom: '1px solid #eee' }}>
+                                                <td style={{ padding: '4px' }}>{p.descripcion}</td>
+                                                <td style={{ textAlign: 'right', padding: '4px' }}>{tempString}</td>
+                                                <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPaletas}</td>
+                                                <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalCantidad}</td>
+                                                <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPeso.toFixed(2)}</td>
+                                            </tr>
+                                         )
+                                    })}
+                                    <tr style={{ fontWeight: 'bold', backgroundColor: '#f8f9fa' }}>
+                                        <td colSpan={2} style={{ textAlign: 'right', padding: '4px' }}>Subtotal Presentación:</td>
+                                        <td style={{ textAlign: 'right', padding: '4px' }}>{group.subTotalPaletas}</td>
+                                        <td style={{ textAlign: 'right', padding: '4px' }}>{group.subTotalCantidad}</td>
+                                        <td style={{ textAlign: 'right', padding: '4px' }}>{group.subTotalPeso.toFixed(2)}</td>
+                                    </tr>
+                                </tbody>
+                             </table>
+                        </div>
+                    ))}
+                </div>
+            ))}
+            <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse', marginTop: '15px' }}>
+                 <tbody>
+                    <tr style={{ fontWeight: 'bold', backgroundColor: '#e2e8f0', borderTop: '2px solid #aaa' }}>
+                        <td colSpan={2} style={{ textAlign: 'right', padding: '6px 4px' }}>TOTAL GENERAL:</td>
+                        <td style={{ textAlign: 'right', padding: '6px 4px', width: '100px' }}>{totalGeneralPaletas}</td>
+                        <td style={{ textAlign: 'right', padding: '6px 4px', width: '100px' }}>{totalGeneralCantidad}</td>
+                        <td style={{ textAlign: 'right', padding: '6px 4px', width: '100px' }}>{totalGeneralPeso.toFixed(2)}</td>
                     </tr>
                 </tbody>
             </table>
