@@ -140,13 +140,13 @@ const getPerformanceIndicator = (row: CrewPerformanceReportRow): { text: string,
         return { text: 'N/A', color: 'text-gray-500' };
     }
 
-    const { minutesOptimal, minutesNormal } = standard;
+    const { baseMinutesOptimal, baseMinutesNormal } = standard;
 
-    if (operationalDurationMinutes <= minutesOptimal) {
+    if (operationalDurationMinutes <= baseMinutesOptimal) {
         return { text: 'Óptimo', color: 'text-green-600' };
     }
     
-    if (operationalDurationMinutes <= minutesNormal) {
+    if (operationalDurationMinutes <= baseMinutesNormal) {
         return { text: 'Normal', color: 'text-yellow-600' };
     }
 
