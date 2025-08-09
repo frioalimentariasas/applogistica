@@ -31,7 +31,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, File, FileDown, FolderSearch, ShieldAlert, TrendingUp, Circle, Settings, ChevronsUpDown, AlertCircle, PlusCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
@@ -123,7 +123,6 @@ const formatDuration = (totalMinutes: number | null): string => {
     return `${hours}h ${Math.round(minutes)}m`;
 };
 
-// --- Corrected getPerformanceIndicator ---
 const getPerformanceIndicator = (row: CrewPerformanceReportRow): { text: string, color: string } => {
     const { operationalDurationMinutes: duracionMinutos, standard, conceptoLiquidado, kilos } = row;
     
@@ -699,4 +698,5 @@ export default function CrewPerformanceReportPage() {
         </div>
     );
 }
+
 
