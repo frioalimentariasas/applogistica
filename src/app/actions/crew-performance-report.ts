@@ -169,12 +169,10 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
         }
     }
 
-    // --- Concept: CARGUE / DESCARGUE (By Ton for GENERICO and TUNEL DE CONGELACIÓN) ---
-    const isVariableWeightGenericOrTunel = (formType.startsWith('variable-weight-')) && (formData.tipoPedido === 'GENERICO' || formData.tipoPedido === 'TUNEL DE CONGELACIÓN');
-    const isFixedWeightGeneric = (formType.startsWith('fixed-weight-')) && (formData.tipoPedido === 'GENERICO');
-    const liquidableByOperationType = formData.tipoPedido === 'TUNEL DE CONGELACIÓN';
-
-    if ((formData.aplicaCuadrilla === 'si' || liquidableByOperationType) && (isVariableWeightGenericOrTunel || isFixedWeightGeneric)) {
+    // --- Concept: CARGUE / DESCARGUE (By Ton for specific order types) ---
+    const liquidableOrderTypes = ['GENERICO', 'TUNEL DE CONGELACIÓN'];
+    
+    if (formData.aplicaCuadrilla === 'si' && liquidableOrderTypes.includes(formData.tipoPedido)) {
         const isReception = formType.includes('recepcion') || formType.includes('reception');
         const conceptName = isReception ? 'DESCARGUE' : 'CARGUE';
         const kilos = calculateTotalKilos(formType, formData);
@@ -183,11 +181,10 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
 
         if (operationConcept) {
             if (formType.startsWith('fixed-weight-') && kilos === 0) {
-                // Special case: Fixed weight with 0 gross weight, mark as pending
                 settlements.push({
                     conceptName: conceptName,
                     unitValue: 0,
-                    quantity: -1, // Use -1 as a flag for "Pending"
+                    quantity: -1, // Flag for "Pending"
                     unitOfMeasure: 'TONELADA',
                     totalValue: 0
                 });
@@ -203,6 +200,7 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
             }
         }
     }
+
 
     // --- Concept: EMPAQUE DE CAJAS / EMPAQUE DE SACOS (Maquila) ---
     if (formData.aplicaCuadrilla === 'si' && formData.tipoPedido === 'MAQUILA' && formData.tipoEmpaqueMaquila) {
