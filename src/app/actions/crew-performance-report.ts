@@ -69,6 +69,7 @@ export interface CrewPerformanceReportCriteria {
     productType?: 'fijo' | 'variable';
     clientNames?: string[];
     filterPending?: boolean;
+    cuadrillaFilter?: 'con' | 'sin' | 'todas';
 }
 
 export interface CrewPerformanceReportRow {
@@ -97,6 +98,7 @@ export interface CrewPerformanceReportRow {
     cantidadConcepto: number;
     unidadMedidaConcepto: string;
     valorTotalConcepto: number;
+    aplicaCuadrilla: string | undefined;
 }
 
 
@@ -263,43 +265,48 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         throw new Error('Se requiere un rango de fechas para generar este informe.');
     }
     
-    const submissionsRef = firestore.collection('submissions');
+    // We fetch all submissions in the date range because we might need to show all, only with crew, or only without.
+    // Filtering on Firestore would be complex and require multiple queries. This is simpler.
+    let query = firestore.collection('submissions');
     
-    const queryByCuadrilla = submissionsRef
-        .where('formData.aplicaCuadrilla', '==', 'si');
+    const serverStartDate = new Date(criteria.startDate);
+    const serverEndDate = new Date(criteria.endDate);
+    serverEndDate.setDate(serverEndDate.getDate() + 1); // To include the whole end day
+    
+    query = query.where('createdAt', '>=', serverStartDate.toISOString().split('T')[0])
+                 .where('createdAt', '<', serverEndDate.toISOString().split('T')[0]);
 
-    const queryByTunel = submissionsRef
-        .where('formData.tipoPedido', '==', 'TUNEL A CÁMARA CONGELADOS');
-    
+
     try {
-        const [cuadrillaSnapshot, tunelSnapshot, billingConcepts] = await Promise.all([
-            queryByCuadrilla.get(),
-            queryByTunel.get(),
+        const [submissionsSnapshot, billingConcepts] = await Promise.all([
+            query.get(),
             getBillingConcepts()
         ]);
         
-        const combinedResults = new Map<string, any>();
-        cuadrillaSnapshot.docs.forEach(doc => combinedResults.set(doc.id, { id: doc.id, ...serializeTimestamps(doc.data()) }));
-        tunelSnapshot.docs.forEach(doc => combinedResults.set(doc.id, { id: doc.id, ...serializeTimestamps(doc.data()) }));
-
-        const allResults = Array.from(combinedResults.values());
+        let allResultsInDateRange = submissionsSnapshot.docs.map(doc => ({ id: doc.id, ...serializeTimestamps(doc.data()) }));
         
-        let filteredResults = allResults.filter(submission => {
+        // Filter by the precise local date part first.
+        allResultsInDateRange = allResultsInDateRange.filter(submission => {
             const formIsoDate = submission.formData?.fecha;
-            if (!formIsoDate || typeof formIsoDate !== 'string') {
-                return false;
-            }
+            if (!formIsoDate || typeof formIsoDate !== 'string') return false;
             const formDatePart = getLocalGroupingDate(formIsoDate);
             return formDatePart >= criteria.startDate! && formDatePart <= criteria.endDate!;
         });
 
         if (criteria.operario) {
-            filteredResults = filteredResults.filter(sub => sub.userDisplayName === criteria.operario);
+            allResultsInDateRange = allResultsInDateRange.filter(sub => sub.userDisplayName === criteria.operario);
+        }
+
+        // Filter by "cuadrillaFilter"
+        if (criteria.cuadrillaFilter === 'con') {
+            allResultsInDateRange = allResultsInDateRange.filter(sub => sub.formData.aplicaCuadrilla === 'si' || sub.formData.tipoPedido === 'TUNEL A CÁMARA CONGELADOS');
+        } else if (criteria.cuadrillaFilter === 'sin') {
+            allResultsInDateRange = allResultsInDateRange.filter(sub => sub.formData.aplicaCuadrilla !== 'si' && sub.formData.tipoPedido !== 'TUNEL A CÁMARA CONGELADOS');
         }
 
         const finalReportRows: CrewPerformanceReportRow[] = [];
 
-        for (const submission of filteredResults) {
+        for (const submission of allResultsInDateRange) {
             const { id, formType, formData, userDisplayName } = submission;
 
             let tipoOperacion: 'Recepción' | 'Despacho' | 'N/A' = 'N/A';
@@ -326,24 +333,25 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             const toneladas = Number((kilos / 1000).toFixed(2));
             const clientName = formData.nombreCliente || formData.cliente;
 
-            const standard = await findBestMatchingStandard({
+            const isCrewOperation = formData.aplicaCuadrilla === 'si' || formData.tipoPedido === 'TUNEL A CÁMARA CONGELADOS';
+            
+            const standard = isCrewOperation ? await findBestMatchingStandard({
               clientName: clientName,
               operationType: operationTypeForAction,
               productType: productTypeForAction,
               tons: toneladas,
-              tipoPedido: formData.tipoPedido,
-            });
+            }) : null;
             
-            const settlements = calculateSettlements(submission, billingConcepts);
+            const settlements = isCrewOperation ? calculateSettlements(submission, billingConcepts) : [];
             const novelties = await getNoveltiesForOperation(id);
             const totalDuration = calculateDuration(formData.horaInicio, formData.horaFin);
+            
             const downtimeMinutes = novelties
                 .filter(n => n.impactsCrewProductivity === true)
                 .reduce((sum, n) => sum + n.downtimeMinutes, 0);
             
             const operationalDuration = totalDuration !== null ? totalDuration - downtimeMinutes : null;
 
-            
             if (settlements.length > 0) {
                 for (const settlement of settlements) {
                     finalReportRows.push({
@@ -372,8 +380,39 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                         cantidadConcepto: settlement.quantity,
                         unidadMedidaConcepto: settlement.unitOfMeasure,
                         valorTotalConcepto: settlement.totalValue,
+                        aplicaCuadrilla: formData.aplicaCuadrilla,
                     });
                 }
+            } else {
+                 // Add operations without a settlement concept if filter is 'all' or 'without crew'
+                 finalReportRows.push({
+                    id: id,
+                    submissionId: id,
+                    formType,
+                    fecha: formData.fecha,
+                    operario: userDisplayName || 'N/A',
+                    cliente: clientName || 'N/A',
+                    tipoOperacion,
+                    tipoProducto,
+                    kilos: kilos,
+                    horaInicio: formData.horaInicio || 'N/A',
+                    horaFin: formData.horaFin || 'N/A',
+                    totalDurationMinutes: totalDuration,
+                    operationalDurationMinutes: operationalDuration,
+                    novelties: novelties,
+                    pedidoSislog: formData.pedidoSislog || 'N/A',
+                    placa: formData.placa || 'N/A',
+                    contenedor: formData.contenedor || 'N/A',
+                    productType: productTypeForAction,
+                    standard: null,
+                    description: "No aplica",
+                    conceptoLiquidado: 'No Aplica',
+                    valorUnitario: 0,
+                    cantidadConcepto: 0,
+                    unidadMedidaConcepto: 'N/A',
+                    valorTotalConcepto: 0,
+                    aplicaCuadrilla: formData.aplicaCuadrilla,
+                });
             }
         }
         
@@ -402,5 +441,3 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         throw error;
     }
 }
-
-    

@@ -46,7 +46,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 const noveltySchema = z.object({
     type: z.string().min(1, "Debe seleccionar o ingresar un tipo de novedad."),
     downtimeMinutes: z.coerce.number({invalid_type_error: "Debe ser un número"}).int("Debe ser un número entero.").min(1, "Los minutos deben ser mayores a 0."),
-    impactsCrewProductivity: z.boolean().default(false),
+    impactsCrewProductivity: z.boolean().default(true),
 });
 
 type NoveltyFormValues = z.infer<typeof noveltySchema>;
@@ -59,7 +59,7 @@ const EmptyState = ({ searched }: { searched: boolean; }) => (
                     <FolderSearch className="h-12 w-12 text-primary" />
                 </div>
                 <h3 className="text-xl font-semibold">
-                    {searched ? "No se encontraron operaciones de cuadrilla" : "Genere un reporte"}
+                    {searched ? "No se encontraron operaciones" : "Genere un reporte"}
                 </h3>
                 <p className="text-muted-foreground">
                     {searched ? "No hay datos para los filtros seleccionados." : "Seleccione los filtros para ver el informe."}
@@ -130,7 +130,7 @@ const formatDuration = (totalMinutes: number | null): string => {
 const getPerformanceIndicator = (row: CrewPerformanceReportRow): { text: string, color: string } => {
     const { operationalDurationMinutes, standard, conceptoLiquidado, kilos } = row;
     
-    if (conceptoLiquidado !== 'CARGUE' && conceptoLiquidado !== 'DESCARGUE') {
+    if (row.aplicaCuadrilla !== 'si' && row.conceptoLiquidado === 'No Aplica') {
         return { text: 'No Aplica', color: 'text-gray-500' };
     }
 
@@ -173,6 +173,7 @@ export default function CrewPerformanceReportPage() {
     const [availableOperarios, setAvailableOperarios] = useState<string[]>([]);
     const [operationType, setOperationType] = useState<string>('all');
     const [productType, setProductType] = useState<string>('all');
+    const [cuadrillaFilter, setCuadrillaFilter] = useState<'con' | 'sin' | 'todas'>('todas');
     
     const [clients, setClients] = useState<ClientInfo[]>([]);
     const [selectedClients, setSelectedClients] = useState<string[]>([]);
@@ -306,6 +307,7 @@ export default function CrewPerformanceReportPage() {
                 productType: productType === 'all' ? undefined : productType as 'fijo' | 'variable',
                 clientNames: selectedClients.length > 0 ? selectedClients : undefined,
                 filterPending: filterPending,
+                cuadrillaFilter: cuadrillaFilter,
             };
 
             const results = await getCrewPerformanceReport(criteria);
@@ -315,7 +317,7 @@ export default function CrewPerformanceReportPage() {
             if (results.length === 0) {
                  toast({
                     title: "Sin resultados",
-                    description: "No se encontraron operaciones de cuadrilla para los filtros seleccionados.",
+                    description: "No se encontraron operaciones para los filtros seleccionados.",
                 });
             }
         } catch (error: any) {
@@ -331,13 +333,14 @@ export default function CrewPerformanceReportPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [dateRange, selectedOperario, operationType, productType, selectedClients, filterPending, toast]);
+    }, [dateRange, selectedOperario, operationType, productType, selectedClients, filterPending, cuadrillaFilter, toast]);
     
     const handleClear = () => {
         setDateRange(undefined);
         setSelectedOperario('all');
         setOperationType('all');
         setProductType('all');
+        setCuadrillaFilter('todas');
         setSelectedClients([]);
         setFilterPending(false);
         setFilterLento(false);
@@ -414,6 +417,7 @@ export default function CrewPerformanceReportPage() {
         
         const summary = reportData.reduce((acc, row) => {
             const { conceptoLiquidado, cantidadConcepto, valorUnitario, valorTotalConcepto, unidadMedidaConcepto } = row;
+            if (conceptoLiquidado === 'No Aplica') return acc;
             if (!acc[conceptoLiquidado]) {
                 const firstValidEntry = reportData.find(r => r.conceptoLiquidado === conceptoLiquidado && r.valorUnitario > 0);
                 acc[conceptoLiquidado] = {
@@ -450,7 +454,7 @@ export default function CrewPerformanceReportPage() {
         // --- Sheet 1: Detalle Liquidación ---
         const mainDataToSheet = reportData.map(row => {
             const indicator = getPerformanceIndicator(row);
-            const isPending = row.productType === 'fijo' && row.kilos === 0;
+            const isPending = row.productType === 'fijo' && row.kilos === 0 && row.aplicaCuadrilla === 'si';
             return {
                 'Fecha': format(new Date(row.fecha), 'dd/MM/yyyy'),
                 'Operario Responsable': row.operario,
@@ -687,17 +691,18 @@ export default function CrewPerformanceReportPage() {
                              <div className="space-y-2"><Label>Operario</Label><Select value={selectedOperario} onValueChange={setSelectedOperario} disabled={isLoadingOperarios}><SelectTrigger><SelectValue placeholder="Seleccione un operario" /></SelectTrigger><SelectContent><SelectItem value="all">Todos los Operarios</SelectItem>{availableOperarios.map(op => <SelectItem key={op} value={op}>{op}</SelectItem>)}</SelectContent></Select></div>
                              <div className="space-y-2"><Label>Tipo de Operación</Label><Select value={operationType} onValueChange={setOperationType}><SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="recepcion">Recepción</SelectItem><SelectItem value="despacho">Despacho</SelectItem></SelectContent></Select></div>
                             <div className="space-y-2"><Label>Tipo de Producto</Label><Select value={productType} onValueChange={setProductType}><SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="fijo">Peso Fijo</SelectItem><SelectItem value="variable">Peso Variable</SelectItem></SelectContent></Select></div>
+                            <div className="space-y-2"><Label>Operaciones de Cuadrilla</Label><Select value={cuadrillaFilter} onValueChange={setCuadrillaFilter as (value: 'con' | 'sin' | 'todas') => void}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="todas">Todas las Operaciones</SelectItem><SelectItem value="con">Solo con Cuadrilla</SelectItem><SelectItem value="sin">Solo sin Cuadrilla</SelectItem></SelectContent></Select></div>
                             <div className="flex flex-col gap-2 self-end">
                                 <div className="flex items-center space-x-2"><Checkbox id="filter-pending" checked={filterPending} onCheckedChange={(checked) => setFilterPending(checked as boolean)} /><Label htmlFor="filter-pending" className="cursor-pointer text-sm">Mostrar solo pendientes P. Bruto</Label></div>
                                 <div className="flex items-center space-x-2"><Checkbox id="filter-lento" checked={filterLento} onCheckedChange={(checked) => setFilterLento(checked as boolean)} /><Label htmlFor="filter-lento" className="cursor-pointer text-sm">Mostrar solo "Lento"</Label></div>
                             </div>
-                            <div className="flex gap-2 xl:col-start-4"><Button onClick={handleSearch} className="w-full" disabled={isLoading}>{isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}Generar</Button><Button onClick={handleClear} variant="outline" className="w-full"><XCircle className="mr-2 h-4 w-4" />Limpiar</Button></div>
+                            <div className="flex gap-2"><Button onClick={handleSearch} className="w-full" disabled={isLoading}>{isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}Generar</Button><Button onClick={handleClear} variant="outline" className="w-full"><XCircle className="mr-2 h-4 w-4" />Limpiar</Button></div>
                         </div>
                     </CardContent>
                 </Card>
 
                  <Card className="mt-6">
-                    <CardHeader><div className="flex justify-between items-center flex-wrap gap-4"><div><CardTitle>Resultados del Informe de Cuadrilla</CardTitle><CardDescription>{isLoading ? "Cargando resultados..." : `Mostrando ${filteredReportData.length} conceptos liquidados.`}</CardDescription></div><div className="flex gap-2"><Button onClick={handleExportExcel} disabled={isLoading || reportData.length === 0} variant="outline"><File className="mr-2 h-4 w-4" /> Exportar a Excel</Button><Button onClick={handleExportPDF} disabled={isLoading || reportData.length === 0 || isLogoLoading} variant="outline">{isLogoLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />} Exportar a PDF</Button></div></div></CardHeader>
+                    <CardHeader><div className="flex justify-between items-center flex-wrap gap-4"><div><CardTitle>Resultados del Informe</CardTitle><CardDescription>{isLoading ? "Cargando resultados..." : `Mostrando ${filteredReportData.length} operaciones.`}</CardDescription></div><div className="flex gap-2"><Button onClick={handleExportExcel} disabled={isLoading || reportData.length === 0} variant="outline"><File className="mr-2 h-4 w-4" /> Exportar a Excel</Button><Button onClick={handleExportPDF} disabled={isLoading || reportData.length === 0 || isLogoLoading} variant="outline">{isLogoLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />} Exportar a PDF</Button></div></div></CardHeader>
                     <CardContent>
                         <div className="w-full overflow-x-auto rounded-md border">
                             <Table><TableHeader><TableRow><TableHead>Fecha</TableHead><TableHead>Operario</TableHead><TableHead>Cliente</TableHead><TableHead>Tipo Op.</TableHead><TableHead>Pedido</TableHead><TableHead>Placa</TableHead><TableHead>Cant.</TableHead><TableHead>Dur. Total</TableHead><TableHead>T. Operativo</TableHead><TableHead>Novedades</TableHead><TableHead>Productividad</TableHead><TableHead>Concepto</TableHead><TableHead>Vlr. Unitario</TableHead><TableHead>Vlr. Total</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader>
@@ -705,12 +710,12 @@ export default function CrewPerformanceReportPage() {
                                     {isLoading ? (<TableRow><TableCell colSpan={15}><Skeleton className="h-20 w-full" /></TableCell></TableRow>) : displayedData.length > 0 ? (
                                         displayedData.map((row) => {
                                             const indicator = getPerformanceIndicator(row);
-                                            const isPending = row.productType === 'fijo' && row.kilos === 0;
+                                            const isPending = row.productType === 'fijo' && row.kilos === 0 && row.aplicaCuadrilla === 'si';
                                             return (
                                                 <TableRow key={row.id}>
                                                     <TableCell className="text-xs">{format(new Date(row.fecha), 'dd/MM/yy')}</TableCell><TableCell className="text-xs">{row.operario}</TableCell><TableCell className="text-xs max-w-[150px] truncate" title={row.cliente}>{row.cliente}</TableCell>
                                                     <TableCell className="text-xs">{row.tipoOperacion}</TableCell><TableCell className="text-xs">{row.pedidoSislog}</TableCell><TableCell className="text-xs">{row.placa}</TableCell>
-                                                    <TableCell className="text-xs text-right font-mono">{isPending ? 'Pendiente' : `${row.cantidadConcepto.toFixed(2)}`}</TableCell><TableCell className="text-xs text-right font-medium">{formatDuration(row.totalDurationMinutes)}</TableCell><TableCell className="text-xs text-right font-medium">{formatDuration(row.operationalDurationMinutes)}</TableCell>
+                                                    <TableCell className="text-xs text-right font-mono">{isPending ? 'Pendiente' : `${row.cantidadConcepto > 0 ? row.cantidadConcepto.toFixed(2) : 'N/A'}`}</TableCell><TableCell className="text-xs text-right font-medium">{formatDuration(row.totalDurationMinutes)}</TableCell><TableCell className="text-xs text-right font-medium">{formatDuration(row.operationalDurationMinutes)}</TableCell>
                                                     <TableCell className="text-xs max-w-[150px]">
                                                         <div className="flex flex-wrap gap-1">
                                                             {row.novelties.map(n => (
@@ -722,7 +727,7 @@ export default function CrewPerformanceReportPage() {
                                                         </div>
                                                     </TableCell>
                                                     <TableCell className={cn("text-xs text-right font-semibold", indicator.color)}><div className="flex items-center justify-end gap-1.5"><Circle className={cn("h-2 w-2", indicator.color.replace('text-', 'bg-'))} />{indicator.text}</div></TableCell>
-                                                    <TableCell className="text-xs font-semibold">{row.conceptoLiquidado}</TableCell><TableCell className="text-xs text-right font-mono">{isPending ? 'N/A' : row.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 })}</TableCell><TableCell className="text-xs text-right font-mono">{isPending ? 'N/A' : row.valorTotalConcepto.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell>
+                                                    <TableCell className="text-xs font-semibold">{row.conceptoLiquidado}</TableCell><TableCell className="text-xs text-right font-mono">{isPending || row.valorUnitario === 0 ? 'N/A' : row.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 })}</TableCell><TableCell className="text-xs text-right font-mono">{isPending || row.valorTotalConcepto === 0 ? 'N/A' : row.valorTotalConcepto.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell>
                                                     <TableCell className="text-right">
                                                         {indicator.text === 'Lento' && (
                                                             <Button variant="outline" size="sm" onClick={() => handleOpenNoveltyDialog(row)}>
@@ -738,7 +743,7 @@ export default function CrewPerformanceReportPage() {
                             </Table>
                         </div>
                          <div className="flex items-center justify-between space-x-2 py-4">
-                            <div className="flex-1 text-sm text-muted-foreground">{filteredReportData.length} conceptos liquidados en total.</div>
+                            <div className="flex-1 text-sm text-muted-foreground">{filteredReportData.length} operaciones mostradas.</div>
                             <div className="flex items-center space-x-2"><p className="text-sm font-medium">Filas por página</p><Select value={`${itemsPerPage}`} onValueChange={(value) => { setItemsPerPage(Number(value)); setCurrentPage(1); }}><SelectTrigger className="h-8 w-[70px]"><SelectValue placeholder={itemsPerPage} /></SelectTrigger><SelectContent side="top">{[10, 20, 50, 100].map((pageSize) => (<SelectItem key={pageSize} value={`${pageSize}`}>{pageSize}</SelectItem>))}</SelectContent></Select></div>
                             <div className="flex w-[100px] items-center justify-center text-sm font-medium">Página {currentPage} de {totalPages}</div>
                             <div className="flex items-center space-x-2"><Button variant="outline" size="sm" onClick={() => setCurrentPage((prev) => prev - 1)} disabled={currentPage === 1}>Anterior</Button><Button variant="outline" size="sm" onClick={() => setCurrentPage((prev) => prev + 1)} disabled={currentPage === totalPages || totalPages === 0}>Siguiente</Button></div>
