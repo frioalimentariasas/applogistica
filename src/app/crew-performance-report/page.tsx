@@ -21,6 +21,7 @@ import { getAvailableOperarios } from '@/app/actions/performance-report';
 import { getClients, type ClientInfo } from '@/app/actions/clients';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
+import type { PerformanceStandard } from '@/app/actions/standard-actions';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -122,36 +123,39 @@ const formatDuration = (totalMinutes: number | null): string => {
     return `${hours}h ${Math.round(minutes)}m`;
 };
 
+// --- Corrected getPerformanceIndicator ---
 const getPerformanceIndicator = (row: CrewPerformanceReportRow): { text: string, color: string } => {
-    const { operationalDurationMinutes, kilos, standard, conceptoLiquidado, cantidadConcepto } = row;
-
-    if (cantidadConcepto === -1 && (conceptoLiquidado === 'CARGUE' || conceptoLiquidado === 'DESCARGUE')) {
-        return { text: 'Pendiente (P. Bruto)', color: 'text-orange-600' };
-    }
-
+    const { operationalDurationMinutes, standard, conceptoLiquidado, kilos } = row;
+    
     if (conceptoLiquidado !== 'CARGUE' && conceptoLiquidado !== 'DESCARGUE') {
         return { text: 'No Aplica', color: 'text-gray-500' };
     }
 
-    if (kilos === 0 || operationalDurationMinutes === null || operationalDurationMinutes < 0) {
+    if (row.productType === 'fijo' && kilos === 0) {
+        return { text: 'Pendiente (P. Bruto)', color: 'text-orange-600' };
+    }
+
+    if (operationalDurationMinutes === null || operationalDurationMinutes < 0) {
         return { text: 'No Calculado', color: 'text-gray-500' };
     }
+
     if (!standard) {
         return { text: 'N/A', color: 'text-gray-500' };
     }
 
-    const { baseMinutesOptimal, baseMinutesNormal } = standard;
+    const { baseMinutes } = standard;
 
-    if (operationalDurationMinutes <= baseMinutesOptimal) {
+    if (operationalDurationMinutes < baseMinutes) {
         return { text: 'Óptimo', color: 'text-green-600' };
     }
     
-    if (operationalDurationMinutes <= baseMinutesNormal) {
+    if (operationalDurationMinutes <= baseMinutes + 10) {
         return { text: 'Normal', color: 'text-yellow-600' };
     }
 
     return { text: 'Lento', color: 'text-red-600' };
 };
+
 
 export default function CrewPerformanceReportPage() {
     const router = useRouter();
@@ -324,6 +328,7 @@ export default function CrewPerformanceReportPage() {
             'Lento': { count: 0 },
             'Pendiente (P. Bruto)': { count: 0 },
             'No Calculado': { count: 0 },
+            'N/A': { count: 0 }
         };
 
         cargaDescargaData.forEach(row => {
@@ -334,7 +339,7 @@ export default function CrewPerformanceReportPage() {
         });
         
         const totalEvaluableOperations = Object.entries(summary).reduce((acc, [key, value]) => {
-            return (key !== 'No Calculado' && key !== 'Pendiente (P. Bruto)') ? acc + value.count : acc;
+            return (key !== 'No Calculado' && key !== 'Pendiente (P. Bruto)' && key !== 'N/A') ? acc + value.count : acc;
         }, 0);
 
         if (totalEvaluableOperations === 0) {
@@ -379,7 +384,7 @@ export default function CrewPerformanceReportPage() {
                     valorUnitario: firstValidEntry ? firstValidEntry.valorUnitario : 0, 
                 };
             }
-            if (cantidadConcepto !== -1) { // Exclude pending
+            if (row.productType !== 'fijo' || (row.productType === 'fijo' && row.kilos > 0)) {
                  acc[conceptoLiquidado].totalCantidad += cantidadConcepto;
                  acc[conceptoLiquidado].totalValor += valorTotalConcepto;
             }
@@ -406,7 +411,7 @@ export default function CrewPerformanceReportPage() {
         // --- Sheet 1: Detalle Liquidación ---
         const mainDataToSheet = reportData.map(row => {
             const indicator = getPerformanceIndicator(row);
-            const isPending = row.cantidadConcepto === -1;
+            const isPending = row.productType === 'fijo' && row.kilos === 0;
             return {
                 'Fecha': format(new Date(row.fecha), 'dd/MM/yyyy'),
                 'Operario Responsable': row.operario,
@@ -433,7 +438,7 @@ export default function CrewPerformanceReportPage() {
         XLSX.utils.book_append_sheet(workbook, mainWorksheet, 'Detalle Liquidación');
 
         if (performanceSummary) {
-            const evaluableOps = (performanceSummary.totalOperations || 0) - (performanceSummary.summary['Pendiente (P. Bruto)']?.count || 0) - (performanceSummary.summary['No Calculado']?.count || 0);
+            const evaluableOps = (performanceSummary.totalOperations || 0) - (performanceSummary.summary['Pendiente (P. Bruto)']?.count || 0) - (performanceSummary.summary['No Calculado']?.count || 0) - (performanceSummary.summary['N/A']?.count || 0);
             
             const performanceData = [
                 ['Resumen de Productividad (Cargue/Descargue)'], [],
@@ -629,7 +634,7 @@ export default function CrewPerformanceReportPage() {
                                     {isLoading ? (<TableRow><TableCell colSpan={15}><Skeleton className="h-20 w-full" /></TableCell></TableRow>) : displayedData.length > 0 ? (
                                         displayedData.map((row) => {
                                             const indicator = getPerformanceIndicator(row);
-                                            const isPending = row.cantidadConcepto === -1;
+                                            const isPending = row.productType === 'fijo' && row.kilos === 0;
                                             return (
                                                 <TableRow key={row.id}>
                                                     <TableCell className="text-xs">{format(new Date(row.fecha), 'dd/MM/yy')}</TableCell><TableCell className="text-xs">{row.operario}</TableCell><TableCell className="text-xs max-w-[150px] truncate" title={row.cliente}>{row.cliente}</TableCell>
