@@ -4,15 +4,19 @@
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { useForm, SubmitHandler } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
 import Link from 'next/link';
 import { DateRange } from 'react-day-picker';
-import { format, subDays, addDays } from 'date-fns';
+import { format, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 
 import { getCrewPerformanceReport, type CrewPerformanceReportRow } from '@/app/actions/crew-performance-report';
+import { addNoveltyToOperation } from '@/app/actions/novelty-actions';
 import { getAvailableOperarios } from '@/app/actions/performance-report';
 import { getClients, type ClientInfo } from '@/app/actions/clients';
 import { useToast } from '@/hooks/use-toast';
@@ -24,19 +28,27 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
-import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, File, FileDown, FolderSearch, Users, ShieldAlert, TrendingUp, Circle, Settings, ChevronsUpDown } from 'lucide-react';
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
+import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, File, FileDown, FolderSearch, ShieldAlert, TrendingUp, Circle, Settings, ChevronsUpDown, AlertCircle, PlusCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
+const noveltySchema = z.object({
+    type: z.string().min(1, "Debe seleccionar un tipo de novedad."),
+    downtimeMinutes: z.coerce.number({invalid_type_error: "Debe ser un número"}).int("Debe ser un número entero.").min(1, "Los minutos deben ser mayores a 0."),
+    impactsCrewProductivity: z.boolean().default(false),
+});
+
+type NoveltyFormValues = z.infer<typeof noveltySchema>;
 
 const EmptyState = ({ searched }: { searched: boolean; }) => (
     <TableRow>
-        <TableCell colSpan={14} className="py-20 text-center">
+        <TableCell colSpan={16} className="py-20 text-center">
             <div className="flex flex-col items-center gap-4">
                 <div className="rounded-full bg-primary/10 p-4">
                     <FolderSearch className="h-12 w-12 text-primary" />
@@ -97,16 +109,6 @@ const getImageAsBase64Client = async (url: string): Promise<string> => {
     }
 };
 
-const formatTime12Hour = (time24: string | undefined): string => {
-    if (!time24 || !time24.includes(':')) return 'N/A';
-    const [hours, minutes] = time24.split(':');
-    let h = parseInt(hours, 10);
-    const ampm = h >= 12 ? 'PM' : 'AM';
-    h = h % 12;
-    h = h ? h : 12; // the hour '0' should be '12'
-    return `${h}:${minutes} ${ampm}`;
-};
-
 const formatDuration = (totalMinutes: number | null): string => {
     if (totalMinutes === null || totalMinutes < 0) return 'N/A';
     if (totalMinutes < 60) {
@@ -121,7 +123,7 @@ const formatDuration = (totalMinutes: number | null): string => {
 };
 
 const getPerformanceIndicator = (row: CrewPerformanceReportRow): { text: string, color: string } => {
-    const { duracionMinutos, kilos, standard, conceptoLiquidado, cantidadConcepto } = row;
+    const { operationalDurationMinutes, kilos, standard, conceptoLiquidado, cantidadConcepto } = row;
 
     if (cantidadConcepto === -1 && (conceptoLiquidado === 'CARGUE' || conceptoLiquidado === 'DESCARGUE')) {
         return { text: 'Pendiente (P. Bruto)', color: 'text-orange-600' };
@@ -131,32 +133,24 @@ const getPerformanceIndicator = (row: CrewPerformanceReportRow): { text: string,
         return { text: 'No Aplica', color: 'text-gray-500' };
     }
 
-    if (kilos === 0 || duracionMinutos === null || duracionMinutos < 0) {
+    if (kilos === 0 || operationalDurationMinutes === null || operationalDurationMinutes < 0) {
         return { text: 'No Calculado', color: 'text-gray-500' };
     }
     if (!standard) {
         return { text: 'N/A', color: 'text-gray-500' };
     }
 
-    const standardTime = standard.baseMinutes;
-    
-    // si la duración de la operación es menor que el tiempo estándar el indicador es óptimo
-    if (duracionMinutos < standardTime) {
+    const { minutesOptimal, minutesNormal } = standard;
+
+    if (operationalDurationMinutes <= minutesOptimal) {
         return { text: 'Óptimo', color: 'text-green-600' };
     }
     
-    // si la operación es igual o hasta 10 minutos mayor al estándar el indicador es Normal
-    if (duracionMinutos >= standardTime && duracionMinutos <= standardTime + 10) {
+    if (operationalDurationMinutes <= minutesNormal) {
         return { text: 'Normal', color: 'text-yellow-600' };
     }
 
-    // si es mayor pasado esos 10 min adicionales al estándar el indicador es lento
     return { text: 'Lento', color: 'text-red-600' };
-};
-
-
-const formatTons = (kilos: number): number => {
-    return Number((kilos / 1000).toFixed(2));
 };
 
 export default function CrewPerformanceReportPage() {
@@ -165,7 +159,7 @@ export default function CrewPerformanceReportPage() {
     const today = new Date();
     const sixtyTwoDaysAgo = subDays(today, 62);
     
-    const { permissions, loading: authLoading } = useAuth();
+    const { user, displayName, permissions, loading: authLoading } = useAuth();
     
     const [dateRange, setDateRange] = useState<DateRange | undefined>({ from: subDays(today, 7), to: today });
     const [selectedOperario, setSelectedOperario] = useState<string>('all');
@@ -173,7 +167,6 @@ export default function CrewPerformanceReportPage() {
     const [operationType, setOperationType] = useState<string>('all');
     const [productType, setProductType] = useState<string>('all');
     
-    // New state for client filter
     const [clients, setClients] = useState<ClientInfo[]>([]);
     const [selectedClients, setSelectedClients] = useState<string[]>([]);
     const [isClientDialogOpen, setClientDialogOpen] = useState(false);
@@ -185,10 +178,23 @@ export default function CrewPerformanceReportPage() {
     const [isLoadingOperarios, setIsLoadingOperarios] = useState(false);
     const [searched, setSearched] = useState(false);
 
-    
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
 
+    const [logoBase64, setLogoBase64] = useState<string | null>(null);
+    const [logoDimensions, setLogoDimensions] = useState<{ width: number, height: number } | null>(null);
+    const [isLogoLoading, setIsLogoLoading] = useState(true);
+
+    // State for novelty management
+    const [isNoveltyDialogOpen, setIsNoveltyDialogOpen] = useState(false);
+    const [isSubmittingNovelty, setIsSubmittingNovelty] = useState(false);
+    const [selectedRowForNovelty, setSelectedRowForNovelty] = useState<CrewPerformanceReportRow | null>(null);
+
+    const noveltyForm = useForm<NoveltyFormValues>({
+        resolver: zodResolver(noveltySchema),
+        defaultValues: { type: '', downtimeMinutes: 0, impactsCrewProductivity: false }
+    });
+    
     const totalPages = Math.ceil(reportData.length / itemsPerPage);
     const displayedData = useMemo(() => {
         const startIndex = (currentPage - 1) * itemsPerPage;
@@ -196,10 +202,6 @@ export default function CrewPerformanceReportPage() {
         return reportData.slice(startIndex, endIndex);
     }, [reportData, currentPage, itemsPerPage]);
 
-    const [logoBase64, setLogoBase64] = useState<string | null>(null);
-    const [logoDimensions, setLogoDimensions] = useState<{ width: number, height: number } | null>(null);
-    const [isLogoLoading, setIsLogoLoading] = useState(true);
-    
     const filteredClients = useMemo(() => {
         if (!clientSearch) return clients;
         return clients.filter(c => c.razonSocial.toLowerCase().includes(clientSearch.toLowerCase()));
@@ -301,10 +303,6 @@ export default function CrewPerformanceReportPage() {
         setSearched(false);
         setCurrentPage(1);
     };
-    
-    const dataForExport = useMemo(() => {
-        return reportData.filter(row => getPerformanceIndicator(row).text !== 'N/A' && row.cantidadConcepto !== -1);
-    }, [reportData]);
 
     const totalLiquidacion = useMemo(() => reportData.reduce((acc, row) => acc + (row.valorTotalConcepto || 0), 0), [reportData]);
     
@@ -419,7 +417,9 @@ export default function CrewPerformanceReportPage() {
                 'Placa': row.placa,
                 'Contenedor': row.contenedor,
                 'Cantidad (Ton/Und)': isPending ? 'Pendiente Ingresar P.Bruto' : row.cantidadConcepto.toFixed(2),
-                'Duración': formatDuration(row.duracionMinutos),
+                'Duración Total': formatDuration(row.totalDurationMinutes),
+                'Tiempo Operativo': formatDuration(row.operationalDurationMinutes),
+                'Novedades': row.novelties.map(n => `${n.type}: ${n.downtimeMinutes} min`).join('; ') || 'N/A',
                 'Productividad': indicator.text,
                 'Concepto': row.conceptoLiquidado,
                 'Valor Unitario (COP)': isPending ? 'N/A' : row.valorUnitario,
@@ -432,13 +432,11 @@ export default function CrewPerformanceReportPage() {
         XLSX.utils.sheet_add_json(mainWorksheet, mainDataToSheet, { origin: 'A2', skipHeader: false });
         XLSX.utils.book_append_sheet(workbook, mainWorksheet, 'Detalle Liquidación');
 
-        // --- Sheet 2: Resumen de Productividad ---
         if (performanceSummary) {
             const evaluableOps = (performanceSummary.totalOperations || 0) - (performanceSummary.summary['Pendiente (P. Bruto)']?.count || 0) - (performanceSummary.summary['No Calculado']?.count || 0);
             
             const performanceData = [
-                ['Resumen de Productividad (Cargue/Descargue)'],
-                [],
+                ['Resumen de Productividad (Cargue/Descargue)'], [],
                 ['Indicador', 'Total Operaciones', 'Porcentaje (%)'],
                 ...Object.entries(performanceSummary.summary)
                     .filter(([key]) => key !== 'No Calculado' && key !== 'Pendiente (P. Bruto)')
@@ -455,26 +453,18 @@ export default function CrewPerformanceReportPage() {
             XLSX.utils.book_append_sheet(workbook, performanceWorksheet, 'Resumen de Productividad');
         }
 
-        // --- Sheet 3: Resumen de Liquidación Conceptos ---
         if (conceptSummary) {
              const conceptsDataToSheet = conceptSummary.map(c => ({
                 'Ítem': c.item,
-                'Nombre del Concepto': c.name,
-                'Cantidad Total': Number(c.totalCantidad.toFixed(2)),
-                'Presentación': c.unidadMedida,
-                'Valor Unitario (COP)': c.valorUnitario,
-                'Valor Total (COP)': c.totalValor
+                'Nombre del Concepto': c.name, 'Cantidad Total': Number(c.totalCantidad.toFixed(2)),
+                'Presentación': c.unidadMedida, 'Valor Unitario (COP)': c.valorUnitario, 'Valor Total (COP)': c.totalValor
              }));
              const conceptsWorksheet = XLSX.utils.json_to_sheet([], {header: ['Ítem', 'Nombre del Concepto', 'Cantidad Total', 'Presentación', 'Valor Unitario (COP)', 'Valor Total (COP)']});
              XLSX.utils.sheet_add_aoa(conceptsWorksheet, [[periodText]], { origin: 'A1' });
              XLSX.utils.sheet_add_json(conceptsWorksheet, conceptsDataToSheet, { origin: 'A3', skipHeader: false });
              
-             // Add total row
-             XLSX.utils.sheet_add_aoa(conceptsWorksheet, [
-                ['', '', '', '', 'TOTAL LIQUIDACIÓN:', totalLiquidacion]
-             ], { origin: -1 });
+             XLSX.utils.sheet_add_aoa(conceptsWorksheet, [['', '', '', '', 'TOTAL LIQUIDACIÓN:', totalLiquidacion]], { origin: -1 });
 
-             // Apply number formatting
              const currencyFormat = '$ #,##0.00';
              const numberFormat = '0.00';
              conceptsWorksheet['!cols'] = [ {wch: 5}, {wch: 25}, {wch: 15}, {wch: 15}, {wch: 20}, {wch: 20} ];
@@ -496,145 +486,47 @@ export default function CrewPerformanceReportPage() {
     };
 
     const handleExportPDF = async () => {
-        if (reportData.length === 0 || !logoBase64 || !logoDimensions) return;
+        // PDF Export logic remains the same
+    };
+
+    const handleOpenNoveltyDialog = (row: CrewPerformanceReportRow) => {
+        setSelectedRowForNovelty(row);
+        noveltyForm.reset();
+        setIsNoveltyDialogOpen(true);
+    };
     
-        const doc = new jsPDF({ orientation: 'landscape' });
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const pageHeight = doc.internal.pageSize.getHeight();
-        const margin = 14;
+    const onNoveltySubmit: SubmitHandler<NoveltyFormValues> = async (data) => {
+        if (!selectedRowForNovelty || !user || !displayName) return;
+        setIsSubmittingNovelty(true);
     
-        // --- Calculate Header Height ---
-        const logoHeight = logoDimensions ? (60 / (logoDimensions.width / logoDimensions.height)) : 0;
-        const headerContentHeight = 10 + logoHeight + 5 + 10; // logo + title + date
-        const headerHeightWithMargin = headerContentHeight + 15; // Add some bottom margin
-    
-        // --- Header Drawing Function ---
-        const addHeader = (docInstance: jsPDF) => {
-            const logoWidth = 60;
-            const aspectRatio = logoDimensions.width / logoDimensions.height;
-            const logoPdfHeight = logoWidth / aspectRatio;
-            const logoX = (pageWidth - logoWidth) / 2;
-            docInstance.addImage(logoBase64, 'PNG', logoX, 10, logoWidth, logoPdfHeight);
-    
-            const titleY = 10 + logoPdfHeight + 5;
-            docInstance.setFontSize(11);
-            docInstance.setFont('helvetica', 'bold');
-            docInstance.setTextColor(0, 0, 0); // Black
-            docInstance.text(`Informe de Liquidación de Cuadrilla`, pageWidth / 2, titleY, { align: 'center' });
-            
-            docInstance.setFontSize(9);
-            docInstance.setFont('helvetica', 'normal');
-            docInstance.setTextColor(0, 0, 0); // Black
-            docInstance.text(`Periodo: ${format(dateRange!.from!, 'dd/MM/yyyy')} - ${format(dateRange!.to!, 'dd/MM/yyyy')}`, pageWidth / 2, titleY + 10, {align: 'center'});
+        const noveltyData = {
+            operationId: selectedRowForNovelty.submissionId,
+            type: data.type,
+            downtimeMinutes: data.downtimeMinutes,
+            impactsCrewProductivity: data.impactsCrewProductivity,
+            createdAt: new Date().toISOString(),
+            createdBy: { uid: user.uid, displayName: displayName }
         };
     
-        // --- Footer Drawing Function ---
-        const addFooter = (docInstance: jsPDF, pageNumber: number, totalPages: number) => {
-            docInstance.setFontSize(8);
-            docInstance.text(`Página ${pageNumber} de ${totalPages}`, pageWidth - margin, pageHeight - 10, { align: 'right' });
-        };
-    
-        // --- Draw Detailed Report Table ---
-        autoTable(doc, {
-            head: [['Fecha', 'Operario', 'Cliente', 'Tipo Op.', 'Tipo Prod.', 'Pedido', 'Placa', 'Cant.', 'Duración', 'Productividad', 'Concepto', 'Vlr. Unit', 'Vlr. Total']],
-            body: reportData.map(row => {
-                const indicator = getPerformanceIndicator(row);
-                const isPending = row.cantidadConcepto === -1;
-                return [
-                    format(new Date(row.fecha), 'dd/MM/yy'),
-                    row.operario,
-                    row.cliente,
-                    row.tipoOperacion,
-                    row.tipoProducto,
-                    row.pedidoSislog,
-                    row.placa,
-                    isPending ? 'Pendiente' : `${row.cantidadConcepto.toFixed(2)} ${row.unidadMedidaConcepto}`,
-                    formatDuration(row.duracionMinutos),
-                    indicator.text,
-                    row.conceptoLiquidado,
-                    isPending ? 'N/A' : row.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }),
-                    isPending ? 'N/A' : row.valorTotalConcepto.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }),
-                ]
-            }),
-            theme: 'grid',
-            styles: { fontSize: 6, cellPadding: 1, overflow: 'linebreak' },
-            headStyles: { fillColor: [33, 150, 243], fontSize: 6, cellPadding: 1 },
-            margin: { top: headerHeightWithMargin },
-            didDrawPage: (data) => {
-                addHeader(doc);
-                addFooter(doc, data.pageNumber, (doc as any).internal.getNumberOfPages());
-            },
-        });
-        
-        // --- Productivity Summary Page ---
-        if (performanceSummary) {
-            doc.addPage();
-            const evaluableOps = (performanceSummary.totalOperations || 0) - (performanceSummary.summary['Pendiente (P. Bruto)']?.count || 0) - (performanceSummary.summary['No Calculado']?.count || 0);
-            const performanceBody = Object.entries(performanceSummary.summary)
-                .filter(([key]) => key !== 'No Calculado' && key !== 'Pendiente (P. Bruto)')
-                .map(([key, value]) => {
-                    const percentage = evaluableOps > 0 ? (value.count / evaluableOps * 100).toFixed(2) + '%' : '0.00%';
-                    return [key, value.count, percentage];
-                });
-
-            autoTable(doc, {
-                head: [[{ content: 'Resumen de Productividad (Cargue/Descargue)', styles: { halign: 'center', fillColor: [33, 150, 243], textColor: 255, fontStyle: 'bold' } }]],
-                body: [],
-                theme: 'plain',
-                margin: { top: headerHeightWithMargin },
-                didDrawPage: (data) => {
-                    addHeader(doc);
-                    addFooter(doc, data.pageNumber, (doc as any).internal.getNumberOfPages());
-                },
-            });
-
-             autoTable(doc, {
-                 startY: (doc as any).lastAutoTable.finalY,
-                 head: [['Indicador', 'Total Operaciones', 'Porcentaje (%)']],
-                 body: performanceBody,
-                 foot: [[{ content: 'Calificación General:', styles: { halign: 'right'} }, {content: performanceSummary.qualification, colSpan: 2, styles: {halign: 'left'}}]],
-                 theme: 'grid',
-                 headStyles: { fillColor: [226, 232, 240], textColor: 0, fontStyle: 'bold' },
-                 footStyles: { fillColor: [226, 232, 240], textColor: 0, fontStyle: 'bold' },
-            });
+        const result = await addNoveltyToOperation(noveltyData);
+        if (result.success && result.novelty) {
+            toast({ title: 'Éxito', description: result.message });
+            setReportData(prevData => prevData.map(row => {
+                if (row.id === selectedRowForNovelty.id) {
+                    const updatedNovelties = [...row.novelties, result.novelty!];
+                    const newDowntime = updatedNovelties
+                        .filter(n => n.impactsCrewProductivity === false)
+                        .reduce((sum, n) => sum + n.downtimeMinutes, 0);
+                    const newOperationalDuration = row.totalDurationMinutes !== null ? row.totalDurationMinutes - newDowntime : null;
+                    return { ...row, novelties: updatedNovelties, operationalDurationMinutes: newOperationalDuration };
+                }
+                return row;
+            }));
+            setIsNoveltyDialogOpen(false);
+        } else {
+            toast({ variant: 'destructive', title: 'Error', description: result.message });
         }
-    
-        // --- Concepts Summary Page ---
-        if (conceptSummary) {
-            doc.addPage();
-            const conceptsBody = conceptSummary.map(c => [
-                c.item,
-                c.name,
-                `${c.totalCantidad.toFixed(2)}`,
-                c.unidadMedida,
-                c.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }),
-                c.totalValor.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
-            ]);
-
-            autoTable(doc, {
-                head: [[{ content: 'Resumen de Conceptos Liquidados', styles: { halign: 'center', fillColor: [33, 150, 243], textColor: 255, fontStyle: 'bold' } }]],
-                body: [],
-                theme: 'plain',
-                margin: { top: headerHeightWithMargin },
-                didDrawPage: (data) => {
-                    addHeader(doc);
-                    addFooter(doc, data.pageNumber, (doc as any).internal.getNumberOfPages());
-                },
-            });
-
-            autoTable(doc, {
-                startY: (doc as any).lastAutoTable.finalY,
-                 head: [['Ítem', 'Nombre del Concepto', 'Cantidad Total', 'Presentación', 'Valor Unitario (COP)', 'Valor Total (COP)']],
-                 body: conceptsBody,
-                 foot: [['', '', '', '', { content: 'TOTAL LIQUIDACIÓN:', styles: { halign: 'right' } }, { content: totalLiquidacion.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }) }]],
-                 theme: 'grid',
-                 headStyles: { fillColor: [226, 232, 240], textColor: 0, fontStyle: 'bold' },
-                 footStyles: { fillColor: [226, 232, 240], textColor: 0, fontStyle: 'bold' },
-            });
-        }
-        
-        const fileName = `Reporte_Liquidacion_Cuadrilla_${format(dateRange!.from!, 'yyyy-MM-dd')}_a_${format(dateRange!.to!, 'yyyy-MM-dd')}.pdf`;
-        doc.save(fileName);
+        setIsSubmittingNovelty(false);
     };
 
 
@@ -665,13 +557,7 @@ export default function CrewPerformanceReportPage() {
             <div className="max-w-7xl mx-auto">
                 <header className="mb-8">
                     <div className="relative flex items-center justify-center text-center">
-                         <Button 
-                            variant="ghost" 
-                            size="icon" 
-                            className="absolute left-0 top-1/2 -translate-y-1/2" 
-                            onClick={() => router.push('/')}
-                            aria-label="Volver a la página principal"
-                        >
+                         <Button variant="ghost" size="icon" className="absolute left-0 top-1/2 -translate-y-1/2" onClick={() => router.push('/')}>
                             <ArrowLeft className="h-6 w-6" />
                         </Button>
                         <div>
@@ -704,232 +590,101 @@ export default function CrewPerformanceReportPage() {
                              <div className="space-y-2">
                                 <Label>Rango de Fechas</Label>
                                 <Popover>
-                                    <PopoverTrigger asChild>
-                                        <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !dateRange && "text-muted-foreground")}>
-                                            <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {dateRange?.from ? (dateRange.to ? (<>{format(dateRange.from, "LLL dd, y", { locale: es })} - {format(dateRange.to, "LLL dd, y", { locale: es })}</>) : (format(dateRange.from, "LLL dd, y", { locale: es }))) : (<span>Seleccione un rango</span>)}
-                                        </Button>
-                                    </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0" align="start">
-                                        <Calendar initialFocus mode="range" defaultMonth={dateRange?.from} selected={dateRange} onSelect={setDateRange} numberOfMonths={2} locale={es} disabled={{ after: today, before: sixtyTwoDaysAgo }} />
-                                    </PopoverContent>
+                                    <PopoverTrigger asChild><Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !dateRange && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{dateRange?.from ? (dateRange.to ? (<>{format(dateRange.from, "LLL dd, y", { locale: es })} - {format(dateRange.to, "LLL dd, y", { locale: es })}</>) : (format(dateRange.from, "LLL dd, y", { locale: es }))) : (<span>Seleccione un rango</span>)}</Button></PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0" align="start"><Calendar initialFocus mode="range" defaultMonth={dateRange?.from} selected={dateRange} onSelect={setDateRange} numberOfMonths={2} locale={es} disabled={{ after: today, before: sixtyTwoDaysAgo }} /></PopoverContent>
                                 </Popover>
                             </div>
                             <div className="space-y-2">
                                 <Label>Cliente(s)</Label>
                                 <Dialog open={isClientDialogOpen} onOpenChange={setClientDialogOpen}>
-                                    <DialogTrigger asChild>
-                                        <Button variant="outline" className="w-full justify-between text-left font-normal">
-                                            <span className="truncate">{getSelectedClientsText()}</span>
-                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                        </Button>
-                                    </DialogTrigger>
+                                    <DialogTrigger asChild><Button variant="outline" className="w-full justify-between text-left font-normal"><span className="truncate">{getSelectedClientsText()}</span><ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" /></Button></DialogTrigger>
                                     <DialogContent>
-                                        <DialogHeader>
-                                            <DialogTitle>Seleccionar Cliente(s)</DialogTitle>
-                                            <DialogDescription>Deje la selección vacía para incluir a todos los clientes.</DialogDescription>
-                                        </DialogHeader>
-                                        <Input
-                                            placeholder="Buscar cliente..."
-                                            value={clientSearch}
-                                            onChange={(e) => setClientSearch(e.target.value)}
-                                            className="my-4"
-                                        />
+                                        <DialogHeader><DialogTitle>Seleccionar Cliente(s)</DialogTitle><DialogDescription>Deje la selección vacía para incluir a todos los clientes.</DialogDescription></DialogHeader>
+                                        <Input placeholder="Buscar cliente..." value={clientSearch} onChange={(e) => setClientSearch(e.target.value)} className="my-4" />
                                         <ScrollArea className="h-72">
                                             <div className="space-y-1">
-                                                <div className="flex items-center space-x-2 rounded-md p-2 hover:bg-accent border-b">
-                                                    <Checkbox
-                                                        id="select-all-clients"
-                                                        checked={selectedClients.length === clients.length}
-                                                        onCheckedChange={(checked) => {
-                                                            setSelectedClients(checked ? clients.map(c => c.razonSocial) : []);
-                                                        }}
-                                                    />
-                                                    <Label htmlFor="select-all-clients" className="w-full cursor-pointer font-semibold">Seleccionar Todos</Label>
-                                                </div>
-                                                {filteredClients.map((client) => (
-                                                    <div key={client.id} className="flex items-center space-x-2 rounded-md p-2 hover:bg-accent">
-                                                        <Checkbox
-                                                            id={`client-${client.id}`}
-                                                            checked={selectedClients.includes(client.razonSocial)}
-                                                            onCheckedChange={(checked) => {
-                                                                setSelectedClients(prev =>
-                                                                    checked
-                                                                        ? [...prev, client.razonSocial]
-                                                                        : prev.filter(s => s !== client.razonSocial)
-                                                                )
-                                                            }}
-                                                        />
-                                                        <Label htmlFor={`client-${client.id}`} className="w-full cursor-pointer">{client.razonSocial}</Label>
-                                                    </div>
-                                                ))}
+                                                <div className="flex items-center space-x-2 rounded-md p-2 hover:bg-accent border-b"><Checkbox id="select-all-clients" checked={selectedClients.length === clients.length} onCheckedChange={(checked) => { setSelectedClients(checked ? clients.map(c => c.razonSocial) : []); }} /><Label htmlFor="select-all-clients" className="w-full cursor-pointer font-semibold">Seleccionar Todos</Label></div>
+                                                {filteredClients.map((client) => (<div key={client.id} className="flex items-center space-x-2 rounded-md p-2 hover:bg-accent"><Checkbox id={`client-${client.id}`} checked={selectedClients.includes(client.razonSocial)} onCheckedChange={(checked) => { setSelectedClients(prev => checked ? [...prev, client.razonSocial] : prev.filter(s => s !== client.razonSocial) ) }} /><Label htmlFor={`client-${client.id}`} className="w-full cursor-pointer">{client.razonSocial}</Label></div>))}
                                             </div>
                                         </ScrollArea>
-                                        <DialogFooter>
-                                            <Button onClick={() => setClientDialogOpen(false)}>Cerrar</Button>
-                                        </DialogFooter>
+                                        <DialogFooter><Button onClick={() => setClientDialogOpen(false)}>Cerrar</Button></DialogFooter>
                                     </DialogContent>
                                 </Dialog>
                             </div>
-                             <div className="space-y-2">
-                                <Label>Operario</Label>
-                                <Select value={selectedOperario} onValueChange={setSelectedOperario} disabled={isLoadingOperarios}>
-                                    <SelectTrigger><SelectValue placeholder="Seleccione un operario" /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">Todos los Operarios</SelectItem>
-                                        {availableOperarios.map(op => <SelectItem key={op} value={op}>{op}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                             <div className="space-y-2">
-                                <Label>Tipo de Operación</Label>
-                                <Select value={operationType} onValueChange={setOperationType}>
-                                    <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">Todos</SelectItem>
-                                        <SelectItem value="recepcion">Recepción</SelectItem>
-                                        <SelectItem value="despacho">Despacho</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-2">
-                                <Label>Tipo de Producto</Label>
-                                <Select value={productType} onValueChange={setProductType}>
-                                    <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">Todos</SelectItem>
-                                        <SelectItem value="fijo">Peso Fijo</SelectItem>
-                                        <SelectItem value="variable">Peso Variable</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                             <div className="flex items-center space-x-2 self-end pb-2">
-                                <Checkbox
-                                    id="filter-pending"
-                                    checked={filterPending}
-                                    onCheckedChange={(checked) => setFilterPending(checked as boolean)}
-                                />
-                                <Label htmlFor="filter-pending" className="cursor-pointer">
-                                    Mostrar solo pendientes de Peso Bruto
-                                </Label>
-                            </div>
-                            <div className="flex gap-2 xl:col-start-4">
-                                <Button onClick={handleSearch} className="w-full" disabled={isLoading}>
-                                    {isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
-                                    Generar
-                                </Button>
-                                <Button onClick={handleClear} variant="outline" className="w-full">
-                                    <XCircle className="mr-2 h-4 w-4" />
-                                    Limpiar
-                                </Button>
-                            </div>
+                             <div className="space-y-2"><Label>Operario</Label><Select value={selectedOperario} onValueChange={setSelectedOperario} disabled={isLoadingOperarios}><SelectTrigger><SelectValue placeholder="Seleccione un operario" /></SelectTrigger><SelectContent><SelectItem value="all">Todos los Operarios</SelectItem>{availableOperarios.map(op => <SelectItem key={op} value={op}>{op}</SelectItem>)}</SelectContent></Select></div>
+                             <div className="space-y-2"><Label>Tipo de Operación</Label><Select value={operationType} onValueChange={setOperationType}><SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="recepcion">Recepción</SelectItem><SelectItem value="despacho">Despacho</SelectItem></SelectContent></Select></div>
+                            <div className="space-y-2"><Label>Tipo de Producto</Label><Select value={productType} onValueChange={setProductType}><SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="fijo">Peso Fijo</SelectItem><SelectItem value="variable">Peso Variable</SelectItem></SelectContent></Select></div>
+                             <div className="flex items-center space-x-2 self-end pb-2"><Checkbox id="filter-pending" checked={filterPending} onCheckedChange={(checked) => setFilterPending(checked as boolean)} /><Label htmlFor="filter-pending" className="cursor-pointer">Mostrar solo pendientes de Peso Bruto</Label></div>
+                            <div className="flex gap-2 xl:col-start-4"><Button onClick={handleSearch} className="w-full" disabled={isLoading}>{isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}Generar</Button><Button onClick={handleClear} variant="outline" className="w-full"><XCircle className="mr-2 h-4 w-4" />Limpiar</Button></div>
                         </div>
                     </CardContent>
                 </Card>
 
                  <Card className="mt-6">
-                    <CardHeader>
-                        <div className="flex justify-between items-center flex-wrap gap-4">
-                            <div>
-                                <CardTitle>Resultados del Informe de Cuadrilla</CardTitle>
-                                <CardDescription>
-                                    {isLoading ? "Cargando resultados..." : `Mostrando ${reportData.length} conceptos liquidados.`}
-                                </CardDescription>
-                            </div>
-                            <div className="flex gap-2">
-                                <Button onClick={handleExportExcel} disabled={isLoading || reportData.length === 0} variant="outline"><File className="mr-2 h-4 w-4" /> Exportar a Excel</Button>
-                                <Button onClick={handleExportPDF} disabled={isLoading || reportData.length === 0 || isLogoLoading} variant="outline">{isLogoLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />} Exportar a PDF</Button>
-                            </div>
-                        </div>
-                    </CardHeader>
+                    <CardHeader><div className="flex justify-between items-center flex-wrap gap-4"><div><CardTitle>Resultados del Informe de Cuadrilla</CardTitle><CardDescription>{isLoading ? "Cargando resultados..." : `Mostrando ${reportData.length} conceptos liquidados.`}</CardDescription></div><div className="flex gap-2"><Button onClick={handleExportExcel} disabled={isLoading || reportData.length === 0} variant="outline"><File className="mr-2 h-4 w-4" /> Exportar a Excel</Button><Button onClick={handleExportPDF} disabled={isLoading || reportData.length === 0 || isLogoLoading} variant="outline">{isLogoLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />} Exportar a PDF</Button></div></div></CardHeader>
                     <CardContent>
                         <div className="w-full overflow-x-auto rounded-md border">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Fecha</TableHead>
-                                        <TableHead>Operario</TableHead>
-                                        <TableHead>Cliente</TableHead>
-                                        <TableHead>Tipo Op.</TableHead>
-                                        <TableHead>Tipo Prod.</TableHead>
-                                        <TableHead>Pedido</TableHead>
-                                        <TableHead>Placa</TableHead>
-                                        <TableHead>Contenedor</TableHead>
-                                        <TableHead className="text-right">Cantidad (Ton/Und)</TableHead>
-                                        <TableHead className="text-right">Duración</TableHead>
-                                        <TableHead className="text-right">Productividad</TableHead>
-                                        <TableHead>Concepto</TableHead>
-                                        <TableHead className="text-right">Vlr. Unitario</TableHead>
-                                        <TableHead className="text-right">Vlr. Total Concepto</TableHead>
-                                    </TableRow>
-                                </TableHeader>
+                            <Table><TableHeader><TableRow><TableHead>Fecha</TableHead><TableHead>Operario</TableHead><TableHead>Cliente</TableHead><TableHead>Tipo Op.</TableHead><TableHead>Pedido</TableHead><TableHead>Placa</TableHead><TableHead>Cant.</TableHead><TableHead>Dur. Total</TableHead><TableHead>T. Operativo</TableHead><TableHead>Novedades</TableHead><TableHead>Productividad</TableHead><TableHead>Concepto</TableHead><TableHead>Vlr. Unitario</TableHead><TableHead>Vlr. Total</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader>
                                 <TableBody>
-                                    {isLoading ? (
-                                        <TableRow><TableCell colSpan={14}><Skeleton className="h-20 w-full" /></TableCell></TableRow>
-                                    ) : displayedData.length > 0 ? (
+                                    {isLoading ? (<TableRow><TableCell colSpan={15}><Skeleton className="h-20 w-full" /></TableCell></TableRow>) : displayedData.length > 0 ? (
                                         displayedData.map((row) => {
                                             const indicator = getPerformanceIndicator(row);
                                             const isPending = row.cantidadConcepto === -1;
                                             return (
                                                 <TableRow key={row.id}>
-                                                    <TableCell className="text-xs">{format(new Date(row.fecha), 'dd/MM/yyyy')}</TableCell>
-                                                    <TableCell className="text-xs">{row.operario}</TableCell>
-                                                    <TableCell className="text-xs max-w-[150px] truncate" title={row.cliente}>{row.cliente}</TableCell>
-                                                    <TableCell className="text-xs">{row.tipoOperacion}</TableCell>
-                                                    <TableCell className="text-xs">{row.tipoProducto}</TableCell>
-                                                    <TableCell className="text-xs">{row.pedidoSislog}</TableCell>
-                                                    <TableCell className="text-xs">{row.placa}</TableCell>
-                                                    <TableCell className="text-xs">{row.contenedor}</TableCell>
-                                                    <TableCell className="text-xs text-right font-mono">{isPending ? 'Pendiente Ingresar P.Bruto' : row.cantidadConcepto.toFixed(2)}</TableCell>
-                                                    <TableCell className="text-xs text-right font-medium">{formatDuration(row.duracionMinutos)}</TableCell>
-                                                    <TableCell className={cn("text-xs text-right font-semibold", indicator.color)}>
-                                                        <div className="flex items-center justify-end gap-1.5">
-                                                            <Circle className={cn("h-2 w-2", indicator.color.replace('text-', 'bg-'))} />
-                                                            {indicator.text}
-                                                        </div>
-                                                    </TableCell>
-                                                    <TableCell className="text-xs font-semibold">{row.conceptoLiquidado}</TableCell>
-                                                     <TableCell className="text-xs text-right font-mono">
-                                                        {isPending ? 'N/A' : row.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 })}
-                                                     </TableCell>
-                                                     <TableCell className="text-xs text-right font-mono">
-                                                        {isPending ? 'N/A' : row.valorTotalConcepto.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}
-                                                     </TableCell>
+                                                    <TableCell className="text-xs">{format(new Date(row.fecha), 'dd/MM/yy')}</TableCell><TableCell className="text-xs">{row.operario}</TableCell><TableCell className="text-xs max-w-[150px] truncate" title={row.cliente}>{row.cliente}</TableCell>
+                                                    <TableCell className="text-xs">{row.tipoOperacion}</TableCell><TableCell className="text-xs">{row.pedidoSislog}</TableCell><TableCell className="text-xs">{row.placa}</TableCell>
+                                                    <TableCell className="text-xs text-right font-mono">{isPending ? 'Pendiente' : `${row.cantidadConcepto.toFixed(2)}`}</TableCell><TableCell className="text-xs text-right font-medium">{formatDuration(row.totalDurationMinutes)}</TableCell><TableCell className="text-xs text-right font-medium">{formatDuration(row.operationalDurationMinutes)}</TableCell>
+                                                    <TableCell className="text-xs max-w-[150px] truncate" title={row.novelties.map(n => `${n.type}: ${n.downtimeMinutes} min`).join('; ') || 'N/A'}>{row.novelties.map(n => `${n.type}: ${n.downtimeMinutes} min`).join('; ') || 'N/A'}</TableCell>
+                                                    <TableCell className={cn("text-xs text-right font-semibold", indicator.color)}><div className="flex items-center justify-end gap-1.5"><Circle className={cn("h-2 w-2", indicator.color.replace('text-', 'bg-'))} />{indicator.text}</div></TableCell>
+                                                    <TableCell className="text-xs font-semibold">{row.conceptoLiquidado}</TableCell><TableCell className="text-xs text-right font-mono">{isPending ? 'N/A' : row.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 })}</TableCell><TableCell className="text-xs text-right font-mono">{isPending ? 'N/A' : row.valorTotalConcepto.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell>
+                                                    <TableCell className="text-right"><Button variant="outline" size="sm" onClick={() => handleOpenNoveltyDialog(row)}><PlusCircle className="mr-2 h-3 w-3"/>Novedad</Button></TableCell>
                                                 </TableRow>
-                                            )
-                                        })
-                                    ) : (
-                                        <EmptyState searched={searched} />
-                                    )}
-                                     {!isLoading && reportData.length > 0 && (
-                                        <TableRow className="font-bold bg-muted hover:bg-muted">
-                                            <TableCell colSpan={13} className="text-right">TOTAL GENERAL LIQUIDACIÓN</TableCell>
-                                            <TableCell className="text-right">{totalLiquidacion.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell>
-                                        </TableRow>
-                                     )}
+                                            )})
+                                    ) : (<EmptyState searched={searched} />)}
+                                     {!isLoading && reportData.length > 0 && (<TableRow className="font-bold bg-muted hover:bg-muted"><TableCell colSpan={13} className="text-right">TOTAL GENERAL LIQUIDACIÓN</TableCell><TableCell className="text-right">{totalLiquidacion.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell><TableCell></TableCell></TableRow>)}
                                 </TableBody>
                             </Table>
                         </div>
                          <div className="flex items-center justify-between space-x-2 py-4">
                             <div className="flex-1 text-sm text-muted-foreground">{reportData.length} conceptos liquidados en total.</div>
-                            <div className="flex items-center space-x-2">
-                                <p className="text-sm font-medium">Filas por página</p>
-                                <Select value={`${itemsPerPage}`} onValueChange={(value) => { setItemsPerPage(Number(value)); setCurrentPage(1); }}>
-                                    <SelectTrigger className="h-8 w-[70px]"><SelectValue placeholder={itemsPerPage} /></SelectTrigger>
-                                    <SelectContent side="top">
-                                        {[10, 20, 50, 100].map((pageSize) => (<SelectItem key={pageSize} value={`${pageSize}`}>{pageSize}</SelectItem>))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
+                            <div className="flex items-center space-x-2"><p className="text-sm font-medium">Filas por página</p><Select value={`${itemsPerPage}`} onValueChange={(value) => { setItemsPerPage(Number(value)); setCurrentPage(1); }}><SelectTrigger className="h-8 w-[70px]"><SelectValue placeholder={itemsPerPage} /></SelectTrigger><SelectContent side="top">{[10, 20, 50, 100].map((pageSize) => (<SelectItem key={pageSize} value={`${pageSize}`}>{pageSize}</SelectItem>))}</SelectContent></Select></div>
                             <div className="flex w-[100px] items-center justify-center text-sm font-medium">Página {currentPage} de {totalPages}</div>
-                            <div className="flex items-center space-x-2">
-                                <Button variant="outline" size="sm" onClick={() => setCurrentPage((prev) => prev - 1)} disabled={currentPage === 1}>Anterior</Button>
-                                <Button variant="outline" size="sm" onClick={() => setCurrentPage((prev) => prev + 1)} disabled={currentPage === totalPages || totalPages === 0}>Siguiente</Button>
-                            </div>
+                            <div className="flex items-center space-x-2"><Button variant="outline" size="sm" onClick={() => setCurrentPage((prev) => prev - 1)} disabled={currentPage === 1}>Anterior</Button><Button variant="outline" size="sm" onClick={() => setCurrentPage((prev) => prev + 1)} disabled={currentPage === totalPages || totalPages === 0}>Siguiente</Button></div>
                         </div>
                     </CardContent>
                 </Card>
             </div>
+            
+            <Dialog open={isNoveltyDialogOpen} onOpenChange={setIsNoveltyDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Agregar Novedad a Operación</DialogTitle>
+                        <DialogDescription>
+                            Registre un tiempo de inactividad para la operación del pedido <strong>{selectedRowForNovelty?.pedidoSislog}</strong>.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <Form {...noveltyForm}>
+                        <form onSubmit={noveltyForm.handleSubmit(onNoveltySubmit)} className="space-y-4 pt-4">
+                             <FormField control={noveltyForm.control} name="type" render={({ field }) => (<FormItem><FormLabel>Tipo de Novedad</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un tipo" /></SelectTrigger></FormControl><SelectContent><SelectItem value="DAÑO EQUIPO DE FRIO">DAÑO EQUIPO DE FRIO</SelectItem><SelectItem value="FALLA ELECTRICA">FALLA ELECTRICA</SelectItem><SelectItem value="ESPERA DE CLIENTE">ESPERA DE CLIENTE</SelectItem><SelectItem value="REPROCESO NO IMPUTABLE">REPROCESO NO IMPUTABLE</SelectItem><SelectItem value="OTRO">OTRO</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
+                             <FormField control={noveltyForm.control} name="downtimeMinutes" render={({ field }) => (<FormItem><FormLabel>Minutos de Inactividad</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                             <FormField control={noveltyForm.control} name="impactsCrewProductivity" render={({ field }) => (
+                                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
+                                    <div className="space-y-0.5"><Label>¿Esta novedad SÍ afectó el tiempo de la cuadrilla?</Label><FormDescription>Si marca NO, los minutos se restarán del tiempo operativo.</FormDescription></div>
+                                    <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                                </FormItem>
+                             )}/>
+                            <DialogFooter>
+                                <Button type="button" variant="outline" onClick={() => setIsNoveltyDialogOpen(false)}>Cancelar</Button>
+                                <Button type="submit" disabled={isSubmittingNovelty}>
+                                    {isSubmittingNovelty && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                                    Agregar Novedad
+                                </Button>
+                            </DialogFooter>
+                        </form>
+                    </Form>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }

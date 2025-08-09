@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import admin from 'firebase-admin';
@@ -7,6 +6,7 @@ import { firestore } from '@/lib/firebase-admin';
 import { parse, differenceInMinutes, addDays } from 'date-fns';
 import { findBestMatchingStandard, type PerformanceStandard } from '@/app/actions/standard-actions';
 import { getBillingConcepts, type BillingConcept } from '../gestion-conceptos-liquidacion/actions';
+import { getNoveltiesForOperation, type NoveltyData } from './novelty-actions';
 
 
 const serializeTimestamps = (data: any): any => {
@@ -45,19 +45,16 @@ const calculateDuration = (horaInicio: string, horaFin: string): number | null =
 };
 
 const calculateTotalKilos = (formType: string, formData: any): number => {
-    // For fixed weight, we must use BRUTO for settlement calculations
     if (formType.startsWith('fixed-weight-')) {
         return (formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.pesoBrutoKg) || 0), 0);
     }
     
     if (formType.startsWith('variable-weight-')) {
-        const items = formData.items || [];
-        // Handle summary format in variable weight dispatch
-        if (formType.includes('despacho') && items.some((p: any) => Number(p.paleta) === 0)) {
-            return items.reduce((sum: number, p: any) => sum + (Number(p.totalPesoNeto) || 0), 0);
+        const allItems = (formData.items || []).concat((formData.destinos || []).flatMap((d: any) => d.items));
+        if (allItems.some((p: any) => Number(p.paleta) === 0)) {
+             return allItems.reduce((sum: number, p: any) => sum + (Number(p.totalPesoNeto) || 0), 0);
         }
-        // Handle detailed format for variable weight (reception and dispatch)
-        return items.reduce((sum: number, p: any) => sum + (Number(p.pesoNeto) || 0), 0);
+        return allItems.reduce((sum: number, p: any) => sum + (Number(p.pesoNeto) || 0), 0);
     }
 
     return 0;
@@ -75,7 +72,7 @@ export interface CrewPerformanceReportCriteria {
 }
 
 export interface CrewPerformanceReportRow {
-    id: string; // Unique ID for the row (can be submissionId + conceptName)
+    id: string; 
     submissionId: string;
     formType: string;
     fecha: string;
@@ -86,14 +83,15 @@ export interface CrewPerformanceReportRow {
     kilos: number;
     horaInicio: string;
     horaFin: string;
-    duracionMinutos: number | null;
+    totalDurationMinutes: number | null;
+    operationalDurationMinutes: number | null;
+    novelties: NoveltyData[];
     pedidoSislog: string;
     placa: string;
     contenedor: string;
     productType: 'fijo' | 'variable' | null;
     standard?: PerformanceStandard | null;
     description: string;
-    // Settlement details for this specific row
     conceptoLiquidado: string;
     valorUnitario: number;
     cantidadConcepto: number;
@@ -266,11 +264,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
     }
     
     const submissionsRef = firestore.collection('submissions');
-
-    const serverQueryStartDate = new Date(criteria.startDate);
-    const serverQueryEndDate = addDays(new Date(criteria.endDate), 1);
     
-    // Create two separate queries
     const queryByCuadrilla = submissionsRef
         .where('formData.aplicaCuadrilla', '==', 'si');
 
@@ -295,12 +289,10 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             if (!formIsoDate || typeof formIsoDate !== 'string') {
                 return false;
             }
-            // Date filtering needs to be done in memory to account for timezone
             const formDatePart = getLocalGroupingDate(formIsoDate);
             return formDatePart >= criteria.startDate! && formDatePart <= criteria.endDate!;
         });
 
-        // Apply remaining server-side style filters in memory
         if (criteria.operario) {
             filteredResults = filteredResults.filter(sub => sub.userDisplayName === criteria.operario);
         }
@@ -331,17 +323,26 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             }
             
             const kilos = calculateTotalKilos(formType, formData);
-            const toneladas = Math.round((kilos / 1000) * 100) / 100;
+            const toneladas = Number((kilos / 1000).toFixed(2));
             const clientName = formData.nombreCliente || formData.cliente;
 
             const standard = await findBestMatchingStandard({
               clientName: clientName,
               operationType: operationTypeForAction,
               productType: productTypeForAction,
-              tons: toneladas
-            }); 
+              tons: toneladas,
+              tipoPedido: formData.tipoPedido,
+            });
             
             const settlements = calculateSettlements(submission, billingConcepts);
+            const novelties = await getNoveltiesForOperation(id);
+            const totalDuration = calculateDuration(formData.horaInicio, formData.horaFin);
+            const downtimeMinutes = novelties
+                .filter(n => n.impactsCrewProductivity === false)
+                .reduce((sum, n) => sum + n.downtimeMinutes, 0);
+            
+            const operationalDuration = totalDuration !== null ? totalDuration - downtimeMinutes : null;
+
             
             if (settlements.length > 0) {
                 for (const settlement of settlements) {
@@ -357,7 +358,9 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                         kilos: kilos,
                         horaInicio: formData.horaInicio || 'N/A',
                         horaFin: formData.horaFin || 'N/A',
-                        duracionMinutos: calculateDuration(formData.horaInicio, formData.horaFin),
+                        totalDurationMinutes: totalDuration,
+                        operationalDurationMinutes: operationalDuration,
+                        novelties: novelties,
                         pedidoSislog: formData.pedidoSislog || 'N/A',
                         placa: formData.placa || 'N/A',
                         contenedor: formData.contenedor || 'N/A',
