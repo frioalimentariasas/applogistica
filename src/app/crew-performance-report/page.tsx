@@ -164,7 +164,7 @@ export default function CrewPerformanceReportPage() {
     
     const { user, displayName, permissions, loading: authLoading } = useAuth();
     
-    const [dateRange, setDateRange] = useState<DateRange | undefined>({ from: subDays(today, 7), to: today });
+    const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
     const [selectedOperario, setSelectedOperario] = useState<string>('all');
     const [availableOperarios, setAvailableOperarios] = useState<string[]>([]);
     const [operationType, setOperationType] = useState<string>('all');
@@ -175,8 +175,10 @@ export default function CrewPerformanceReportPage() {
     const [isClientDialogOpen, setClientDialogOpen] = useState(false);
     const [clientSearch, setClientSearch] = useState('');
     const [filterPending, setFilterPending] = useState(false);
+    const [filterLento, setFilterLento] = useState(false);
 
     const [reportData, setReportData] = useState<CrewPerformanceReportRow[]>([]);
+    const [filteredReportData, setFilteredReportData] = useState<CrewPerformanceReportRow[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isLoadingOperarios, setIsLoadingOperarios] = useState(false);
     const [searched, setSearched] = useState(false);
@@ -198,12 +200,12 @@ export default function CrewPerformanceReportPage() {
         defaultValues: { type: '', downtimeMinutes: 0, impactsCrewProductivity: false }
     });
     
-    const totalPages = Math.ceil(reportData.length / itemsPerPage);
+    const totalPages = Math.ceil(filteredReportData.length / itemsPerPage);
     const displayedData = useMemo(() => {
         const startIndex = (currentPage - 1) * itemsPerPage;
         const endIndex = startIndex + itemsPerPage;
-        return reportData.slice(startIndex, endIndex);
-    }, [reportData, currentPage, itemsPerPage]);
+        return filteredReportData.slice(startIndex, endIndex);
+    }, [filteredReportData, currentPage, itemsPerPage]);
 
     const filteredClients = useMemo(() => {
         if (!clientSearch) return clients;
@@ -223,6 +225,15 @@ export default function CrewPerformanceReportPage() {
             fetchInitialData();
         }
     }, [dateRange]);
+
+    useEffect(() => {
+        let results = reportData;
+        if(filterLento) {
+            results = results.filter(row => getPerformanceIndicator(row).text === 'Lento');
+        }
+        setFilteredReportData(results);
+    }, [filterLento, reportData]);
+
 
     useEffect(() => {
         const fetchLogo = async () => {
@@ -302,7 +313,9 @@ export default function CrewPerformanceReportPage() {
         setProductType('all');
         setSelectedClients([]);
         setFilterPending(false);
+        setFilterLento(false);
         setReportData([]);
+        setFilteredReportData([]);
         setSearched(false);
         setCurrentPage(1);
     };
@@ -618,14 +631,17 @@ export default function CrewPerformanceReportPage() {
                              <div className="space-y-2"><Label>Operario</Label><Select value={selectedOperario} onValueChange={setSelectedOperario} disabled={isLoadingOperarios}><SelectTrigger><SelectValue placeholder="Seleccione un operario" /></SelectTrigger><SelectContent><SelectItem value="all">Todos los Operarios</SelectItem>{availableOperarios.map(op => <SelectItem key={op} value={op}>{op}</SelectItem>)}</SelectContent></Select></div>
                              <div className="space-y-2"><Label>Tipo de Operación</Label><Select value={operationType} onValueChange={setOperationType}><SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="recepcion">Recepción</SelectItem><SelectItem value="despacho">Despacho</SelectItem></SelectContent></Select></div>
                             <div className="space-y-2"><Label>Tipo de Producto</Label><Select value={productType} onValueChange={setProductType}><SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="fijo">Peso Fijo</SelectItem><SelectItem value="variable">Peso Variable</SelectItem></SelectContent></Select></div>
-                             <div className="flex items-center space-x-2 self-end pb-2"><Checkbox id="filter-pending" checked={filterPending} onCheckedChange={(checked) => setFilterPending(checked as boolean)} /><Label htmlFor="filter-pending" className="cursor-pointer">Mostrar solo pendientes de Peso Bruto</Label></div>
+                            <div className="flex flex-col gap-2 self-end">
+                                <div className="flex items-center space-x-2"><Checkbox id="filter-pending" checked={filterPending} onCheckedChange={(checked) => setFilterPending(checked as boolean)} /><Label htmlFor="filter-pending" className="cursor-pointer text-sm">Mostrar solo pendientes P. Bruto</Label></div>
+                                <div className="flex items-center space-x-2"><Checkbox id="filter-lento" checked={filterLento} onCheckedChange={(checked) => setFilterLento(checked as boolean)} /><Label htmlFor="filter-lento" className="cursor-pointer text-sm">Mostrar solo "Lento"</Label></div>
+                            </div>
                             <div className="flex gap-2 xl:col-start-4"><Button onClick={handleSearch} className="w-full" disabled={isLoading}>{isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}Generar</Button><Button onClick={handleClear} variant="outline" className="w-full"><XCircle className="mr-2 h-4 w-4" />Limpiar</Button></div>
                         </div>
                     </CardContent>
                 </Card>
 
                  <Card className="mt-6">
-                    <CardHeader><div className="flex justify-between items-center flex-wrap gap-4"><div><CardTitle>Resultados del Informe de Cuadrilla</CardTitle><CardDescription>{isLoading ? "Cargando resultados..." : `Mostrando ${reportData.length} conceptos liquidados.`}</CardDescription></div><div className="flex gap-2"><Button onClick={handleExportExcel} disabled={isLoading || reportData.length === 0} variant="outline"><File className="mr-2 h-4 w-4" /> Exportar a Excel</Button><Button onClick={handleExportPDF} disabled={isLoading || reportData.length === 0 || isLogoLoading} variant="outline">{isLogoLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />} Exportar a PDF</Button></div></div></CardHeader>
+                    <CardHeader><div className="flex justify-between items-center flex-wrap gap-4"><div><CardTitle>Resultados del Informe de Cuadrilla</CardTitle><CardDescription>{isLoading ? "Cargando resultados..." : `Mostrando ${filteredReportData.length} conceptos liquidados.`}</CardDescription></div><div className="flex gap-2"><Button onClick={handleExportExcel} disabled={isLoading || reportData.length === 0} variant="outline"><File className="mr-2 h-4 w-4" /> Exportar a Excel</Button><Button onClick={handleExportPDF} disabled={isLoading || reportData.length === 0 || isLogoLoading} variant="outline">{isLogoLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />} Exportar a PDF</Button></div></div></CardHeader>
                     <CardContent>
                         <div className="w-full overflow-x-auto rounded-md border">
                             <Table><TableHeader><TableRow><TableHead>Fecha</TableHead><TableHead>Operario</TableHead><TableHead>Cliente</TableHead><TableHead>Tipo Op.</TableHead><TableHead>Pedido</TableHead><TableHead>Placa</TableHead><TableHead>Cant.</TableHead><TableHead>Dur. Total</TableHead><TableHead>T. Operativo</TableHead><TableHead>Novedades</TableHead><TableHead>Productividad</TableHead><TableHead>Concepto</TableHead><TableHead>Vlr. Unitario</TableHead><TableHead>Vlr. Total</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader>
@@ -657,7 +673,7 @@ export default function CrewPerformanceReportPage() {
                             </Table>
                         </div>
                          <div className="flex items-center justify-between space-x-2 py-4">
-                            <div className="flex-1 text-sm text-muted-foreground">{reportData.length} conceptos liquidados en total.</div>
+                            <div className="flex-1 text-sm text-muted-foreground">{filteredReportData.length} conceptos liquidados en total.</div>
                             <div className="flex items-center space-x-2"><p className="text-sm font-medium">Filas por página</p><Select value={`${itemsPerPage}`} onValueChange={(value) => { setItemsPerPage(Number(value)); setCurrentPage(1); }}><SelectTrigger className="h-8 w-[70px]"><SelectValue placeholder={itemsPerPage} /></SelectTrigger><SelectContent side="top">{[10, 20, 50, 100].map((pageSize) => (<SelectItem key={pageSize} value={`${pageSize}`}>{pageSize}</SelectItem>))}</SelectContent></Select></div>
                             <div className="flex w-[100px] items-center justify-center text-sm font-medium">Página {currentPage} de {totalPages}</div>
                             <div className="flex items-center space-x-2"><Button variant="outline" size="sm" onClick={() => setCurrentPage((prev) => prev - 1)} disabled={currentPage === 1}>Anterior</Button><Button variant="outline" size="sm" onClick={() => setCurrentPage((prev) => prev + 1)} disabled={currentPage === totalPages || totalPages === 0}>Siguiente</Button></div>
@@ -698,5 +714,3 @@ export default function CrewPerformanceReportPage() {
         </div>
     );
 }
-
-
