@@ -21,7 +21,7 @@ import { getAvailableOperarios } from '@/app/actions/performance-report';
 import { getClients, type ClientInfo } from '@/app/actions/clients';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
-import type { PerformanceStandard } from '@/app/actions/standard-actions';
+import type { PerformanceStandard } from '@/app/gestion-estandares/actions';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -125,7 +125,7 @@ const formatDuration = (totalMinutes: number | null): string => {
 
 // --- Corrected getPerformanceIndicator ---
 const getPerformanceIndicator = (row: CrewPerformanceReportRow): { text: string, color: string } => {
-    const { operationalDurationMinutes, standard, conceptoLiquidado, kilos } = row;
+    const { operationalDurationMinutes: duracionMinutos, standard, conceptoLiquidado, kilos } = row;
     
     if (conceptoLiquidado !== 'CARGUE' && conceptoLiquidado !== 'DESCARGUE') {
         return { text: 'No Aplica', color: 'text-gray-500' };
@@ -134,8 +134,8 @@ const getPerformanceIndicator = (row: CrewPerformanceReportRow): { text: string,
     if (row.productType === 'fijo' && kilos === 0) {
         return { text: 'Pendiente (P. Bruto)', color: 'text-orange-600' };
     }
-
-    if (operationalDurationMinutes === null || operationalDurationMinutes < 0) {
+    
+    if (duracionMinutos === null || duracionMinutos < 0) {
         return { text: 'No Calculado', color: 'text-gray-500' };
     }
 
@@ -145,11 +145,11 @@ const getPerformanceIndicator = (row: CrewPerformanceReportRow): { text: string,
 
     const { baseMinutes } = standard;
 
-    if (operationalDurationMinutes < baseMinutes) {
+    if (duracionMinutos < baseMinutes) {
         return { text: 'Óptimo', color: 'text-green-600' };
     }
     
-    if (operationalDurationMinutes <= baseMinutes + 10) {
+    if (duracionMinutos <= baseMinutes + 10) {
         return { text: 'Normal', color: 'text-yellow-600' };
     }
 
@@ -643,7 +643,13 @@ export default function CrewPerformanceReportPage() {
                                                     <TableCell className="text-xs max-w-[150px] truncate" title={row.novelties.map(n => `${n.type}: ${n.downtimeMinutes} min`).join('; ') || 'N/A'}>{row.novelties.map(n => `${n.type}: ${n.downtimeMinutes} min`).join('; ') || 'N/A'}</TableCell>
                                                     <TableCell className={cn("text-xs text-right font-semibold", indicator.color)}><div className="flex items-center justify-end gap-1.5"><Circle className={cn("h-2 w-2", indicator.color.replace('text-', 'bg-'))} />{indicator.text}</div></TableCell>
                                                     <TableCell className="text-xs font-semibold">{row.conceptoLiquidado}</TableCell><TableCell className="text-xs text-right font-mono">{isPending ? 'N/A' : row.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 })}</TableCell><TableCell className="text-xs text-right font-mono">{isPending ? 'N/A' : row.valorTotalConcepto.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell>
-                                                    <TableCell className="text-right"><Button variant="outline" size="sm" onClick={() => handleOpenNoveltyDialog(row)}><PlusCircle className="mr-2 h-3 w-3"/>Novedad</Button></TableCell>
+                                                    <TableCell className="text-right">
+                                                        {indicator.text === 'Lento' && (
+                                                            <Button variant="outline" size="sm" onClick={() => handleOpenNoveltyDialog(row)}>
+                                                                <PlusCircle className="mr-2 h-3 w-3"/>Novedad
+                                                            </Button>
+                                                        )}
+                                                    </TableCell>
                                                 </TableRow>
                                             )})
                                     ) : (<EmptyState searched={searched} />)}
@@ -675,7 +681,7 @@ export default function CrewPerformanceReportPage() {
                              <FormField control={noveltyForm.control} name="downtimeMinutes" render={({ field }) => (<FormItem><FormLabel>Minutos de Inactividad</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)}/>
                              <FormField control={noveltyForm.control} name="impactsCrewProductivity" render={({ field }) => (
                                 <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                                    <div className="space-y-0.5"><Label>¿Esta novedad SÍ afectó el tiempo de la cuadrilla?</Label><FormDescription>Si marca NO, los minutos se restarán del tiempo operativo.</FormDescription></div>
+                                    <div className="space-y-0.5"><Label>¿Este tiempo SÍ afectó el tiempo de la cuadrilla?</Label><FormDescription>Si marca NO, los minutos se restarán del tiempo operativo.</FormDescription></div>
                                     <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                                 </FormItem>
                              )}/>
@@ -693,3 +699,4 @@ export default function CrewPerformanceReportPage() {
         </div>
     );
 }
+
