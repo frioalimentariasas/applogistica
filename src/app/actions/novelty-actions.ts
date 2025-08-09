@@ -64,3 +64,19 @@ export async function getNoveltiesForOperation(operationId: string): Promise<Nov
     return [];
   }
 }
+
+export async function deleteNovelty(noveltyId: string): Promise<{ success: boolean; message: string }> {
+  if (!firestore) return { success: false, message: 'Error de configuración del servidor.' };
+  
+  if (!noveltyId) return { success: false, message: 'ID de novedad no proporcionado.' };
+
+  try {
+    await firestore.collection('operation_novelties').doc(noveltyId).delete();
+    revalidatePath('/crew-performance-report');
+    return { success: true, message: 'Novedad eliminada con éxito.' };
+  } catch (error) {
+    console.error(`Error al eliminar novedad ${noveltyId}:`, error);
+    const errorMessage = error instanceof Error ? error.message : 'Ocurrió un error desconocido.';
+    return { success: false, message: `Error del servidor: ${errorMessage}` };
+  }
+}

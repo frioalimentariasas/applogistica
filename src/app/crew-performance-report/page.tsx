@@ -15,7 +15,7 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 
 import { getCrewPerformanceReport, type CrewPerformanceReportRow } from '@/app/actions/crew-performance-report';
-import { addNoveltyToOperation } from '@/app/actions/novelty-actions';
+import { addNoveltyToOperation, deleteNovelty } from '@/app/actions/novelty-actions';
 import { getAvailableOperarios } from '@/app/actions/performance-report';
 import { getClients, type ClientInfo } from '@/app/actions/clients';
 import { useToast } from '@/hooks/use-toast';
@@ -32,19 +32,21 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
-import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, File, FileDown, FolderSearch, ShieldAlert, TrendingUp, Circle, Settings, ChevronsUpDown, AlertCircle, PlusCircle } from 'lucide-react';
+import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, File, FileDown, FolderSearch, ShieldAlert, TrendingUp, Circle, Settings, ChevronsUpDown, AlertCircle, PlusCircle, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Combobox } from '@/components/ui/combobox';
+import { Badge } from '@/components/ui/badge';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDialogDesc, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 
 const noveltySchema = z.object({
     type: z.string().min(1, "Debe seleccionar o ingresar un tipo de novedad."),
     downtimeMinutes: z.coerce.number({invalid_type_error: "Debe ser un número"}).int("Debe ser un número entero.").min(1, "Los minutos deben ser mayores a 0."),
-    impactsCrewProductivity: z.boolean().default(true),
+    impactsCrewProductivity: z.boolean().default(false),
 });
 
 type NoveltyFormValues = z.infer<typeof noveltySchema>;
@@ -198,6 +200,8 @@ export default function CrewPerformanceReportPage() {
     const [isNoveltyDialogOpen, setIsNoveltyDialogOpen] = useState(false);
     const [isSubmittingNovelty, setIsSubmittingNovelty] = useState(false);
     const [selectedRowForNovelty, setSelectedRowForNovelty] = useState<CrewPerformanceReportRow | null>(null);
+    const [noveltyToDelete, setNoveltyToDelete] = useState<{ rowId: string; noveltyId: string; } | null>(null);
+    const [isDeletingNovelty, setIsDeletingNovelty] = useState(false);
 
     const noveltyForm = useForm<NoveltyFormValues>({
         resolver: zodResolver(noveltySchema),
@@ -531,7 +535,7 @@ export default function CrewPerformanceReportPage() {
 
     const handleOpenNoveltyDialog = (row: CrewPerformanceReportRow) => {
         setSelectedRowForNovelty(row);
-        noveltyForm.reset({ type: '', downtimeMinutes: 0, impactsCrewProductivity: false });
+        noveltyForm.reset({ type: '', downtimeMinutes: 0, impactsCrewProductivity: true });
         setIsNoveltyDialogOpen(true);
     };
     
@@ -543,8 +547,7 @@ export default function CrewPerformanceReportPage() {
             operationId: selectedRowForNovelty.submissionId,
             type: data.type.toUpperCase(),
             downtimeMinutes: data.downtimeMinutes,
-            impactsCrewProductivity: !data.impactsCrewProductivity, // Logic is inverted in the form for clarity
-            createdAt: new Date().toISOString(),
+            impactsCrewProductivity: data.impactsCrewProductivity,
             createdBy: { uid: user.uid, displayName: displayName }
         };
     
@@ -569,6 +572,32 @@ export default function CrewPerformanceReportPage() {
             toast({ variant: 'destructive', title: 'Error', description: result.message });
         }
         setIsSubmittingNovelty(false);
+    };
+    
+    const handleDeleteNoveltyConfirm = async () => {
+        if (!noveltyToDelete) return;
+
+        setIsDeletingNovelty(true);
+        const result = await deleteNovelty(noveltyToDelete.noveltyId);
+
+        if (result.success) {
+            toast({ title: 'Éxito', description: result.message });
+            setReportData(prevData => prevData.map(row => {
+                if (row.id === noveltyToDelete.rowId) {
+                    const updatedNovelties = row.novelties.filter(n => n.id !== noveltyToDelete.noveltyId);
+                    const downtimeMinutes = updatedNovelties
+                        .filter(n => n.impactsCrewProductivity === true)
+                        .reduce((sum, n) => sum + n.downtimeMinutes, 0);
+                    const newOperationalDuration = row.totalDurationMinutes !== null ? row.totalDurationMinutes - downtimeMinutes : null;
+                    return { ...row, novelties: updatedNovelties, operationalDurationMinutes: newOperationalDuration };
+                }
+                return row;
+            }));
+        } else {
+            toast({ variant: 'destructive', title: 'Error', description: result.message });
+        }
+        setIsDeletingNovelty(false);
+        setNoveltyToDelete(null);
     };
 
 
@@ -682,7 +711,16 @@ export default function CrewPerformanceReportPage() {
                                                     <TableCell className="text-xs">{format(new Date(row.fecha), 'dd/MM/yy')}</TableCell><TableCell className="text-xs">{row.operario}</TableCell><TableCell className="text-xs max-w-[150px] truncate" title={row.cliente}>{row.cliente}</TableCell>
                                                     <TableCell className="text-xs">{row.tipoOperacion}</TableCell><TableCell className="text-xs">{row.pedidoSislog}</TableCell><TableCell className="text-xs">{row.placa}</TableCell>
                                                     <TableCell className="text-xs text-right font-mono">{isPending ? 'Pendiente' : `${row.cantidadConcepto.toFixed(2)}`}</TableCell><TableCell className="text-xs text-right font-medium">{formatDuration(row.totalDurationMinutes)}</TableCell><TableCell className="text-xs text-right font-medium">{formatDuration(row.operationalDurationMinutes)}</TableCell>
-                                                    <TableCell className="text-xs max-w-[150px] truncate" title={row.novelties.map(n => `${n.type}: ${n.downtimeMinutes} min`).join('; ') || 'N/A'}>{row.novelties.map(n => `${n.type}: ${n.downtimeMinutes} min`).join('; ') || 'N/A'}</TableCell>
+                                                    <TableCell className="text-xs max-w-[150px]">
+                                                        <div className="flex flex-wrap gap-1">
+                                                            {row.novelties.map(n => (
+                                                                <Badge key={n.id} variant="secondary" className="font-normal">
+                                                                    {n.type}: {n.downtimeMinutes} min
+                                                                    <button onClick={() => setNoveltyToDelete({ rowId: row.id, noveltyId: n.id! })} className="ml-1 rounded-full p-0.5 hover:bg-destructive/20 text-destructive"><X className="h-3 w-3"/></button>
+                                                                </Badge>
+                                                            ))}
+                                                        </div>
+                                                    </TableCell>
                                                     <TableCell className={cn("text-xs text-right font-semibold", indicator.color)}><div className="flex items-center justify-end gap-1.5"><Circle className={cn("h-2 w-2", indicator.color.replace('text-', 'bg-'))} />{indicator.text}</div></TableCell>
                                                     <TableCell className="text-xs font-semibold">{row.conceptoLiquidado}</TableCell><TableCell className="text-xs text-right font-mono">{isPending ? 'N/A' : row.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 })}</TableCell><TableCell className="text-xs text-right font-mono">{isPending ? 'N/A' : row.valorTotalConcepto.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell>
                                                     <TableCell className="text-right">
@@ -769,6 +807,28 @@ export default function CrewPerformanceReportPage() {
                     </Form>
                 </DialogContent>
             </Dialog>
+
+            <AlertDialog open={!!noveltyToDelete} onOpenChange={() => setNoveltyToDelete(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>¿Está seguro?</AlertDialogTitle>
+                        <AlertDialogDesc>
+                           Esta acción eliminará la novedad seleccionada de forma permanente.
+                        </AlertDialogDesc>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction 
+                            onClick={handleDeleteNoveltyConfirm} 
+                            disabled={isDeletingNovelty}
+                            className="bg-destructive hover:bg-destructive/90 text-destructive-foreground"
+                        >
+                            {isDeletingNovelty ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            Sí, Eliminar Novedad
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
         </div>
     );
 }
