@@ -172,8 +172,9 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
     // --- Concept: CARGUE / DESCARGUE (By Ton for GENERICO and TUNEL DE CONGELACIÓN) ---
     const isVariableWeightGenericOrTunel = (formType.startsWith('variable-weight-')) && (formData.tipoPedido === 'GENERICO' || formData.tipoPedido === 'TUNEL DE CONGELACIÓN');
     const isFixedWeightGeneric = (formType.startsWith('fixed-weight-')) && (formData.tipoPedido === 'GENERICO');
+    const liquidableByOperationType = formData.tipoPedido === 'TUNEL DE CONGELACIÓN';
 
-    if (formData.aplicaCuadrilla === 'si' && (isVariableWeightGenericOrTunel || isFixedWeightGeneric)) {
+    if ((formData.aplicaCuadrilla === 'si' || liquidableByOperationType) && (isVariableWeightGenericOrTunel || isFixedWeightGeneric)) {
         const isReception = formType.includes('recepcion') || formType.includes('reception');
         const conceptName = isReception ? 'DESCARGUE' : 'CARGUE';
         const kilos = calculateTotalKilos(formType, formData);
@@ -299,9 +300,9 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
 
         // Filter by "cuadrillaFilter"
         if (criteria.cuadrillaFilter === 'con') {
-            allResultsInDateRange = allResultsInDateRange.filter(sub => sub.formData.aplicaCuadrilla === 'si' || sub.formData.tipoPedido === 'TUNEL A CÁMARA CONGELADOS');
+            allResultsInDateRange = allResultsInDateRange.filter(sub => sub.formData.aplicaCuadrilla === 'si' || sub.formData.tipoPedido === 'TUNEL A CÁMARA CONGELADOS' || sub.formData.tipoPedido === 'TUNEL DE CONGELACIÓN');
         } else if (criteria.cuadrillaFilter === 'sin') {
-            allResultsInDateRange = allResultsInDateRange.filter(sub => sub.formData.aplicaCuadrilla !== 'si' && sub.formData.tipoPedido !== 'TUNEL A CÁMARA CONGELADOS');
+            allResultsInDateRange = allResultsInDateRange.filter(sub => sub.formData.aplicaCuadrilla !== 'si' && sub.formData.tipoPedido !== 'TUNEL A CÁMARA CONGELADOS' && sub.formData.tipoPedido !== 'TUNEL DE CONGELACIÓN');
         }
 
         const finalReportRows: CrewPerformanceReportRow[] = [];
@@ -333,7 +334,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             const toneladas = Number((kilos / 1000).toFixed(2));
             const clientName = formData.nombreCliente || formData.cliente;
 
-            const isCrewOperation = formData.aplicaCuadrilla === 'si' || formData.tipoPedido === 'TUNEL A CÁMARA CONGELADOS';
+            const isCrewOperation = formData.aplicaCuadrilla === 'si' || formData.tipoPedido === 'TUNEL A CÁMARA CONGELADOS' || formData.tipoPedido === 'TUNEL DE CONGELACIÓN';
             
             const standard = isCrewOperation ? await findBestMatchingStandard({
               clientName: clientName,
