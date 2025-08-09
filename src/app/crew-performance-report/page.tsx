@@ -21,6 +21,7 @@ import { getClients, type ClientInfo } from '@/app/actions/clients';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import type { PerformanceStandard } from '@/app/gestion-estandares/actions';
+import { getStandardNoveltyTypes, type StandardNoveltyType } from '@/app/gestion-novedades/actions';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -37,9 +38,11 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Combobox } from '@/components/ui/combobox';
+
 
 const noveltySchema = z.object({
-    type: z.string().min(1, "Debe seleccionar un tipo de novedad."),
+    type: z.string().min(1, "Debe seleccionar o ingresar un tipo de novedad."),
     downtimeMinutes: z.coerce.number({invalid_type_error: "Debe ser un número"}).int("Debe ser un número entero.").min(1, "Los minutos deben ser mayores a 0."),
     impactsCrewProductivity: z.boolean().default(true),
 });
@@ -123,7 +126,7 @@ const formatDuration = (totalMinutes: number | null): string => {
 };
 
 const getPerformanceIndicator = (row: CrewPerformanceReportRow): { text: string, color: string } => {
-    const { operationalDurationMinutes: duracionMinutos, standard, conceptoLiquidado, kilos } = row;
+    const { operationalDurationMinutes, standard, conceptoLiquidado, kilos } = row;
     
     if (conceptoLiquidado !== 'CARGUE' && conceptoLiquidado !== 'DESCARGUE') {
         return { text: 'No Aplica', color: 'text-gray-500' };
@@ -133,7 +136,7 @@ const getPerformanceIndicator = (row: CrewPerformanceReportRow): { text: string,
         return { text: 'Pendiente (P. Bruto)', color: 'text-orange-600' };
     }
     
-    if (duracionMinutos === null || duracionMinutos < 0) {
+    if (operationalDurationMinutes === null || operationalDurationMinutes < 0) {
         return { text: 'No Calculado', color: 'text-gray-500' };
     }
 
@@ -143,11 +146,11 @@ const getPerformanceIndicator = (row: CrewPerformanceReportRow): { text: string,
 
     const { baseMinutes } = standard;
 
-    if (duracionMinutos < baseMinutes) {
+    if (operationalDurationMinutes < baseMinutes) {
         return { text: 'Óptimo', color: 'text-green-600' };
     }
     
-    if (duracionMinutos <= baseMinutes + 10) {
+    if (operationalDurationMinutes <= baseMinutes + 10) {
         return { text: 'Normal', color: 'text-yellow-600' };
     }
 
@@ -175,6 +178,8 @@ export default function CrewPerformanceReportPage() {
     const [clientSearch, setClientSearch] = useState('');
     const [filterPending, setFilterPending] = useState(false);
     const [filterLento, setFilterLento] = useState(false);
+    
+    const [standardNoveltyTypes, setStandardNoveltyTypes] = useState<StandardNoveltyType[]>([]);
 
     const [reportData, setReportData] = useState<CrewPerformanceReportRow[]>([]);
     const [filteredReportData, setFilteredReportData] = useState<CrewPerformanceReportRow[]>([]);
@@ -213,17 +218,36 @@ export default function CrewPerformanceReportPage() {
 
     useEffect(() => {
         const fetchInitialData = async () => {
-             const [operarios, clientList] = await Promise.all([
-                 getAvailableOperarios(format(dateRange?.from || today, 'yyyy-MM-dd'), format(dateRange?.to || today, 'yyyy-MM-dd')),
-                 getClients()
+             const [clientList, noveltyTypes] = await Promise.all([
+                 getClients(),
+                 getStandardNoveltyTypes()
              ]);
-             setAvailableOperarios(operarios);
              setClients(clientList);
+             setStandardNoveltyTypes(noveltyTypes);
         };
-        if (dateRange?.from && dateRange?.to) {
-            fetchInitialData();
+        fetchInitialData();
+    }, []);
+
+    useEffect(() => {
+        const fetchOperarios = async () => {
+             if (dateRange?.from && dateRange?.to) {
+                setIsLoadingOperarios(true);
+                try {
+                    const startDate = format(dateRange.from, 'yyyy-MM-dd');
+                    const endDate = format(dateRange.to, 'yyyy-MM-dd');
+                    const operarios = await getAvailableOperarios(startDate, endDate);
+                    setAvailableOperarios(operarios);
+                } catch (error) {
+                     toast({ variant: 'destructive', title: 'Error', description: 'No se pudo cargar la lista de operarios.' });
+                } finally {
+                    setIsLoadingOperarios(false);
+                }
+            } else {
+                setAvailableOperarios([]);
+            }
         }
-    }, [dateRange]);
+        fetchOperarios();
+    }, [dateRange, toast]);
 
     useEffect(() => {
         let results = reportData;
@@ -507,7 +531,7 @@ export default function CrewPerformanceReportPage() {
 
     const handleOpenNoveltyDialog = (row: CrewPerformanceReportRow) => {
         setSelectedRowForNovelty(row);
-        noveltyForm.reset({ type: '', downtimeMinutes: 0, impactsCrewProductivity: true });
+        noveltyForm.reset({ type: '', downtimeMinutes: 0, impactsCrewProductivity: false });
         setIsNoveltyDialogOpen(true);
     };
     
@@ -517,9 +541,9 @@ export default function CrewPerformanceReportPage() {
     
         const noveltyData = {
             operationId: selectedRowForNovelty.submissionId,
-            type: data.type,
+            type: data.type.toUpperCase(),
             downtimeMinutes: data.downtimeMinutes,
-            impactsCrewProductivity: data.impactsCrewProductivity,
+            impactsCrewProductivity: !data.impactsCrewProductivity, // Logic is inverted in the form for clarity
             createdAt: new Date().toISOString(),
             createdBy: { uid: user.uid, displayName: displayName }
         };
@@ -538,6 +562,8 @@ export default function CrewPerformanceReportPage() {
                 }
                 return row;
             }));
+             // Refetch novelty types to include the new one if it was added
+             getStandardNoveltyTypes().then(setStandardNoveltyTypes);
             setIsNoveltyDialogOpen(false);
         } else {
             toast({ variant: 'destructive', title: 'Error', description: result.message });
@@ -567,6 +593,8 @@ export default function CrewPerformanceReportPage() {
             </div>
         );
     }
+    
+    const noveltyComboboxOptions = standardNoveltyTypes.map(nt => ({ value: nt.name, label: nt.name }));
 
     return (
         <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
@@ -691,19 +719,45 @@ export default function CrewPerformanceReportPage() {
                     </DialogHeader>
                     <Form {...noveltyForm}>
                         <form onSubmit={noveltyForm.handleSubmit(onNoveltySubmit)} className="space-y-4 pt-4">
-                             <FormField control={noveltyForm.control} name="type" render={({ field }) => (<FormItem><FormLabel>Tipo de Novedad</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un tipo" /></SelectTrigger></FormControl><SelectContent><SelectItem value="DAÑO EQUIPO DE FRIO">DAÑO EQUIPO DE FRIO</SelectItem><SelectItem value="FALLA ELECTRICA">FALLA ELECTRICA</SelectItem><SelectItem value="ESPERA DE CLIENTE">ESPERA DE CLIENTE</SelectItem><SelectItem value="REPROCESO NO IMPUTABLE">REPROCESO NO IMPUTABLE</SelectItem><SelectItem value="OTRO">OTRO</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
+                            <FormField
+                                control={noveltyForm.control}
+                                name="type"
+                                render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Tipo de Novedad</FormLabel>
+                                        <FormControl>
+                                            <Combobox
+                                                options={noveltyComboboxOptions}
+                                                value={field.value}
+                                                onChange={field.onChange}
+                                                placeholder="Seleccione o cree una novedad..."
+                                            />
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
                              <FormField control={noveltyForm.control} name="downtimeMinutes" render={({ field }) => (<FormItem><FormLabel>Minutos de Inactividad</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)}/>
-                             <FormField control={noveltyForm.control} name="impactsCrewProductivity" render={({ field }) => (
-                                <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                                     <div className="space-y-0.5">
-                                        <Label className="font-semibold">Justificar demora y restar del tiempo de la cuadrilla</Label>
-                                        <FormDescription>
-                                            Marque esta casilla si la novedad fue un imprevisto que justifica el tiempo perdido (ej: daño de máquina). El tiempo se descontará del cálculo de productividad.
-                                        </FormDescription>
-                                    </div>
-                                    <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                                </FormItem>
-                             )}/>
+                             <FormField
+                                control={noveltyForm.control}
+                                name="impactsCrewProductivity"
+                                render={({ field }) => (
+                                    <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-lg border p-4 shadow-sm">
+                                        <FormControl>
+                                            <Checkbox
+                                                checked={field.value}
+                                                onCheckedChange={field.onChange}
+                                            />
+                                        </FormControl>
+                                        <div className="space-y-1 leading-none">
+                                            <FormLabel className="font-semibold cursor-pointer">Justificar demora y restar del tiempo de la cuadrilla</FormLabel>
+                                            <FormDescription>
+                                                Marque esta casilla si la novedad fue un imprevisto que justifica el tiempo perdido (ej: daño de máquina). El tiempo se descontará del cálculo de productividad.
+                                            </FormDescription>
+                                        </div>
+                                    </FormItem>
+                                )}
+                            />
                             <DialogFooter>
                                 <Button type="button" variant="outline" onClick={() => setIsNoveltyDialogOpen(false)}>Cancelar</Button>
                                 <Button type="submit" disabled={isSubmittingNovelty}>
@@ -718,5 +772,3 @@ export default function CrewPerformanceReportPage() {
         </div>
     );
 }
-
-    

@@ -1,8 +1,10 @@
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
 import { revalidatePath } from 'next/cache';
 import type { Timestamp } from 'firebase-admin/firestore';
+import { addStandardNoveltyType } from '@/app/gestion-novedades/actions';
 
 export interface NoveltyData {
   id?: string;
@@ -26,6 +28,9 @@ export async function addNoveltyToOperation(data: Omit<NoveltyData, 'id' | 'crea
   };
 
   try {
+    // Check if the novelty type is a new one and add it to the standard list if so.
+    await addStandardNoveltyType(data.type);
+    
     const docRef = await firestore.collection('operation_novelties').add(noveltyWithTimestamp);
     revalidatePath('/crew-performance-report');
     return { success: true, message: 'Novedad agregada con éxito.', novelty: { ...noveltyWithTimestamp, id: docRef.id } };
@@ -59,5 +64,3 @@ export async function getNoveltiesForOperation(operationId: string): Promise<Nov
     return [];
   }
 }
-
-    
