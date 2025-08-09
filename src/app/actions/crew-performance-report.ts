@@ -338,7 +338,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             const novelties = await getNoveltiesForOperation(id);
             const totalDuration = calculateDuration(formData.horaInicio, formData.horaFin);
             const downtimeMinutes = novelties
-                .filter(n => n.impactsCrewProductivity === false)
+                .filter(n => n.impactsCrewProductivity === true)
                 .reduce((sum, n) => sum + n.downtimeMinutes, 0);
             
             const operationalDuration = totalDuration !== null ? totalDuration - downtimeMinutes : null;
@@ -402,3 +402,5 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         throw error;
     }
 }
+
+    

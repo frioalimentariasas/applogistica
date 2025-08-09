@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -42,7 +41,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 const noveltySchema = z.object({
     type: z.string().min(1, "Debe seleccionar un tipo de novedad."),
     downtimeMinutes: z.coerce.number({invalid_type_error: "Debe ser un número"}).int("Debe ser un número entero.").min(1, "Los minutos deben ser mayores a 0."),
-    impactsCrewProductivity: z.boolean().default(false),
+    impactsCrewProductivity: z.boolean().default(true),
 });
 
 type NoveltyFormValues = z.infer<typeof noveltySchema>;
@@ -197,7 +196,7 @@ export default function CrewPerformanceReportPage() {
 
     const noveltyForm = useForm<NoveltyFormValues>({
         resolver: zodResolver(noveltySchema),
-        defaultValues: { type: '', downtimeMinutes: 0, impactsCrewProductivity: false }
+        defaultValues: { type: '', downtimeMinutes: 0, impactsCrewProductivity: true }
     });
     
     const totalPages = Math.ceil(filteredReportData.length / itemsPerPage);
@@ -508,7 +507,7 @@ export default function CrewPerformanceReportPage() {
 
     const handleOpenNoveltyDialog = (row: CrewPerformanceReportRow) => {
         setSelectedRowForNovelty(row);
-        noveltyForm.reset();
+        noveltyForm.reset({ type: '', downtimeMinutes: 0, impactsCrewProductivity: true });
         setIsNoveltyDialogOpen(true);
     };
     
@@ -531,10 +530,10 @@ export default function CrewPerformanceReportPage() {
             setReportData(prevData => prevData.map(row => {
                 if (row.id === selectedRowForNovelty.id) {
                     const updatedNovelties = [...row.novelties, result.novelty!];
-                    const newDowntime = updatedNovelties
-                        .filter(n => n.impactsCrewProductivity === false)
+                    const downtimeMinutes = updatedNovelties
+                        .filter(n => n.impactsCrewProductivity === true)
                         .reduce((sum, n) => sum + n.downtimeMinutes, 0);
-                    const newOperationalDuration = row.totalDurationMinutes !== null ? row.totalDurationMinutes - newDowntime : null;
+                    const newOperationalDuration = row.totalDurationMinutes !== null ? row.totalDurationMinutes - downtimeMinutes : null;
                     return { ...row, novelties: updatedNovelties, operationalDurationMinutes: newOperationalDuration };
                 }
                 return row;
@@ -696,7 +695,12 @@ export default function CrewPerformanceReportPage() {
                              <FormField control={noveltyForm.control} name="downtimeMinutes" render={({ field }) => (<FormItem><FormLabel>Minutos de Inactividad</FormLabel><FormControl><Input type="number" {...field} /></FormControl><FormMessage /></FormItem>)}/>
                              <FormField control={noveltyForm.control} name="impactsCrewProductivity" render={({ field }) => (
                                 <FormItem className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
-                                    <div className="space-y-0.5"><Label>¿Este tiempo SÍ afectó el tiempo de la cuadrilla?</Label><FormDescription>Si marca NO, los minutos se restarán del tiempo operativo.</FormDescription></div>
+                                     <div className="space-y-0.5">
+                                        <Label className="font-semibold">Justificar demora y restar del tiempo de la cuadrilla</Label>
+                                        <FormDescription>
+                                            Marque esta casilla si la novedad fue un imprevisto que justifica el tiempo perdido (ej: daño de máquina). El tiempo se descontará del cálculo de productividad.
+                                        </FormDescription>
+                                    </div>
                                     <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
                                 </FormItem>
                              )}/>
@@ -714,3 +718,5 @@ export default function CrewPerformanceReportPage() {
         </div>
     );
 }
+
+    

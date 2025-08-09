@@ -9,7 +9,7 @@ export interface NoveltyData {
   operationId: string;
   type: string;
   downtimeMinutes: number;
-  impactsCrewProductivity: boolean; // if true, it does NOT affect (reduce) the operational time
+  impactsCrewProductivity: boolean; // if true, it WILL be subtracted from operational time
   createdAt: string;
   createdBy: {
     uid: string;
@@ -17,13 +17,18 @@ export interface NoveltyData {
   };
 }
 
-export async function addNoveltyToOperation(data: NoveltyData): Promise<{ success: boolean; message: string; novelty?: NoveltyData }> {
+export async function addNoveltyToOperation(data: Omit<NoveltyData, 'id' | 'createdAt' | 'createdBy'> & { operationId: string; createdBy: { uid: string; displayName: string; } }): Promise<{ success: boolean; message: string; novelty?: NoveltyData }> {
   if (!firestore) return { success: false, message: 'Error de configuración del servidor.' };
 
+  const noveltyWithTimestamp = {
+      ...data,
+      createdAt: new Date().toISOString()
+  };
+
   try {
-    const docRef = await firestore.collection('operation_novelties').add(data);
+    const docRef = await firestore.collection('operation_novelties').add(noveltyWithTimestamp);
     revalidatePath('/crew-performance-report');
-    return { success: true, message: 'Novedad agregada con éxito.', novelty: { ...data, id: docRef.id } };
+    return { success: true, message: 'Novedad agregada con éxito.', novelty: { ...noveltyWithTimestamp, id: docRef.id } };
   } catch (error) {
     console.error('Error al agregar novedad:', error);
     const errorMessage = error instanceof Error ? error.message : 'Ocurrió un error desconocido.';
@@ -54,3 +59,5 @@ export async function getNoveltiesForOperation(operationId: string): Promise<Nov
     return [];
   }
 }
+
+    
