@@ -134,7 +134,7 @@ const getPerformanceIndicator = (row: CrewPerformanceReportRow): { text: string,
         return { text: 'No Aplica', color: 'text-gray-500' };
     }
     
-    if (row.productType === 'fijo' && kilos === 0) {
+    if (row.productType === 'fijo' && kilos === 0 && row.aplicaCuadrilla === 'si') {
         return { text: 'Pendiente (P. Bruto)', color: 'text-orange-600' };
     }
     
@@ -163,7 +163,6 @@ const getPerformanceIndicator = (row: CrewPerformanceReportRow): { text: string,
 export default function CrewPerformanceReportPage() {
     const router = useRouter();
     const { toast } = useToast();
-    const today = new Date();
     
     const { user, displayName, permissions, loading: authLoading } = useAuth();
     
@@ -667,7 +666,7 @@ export default function CrewPerformanceReportPage() {
                                 <Label>Rango de Fechas</Label>
                                 <Popover>
                                     <PopoverTrigger asChild><Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !dateRange && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{dateRange?.from ? (dateRange.to ? (<>{format(dateRange.from, "LLL dd, y", { locale: es })} - {format(dateRange.to, "LLL dd, y", { locale: es })}</>) : (format(dateRange.from, "LLL dd, y", { locale: es }))) : (<span>Seleccione un rango</span>)}</Button></PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0" align="start"><Calendar initialFocus mode="range" defaultMonth={dateRange?.from} selected={dateRange} onSelect={setDateRange} numberOfMonths={2} locale={es} disabled={{ after: today }} /></PopoverContent>
+                                    <PopoverContent className="w-auto p-0" align="start"><Calendar initialFocus mode="range" defaultMonth={dateRange?.from} selected={dateRange} onSelect={setDateRange} numberOfMonths={2} locale={es} disabled={{ after: new Date() }} /></PopoverContent>
                                 </Popover>
                             </div>
                             <div className="space-y-2">
@@ -836,3 +835,4 @@ export default function CrewPerformanceReportPage() {
         </div>
     );
 }
+

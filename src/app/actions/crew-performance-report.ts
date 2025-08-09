@@ -334,12 +334,12 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
 
             const isCrewOperation = formData.aplicaCuadrilla === 'si' || formData.tipoPedido === 'TUNEL A CÁMARA CONGELADOS' || formData.tipoPedido === 'TUNEL DE CONGELACIÓN';
             
-            const standard = isCrewOperation ? await findBestMatchingStandard({
+            const standard = await findBestMatchingStandard({
               clientName: clientName,
               operationType: operationTypeForAction,
               productType: productTypeForAction,
               tons: toneladas,
-            }) : null;
+            });
             
             const settlements = isCrewOperation ? calculateSettlements(submission, billingConcepts) : [];
             const novelties = await getNoveltiesForOperation(id);
@@ -383,7 +383,10 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                     });
                 }
             } else {
-                 // Add operations without a settlement concept if filter is 'all' or 'without crew'
+                 let conceptoPrincipal = 'No Aplica';
+                 if (tipoOperacion === 'Recepción') conceptoPrincipal = 'DESCARGUE';
+                 if (tipoOperacion === 'Despacho') conceptoPrincipal = 'CARGUE';
+                 
                  finalReportRows.push({
                     id: id,
                     submissionId: id,
@@ -403,12 +406,12 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                     placa: formData.placa || 'N/A',
                     contenedor: formData.contenedor || 'N/A',
                     productType: productTypeForAction,
-                    standard: null,
-                    description: "No aplica",
-                    conceptoLiquidado: 'No Aplica',
+                    standard,
+                    description: standard?.description || "Sin descripción",
+                    conceptoLiquidado: conceptoPrincipal,
                     valorUnitario: 0,
-                    cantidadConcepto: 0,
-                    unidadMedidaConcepto: 'N/A',
+                    cantidadConcepto: toneladas,
+                    unidadMedidaConcepto: 'TONELADA',
                     valorTotalConcepto: 0,
                     aplicaCuadrilla: formData.aplicaCuadrilla,
                 });
@@ -440,3 +443,4 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         throw error;
     }
 }
+
