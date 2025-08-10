@@ -121,13 +121,6 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
     const settlements: { conceptName: string, unitValue: number, quantity: number, unitOfMeasure: string, totalValue: number }[] = [];
     const { formData, formType } = submission;
     
-    // Step 1: Handle Observation-based Concepts FIRST and INDEPENDENTLY
-    const observationConcepts: { type: string; quantityType: 'Paletas' | 'Canastillas' | 'Unidades' }[] = [
-        { type: 'REESTIBADO', quantityType: 'Paletas' },
-        { type: 'TRANSBORDO CANASTILLA', quantityType: 'Canastillas' },
-        { type: 'SALIDA PALETAS TUNEL', quantityType: 'Paletas' },
-    ];
-    
     const unitMeasureMap: Record<string, BillingConcept['unitOfMeasure']> = {
       'Paletas': 'PALETA',
       'Canastillas': 'CANASTILLA',
@@ -135,13 +128,15 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
     };
 
     (formData.observaciones || []).forEach((obs: any) => {
-        const conceptInfo = observationConcepts.find(c => c.type === obs.type);
-        if (conceptInfo && obs.executedByGrupoRosales === true) {
+        if (obs.executedByGrupoRosales === true) {
+            const conceptType = obs.type;
+            const quantityType = obs.quantityType;
             const totalQuantity = Number(obs.quantity) || 0;
-            if (totalQuantity > 0) {
-                const targetUnitOfMeasure = unitMeasureMap[obs.quantityType] || 'UNIDAD';
+            
+            if (totalQuantity > 0 && quantityType && unitMeasureMap[quantityType]) {
+                const targetUnitOfMeasure = unitMeasureMap[quantityType];
                 const billingConcept = billingConcepts.find(
-                    c => c.conceptName === conceptInfo.type && c.unitOfMeasure === targetUnitOfMeasure
+                    c => c.conceptName === conceptType && c.unitOfMeasure === targetUnitOfMeasure
                 );
 
                 if (billingConcept) {
@@ -157,7 +152,6 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
         }
     });
 
-    // Step 2: Handle Primary Operation (Cargue/Descargue) and Maquila SEPARATELY
     if (formData.aplicaCuadrilla === 'si') {
         const liquidableOrderTypes = ['GENERICO', 'TUNEL', 'TUNEL DE CONGELACIÓN', 'DESPACHO GENERICO'];
         
@@ -212,14 +206,10 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
     }
     
     let query: admin.firestore.Query = firestore.collection('submissions');
-    
-    const serverStartDate = new Date(criteria.startDate);
-    const serverEndDate = new Date(criteria.endDate);
-    serverEndDate.setDate(serverEndDate.getDate() + 1);
-    
-    query = query.where('createdAt', '>=', serverStartDate.toISOString().split('T')[0])
-                 .where('createdAt', '<', serverEndDate.toISOString().split('T')[0]);
 
+    // Use the form's own date field for querying
+    query = query.where('formData.fecha', '>=', criteria.startDate)
+                 .where('formData.fecha', '<=', criteria.endDate);
 
     try {
         const [submissionsSnapshot, billingConcepts] = await Promise.all([
@@ -228,15 +218,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         ]);
         
         let allResultsInRange = submissionsSnapshot.docs.map(doc => ({ id: doc.id, ...serializeTimestamps(doc.data()) }));
-        
-        allResultsInRange = allResultsInRange.filter(submission => {
-            const formIsoDate = submission.formData?.fecha;
-            if (!formIsoDate || typeof formIsoDate !== 'string') return false;
-            const formDatePart = getLocalGroupingDate(formIsoDate);
-            return formDatePart >= criteria.startDate! && formDatePart <= criteria.endDate!;
-        });
 
-        // Pre-filter by operario if provided
         if (criteria.operario) {
             allResultsInRange = allResultsInRange.filter(sub => sub.userDisplayName === criteria.operario);
         }
@@ -249,6 +231,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             const allSettlements = calculateSettlements(submission, billingConcepts);
             
             let indicatorOnlyOperation: { conceptName: string, toneladas: number } | null = null;
+            
             if (allSettlements.length === 0 && formData.aplicaCuadrilla === 'no') {
                 const isLoadOrUnload = formData.tipoPedido === 'GENERICO' || formData.tipoPedido === 'TUNEL' || formData.tipoPedido === 'TUNEL DE CONGELACIÓN' || formData.tipoPedido === 'DESPACHO GENERICO';
                 if (isLoadOrUnload) {
@@ -259,48 +242,50 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                 }
             }
             
-            // Apply the cuadrillaFilter logic
             const hasCrewSettlements = allSettlements.length > 0;
             const hasNonCrewIndicator = indicatorOnlyOperation !== null;
             
+            const isRelevantForReport = hasCrewSettlements || hasNonCrewIndicator;
+
             if (criteria.cuadrillaFilter === 'con' && !hasCrewSettlements) continue;
             if (criteria.cuadrillaFilter === 'sin' && !hasNonCrewIndicator) continue;
             
-            const buildRow = (settlement?: typeof allSettlements[0]) => {
-                let tipoOperacion: 'Recepción' | 'Despacho' | 'N/A' = 'N/A';
-                if (formType.includes('recepcion') || formType.includes('reception')) tipoOperacion = 'Recepción';
-                else if (formType.includes('despacho')) tipoOperacion = 'Despacho';
+            if (isRelevantForReport) {
+                const buildRow = (settlement?: typeof allSettlements[0]) => {
+                    let tipoOperacion: 'Recepción' | 'Despacho' | 'N/A' = 'N/A';
+                    if (formType.includes('recepcion') || formType.includes('reception')) tipoOperacion = 'Recepción';
+                    else if (formType.includes('despacho')) tipoOperacion = 'Despacho';
 
-                let tipoProducto: 'Fijo' | 'Variable' | 'N/A' = 'N/A';
-                if (formType.includes('fixed-weight')) tipoProducto = 'Fijo';
-                else if (formType.includes('variable-weight')) tipoProducto = 'Variable';
-                
-                return {
-                    id: settlement ? `${id}-${settlement.conceptName.replace(/\s+/g, '-')}` : id,
-                    submissionId: id, formType, fecha: formData.fecha, operario: userDisplayName || 'N/A', cliente: formData.nombreCliente || formData.cliente || 'N/A',
-                    tipoOperacion, tipoProducto, kilos: calculateTotalKilos(formType, formData), horaInicio: formData.horaInicio || 'N/A', horaFin: formData.horaFin || 'N/A',
-                    totalDurationMinutes: null, operationalDurationMinutes: null, novelties: [], pedidoSislog: formData.pedidoSislog || 'N/A',
-                    placa: formData.placa || 'N/A', contenedor: formData.contenedor || 'N/A', productType: tipoProducto === 'Fijo' ? 'fijo' : (tipoProducto === 'Variable' ? 'variable' : null),
-                    standard: null, description: "Sin descripción",
-                    conceptoLiquidado: settlement?.conceptName || indicatorOnlyOperation?.conceptName || 'N/A',
-                    valorUnitario: settlement?.unitValue || 0,
-                    cantidadConcepto: settlement?.quantity || indicatorOnlyOperation?.toneladas || 0,
-                    unidadMedidaConcepto: settlement?.unitOfMeasure || (indicatorOnlyOperation ? 'TONELADA' : 'N/A'),
-                    valorTotalConcepto: settlement?.totalValue || 0,
-                    aplicaCuadrilla: formData.aplicaCuadrilla,
+                    let tipoProducto: 'Fijo' | 'Variable' | 'N/A' = 'N/A';
+                    if (formType.includes('fixed-weight')) tipoProducto = 'Fijo';
+                    else if (formType.includes('variable-weight')) tipoProducto = 'Variable';
+                    
+                    return {
+                        id: settlement ? `${id}-${settlement.conceptName.replace(/\s+/g, '-')}` : id,
+                        submissionId: id, formType, fecha: formData.fecha, operario: userDisplayName || 'N/A', cliente: formData.nombreCliente || formData.cliente || 'N/A',
+                        tipoOperacion, tipoProducto, kilos: calculateTotalKilos(formType, formData), horaInicio: formData.horaInicio || 'N/A', horaFin: formData.horaFin || 'N/A',
+                        totalDurationMinutes: null, operationalDurationMinutes: null, novelties: [], pedidoSislog: formData.pedidoSislog || 'N/A',
+                        placa: formData.placa || 'N/A', contenedor: formData.contenedor || 'N/A', productType: tipoProducto === 'Fijo' ? 'fijo' : (tipoProducto === 'Variable' ? 'variable' : null),
+                        standard: null, description: "Sin descripción",
+                        conceptoLiquidado: settlement?.conceptName || indicatorOnlyOperation?.conceptName || 'N/A',
+                        valorUnitario: settlement?.unitValue || 0,
+                        cantidadConcepto: settlement?.quantity ?? indicatorOnlyOperation?.toneladas ?? 0,
+                        unidadMedidaConcepto: settlement?.unitOfMeasure || (indicatorOnlyOperation ? 'TONELADA' : 'N/A'),
+                        valorTotalConcepto: settlement?.totalValue || 0,
+                        aplicaCuadrilla: formData.aplicaCuadrilla,
+                    };
                 };
-            };
 
-            if (hasCrewSettlements) {
-                for (const settlement of allSettlements) {
-                    finalReportRows.push(buildRow(settlement));
+                if (hasCrewSettlements) {
+                    for (const settlement of allSettlements) {
+                        finalReportRows.push(buildRow(settlement));
+                    }
+                } else if (hasNonCrewIndicator) {
+                     finalReportRows.push(buildRow());
                 }
-            } else if (hasNonCrewIndicator) {
-                 finalReportRows.push(buildRow());
             }
         }
         
-        // Step 6: Final filtering and data enrichment in a separate loop
         const enrichedRows = [];
         for (const row of finalReportRows) {
             // Apply client, product, and operation type filters
