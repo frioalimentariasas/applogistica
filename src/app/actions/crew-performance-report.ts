@@ -122,17 +122,14 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
 
     const liquidableOrderTypes = ['GENERICO', 'TUNEL', 'TUNEL DE CONGELACIÓN', 'DESPACHO GENERICO'];
     
-    // --- Step 1: Main Operation Settlement (CARGUE/DESCARGUE) ---
     if (formData.aplicaCuadrilla === 'si' && liquidableOrderTypes.includes(formData.tipoPedido)) {
         const isReception = formType.includes('recepcion') || formType.includes('reception');
         const conceptName = isReception ? 'DESCARGUE' : 'CARGUE';
         const kilos = calculateTotalKilos(formType, formData);
-        
         const operationConcept = billingConcepts.find(c => c.conceptName === conceptName && c.unitOfMeasure === 'TONELADA');
-
+        
         if (operationConcept) {
             if (formType.startsWith('fixed-weight-') && kilos === 0) {
-                // For fixed weight, if kilos are 0, it's a pending operation for this specific concept.
                 settlements.push({
                     conceptName: conceptName,
                     unitValue: 0,
@@ -153,7 +150,6 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
         }
     }
     
-    // --- Step 2: Observation-based Settlements (REESTIBADO, etc.) - Independent from Step 1 ---
     const observationConcepts: { type: string, measure: BillingConcept['unitOfMeasure'][] }[] = [
         { type: 'REESTIBADO', measure: ['PALETA', 'UNIDAD'] },
         { type: 'TRANSBORDO CANASTILLA', measure: ['CANASTILLA', 'UNIDAD'] },
@@ -171,7 +167,6 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
             );
     
             if (totalQuantity > 0) {
-                // Find the first matching billing concept based on the allowed measures
                 const billingConcept = billingConcepts.find(
                     c => c.conceptName === conceptInfo.type && conceptInfo.measure.includes(c.unitOfMeasure)
                 );
@@ -189,12 +184,9 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
         }
     });
 
-
-    // --- Step 3: Maquila Settlement ---
     if (formData.aplicaCuadrilla === 'si' && formData.tipoPedido === 'MAQUILA' && formData.tipoEmpaqueMaquila) {
         const conceptName = formData.tipoEmpaqueMaquila; // "EMPAQUE DE CAJAS" or "EMPAQUE DE SACOS"
         const unitOfMeasure = conceptName === 'EMPAQUE DE CAJAS' ? 'CAJA' : 'SACO';
-        
         const maquilaConcept = billingConcepts.find(c => c.conceptName === conceptName && c.unitOfMeasure === unitOfMeasure);
 
         if (maquilaConcept) {
