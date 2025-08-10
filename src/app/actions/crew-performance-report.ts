@@ -109,7 +109,7 @@ export interface CrewPerformanceReportRow {
 const getLocalGroupingDate = (isoString: string): string => {
     if (!isoString) return '';
     try {
-        const date = new Date(isoString);
+        const date = new Date(isoDateString);
         // Correct for Colombia Timezone (UTC-5)
         date.setUTCHours(date.getUTCHours() - 5);
         return date.toISOString().split('T')[0];
@@ -128,8 +128,11 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
       'Canastillas': 'CANASTILLA',
       'Unidades': 'UNIDAD'
     };
+    
+    // Ensure formData.observaciones is an array before calling forEach
+    const observaciones = Array.isArray(formData.observaciones) ? formData.observaciones : [];
 
-    (formData.observaciones || []).forEach((obs: any) => {
+    observaciones.forEach((obs: any) => {
         if (obs.executedByGrupoRosales === true) {
             const conceptType = obs.type;
             const quantityType = obs.quantityType;
@@ -169,7 +172,7 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
                     settlements.push({ conceptName: conceptName, unitValue: 0, quantity: -1, unitOfMeasure: 'TONELADA', totalValue: 0 });
                 } else if (kilos > 0) {
                     const toneladas = kilos / 1000;
-                    settlements.push({ conceptName: conceptName, unitValue: operationConcept.value, quantity: toneladas, unitOfMeasure: 'TONELADA', totalValue: toneladas * operationConcept.value });
+                    settlements.push({ conceptName: operationConcept.conceptName, unitValue: operationConcept.value, quantity: toneladas, unitOfMeasure: 'TONELADA', totalValue: toneladas * operationConcept.value });
                 }
             }
         }
