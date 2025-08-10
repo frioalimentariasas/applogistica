@@ -245,18 +245,11 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
 
         for (const submission of allResultsInRange) {
             const { id, formType, formData, userDisplayName } = submission;
-
-            // Step 1: Check for any liquidable concepts from observations
-            const settlementsFromObservations = calculateSettlements(submission, billingConcepts)
-                .filter(s => s.conceptName !== 'CARGUE' && s.conceptName !== 'DESCARGUE' && s.conceptName !== 'EMPAQUE DE CAJAS' && s.conceptName !== 'EMPAQUE DE SACOS');
             
-            // Step 2: Check for CARGUE/DESCARGUE liquidations (cuadrilla:si)
-            const mainOperationSettlements = calculateSettlements(submission, billingConcepts)
-                .filter(s => ['CARGUE', 'DESCARGUE', 'EMPAQUE DE CAJAS', 'EMPAQUE DE SACOS'].includes(s.conceptName));
+            const allSettlements = calculateSettlements(submission, billingConcepts);
             
-            // Step 3: Check for CARGUE/DESCARGUE indicators (cuadrilla:no)
             let indicatorOnlyOperation: { conceptName: string, toneladas: number } | null = null;
-            if (formData.aplicaCuadrilla === 'no') {
+            if (allSettlements.length === 0 && formData.aplicaCuadrilla === 'no') {
                 const isLoadOrUnload = formData.tipoPedido === 'GENERICO' || formData.tipoPedido === 'TUNEL' || formData.tipoPedido === 'TUNEL DE CONGELACIÓN' || formData.tipoPedido === 'DESPACHO GENERICO';
                 if (isLoadOrUnload) {
                     indicatorOnlyOperation = {
@@ -265,19 +258,13 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                     };
                 }
             }
-
-            // Step 4: Apply the cuadrillaFilter logic
-            const hasCrewSettlements = settlementsFromObservations.length > 0 || mainOperationSettlements.length > 0;
+            
+            // Apply the cuadrillaFilter logic
+            const hasCrewSettlements = allSettlements.length > 0;
             const hasNonCrewIndicator = indicatorOnlyOperation !== null;
             
             if (criteria.cuadrillaFilter === 'con' && !hasCrewSettlements) continue;
             if (criteria.cuadrillaFilter === 'sin' && !hasNonCrewIndicator) continue;
-            if (criteria.cuadrillaFilter !== 'todas' && (criteria.cuadrillaFilter === 'con' ? hasNonCrewIndicator : hasCrewSettlements)) continue;
-            
-
-            // Step 5: Build the row(s) for the submission
-            const allSettlements = [...settlementsFromObservations, ...mainOperationSettlements];
-            const hasAnyLiquidation = allSettlements.length > 0;
             
             const buildRow = (settlement?: typeof allSettlements[0]) => {
                 let tipoOperacion: 'Recepción' | 'Despacho' | 'N/A' = 'N/A';
@@ -304,7 +291,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                 };
             };
 
-            if (hasAnyLiquidation) {
+            if (hasCrewSettlements) {
                 for (const settlement of allSettlements) {
                     finalReportRows.push(buildRow(settlement));
                 }
