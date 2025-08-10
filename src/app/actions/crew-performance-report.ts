@@ -120,7 +120,7 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
     const { formData, formType } = submission;
     const observations = formData.observaciones || [];
 
-    const liquidableOrderTypes = ['GENERICO', 'TUNEL DE CONGELACIÓN'];
+    const liquidableOrderTypes = ['GENERICO', 'TUNEL DE CONGELACIÓN', 'DESPACHO GENERICO'];
     
     // --- Concept: CARGUE / DESCARGUE (By Ton for specific order types) ---
     if (formData.aplicaCuadrilla === 'si' && liquidableOrderTypes.includes(formData.tipoPedido)) {
@@ -131,6 +131,7 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
         const operationConcept = billingConcepts.find(c => c.conceptName === conceptName && c.unitOfMeasure === 'TONELADA');
 
         if (operationConcept) {
+            // For fixed weight, if kilos are 0, it's a pending operation, but other concepts can still be valid.
             if (formType.startsWith('fixed-weight-') && kilos === 0) {
                 settlements.push({
                     conceptName: conceptName,
@@ -152,7 +153,7 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
         }
     }
     
-    // --- Concepts from Observations ---
+    // --- Concepts from Observations (re-calculated independently) ---
     const observationConcepts: { type: string, measure: BillingConcept['unitOfMeasure'][] }[] = [
         { type: 'REESTIBADO', measure: ['PALETA', 'UNIDAD'] },
         { type: 'TRANSBORDO CANASTILLA', measure: ['CANASTILLA', 'UNIDAD'] },
@@ -358,7 +359,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                 }
             } else {
                  let conceptoPrincipal = 'No Aplica';
-                 if (formData.aplicaCuadrilla === 'si') {
+                 if (checkIsCrewOperation(submission)) {
                     if (tipoOperacion === 'Recepción') conceptoPrincipal = 'DESCARGUE';
                     if (tipoOperacion === 'Despacho') conceptoPrincipal = 'CARGUE';
                  }
