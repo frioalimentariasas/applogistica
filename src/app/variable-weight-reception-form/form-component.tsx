@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef, useCallback, ReactNode } from "react";
@@ -211,6 +212,24 @@ const formSchema = z.object({
               path: ["horaFin"],
           });
       }
+
+      // Validar items
+      const allItems = data.recepcionPorPlaca ? data.placas?.flatMap(p => p.items) : data.items;
+      allItems?.forEach((item, index) => {
+          const basePath = data.recepcionPorPlaca ? `placas.${Math.floor(index / (data.placas?.[0]?.items?.length || 1))}.items.${index % (data.placas?.[0]?.items?.length || 1)}` : `items.${index}`;
+          const isSummaryRow = Number(item.paleta) === 0;
+          const isSpecialOrderType = data.tipoPedido === "INGRESO DE SALDOS" || data.tipoPedido === "MAQUILA";
+
+          if (isSummaryRow) {
+              if (item.totalCantidad === undefined || item.totalCantidad === null) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Total Cantidad requerido.', path: [`${basePath}.totalCantidad`] });
+              if (item.totalPesoNeto === undefined || item.totalPesoNeto === null) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Total Peso Neto requerido.', path: [`${basePath}.totalPesoNeto`] });
+          } else if (!isSpecialOrderType) {
+              if (item.cantidadPorPaleta === undefined || item.cantidadPorPaleta === null) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Cantidad requerida.', path: [`${basePath}.cantidadPorPaleta`] });
+              if (item.pesoBruto === undefined || item.pesoBruto === null) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'P. Bruto requerido.', path: [`${basePath}.pesoBruto`] });
+              if (item.taraEstiba === undefined || item.taraEstiba === null) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'T. Estiba requerida.', path: [`${basePath}.taraEstiba`] });
+              if (item.taraCaja === undefined || item.taraCaja === null) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'T. Caja requerida.', path: [`${basePath}.taraCaja`] });
+          }
+      });
 });
 
 
