@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import admin from 'firebase-admin';
@@ -119,59 +120,9 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
     const { formData, formType } = submission;
     const observations = formData.observaciones || [];
 
-    // --- Concept: REESTIBADO ---
-    const reestibadoObservations = observations.filter(
-        (obs: any) => obs.type === 'REESTIBADO' && obs.executedByGrupoRosales === true
-    );
-    
-    if (reestibadoObservations.length > 0) {
-        const reestibadoConcept = billingConcepts.find(
-            c => c.conceptName === 'REESTIBADO' && c.unitOfMeasure === 'PALETA'
-        );
-        if (reestibadoConcept) {
-            const totalPallets = reestibadoObservations.reduce(
-                (sum: number, obs: any) => sum + (Number(obs.quantity) || 0), 0
-            );
-            if (totalPallets > 0) {
-                settlements.push({
-                    conceptName: 'REESTIBADO',
-                    unitValue: reestibadoConcept.value,
-                    quantity: totalPallets,
-                    unitOfMeasure: 'PALETA',
-                    totalValue: totalPallets * reestibadoConcept.value,
-                });
-            }
-        }
-    }
-    
-    // --- Concept: TRANSBORDO CANASTILLA ---
-    const transbordoObservations = observations.filter(
-        (obs: any) => obs.type === 'TRANSBORDO CANASTILLA' && obs.executedByGrupoRosales === true
-    );
-
-    if (transbordoObservations.length > 0) {
-        const transbordoConcept = billingConcepts.find(
-            c => c.conceptName === 'TRANSBORDO CANASTILLA' && (c.unitOfMeasure === 'CANASTILLA' || c.unitOfMeasure === 'UNIDAD')
-        );
-        if (transbordoConcept) {
-            const totalUnits = transbordoObservations.reduce(
-                (sum: number, obs: any) => sum + (Number(obs.quantity) || 0), 0
-            );
-            if (totalUnits > 0) {
-                settlements.push({
-                    conceptName: 'TRANSBORDO CANASTILLA',
-                    unitValue: transbordoConcept.value,
-                    quantity: totalUnits,
-                    unitOfMeasure: transbordoConcept.unitOfMeasure,
-                    totalValue: totalUnits * transbordoConcept.value,
-                });
-            }
-        }
-    }
-
-    // --- Concept: CARGUE / DESCARGUE (By Ton for specific order types) ---
     const liquidableOrderTypes = ['GENERICO', 'TUNEL DE CONGELACIÓN'];
     
+    // --- Concept: CARGUE / DESCARGUE (By Ton for specific order types) ---
     if (formData.aplicaCuadrilla === 'si' && liquidableOrderTypes.includes(formData.tipoPedido)) {
         const isReception = formType.includes('recepcion') || formType.includes('reception');
         const conceptName = isReception ? 'DESCARGUE' : 'CARGUE';
@@ -200,6 +151,42 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
             }
         }
     }
+    
+    // --- Concepts from Observations ---
+    const observationConcepts: { type: string, measure: BillingConcept['unitOfMeasure'][] }[] = [
+        { type: 'REESTIBADO', measure: ['PALETA', 'UNIDAD'] },
+        { type: 'TRANSBORDO CANASTILLA', measure: ['CANASTILLA', 'UNIDAD'] },
+        { type: 'SALIDA PALETAS TUNEL', measure: ['PALETA'] },
+    ];
+    
+    observationConcepts.forEach(conceptInfo => {
+        const relevantObservations = observations.filter(
+            (obs: any) => obs.type === conceptInfo.type && obs.executedByGrupoRosales === true
+        );
+    
+        if (relevantObservations.length > 0) {
+            const totalQuantity = relevantObservations.reduce(
+                (sum: number, obs: any) => sum + (Number(obs.quantity) || 0), 0
+            );
+    
+            if (totalQuantity > 0) {
+                // Find the first matching billing concept based on the allowed measures
+                const billingConcept = billingConcepts.find(
+                    c => c.conceptName === conceptInfo.type && conceptInfo.measure.includes(c.unitOfMeasure)
+                );
+    
+                if (billingConcept) {
+                    settlements.push({
+                        conceptName: billingConcept.conceptName,
+                        unitValue: billingConcept.value,
+                        quantity: totalQuantity,
+                        unitOfMeasure: billingConcept.unitOfMeasure,
+                        totalValue: totalQuantity * billingConcept.value,
+                    });
+                }
+            }
+        }
+    });
 
 
     // --- Concept: EMPAQUE DE CAJAS / EMPAQUE DE SACOS (Maquila) ---
@@ -224,28 +211,6 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
                     quantity: quantity,
                     unitOfMeasure: maquilaConcept.unitOfMeasure,
                     totalValue: quantity * maquilaConcept.value
-                });
-            }
-        }
-    }
-
-    // --- Concept: SALIDA PALETAS TUNEL ---
-    if (formData.tipoPedido === 'TUNEL A CÁMARA CONGELADOS') {
-        const salidaTunelObservation = observations.find(
-            (obs: any) => obs.type === 'SALIDA PALETAS TUNEL' && obs.executedByGrupoRosales === true
-        );
-        if (salidaTunelObservation && salidaTunelObservation.quantity > 0) {
-            const salidaTunelConcept = billingConcepts.find(
-                c => c.conceptName === 'SALIDA PALETAS TUNEL' && c.unitOfMeasure === 'PALETA'
-            );
-            if (salidaTunelConcept) {
-                const totalPallets = Number(salidaTunelObservation.quantity) || 0;
-                settlements.push({
-                    conceptName: 'SALIDA PALETAS TUNEL',
-                    unitValue: salidaTunelConcept.value,
-                    quantity: totalPallets,
-                    unitOfMeasure: 'PALETA',
-                    totalValue: totalPallets * salidaTunelConcept.value,
                 });
             }
         }
