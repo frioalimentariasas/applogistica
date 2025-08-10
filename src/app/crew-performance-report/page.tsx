@@ -529,7 +529,7 @@ export default function CrewPerformanceReportPage() {
              XLSX.utils.book_append_sheet(workbook, conceptsWorksheet, 'Resumen de Liquidación');
         }
         
-        const fileName = `Reporte_Liquidacion_Cuadrilla_${format(dateRange!.from!, 'yyyy-MM-dd')}_a_${format(dateRange!.to!, 'yyyy-MM-dd')}.xlsx`;
+        const fileName = `Reporte_Productividad_Liquidacion_${format(dateRange!.from!, 'yyyy-MM-dd')}_a_${format(dateRange!.to!, 'yyyy-MM-dd')}.xlsx`;
         XLSX.writeFile(workbook, fileName);
     };
 
@@ -640,7 +640,7 @@ export default function CrewPerformanceReportPage() {
                         <div>
                             <div className="flex items-center justify-center gap-2">
                                 <TrendingUp className="h-8 w-8 text-primary" />
-                                <h1 className="text-2xl font-bold text-primary">Indicadores y Liquidación Cuadrilla</h1>
+                                <h1 className="text-2xl font-bold text-primary">Informe de Productividad y Liquidación</h1>
                             </div>
                              <p className="text-sm text-gray-500">Analice los indicadores de productividad y liquide las operaciones de cuadrilla.</p>
                         </div>
@@ -652,7 +652,7 @@ export default function CrewPerformanceReportPage() {
                          <div className='flex justify-between items-center'>
                             <div>
                                 <CardTitle>Filtros del Reporte</CardTitle>
-                                <CardDescription>Seleccione los filtros para generar el informe de productividad de cuadrilla.</CardDescription>
+                                <CardDescription>Seleccione los filtros para generar el informe de productividad.</CardDescription>
                             </div>
                             <Button asChild variant="outline">
                                 <Link href="/gestion-estandares">
