@@ -118,10 +118,9 @@ const getLocalGroupingDate = (isoString: string): string => {
 const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]): { conceptName: string, unitValue: number, quantity: number, unitOfMeasure: string, totalValue: number }[] => {
     const settlements: { conceptName: string, unitValue: number, quantity: number, unitOfMeasure: string, totalValue: number }[] = [];
     const { formData, formType } = submission;
-    const observations = formData.observaciones || [];
-
-    const liquidableOrderTypes = ['GENERICO', 'TUNEL', 'TUNEL DE CONGELACIÓN', 'DESPACHO GENERICO'];
     
+    // --- Step 1: Handle Primary Operation (Cargue/Descargue) ---
+    const liquidableOrderTypes = ['GENERICO', 'TUNEL', 'TUNEL DE CONGELACIÓN', 'DESPACHO GENERICO'];
     if (formData.aplicaCuadrilla === 'si' && liquidableOrderTypes.includes(formData.tipoPedido)) {
         const isReception = formType.includes('recepcion') || formType.includes('reception');
         const conceptName = isReception ? 'DESCARGUE' : 'CARGUE';
@@ -130,10 +129,11 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
         
         if (operationConcept) {
             if (formType.startsWith('fixed-weight-') && kilos === 0) {
+                // Pending flag for fixed-weight forms with no weight entered
                 settlements.push({
                     conceptName: conceptName,
                     unitValue: 0,
-                    quantity: -1, // Flag for "Pending"
+                    quantity: -1,
                     unitOfMeasure: 'TONELADA',
                     totalValue: 0
                 });
@@ -150,14 +150,15 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
         }
     }
     
-    const observationConcepts: { type: string, measure: BillingConcept['unitOfMeasure'][] }[] = [
+    // --- Step 2: Handle Observation-based Concepts ---
+    const observationConcepts: { type: string; measure: BillingConcept['unitOfMeasure'][]; }[] = [
         { type: 'REESTIBADO', measure: ['PALETA', 'UNIDAD'] },
         { type: 'TRANSBORDO CANASTILLA', measure: ['CANASTILLA', 'UNIDAD'] },
         { type: 'SALIDA PALETAS TUNEL', measure: ['PALETA'] },
     ];
     
     observationConcepts.forEach(conceptInfo => {
-        const relevantObservations = (observations || []).filter(
+        const relevantObservations = (formData.observaciones || []).filter(
             (obs: any) => obs.type === conceptInfo.type && obs.executedByGrupoRosales === true
         );
     
@@ -184,6 +185,7 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
         }
     });
 
+    // --- Step 3: Handle Maquila Concept ---
     if (formData.aplicaCuadrilla === 'si' && formData.tipoPedido === 'MAQUILA' && formData.tipoEmpaqueMaquila) {
         const conceptName = formData.tipoEmpaqueMaquila; // "EMPAQUE DE CAJAS" or "EMPAQUE DE SACOS"
         const unitOfMeasure = conceptName === 'EMPAQUE DE CAJAS' ? 'CAJA' : 'SACO';
@@ -222,7 +224,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         throw new Error('Se requiere un rango de fechas para generar este informe.');
     }
     
-    let query = firestore.collection('submissions');
+    let query: admin.firestore.Query = firestore.collection('submissions');
     
     const serverStartDate = new Date(criteria.startDate);
     const serverEndDate = new Date(criteria.endDate);
@@ -252,11 +254,8 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         }
 
         const crewObservationTypes = ['REESTIBADO', 'TRANSBORDO CANASTILLA', 'SALIDA PALETAS TUNEL'];
-
         const checkIsCrewOperation = (sub: any): boolean => {
-            if (sub.formData.aplicaCuadrilla === 'si') {
-                return true;
-            }
+            if (sub.formData.aplicaCuadrilla === 'si') return true;
             if (Array.isArray(sub.formData.observaciones)) {
                 return sub.formData.observaciones.some(
                     (obs: any) => crewObservationTypes.includes(obs.type) && obs.executedByGrupoRosales === true
@@ -350,12 +349,6 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                     });
                 }
             } else {
-                 let conceptoPrincipal = 'No Aplica';
-                 if (checkIsCrewOperation(submission)) {
-                    if (tipoOperacion === 'Recepción') conceptoPrincipal = 'DESCARGUE';
-                    if (tipoOperacion === 'Despacho') conceptoPrincipal = 'CARGUE';
-                 }
-                 
                  finalReportRows.push({
                     id: id,
                     submissionId: id,
@@ -377,7 +370,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                     productType: productTypeForAction,
                     standard,
                     description: standard?.description || "Sin descripción",
-                    conceptoLiquidado: conceptoPrincipal,
+                    conceptoLiquidado: 'No Aplica',
                     valorUnitario: 0,
                     cantidadConcepto: toneladas,
                     unidadMedidaConcepto: 'TONELADA',
@@ -401,7 +394,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             });
         }
         if (criteria.filterPending) {
-            clientFilteredResults = clientFilteredResults.filter(row => row.productType === 'fijo' && row.cantidadConcepto === -1);
+            clientFilteredResults = clientFilteredResults.filter(row => row.cantidadConcepto === -1);
         }
         
         clientFilteredResults.sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
@@ -412,3 +405,4 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         throw error;
     }
 }
+
