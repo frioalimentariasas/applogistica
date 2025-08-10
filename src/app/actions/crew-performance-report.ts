@@ -119,44 +119,14 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
     const settlements: { conceptName: string, unitValue: number, quantity: number, unitOfMeasure: string, totalValue: number }[] = [];
     const { formData, formType } = submission;
     
-    // --- Step 1: Handle Primary Operation (Cargue/Descargue) ---
     const liquidableOrderTypes = ['GENERICO', 'TUNEL', 'TUNEL DE CONGELACIÓN', 'DESPACHO GENERICO'];
-    if (formData.aplicaCuadrilla === 'si' && liquidableOrderTypes.includes(formData.tipoPedido)) {
-        const isReception = formType.includes('recepcion') || formType.includes('reception');
-        const conceptName = isReception ? 'DESCARGUE' : 'CARGUE';
-        const kilos = calculateTotalKilos(formType, formData);
-        const operationConcept = billingConcepts.find(c => c.conceptName === conceptName && c.unitOfMeasure === 'TONELADA');
-        
-        if (operationConcept) {
-            if (formType.startsWith('fixed-weight-') && kilos === 0) {
-                // Pending flag for fixed-weight forms with no weight entered
-                settlements.push({
-                    conceptName: conceptName,
-                    unitValue: 0,
-                    quantity: -1,
-                    unitOfMeasure: 'TONELADA',
-                    totalValue: 0
-                });
-            } else if (kilos > 0) {
-                const toneladas = kilos / 1000;
-                 settlements.push({
-                    conceptName: conceptName,
-                    unitValue: operationConcept.value,
-                    quantity: toneladas,
-                    unitOfMeasure: 'TONELADA',
-                    totalValue: toneladas * operationConcept.value
-                });
-            }
-        }
-    }
-    
-    // --- Step 2: Handle Observation-based Concepts ---
     const observationConcepts: { type: string; measure: BillingConcept['unitOfMeasure'][]; }[] = [
         { type: 'REESTIBADO', measure: ['PALETA', 'UNIDAD'] },
         { type: 'TRANSBORDO CANASTILLA', measure: ['CANASTILLA', 'UNIDAD'] },
         { type: 'SALIDA PALETAS TUNEL', measure: ['PALETA'] },
     ];
-    
+
+    // --- Step 1: Handle Observation-based Concepts FIRST ---
     observationConcepts.forEach(conceptInfo => {
         const relevantObservations = (formData.observaciones || []).filter(
             (obs: any) => obs.type === conceptInfo.type && obs.executedByGrupoRosales === true
@@ -185,6 +155,38 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
         }
     });
 
+    // --- Step 2: Handle Primary Operation (Cargue/Descargue) ---
+    if (formData.aplicaCuadrilla === 'si' && liquidableOrderTypes.includes(formData.tipoPedido)) {
+        const isReception = formType.includes('recepcion') || formType.includes('reception');
+        const conceptName = isReception ? 'DESCARGUE' : 'CARGUE';
+        const kilos = calculateTotalKilos(formType, formData);
+        const operationConcept = billingConcepts.find(c => c.conceptName === conceptName && c.unitOfMeasure === 'TONELADA');
+        
+        if (operationConcept) {
+            // "Pendiente" state only applies to fixed-weight forms with no weight entered.
+            const isPending = formType.startsWith('fixed-weight-') && kilos === 0;
+
+            if (isPending) {
+                settlements.push({
+                    conceptName: conceptName,
+                    unitValue: 0,
+                    quantity: -1,
+                    unitOfMeasure: 'TONELADA',
+                    totalValue: 0
+                });
+            } else if (kilos > 0) {
+                const toneladas = kilos / 1000;
+                 settlements.push({
+                    conceptName: conceptName,
+                    unitValue: operationConcept.value,
+                    quantity: toneladas,
+                    unitOfMeasure: 'TONELADA',
+                    totalValue: toneladas * operationConcept.value
+                });
+            }
+        }
+    }
+    
     // --- Step 3: Handle Maquila Concept ---
     if (formData.aplicaCuadrilla === 'si' && formData.tipoPedido === 'MAQUILA' && formData.tipoEmpaqueMaquila) {
         const conceptName = formData.tipoEmpaqueMaquila; // "EMPAQUE DE CAJAS" or "EMPAQUE DE SACOS"
@@ -318,6 +320,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             const operationalDuration = totalDuration !== null ? totalDuration - downtimeMinutes : null;
 
             if (settlements.length > 0) {
+                // If there are settlements, create a row for EACH one.
                 for (const settlement of settlements) {
                     finalReportRows.push({
                         id: `${id}-${settlement.conceptName}`,
@@ -349,6 +352,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                     });
                 }
             } else {
+                 // If no settlements were calculated, add a single row for the operation
                  finalReportRows.push({
                     id: id,
                     submissionId: id,
@@ -405,4 +409,3 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         throw error;
     }
 }
-
