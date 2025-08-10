@@ -23,6 +23,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import type { PerformanceStandard } from '@/app/gestion-estandares/actions';
 import { getStandardNoveltyTypes, type StandardNoveltyType } from '@/app/gestion-novedades/actions';
+import { getBillingConcepts, type BillingConcept } from '@/app/gestion-conceptos-liquidacion/actions';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -184,6 +185,10 @@ export default function CrewPerformanceReportPage() {
     const [filterLento, setFilterLento] = useState(false);
     
     const [standardNoveltyTypes, setStandardNoveltyTypes] = useState<StandardNoveltyType[]>([]);
+    const [allBillingConcepts, setAllBillingConcepts] = useState<BillingConcept[]>([]);
+    const [selectedConcepts, setSelectedConcepts] = useState<string[]>([]);
+    const [isConceptDialogOpen, setIsConceptDialogOpen] = useState(false);
+    const [conceptSearch, setConceptSearch] = useState('');
 
     const [reportData, setReportData] = useState<CrewPerformanceReportRow[]>([]);
     const [filteredReportData, setFilteredReportData] = useState<CrewPerformanceReportRow[]>([]);
@@ -222,14 +227,21 @@ export default function CrewPerformanceReportPage() {
         return clients.filter(c => c.razonSocial.toLowerCase().includes(clientSearch.toLowerCase()));
     }, [clientSearch, clients]);
 
+    const filteredConcepts = useMemo(() => {
+        if (!conceptSearch) return allBillingConcepts.map(c => c.conceptName);
+        return allBillingConcepts.map(c => c.conceptName).filter(name => name.toLowerCase().includes(conceptSearch.toLowerCase()));
+    }, [conceptSearch, allBillingConcepts]);
+
     useEffect(() => {
         const fetchInitialData = async () => {
-             const [clientList, noveltyTypes] = await Promise.all([
+             const [clientList, noveltyTypes, billingConcepts] = await Promise.all([
                  getClients(),
-                 getStandardNoveltyTypes()
+                 getStandardNoveltyTypes(),
+                 getBillingConcepts()
              ]);
              setClients(clientList);
              setStandardNoveltyTypes(noveltyTypes);
+             setAllBillingConcepts(billingConcepts);
         };
         fetchInitialData();
     }, []);
@@ -309,6 +321,7 @@ export default function CrewPerformanceReportPage() {
                 clientNames: selectedClients.length > 0 ? selectedClients : undefined,
                 filterPending: filterPending,
                 cuadrillaFilter: cuadrillaFilter,
+                conceptos: selectedConcepts.length > 0 ? selectedConcepts : undefined,
             };
 
             const results = await getCrewPerformanceReport(criteria);
@@ -334,7 +347,7 @@ export default function CrewPerformanceReportPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [dateRange, selectedOperario, operationType, productType, selectedClients, filterPending, cuadrillaFilter, toast]);
+    }, [dateRange, selectedOperario, operationType, productType, selectedClients, filterPending, cuadrillaFilter, selectedConcepts, toast]);
     
     const handleClear = () => {
         setDateRange(undefined);
@@ -343,6 +356,7 @@ export default function CrewPerformanceReportPage() {
         setProductType('all');
         setCuadrillaFilter('todas');
         setSelectedClients([]);
+        setSelectedConcepts([]);
         setFilterPending(false);
         setFilterLento(false);
         setReportData([]);
@@ -359,6 +373,13 @@ export default function CrewPerformanceReportPage() {
         if (selectedClients.length === 1) return selectedClients[0];
         return `${selectedClients.length} clientes seleccionados`;
     };
+
+    const getSelectedConceptsText = () => {
+        if (selectedConcepts.length === 0) return "Todos los conceptos...";
+        if (selectedConcepts.length === allBillingConcepts.length) return "Todos los conceptos";
+        if (selectedConcepts.length === 1) return selectedConcepts[0];
+        return `${selectedConcepts.length} conceptos seleccionados`;
+    }
 
     const performanceSummary = useMemo(() => {
         const cargaDescargaData = reportData.filter(row => row.conceptoLiquidado === 'CARGUE' || row.conceptoLiquidado === 'DESCARGUE');
@@ -692,6 +713,22 @@ export default function CrewPerformanceReportPage() {
                              <div className="space-y-2"><Label>Operario</Label><Select value={selectedOperario} onValueChange={setSelectedOperario} disabled={isLoadingOperarios}><SelectTrigger><SelectValue placeholder="Seleccione un operario" /></SelectTrigger><SelectContent><SelectItem value="all">Todos los Operarios</SelectItem>{availableOperarios.map(op => <SelectItem key={op} value={op}>{op}</SelectItem>)}</SelectContent></Select></div>
                              <div className="space-y-2"><Label>Tipo de Operación</Label><Select value={operationType} onValueChange={setOperationType}><SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="recepcion">Recepción</SelectItem><SelectItem value="despacho">Despacho</SelectItem></SelectContent></Select></div>
                             <div className="space-y-2"><Label>Tipo de Producto</Label><Select value={productType} onValueChange={setProductType}><SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger><SelectContent><SelectItem value="all">Todos</SelectItem><SelectItem value="fijo">Peso Fijo</SelectItem><SelectItem value="variable">Peso Variable</SelectItem></SelectContent></Select></div>
+                             <div className="space-y-2"><Label>Concepto Liquidación</Label>
+                                <Dialog open={isConceptDialogOpen} onOpenChange={setIsConceptDialogOpen}>
+                                    <DialogTrigger asChild><Button variant="outline" className="w-full justify-between text-left font-normal"><span className="truncate">{getSelectedConceptsText()}</span><ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" /></Button></DialogTrigger>
+                                    <DialogContent>
+                                        <DialogHeader><DialogTitle>Seleccionar Concepto(s)</DialogTitle><DialogDescription>Deje la selección vacía para incluir a todos los conceptos.</DialogDescription></DialogHeader>
+                                        <Input placeholder="Buscar concepto..." value={conceptSearch} onChange={(e) => setConceptSearch(e.target.value)} className="my-4" />
+                                        <ScrollArea className="h-72">
+                                            <div className="space-y-1">
+                                                <div className="flex items-center space-x-2 rounded-md p-2 hover:bg-accent border-b"><Checkbox id="select-all-concepts" checked={selectedConcepts.length === allBillingConcepts.length} onCheckedChange={(checked) => { setSelectedConcepts(checked ? allBillingConcepts.map(c => c.conceptName) : []); }} /><Label htmlFor="select-all-concepts" className="w-full cursor-pointer font-semibold">Seleccionar Todos</Label></div>
+                                                {filteredConcepts.map((conceptName) => (<div key={conceptName} className="flex items-center space-x-2 rounded-md p-2 hover:bg-accent"><Checkbox id={`concept-${conceptName}`} checked={selectedConcepts.includes(conceptName)} onCheckedChange={(checked) => { setSelectedConcepts(prev => checked ? [...prev, conceptName] : prev.filter(s => s !== conceptName) ) }} /><Label htmlFor={`concept-${conceptName}`} className="w-full cursor-pointer">{conceptName}</Label></div>))}
+                                            </div>
+                                        </ScrollArea>
+                                        <DialogFooter><Button onClick={() => setIsConceptDialogOpen(false)}>Cerrar</Button></DialogFooter>
+                                    </DialogContent>
+                                </Dialog>
+                            </div>
                             <div className="space-y-2"><Label>Operaciones de Cuadrilla</Label><Select value={cuadrillaFilter} onValueChange={setCuadrillaFilter as (value: 'con' | 'sin' | 'todas') => void}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="todas">Todas las Operaciones</SelectItem><SelectItem value="con">Solo con Cuadrilla</SelectItem><SelectItem value="sin">Solo sin Cuadrilla</SelectItem></SelectContent></Select></div>
                             <div className="flex flex-col gap-2 self-end">
                                 <div className="flex items-center space-x-2"><Checkbox id="filter-pending" checked={filterPending} onCheckedChange={(checked) => setFilterPending(checked as boolean)} /><Label htmlFor="filter-pending" className="cursor-pointer text-sm">Mostrar solo pendientes P. Bruto</Label></div>
@@ -838,5 +875,6 @@ export default function CrewPerformanceReportPage() {
         </div>
     );
 }
+
 
 

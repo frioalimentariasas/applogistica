@@ -73,6 +73,7 @@ export interface CrewPerformanceReportCriteria {
     clientNames?: string[];
     filterPending?: boolean;
     cuadrillaFilter?: 'con' | 'sin' | 'todas';
+    conceptos?: string[];
 }
 
 export interface CrewPerformanceReportRow {
@@ -315,6 +316,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                 const rowOpType = (row.tipoOperacion === 'Recepción') ? 'recepcion' : (row.tipoOperacion === 'Despacho' ? 'despacho' : null);
                 if(rowOpType !== criteria.operationType) continue;
             }
+            if (criteria.conceptos && criteria.conceptos.length > 0 && !criteria.conceptos.includes(row.conceptoLiquidado)) continue;
             if (criteria.filterPending && row.cantidadConcepto !== -1) continue;
 
             const novelties = await getNoveltiesForOperation(row.submissionId);
