@@ -227,170 +227,126 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             getBillingConcepts()
         ]);
         
-        let allResultsInDateRange = submissionsSnapshot.docs.map(doc => ({ id: doc.id, ...serializeTimestamps(doc.data()) }));
+        let allResultsInRange = submissionsSnapshot.docs.map(doc => ({ id: doc.id, ...serializeTimestamps(doc.data()) }));
         
-        allResultsInDateRange = allResultsInDateRange.filter(submission => {
+        allResultsInRange = allResultsInRange.filter(submission => {
             const formIsoDate = submission.formData?.fecha;
             if (!formIsoDate || typeof formIsoDate !== 'string') return false;
             const formDatePart = getLocalGroupingDate(formIsoDate);
             return formDatePart >= criteria.startDate! && formDatePart <= criteria.endDate!;
         });
 
+        // Pre-filter by operario if provided
         if (criteria.operario) {
-            allResultsInDateRange = allResultsInDateRange.filter(sub => sub.userDisplayName === criteria.operario);
+            allResultsInRange = allResultsInRange.filter(sub => sub.userDisplayName === criteria.operario);
         }
-
-        const crewObservationTypes = ['REESTIBADO', 'TRANSBORDO CANASTILLA', 'SALIDA PALETAS TUNEL'];
-        const checkIsCrewOperation = (sub: any): boolean => {
-            if (sub.formData.aplicaCuadrilla === 'si') return true;
-            if (Array.isArray(sub.formData.observaciones)) {
-                return sub.formData.observaciones.some(
-                    (obs: any) => crewObservationTypes.includes(obs.type) && obs.executedByGrupoRosales === true
-                );
-            }
-            return false;
-        };
-
-        if (criteria.cuadrillaFilter === 'con') {
-            allResultsInDateRange = allResultsInDateRange.filter(checkIsCrewOperation);
-        } else if (criteria.cuadrillaFilter === 'sin') {
-            allResultsInDateRange = allResultsInDateRange.filter(sub => !checkIsCrewOperation(sub));
-        }
-
 
         const finalReportRows: CrewPerformanceReportRow[] = [];
 
-        for (const submission of allResultsInDateRange) {
+        for (const submission of allResultsInRange) {
             const { id, formType, formData, userDisplayName } = submission;
 
-            let tipoOperacion: 'Recepción' | 'Despacho' | 'N/A' = 'N/A';
-            let operationTypeForAction: 'recepcion' | 'despacho' | undefined = undefined;
-            if (formType.includes('recepcion') || formType.includes('reception')) {
-                tipoOperacion = 'Recepción';
-                operationTypeForAction = 'recepcion';
-            } else if (formType.includes('despacho')) {
-                tipoOperacion = 'Despacho';
-                operationTypeForAction = 'despacho';
-            }
-
-            let tipoProducto: 'Fijo' | 'Variable' | 'N/A' = 'N/A';
-            let productTypeForAction: 'fijo' | 'variable' | null = null;
-            if (formType.includes('fixed-weight')) {
-                tipoProducto = 'Fijo';
-                productTypeForAction = 'fijo';
-            } else if (formType.includes('variable-weight')) {
-                tipoProducto = 'Variable';
-                productTypeForAction = 'variable';
-            }
+            // Step 1: Check for any liquidable concepts from observations
+            const settlementsFromObservations = calculateSettlements(submission, billingConcepts)
+                .filter(s => s.conceptName !== 'CARGUE' && s.conceptName !== 'DESCARGUE' && s.conceptName !== 'EMPAQUE DE CAJAS' && s.conceptName !== 'EMPAQUE DE SACOS');
             
-            const kilos = calculateTotalKilos(formType, formData);
-            const toneladas = Number((kilos / 1000).toFixed(2));
-            const clientName = formData.nombreCliente || formData.cliente;
-
-            const standard = await findBestMatchingStandard({
-              clientName: clientName,
-              operationType: operationTypeForAction,
-              productType: productTypeForAction,
-              tons: toneladas,
-            });
+            // Step 2: Check for CARGUE/DESCARGUE liquidations (cuadrilla:si)
+            const mainOperationSettlements = calculateSettlements(submission, billingConcepts)
+                .filter(s => ['CARGUE', 'DESCARGUE', 'EMPAQUE DE CAJAS', 'EMPAQUE DE SACOS'].includes(s.conceptName));
             
-            const settlements = calculateSettlements(submission, billingConcepts);
-            const novelties = await getNoveltiesForOperation(id);
-            const totalDuration = calculateDuration(formData.horaInicio, formData.horaFin);
-            
-            const downtimeMinutes = novelties
-                .filter(n => n.impactsCrewProductivity === true)
-                .reduce((sum, n) => sum + n.downtimeMinutes, 0);
-            
-            const operationalDuration = totalDuration !== null ? totalDuration - downtimeMinutes : null;
-
-            if (settlements.length > 0) {
-                // If there are settlements, create a row for EACH one.
-                for (const settlement of settlements) {
-                    finalReportRows.push({
-                        id: `${id}-${settlement.conceptName.replace(/\s+/g, '-')}`, // More robust ID
-                        submissionId: id,
-                        formType,
-                        fecha: formData.fecha,
-                        operario: userDisplayName || 'N/A',
-                        cliente: clientName || 'N/A',
-                        tipoOperacion,
-                        tipoProducto,
-                        kilos: kilos,
-                        horaInicio: formData.horaInicio || 'N/A',
-                        horaFin: formData.horaFin || 'N/A',
-                        totalDurationMinutes: totalDuration,
-                        operationalDurationMinutes: operationalDuration,
-                        novelties: novelties,
-                        pedidoSislog: formData.pedidoSislog || 'N/A',
-                        placa: formData.placa || 'N/A',
-                        contenedor: formData.contenedor || 'N/A',
-                        productType: productTypeForAction,
-                        standard,
-                        description: standard?.description || "Sin descripción",
-                        conceptoLiquidado: settlement.conceptName,
-                        valorUnitario: settlement.unitValue,
-                        cantidadConcepto: settlement.quantity,
-                        unidadMedidaConcepto: settlement.unitOfMeasure,
-                        valorTotalConcepto: settlement.totalValue,
-                        aplicaCuadrilla: formData.aplicaCuadrilla,
-                    });
+            // Step 3: Check for CARGUE/DESCARGUE indicators (cuadrilla:no)
+            let indicatorOnlyOperation: { conceptName: string, toneladas: number } | null = null;
+            if (formData.aplicaCuadrilla === 'no') {
+                const isLoadOrUnload = formData.tipoPedido === 'GENERICO' || formData.tipoPedido === 'TUNEL' || formData.tipoPedido === 'TUNEL DE CONGELACIÓN' || formData.tipoPedido === 'DESPACHO GENERICO';
+                if (isLoadOrUnload) {
+                    indicatorOnlyOperation = {
+                        conceptName: (formType.includes('recepcion') || formType.includes('reception')) ? 'DESCARGUE' : 'CARGUE',
+                        toneladas: calculateTotalKilos(formType, formData) / 1000
+                    };
                 }
-            } else if (formData.aplicaCuadrilla === 'no') { // This is the new logic for non-crew operations
-                 const isLoadOrUnload = formData.tipoPedido === 'GENERICO' || formData.tipoPedido === 'TUNEL' || formData.tipoPedido === 'TUNEL DE CONGELACIÓN' || formData.tipoPedido === 'DESPACHO GENERICO';
-                 if (isLoadOrUnload && operationTypeForAction && productTypeForAction) {
-                     finalReportRows.push({
-                        id: id,
-                        submissionId: id,
-                        formType,
-                        fecha: formData.fecha,
-                        operario: userDisplayName || 'N/A',
-                        cliente: clientName || 'N/A',
-                        tipoOperacion,
-                        tipoProducto,
-                        kilos: kilos,
-                        horaInicio: formData.horaInicio || 'N/A',
-                        horaFin: formData.horaFin || 'N/A',
-                        totalDurationMinutes: totalDuration,
-                        operationalDurationMinutes: operationalDuration,
-                        novelties: novelties,
-                        pedidoSislog: formData.pedidoSislog || 'N/A',
-                        placa: formData.placa || 'N/A',
-                        contenedor: formData.contenedor || 'N/A',
-                        productType: productTypeForAction,
-                        standard,
-                        description: standard?.description || "Sin descripción",
-                        conceptoLiquidado: operationTypeForAction === 'recepcion' ? 'DESCARGUE' : 'CARGUE', // Set concept for indicator
-                        valorUnitario: 0,
-                        cantidadConcepto: toneladas,
-                        unidadMedidaConcepto: 'TONELADA',
-                        valorTotalConcepto: 0,
-                        aplicaCuadrilla: formData.aplicaCuadrilla,
-                    });
-                 }
+            }
+
+            // Step 4: Apply the cuadrillaFilter logic
+            const hasCrewSettlements = settlementsFromObservations.length > 0 || mainOperationSettlements.length > 0;
+            const hasNonCrewIndicator = indicatorOnlyOperation !== null;
+            
+            if (criteria.cuadrillaFilter === 'con' && !hasCrewSettlements) continue;
+            if (criteria.cuadrillaFilter === 'sin' && !hasNonCrewIndicator) continue;
+            if (criteria.cuadrillaFilter !== 'todas' && (criteria.cuadrillaFilter === 'con' ? hasNonCrewIndicator : hasCrewSettlements)) continue;
+            
+
+            // Step 5: Build the row(s) for the submission
+            const allSettlements = [...settlementsFromObservations, ...mainOperationSettlements];
+            const hasAnyLiquidation = allSettlements.length > 0;
+            
+            const buildRow = (settlement?: typeof allSettlements[0]) => {
+                let tipoOperacion: 'Recepción' | 'Despacho' | 'N/A' = 'N/A';
+                if (formType.includes('recepcion') || formType.includes('reception')) tipoOperacion = 'Recepción';
+                else if (formType.includes('despacho')) tipoOperacion = 'Despacho';
+
+                let tipoProducto: 'Fijo' | 'Variable' | 'N/A' = 'N/A';
+                if (formType.includes('fixed-weight')) tipoProducto = 'Fijo';
+                else if (formType.includes('variable-weight')) tipoProducto = 'Variable';
+                
+                return {
+                    id: settlement ? `${id}-${settlement.conceptName.replace(/\s+/g, '-')}` : id,
+                    submissionId: id, formType, fecha: formData.fecha, operario: userDisplayName || 'N/A', cliente: formData.nombreCliente || formData.cliente || 'N/A',
+                    tipoOperacion, tipoProducto, kilos: calculateTotalKilos(formType, formData), horaInicio: formData.horaInicio || 'N/A', horaFin: formData.horaFin || 'N/A',
+                    totalDurationMinutes: null, operationalDurationMinutes: null, novelties: [], pedidoSislog: formData.pedidoSislog || 'N/A',
+                    placa: formData.placa || 'N/A', contenedor: formData.contenedor || 'N/A', productType: tipoProducto === 'Fijo' ? 'fijo' : (tipoProducto === 'Variable' ? 'variable' : null),
+                    standard: null, description: "Sin descripción",
+                    conceptoLiquidado: settlement?.conceptName || indicatorOnlyOperation?.conceptName || 'N/A',
+                    valorUnitario: settlement?.unitValue || 0,
+                    cantidadConcepto: settlement?.quantity || indicatorOnlyOperation?.toneladas || 0,
+                    unidadMedidaConcepto: settlement?.unitOfMeasure || (indicatorOnlyOperation ? 'TONELADA' : 'N/A'),
+                    valorTotalConcepto: settlement?.totalValue || 0,
+                    aplicaCuadrilla: formData.aplicaCuadrilla,
+                };
+            };
+
+            if (hasAnyLiquidation) {
+                for (const settlement of allSettlements) {
+                    finalReportRows.push(buildRow(settlement));
+                }
+            } else if (hasNonCrewIndicator) {
+                 finalReportRows.push(buildRow());
             }
         }
         
-        let clientFilteredResults = finalReportRows;
-        if (criteria.clientNames && criteria.clientNames.length > 0) {
-            clientFilteredResults = clientFilteredResults.filter(row => criteria.clientNames!.includes(row.cliente));
-        }
-        if (criteria.productType) {
-            clientFilteredResults = clientFilteredResults.filter(row => row.productType === criteria.productType);
-        }
-        if (criteria.operationType) {
-             clientFilteredResults = clientFilteredResults.filter(row => {
+        // Step 6: Final filtering and data enrichment in a separate loop
+        const enrichedRows = [];
+        for (const row of finalReportRows) {
+            // Apply client, product, and operation type filters
+            if (criteria.clientNames && criteria.clientNames.length > 0 && !criteria.clientNames.includes(row.cliente)) continue;
+            if (criteria.productType && row.productType !== criteria.productType) continue;
+            if (criteria.operationType) {
                 const rowOpType = (row.tipoOperacion === 'Recepción') ? 'recepcion' : (row.tipoOperacion === 'Despacho' ? 'despacho' : null);
-                return rowOpType === criteria.operationType;
-            });
-        }
-        if (criteria.filterPending) {
-            clientFilteredResults = clientFilteredResults.filter(row => row.cantidadConcepto === -1);
-        }
-        
-        clientFilteredResults.sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
+                if(rowOpType !== criteria.operationType) continue;
+            }
+            if (criteria.filterPending && row.cantidadConcepto !== -1) continue;
 
-        return clientFilteredResults;
+            const novelties = await getNoveltiesForOperation(row.submissionId);
+            const totalDuration = calculateDuration(row.horaInicio, row.horaFin);
+            const downtimeMinutes = novelties.filter(n => n.impactsCrewProductivity).reduce((sum, n) => sum + n.downtimeMinutes, 0);
+            
+            row.novelties = novelties;
+            row.totalDurationMinutes = totalDuration;
+            row.operationalDurationMinutes = totalDuration !== null ? totalDuration - downtimeMinutes : null;
+
+            row.standard = await findBestMatchingStandard({
+                clientName: row.cliente,
+                operationType: row.tipoOperacion === 'Recepción' ? 'recepcion' : 'despacho',
+                productType: row.productType,
+                tons: row.kilos / 1000
+            });
+            row.description = row.standard?.description || "Sin descripción";
+
+            enrichedRows.push(row);
+        }
+
+        enrichedRows.sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
+
+        return enrichedRows;
     } catch (error: any) {
         console.error('Error fetching crew performance report:', error);
         throw error;
