@@ -264,13 +264,11 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         throw new Error('Se requiere un rango de fechas para generar este informe.');
     }
     
-    // We fetch all submissions in the date range because we might need to show all, only with crew, or only without.
-    // Filtering on Firestore would be complex and require multiple queries. This is simpler.
     let query = firestore.collection('submissions');
     
     const serverStartDate = new Date(criteria.startDate);
     const serverEndDate = new Date(criteria.endDate);
-    serverEndDate.setDate(serverEndDate.getDate() + 1); // To include the whole end day
+    serverEndDate.setDate(serverEndDate.getDate() + 1);
     
     query = query.where('createdAt', '>=', serverStartDate.toISOString().split('T')[0])
                  .where('createdAt', '<', serverEndDate.toISOString().split('T')[0]);
@@ -284,7 +282,6 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         
         let allResultsInDateRange = submissionsSnapshot.docs.map(doc => ({ id: doc.id, ...serializeTimestamps(doc.data()) }));
         
-        // Filter by the precise local date part first.
         allResultsInDateRange = allResultsInDateRange.filter(submission => {
             const formIsoDate = submission.formData?.fecha;
             if (!formIsoDate || typeof formIsoDate !== 'string') return false;
@@ -296,12 +293,26 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             allResultsInDateRange = allResultsInDateRange.filter(sub => sub.userDisplayName === criteria.operario);
         }
 
-        // Filter by "cuadrillaFilter"
+        const crewObservationTypes = ['REESTIBADO', 'TRANSBORDO CANASTILLA', 'SALIDA PALETAS TUNEL'];
+
+        const checkIsCrewOperation = (sub: any): boolean => {
+            if (sub.formData.aplicaCuadrilla === 'si') {
+                return true;
+            }
+            if (Array.isArray(sub.formData.observaciones)) {
+                return sub.formData.observaciones.some(
+                    (obs: any) => crewObservationTypes.includes(obs.type) && obs.executedByGrupoRosales === true
+                );
+            }
+            return false;
+        };
+
         if (criteria.cuadrillaFilter === 'con') {
-            allResultsInDateRange = allResultsInDateRange.filter(sub => sub.formData.aplicaCuadrilla === 'si' || sub.formData.tipoPedido === 'TUNEL A CÁMARA CONGELADOS');
+            allResultsInDateRange = allResultsInDateRange.filter(checkIsCrewOperation);
         } else if (criteria.cuadrillaFilter === 'sin') {
-            allResultsInDateRange = allResultsInDateRange.filter(sub => sub.formData.aplicaCuadrilla !== 'si' && sub.formData.tipoPedido !== 'TUNEL A CÁMARA CONGELADOS');
+            allResultsInDateRange = allResultsInDateRange.filter(sub => !checkIsCrewOperation(sub));
         }
+
 
         const finalReportRows: CrewPerformanceReportRow[] = [];
 
