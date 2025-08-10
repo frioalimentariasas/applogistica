@@ -46,7 +46,7 @@ const calculateDuration = (horaInicio: string, horaFin: string): number | null =
 
 const calculateTotalKilos = (formType: string, formData: any): number => {
     if (formType.startsWith('fixed-weight-')) {
-        return (formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.pesoBrutoKg) || 0), 0);
+        return (formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.pesoNetoKg) || 0), 0);
     }
     
     if (formType.startsWith('variable-weight-')) {
@@ -128,12 +128,12 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
     observaciones.forEach((obs: any) => {
         if (obs.executedByGrupoRosales === true) {
             const conceptType = obs.type;
-            const quantityType = obs.quantityType; // e.g., "Canastillas"
+            const quantityType = obs.quantityType;
             const totalQuantity = Number(obs.quantity) || 0;
             
             if (totalQuantity > 0 && quantityType) {
-                const billingConcept = billingConcepts.find(
-                    c => c.conceptName === conceptType && c.unitOfMeasure.startsWith(quantityType.slice(0, -1).toUpperCase()) // Flexible matching for singular/plural
+                 const billingConcept = billingConcepts.find(
+                    c => c.conceptName === conceptType && c.unitOfMeasure === quantityType
                 );
 
                 if (billingConcept) {
@@ -204,6 +204,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
     
     let query: admin.firestore.Query = firestore.collection('submissions');
 
+    // Widen the query to account for timezone differences vs the stored UTC `createdAt` date.
     const serverQueryStartDate = new Date(criteria.startDate);
     serverQueryStartDate.setDate(serverQueryStartDate.getDate() - 1);
     
@@ -222,6 +223,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         
         let allResults = submissionsSnapshot.docs.map(doc => ({ id: doc.id, ...serializeTimestamps(doc.data()) }));
 
+        // Filter by the local form date in memory
         allResults = allResults.filter(sub => {
             const formIsoDate = sub.formData?.fecha;
             if (!formIsoDate || typeof formIsoDate !== 'string') return false;
