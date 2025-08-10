@@ -120,9 +120,9 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
     const { formData, formType } = submission;
     const observations = formData.observaciones || [];
 
-    const liquidableOrderTypes = ['GENERICO', 'TUNEL DE CONGELACIÓN', 'DESPACHO GENERICO'];
+    const liquidableOrderTypes = ['GENERICO', 'TUNEL', 'TUNEL DE CONGELACIÓN', 'DESPACHO GENERICO'];
     
-    // --- Concept: CARGUE / DESCARGUE (By Ton for specific order types) ---
+    // --- Step 1: Main Operation Settlement (CARGUE/DESCARGUE) ---
     if (formData.aplicaCuadrilla === 'si' && liquidableOrderTypes.includes(formData.tipoPedido)) {
         const isReception = formType.includes('recepcion') || formType.includes('reception');
         const conceptName = isReception ? 'DESCARGUE' : 'CARGUE';
@@ -131,8 +131,8 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
         const operationConcept = billingConcepts.find(c => c.conceptName === conceptName && c.unitOfMeasure === 'TONELADA');
 
         if (operationConcept) {
-            // For fixed weight, if kilos are 0, it's a pending operation, but other concepts can still be valid.
             if (formType.startsWith('fixed-weight-') && kilos === 0) {
+                // For fixed weight, if kilos are 0, it's a pending operation for this specific concept.
                 settlements.push({
                     conceptName: conceptName,
                     unitValue: 0,
@@ -153,7 +153,7 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
         }
     }
     
-    // --- Concepts from Observations (re-calculated independently) ---
+    // --- Step 2: Observation-based Settlements (REESTIBADO, etc.) - Independent from Step 1 ---
     const observationConcepts: { type: string, measure: BillingConcept['unitOfMeasure'][] }[] = [
         { type: 'REESTIBADO', measure: ['PALETA', 'UNIDAD'] },
         { type: 'TRANSBORDO CANASTILLA', measure: ['CANASTILLA', 'UNIDAD'] },
@@ -161,7 +161,7 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
     ];
     
     observationConcepts.forEach(conceptInfo => {
-        const relevantObservations = observations.filter(
+        const relevantObservations = (observations || []).filter(
             (obs: any) => obs.type === conceptInfo.type && obs.executedByGrupoRosales === true
         );
     
@@ -190,7 +190,7 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
     });
 
 
-    // --- Concept: EMPAQUE DE CAJAS / EMPAQUE DE SACOS (Maquila) ---
+    // --- Step 3: Maquila Settlement ---
     if (formData.aplicaCuadrilla === 'si' && formData.tipoPedido === 'MAQUILA' && formData.tipoEmpaqueMaquila) {
         const conceptName = formData.tipoEmpaqueMaquila; // "EMPAQUE DE CAJAS" or "EMPAQUE DE SACOS"
         const unitOfMeasure = conceptName === 'EMPAQUE DE CAJAS' ? 'CAJA' : 'SACO';
