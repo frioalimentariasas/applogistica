@@ -109,7 +109,7 @@ export interface CrewPerformanceReportRow {
 const getLocalGroupingDate = (isoString: string): string => {
     if (!isoString) return '';
     try {
-        const date = new Date(isoDateString);
+        const date = new Date(isoString);
         // Correct for Colombia Timezone (UTC-5)
         date.setUTCHours(date.getUTCHours() - 5);
         return date.toISOString().split('T')[0];
@@ -252,12 +252,12 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             const { id, formType, formData, userDisplayName } = submission;
             
             // Check for settlement concepts from observations, regardless of 'aplicaCuadrilla'
-            const observationSettlements = calculateSettlements(submission, billingConcepts);
+            const allPossibleConcepts = calculateSettlements(submission, billingConcepts);
             
             let indicatorOnlyOperation: { conceptName: string, toneladas: number } | null = null;
             
             // Only consider an operation for the "sin cuadrilla" indicator if it has NO observation settlements
-            if (observationSettlements.length === 0 && formData.aplicaCuadrilla === 'no') {
+            if (allPossibleConcepts.length === 0 && formData.aplicaCuadrilla === 'no') {
                 const isLoadOrUnload = formData.tipoPedido === 'GENERICO' || formData.tipoPedido === 'TUNEL' || formData.tipoPedido === 'TUNEL DE CONGELACIÓN' || formData.tipoPedido === 'DESPACHO GENERICO';
                 if (isLoadOrUnload) {
                     indicatorOnlyOperation = {
@@ -267,46 +267,44 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                 }
             }
             
-            const hasCrewSettlements = observationSettlements.length > 0;
+            const hasCrewSettlements = allPossibleConcepts.length > 0;
             const hasNonCrewIndicator = indicatorOnlyOperation !== null;
             
             // Apply cuadrilla filter logic
             if (criteria.cuadrillaFilter === 'con' && !hasCrewSettlements) continue;
             if (criteria.cuadrillaFilter === 'sin' && !hasNonCrewIndicator) continue;
             
-            if (hasCrewSettlements || hasNonCrewIndicator) {
-                const buildRow = (settlement?: typeof observationSettlements[0]) => {
-                    let tipoOperacion: 'Recepción' | 'Despacho' | 'N/A' = 'N/A';
-                    if (formType.includes('recepcion') || formType.includes('reception')) tipoOperacion = 'Recepción';
-                    else if (formType.includes('despacho')) tipoOperacion = 'Despacho';
+            const buildRow = (settlement?: typeof allPossibleConcepts[0]) => {
+                let tipoOperacion: 'Recepción' | 'Despacho' | 'N/A' = 'N/A';
+                if (formType.includes('recepcion') || formType.includes('reception')) tipoOperacion = 'Recepción';
+                else if (formType.includes('despacho')) tipoOperacion = 'Despacho';
 
-                    let tipoProducto: 'Fijo' | 'Variable' | 'N/A' = 'N/A';
-                    if (formType.includes('fixed-weight')) tipoProducto = 'Fijo';
-                    else if (formType.includes('variable-weight')) tipoProducto = 'Variable';
-                    
-                    return {
-                        id: settlement ? `${id}-${settlement.conceptName.replace(/\s+/g, '-')}` : id,
-                        submissionId: id, formType, fecha: formData.fecha, operario: userDisplayName || 'N/A', cliente: formData.nombreCliente || formData.cliente || 'N/A',
-                        tipoOperacion, tipoProducto, kilos: calculateTotalKilos(formType, formData), horaInicio: formData.horaInicio || 'N/A', horaFin: formData.horaFin || 'N/A',
-                        totalDurationMinutes: null, operationalDurationMinutes: null, novelties: [], pedidoSislog: formData.pedidoSislog || 'N/A',
-                        placa: formData.placa || 'N/A', contenedor: formData.contenedor || 'N/A', productType: tipoProducto === 'Fijo' ? 'fijo' : (tipoProducto === 'Variable' ? 'variable' : null),
-                        standard: null, description: "Sin descripción",
-                        conceptoLiquidado: settlement?.conceptName || indicatorOnlyOperation?.conceptName || 'N/A',
-                        valorUnitario: settlement?.unitValue || 0,
-                        cantidadConcepto: settlement?.quantity ?? indicatorOnlyOperation?.toneladas ?? 0,
-                        unidadMedidaConcepto: settlement?.unitOfMeasure || (indicatorOnlyOperation ? 'TONELADA' : 'N/A'),
-                        valorTotalConcepto: settlement?.totalValue || 0,
-                        aplicaCuadrilla: formData.aplicaCuadrilla,
-                    };
+                let tipoProducto: 'Fijo' | 'Variable' | 'N/A' = 'N/A';
+                if (formType.includes('fixed-weight')) tipoProducto = 'Fijo';
+                else if (formType.includes('variable-weight')) tipoProducto = 'Variable';
+                
+                return {
+                    id: settlement ? `${id}-${settlement.conceptName.replace(/\s+/g, '-')}` : id,
+                    submissionId: id, formType, fecha: formData.fecha, operario: userDisplayName || 'N/A', cliente: formData.nombreCliente || formData.cliente || 'N/A',
+                    tipoOperacion, tipoProducto, kilos: calculateTotalKilos(formType, formData), horaInicio: formData.horaInicio || 'N/A', horaFin: formData.horaFin || 'N/A',
+                    totalDurationMinutes: null, operationalDurationMinutes: null, novelties: [], pedidoSislog: formData.pedidoSislog || 'N/A',
+                    placa: formData.placa || 'N/A', contenedor: formData.contenedor || 'N/A', productType: tipoProducto === 'Fijo' ? 'fijo' : (tipoProducto === 'Variable' ? 'variable' : null),
+                    standard: null, description: "Sin descripción",
+                    conceptoLiquidado: settlement?.conceptName || indicatorOnlyOperation?.conceptName || 'N/A',
+                    valorUnitario: settlement?.unitValue || 0,
+                    cantidadConcepto: settlement?.quantity ?? indicatorOnlyOperation?.toneladas ?? 0,
+                    unidadMedidaConcepto: settlement?.unitOfMeasure || (indicatorOnlyOperation ? 'TONELADA' : 'N/A'),
+                    valorTotalConcepto: settlement?.totalValue || 0,
+                    aplicaCuadrilla: formData.aplicaCuadrilla,
                 };
-
-                if (hasCrewSettlements) {
-                    for (const settlement of observationSettlements) {
-                        finalReportRows.push(buildRow(settlement));
-                    }
-                } else if (hasNonCrewIndicator) {
-                     finalReportRows.push(buildRow());
+            };
+            
+            if (hasCrewSettlements) {
+                for (const settlement of allPossibleConcepts) {
+                    finalReportRows.push(buildRow(settlement));
                 }
+            } else if (hasNonCrewIndicator) {
+                 finalReportRows.push(buildRow());
             }
         }
         
