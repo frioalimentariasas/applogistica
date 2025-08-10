@@ -50,7 +50,10 @@ const calculateTotalKilos = (formType: string, formData: any): number => {
     }
     
     if (formType.startsWith('variable-weight-')) {
-        const allItems = (formData.items || []).concat((formData.destinos || []).flatMap((d: any) => d.items));
+        const allItems = (formData.items || [])
+            .concat((formData.destinos || []).flatMap((d: any) => d.items))
+            .concat((formData.placas || []).flatMap((p: any) => p.items));
+
         if (allItems.some((p: any) => Number(p.paleta) === 0)) {
              return allItems.reduce((sum: number, p: any) => sum + (Number(p.totalPesoNeto) || 0), 0);
         }
