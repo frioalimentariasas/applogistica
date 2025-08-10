@@ -298,9 +298,9 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
 
         // Filter by "cuadrillaFilter"
         if (criteria.cuadrillaFilter === 'con') {
-            allResultsInDateRange = allResultsInDateRange.filter(sub => sub.formData.aplicaCuadrilla === 'si' || sub.formData.tipoPedido === 'TUNEL A CÁMARA CONGELADOS' || sub.formData.tipoPedido === 'TUNEL DE CONGELACIÓN');
+            allResultsInDateRange = allResultsInDateRange.filter(sub => sub.formData.aplicaCuadrilla === 'si' || sub.formData.tipoPedido === 'TUNEL A CÁMARA CONGELADOS');
         } else if (criteria.cuadrillaFilter === 'sin') {
-            allResultsInDateRange = allResultsInDateRange.filter(sub => sub.formData.aplicaCuadrilla !== 'si' && sub.formData.tipoPedido !== 'TUNEL A CÁMARA CONGELADOS' && sub.formData.tipoPedido !== 'TUNEL DE CONGELACIÓN');
+            allResultsInDateRange = allResultsInDateRange.filter(sub => sub.formData.aplicaCuadrilla !== 'si' && sub.formData.tipoPedido !== 'TUNEL A CÁMARA CONGELADOS');
         }
 
         const finalReportRows: CrewPerformanceReportRow[] = [];
@@ -332,8 +332,6 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             const toneladas = Number((kilos / 1000).toFixed(2));
             const clientName = formData.nombreCliente || formData.cliente;
 
-            const isCrewOperation = formData.aplicaCuadrilla === 'si' || formData.tipoPedido === 'TUNEL A CÁMARA CONGELADOS' || formData.tipoPedido === 'TUNEL DE CONGELACIÓN';
-            
             const standard = await findBestMatchingStandard({
               clientName: clientName,
               operationType: operationTypeForAction,
@@ -341,7 +339,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
               tons: toneladas,
             });
             
-            const settlements = isCrewOperation ? calculateSettlements(submission, billingConcepts) : [];
+            const settlements = calculateSettlements(submission, billingConcepts);
             const novelties = await getNoveltiesForOperation(id);
             const totalDuration = calculateDuration(formData.horaInicio, formData.horaFin);
             
@@ -384,8 +382,10 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                 }
             } else {
                  let conceptoPrincipal = 'No Aplica';
-                 if (tipoOperacion === 'Recepción') conceptoPrincipal = 'DESCARGUE';
-                 if (tipoOperacion === 'Despacho') conceptoPrincipal = 'CARGUE';
+                 if (formData.aplicaCuadrilla === 'si') {
+                    if (tipoOperacion === 'Recepción') conceptoPrincipal = 'DESCARGUE';
+                    if (tipoOperacion === 'Despacho') conceptoPrincipal = 'CARGUE';
+                 }
                  
                  finalReportRows.push({
                     id: id,
@@ -443,4 +443,3 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         throw error;
     }
 }
-
