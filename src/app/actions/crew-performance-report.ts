@@ -1,3 +1,4 @@
+
 'use server';
 
 import admin from 'firebase-admin';
@@ -117,21 +118,29 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
     const settlements: { conceptName: string, unitValue: number, quantity: number, unitOfMeasure: string, totalValue: number }[] = [];
     const { formData, formType } = submission;
     
-    const observationConcepts: { type: string; measure: BillingConcept['unitOfMeasure'][]; }[] = [
-        { type: 'REESTIBADO', measure: ['PALETA', 'UNIDAD'] },
-        { type: 'TRANSBORDO CANASTILLA', measure: ['CANASTILLA', 'UNIDAD'] },
-        { type: 'SALIDA PALETAS TUNEL', measure: ['PALETA'] },
+    // --- Step 1: Handle Observation-based Concepts FIRST and INDEPENDENTLY ---
+    const observationConcepts: { type: string; quantityType: 'Paletas' | 'Canastillas' | 'Unidades' }[] = [
+        { type: 'REESTIBADO', quantityType: 'Paletas' },
+        { type: 'TRANSBORDO CANASTILLA', quantityType: 'Canastillas' },
+        { type: 'SALIDA PALETAS TUNEL', quantityType: 'Paletas' },
     ];
+    
+    const unitMeasureMap: Record<string, BillingConcept['unitOfMeasure']> = {
+      'Paletas': 'PALETA',
+      'Canastillas': 'CANASTILLA',
+      'Unidades': 'UNIDAD'
+    };
 
-    // --- Step 1: Handle Observation-based Concepts FIRST ---
     (formData.observaciones || []).forEach((obs: any) => {
         const conceptInfo = observationConcepts.find(c => c.type === obs.type);
         if (conceptInfo && obs.executedByGrupoRosales === true) {
             const totalQuantity = Number(obs.quantity) || 0;
             if (totalQuantity > 0) {
+                const targetUnitOfMeasure = unitMeasureMap[obs.quantityType] || 'UNIDAD';
                 const billingConcept = billingConcepts.find(
-                    c => c.conceptName === conceptInfo.type && conceptInfo.measure.includes(c.unitOfMeasure)
+                    c => c.conceptName === conceptInfo.type && c.unitOfMeasure === targetUnitOfMeasure
                 );
+
                 if (billingConcept) {
                     settlements.push({
                         conceptName: billingConcept.conceptName,
@@ -145,7 +154,7 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
         }
     });
 
-    // --- Step 2: Handle Primary Operation (Cargue/Descargue) and Maquila ---
+    // --- Step 2: Handle Primary Operation (Cargue/Descargue) and Maquila SEPARATELY ---
     if (formData.aplicaCuadrilla === 'si') {
         const liquidableOrderTypes = ['GENERICO', 'TUNEL', 'TUNEL DE CONGELACIÓN', 'DESPACHO GENERICO'];
         
@@ -296,7 +305,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                 // If there are settlements, create a row for EACH one.
                 for (const settlement of settlements) {
                     finalReportRows.push({
-                        id: `${id}-${settlement.conceptName}`,
+                        id: `${id}-${settlement.conceptName.replace(/\s+/g, '-')}`, // More robust ID
                         submissionId: id,
                         formType,
                         fecha: formData.fecha,
@@ -382,4 +391,3 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         throw error;
     }
 }
-
