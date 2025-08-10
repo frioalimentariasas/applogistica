@@ -708,7 +708,7 @@ export default function CrewPerformanceReportPage() {
                                     {isLoading ? (<TableRow><TableCell colSpan={16}><Skeleton className="h-20 w-full" /></TableCell></TableRow>) : displayedData.length > 0 ? (
                                         displayedData.map((row) => {
                                             const indicator = getPerformanceIndicator(row);
-                                            const isPending = row.productType === 'fijo' && row.kilos === 0 && row.aplicaCuadrilla === 'si';
+                                            const isPending = row.cantidadConcepto === -1;
                                             return (
                                                 <TableRow key={row.id}>
                                                     <TableCell className="text-xs">{format(new Date(row.fecha), 'dd/MM/yy')}</TableCell><TableCell className="text-xs">{row.operario}</TableCell><TableCell className="text-xs max-w-[150px] truncate" title={row.cliente}>{row.cliente}</TableCell>
@@ -835,4 +835,3 @@ export default function CrewPerformanceReportPage() {
         </div>
     );
 }
-
