@@ -109,6 +109,7 @@ const getLocalGroupingDate = (isoString: string): string => {
     if (!isoString) return '';
     try {
         const date = new Date(isoString);
+        // Correct for Colombia Timezone (UTC-5)
         date.setUTCHours(date.getUTCHours() - 5);
         return date.toISOString().split('T')[0];
     } catch (e) {
@@ -207,9 +208,17 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
     
     let query: admin.firestore.Query = firestore.collection('submissions');
 
-    // Use the form's own date field for querying
-    query = query.where('formData.fecha', '>=', criteria.startDate)
-                 .where('formData.fecha', '<=', criteria.endDate);
+    // Widen the server query by a day on each side to account for timezone differences.
+    // We query by createdAt which is always indexed and safe.
+    const serverQueryStartDate = new Date(criteria.startDate);
+    serverQueryStartDate.setDate(serverQueryStartDate.getDate() - 1);
+    
+    const serverQueryEndDate = new Date(criteria.endDate);
+    serverQueryEndDate.setDate(serverQueryEndDate.getDate() + 2);
+
+    query = query.where('createdAt', '>=', serverQueryStartDate.toISOString().split('T')[0])
+                 .where('createdAt', '<', serverQueryEndDate.toISOString().split('T')[0]);
+
 
     try {
         const [submissionsSnapshot, billingConcepts] = await Promise.all([
@@ -217,22 +226,34 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             getBillingConcepts()
         ]);
         
-        let allResultsInRange = submissionsSnapshot.docs.map(doc => ({ id: doc.id, ...serializeTimestamps(doc.data()) }));
+        let allResults = submissionsSnapshot.docs.map(doc => ({ id: doc.id, ...serializeTimestamps(doc.data()) }));
 
+        // Now apply the exact date filter in memory using the local date
+        allResults = allResults.filter(sub => {
+            const formIsoDate = sub.formData?.fecha;
+            if (!formIsoDate || typeof formIsoDate !== 'string') return false;
+            
+            const localDate = getLocalGroupingDate(formIsoDate);
+            return localDate >= criteria.startDate! && localDate <= criteria.endDate!;
+        });
+
+        // Apply remaining optional filters
         if (criteria.operario) {
-            allResultsInRange = allResultsInRange.filter(sub => sub.userDisplayName === criteria.operario);
+            allResults = allResults.filter(sub => sub.userDisplayName === criteria.operario);
         }
 
         const finalReportRows: CrewPerformanceReportRow[] = [];
 
-        for (const submission of allResultsInRange) {
+        for (const submission of allResults) {
             const { id, formType, formData, userDisplayName } = submission;
             
-            const allSettlements = calculateSettlements(submission, billingConcepts);
+            // Check for settlement concepts from observations, regardless of 'aplicaCuadrilla'
+            const observationSettlements = calculateSettlements(submission, billingConcepts);
             
             let indicatorOnlyOperation: { conceptName: string, toneladas: number } | null = null;
             
-            if (allSettlements.length === 0 && formData.aplicaCuadrilla === 'no') {
+            // Only consider an operation for the "sin cuadrilla" indicator if it has NO observation settlements
+            if (observationSettlements.length === 0 && formData.aplicaCuadrilla === 'no') {
                 const isLoadOrUnload = formData.tipoPedido === 'GENERICO' || formData.tipoPedido === 'TUNEL' || formData.tipoPedido === 'TUNEL DE CONGELACIÓN' || formData.tipoPedido === 'DESPACHO GENERICO';
                 if (isLoadOrUnload) {
                     indicatorOnlyOperation = {
@@ -242,16 +263,15 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                 }
             }
             
-            const hasCrewSettlements = allSettlements.length > 0;
+            const hasCrewSettlements = observationSettlements.length > 0;
             const hasNonCrewIndicator = indicatorOnlyOperation !== null;
             
-            const isRelevantForReport = hasCrewSettlements || hasNonCrewIndicator;
-
+            // Apply cuadrilla filter logic
             if (criteria.cuadrillaFilter === 'con' && !hasCrewSettlements) continue;
             if (criteria.cuadrillaFilter === 'sin' && !hasNonCrewIndicator) continue;
             
-            if (isRelevantForReport) {
-                const buildRow = (settlement?: typeof allSettlements[0]) => {
+            if (hasCrewSettlements || hasNonCrewIndicator) {
+                const buildRow = (settlement?: typeof observationSettlements[0]) => {
                     let tipoOperacion: 'Recepción' | 'Despacho' | 'N/A' = 'N/A';
                     if (formType.includes('recepcion') || formType.includes('reception')) tipoOperacion = 'Recepción';
                     else if (formType.includes('despacho')) tipoOperacion = 'Despacho';
@@ -277,7 +297,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                 };
 
                 if (hasCrewSettlements) {
-                    for (const settlement of allSettlements) {
+                    for (const settlement of observationSettlements) {
                         finalReportRows.push(buildRow(settlement));
                     }
                 } else if (hasNonCrewIndicator) {
