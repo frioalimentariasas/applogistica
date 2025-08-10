@@ -53,7 +53,7 @@ type NoveltyFormValues = z.infer<typeof noveltySchema>;
 
 const EmptyState = ({ searched }: { searched: boolean; }) => (
     <TableRow>
-        <TableCell colSpan={16} className="py-20 text-center">
+        <TableCell colSpan={17} className="py-20 text-center">
             <div className="flex flex-col items-center gap-4">
                 <div className="rounded-full bg-primary/10 p-4">
                     <FolderSearch className="h-12 w-12 text-primary" />
@@ -130,11 +130,13 @@ const formatDuration = (totalMinutes: number | null): string => {
 const getPerformanceIndicator = (row: CrewPerformanceReportRow): { text: string, color: string } => {
     const { operationalDurationMinutes, standard, conceptoLiquidado, kilos } = row;
     
+    // Only apply to CARGUE/DESCARGUE concepts
     if (conceptoLiquidado !== 'CARGUE' && conceptoLiquidado !== 'DESCARGUE') {
         return { text: 'No Aplica', color: 'text-gray-500' };
     }
     
-    if (row.productType === 'fijo' && kilos === 0 && row.aplicaCuadrilla === 'si') {
+    // If it's a fixed-weight form pending weight input, mark as pending
+    if (row.productType === 'fijo' && kilos === 0) {
         return { text: 'Pendiente (P. Bruto)', color: 'text-orange-600' };
     }
     
@@ -415,7 +417,7 @@ export default function CrewPerformanceReportPage() {
         
         const summary = reportData.reduce((acc, row) => {
             const { conceptoLiquidado, cantidadConcepto, valorUnitario, valorTotalConcepto, unidadMedidaConcepto } = row;
-            if (conceptoLiquidado === 'No Aplica') return acc;
+            if (conceptoLiquidado === 'No Aplica' || row.valorTotalConcepto === 0) return acc;
             if (!acc[conceptoLiquidado]) {
                 const firstValidEntry = reportData.find(r => r.conceptoLiquidado === conceptoLiquidado && r.valorUnitario > 0);
                 acc[conceptoLiquidado] = {
@@ -452,7 +454,7 @@ export default function CrewPerformanceReportPage() {
         // --- Sheet 1: Detalle Liquidación ---
         const mainDataToSheet = reportData.map(row => {
             const indicator = getPerformanceIndicator(row);
-            const isPending = row.productType === 'fijo' && row.kilos === 0 && row.aplicaCuadrilla === 'si';
+            const isPending = row.cantidadConcepto === -1;
             return {
                 'Fecha': format(new Date(row.fecha), 'dd/MM/yyyy'),
                 'Operario Responsable': row.operario,
@@ -705,7 +707,7 @@ export default function CrewPerformanceReportPage() {
                         <div className="w-full overflow-x-auto rounded-md border">
                             <Table><TableHeader><TableRow><TableHead>Fecha</TableHead><TableHead>Operario</TableHead><TableHead>Cliente</TableHead><TableHead>Tipo Op.</TableHead><TableHead>Tipo Prod.</TableHead><TableHead>Pedido</TableHead><TableHead>Placa</TableHead><TableHead>Cant.</TableHead><TableHead>Dur. Total</TableHead><TableHead>T. Operativo</TableHead><TableHead>Novedades</TableHead><TableHead>Productividad</TableHead><TableHead>Concepto</TableHead><TableHead>Vlr. Unitario</TableHead><TableHead>Vlr. Total</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader>
                                 <TableBody>
-                                    {isLoading ? (<TableRow><TableCell colSpan={16}><Skeleton className="h-20 w-full" /></TableCell></TableRow>) : displayedData.length > 0 ? (
+                                    {isLoading ? (<TableRow><TableCell colSpan={17}><Skeleton className="h-20 w-full" /></TableCell></TableRow>) : displayedData.length > 0 ? (
                                         displayedData.map((row) => {
                                             const indicator = getPerformanceIndicator(row);
                                             const isPending = row.cantidadConcepto === -1;
@@ -727,7 +729,7 @@ export default function CrewPerformanceReportPage() {
                                                     <TableCell className={cn("text-xs text-right font-semibold", indicator.color)}><div className="flex items-center justify-end gap-1.5"><Circle className={cn("h-2 w-2", indicator.color.replace('text-', 'bg-'))} />{indicator.text}</div></TableCell>
                                                     <TableCell className="text-xs font-semibold">{row.conceptoLiquidado}</TableCell><TableCell className="text-xs text-right font-mono">{isPending || row.valorUnitario === 0 ? 'N/A' : row.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 })}</TableCell><TableCell className="text-xs text-right font-mono">{isPending || row.valorTotalConcepto === 0 ? 'N/A' : row.valorTotalConcepto.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell>
                                                     <TableCell className="text-right">
-                                                        {indicator.text === 'Lento' && (
+                                                        {(indicator.text === 'Lento' || (row.aplicaCuadrilla === 'no' && indicator.text === 'Lento')) && (
                                                             <Button variant="outline" size="sm" onClick={() => handleOpenNoveltyDialog(row)}>
                                                                 <PlusCircle className="mr-2 h-3 w-3"/>Novedad
                                                             </Button>

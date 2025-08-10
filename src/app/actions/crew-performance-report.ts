@@ -118,7 +118,7 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
     const settlements: { conceptName: string, unitValue: number, quantity: number, unitOfMeasure: string, totalValue: number }[] = [];
     const { formData, formType } = submission;
     
-    // --- Step 1: Handle Observation-based Concepts FIRST and INDEPENDENTLY ---
+    // Step 1: Handle Observation-based Concepts FIRST and INDEPENDENTLY
     const observationConcepts: { type: string; quantityType: 'Paletas' | 'Canastillas' | 'Unidades' }[] = [
         { type: 'REESTIBADO', quantityType: 'Paletas' },
         { type: 'TRANSBORDO CANASTILLA', quantityType: 'Canastillas' },
@@ -154,7 +154,7 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
         }
     });
 
-    // --- Step 2: Handle Primary Operation (Cargue/Descargue) and Maquila SEPARATELY ---
+    // Step 2: Handle Primary Operation (Cargue/Descargue) and Maquila SEPARATELY
     if (formData.aplicaCuadrilla === 'si') {
         const liquidableOrderTypes = ['GENERICO', 'TUNEL', 'TUNEL DE CONGELACIÓN', 'DESPACHO GENERICO'];
         
@@ -333,36 +333,38 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                         aplicaCuadrilla: formData.aplicaCuadrilla,
                     });
                 }
-            } else if (operationTypeForAction && productTypeForAction && !checkIsCrewOperation(submission)) {
-                 // If no settlements but we need to show the row for performance indicator (non-crew)
-                 finalReportRows.push({
-                    id: id,
-                    submissionId: id,
-                    formType,
-                    fecha: formData.fecha,
-                    operario: userDisplayName || 'N/A',
-                    cliente: clientName || 'N/A',
-                    tipoOperacion,
-                    tipoProducto,
-                    kilos: kilos,
-                    horaInicio: formData.horaInicio || 'N/A',
-                    horaFin: formData.horaFin || 'N/A',
-                    totalDurationMinutes: totalDuration,
-                    operationalDurationMinutes: operationalDuration,
-                    novelties: novelties,
-                    pedidoSislog: formData.pedidoSislog || 'N/A',
-                    placa: formData.placa || 'N/A',
-                    contenedor: formData.contenedor || 'N/A',
-                    productType: productTypeForAction,
-                    standard,
-                    description: standard?.description || "Sin descripción",
-                    conceptoLiquidado: 'No Aplica',
-                    valorUnitario: 0,
-                    cantidadConcepto: toneladas,
-                    unidadMedidaConcepto: 'TONELADA',
-                    valorTotalConcepto: 0,
-                    aplicaCuadrilla: formData.aplicaCuadrilla,
-                });
+            } else if (formData.aplicaCuadrilla === 'no') { // This is the new logic for non-crew operations
+                 const isLoadOrUnload = formData.tipoPedido === 'GENERICO' || formData.tipoPedido === 'TUNEL' || formData.tipoPedido === 'TUNEL DE CONGELACIÓN' || formData.tipoPedido === 'DESPACHO GENERICO';
+                 if (isLoadOrUnload && operationTypeForAction && productTypeForAction) {
+                     finalReportRows.push({
+                        id: id,
+                        submissionId: id,
+                        formType,
+                        fecha: formData.fecha,
+                        operario: userDisplayName || 'N/A',
+                        cliente: clientName || 'N/A',
+                        tipoOperacion,
+                        tipoProducto,
+                        kilos: kilos,
+                        horaInicio: formData.horaInicio || 'N/A',
+                        horaFin: formData.horaFin || 'N/A',
+                        totalDurationMinutes: totalDuration,
+                        operationalDurationMinutes: operationalDuration,
+                        novelties: novelties,
+                        pedidoSislog: formData.pedidoSislog || 'N/A',
+                        placa: formData.placa || 'N/A',
+                        contenedor: formData.contenedor || 'N/A',
+                        productType: productTypeForAction,
+                        standard,
+                        description: standard?.description || "Sin descripción",
+                        conceptoLiquidado: operationTypeForAction === 'recepcion' ? 'DESCARGUE' : 'CARGUE', // Set concept for indicator
+                        valorUnitario: 0,
+                        cantidadConcepto: toneladas,
+                        unidadMedidaConcepto: 'TONELADA',
+                        valorTotalConcepto: 0,
+                        aplicaCuadrilla: formData.aplicaCuadrilla,
+                    });
+                 }
             }
         }
         
