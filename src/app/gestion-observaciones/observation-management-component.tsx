@@ -24,7 +24,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 
 const observationSchema = z.object({
   name: z.string().min(3, { message: 'El nombre debe tener al menos 3 caracteres.' }),
-  quantityType: z.enum(['Paletas', 'Unidades'], { required_error: 'Debe seleccionar un tipo de cantidad.' }),
+  quantityType: z.enum(['TONELADA', 'PALETA', 'UNIDAD', 'CAJA', 'SACO', 'CANASTILLA'], { required_error: 'Debe seleccionar un tipo de cantidad.' }),
 });
 
 type ObservationFormValues = z.infer<typeof observationSchema>;
@@ -190,8 +190,12 @@ export default function ObservationManagementComponent({ initialObservations }: 
                           <SelectTrigger><SelectValue placeholder="Seleccione un tipo" /></SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="Paletas">Paletas</SelectItem>
-                          <SelectItem value="Unidades">Unidades</SelectItem>
+                          <SelectItem value="TONELADA">TONELADA</SelectItem>
+                          <SelectItem value="PALETA">PALETA</SelectItem>
+                          <SelectItem value="UNIDAD">UNIDAD</SelectItem>
+                          <SelectItem value="CAJA">CAJA</SelectItem>
+                          <SelectItem value="SACO">SACO</SelectItem>
+                          <SelectItem value="CANASTILLA">CANASTILLA</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -273,8 +277,12 @@ export default function ObservationManagementComponent({ initialObservations }: 
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
                     <SelectContent>
-                      <SelectItem value="Paletas">Paletas</SelectItem>
-                      <SelectItem value="Unidades">Unidades</SelectItem>
+                        <SelectItem value="TONELADA">TONELADA</SelectItem>
+                        <SelectItem value="PALETA">PALETA</SelectItem>
+                        <SelectItem value="UNIDAD">UNIDAD</SelectItem>
+                        <SelectItem value="CAJA">CAJA</SelectItem>
+                        <SelectItem value="SACO">SACO</SelectItem>
+                        <SelectItem value="CANASTILLA">CANASTILLA</SelectItem>
                     </SelectContent>
                   </Select>
                   <FormMessage />

@@ -123,7 +123,6 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
     const settlements: { conceptName: string, unitValue: number, quantity: number, unitOfMeasure: string, totalValue: number }[] = [];
     const { formData, formType } = submission;
     
-    // Ensure formData.observaciones is an array before calling forEach
     const observaciones = Array.isArray(formData.observaciones) ? formData.observaciones : [];
 
     observaciones.forEach((obs: any) => {
@@ -133,11 +132,8 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
             const totalQuantity = Number(obs.quantity) || 0;
             
             if (totalQuantity > 0 && quantityType) {
-                // Find a billing concept that matches the observation type and its corresponding unit of measure.
-                // This is more flexible and handles singular/plural mismatches.
                 const billingConcept = billingConcepts.find(
-                    c => c.conceptName === conceptType && 
-                         quantityType.toUpperCase().includes(c.unitOfMeasure)
+                    c => c.conceptName === conceptType && c.unitOfMeasure.startsWith(quantityType.slice(0, -1).toUpperCase()) // Flexible matching for singular/plural
                 );
 
                 if (billingConcept) {
@@ -335,5 +331,3 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         throw error;
     }
 }
-
-    
