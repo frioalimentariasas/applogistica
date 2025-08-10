@@ -123,25 +123,21 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
     const settlements: { conceptName: string, unitValue: number, quantity: number, unitOfMeasure: string, totalValue: number }[] = [];
     const { formData, formType } = submission;
     
-    const unitMeasureMap: Record<string, BillingConcept['unitOfMeasure']> = {
-      'Paletas': 'PALETA',
-      'Canastillas': 'CANASTILLA',
-      'Unidades': 'UNIDAD'
-    };
-    
     // Ensure formData.observaciones is an array before calling forEach
     const observaciones = Array.isArray(formData.observaciones) ? formData.observaciones : [];
 
     observaciones.forEach((obs: any) => {
         if (obs.executedByGrupoRosales === true) {
             const conceptType = obs.type;
-            const quantityType = obs.quantityType;
+            const quantityType = obs.quantityType; // e.g., "Canastillas"
             const totalQuantity = Number(obs.quantity) || 0;
             
-            if (totalQuantity > 0 && quantityType && unitMeasureMap[quantityType]) {
-                const targetUnitOfMeasure = unitMeasureMap[quantityType];
+            if (totalQuantity > 0 && quantityType) {
+                // Find a billing concept that matches the observation type and its corresponding unit of measure.
+                // This is more flexible and handles singular/plural mismatches.
                 const billingConcept = billingConcepts.find(
-                    c => c.conceptName === conceptType && c.unitOfMeasure === targetUnitOfMeasure
+                    c => c.conceptName === conceptType && 
+                         quantityType.toUpperCase().includes(c.unitOfMeasure)
                 );
 
                 if (billingConcept) {
@@ -212,8 +208,6 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
     
     let query: admin.firestore.Query = firestore.collection('submissions');
 
-    // Widen the server query by a day on each side to account for timezone differences.
-    // We query by createdAt which is always indexed and safe.
     const serverQueryStartDate = new Date(criteria.startDate);
     serverQueryStartDate.setDate(serverQueryStartDate.getDate() - 1);
     
@@ -232,7 +226,6 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         
         let allResults = submissionsSnapshot.docs.map(doc => ({ id: doc.id, ...serializeTimestamps(doc.data()) }));
 
-        // Now apply the exact date filter in memory using the local date
         allResults = allResults.filter(sub => {
             const formIsoDate = sub.formData?.fecha;
             if (!formIsoDate || typeof formIsoDate !== 'string') return false;
@@ -241,7 +234,6 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             return localDate >= criteria.startDate! && localDate <= criteria.endDate!;
         });
 
-        // Apply remaining optional filters
         if (criteria.operario) {
             allResults = allResults.filter(sub => sub.userDisplayName === criteria.operario);
         }
@@ -251,12 +243,10 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         for (const submission of allResults) {
             const { id, formType, formData, userDisplayName } = submission;
             
-            // Check for settlement concepts from observations, regardless of 'aplicaCuadrilla'
             const allPossibleConcepts = calculateSettlements(submission, billingConcepts);
             
             let indicatorOnlyOperation: { conceptName: string, toneladas: number } | null = null;
             
-            // Only consider an operation for the "sin cuadrilla" indicator if it has NO observation settlements
             if (allPossibleConcepts.length === 0 && formData.aplicaCuadrilla === 'no') {
                 const isLoadOrUnload = formData.tipoPedido === 'GENERICO' || formData.tipoPedido === 'TUNEL' || formData.tipoPedido === 'TUNEL DE CONGELACIÓN' || formData.tipoPedido === 'DESPACHO GENERICO';
                 if (isLoadOrUnload) {
@@ -270,7 +260,6 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             const hasCrewSettlements = allPossibleConcepts.length > 0;
             const hasNonCrewIndicator = indicatorOnlyOperation !== null;
             
-            // Apply cuadrilla filter logic
             if (criteria.cuadrillaFilter === 'con' && !hasCrewSettlements) continue;
             if (criteria.cuadrillaFilter === 'sin' && !hasNonCrewIndicator) continue;
             
@@ -310,7 +299,6 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         
         const enrichedRows = [];
         for (const row of finalReportRows) {
-            // Apply client, product, and operation type filters
             if (criteria.clientNames && criteria.clientNames.length > 0 && !criteria.clientNames.includes(row.cliente)) continue;
             if (criteria.productType && row.productType !== criteria.productType) continue;
             if (criteria.operationType) {
@@ -347,3 +335,5 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         throw error;
     }
 }
+
+    
