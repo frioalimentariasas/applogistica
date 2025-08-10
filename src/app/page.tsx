@@ -93,8 +93,8 @@ export default function Home() {
   const menuItems: { label: string; href: string; icon: React.FC<any>; permission: keyof AppPermissions }[] = [
     { label: 'Consultar Formatos Guardados', href: '/consultar-formatos', icon: ScrollText, permission: 'canConsultForms' },
     { label: 'Informes para Facturación', href: '/billing-reports', icon: BookCopy, permission: 'canViewBillingReports' },
-    { label: 'Informe de Desempeño Operaciones', href: '/performance-report', icon: Timer, permission: 'canViewPerformanceReport' },
-    { label: 'Informe de Productividad y Liquidación', href: '/crew-performance-report', icon: TrendingUp, permission: 'canViewCrewPerformanceReport' },
+    { label: 'Informe Productividad Operarios Frio Alimentaria', href: '/performance-report', icon: Timer, permission: 'canViewPerformanceReport' },
+    { label: 'Informe de Productividad y Liquidación Cuadrilla', href: '/crew-performance-report', icon: TrendingUp, permission: 'canViewCrewPerformanceReport' },
     { label: 'Gestión de Tipos de Pedido', href: '/gestion-tipos-pedido', icon: ListTodo, permission: 'canManageArticles' }, // Re-use permission
     { label: 'Gestión de Estándares de Productividad', href: '/gestion-estandares', icon: Settings, permission: 'canManageStandards' },
     { label: 'Gestión de Conceptos de Liquidación', href: '/gestion-conceptos-liquidacion', icon: DollarSign, permission: 'canManageStandards' }, // Re-using permission

@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -273,8 +274,8 @@ export default function PerformanceReportPage() {
 
         const worksheet = XLSX.utils.json_to_sheet([...dataToExport, totalRow]);
         const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'Reporte Desempeño');
-        const fileName = `Reporte_Desempeño_${format(dateRange!.from!, 'yyyy-MM-dd')}_a_${format(dateRange!.to!, 'yyyy-MM-dd')}.xlsx`;
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Informe Productividad');
+        const fileName = `Informe_Productividad_Operarios_${format(dateRange!.from!, 'yyyy-MM-dd')}_a_${format(dateRange!.to!, 'yyyy-MM-dd')}.xlsx`;
         XLSX.writeFile(workbook, fileName);
     };
 
@@ -295,7 +296,7 @@ export default function PerformanceReportPage() {
         
         doc.setFontSize(11);
         doc.setFont('helvetica', 'bold');
-        doc.text(`Informe de Desempeño Operaciones`, pageWidth / 2, titleY, { align: 'center' });
+        doc.text(`Informe Productividad Operarios Frio Alimentaria`, pageWidth / 2, titleY, { align: 'center' });
         
         doc.setFontSize(9);
         doc.setFont('helvetica', 'normal');
@@ -327,7 +328,7 @@ export default function PerformanceReportPage() {
             styles: { fontSize: 7, cellPadding: 1.5 },
         });
 
-        const fileName = `Reporte_Desempeño_${format(dateRange!.from!, 'yyyy-MM-dd')}_a_${format(dateRange!.to!, 'yyyy-MM-dd')}.pdf`;
+        const fileName = `Informe_Productividad_Operarios_${format(dateRange!.from!, 'yyyy-MM-dd')}_a_${format(dateRange!.to!, 'yyyy-MM-dd')}.pdf`;
         doc.save(fileName);
     };
 
@@ -370,7 +371,7 @@ export default function PerformanceReportPage() {
                         <div>
                             <div className="flex items-center justify-center gap-2">
                                 <Timer className="h-8 w-8 text-primary" />
-                                <h1 className="text-2xl font-bold text-primary">Informe de Desempeño Operaciones</h1>
+                                <h1 className="text-2xl font-bold text-primary">Informe Productividad Operarios Frio Alimentaria</h1>
                             </div>
                              <p className="text-sm text-gray-500">Analice los tiempos de operación de los formularios por operario.</p>
                         </div>
