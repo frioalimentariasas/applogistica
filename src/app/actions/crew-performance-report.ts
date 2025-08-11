@@ -63,6 +63,40 @@ const calculateTotalKilos = (formType: string, formData: any): number => {
     return 0;
 };
 
+const calculateTotalPallets = (formType: string, formData: any): number => {
+    if (formType.startsWith('fixed-weight-')) {
+        return (formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.totalPaletas ?? p.paletas) || 0), 0);
+    } 
+    
+    if (formType.startsWith('variable-weight-')) {
+        const allItems = (formData.items || [])
+            .concat((formData.destinos || []).flatMap((d: any) => d.items))
+            .concat((formData.placas || []).flatMap((p: any) => p.items));
+        
+        const isSummaryFormat = allItems.some((p: any) => Number(p.paleta) === 0);
+        
+        if (isSummaryFormat) {
+             // For dispatch with destination and summary, a specific field holds the total
+            if ((formType.includes('despacho') && formData.despachoPorDestino) || (formData.tipoPedido === 'TUNEL DE CONGELACIÓN')) {
+                return Number(formData.totalPaletasDespacho) || allItems.reduce((sum: number, p: any) => sum + (Number(p.totalPaletas) || 0), 0);
+            }
+            return allItems.reduce((sum: number, p: any) => sum + (Number(p.totalPaletas) || 0), 0);
+        }
+        
+        const uniquePallets = new Set<number>();
+        allItems.forEach((item: any) => {
+            const paletaNum = Number(item.paleta);
+            if (!isNaN(paletaNum) && paletaNum > 0) {
+                uniquePallets.add(paletaNum);
+            }
+        });
+        return uniquePallets.size;
+    }
+
+    return 0;
+};
+
+
 
 export interface CrewPerformanceReportCriteria {
     startDate?: string;
@@ -129,10 +163,19 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
         if (obs.executedByGrupoRosales === true) {
             const conceptType = obs.type;
             const quantityType = obs.quantityType;
-            const totalQuantity = Number(obs.quantity) || 0;
+            let totalQuantity = Number(obs.quantity) || 0;
+            
+            // If quantity is 0, try to calculate it based on the form data
+            if (totalQuantity === 0) {
+                if (quantityType === 'PALETA') {
+                    totalQuantity = calculateTotalPallets(formType, formData);
+                } else if (quantityType === 'TONELADA') {
+                    totalQuantity = calculateTotalKilos(formType, formData) / 1000;
+                }
+            }
             
             if (totalQuantity > 0 && quantityType) {
-                 const billingConcept = billingConcepts.find(
+                const billingConcept = billingConcepts.find(
                     c => c.conceptName === conceptType && c.unitOfMeasure === quantityType
                 );
 
@@ -333,3 +376,5 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         throw error;
     }
 }
+
+    
