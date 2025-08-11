@@ -4,6 +4,8 @@
 import admin from 'firebase-admin';
 import { firestore, storage } from '@/lib/firebase-admin';
 import type { FormSubmissionData } from './save-form';
+import { addDays } from 'date-fns';
+
 
 export interface SearchCriteria {
   pedidoSislog?: string;
@@ -56,6 +58,20 @@ const serializeTimestamps = (data: any): any => {
     return newObj;
 };
 
+// Helper to get a YYYY-MM-DD string adjusted for a specific timezone (e.g., UTC-5 for Colombia)
+const getLocalGroupingDate = (isoString: string): string => {
+    if (!isoString) return '';
+    try {
+        const date = new Date(isoString);
+        // Adjust for a fixed timezone offset. UTC-5 for Colombia.
+        date.setUTCHours(date.getUTCHours() - 5);
+        return date.toISOString().split('T')[0];
+    } catch (e) {
+        console.error(`Invalid date string for grouping: ${isoString}`);
+        return '';
+    }
+};
+
 
 export async function searchSubmissions(criteria: SearchCriteria): Promise<SubmissionResult[]> {
     if (!firestore) {
@@ -82,8 +98,15 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
         const noFilters = !criteria.pedidoSislog && !criteria.nombreCliente && noDateFilter && !criteria.operationType && !criteria.tipoPedido && !criteria.productType;
 
         if (criteria.searchDateStart && criteria.searchDateEnd) {
-             query = query.where('formData.fecha', '>=', criteria.searchDateStart)
-                          .where('formData.fecha', '<=', criteria.searchDateEnd);
+            // Widen the query to account for timezone differences vs the stored UTC `createdAt` date.
+            const serverQueryStartDate = new Date(criteria.searchDateStart);
+            serverQueryStartDate.setDate(serverQueryStartDate.getDate() - 1);
+            
+            const serverQueryEndDate = new Date(criteria.searchDateEnd);
+            serverQueryEndDate.setDate(serverQueryEndDate.getDate() + 2);
+            
+             query = query.where('createdAt', '>=', serverQueryStartDate.toISOString())
+                          .where('createdAt', '<=', serverQueryEndDate.toISOString());
         } else if (noFilters && !isOperario) {
              // For non-operarios with no filters, we must limit the query to avoid reading the whole collection.
              // We query the last 7 days. This is safe as createdAt will have a single-field index.
@@ -110,6 +133,21 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
         });
 
         // Apply the rest of the filters in memory
+        
+        // Date filter (more precise, on the local form date)
+        if (criteria.searchDateStart && criteria.searchDateEnd) {
+             results = results.filter(sub => {
+                const formIsoDate = sub.formData?.fecha;
+                if (!formIsoDate || typeof formIsoDate !== 'string') return false;
+                
+                // Get just the YYYY-MM-DD part, adjusted for local timezone
+                const formDatePart = getLocalGroupingDate(formIsoDate);
+                const startDatePart = criteria.searchDateStart!.split('T')[0];
+                const endDatePart = criteria.searchDateEnd!.split('T')[0];
+                
+                return formDatePart >= startDatePart && formDatePart <= endDatePart;
+            });
+        }
 
         if (isOperario && noFilters) {
             const endDate = new Date();
