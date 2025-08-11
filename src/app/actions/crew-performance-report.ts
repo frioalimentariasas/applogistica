@@ -157,41 +157,42 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
     const settlements: { conceptName: string, unitValue: number, quantity: number, unitOfMeasure: string, totalValue: number }[] = [];
     const { formData, formType } = submission;
     
+    // Process observations first
     const observaciones = Array.isArray(formData.observaciones) ? formData.observaciones : [];
-
     observaciones.forEach((obs: any) => {
         if (obs.executedByGrupoRosales === true) {
             const conceptType = obs.type;
+            let quantity = Number(obs.quantity) || 0;
             const quantityType = obs.quantityType;
-            let totalQuantity = Number(obs.quantity) || 0;
-            
-            // If quantity is 0, try to calculate it based on the form data
-            if (totalQuantity === 0) {
-                if (quantityType === 'PALETA') {
-                    totalQuantity = calculateTotalPallets(formType, formData);
-                } else if (quantityType === 'TONELADA') {
-                    totalQuantity = calculateTotalKilos(formType, formData) / 1000;
+
+            // If quantity is 0, try to calculate it based on the form data for specific concepts
+            if (quantity === 0) {
+                 if (quantityType?.toUpperCase() === 'PALETA') {
+                    quantity = calculateTotalPallets(formType, formData);
+                } else if (quantityType?.toUpperCase() === 'TONELADA') {
+                    quantity = calculateTotalKilos(formType, formData) / 1000;
                 }
             }
             
-            if (totalQuantity > 0 && quantityType) {
+            if (quantity > 0 && quantityType) {
                 const billingConcept = billingConcepts.find(
-                    c => c.conceptName === conceptType && c.unitOfMeasure === quantityType
+                    c => c.conceptName === conceptType && c.unitOfMeasure.toUpperCase() === quantityType.toUpperCase()
                 );
 
                 if (billingConcept) {
                     settlements.push({
                         conceptName: billingConcept.conceptName,
                         unitValue: billingConcept.value,
-                        quantity: totalQuantity,
+                        quantity: quantity,
                         unitOfMeasure: billingConcept.unitOfMeasure,
-                        totalValue: totalQuantity * billingConcept.value,
+                        totalValue: quantity * billingConcept.value,
                     });
                 }
             }
         }
     });
 
+    // Then process the main operation concept (CARGUE/DESCARGUE)
     if (formData.aplicaCuadrilla === 'si') {
         const liquidableOrderTypes = ['GENERICO', 'TUNEL', 'TUNEL DE CONGELACIÓN', 'DESPACHO GENERICO'];
         
@@ -199,21 +200,32 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
             const isReception = formType.includes('recepcion') || formType.includes('reception');
             const conceptName = isReception ? 'DESCARGUE' : 'CARGUE';
             const kilos = calculateTotalKilos(formType, formData);
+            
+            // Find the corresponding billing concept
             const operationConcept = billingConcepts.find(c => c.conceptName === conceptName && c.unitOfMeasure === 'TONELADA');
             
             if (operationConcept) {
                 const isPending = formType.startsWith('fixed-weight-') && kilos === 0;
                 if (isPending) {
-                    settlements.push({ conceptName: conceptName, unitValue: 0, quantity: -1, unitOfMeasure: 'TONELADA', totalValue: 0 });
+                    // Don't add to settlements yet, it will be handled by the "pending" filter
                 } else if (kilos > 0) {
                     const toneladas = kilos / 1000;
-                    settlements.push({ conceptName: operationConcept.conceptName, unitValue: operationConcept.value, quantity: toneladas, unitOfMeasure: 'TONELADA', totalValue: toneladas * operationConcept.value });
+                    // Avoid adding a duplicate if it was already added through observations
+                    if (!settlements.some(s => s.conceptName === conceptName)) {
+                        settlements.push({ 
+                            conceptName: operationConcept.conceptName, 
+                            unitValue: operationConcept.value, 
+                            quantity: toneladas, 
+                            unitOfMeasure: 'TONELADA', 
+                            totalValue: toneladas * operationConcept.value 
+                        });
+                    }
                 }
             }
         }
         
         if (formData.tipoPedido === 'MAQUILA' && formData.tipoEmpaqueMaquila) {
-            const conceptName = formData.tipoEmpaqueMaquila; // "EMPAQUE DE CAJAS" or "EMPAQUE DE SACOS"
+            const conceptName = formData.tipoEmpaqueMaquila;
             const unitOfMeasure = conceptName === 'EMPAQUE DE CAJAS' ? 'CAJA' : 'SACO';
             const maquilaConcept = billingConcepts.find(c => c.conceptName === conceptName && c.unitOfMeasure === unitOfMeasure);
 
@@ -226,7 +238,15 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
                 }
                 
                 if (quantity > 0) {
-                    settlements.push({ conceptName: maquilaConcept.conceptName, unitValue: maquilaConcept.value, quantity: quantity, unitOfMeasure: maquilaConcept.unitOfMeasure, totalValue: quantity * maquilaConcept.value });
+                    if (!settlements.some(s => s.conceptName === conceptName)) {
+                        settlements.push({ 
+                            conceptName: maquilaConcept.conceptName, 
+                            unitValue: maquilaConcept.value, 
+                            quantity: quantity, 
+                            unitOfMeasure: maquilaConcept.unitOfMeasure, 
+                            totalValue: quantity * maquilaConcept.value 
+                        });
+                    }
                 }
             }
         }
@@ -234,7 +254,6 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
     
     return settlements;
 };
-
 
 export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCriteria): Promise<CrewPerformanceReportRow[]> {
     if (!firestore) {
@@ -288,6 +307,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             
             let indicatorOnlyOperation: { conceptName: string, toneladas: number } | null = null;
             
+            // This logic is for operations WITHOUT crew that we still want to show for performance indicators
             if (allPossibleConcepts.length === 0 && formData.aplicaCuadrilla === 'no') {
                 const isLoadOrUnload = formData.tipoPedido === 'GENERICO' || formData.tipoPedido === 'TUNEL' || formData.tipoPedido === 'TUNEL DE CONGELACIÓN' || formData.tipoPedido === 'DESPACHO GENERICO';
                 if (isLoadOrUnload) {
@@ -301,6 +321,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             const hasCrewSettlements = allPossibleConcepts.length > 0;
             const hasNonCrewIndicator = indicatorOnlyOperation !== null;
             
+            // Main filters for cuadrilla
             if (criteria.cuadrillaFilter === 'con' && !hasCrewSettlements) continue;
             if (criteria.cuadrillaFilter === 'sin' && !hasNonCrewIndicator) continue;
             
@@ -376,5 +397,3 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         throw error;
     }
 }
-
-    
