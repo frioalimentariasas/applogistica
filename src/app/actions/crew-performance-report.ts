@@ -159,14 +159,22 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
     
     // Process observations first
     const observaciones = Array.isArray(formData.observaciones) ? formData.observaciones : [];
+    const specialHandledConcepts = ['REESTIBADO', 'SALIDA PALETAS TUNEL', 'TRANSBORDO CANASTILLA'];
+
     observaciones.forEach((obs: any) => {
         if (obs.executedByGrupoRosales === true) {
             const conceptType = obs.type;
             let quantity = Number(obs.quantity) || 0;
-            const quantityType = obs.quantityType;
+            let quantityType = obs.quantityType;
 
-            // If quantity is 0, try to calculate it based on the form data for specific concepts
-            if (quantity === 0) {
+            // Handle special concepts where quantity is manually entered but unit of measure might be inconsistent in old data
+            if (specialHandledConcepts.includes(conceptType) && quantity > 0) {
+                 const conceptFromDb = billingConcepts.find(c => c.conceptName === conceptType);
+                 if (conceptFromDb) {
+                     // For these specific concepts, we trust the database's unit of measure.
+                     quantityType = conceptFromDb.unitOfMeasure;
+                 }
+            } else if (quantity === 0) {
                  if (quantityType?.toUpperCase() === 'PALETA') {
                     quantity = calculateTotalPallets(formType, formData);
                 } else if (quantityType?.toUpperCase() === 'TONELADA') {
