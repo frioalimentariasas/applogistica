@@ -73,15 +73,19 @@ const UserSkeleton = () => (
 
 const permissionLabels: { key: keyof AppPermissions; label: string }[] = [
     { key: 'canGenerateForms', label: 'Generar Formatos' },
-    { key: 'canConsultForms', label: 'Consultar Formatos' },
+    { key: 'canConsultForms', label: 'Consultar Formatos Guardados' },
     { key: 'canEditForms', label: 'Editar Formatos' },
     { key: 'canDeleteForms', label: 'Eliminar Formatos' },
-    { key: 'canViewBillingReports', label: 'Ver Informes de Facturación' },
-    { key: 'canViewPerformanceReport', label: 'Ver Informe Desempeño Operaciones' },
-    { key: 'canViewCrewPerformanceReport', label: 'Ver Informe Desempeño Cuadrilla' },
+    { key: 'canViewBillingReports', label: 'Ver Informes para Facturación' },
+    { key: 'canViewPerformanceReport', label: 'Ver Informe Productividad Operarios' },
+    { key: 'canViewCrewPerformanceReport', label: 'Ver Informe Productividad Cuadrilla' },
+    { key: 'canViewSpecialReports', label: 'Ver Reportes Especiales Liquidación' },
     { key: 'canManageClients', label: 'Gestionar Clientes' },
     { key: 'canManageArticles', label: 'Gestionar Artículos' },
+    { key: 'canManageObservations', label: 'Gestionar Observaciones' },
+    { key: 'canManageOrderTypes', label: 'Gestionar Tipos de Pedido' },
     { key: 'canManageStandards', label: 'Gestionar Estándares de Productividad' },
+    { key: 'canManageLiquidationConcepts', label: 'Gestionar Conceptos de Liquidación' },
     { key: 'canManageSessions', label: 'Gestionar Usuarios' },
 ];
 
@@ -416,7 +420,7 @@ export default function SessionManagementComponent() {
                                 <div>
                                     <h4 className="font-semibold">Purgar Formatos Antiguos</h4>
                                     <p className="text-sm text-muted-foreground">
-                                        Elimina permanentemente los formatos guardados con más de 3 meses de antigüedad.
+                                        Elimina permanentemente los formatos guardados con más de 3 meses de antigüedad, incluyendo sus archivos adjuntos.
                                     </p>
                                 </div>
                                 <Button variant="destructive" onClick={() => setIsPurgeConfirmOpen(true)} disabled={isPurging} className="w-full sm:w-auto">

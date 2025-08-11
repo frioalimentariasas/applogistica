@@ -12,13 +12,17 @@ export interface AppPermissions {
   canConsultForms: boolean;
   canEditForms: boolean;
   canDeleteForms: boolean;
+  canViewBillingReports: boolean;
   canViewPerformanceReport: boolean;
   canViewCrewPerformanceReport: boolean;
-  canManageArticles: boolean;
+  canViewSpecialReports: boolean;
   canManageClients: boolean;
-  canViewBillingReports: boolean;
-  canManageSessions: boolean;
+  canManageArticles: boolean;
+  canManageObservations: boolean;
+  canManageOrderTypes: boolean;
   canManageStandards: boolean;
+  canManageLiquidationConcepts: boolean;
+  canManageSessions: boolean;
 }
 
 export const defaultPermissions: AppPermissions = {
@@ -26,13 +30,17 @@ export const defaultPermissions: AppPermissions = {
   canConsultForms: false,
   canEditForms: false,
   canDeleteForms: false,
+  canViewBillingReports: false,
   canViewPerformanceReport: false,
   canViewCrewPerformanceReport: false,
-  canManageArticles: false,
+  canViewSpecialReports: false,
   canManageClients: false,
-  canViewBillingReports: false,
-  canManageSessions: false,
+  canManageArticles: false,
+  canManageObservations: false,
+  canManageOrderTypes: false,
   canManageStandards: false,
+  canManageLiquidationConcepts: false,
+  canManageSessions: false,
 };
 
 
@@ -74,13 +82,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 canConsultForms: true,
                 canEditForms: true,
                 canDeleteForms: true,
+                canViewBillingReports: true,
                 canViewPerformanceReport: true,
                 canViewCrewPerformanceReport: true,
-                canManageArticles: true,
+                canViewSpecialReports: true,
                 canManageClients: true,
-                canViewBillingReports: true,
-                canManageSessions: true,
+                canManageArticles: true,
+                canManageObservations: true,
+                canManageOrderTypes: true,
                 canManageStandards: true,
+                canManageLiquidationConcepts: true,
+                canManageSessions: true,
             });
         } else {
             try {

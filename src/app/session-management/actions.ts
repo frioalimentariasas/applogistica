@@ -131,13 +131,19 @@ export async function getUserPermissions(email: string): Promise<AppPermissions>
         return {
             canGenerateForms: true,
             canConsultForms: true,
+            canEditForms: true,
+            canDeleteForms: true,
+            canViewBillingReports: true,
             canViewPerformanceReport: true,
             canViewCrewPerformanceReport: true,
+            canViewSpecialReports: true,
             canManageArticles: true,
             canManageClients: true,
-            canViewBillingReports: true,
-            canManageSessions: true,
+            canManageObservations: true,
+            canManageOrderTypes: true,
             canManageStandards: true,
+            canManageLiquidationConcepts: true,
+            canManageSessions: true,
         };
     }
 
