@@ -167,15 +167,19 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
             let quantity = Number(obs.quantity) || 0;
             let quantityType = obs.quantityType;
 
-            // Handle special concepts where quantity is manually entered but unit of measure might be inconsistent in old data
-            if (specialHandledConcepts.includes(conceptType) && quantity > 0) {
+            const isSpecialConcept = specialHandledConcepts.includes(conceptType);
+
+            // For special concepts, we trust the database's unit of measure if quantity is manually entered.
+            // Or if quantity is 0, we calculate it.
+            if (isSpecialConcept) {
                  const conceptFromDb = billingConcepts.find(c => c.conceptName === conceptType);
                  if (conceptFromDb) {
-                     // For these specific concepts, we trust the database's unit of measure.
                      quantityType = conceptFromDb.unitOfMeasure;
                  }
-            } else if (quantity === 0) {
-                 if (quantityType?.toUpperCase() === 'PALETA') {
+            }
+            
+            if (quantity === 0) {
+                 if (quantityType?.toUpperCase().startsWith('PALETA')) {
                     quantity = calculateTotalPallets(formType, formData);
                 } else if (quantityType?.toUpperCase() === 'TONELADA') {
                     quantity = calculateTotalKilos(formType, formData) / 1000;
@@ -184,7 +188,8 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
             
             if (quantity > 0 && quantityType) {
                 const billingConcept = billingConcepts.find(
-                    c => c.conceptName === conceptType && c.unitOfMeasure.toUpperCase() === quantityType.toUpperCase()
+                    c => c.conceptName.toUpperCase() === conceptType.toUpperCase() && 
+                         c.unitOfMeasure.toUpperCase() === quantityType.toUpperCase()
                 );
 
                 if (billingConcept) {
@@ -209,16 +214,23 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
             const conceptName = isReception ? 'DESCARGUE' : 'CARGUE';
             const kilos = calculateTotalKilos(formType, formData);
             
-            // Find the corresponding billing concept
             const operationConcept = billingConcepts.find(c => c.conceptName === conceptName && c.unitOfMeasure === 'TONELADA');
             
             if (operationConcept) {
                 const isPending = formType.startsWith('fixed-weight-') && kilos === 0;
+                // Add to settlements even if pending, with a special value for quantity
                 if (isPending) {
-                    // Don't add to settlements yet, it will be handled by the "pending" filter
+                     if (!settlements.some(s => s.conceptName === conceptName)) {
+                        settlements.push({ 
+                            conceptName: operationConcept.conceptName, 
+                            unitValue: operationConcept.value, 
+                            quantity: -1, // Use -1 as a flag for pending
+                            unitOfMeasure: 'TONELADA', 
+                            totalValue: 0
+                        });
+                    }
                 } else if (kilos > 0) {
                     const toneladas = kilos / 1000;
-                    // Avoid adding a duplicate if it was already added through observations
                     if (!settlements.some(s => s.conceptName === conceptName)) {
                         settlements.push({ 
                             conceptName: operationConcept.conceptName, 
