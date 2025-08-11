@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useMemo } from 'react';
@@ -127,17 +128,25 @@ const processTunelCongelacionData = (formData: any) => {
                 subTotalPeso,
             };
         });
+
+        const totalPaletasPlaca = presentationGroups.reduce((acc: number, group: any) => acc + group.subTotalPaletas, 0);
+        const totalCantidadPlaca = presentationGroups.reduce((acc: number, group: any) => acc + group.subTotalCantidad, 0);
+        const totalPesoPlaca = presentationGroups.reduce((acc: number, group: any) => acc + group.subTotalPeso, 0);
+
         return {
             placa: placa.numeroPlaca,
             conductor: placa.conductor,
             cedulaConductor: placa.cedulaConductor,
             presentationGroups: presentationGroups,
+            totalPaletasPlaca,
+            totalCantidadPlaca,
+            totalPesoPlaca,
         };
     });
 
-    const totalGeneralPaletas = placaGroups.reduce((acc, placa) => acc + placa.presentationGroups.reduce((pAcc, pres) => pAcc + pres.subTotalPaletas, 0), 0);
-    const totalGeneralCantidad = placaGroups.reduce((acc, placa) => acc + placa.presentationGroups.reduce((pAcc, pres) => pAcc + pres.subTotalCantidad, 0), 0);
-    const totalGeneralPeso = placaGroups.reduce((acc, placa) => acc + placa.presentationGroups.reduce((pAcc, pres) => pAcc + pres.subTotalPeso, 0), 0);
+    const totalGeneralPaletas = placaGroups.reduce((acc, placa) => acc + placa.totalPaletasPlaca, 0);
+    const totalGeneralCantidad = placaGroups.reduce((acc, placa) => acc + placa.totalCantidadPlaca, 0);
+    const totalGeneralPeso = placaGroups.reduce((acc, placa) => acc + placa.totalPesoPlaca, 0);
 
     return { placaGroups, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso };
 };
@@ -401,15 +410,25 @@ const TunelCongelacionSummary = ({ formData }: { formData: any }) => {
                              </table>
                         </div>
                     ))}
+                    <table style={{ width: '100%', fontSize: '10px', borderCollapse: 'collapse', marginTop: '5px' }}>
+                        <tbody>
+                            <tr style={{ fontWeight: 'bold', backgroundColor: '#ddebf7' }}>
+                                <td colSpan={2} style={{ textAlign: 'right', padding: '4px' }}>Subtotal Placa:</td>
+                                <td style={{ textAlign: 'right', padding: '4px', width: '80px' }}>{placaGroup.totalPaletasPlaca}</td>
+                                <td style={{ textAlign: 'right', padding: '4px', width: '80px' }}>{placaGroup.totalCantidadPlaca}</td>
+                                <td style={{ textAlign: 'right', padding: '4px', width: '80px' }}>{placaGroup.totalPesoPlaca.toFixed(2)}</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
             ))}
             <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse', marginTop: '15px' }}>
                  <tbody>
                     <tr style={{ fontWeight: 'bold', backgroundColor: '#e2e8f0', borderTop: '2px solid #aaa' }}>
                         <td colSpan={2} style={{ textAlign: 'right', padding: '6px 4px' }}>TOTAL GENERAL:</td>
-                        <td style={{ textAlign: 'right', padding: '6px 4px', width: '100px' }}>{totalGeneralPaletas}</td>
-                        <td style={{ textAlign: 'right', padding: '6px 4px', width: '100px' }}>{totalGeneralCantidad}</td>
-                        <td style={{ textAlign: 'right', padding: '6px 4px', width: '100px' }}>{totalGeneralPeso.toFixed(2)}</td>
+                        <td style={{ textAlign: 'right', padding: '6px 4px', width: '80px' }}>{totalGeneralPaletas}</td>
+                        <td style={{ textAlign: 'right', padding: '6px 4px', width: '80px' }}>{totalGeneralCantidad}</td>
+                        <td style={{ textAlign: 'right', padding: '6px 4px', width: '80px' }}>{totalGeneralPeso.toFixed(2)}</td>
                     </tr>
                 </tbody>
             </table>
@@ -479,3 +498,5 @@ const ItemsTable = ({ items, tipoPedido }: { items: any[], tipoPedido: string })
         </table>
     );
 };
+
+    

@@ -633,14 +633,22 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                     group.subTotalPeso = group.products.reduce((sum: number, p: any) => sum + p.totalPeso, 0);
                 });
 
+                const totalPaletasPlaca = Object.values(groupedByPresentation).reduce((s: any, presGroup: any) => s + presGroup.subTotalPaletas, 0);
+                const totalCantidadPlaca = Object.values(groupedByPresentation).reduce((s: any, presGroup: any) => s + presGroup.subTotalCantidad, 0);
+                const totalPesoPlaca = Object.values(groupedByPresentation).reduce((s: any, presGroup: any) => s + presGroup.subTotalPeso, 0);
+
+
                 return {
                     placa: placa.numeroPlaca,
                     presentationGroups: Object.values(groupedByPresentation),
+                    totalPaletasPlaca,
+                    totalCantidadPlaca,
+                    totalPesoPlaca,
                 };
             });
-            const totalGeneralPaletas = groupedByPlaca.reduce((sum, placaGroup) => sum + placaGroup.presentationGroups.reduce((s: any, presGroup: any) => s + presGroup.subTotalPaletas, 0), 0);
-            const totalGeneralCantidad = groupedByPlaca.reduce((sum, placaGroup) => sum + placaGroup.presentationGroups.reduce((s: any, presGroup: any) => s + presGroup.subTotalCantidad, 0), 0);
-            const totalGeneralPeso = groupedByPlaca.reduce((sum, placaGroup) => sum + placaGroup.presentationGroups.reduce((s: any, presGroup: any) => s + presGroup.subTotalPeso, 0), 0);
+            const totalGeneralPaletas = groupedByPlaca.reduce((sum, placaGroup) => sum + placaGroup.totalPaletasPlaca, 0);
+            const totalGeneralCantidad = groupedByPlaca.reduce((sum, placaGroup) => sum + placaGroup.totalCantidadPlaca, 0);
+            const totalGeneralPeso = groupedByPlaca.reduce((sum, placaGroup) => sum + placaGroup.totalPesoPlaca, 0);
 
             return { placaGroups: groupedByPlaca, presentationGroups: [], totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso };
         }
@@ -1691,13 +1699,13 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                                     <TableCell colSpan={5} className="font-semibold text-blue-800">Placa: {placaGroup.placa}</TableCell>
                                                 </TableRow>
                                             </TableBody>
-                                            {placaGroup.presentationGroups.map((group, groupIndex) => (
+                                            {placaGroup.presentationGroups.map((group: any, groupIndex: number) => (
                                                 <React.Fragment key={`${placaGroup.placa}-${group.presentation}`}>
                                                     <TableBody>
                                                         <TableRow className="bg-muted/50 hover:bg-muted/50">
                                                             <TableCell colSpan={5} className="font-semibold text-primary pl-8">Presentación: {group.presentation}</TableCell>
                                                         </TableRow>
-                                                        {group.products.map((summaryItem, productIndex) => {
+                                                        {group.products.map((summaryItem: any, productIndex: number) => {
                                                             const summaryIndex = (form.getValues('summary') || []).findIndex(s => s.descripcion === summaryItem.descripcion && s.presentacion === group.presentation && s.placa === placaGroup.placa);
                                                             return (
                                                                 <TableRow key={`${placaGroupIndex}-${groupIndex}-${productIndex}`}>
@@ -1726,6 +1734,14 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                                     </TableBody>
                                                 </React.Fragment>
                                             ))}
+                                            <TableBody>
+                                                <TableRow className="font-bold bg-blue-100 hover:bg-blue-100 text-blue-900">
+                                                    <TableCell colSpan={2} className="text-right">Subtotal Placa:</TableCell>
+                                                    <TableCell className="text-right">{placaGroup.totalPaletasPlaca}</TableCell>
+                                                    <TableCell className="text-right">{placaGroup.totalCantidadPlaca}</TableCell>
+                                                    <TableCell className="text-right">{placaGroup.totalPesoPlaca.toFixed(2)}</TableCell>
+                                                </TableRow>
+                                            </TableBody>
                                         </React.Fragment>
                                     ))
                                 ) : (
@@ -2313,5 +2329,7 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
+
+    
 
     
