@@ -4,7 +4,7 @@
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm, SubmitHandler } from 'react-hook-form';
+import { useForm, SubmitHandler, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import Link from 'next/link';
@@ -17,6 +17,7 @@ import * as XLSX from 'xlsx';
 
 import { getCrewPerformanceReport, type CrewPerformanceReportRow } from '@/app/actions/crew-performance-report';
 import { addNoveltyToOperation, deleteNovelty } from '@/app/actions/novelty-actions';
+import { legalizeWeights } from '@/app/actions/legalize-weights';
 import { getAvailableOperarios } from '@/app/actions/performance-report';
 import { getClients, type ClientInfo } from '@/app/actions/clients';
 import { useToast } from '@/hooks/use-toast';
@@ -34,7 +35,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
-import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, File, FileDown, FolderSearch, ShieldAlert, TrendingUp, Circle, Settings, ChevronsUpDown, AlertCircle, PlusCircle, X } from 'lucide-react';
+import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, File, FileDown, FolderSearch, ShieldAlert, TrendingUp, Circle, Settings, ChevronsUpDown, AlertCircle, PlusCircle, X, Edit2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -52,6 +53,20 @@ const noveltySchema = z.object({
 });
 
 type NoveltyFormValues = z.infer<typeof noveltySchema>;
+
+const legalizeProductSchema = z.object({
+  codigo: z.string(),
+  descripcion: z.string(),
+  pesoBrutoKg: z.coerce.number({ required_error: 'Requerido', invalid_type_error: 'Numérico' }).min(0, '>= 0'),
+  pesoNetoKg: z.coerce.number({ required_error: 'Requerido', invalid_type_error: 'Numérico' }).min(0, '>= 0'),
+});
+
+const legalizeFormSchema = z.object({
+  productos: z.array(legalizeProductSchema),
+});
+
+type LegalizeFormValues = z.infer<typeof legalizeFormSchema>;
+
 
 const EmptyState = ({ searched }: { searched: boolean; }) => (
     <TableRow>
@@ -130,15 +145,14 @@ const formatDuration = (totalMinutes: number | null): string => {
 };
 
 const getPerformanceIndicator = (row: CrewPerformanceReportRow): { text: string, color: string } => {
-    const { operationalDurationMinutes, standard, conceptoLiquidado, kilos } = row;
+    const { operationalDurationMinutes, standard, conceptoLiquidado, kilos, cantidadConcepto } = row;
     
     // Only apply to CARGUE/DESCARGUE concepts
     if (conceptoLiquidado !== 'CARGUE' && conceptoLiquidado !== 'DESCARGUE') {
         return { text: 'No Aplica', color: 'text-gray-500' };
     }
     
-    // If it's a fixed-weight form pending weight input, mark as pending
-    if (row.productType === 'fijo' && kilos === 0) {
+    if (cantidadConcepto === -1) {
         return { text: 'Pendiente (P. Bruto)', color: 'text-orange-600' };
     }
     
@@ -209,12 +223,31 @@ export default function CrewPerformanceReportPage() {
     const [selectedRowForNovelty, setSelectedRowForNovelty] = useState<CrewPerformanceReportRow | null>(null);
     const [noveltyToDelete, setNoveltyToDelete] = useState<{ rowId: string; noveltyId: string; } | null>(null);
     const [isDeletingNovelty, setIsDeletingNovelty] = useState(false);
+    
+    // State for legalization
+    const [isLegalizeDialogOpen, setIsLegalizeDialogOpen] = useState(false);
+    const [isLegalizing, setIsLegalizing] = useState(false);
+    const [rowToLegalize, setRowToLegalize] = useState<CrewPerformanceReportRow | null>(null);
+
 
     const noveltyForm = useForm<NoveltyFormValues>({
         resolver: zodResolver(noveltySchema),
         defaultValues: { type: '', downtimeMinutes: 0, impactsCrewProductivity: true }
     });
     
+    const legalizeForm = useForm<LegalizeFormValues>({
+      resolver: zodResolver(legalizeFormSchema),
+      defaultValues: {
+        productos: [],
+      },
+    });
+
+    const { fields: legalizeFields } = useFieldArray({
+      control: legalizeForm.control,
+      name: 'productos',
+    });
+
+
     const totalPages = Math.ceil(filteredReportData.length / itemsPerPage);
     const displayedData = useMemo(() => {
         const startIndex = (currentPage - 1) * itemsPerPage;
@@ -626,6 +659,33 @@ export default function CrewPerformanceReportPage() {
         setNoveltyToDelete(null);
     };
 
+    const handleOpenLegalizeDialog = (row: CrewPerformanceReportRow) => {
+        setRowToLegalize(row);
+        legalizeForm.reset({
+            productos: row.productos.map(p => ({
+                codigo: p.codigo,
+                descripcion: p.descripcion,
+                pesoBrutoKg: p.pesoBrutoKg || 0,
+                pesoNetoKg: p.pesoNetoKg || 0,
+            }))
+        });
+        setIsLegalizeDialogOpen(true);
+    };
+    
+    const onLegalizeSubmit: SubmitHandler<LegalizeFormValues> = async (data) => {
+        if (!rowToLegalize) return;
+        setIsLegalizing(true);
+        const result = await legalizeWeights(rowToLegalize.submissionId, data.productos);
+        if (result.success) {
+            toast({ title: "Éxito", description: result.message });
+            await handleSearch(); // Re-fetch all data to show updated row
+            setIsLegalizeDialogOpen(false);
+        } else {
+            toast({ variant: "destructive", title: "Error", description: result.message });
+        }
+        setIsLegalizing(false);
+    };
+
 
     if (authLoading) {
         return (
@@ -767,6 +827,11 @@ export default function CrewPerformanceReportPage() {
                                                     <TableCell className={cn("text-xs text-right font-semibold", indicator.color)}><div className="flex items-center justify-end gap-1.5"><Circle className={cn("h-2 w-2", indicator.color.replace('text-', 'bg-'))} />{indicator.text}</div></TableCell>
                                                     <TableCell className="text-xs font-semibold">{row.conceptoLiquidado}</TableCell><TableCell className="text-xs text-right font-mono">{isPending || row.valorUnitario === 0 ? 'N/A' : row.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 })}</TableCell><TableCell className="text-xs text-right font-mono">{isPending || row.valorTotalConcepto === 0 ? 'N/A' : row.valorTotalConcepto.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell>
                                                     <TableCell className="text-right">
+                                                         {isPending && (
+                                                            <Button variant="outline" size="sm" onClick={() => handleOpenLegalizeDialog(row)}>
+                                                                <Edit2 className="mr-2 h-3 w-3"/>Legalizar
+                                                            </Button>
+                                                        )}
                                                         {(indicator.text === 'Lento' || (row.aplicaCuadrilla === 'no' && indicator.text === 'Lento')) && (
                                                             <Button variant="outline" size="sm" onClick={() => handleOpenNoveltyDialog(row)}>
                                                                 <PlusCircle className="mr-2 h-3 w-3"/>Novedad
@@ -851,6 +916,62 @@ export default function CrewPerformanceReportPage() {
                 </DialogContent>
             </Dialog>
 
+            <Dialog open={isLegalizeDialogOpen} onOpenChange={setIsLegalizeDialogOpen}>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Legalizar Pesos del Pedido {rowToLegalize?.pedidoSislog}</DialogTitle>
+                  <DialogDescription>
+                    Ingrese el peso bruto y neto para cada producto del formato.
+                  </DialogDescription>
+                </DialogHeader>
+                <Form {...legalizeForm}>
+                  <form onSubmit={legalizeForm.handleSubmit(onLegalizeSubmit)} className="space-y-4 pt-4">
+                    <ScrollArea className="h-72">
+                      <div className="space-y-4 pr-6">
+                        {legalizeFields.map((field, index) => (
+                          <div key={field.id} className="p-4 border rounded-lg">
+                            <p className="font-semibold text-sm">{field.descripcion}</p>
+                            <p className="text-xs text-muted-foreground mb-2">Código: {field.codigo}</p>
+                            <div className="grid grid-cols-2 gap-4">
+                              <FormField
+                                control={legalizeForm.control}
+                                name={`productos.${index}.pesoBrutoKg`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Peso Bruto (kg)</FormLabel>
+                                    <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                              <FormField
+                                control={legalizeForm.control}
+                                name={`productos.${index}.pesoNetoKg`}
+                                render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Peso Neto (kg)</FormLabel>
+                                    <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}
+                              />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </ScrollArea>
+                    <DialogFooter>
+                      <Button type="button" variant="outline" onClick={() => setIsLegalizeDialogOpen(false)}>Cancelar</Button>
+                      <Button type="submit" disabled={isLegalizing}>
+                        {isLegalizing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                        Guardar Pesos
+                      </Button>
+                    </DialogFooter>
+                  </form>
+                </Form>
+              </DialogContent>
+            </Dialog>
+
             <AlertDialog open={!!noveltyToDelete} onOpenChange={() => setNoveltyToDelete(null)}>
                 <AlertDialogContent>
                     <AlertDialogHeader>
@@ -877,4 +998,4 @@ export default function CrewPerformanceReportPage() {
 }
 
 
-
+  

@@ -119,6 +119,7 @@ export interface CrewPerformanceReportRow {
     cliente: string;
     tipoOperacion: 'Recepción' | 'Despacho' | 'N/A';
     tipoProducto: 'Fijo' | 'Variable' | 'N/A';
+    productos: any[]; // For pending legalization
     kilos: number;
     horaInicio: string;
     horaFin: string;
@@ -168,8 +169,7 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
             let quantityType = obs.quantityType;
 
             const isSpecialConcept = specialHandledConcepts.includes(conceptType);
-
-            if (isSpecialConcept) {
+             if (isSpecialConcept) {
                  const conceptFromDb = billingConcepts.find(c => c.conceptName.toUpperCase() === conceptType.toUpperCase());
                  if (conceptFromDb) {
                      quantityType = conceptFromDb.unitOfMeasure;
@@ -324,7 +324,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             let indicatorOnlyOperation: { conceptName: string, toneladas: number } | null = null;
             
             if (allPossibleConcepts.length === 0 && formData.aplicaCuadrilla === 'no') {
-                const isLoadOrUnload = formData.tipoPedido === 'GENERICO' || formData.tipoPedido === 'TUNEL' || formData.tipoPedido === 'TUNEL DE CONGELACIÓN' || formData.tipoPedido === 'DESPACHO GENERICO';
+                const isLoadOrUnload = formType.includes('recepcion') || formType.includes('despacho');
                 if (isLoadOrUnload) {
                     indicatorOnlyOperation = {
                         conceptName: (formType.includes('recepcion') || formType.includes('reception')) ? 'DESCARGUE' : 'CARGUE',
@@ -352,7 +352,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                 return {
                     id: settlement ? `${id}-${settlement.conceptName.replace(/\s+/g, '-')}` : id,
                     submissionId: id, formType, fecha: formData.fecha, operario: userDisplayName || 'N/A', cliente: formData.nombreCliente || formData.cliente || 'N/A',
-                    tipoOperacion, tipoProducto, kilos: calculateTotalKilos(formType, formData), horaInicio: formData.horaInicio || 'N/A', horaFin: formData.horaFin || 'N/A',
+                    tipoOperacion, tipoProducto, productos: formData.productos || [], kilos: calculateTotalKilos(formType, formData), horaInicio: formData.horaInicio || 'N/A', horaFin: formData.horaFin || 'N/A',
                     totalDurationMinutes: null, operationalDurationMinutes: null, novelties: [], pedidoSislog: formData.pedidoSislog || 'N/A',
                     placa: formData.placa || 'N/A', contenedor: formData.contenedor || 'N/A', productType: tipoProducto === 'Fijo' ? 'fijo' : (tipoProducto === 'Variable' ? 'variable' : null),
                     standard: null, description: "Sin descripción",
@@ -414,3 +414,5 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
 }
 
     
+
+  
