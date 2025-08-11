@@ -189,7 +189,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
 
             const totalPaletasPlaca = presentationGroups.reduce((acc: number, group: any) => acc + group.subTotalPaletas, 0);
             const totalCantidadPlaca = presentationGroups.reduce((acc: number, group: any) => acc + group.subTotalCantidad, 0);
-            const totalPesoPlaca = presentationGroups.reduce((acc: number, group: any) => acc + group.totalPeso, 0);
+            const totalPesoPlaca = presentationGroups.reduce((acc: number, group: any) => acc + group.subTotalPeso, 0);
 
             return {
                 placa: placa.numeroPlaca,
@@ -203,8 +203,8 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
         });
 
         const totalGeneralPaletas = placaGroups.reduce((acc, placa) => acc + placa.totalPaletasPlaca, 0);
-        const totalGeneralCantidad = placaGroups.reduce((acc, placa) => acc + placa.totalGeneralCantidad, 0);
-        const totalGeneralPeso = placaGroups.reduce((acc, placa) => acc + placa.totalGeneralPeso, 0);
+        const totalGeneralCantidad = placaGroups.reduce((acc, placa) => acc + placa.totalCantidadPlaca, 0);
+        const totalGeneralPeso = placaGroups.reduce((acc, placa) => acc + placa.totalPesoPlaca, 0);
 
         return { placaGroups, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso };
     };
@@ -705,12 +705,6 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                                     theme: 'grid',
                                     styles: { fontSize: 8 },
                                     headStyles: { fontStyle: 'bold', fillColor: '#ddebf7', textColor: '#000' },
-                                    columnStyles: {
-                                        0: { cellWidth: 265 },
-                                        1: { cellWidth: 80 },
-                                        2: { cellWidth: 80 },
-                                        3: { cellWidth: 80 },
-                                    },
                                     margin: { horizontal: margin },
                                 });
                                 yPos = (doc as any).autoTable.previous.finalY;
@@ -726,7 +720,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             
                             autoTable(doc, {
                                 startY: yPos,
-                                head: [[{ content: 'TOTALES GENERALES', colSpan: 2, styles: { fillColor: '#1A90C8', textColor: '#FFFFFF', fontStyle: 'bold', halign: 'center' } }]],
+                                head: [[{ content: 'TOTALES GENERALES', colSpan: 4, styles: { fillColor: '#1A90C8', textColor: '#FFFFFF', fontStyle: 'bold', halign: 'center' } }]],
                                 body: [
                                     [{ content: 'Total General Paletas:', styles: { fontStyle: 'bold' } }, { content: totalGeneralPaletas, styles: { halign: 'right', fontStyle: 'bold', textColor: '#000' } }],
                                     [{ content: 'Total General Cantidad:', styles: { fontStyle: 'bold' } }, { content: totalGeneralCantidad, styles: { halign: 'right', fontStyle: 'bold', textColor: '#000' } }],
