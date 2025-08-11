@@ -4,7 +4,7 @@
 import admin from 'firebase-admin';
 import { firestore, storage } from '@/lib/firebase-admin';
 import type { FormSubmissionData } from './save-form';
-import { addDays } from 'date-fns';
+import { addDays, endOfDay, parseISO, startOfDay } from 'date-fns';
 
 
 export interface SearchCriteria {
@@ -83,7 +83,6 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
         let query: admin.firestore.Query = firestore.collection('submissions');
         const isOperario = criteria.requestingUser && operarioEmails.includes(criteria.requestingUser.email);
         
-        // Apply Firestore query filters for the most selective fields first
         // User is the most selective filter for operarios
         if (isOperario) {
             query = query.where('userId', '==', criteria.requestingUser!.id);
@@ -97,16 +96,14 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
         const noDateFilter = !criteria.searchDateStart && !criteria.searchDateEnd;
         const noFilters = !criteria.pedidoSislog && !criteria.nombreCliente && noDateFilter && !criteria.operationType && !criteria.tipoPedido && !criteria.productType;
 
+        // Apply a server-side date filter ONLY if a date range is provided.
+        // This is now the most reliable way to handle date range queries.
         if (criteria.searchDateStart && criteria.searchDateEnd) {
-            // Widen the query to account for timezone differences vs the stored UTC `createdAt` date.
-            const serverQueryStartDate = new Date(criteria.searchDateStart);
-            serverQueryStartDate.setDate(serverQueryStartDate.getDate() - 1);
+            const startDate = startOfDay(parseISO(criteria.searchDateStart));
+            const endDate = endOfDay(parseISO(criteria.searchDateEnd));
             
-            const serverQueryEndDate = new Date(criteria.searchDateEnd);
-            serverQueryEndDate.setDate(serverQueryEndDate.getDate() + 2);
-            
-             query = query.where('createdAt', '>=', serverQueryStartDate.toISOString())
-                          .where('createdAt', '<=', serverQueryEndDate.toISOString());
+             query = query.where('createdAt', '>=', startDate.toISOString())
+                          .where('createdAt', '<=', endDate.toISOString());
         } else if (noFilters && !isOperario) {
              // For non-operarios with no filters, we must limit the query to avoid reading the whole collection.
              // We query the last 7 days. This is safe as createdAt will have a single-field index.
@@ -119,7 +116,7 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
                          .where('createdAt', '<=', endDate.toISOString());
         }
         
-        // Execute the more basic query
+        // Execute the query.
         const snapshot = await query.get();
 
         let results = snapshot.docs.map(doc => {
@@ -133,22 +130,6 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
         });
 
         // Apply the rest of the filters in memory
-        
-        // Date filter (more precise, on the local form date)
-        if (criteria.searchDateStart && criteria.searchDateEnd) {
-             results = results.filter(sub => {
-                const formIsoDate = sub.formData?.fecha;
-                if (!formIsoDate || typeof formIsoDate !== 'string') return false;
-                
-                // Get just the YYYY-MM-DD part, adjusted for local timezone
-                const formDatePart = getLocalGroupingDate(formIsoDate);
-                const startDatePart = criteria.searchDateStart!.split('T')[0];
-                const endDatePart = criteria.searchDateEnd!.split('T')[0];
-                
-                return formDatePart >= startDatePart && formDatePart <= endDatePart;
-            });
-        }
-
         if (isOperario && noFilters) {
             const endDate = new Date();
             const startDate = new Date();
