@@ -136,10 +136,12 @@ const createFormSchema = (isReception: boolean) => z.object({
     placa: z.string().regex(/^[A-Z]{3}[0-9]{3}$/, "Formato inválido. Deben ser 3 letras y 3 números (ej: ABC123)."),
     muelle: z.string().min(1, "Seleccione un muelle."),
     contenedor: z.string().refine(value => {
-      const formatRegex = /^[A-Z]{4}[0-9]{7}$/;
-      return value.toUpperCase() === 'N/A' || formatRegex.test(value.toUpperCase());
+        const format1 = /^[A-Z]{4}[0-9]{7}$/;
+        const format2 = /^[A-Z]{2}[0-9]{6}-[0-9]{4}$/;
+        const upperValue = value.toUpperCase();
+        return upperValue === 'N/A' || format1.test(upperValue) || format2.test(upperValue);
     }, {
-      message: "Formato inválido. Debe ser 'N/A' o 4 letras y 7 números (ej: ABCD1234567)."
+        message: "Formato inválido. Debe ser 'N/A', 4 letras y 7 números, o 2 letras, 6 números, guion y 4 números."
     }),
     setPoint: z.preprocess(
         (val) => (val === "" || val === null ? null : val),
@@ -1805,4 +1807,3 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
-

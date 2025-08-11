@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback, ReactNode } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import { useForm, useFieldArray, useWatch, FormProvider, useFormContext, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -221,10 +221,12 @@ const formSchema = z.object({
         .min(-99, "El valor debe estar entre -99 y 99.").max(99, "El valor debe estar entre -99 y 99.").nullable()
     ),
     contenedor: z.string().min(1, "El contenedor es obligatorio.").refine(value => {
-      const formatRegex = /^[A-Z]{4}[0-9]{7}$/;
-      return value.toUpperCase() === 'N/A' || formatRegex.test(value.toUpperCase());
+        const format1 = /^[A-Z]{4}[0-9]{7}$/;
+        const format2 = /^[A-Z]{2}[0-9]{6}-[0-9]{4}$/;
+        const upperValue = value.toUpperCase();
+        return upperValue === 'N/A' || format1.test(upperValue) || format2.test(upperValue);
     }, {
-      message: "Formato inválido. Debe ser 'N/A' o 4 letras y 7 números (ej: ABCD1234567)."
+        message: "Formato inválido. Debe ser 'N/A', 4 letras y 7 números, o 2 letras, 6 números, guion y 4 números."
     }),
     despachoPorDestino: z.boolean().default(false),
     totalPaletasDespacho: z.coerce.number().int().min(0, "Debe ser un número no negativo.").optional(),
@@ -2179,6 +2181,7 @@ function PedidoTypeSelectorDialog({
 }
 
     
+
 
 
 

@@ -146,7 +146,15 @@ const formSchema = z.object({
     placa: z.string().optional(),
     precinto: z.string().optional(),
     setPoint: z.preprocess((val) => (val === "" || val === null ? undefined : val), z.coerce.number({ required_error: "El Set Point es requerido." }).min(-99).max(99).nullable().optional()),
-    contenedor: z.string().optional(),
+    contenedor: z.string().optional().refine(value => {
+        if (!value) return true; // Optional field, so empty is ok
+        const format1 = /^[A-Z]{4}[0-9]{7}$/;
+        const format2 = /^[A-Z]{2}[0-9]{6}-[0-9]{4}$/;
+        const upperValue = value.toUpperCase();
+        return upperValue === 'N/A' || format1.test(upperValue) || format2.test(upperValue);
+    }, {
+        message: "Formato inválido. Debe ser 'N/A', 4 letras y 7 números, o 2 letras, 6 números, guion y 4 números."
+    }),
     facturaRemision: z.string().max(15, "Máximo 15 caracteres.").nullable().optional(),
     
     recepcionPorPlaca: z.boolean().default(false),
