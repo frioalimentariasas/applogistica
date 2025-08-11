@@ -46,7 +46,7 @@ const calculateDuration = (horaInicio: string, horaFin: string): number | null =
 
 const calculateTotalKilos = (formType: string, formData: any): number => {
     if (formType.startsWith('fixed-weight-')) {
-        return (formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.pesoNetoKg) || 0), 0);
+        return (formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.pesoBrutoKg) || 0), 0);
     }
     
     if (formType.startsWith('variable-weight-')) {
@@ -169,7 +169,8 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
             let quantityType = obs.quantityType;
 
             const isSpecialConcept = specialHandledConcepts.includes(conceptType);
-             if (isSpecialConcept) {
+            
+            if (isSpecialConcept && quantity === 0) {
                  const conceptFromDb = billingConcepts.find(c => c.conceptName.toUpperCase() === conceptType.toUpperCase());
                  if (conceptFromDb) {
                      quantityType = conceptFromDb.unitOfMeasure;
