@@ -720,7 +720,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             
                             autoTable(doc, {
                                 startY: yPos,
-                                head: [[{ content: 'TOTALES GENERALES', colSpan: 4, styles: { fillColor: '#1A90C8', textColor: '#FFFFFF', fontStyle: 'bold', halign: 'center' } }]],
+                                head: [[{ content: 'TOTALES GENERALES', colSpan: 2, styles: { fillColor: '#1A90C8', textColor: '#FFFFFF', fontStyle: 'bold', halign: 'center' } }]],
                                 body: [
                                     [{ content: 'Total General Paletas:', styles: { fontStyle: 'bold' } }, { content: totalGeneralPaletas, styles: { halign: 'right', fontStyle: 'bold', textColor: '#000' } }],
                                     [{ content: 'Total General Cantidad:', styles: { fontStyle: 'bold' } }, { content: totalGeneralCantidad, styles: { halign: 'right', fontStyle: 'bold', textColor: '#000' } }],
