@@ -4,11 +4,12 @@ import Link from 'next/link';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
-import { getPedidosByObservation, type SpecialReportResult } from '@/app/actions/special-reports';
+import { getPedidosByCriteria, type SpecialReportResult } from '@/app/actions/special-reports';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ArrowLeft, FileSpreadsheet } from 'lucide-react';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from '@/components/ui/accordion';
 
 function ReportTable({ title, data }: { title: string; data: SpecialReportResult[] }) {
     return (
@@ -54,16 +55,37 @@ function ReportTable({ title, data }: { title: string; data: SpecialReportResult
 }
 
 async function SpecialReportsContent() {
-    const [reestibadoData, salidaTunelData] = await Promise.all([
-        getPedidosByObservation('REESTIBADO'),
-        getPedidosByObservation('SALIDA PALETAS TUNEL'),
-    ]);
+    const criteriaToFetch = [
+        'CARGUE', 'DESCARGUE', 'EMPAQUE DE CAJAS', 'EMPAQUE DE SACOS',
+        'REESTIBADO', 'SALIDA PALETAS TUNEL', 'TRANSBORDO CANASTILLA'
+    ];
+    const results = await getPedidosByCriteria(criteriaToFetch as any);
+
+    const reportSections = [
+        { title: 'Pedidos con CARGUE por Cuadrilla', data: results.CARGUE },
+        { title: 'Pedidos con DESCARGUE por Cuadrilla', data: results.DESCARGUE },
+        { title: 'Pedidos con EMPAQUE DE CAJAS por Cuadrilla (Maquila)', data: results['EMPAQUE DE CAJAS'] },
+        { title: 'Pedidos con EMPAQUE DE SACOS por Cuadrilla (Maquila)', data: results['EMPAQUE DE SACOS'] },
+        { title: 'Pedidos con REESTIBADO por Cuadrilla', data: results.REESTIBADO },
+        { title: 'Pedidos con SALIDA PALETAS TUNEL por Cuadrilla', data: results['SALIDA PALETAS TUNEL'] },
+        { title: 'Pedidos con TRANSBORDO CANASTILLA por Cuadrilla', data: results['TRANSBORDO CANASTILLA'] },
+    ];
     
     return (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <ReportTable title="Pedidos con Reestibado por Cuadrilla" data={reestibadoData} />
-            <ReportTable title="Pedidos con Salida de Paletas de Túnel por Cuadrilla" data={salidaTunelData} />
-        </div>
+         <Accordion type="multiple" className="w-full space-y-4">
+            {reportSections.map((section, index) => (
+                <AccordionItem value={`item-${index}`} key={index}>
+                    <AccordionTrigger className="text-lg font-semibold px-4 bg-muted hover:bg-muted/90 rounded-md">
+                        {section.title} ({section.data.length})
+                    </AccordionTrigger>
+                    <AccordionContent>
+                         <div className="pt-4">
+                            <ReportTable title="" data={section.data} />
+                        </div>
+                    </AccordionContent>
+                </AccordionItem>
+            ))}
+        </Accordion>
     );
 }
 
