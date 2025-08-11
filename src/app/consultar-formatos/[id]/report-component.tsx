@@ -189,7 +189,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
 
             const totalPaletasPlaca = presentationGroups.reduce((acc: number, group: any) => acc + group.subTotalPaletas, 0);
             const totalCantidadPlaca = presentationGroups.reduce((acc: number, group: any) => acc + group.subTotalCantidad, 0);
-            const totalPesoPlaca = presentationGroups.reduce((acc: number, group: any) => acc + group.subTotalPeso, 0);
+            const totalPesoPlaca = presentationGroups.reduce((acc: number, group: any) => acc + group.totalPeso, 0);
 
             return {
                 placa: placa.numeroPlaca,
@@ -698,11 +698,19 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                                     startY: yPos,
                                     body: [[
                                         { content: `Subtotal Placa ${placaGroup.placa}:`, colSpan: 2, styles: { fontStyle: 'bold', fillColor: '#ddebf7', textColor: '#000', halign: 'right' } },
-                                        { content: placaGroup.totalPaletasPlaca, styles: { fontStyle: 'bold', fillColor: '#ddebf7', textColor: '#000' } },
-                                        { content: placaGroup.totalCantidadPlaca, styles: { fontStyle: 'bold', fillColor: '#ddebf7', textColor: '#000' } },
-                                        { content: placaGroup.totalPesoPlaca.toFixed(2), styles: { fontStyle: 'bold', fillColor: '#ddebf7', textColor: '#000' } },
+                                        { content: placaGroup.totalPaletasPlaca, styles: { fontStyle: 'bold', fillColor: '#ddebf7', textColor: '#000', halign: 'right' } },
+                                        { content: placaGroup.totalCantidadPlaca, styles: { fontStyle: 'bold', fillColor: '#ddebf7', textColor: '#000', halign: 'right' } },
+                                        { content: placaGroup.totalPesoPlaca.toFixed(2), styles: { fontStyle: 'bold', fillColor: '#ddebf7', textColor: '#000', halign: 'right' } },
                                     ]],
                                     theme: 'grid',
+                                    styles: { fontSize: 8 },
+                                    headStyles: { fontStyle: 'bold', fillColor: '#ddebf7', textColor: '#000' },
+                                    columnStyles: {
+                                        0: { cellWidth: 265 },
+                                        1: { cellWidth: 80 },
+                                        2: { cellWidth: 80 },
+                                        3: { cellWidth: 80 },
+                                    },
                                     margin: { horizontal: margin },
                                 });
                                 yPos = (doc as any).autoTable.previous.finalY;
