@@ -169,19 +169,17 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
 
             const isSpecialConcept = specialHandledConcepts.includes(conceptType);
 
-            // For special concepts, we trust the database's unit of measure if quantity is manually entered.
-            // Or if quantity is 0, we calculate it.
             if (isSpecialConcept) {
-                 const conceptFromDb = billingConcepts.find(c => c.conceptName === conceptType);
+                 const conceptFromDb = billingConcepts.find(c => c.conceptName.toUpperCase() === conceptType.toUpperCase());
                  if (conceptFromDb) {
                      quantityType = conceptFromDb.unitOfMeasure;
                  }
             }
             
-            if (quantity === 0) {
-                 if (quantityType?.toUpperCase().startsWith('PALETA')) {
+            if (quantity === 0 && quantityType) {
+                 if (quantityType.toUpperCase().startsWith('PALETA')) {
                     quantity = calculateTotalPallets(formType, formData);
-                } else if (quantityType?.toUpperCase() === 'TONELADA') {
+                } else if (quantityType.toUpperCase() === 'TONELADA') {
                     quantity = calculateTotalKilos(formType, formData) / 1000;
                 }
             }
@@ -207,18 +205,16 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
 
     // Then process the main operation concept (CARGUE/DESCARGUE)
     if (formData.aplicaCuadrilla === 'si') {
-        const liquidableOrderTypes = ['GENERICO', 'TUNEL', 'TUNEL DE CONGELACIÓN', 'DESPACHO GENERICO'];
+        const isReception = formType.includes('recepcion') || formType.includes('reception');
+        const isDispatch = formType.includes('despacho');
+        const conceptName = isReception ? 'DESCARGUE' : (isDispatch ? 'CARGUE' : null);
         
-        if (liquidableOrderTypes.includes(formData.tipoPedido)) {
-            const isReception = formType.includes('recepcion') || formType.includes('reception');
-            const conceptName = isReception ? 'DESCARGUE' : 'CARGUE';
+        if (conceptName) {
             const kilos = calculateTotalKilos(formType, formData);
-            
             const operationConcept = billingConcepts.find(c => c.conceptName === conceptName && c.unitOfMeasure === 'TONELADA');
             
             if (operationConcept) {
-                const isPending = formType.startsWith('fixed-weight-') && kilos === 0;
-                // Add to settlements even if pending, with a special value for quantity
+                const isPending = (formType.startsWith('fixed-weight-') && kilos === 0);
                 if (isPending) {
                      if (!settlements.some(s => s.conceptName === conceptName)) {
                         settlements.push({ 
@@ -229,7 +225,7 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
                             totalValue: 0
                         });
                     }
-                } else if (kilos > 0) {
+                } else if (kilos >= 0) { // Also include operations with 0 kilos if not pending
                     const toneladas = kilos / 1000;
                     if (!settlements.some(s => s.conceptName === conceptName)) {
                         settlements.push({ 
@@ -327,7 +323,6 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             
             let indicatorOnlyOperation: { conceptName: string, toneladas: number } | null = null;
             
-            // This logic is for operations WITHOUT crew that we still want to show for performance indicators
             if (allPossibleConcepts.length === 0 && formData.aplicaCuadrilla === 'no') {
                 const isLoadOrUnload = formData.tipoPedido === 'GENERICO' || formData.tipoPedido === 'TUNEL' || formData.tipoPedido === 'TUNEL DE CONGELACIÓN' || formData.tipoPedido === 'DESPACHO GENERICO';
                 if (isLoadOrUnload) {
@@ -417,3 +412,5 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         throw error;
     }
 }
+
+    
