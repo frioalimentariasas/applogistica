@@ -186,17 +186,25 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     subTotalPeso,
                 };
             });
+
+            const totalPaletasPlaca = presentationGroups.reduce((acc: number, group: any) => acc + group.subTotalPaletas, 0);
+            const totalCantidadPlaca = presentationGroups.reduce((acc: number, group: any) => acc + group.subTotalCantidad, 0);
+            const totalPesoPlaca = presentationGroups.reduce((acc: number, group: any) => acc + group.subTotalPeso, 0);
+
             return {
                 placa: placa.numeroPlaca,
                 conductor: placa.conductor,
                 cedulaConductor: placa.cedulaConductor,
                 presentationGroups: presentationGroups,
+                totalPaletasPlaca,
+                totalCantidadPlaca,
+                totalPesoPlaca,
             };
         });
 
-        const totalGeneralPaletas = placaGroups.reduce((acc, placa) => acc + placa.presentationGroups.reduce((pAcc, pres) => pAcc + pres.subTotalPaletas, 0), 0);
-        const totalGeneralCantidad = placaGroups.reduce((acc, placa) => acc + placa.presentationGroups.reduce((pAcc, pres) => pAcc + pres.subTotalCantidad, 0), 0);
-        const totalGeneralPeso = placaGroups.reduce((acc, placa) => acc + placa.presentationGroups.reduce((pAcc, pres) => pAcc + pres.subTotalPeso, 0), 0);
+        const totalGeneralPaletas = placaGroups.reduce((acc, placa) => acc + placa.totalPaletasPlaca, 0);
+        const totalGeneralCantidad = placaGroups.reduce((acc, placa) => acc + placa.totalGeneralCantidad, 0);
+        const totalGeneralPeso = placaGroups.reduce((acc, placa) => acc + placa.totalGeneralPeso, 0);
 
         return { placaGroups, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso };
     };
@@ -684,18 +692,30 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                                     });
                                     yPos = (doc as any).autoTable.previous.finalY;
                                 }
+
+                                // Subtotal por placa
+                                autoTable(doc, {
+                                    startY: yPos,
+                                    body: [[
+                                        { content: `Subtotal Placa ${placaGroup.placa}:`, colSpan: 2, styles: { fontStyle: 'bold', fillColor: '#ddebf7', textColor: '#000', halign: 'right' } },
+                                        { content: placaGroup.totalPaletasPlaca, styles: { fontStyle: 'bold', fillColor: '#ddebf7', textColor: '#000' } },
+                                        { content: placaGroup.totalCantidadPlaca, styles: { fontStyle: 'bold', fillColor: '#ddebf7', textColor: '#000' } },
+                                        { content: placaGroup.totalPesoPlaca.toFixed(2), styles: { fontStyle: 'bold', fillColor: '#ddebf7', textColor: '#000' } },
+                                    ]],
+                                    theme: 'grid',
+                                    margin: { horizontal: margin },
+                                });
+                                yPos = (doc as any).autoTable.previous.finalY;
                             }
                             
                             yPos = (doc as any).autoTable.previous.finalY + 15;
                             
-                             // Check if there is enough space for the summary table
-                            const tableHeight = 4 * 18 + 20; // Approximation of table height
+                            const tableHeight = 4 * 18 + 20;
                             if (yPos + tableHeight > pageHeight - margin) {
                                 doc.addPage();
                                 yPos = margin;
                             }
                             
-                            // Final totals table
                             autoTable(doc, {
                                 startY: yPos,
                                 head: [[{ content: 'TOTALES GENERALES', colSpan: 2, styles: { fillColor: '#1A90C8', textColor: '#FFFFFF', fontStyle: 'bold', halign: 'center' } }]],
@@ -1156,3 +1176,6 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
 
 
 
+
+
+    
