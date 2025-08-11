@@ -4,7 +4,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { format, parseISO } from 'date-fns';
+import { DateRange } from 'react-day-picker';
+import { format, parseISO, startOfDay, endOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 import { searchSubmissions, SubmissionResult, SearchCriteria, deleteSubmission } from '@/app/actions/consultar-formatos';
@@ -28,6 +29,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { cn } from '@/lib/utils';
 
 
 const ResultsSkeleton = () => (
@@ -88,7 +90,7 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
         productType: undefined,
         tipoPedido: undefined,
     });
-    const [date, setDate] = useState<Date | undefined>(undefined);
+    const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
     const [results, setResults] = useState<SubmissionResult[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [isDeleting, setIsDeleting] = useState(false);
@@ -122,7 +124,7 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
             setResults(searchResults);
 
             if (!isAutoSearch) {
-                const isDefaultSearch = !searchCriteria.pedidoSislog && !searchCriteria.nombreCliente && !searchCriteria.searchDateStart && !searchCriteria.operationType && !searchCriteria.tipoPedido;
+                const isDefaultSearch = !searchCriteria.pedidoSislog && !searchCriteria.nombreCliente && !searchCriteria.searchDateStart && !searchCriteria.searchDateEnd && !searchCriteria.operationType && !searchCriteria.tipoPedido;
                 if (isDefaultSearch && searchResults.length > 0) {
                      toast({
                         title: "Mostrando resultados de la última semana",
@@ -160,10 +162,14 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
                     productType: savedCriteria.productType,
                     tipoPedido: savedCriteria.tipoPedido,
                 };
-                const restoredDate = savedCriteria.searchDateStart ? parseISO(savedCriteria.searchDateStart) : undefined;
                 
+                const restoredDateRange: DateRange | undefined = 
+                    savedCriteria.searchDateStart && savedCriteria.searchDateEnd
+                    ? { from: parseISO(savedCriteria.searchDateStart), to: parseISO(savedCriteria.searchDateEnd) }
+                    : undefined;
+
                 setCriteria(restoredCriteria);
-                setDate(restoredDate);
+                setDateRange(restoredDateRange);
 
                 const finalCriteria: SearchCriteria = {
                     ...restoredCriteria,
@@ -180,14 +186,11 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
         let searchDateStart: string | undefined;
         let searchDateEnd: string | undefined;
 
-        if (date) {
-            const startOfDay = new Date(date);
-            startOfDay.setHours(0, 0, 0, 0);
-            searchDateStart = startOfDay.toISOString();
-
-            const endOfDay = new Date(date);
-            endOfDay.setHours(23, 59, 59, 999);
-            searchDateEnd = endOfDay.toISOString();
+        if (dateRange?.from) {
+            searchDateStart = startOfDay(dateRange.from).toISOString();
+        }
+        if (dateRange?.to) {
+            searchDateEnd = endOfDay(dateRange.to).toISOString();
         }
 
         const finalCriteria: SearchCriteria = {
@@ -215,7 +218,7 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
             productType: undefined,
             tipoPedido: undefined,
         });
-        setDate(undefined);
+        setDateRange(undefined);
         setResults([]);
         setSearched(false);
         sessionStorage.removeItem(SESSION_STORAGE_KEY);
@@ -356,23 +359,38 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
                             </div>
                             <div className="space-y-2">
                                 <Label htmlFor="fechaCreacion">Fecha de Operación</Label>
-                                 <Popover>
+                                <Popover>
                                     <PopoverTrigger asChild>
-                                    <Button
-                                        variant={"outline"}
-                                        className="w-full justify-start text-left font-normal"
-                                    >
-                                        <CalendarIcon className="mr-2 h-4 w-4" />
-                                        {date ? format(date, "PPP", { locale: es }) : <span>Seleccione una fecha</span>}
-                                    </Button>
+                                        <Button
+                                            id="date"
+                                            variant={"outline"}
+                                            className={cn("w-full justify-start text-left font-normal", !dateRange && "text-muted-foreground")}
+                                        >
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {dateRange?.from ? (
+                                                dateRange.to ? (
+                                                    <>
+                                                        {format(dateRange.from, "LLL dd, y", { locale: es })} -{" "}
+                                                        {format(dateRange.to, "LLL dd, y", { locale: es })}
+                                                    </>
+                                                ) : (
+                                                    format(dateRange.from, "LLL dd, y", { locale: es })
+                                                )
+                                            ) : (
+                                                <span>Seleccione un rango</span>
+                                            )}
+                                        </Button>
                                     </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0">
-                                    <Calendar
-                                        mode="single"
-                                        selected={date}
-                                        onSelect={setDate}
-                                        initialFocus
-                                    />
+                                    <PopoverContent className="w-auto p-0" align="start">
+                                        <Calendar
+                                            initialFocus
+                                            mode="range"
+                                            defaultMonth={dateRange?.from}
+                                            selected={dateRange}
+                                            onSelect={setDateRange}
+                                            numberOfMonths={2}
+                                            locale={es}
+                                        />
                                     </PopoverContent>
                                 </Popover>
                             </div>

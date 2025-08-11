@@ -77,12 +77,16 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
         if (criteria.pedidoSislog) {
             query = query.where('formData.pedidoSislog', '==', criteria.pedidoSislog.trim());
         }
-        
-        const noFilters = !criteria.pedidoSislog && !criteria.nombreCliente && !criteria.searchDateStart && !criteria.operationType && !criteria.tipoPedido && !criteria.productType;
 
-        // For non-operarios with no filters, we must limit the query to avoid reading the whole collection.
-        // We query the last 7 days. This is safe as createdAt will have a single-field index.
-        if (!isOperario && noFilters) {
+        const noDateFilter = !criteria.searchDateStart && !criteria.searchDateEnd;
+        const noFilters = !criteria.pedidoSislog && !criteria.nombreCliente && noDateFilter && !criteria.operationType && !criteria.tipoPedido && !criteria.productType;
+
+        if (criteria.searchDateStart && criteria.searchDateEnd) {
+             query = query.where('formData.fecha', '>=', criteria.searchDateStart)
+                          .where('formData.fecha', '<=', criteria.searchDateEnd);
+        } else if (noFilters && !isOperario) {
+             // For non-operarios with no filters, we must limit the query to avoid reading the whole collection.
+             // We query the last 7 days. This is safe as createdAt will have a single-field index.
             const endDate = new Date();
             const startDate = new Date();
             startDate.setDate(endDate.getDate() - 7);
@@ -91,7 +95,7 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
             query = query.where('createdAt', '>=', startDate.toISOString())
                          .where('createdAt', '<=', endDate.toISOString());
         }
-
+        
         // Execute the more basic query
         const snapshot = await query.get();
 
@@ -105,22 +109,8 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
             } as SubmissionResult;
         });
 
-        // Now, apply the rest of the filters in memory
+        // Apply the rest of the filters in memory
 
-        // Filter by date if it was provided
-        if (criteria.searchDateStart && criteria.searchDateEnd) {
-             results = results.filter(sub => {
-                // Use the form's own date field, not the creation timestamp, for filtering.
-                // This correctly handles forms created late at night in a different timezone.
-                const formDate = sub.formData.fecha; 
-                if (!formDate || typeof formDate !== 'string') {
-                    return false;
-                }
-                return formDate >= criteria.searchDateStart! && formDate <= criteria.searchDateEnd!;
-             });
-        }
-
-        // For operarios with no filters, apply the 7-day filter now
         if (isOperario && noFilters) {
             const endDate = new Date();
             const startDate = new Date();
