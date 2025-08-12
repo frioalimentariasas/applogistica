@@ -104,9 +104,9 @@ export default function ReportesEspecialesPage() {
                         <div>
                             <div className="flex items-center justify-center gap-2">
                                 <FileSpreadsheet className="h-8 w-8 text-primary" />
-                                <h1 className="text-2xl font-bold text-primary">Reportes Especiales de Liquidación</h1>
+                                <h1 className="text-2xl font-bold text-primary">Relación de Formatos por Concepto de Liquidación</h1>
                             </div>
-                             <p className="text-sm text-gray-500">Listados de formatos que cumplen con criterios específicos de liquidación por cuadrilla.</p>
+                             <p className="text-sm text-gray-500">Consulte los formatos que aplican para cada concepto de liquidación facturable.</p>
                         </div>
                     </div>
                 </header>
