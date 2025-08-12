@@ -402,8 +402,9 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                  row.standard = await findBestMatchingStandard({
                     clientName: row.cliente,
                     operationType: row.tipoOperacion === 'Recepción' ? 'recepcion' : 'despacho',
-                    productType: row.productType,
-                    tons: row.kilos / 1000
+                    productType: row.tipoProducto === 'Fijo' ? 'fijo' : 'variable',
+                    tons: row.kilos / 1000,
+                    isCrewOperation: row.aplicaCuadrilla === 'si',
                 });
                 row.description = row.standard?.description || "Sin descripción";
             }
@@ -419,3 +420,4 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         throw error;
     }
 }
+

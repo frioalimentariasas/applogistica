@@ -145,7 +145,7 @@ const formatDuration = (totalMinutes: number | null): string => {
 };
 
 const getPerformanceIndicator = (row: CrewPerformanceReportRow): { text: string, className: string, icon: React.FC<any> } => {
-    const { operationalDurationMinutes, standard, cantidadConcepto, tipoOperacion } = row;
+    const { operationalDurationMinutes, standard, cantidadConcepto, tipoOperacion, totalDurationMinutes } = row;
 
     if (tipoOperacion !== 'Recepción' && tipoOperacion !== 'Despacho') {
         return { text: 'No Aplica', className: 'bg-gray-100 text-gray-600', icon: Circle };
@@ -158,7 +158,7 @@ const getPerformanceIndicator = (row: CrewPerformanceReportRow): { text: string,
     // For non-crew operations, operationalDuration can be null if no novelties. In this case, use total duration.
     const effectiveOperationalTime = operationalDurationMinutes !== null && operationalDurationMinutes >= 0 
         ? operationalDurationMinutes 
-        : (row.novelties.length === 0 ? row.totalDurationMinutes : null);
+        : totalDurationMinutes;
 
     if (effectiveOperationalTime === null || effectiveOperationalTime < 0) {
         return { text: 'Sin Tiempo', className: 'bg-gray-100 text-gray-600', icon: Circle };
@@ -727,7 +727,7 @@ export default function CrewPerformanceReportPage() {
                         <div>
                             <div className="flex items-center justify-center gap-2">
                                 <TrendingUp className="h-8 w-8 text-primary" />
-                                <h1 className="text-2xl font-bold text-primary">Relación de Formatos por Concepto de Liquidación</h1>
+                                <h1 className="text-2xl font-bold text-primary">Informe de Productividad y Liquidación Cuadrilla</h1>
                             </div>
                              <p className="text-sm text-gray-500">Analice los indicadores de productividad y liquide las operaciones de cuadrilla.</p>
                         </div>
@@ -850,7 +850,7 @@ export default function CrewPerformanceReportPage() {
                                                             <Button size="sm" onClick={() => handleOpenLegalizeDialog(row)} className="bg-primary hover:bg-primary/90 text-primary-foreground">
                                                                 <Edit2 className="mr-2 h-4 w-4"/>Legalizar
                                                             </Button>
-                                                        ) : (indicator.text === 'Lento' || (row.aplicaCuadrilla === 'no' && indicator.text === 'Lento')) ? (
+                                                        ) : ((row.aplicaCuadrilla === 'si' && indicator.text === 'Lento') || (row.aplicaCuadrilla === 'no' && indicator.text === 'Lento')) ? (
                                                             <Button variant="secondary" size="sm" onClick={() => handleOpenNoveltyDialog(row)} className="h-8">
                                                                 <PlusCircle className="mr-2 h-4 w-4"/>Novedad
                                                             </Button>
@@ -1017,3 +1017,4 @@ export default function CrewPerformanceReportPage() {
 
 
   
+
