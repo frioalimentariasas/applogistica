@@ -324,6 +324,7 @@ export default function CrewPerformanceReportPage() {
 
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
             if (e.key === 'ArrowLeft') {
                 handleScroll('left');
             } else if (e.key === 'ArrowRight') {
@@ -510,12 +511,53 @@ export default function CrewPerformanceReportPage() {
      }, [liquidationData, reportData]);
 
 
-    const handleExportExcel = () => {
-        // This function will need to be adapted if needed, or removed if the split view is sufficient.
-    };
+    const handleExportExcel = (type: 'productivity' | 'settlement') => {
+        if (type === 'productivity') {
+            const data = filteredReportData.map(row => ({
+                'Fecha': format(new Date(row.fecha), 'dd/MM/yy'),
+                'Operario': row.operario,
+                'Cliente': row.cliente,
+                'Tipo Op.': row.tipoOperacion,
+                'Tipo Prod.': row.tipoProducto,
+                'Pedido': row.pedidoSislog,
+                'Cantidad (Ton)': row.cantidadConcepto === -1 ? 'Pendiente' : row.cantidadConcepto.toFixed(2),
+                'Duración Total': formatDuration(row.totalDurationMinutes),
+                'T. Operativo': formatDuration(row.operationalDurationMinutes),
+                'Productividad': getPerformanceIndicator(row).text,
+                'Novedades': row.novelties.map(n => `${n.type} (${n.downtimeMinutes} min)`).join(', '),
+            }));
+             const ws = XLSX.utils.json_to_sheet(data);
+             const wb = XLSX.utils.book_new();
+             XLSX.utils.book_append_sheet(wb, ws, "Productividad");
+             XLSX.writeFile(wb, "Reporte_Productividad.xlsx");
 
-    const handleExportPDF = async () => {
-        // PDF Export logic remains the same
+        } else if (type === 'settlement') {
+            const data = liquidationData.map(row => ({
+                'Fecha': format(new Date(row.fecha), 'dd/MM/yy'),
+                'Cliente': row.cliente,
+                'Pedido': row.pedidoSislog,
+                'Concepto': row.conceptoLiquidado,
+                'Cantidad': row.cantidadConcepto === -1 ? 'Pendiente' : `${row.cantidadConcepto.toFixed(2)} ${row.unidadMedidaConcepto}`,
+                'Valor Unitario': row.valorUnitario,
+                'Valor Total': row.valorTotalConcepto,
+            }));
+             const totalRow = {
+                'Fecha': 'TOTAL GENERAL',
+                'Cliente': '', 'Pedido': '', 'Concepto': '', 'Cantidad': '', 'Valor Unitario': '',
+                'Valor Total': totalLiquidacion,
+            };
+            const ws = XLSX.utils.json_to_sheet([...data, totalRow]);
+            // Format currency columns
+            ws['!cols'] = [ {wch:10}, {wch:25}, {wch:12}, {wch:20}, {wch:15}, {wch:15}, {wch:15} ];
+            for (let i = 2; i <= data.length + 2; i++) {
+                if (ws[`F${i}`]) ws[`F${i}`].z = '"$"#,##0.00';
+                if (ws[`G${i}`]) ws[`G${i}`].z = '"$"#,##0.00';
+            }
+            
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Liquidacion");
+            XLSX.writeFile(wb, "Reporte_Liquidacion_Cuadrilla.xlsx");
+        }
     };
 
     const handleOpenNoveltyDialog = (row: CrewPerformanceReportRow) => {
@@ -736,6 +778,14 @@ export default function CrewPerformanceReportPage() {
                                 <TabsTrigger value="settlement"><DollarSign className="mr-2 h-4 w-4" />Liquidación de Cuadrilla</TabsTrigger>
                             </TabsList>
                             <TabsContent value="productivity" className="pt-4">
+                                <div className="flex justify-end gap-2 mb-4">
+                                    <Button onClick={() => handleExportExcel('productivity')} disabled={isLoading || filteredReportData.length === 0} variant="outline" size="sm">
+                                        <File className="mr-2 h-4 w-4" /> Exportar a Excel
+                                    </Button>
+                                    <Button onClick={() => {}} disabled={true} variant="outline" size="sm">
+                                        <FileDown className="mr-2 h-4 w-4" /> Exportar a PDF
+                                    </Button>
+                                </div>
                                  <div className="relative">
                                      <ScrollArea className="w-full whitespace-nowrap rounded-md border">
                                         <ScrollAreaViewport ref={scrollViewportRef}>
@@ -782,11 +832,11 @@ export default function CrewPerformanceReportPage() {
                                                                                     <Edit2 className="mr-2 h-4 w-4"/>Legalizar
                                                                                 </Button>
                                                                             )}
-                                                                            {indicator.text === 'Lento' ? (
+                                                                            {indicator.text === 'Lento' && (
                                                                                 <Button variant="secondary" size="sm" onClick={() => handleOpenNoveltyDialog(row)} className="h-8">
                                                                                     <PlusCircle className="mr-2 h-4 w-4"/>Novedad
                                                                                 </Button>
-                                                                            ) : null}
+                                                                            )}
                                                                         </div>
                                                                     </TableCell>
                                                                 </TableRow>
@@ -826,6 +876,14 @@ export default function CrewPerformanceReportPage() {
                                 </div>
                             </TabsContent>
                             <TabsContent value="settlement" className="pt-4">
+                                 <div className="flex justify-end gap-2 mb-4">
+                                    <Button onClick={() => handleExportExcel('settlement')} disabled={isLoading || liquidationData.length === 0} variant="outline" size="sm">
+                                        <File className="mr-2 h-4 w-4" /> Exportar a Excel
+                                    </Button>
+                                    <Button onClick={() => {}} disabled={true} variant="outline" size="sm">
+                                        <FileDown className="mr-2 h-4 w-4" /> Exportar a PDF
+                                    </Button>
+                                </div>
                                  <div className="w-full overflow-x-auto rounded-md border">
                                     <Table>
                                         <TableHeader><TableRow><TableHead>Fecha</TableHead><TableHead>Cliente</TableHead><TableHead>Pedido</TableHead><TableHead>Concepto</TableHead><TableHead>Cant.</TableHead><TableHead>Vlr. Unitario</TableHead><TableHead>Vlr. Total</TableHead></TableRow></TableHeader>
@@ -1006,6 +1064,7 @@ export default function CrewPerformanceReportPage() {
 
 
   
+
 
 
 
