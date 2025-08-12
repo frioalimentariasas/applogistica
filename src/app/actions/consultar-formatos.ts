@@ -4,8 +4,7 @@
 import admin from 'firebase-admin';
 import { firestore, storage } from '@/lib/firebase-admin';
 import type { FormSubmissionData } from './save-form';
-import { parseISO } from 'date-fns';
-import { utcToZonedTime, toZonedTime, format } from 'date-fns-tz';
+import { parseISO, format } from 'date-fns';
 
 const COLOMBIA_TIMEZONE = 'America/Bogota';
 
@@ -102,16 +101,14 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
         // Apply a server-side date filter ONLY if a date range is provided.
         // This is now the most reliable way to handle date range queries.
         if (criteria.searchDateStart && criteria.searchDateEnd) {
-             const startDateLocal = parseISO(criteria.searchDateStart); // Date from picker is already local midnight
+             const startDateLocal = parseISO(criteria.searchDateStart);
              const endDateLocal = parseISO(criteria.searchDateEnd);
  
-             // Convert the local start of day to UTC
-             const startOfDayInColombia = new Date(startDateLocal.getFullYear(), startDateLocal.getMonth(), startDateLocal.getDate(), 0, 0, 0);
-             const startUTC = toZonedTime(startOfDayInColombia, COLOMBIA_TIMEZONE);
+             // Start of day in Colombia (UTC-5)
+             const startUTC = new Date(Date.UTC(startDateLocal.getFullYear(), startDateLocal.getMonth(), startDateLocal.getDate(), 5, 0, 0, 0));
              
-             // Convert the local end of day to UTC
-             const endOfDayInColombia = new Date(endDateLocal.getFullYear(), endDateLocal.getMonth(), endDateLocal.getDate(), 23, 59, 59, 999);
-             const endUTC = toZonedTime(endOfDayInColombia, COLOMBIA_TIMEZONE);
+             // End of day in Colombia (UTC-5)
+             const endUTC = new Date(Date.UTC(endDateLocal.getFullYear(), endDateLocal.getMonth(), endDateLocal.getDate() + 1, 4, 59, 59, 999));
 
              query = query.where('createdAt', '>=', startUTC.toISOString())
                           .where('createdAt', '<=', endUTC.toISOString());
