@@ -4,7 +4,7 @@
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm, SubmitHandler } from 'react-hook-form';
+import { useForm, SubmitHandler, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import Link from 'next/link';
@@ -113,7 +113,7 @@ const formatDuration = (totalMinutes: number | null): string => {
 };
 
 const getPerformanceIndicator = (row: CrewPerformanceReportRow): { text: string, className: string, icon: React.FC<any> } => {
-    const { operationalDurationMinutes, standard, cantidadConcepto, tipoOperacion } = row;
+    const { operationalDurationMinutes, totalDurationMinutes, standard, cantidadConcepto, tipoOperacion } = row;
 
     if (tipoOperacion !== 'Recepción' && tipoOperacion !== 'Despacho') {
         return { text: 'No Aplica', className: 'bg-gray-100 text-gray-600', icon: Circle };
@@ -123,7 +123,9 @@ const getPerformanceIndicator = (row: CrewPerformanceReportRow): { text: string,
         return { text: 'Pendiente', className: 'bg-amber-100 text-amber-800 border-amber-200', icon: ClockIcon };
     }
     
-    if (operationalDurationMinutes === null || operationalDurationMinutes < 0) {
+    const effectiveOperationalTime = operationalDurationMinutes ?? totalDurationMinutes;
+    
+    if (effectiveOperationalTime === null || effectiveOperationalTime < 0) {
         return { text: 'Sin Tiempo', className: 'bg-gray-100 text-gray-600', icon: Circle };
     }
     
@@ -133,11 +135,11 @@ const getPerformanceIndicator = (row: CrewPerformanceReportRow): { text: string,
 
     const { baseMinutes } = standard;
 
-    if (operationalDurationMinutes < baseMinutes) {
+    if (effectiveOperationalTime < baseMinutes) {
         return { text: 'Óptimo', className: 'bg-green-100 text-green-800 border-green-200', icon: CheckCircle2 };
     }
     
-    if (operationalDurationMinutes <= baseMinutes + 10) {
+    if (effectiveOperationalTime <= baseMinutes + 10) {
         return { text: 'Normal', className: 'bg-yellow-100 text-yellow-800 border-yellow-200', icon: AlertCircle };
     }
 
