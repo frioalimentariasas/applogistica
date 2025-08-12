@@ -4,7 +4,7 @@
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm, SubmitHandler } from 'react-hook-form';
+import { useForm, SubmitHandler, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import Link from 'next/link';
@@ -32,7 +32,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
+import { ScrollArea, ScrollAreaViewport } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, File, FileDown, FolderSearch, ShieldAlert, TrendingUp, Circle, Settings, ChevronsUpDown, AlertCircle, PlusCircle, X, Edit2, CheckCircle2, ClockIcon, AlertTriangleIcon, DollarSign, Activity, FileSpreadsheet, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -738,7 +738,7 @@ export default function CrewPerformanceReportPage() {
                             <TabsContent value="productivity" className="pt-4">
                                  <div className="relative">
                                      <ScrollArea className="w-full whitespace-nowrap rounded-md border">
-                                        <ScrollArea.Viewport ref={scrollViewportRef}>
+                                        <ScrollAreaViewport ref={scrollViewportRef}>
                                             <Table><TableHeader><TableRow><TableHead>Fecha</TableHead><TableHead>Operario</TableHead><TableHead>Cliente</TableHead><TableHead>Tipo Op.</TableHead><TableHead>Tipo Prod.</TableHead><TableHead>Pedido</TableHead><TableHead>Cant.</TableHead><TableHead>Dur. Total</TableHead><TableHead>T. Operativo</TableHead><TableHead>Novedades</TableHead><TableHead>Productividad</TableHead><TableHead className="text-right sticky right-0 bg-background/95 backdrop-blur-sm z-10">Acciones</TableHead></TableRow></TableHeader>
                                                 <TableBody>
                                                     {isLoading ? (<TableRow><TableCell colSpan={17}><Skeleton className="h-20 w-full" /></TableCell></TableRow>) : displayedData.length > 0 ? (
@@ -777,7 +777,7 @@ export default function CrewPerformanceReportPage() {
                                                                     </TableCell>
                                                                     <TableCell className="text-right sticky right-0 bg-background/95 backdrop-blur-sm z-10">
                                                                         <div className="flex items-center justify-end gap-2">
-                                                                            {isPending ? (
+                                                                            {isPending && row.aplicaCuadrilla === 'si' ? (
                                                                                 <Button size="sm" onClick={() => handleOpenLegalizeDialog(row)} className="bg-primary hover:bg-primary/90 text-primary-foreground h-8">
                                                                                     <Edit2 className="mr-2 h-4 w-4"/>Legalizar
                                                                                 </Button>
@@ -793,7 +793,7 @@ export default function CrewPerformanceReportPage() {
                                                     ) : (<EmptyState searched={searched} title="No se encontraron operaciones" description="Use los filtros para generar un reporte de productividad." />)}
                                                 </TableBody>
                                             </Table>
-                                        </ScrollArea.Viewport>
+                                        </ScrollAreaViewport>
                                         <ScrollBar orientation="horizontal" />
                                      </ScrollArea>
                                      <div className="absolute top-1/2 -translate-y-1/2 flex justify-between w-full pointer-events-none">
@@ -1005,5 +1005,6 @@ export default function CrewPerformanceReportPage() {
 
 
   
+
 
 
