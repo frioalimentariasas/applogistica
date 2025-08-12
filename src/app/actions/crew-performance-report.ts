@@ -324,11 +324,12 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             
             let indicatorOnlyOperation: { conceptName: string, toneladas: number } | null = null;
             
-            if (allPossibleConcepts.length === 0 && formData.aplicaCuadrilla === 'no') {
+            if (formData.aplicaCuadrilla === 'no') {
                 const isLoadOrUnload = formType.includes('recepcion') || formType.includes('despacho');
-                if (isLoadOrUnload) {
+                const concept = (formType.includes('recepcion') || formType.includes('reception')) ? 'DESCARGUE' : 'CARGUE';
+                if (isLoadOrUnload && (concept === 'CARGUE' || concept === 'DESCARGUE')) {
                     indicatorOnlyOperation = {
-                        conceptName: (formType.includes('recepcion') || formType.includes('reception')) ? 'DESCARGUE' : 'CARGUE',
+                        conceptName: concept,
                         toneladas: calculateTotalKilos(formType, formData) / 1000
                     };
                 }
