@@ -725,11 +725,11 @@ export default function CrewPerformanceReportPage() {
                                                                     <Button size="sm" onClick={() => handleOpenLegalizeDialog(row)} className="bg-primary hover:bg-primary/90 text-primary-foreground">
                                                                         <Edit2 className="mr-2 h-4 w-4"/>Legalizar
                                                                     </Button>
-                                                                ) : (
+                                                                ) : indicator.text === 'Lento' ? (
                                                                     <Button variant="secondary" size="sm" onClick={() => handleOpenNoveltyDialog(row)} className="h-8">
                                                                         <PlusCircle className="mr-2 h-4 w-4"/>Novedad
                                                                     </Button>
-                                                                )}
+                                                                ) : null}
                                                             </TableCell>
                                                         </TableRow>
                                                     )})
