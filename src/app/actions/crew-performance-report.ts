@@ -325,7 +325,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             
             let indicatorOnlyOperation: { conceptName: string, toneladas: number, isPending: boolean } | null = null;
             
-            if (formData.aplicaCuadrilla === 'no') {
+             if (formData.aplicaCuadrilla === 'no') {
                 const isReception = formType.includes('recepcion') || formType.includes('reception');
                 const isDispatch = formType.includes('despacho');
                 
@@ -401,7 +401,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
 
             const novelties = await getNoveltiesForOperation(row.submissionId);
             const totalDuration = calculateDuration(row.horaInicio, row.horaFin);
-            const downtimeMinutes = novelties.filter(n => n.impactsCrewProductivity).reduce((sum, n) => sum + n.downtimeMinutes, 0);
+            const downtimeMinutes = novelties.filter(n => n.purpose === 'justification').reduce((sum, n) => sum + n.downtimeMinutes, 0);
             
             row.novelties = novelties;
             row.totalDurationMinutes = totalDuration;
