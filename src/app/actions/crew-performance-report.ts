@@ -46,14 +46,23 @@ const calculateDuration = (horaInicio: string, horaFin: string): number | null =
 };
 
 const calculateTotalKilos = (formType: string, formData: any): number => {
+    // Para peso fijo, el total es la suma de los pesos brutos de la sección de productos.
     if (formType.startsWith('fixed-weight-')) {
         return (formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.pesoBrutoKg) || 0), 0);
     }
     
+    // Para recepción de peso variable, la liquidación es por PESO BRUTO total.
+    if (formType.includes('reception') || formType.includes('recepcion')) {
+        const allItems = (formData.items || [])
+            .concat((formData.placas || []).flatMap((p: any) => p.items));
+        // Se suma el peso bruto de cada ítem, sin importar si es resumen o individual.
+        return allItems.reduce((sum: number, p: any) => sum + (Number(p.pesoBruto) || 0), 0);
+    }
+    
+    // Para despacho de peso variable, se usa el peso NETO.
     if (formType.startsWith('variable-weight-')) {
         const allItems = (formData.items || [])
-            .concat((formData.destinos || []).flatMap((d: any) => d.items))
-            .concat((formData.placas || []).flatMap((p: any) => p.items));
+            .concat((formData.destinos || []).flatMap((d: any) => d.items));
 
         if (allItems.some((p: any) => Number(p.paleta) === 0)) {
              return allItems.reduce((sum: number, p: any) => sum + (Number(p.totalPesoNeto) || 0), 0);
@@ -429,3 +438,4 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         throw error;
     }
 }
+
