@@ -11,7 +11,7 @@ export interface NoveltyData {
   operationId: string;
   type: string;
   downtimeMinutes: number;
-  impactsCrewProductivity: boolean; // if true, it WILL be subtracted from operational time
+  purpose: 'justification' | 'settlement'; // 'justification' affects productivity time, 'settlement' is informational for billing.
   createdAt: string;
   createdBy: {
     uid: string;
