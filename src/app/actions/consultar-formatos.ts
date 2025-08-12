@@ -5,7 +5,7 @@ import admin from 'firebase-admin';
 import { firestore, storage } from '@/lib/firebase-admin';
 import type { FormSubmissionData } from './save-form';
 import { parseISO } from 'date-fns';
-import { utcToZonedTime, zonedTimeToUtc, format } from 'date-fns-tz';
+import { utcToZonedTime, toZonedTime, format } from 'date-fns-tz';
 
 const COLOMBIA_TIMEZONE = 'America/Bogota';
 
@@ -107,11 +107,11 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
  
              // Convert the local start of day to UTC
              const startOfDayInColombia = new Date(startDateLocal.getFullYear(), startDateLocal.getMonth(), startDateLocal.getDate(), 0, 0, 0);
-             const startUTC = zonedTimeToUtc(startOfDayInColombia, COLOMBIA_TIMEZONE);
+             const startUTC = toZonedTime(startOfDayInColombia, COLOMBIA_TIMEZONE);
              
              // Convert the local end of day to UTC
              const endOfDayInColombia = new Date(endDateLocal.getFullYear(), endDateLocal.getMonth(), endDateLocal.getDate(), 23, 59, 59, 999);
-             const endUTC = zonedTimeToUtc(endOfDayInColombia, COLOMBIA_TIMEZONE);
+             const endUTC = toZonedTime(endOfDayInColombia, COLOMBIA_TIMEZONE);
 
              query = query.where('createdAt', '>=', startUTC.toISOString())
                           .where('createdAt', '<=', endUTC.toISOString());
