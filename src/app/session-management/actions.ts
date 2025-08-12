@@ -5,6 +5,8 @@ import { auth, firestore, storage } from '@/lib/firebase-admin';
 import type { AppPermissions } from '@/hooks/use-auth';
 import { defaultPermissions } from '@/hooks/use-auth';
 import { subMonths, startOfMonth, differenceInHours } from 'date-fns';
+import type { StandardObservation } from '@/app/gestion-observaciones/actions';
+
 
 export interface ActiveUser {
     uid: string;
@@ -137,8 +139,8 @@ export async function getUserPermissions(email: string): Promise<AppPermissions>
             canViewPerformanceReport: true,
             canViewCrewPerformanceReport: true,
             canViewSpecialReports: true,
-            canManageArticles: true,
             canManageClients: true,
+            canManageArticles: true,
             canManageObservations: true,
             canManageOrderTypes: true,
             canManageStandards: true,
@@ -302,5 +304,80 @@ export async function purgeOldSubmissions(): Promise<{ success: boolean; message
         console.error('Error purging old submissions:', error);
         const errorMessage = error instanceof Error ? error.message : 'Ocurrió un error desconocido.';
         return { success: false, message: `Error del servidor: ${errorMessage}`, count: 0 };
+    }
+}
+
+export async function backfillMissingQuantityTypes(): Promise<{ success: boolean; message: string; scanned: number; updated: number; }> {
+    if (!firestore) {
+        return { success: false, message: 'El servidor no está configurado correctamente.', scanned: 0, updated: 0 };
+    }
+
+    try {
+        // 1. Fetch all standard observations to create a lookup map
+        const standardObsSnapshot = await firestore.collection('standard_observations').get();
+        const obsTypeMap = new Map<string, string>();
+        standardObsSnapshot.forEach(doc => {
+            const data = doc.data() as StandardObservation;
+            obsTypeMap.set(data.name, data.quantityType);
+        });
+        
+        // Add a fallback for 'OTRAS OBSERVACIONES' if needed, though it has no quantityType
+        obsTypeMap.set('OTRAS OBSERVACIONES', '');
+
+        // 2. Query all submissions
+        const submissionsSnapshot = await firestore.collection('submissions').get();
+        if (submissionsSnapshot.empty) {
+            return { success: true, message: 'No hay formatos para procesar.', scanned: 0, updated: 0 };
+        }
+
+        let updatedCount = 0;
+        const batchSize = 400; // Process in chunks
+        const docsToUpdate = [];
+
+        // 3. Identify documents that need updating
+        for (const doc of submissionsSnapshot.docs) {
+            const data = doc.data();
+            const observaciones = data.formData?.observaciones;
+            let needsUpdate = false;
+
+            if (Array.isArray(observaciones)) {
+                const newObservaciones = observaciones.map(obs => {
+                    if (typeof obs === 'object' && obs !== null && !obs.hasOwnProperty('quantityType') && obs.type) {
+                        const standardType = obsTypeMap.get(obs.type.toUpperCase());
+                        if (standardType !== undefined) {
+                            needsUpdate = true;
+                            return { ...obs, quantityType: standardType };
+                        }
+                    }
+                    return obs;
+                });
+                
+                if (needsUpdate) {
+                    docsToUpdate.push({ ref: doc.ref, newData: { ...data.formData, observaciones: newObservaciones } });
+                }
+            }
+        }
+        
+        if (docsToUpdate.length === 0) {
+            return { success: true, message: 'Análisis completo. No se encontraron formatos que necesiten ser reparados.', scanned: submissionsSnapshot.size, updated: 0 };
+        }
+
+        // 4. Commit updates in batches
+        for (let i = 0; i < docsToUpdate.length; i += batchSize) {
+            const batch = firestore.batch();
+            const chunk = docsToUpdate.slice(i, i + batchSize);
+            for (const { ref, newData } of chunk) {
+                batch.update(ref, { formData: newData });
+            }
+            await batch.commit();
+            updatedCount += chunk.length;
+        }
+
+        return { success: true, message: `Reparación completa. Se escanearon ${submissionsSnapshot.size} formatos y se actualizaron ${updatedCount}.`, scanned: submissionsSnapshot.size, updated: updatedCount };
+
+    } catch (error) {
+        console.error('Error during data backfill:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Ocurrió un error desconocido.';
+        return { success: false, message: `Error del servidor: ${errorMessage}`, scanned: 0, updated: 0 };
     }
 }
