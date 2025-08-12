@@ -164,7 +164,7 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
 
     observaciones.forEach((obs: any) => {
         if (obs.executedByGrupoRosales === true) {
-            const conceptType = obs.type;
+            const conceptType = obs.type.toUpperCase();
             let quantity = Number(obs.quantity) || 0;
             let quantityType = obs.quantityType;
 
@@ -395,13 +395,16 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             row.totalDurationMinutes = totalDuration;
             row.operationalDurationMinutes = totalDuration !== null ? totalDuration - downtimeMinutes : null;
 
-            row.standard = await findBestMatchingStandard({
-                clientName: row.cliente,
-                operationType: row.tipoOperacion === 'Recepción' ? 'recepcion' : 'despacho',
-                productType: row.productType,
-                tons: row.kilos / 1000
-            });
-            row.description = row.standard?.description || "Sin descripción";
+            // Fetch standard for ALL operations that are CARGUE/DESCARGUE
+            if (row.conceptoLiquidado === 'CARGUE' || row.conceptoLiquidado === 'DESCARGUE') {
+                row.standard = await findBestMatchingStandard({
+                    clientName: row.cliente,
+                    operationType: row.tipoOperacion === 'Recepción' ? 'recepcion' : 'despacho',
+                    productType: row.productType,
+                    tons: row.kilos / 1000
+                });
+                row.description = row.standard?.description || "Sin descripción";
+            }
 
             enrichedRows.push(row);
         }
@@ -414,7 +417,3 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         throw error;
     }
 }
-
-    
-
-  
