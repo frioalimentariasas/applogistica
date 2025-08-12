@@ -4,7 +4,7 @@
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm, SubmitHandler, useFieldArray } from 'react-hook-form';
+import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import Link from 'next/link';
@@ -212,7 +212,7 @@ export default function CrewPerformanceReportPage() {
       },
     });
 
-    const { fields: legalizeFields } = useFieldArray({
+    const { fields: legalizeFields, append, remove } = useFieldArray({
       control: legalizeForm.control,
       name: 'productos',
     });
@@ -737,61 +737,63 @@ export default function CrewPerformanceReportPage() {
                             </TabsList>
                             <TabsContent value="productivity" className="pt-4">
                                  <div className="relative">
-                                     <ScrollArea className="w-full whitespace-nowrap rounded-md border" viewportRef={scrollViewportRef}>
-                                        <Table><TableHeader><TableRow><TableHead>Fecha</TableHead><TableHead>Operario</TableHead><TableHead>Cliente</TableHead><TableHead>Tipo Op.</TableHead><TableHead>Tipo Prod.</TableHead><TableHead>Pedido</TableHead><TableHead>Cant.</TableHead><TableHead>Dur. Total</TableHead><TableHead>T. Operativo</TableHead><TableHead>Novedades</TableHead><TableHead>Productividad</TableHead><TableHead className="text-right sticky right-0 bg-background/95 backdrop-blur-sm z-10">Acciones</TableHead></TableRow></TableHeader>
-                                            <TableBody>
-                                                {isLoading ? (<TableRow><TableCell colSpan={17}><Skeleton className="h-20 w-full" /></TableCell></TableRow>) : displayedData.length > 0 ? (
-                                                    displayedData.map((row) => {
-                                                        const indicator = getPerformanceIndicator(row);
-                                                        const isPending = row.cantidadConcepto === -1;
-                                                        return (
-                                                            <TableRow key={row.id}>
-                                                                <TableCell className="text-xs">{format(new Date(row.fecha), 'dd/MM/yy')}</TableCell><TableCell className="text-xs">{row.operario}</TableCell><TableCell className="text-xs max-w-[150px] truncate" title={row.cliente}>{row.cliente}</TableCell>
-                                                                <TableCell className="text-xs">{row.tipoOperacion}</TableCell><TableCell className="text-xs">{row.tipoProducto}</TableCell><TableCell className="text-xs">{row.pedidoSislog}</TableCell>
-                                                                <TableCell className="text-xs text-right font-mono">
-                                                                    {isPending ? (
-                                                                         <Badge className="bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-200">
-                                                                            <ClockIcon className="mr-1.5 h-3 w-3" />
-                                                                            Pendiente
-                                                                        </Badge>
-                                                                    ) : (
-                                                                        <span>{row.cantidadConcepto > 0 ? row.cantidadConcepto.toFixed(2) : 'N/A'}</span>
-                                                                    )}
-                                                                </TableCell><TableCell className="text-xs text-right font-medium">{formatDuration(row.totalDurationMinutes)}</TableCell><TableCell className="text-xs text-right font-medium">{formatDuration(row.operationalDurationMinutes)}</TableCell>
-                                                                <TableCell className="text-xs max-w-[150px]">
-                                                                    <div className="flex flex-wrap gap-1">
-                                                                        {row.novelties.map(n => (
-                                                                            <Badge key={n.id} variant="secondary" className="font-normal">
-                                                                                {n.type}: {n.downtimeMinutes} min
-                                                                                <button onClick={() => setNoveltyToDelete({ rowId: row.id, noveltyId: n.id! })} className="ml-1 rounded-full p-0.5 hover:bg-destructive/20 text-destructive"><X className="h-3 w-3"/></button>
-                                                                            </Badge>
-                                                                        ))}
-                                                                    </div>
-                                                                </TableCell>
-                                                                <TableCell className="text-xs text-right font-semibold">
-                                                                    <Badge className={cn("flex items-center gap-1.5", indicator.className)}>
-                                                                        <indicator.icon className="h-3 w-3" />
-                                                                        {indicator.text}
-                                                                    </Badge>
-                                                                </TableCell>
-                                                                <TableCell className="text-right sticky right-0 bg-background/95 backdrop-blur-sm z-10">
-                                                                    <div className="flex items-center justify-end gap-2">
+                                     <ScrollArea className="w-full whitespace-nowrap rounded-md border">
+                                        <ScrollArea.Viewport ref={scrollViewportRef}>
+                                            <Table><TableHeader><TableRow><TableHead>Fecha</TableHead><TableHead>Operario</TableHead><TableHead>Cliente</TableHead><TableHead>Tipo Op.</TableHead><TableHead>Tipo Prod.</TableHead><TableHead>Pedido</TableHead><TableHead>Cant.</TableHead><TableHead>Dur. Total</TableHead><TableHead>T. Operativo</TableHead><TableHead>Novedades</TableHead><TableHead>Productividad</TableHead><TableHead className="text-right sticky right-0 bg-background/95 backdrop-blur-sm z-10">Acciones</TableHead></TableRow></TableHeader>
+                                                <TableBody>
+                                                    {isLoading ? (<TableRow><TableCell colSpan={17}><Skeleton className="h-20 w-full" /></TableCell></TableRow>) : displayedData.length > 0 ? (
+                                                        displayedData.map((row) => {
+                                                            const indicator = getPerformanceIndicator(row);
+                                                            const isPending = row.cantidadConcepto === -1;
+                                                            return (
+                                                                <TableRow key={row.id}>
+                                                                    <TableCell className="text-xs">{format(new Date(row.fecha), 'dd/MM/yy')}</TableCell><TableCell className="text-xs">{row.operario}</TableCell><TableCell className="text-xs max-w-[150px] truncate" title={row.cliente}>{row.cliente}</TableCell>
+                                                                    <TableCell className="text-xs">{row.tipoOperacion}</TableCell><TableCell className="text-xs">{row.tipoProducto}</TableCell><TableCell className="text-xs">{row.pedidoSislog}</TableCell>
+                                                                    <TableCell className="text-xs text-right font-mono">
                                                                         {isPending ? (
-                                                                            <Button size="sm" onClick={() => handleOpenLegalizeDialog(row)} className="bg-primary hover:bg-primary/90 text-primary-foreground h-8">
-                                                                                <Edit2 className="mr-2 h-4 w-4"/>Legalizar
-                                                                            </Button>
-                                                                        ) : indicator.text === 'Lento' ? (
-                                                                            <Button variant="secondary" size="sm" onClick={() => handleOpenNoveltyDialog(row)} className="h-8">
-                                                                                <PlusCircle className="mr-2 h-4 w-4"/>Novedad
-                                                                            </Button>
-                                                                        ) : null}
-                                                                    </div>
-                                                                </TableCell>
-                                                            </TableRow>
-                                                        )})
-                                                ) : (<EmptyState searched={searched} title="No se encontraron operaciones" description="Use los filtros para generar un reporte de productividad." />)}
-                                            </TableBody>
-                                        </Table>
+                                                                            <Badge className="bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-200">
+                                                                                <ClockIcon className="mr-1.5 h-3 w-3" />
+                                                                                Pendiente
+                                                                            </Badge>
+                                                                        ) : (
+                                                                            <span>{row.cantidadConcepto > 0 ? row.cantidadConcepto.toFixed(2) : 'N/A'}</span>
+                                                                        )}
+                                                                    </TableCell><TableCell className="text-xs text-right font-medium">{formatDuration(row.totalDurationMinutes)}</TableCell><TableCell className="text-xs text-right font-medium">{formatDuration(row.operationalDurationMinutes)}</TableCell>
+                                                                    <TableCell className="text-xs max-w-[150px]">
+                                                                        <div className="flex flex-wrap gap-1">
+                                                                            {row.novelties.map(n => (
+                                                                                <Badge key={n.id} variant="secondary" className="font-normal">
+                                                                                    {n.type}: {n.downtimeMinutes} min
+                                                                                    <button onClick={() => setNoveltyToDelete({ rowId: row.id, noveltyId: n.id! })} className="ml-1 rounded-full p-0.5 hover:bg-destructive/20 text-destructive"><X className="h-3 w-3"/></button>
+                                                                                </Badge>
+                                                                            ))}
+                                                                        </div>
+                                                                    </TableCell>
+                                                                    <TableCell className="text-xs text-right font-semibold">
+                                                                        <Badge className={cn("flex items-center gap-1.5", indicator.className)}>
+                                                                            <indicator.icon className="h-3 w-3" />
+                                                                            {indicator.text}
+                                                                        </Badge>
+                                                                    </TableCell>
+                                                                    <TableCell className="text-right sticky right-0 bg-background/95 backdrop-blur-sm z-10">
+                                                                        <div className="flex items-center justify-end gap-2">
+                                                                            {isPending ? (
+                                                                                <Button size="sm" onClick={() => handleOpenLegalizeDialog(row)} className="bg-primary hover:bg-primary/90 text-primary-foreground h-8">
+                                                                                    <Edit2 className="mr-2 h-4 w-4"/>Legalizar
+                                                                                </Button>
+                                                                            ) : indicator.text === 'Lento' ? (
+                                                                                <Button variant="secondary" size="sm" onClick={() => handleOpenNoveltyDialog(row)} className="h-8">
+                                                                                    <PlusCircle className="mr-2 h-4 w-4"/>Novedad
+                                                                                </Button>
+                                                                            ) : null}
+                                                                        </div>
+                                                                    </TableCell>
+                                                                </TableRow>
+                                                            )})
+                                                    ) : (<EmptyState searched={searched} title="No se encontraron operaciones" description="Use los filtros para generar un reporte de productividad." />)}
+                                                </TableBody>
+                                            </Table>
+                                        </ScrollArea.Viewport>
                                         <ScrollBar orientation="horizontal" />
                                      </ScrollArea>
                                      <div className="absolute top-1/2 -translate-y-1/2 flex justify-between w-full pointer-events-none">
@@ -1003,4 +1005,5 @@ export default function CrewPerformanceReportPage() {
 
 
   
+
 
