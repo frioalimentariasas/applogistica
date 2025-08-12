@@ -34,7 +34,7 @@ export async function getConsolidatedMovementReport(
     clientName: criteria.clientName,
     startDate: criteria.startDate,
     endDate: criteria.endDate,
-    sesion: criteria.sesion,
+    sesion: criteria.sesion as any,
   });
 
   // 2. Get daily inventory stock

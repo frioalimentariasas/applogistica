@@ -1,4 +1,3 @@
-
 'use server';
 
 export async function getImageAsBase64(url: string): Promise<string> {
