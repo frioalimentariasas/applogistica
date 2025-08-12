@@ -326,9 +326,9 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             let indicatorOnlyOperation: { conceptName: string, toneladas: number } | null = null;
             
             if (formData.aplicaCuadrilla === 'no') {
-                const isLoadOrUnload = formType.includes('recepcion') || formType.includes('despacho');
-                const concept = (formType.includes('recepcion') || formType.includes('reception')) ? 'DESCARGUE' : 'CARGUE';
-                if (isLoadOrUnload && (concept === 'CARGUE' || concept === 'DESCARGUE')) {
+                const isLoadOrUnload = formType.includes('recepcion') || formType.includes('reception') || formType.includes('despacho');
+                if (isLoadOrUnload) {
+                    const concept = (formType.includes('recepcion') || formType.includes('reception')) ? 'DESCARGUE' : 'CARGUE';
                     indicatorOnlyOperation = {
                         conceptName: concept,
                         toneladas: calculateTotalKilos(formType, formData) / 1000
@@ -394,12 +394,10 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             
             row.novelties = novelties;
             row.totalDurationMinutes = totalDuration;
-            // Si no hay novedades, el tiempo operativo es el tiempo total.
             row.operationalDurationMinutes = totalDuration !== null ? totalDuration - downtimeMinutes : null;
 
-            // Fetch standard for ALL operations that are CARGUE/DESCARGUE
-            if (row.conceptoLiquidado === 'CARGUE' || row.conceptoLiquidado === 'DESCARGUE') {
-                row.standard = await findBestMatchingStandard({
+            if (row.tipoOperacion === 'Recepción' || row.tipoOperacion === 'Despacho') {
+                 row.standard = await findBestMatchingStandard({
                     clientName: row.cliente,
                     operationType: row.tipoOperacion === 'Recepción' ? 'recepcion' : 'despacho',
                     productType: row.productType,

@@ -145,9 +145,10 @@ const formatDuration = (totalMinutes: number | null): string => {
 };
 
 const getPerformanceIndicator = (row: CrewPerformanceReportRow): { text: string, className: string, icon: React.FC<any> } => {
-    const { operationalDurationMinutes, standard, conceptoLiquidado, kilos, cantidadConcepto } = row;
+    const { operationalDurationMinutes, standard, conceptoLiquidado, cantidadConcepto } = row;
     
-    if (conceptoLiquidado !== 'CARGUE' && conceptoLiquidado !== 'DESCARGUE') {
+    // An operation must be CARGUE/DESCARGUE to be evaluated.
+    if (row.tipoOperacion !== 'Recepción' && row.tipoOperacion !== 'Despacho') {
         return { text: 'No Aplica', className: 'bg-gray-100 text-gray-600', icon: Circle };
     }
     
@@ -155,7 +156,7 @@ const getPerformanceIndicator = (row: CrewPerformanceReportRow): { text: string,
         return { text: 'Pendiente', className: 'bg-amber-100 text-amber-800 border-amber-200', icon: ClockIcon };
     }
     
-    const effectiveOperationalTime = operationalDurationMinutes !== null 
+    const effectiveOperationalTime = operationalDurationMinutes !== null && operationalDurationMinutes >= 0 
         ? operationalDurationMinutes 
         : (row.novelties.length === 0 ? row.totalDurationMinutes : null);
 
@@ -845,7 +846,7 @@ export default function CrewPerformanceReportPage() {
                                                     <TableCell className="text-xs font-semibold">{row.conceptoLiquidado}</TableCell><TableCell className="text-xs text-right font-mono">{isPending || row.valorUnitario === 0 ? 'N/A' : row.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 })}</TableCell><TableCell className="text-xs text-right font-mono">{isPending || row.valorTotalConcepto === 0 ? 'N/A' : row.valorTotalConcepto.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell>
                                                     <TableCell className="text-right">
                                                          {isPending ? (
-                                                            <Button size="sm" onClick={() => handleOpenLegalizeDialog(row)}>
+                                                            <Button size="sm" onClick={() => handleOpenLegalizeDialog(row)} className="bg-primary hover:bg-primary/90 text-primary-foreground">
                                                                 <Edit2 className="mr-2 h-4 w-4"/>Legalizar
                                                             </Button>
                                                         ) : (indicator.text === 'Lento' || (row.aplicaCuadrilla === 'no' && indicator.text === 'Lento')) ? (
