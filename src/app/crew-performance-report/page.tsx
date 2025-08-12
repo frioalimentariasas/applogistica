@@ -22,7 +22,7 @@ import { getAvailableOperarios } from '@/app/actions/performance-report';
 import { getClients, type ClientInfo } from '@/app/actions/clients';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
-import type { PerformanceStandard } from '@/app/gestion-estandares/actions';
+import type { PerformanceStandard } from '@/app/actions/standard-actions';
 import { getStandardNoveltyTypes, type StandardNoveltyType } from '@/app/gestion-novedades/actions';
 import { getBillingConcepts, type BillingConcept } from '@/app/gestion-conceptos-liquidacion/actions';
 
@@ -750,7 +750,7 @@ export default function CrewPerformanceReportPage() {
                                 <Label>Rango de Fechas</Label>
                                 <Popover>
                                     <PopoverTrigger asChild><Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !dateRange && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{dateRange?.from ? (dateRange.to ? (<>{format(dateRange.from, "LLL dd, y", { locale: es })} - {format(dateRange.to, "LLL dd, y", { locale: es })}</>) : (format(dateRange.from, "LLL dd, y", { locale: es }))) : (<span>Seleccione un rango</span>)}</Button></PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0" align="start"><Calendar initialFocus mode="range" defaultMonth={dateRange?.from} selected={dateRange} onSelect={setDateRange} numberOfMonths={2} locale={es} disabled={{ after: new Date() }} /></PopoverContent>
+                                    <PopoverContent className="w-auto p-0" align="start"><Calendar initialFocus mode="range" defaultMonth={dateRange?.from} selected={dateRange} onSelect={setDateRange} numberOfMonths={2} locale={es} /></PopoverContent>
                                 </Popover>
                             </div>
                             <div className="space-y-2">
@@ -813,7 +813,16 @@ export default function CrewPerformanceReportPage() {
                                                 <TableRow key={row.id}>
                                                     <TableCell className="text-xs">{format(new Date(row.fecha), 'dd/MM/yy')}</TableCell><TableCell className="text-xs">{row.operario}</TableCell><TableCell className="text-xs max-w-[150px] truncate" title={row.cliente}>{row.cliente}</TableCell>
                                                     <TableCell className="text-xs">{row.tipoOperacion}</TableCell><TableCell className="text-xs">{row.tipoProducto}</TableCell><TableCell className="text-xs">{row.pedidoSislog}</TableCell><TableCell className="text-xs">{row.placa}</TableCell>
-                                                    <TableCell className="text-xs text-right font-mono">{isPending ? 'Pendiente' : `${row.cantidadConcepto > 0 ? row.cantidadConcepto.toFixed(2) : 'N/A'}`}</TableCell><TableCell className="text-xs text-right font-medium">{formatDuration(row.totalDurationMinutes)}</TableCell><TableCell className="text-xs text-right font-medium">{formatDuration(row.operationalDurationMinutes)}</TableCell>
+                                                    <TableCell className="text-xs text-right font-mono">
+                                                        {isPending ? (
+                                                             <Badge className="bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-200">
+                                                                <ClockIcon className="mr-1.5 h-3 w-3" />
+                                                                Pendiente
+                                                            </Badge>
+                                                        ) : (
+                                                            <span>{row.cantidadConcepto > 0 ? row.cantidadConcepto.toFixed(2) : 'N/A'}</span>
+                                                        )}
+                                                    </TableCell><TableCell className="text-xs text-right font-medium">{formatDuration(row.totalDurationMinutes)}</TableCell><TableCell className="text-xs text-right font-medium">{formatDuration(row.operationalDurationMinutes)}</TableCell>
                                                     <TableCell className="text-xs max-w-[150px]">
                                                         <div className="flex flex-wrap gap-1">
                                                             {row.novelties.map(n => (
