@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { auth, firestore, storage } from '@/lib/firebase-admin';
@@ -313,15 +314,14 @@ export async function backfillMissingQuantityTypes(): Promise<{ success: boolean
     }
 
     try {
-        // 1. Fetch all standard observations to create a lookup map
+        // 1. Fetch all standard observations to create a lookup map (case-insensitive keys)
         const standardObsSnapshot = await firestore.collection('standard_observations').get();
         const obsTypeMap = new Map<string, string>();
         standardObsSnapshot.forEach(doc => {
             const data = doc.data() as StandardObservation;
-            obsTypeMap.set(data.name, data.quantityType);
+            obsTypeMap.set(data.name.toUpperCase(), data.quantityType);
         });
         
-        // Add a fallback for 'OTRAS OBSERVACIONES' if needed, though it has no quantityType
         obsTypeMap.set('OTRAS OBSERVACIONES', '');
 
         // 2. Query all submissions
@@ -331,7 +331,7 @@ export async function backfillMissingQuantityTypes(): Promise<{ success: boolean
         }
 
         let updatedCount = 0;
-        const batchSize = 400; // Process in chunks
+        const batchSize = 400;
         const docsToUpdate = [];
 
         // 3. Identify documents that need updating
@@ -343,6 +343,7 @@ export async function backfillMissingQuantityTypes(): Promise<{ success: boolean
             if (Array.isArray(observaciones)) {
                 const newObservaciones = observaciones.map(obs => {
                     if (typeof obs === 'object' && obs !== null && !obs.hasOwnProperty('quantityType') && obs.type) {
+                        // Use toUpperCase() to make the lookup case-insensitive
                         const standardType = obsTypeMap.get(obs.type.toUpperCase());
                         if (standardType !== undefined) {
                             needsUpdate = true;
