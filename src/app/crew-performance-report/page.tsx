@@ -4,7 +4,7 @@
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm, SubmitHandler, useFieldArray } from 'react-hook-form';
+import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import Link from 'next/link';
@@ -212,7 +212,7 @@ export default function CrewPerformanceReportPage() {
       },
     });
 
-    const { fields: legalizeFields, append, remove } = useFieldArray({
+    const { fields: legalizeFields } = useFieldArray({
       control: legalizeForm.control,
       name: 'productos',
     });
@@ -1006,6 +1006,7 @@ export default function CrewPerformanceReportPage() {
 
 
   
+
 
 
 
