@@ -2,7 +2,7 @@
 
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from 'react';
+import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm, SubmitHandler, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -32,10 +32,10 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
-import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, File, FileDown, FolderSearch, ShieldAlert, TrendingUp, Circle, Settings, ChevronsUpDown, AlertCircle, PlusCircle, X, Edit2, CheckCircle2, ClockIcon, AlertTriangleIcon, DollarSign, Activity, FileSpreadsheet } from 'lucide-react';
+import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, File, FileDown, FolderSearch, ShieldAlert, TrendingUp, Circle, Settings, ChevronsUpDown, AlertCircle, PlusCircle, X, Edit2, CheckCircle2, ClockIcon, AlertTriangleIcon, DollarSign, Activity, FileSpreadsheet, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -181,6 +181,11 @@ export default function CrewPerformanceReportPage() {
 
     const [currentPage, setCurrentPage] = useState(1);
     const [itemsPerPage, setItemsPerPage] = useState(10);
+    
+    // Horizontal Scroll State
+    const scrollViewportRef = useRef<HTMLDivElement>(null);
+    const [canScrollLeft, setCanScrollLeft] = useState(false);
+    const [canScrollRight, setCanScrollRight] = useState(false);
 
     // State for novelty management
     const [isNoveltyDialogOpen, setIsNoveltyDialogOpen] = useState(false);
@@ -284,6 +289,54 @@ export default function CrewPerformanceReportPage() {
         }
         setFilteredReportData(results);
     }, [filterLento, reportData]);
+    
+    const handleCheckScroll = useCallback(() => {
+        const el = scrollViewportRef.current;
+        if (el) {
+            const scrollLeft = el.scrollLeft;
+            const scrollWidth = el.scrollWidth;
+            const clientWidth = el.clientWidth;
+            setCanScrollLeft(scrollLeft > 0);
+            setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 1);
+        }
+    }, []);
+    
+    useEffect(() => {
+        const el = scrollViewportRef.current;
+        if (el) {
+            handleCheckScroll();
+            el.addEventListener('scroll', handleCheckScroll);
+            window.addEventListener('resize', handleCheckScroll);
+            return () => {
+                el.removeEventListener('scroll', handleCheckScroll);
+                window.removeEventListener('resize', handleCheckScroll);
+            };
+        }
+    }, [handleCheckScroll, displayedData]);
+
+    const handleScroll = (direction: 'left' | 'right') => {
+        const el = scrollViewportRef.current;
+        if (el) {
+            const scrollAmount = direction === 'left' ? -300 : 300;
+            el.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+        }
+    };
+
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'ArrowLeft') {
+                handleScroll('left');
+            } else if (e.key === 'ArrowRight') {
+                handleScroll('right');
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, []);
+
 
     const handleSearch = useCallback(async () => {
         if (!dateRange || !dateRange.from || !dateRange.to) {
@@ -683,60 +736,85 @@ export default function CrewPerformanceReportPage() {
                                 <TabsTrigger value="settlement"><DollarSign className="mr-2 h-4 w-4" />Liquidación de Cuadrilla</TabsTrigger>
                             </TabsList>
                             <TabsContent value="productivity" className="pt-4">
-                                 <div className="w-full overflow-x-auto rounded-md border">
-                                    <Table><TableHeader><TableRow><TableHead>Fecha</TableHead><TableHead>Operario</TableHead><TableHead>Cliente</TableHead><TableHead>Tipo Op.</TableHead><TableHead>Tipo Prod.</TableHead><TableHead>Pedido</TableHead><TableHead>Cant.</TableHead><TableHead>Dur. Total</TableHead><TableHead>T. Operativo</TableHead><TableHead>Novedades</TableHead><TableHead>Productividad</TableHead><TableHead className="text-right">Acciones</TableHead></TableRow></TableHeader>
-                                        <TableBody>
-                                            {isLoading ? (<TableRow><TableCell colSpan={17}><Skeleton className="h-20 w-full" /></TableCell></TableRow>) : displayedData.length > 0 ? (
-                                                displayedData.map((row) => {
-                                                    const indicator = getPerformanceIndicator(row);
-                                                    const isPending = row.cantidadConcepto === -1;
-                                                    return (
-                                                        <TableRow key={row.id}>
-                                                            <TableCell className="text-xs">{format(new Date(row.fecha), 'dd/MM/yy')}</TableCell><TableCell className="text-xs">{row.operario}</TableCell><TableCell className="text-xs max-w-[150px] truncate" title={row.cliente}>{row.cliente}</TableCell>
-                                                            <TableCell className="text-xs">{row.tipoOperacion}</TableCell><TableCell className="text-xs">{row.tipoProducto}</TableCell><TableCell className="text-xs">{row.pedidoSislog}</TableCell>
-                                                            <TableCell className="text-xs text-right font-mono">
-                                                                {isPending ? (
-                                                                     <Badge className="bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-200">
-                                                                        <ClockIcon className="mr-1.5 h-3 w-3" />
-                                                                        Pendiente
-                                                                    </Badge>
-                                                                ) : (
-                                                                    <span>{row.cantidadConcepto > 0 ? row.cantidadConcepto.toFixed(2) : 'N/A'}</span>
-                                                                )}
-                                                            </TableCell><TableCell className="text-xs text-right font-medium">{formatDuration(row.totalDurationMinutes)}</TableCell><TableCell className="text-xs text-right font-medium">{formatDuration(row.operationalDurationMinutes)}</TableCell>
-                                                            <TableCell className="text-xs max-w-[150px]">
-                                                                <div className="flex flex-wrap gap-1">
-                                                                    {row.novelties.map(n => (
-                                                                        <Badge key={n.id} variant="secondary" className="font-normal">
-                                                                            {n.type}: {n.downtimeMinutes} min
-                                                                            <button onClick={() => setNoveltyToDelete({ rowId: row.id, noveltyId: n.id! })} className="ml-1 rounded-full p-0.5 hover:bg-destructive/20 text-destructive"><X className="h-3 w-3"/></button>
+                                 <div className="relative">
+                                     <ScrollArea className="w-full whitespace-nowrap rounded-md border" viewportRef={scrollViewportRef}>
+                                        <Table><TableHeader><TableRow><TableHead>Fecha</TableHead><TableHead>Operario</TableHead><TableHead>Cliente</TableHead><TableHead>Tipo Op.</TableHead><TableHead>Tipo Prod.</TableHead><TableHead>Pedido</TableHead><TableHead>Cant.</TableHead><TableHead>Dur. Total</TableHead><TableHead>T. Operativo</TableHead><TableHead>Novedades</TableHead><TableHead>Productividad</TableHead><TableHead className="text-right sticky right-0 bg-background/95 backdrop-blur-sm z-10">Acciones</TableHead></TableRow></TableHeader>
+                                            <TableBody>
+                                                {isLoading ? (<TableRow><TableCell colSpan={17}><Skeleton className="h-20 w-full" /></TableCell></TableRow>) : displayedData.length > 0 ? (
+                                                    displayedData.map((row) => {
+                                                        const indicator = getPerformanceIndicator(row);
+                                                        const isPending = row.cantidadConcepto === -1;
+                                                        return (
+                                                            <TableRow key={row.id}>
+                                                                <TableCell className="text-xs">{format(new Date(row.fecha), 'dd/MM/yy')}</TableCell><TableCell className="text-xs">{row.operario}</TableCell><TableCell className="text-xs max-w-[150px] truncate" title={row.cliente}>{row.cliente}</TableCell>
+                                                                <TableCell className="text-xs">{row.tipoOperacion}</TableCell><TableCell className="text-xs">{row.tipoProducto}</TableCell><TableCell className="text-xs">{row.pedidoSislog}</TableCell>
+                                                                <TableCell className="text-xs text-right font-mono">
+                                                                    {isPending ? (
+                                                                         <Badge className="bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-200">
+                                                                            <ClockIcon className="mr-1.5 h-3 w-3" />
+                                                                            Pendiente
                                                                         </Badge>
-                                                                    ))}
-                                                                </div>
-                                                            </TableCell>
-                                                            <TableCell className="text-xs text-right font-semibold">
-                                                                <Badge className={cn("flex items-center gap-1.5", indicator.className)}>
-                                                                    <indicator.icon className="h-3 w-3" />
-                                                                    {indicator.text}
-                                                                </Badge>
-                                                            </TableCell>
-                                                            <TableCell className="text-right">
-                                                                 {isPending ? (
-                                                                    <Button size="sm" onClick={() => handleOpenLegalizeDialog(row)} className="bg-primary hover:bg-primary/90 text-primary-foreground">
-                                                                        <Edit2 className="mr-2 h-4 w-4"/>Legalizar
-                                                                    </Button>
-                                                                ) : indicator.text === 'Lento' ? (
-                                                                    <Button variant="secondary" size="sm" onClick={() => handleOpenNoveltyDialog(row)} className="h-8">
-                                                                        <PlusCircle className="mr-2 h-4 w-4"/>Novedad
-                                                                    </Button>
-                                                                ) : null}
-                                                            </TableCell>
-                                                        </TableRow>
-                                                    )})
-                                            ) : (<EmptyState searched={searched} title="No se encontraron operaciones" description="Use los filtros para generar un reporte de productividad." />)}
-                                        </TableBody>
-                                    </Table>
-                                </div>
+                                                                    ) : (
+                                                                        <span>{row.cantidadConcepto > 0 ? row.cantidadConcepto.toFixed(2) : 'N/A'}</span>
+                                                                    )}
+                                                                </TableCell><TableCell className="text-xs text-right font-medium">{formatDuration(row.totalDurationMinutes)}</TableCell><TableCell className="text-xs text-right font-medium">{formatDuration(row.operationalDurationMinutes)}</TableCell>
+                                                                <TableCell className="text-xs max-w-[150px]">
+                                                                    <div className="flex flex-wrap gap-1">
+                                                                        {row.novelties.map(n => (
+                                                                            <Badge key={n.id} variant="secondary" className="font-normal">
+                                                                                {n.type}: {n.downtimeMinutes} min
+                                                                                <button onClick={() => setNoveltyToDelete({ rowId: row.id, noveltyId: n.id! })} className="ml-1 rounded-full p-0.5 hover:bg-destructive/20 text-destructive"><X className="h-3 w-3"/></button>
+                                                                            </Badge>
+                                                                        ))}
+                                                                    </div>
+                                                                </TableCell>
+                                                                <TableCell className="text-xs text-right font-semibold">
+                                                                    <Badge className={cn("flex items-center gap-1.5", indicator.className)}>
+                                                                        <indicator.icon className="h-3 w-3" />
+                                                                        {indicator.text}
+                                                                    </Badge>
+                                                                </TableCell>
+                                                                <TableCell className="text-right sticky right-0 bg-background/95 backdrop-blur-sm z-10">
+                                                                    <div className="flex items-center justify-end gap-2">
+                                                                        {isPending ? (
+                                                                            <Button size="sm" onClick={() => handleOpenLegalizeDialog(row)} className="bg-primary hover:bg-primary/90 text-primary-foreground h-8">
+                                                                                <Edit2 className="mr-2 h-4 w-4"/>Legalizar
+                                                                            </Button>
+                                                                        ) : indicator.text === 'Lento' ? (
+                                                                            <Button variant="secondary" size="sm" onClick={() => handleOpenNoveltyDialog(row)} className="h-8">
+                                                                                <PlusCircle className="mr-2 h-4 w-4"/>Novedad
+                                                                            </Button>
+                                                                        ) : null}
+                                                                    </div>
+                                                                </TableCell>
+                                                            </TableRow>
+                                                        )})
+                                                ) : (<EmptyState searched={searched} title="No se encontraron operaciones" description="Use los filtros para generar un reporte de productividad." />)}
+                                            </TableBody>
+                                        </Table>
+                                        <ScrollBar orientation="horizontal" />
+                                     </ScrollArea>
+                                     <div className="absolute top-1/2 -translate-y-1/2 flex justify-between w-full pointer-events-none">
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className={cn("pointer-events-auto rounded-full h-8 w-8 -ml-4", canScrollLeft ? "opacity-100" : "opacity-0")}
+                                            onClick={() => handleScroll('left')}
+                                            aria-label="Scroll left"
+                                        >
+                                            <ChevronLeft className="h-5 w-5" />
+                                        </Button>
+                                        <Button
+                                            variant="outline"
+                                            size="icon"
+                                            className={cn("pointer-events-auto rounded-full h-8 w-8 -mr-4", canScrollRight ? "opacity-100" : "opacity-0")}
+                                            onClick={() => handleScroll('right')}
+                                            aria-label="Scroll right"
+                                        >
+                                            <ChevronRight className="h-5 w-5" />
+                                        </Button>
+                                    </div>
+                                 </div>
                                  <div className="flex items-center justify-between space-x-2 py-4">
                                     <div className="flex-1 text-sm text-muted-foreground">{filteredReportData.length} operaciones mostradas.</div>
                                     <div className="flex items-center space-x-2"><p className="text-sm font-medium">Filas por página</p><Select value={`${itemsPerPage}`} onValueChange={(value) => { setItemsPerPage(Number(value)); setCurrentPage(1); }}><SelectTrigger className="h-8 w-[70px]"><SelectValue placeholder={itemsPerPage} /></SelectTrigger><SelectContent side="top">{[10, 20, 50, 100].map((pageSize) => (<SelectItem key={pageSize} value={`${pageSize}`}>{pageSize}</SelectItem>))}</SelectContent></Select></div>
@@ -925,3 +1003,4 @@ export default function CrewPerformanceReportPage() {
 
 
   
+
