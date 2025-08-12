@@ -323,7 +323,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             
             const allPossibleConcepts = calculateSettlements(submission, billingConcepts);
             
-            let indicatorOnlyOperation: { conceptName: string, toneladas: number } | null = null;
+            let indicatorOnlyOperation: { conceptName: string, toneladas: number, isPending: boolean } | null = null;
             
             if (formData.aplicaCuadrilla === 'no') {
                 const isReception = formType.includes('recepcion') || formType.includes('reception');
@@ -331,9 +331,11 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                 
                 if (isReception || isDispatch) {
                     const concept = isReception ? 'DESCARGUE' : 'CARGUE';
+                    const kilos = calculateTotalKilos(formType, formData);
                     indicatorOnlyOperation = {
                         conceptName: concept,
-                        toneladas: calculateTotalKilos(formType, formData) / 1000
+                        toneladas: kilos / 1000,
+                        isPending: (formType.startsWith('fixed-weight-') && kilos === 0)
                     };
                 }
             }
@@ -353,6 +355,13 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                 let tipoProducto: 'Fijo' | 'Variable' | 'N/A' = 'N/A';
                 if (formType.includes('fixed-weight')) tipoProducto = 'Fijo';
                 else if (formType.includes('variable-weight')) tipoProducto = 'Variable';
+
+                let quantity = 0;
+                if (settlement) {
+                    quantity = settlement.quantity;
+                } else if (indicatorOnlyOperation) {
+                    quantity = indicatorOnlyOperation.isPending ? -1 : indicatorOnlyOperation.toneladas;
+                }
                 
                 return {
                     id: settlement ? `${id}-${settlement.conceptName.replace(/\s+/g, '-')}` : id,
@@ -363,7 +372,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                     standard: null, description: "Sin descripción",
                     conceptoLiquidado: settlement?.conceptName || indicatorOnlyOperation?.conceptName || 'N/A',
                     valorUnitario: settlement?.unitValue || 0,
-                    cantidadConcepto: settlement?.quantity ?? indicatorOnlyOperation?.toneladas ?? 0,
+                    cantidadConcepto: quantity,
                     unidadMedidaConcepto: settlement?.unitOfMeasure || (indicatorOnlyOperation ? 'TONELADA' : 'N/A'),
                     valorTotalConcepto: settlement?.totalValue || 0,
                     aplicaCuadrilla: formData.aplicaCuadrilla,
@@ -420,4 +429,3 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         throw error;
     }
 }
-
