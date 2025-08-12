@@ -35,14 +35,14 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
-import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, File, FileDown, FolderSearch, ShieldAlert, TrendingUp, Circle, Settings, ChevronsUpDown, AlertCircle, PlusCircle, X, Edit2 } from 'lucide-react';
+import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, File, FileDown, FolderSearch, ShieldAlert, TrendingUp, Circle, Settings, ChevronsUpDown, AlertCircle, PlusCircle, X, Edit2, CheckCircle2, ClockIcon, AlertTriangleIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Combobox } from '@/components/ui/combobox';
-import { Badge } from '@/components/ui/badge';
+import { Badge, badgeVariants } from '@/components/ui/badge';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDialogDesc, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 
 
@@ -144,37 +144,37 @@ const formatDuration = (totalMinutes: number | null): string => {
     return `${hours}h ${Math.round(minutes)}m`;
 };
 
-const getPerformanceIndicator = (row: CrewPerformanceReportRow): { text: string, color: string } => {
+const getPerformanceIndicator = (row: CrewPerformanceReportRow): { text: string, className: string, icon: React.FC<any> } => {
     const { operationalDurationMinutes, standard, conceptoLiquidado, kilos, cantidadConcepto } = row;
     
     // Only apply to CARGUE/DESCARGUE concepts
     if (conceptoLiquidado !== 'CARGUE' && conceptoLiquidado !== 'DESCARGUE') {
-        return { text: 'No Aplica', color: 'text-gray-500' };
+        return { text: 'No Aplica', className: 'bg-gray-100 text-gray-600', icon: Circle };
     }
     
     if (cantidadConcepto === -1) {
-        return { text: 'Pendiente (P. Bruto)', color: 'text-orange-600' };
+        return { text: 'Pendiente', className: 'bg-amber-100 text-amber-800 border-amber-200', icon: ClockIcon };
     }
     
     if (operationalDurationMinutes === null || operationalDurationMinutes < 0) {
-        return { text: 'No Calculado', color: 'text-gray-500' };
+        return { text: 'No Calculado', className: 'bg-gray-100 text-gray-600', icon: Circle };
     }
 
     if (!standard) {
-        return { text: 'N/A', color: 'text-gray-500' };
+        return { text: 'N/A', className: 'bg-gray-100 text-gray-600', icon: Circle };
     }
 
     const { baseMinutes } = standard;
 
     if (operationalDurationMinutes < baseMinutes) {
-        return { text: 'Óptimo', color: 'text-green-600' };
+        return { text: 'Óptimo', className: 'bg-green-100 text-green-800 border-green-200', icon: CheckCircle2 };
     }
     
     if (operationalDurationMinutes <= baseMinutes + 10) {
-        return { text: 'Normal', color: 'text-yellow-600' };
+        return { text: 'Normal', className: 'bg-yellow-100 text-yellow-800 border-yellow-200', icon: AlertCircle };
     }
 
-    return { text: 'Lento', color: 'text-red-600' };
+    return { text: 'Lento', className: badgeVariants({variant: "destructive"}), icon: AlertTriangleIcon };
 };
 
 
@@ -423,7 +423,7 @@ export default function CrewPerformanceReportPage() {
             'Óptimo': { count: 0 },
             'Normal': { count: 0 },
             'Lento': { count: 0 },
-            'Pendiente (P. Bruto)': { count: 0 },
+            'Pendiente': { count: 0 },
             'No Calculado': { count: 0 },
             'N/A': { count: 0 }
         };
@@ -436,7 +436,7 @@ export default function CrewPerformanceReportPage() {
         });
         
         const totalEvaluableOperations = Object.entries(summary).reduce((acc, [key, value]) => {
-            return (key !== 'No Calculado' && key !== 'Pendiente (P. Bruto)' && key !== 'N/A') ? acc + value.count : acc;
+            return (key !== 'No Calculado' && key !== 'Pendiente' && key !== 'N/A') ? acc + value.count : acc;
         }, 0);
 
         if (totalEvaluableOperations === 0) {
@@ -536,13 +536,13 @@ export default function CrewPerformanceReportPage() {
         XLSX.utils.book_append_sheet(workbook, mainWorksheet, 'Detalle Liquidación');
 
         if (performanceSummary) {
-            const evaluableOps = (performanceSummary.totalOperations || 0) - (performanceSummary.summary['Pendiente (P. Bruto)']?.count || 0) - (performanceSummary.summary['No Calculado']?.count || 0) - (performanceSummary.summary['N/A']?.count || 0);
+            const evaluableOps = (performanceSummary.totalOperations || 0) - (performanceSummary.summary['Pendiente']?.count || 0) - (performanceSummary.summary['No Calculado']?.count || 0) - (performanceSummary.summary['N/A']?.count || 0);
             
             const performanceData = [
                 ['Resumen de Productividad (Cargue/Descargue)'], [],
                 ['Indicador', 'Total Operaciones', 'Porcentaje (%)'],
                 ...Object.entries(performanceSummary.summary)
-                    .filter(([key]) => key !== 'No Calculado' && key !== 'Pendiente (P. Bruto)')
+                    .filter(([key]) => key !== 'No Calculado' && key !== 'Pendiente')
                     .map(([key, value]) => {
                         const percentage = evaluableOps > 0 ? (value.count / evaluableOps * 100).toFixed(2) + '%' : '0.00%';
                         return [key, value.count, percentage];
@@ -824,19 +824,23 @@ export default function CrewPerformanceReportPage() {
                                                             ))}
                                                         </div>
                                                     </TableCell>
-                                                    <TableCell className={cn("text-xs text-right font-semibold", indicator.color)}><div className="flex items-center justify-end gap-1.5"><Circle className={cn("h-2 w-2", indicator.color.replace('text-', 'bg-'))} />{indicator.text}</div></TableCell>
+                                                    <TableCell className="text-xs text-right font-semibold">
+                                                        <Badge className={cn("flex items-center gap-1.5", indicator.className)}>
+                                                            <indicator.icon className="h-3 w-3" />
+                                                            {indicator.text}
+                                                        </Badge>
+                                                    </TableCell>
                                                     <TableCell className="text-xs font-semibold">{row.conceptoLiquidado}</TableCell><TableCell className="text-xs text-right font-mono">{isPending || row.valorUnitario === 0 ? 'N/A' : row.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 })}</TableCell><TableCell className="text-xs text-right font-mono">{isPending || row.valorTotalConcepto === 0 ? 'N/A' : row.valorTotalConcepto.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell>
                                                     <TableCell className="text-right">
-                                                         {isPending && (
-                                                            <Button variant="outline" size="sm" onClick={() => handleOpenLegalizeDialog(row)}>
-                                                                <Edit2 className="mr-2 h-3 w-3"/>Legalizar
+                                                         {isPending ? (
+                                                            <Button size="sm" onClick={() => handleOpenLegalizeDialog(row)} className="h-8 bg-blue-600 hover:bg-blue-700 text-white">
+                                                                <Edit2 className="mr-2 h-4 w-4"/>Legalizar
                                                             </Button>
-                                                        )}
-                                                        {(indicator.text === 'Lento' || (row.aplicaCuadrilla === 'no' && indicator.text === 'Lento')) && (
-                                                            <Button variant="outline" size="sm" onClick={() => handleOpenNoveltyDialog(row)}>
-                                                                <PlusCircle className="mr-2 h-3 w-3"/>Novedad
+                                                        ) : (indicator.text === 'Lento' || (row.aplicaCuadrilla === 'no' && indicator.text === 'Lento')) ? (
+                                                            <Button variant="secondary" size="sm" onClick={() => handleOpenNoveltyDialog(row)} className="h-8">
+                                                                <PlusCircle className="mr-2 h-4 w-4"/>Novedad
                                                             </Button>
-                                                        )}
+                                                        ) : null}
                                                     </TableCell>
                                                 </TableRow>
                                             )})
