@@ -10,6 +10,7 @@ export interface PerformanceStandard {
   clientName: string; // "TODOS" or a specific client name
   operationType: 'recepcion' | 'despacho' | 'TODAS';
   productType: 'fijo' | 'variable' | 'TODOS';
+  description: string;
   minTons: number;
   maxTons: number;
   baseMinutes: number;
@@ -28,6 +29,7 @@ export async function getPerformanceStandards(): Promise<PerformanceStandard[]> 
         clientName: data.clientName,
         operationType: data.operationType,
         productType: data.productType,
+        description: data.description || '',
         minTons: Number(data.minTons),
         maxTons: Number(data.maxTons),
         baseMinutes: Number(data.baseMinutes),
@@ -43,6 +45,7 @@ interface StandardData {
     clientNames: string[];
     operationType: 'recepcion' | 'despacho' | 'TODAS';
     productType: 'fijo' | 'variable' | 'TODOS';
+    description: string;
     ranges: {
         minTons: number;
         maxTons: number;
@@ -54,7 +57,7 @@ interface StandardData {
 export async function addPerformanceStandard(data: StandardData): Promise<{ success: boolean; message: string; newStandards?: PerformanceStandard[] }> {
   if (!firestore) return { success: false, message: 'Error de configuración del servidor.' };
   
-  const { clientNames, operationType, productType, ranges } = data;
+  const { clientNames, operationType, productType, description, ranges } = data;
   
   try {
     const batch = firestore.batch();
@@ -67,6 +70,7 @@ export async function addPerformanceStandard(data: StandardData): Promise<{ succ
                 clientName,
                 operationType,
                 productType,
+                description,
                 minTons: Number(range.minTons),
                 maxTons: Number(range.maxTons),
                 baseMinutes: Number(range.baseMinutes),
@@ -106,6 +110,49 @@ export async function updatePerformanceStandard(id: string, data: Omit<Performan
   }
 }
 
+
+export interface BulkUpdateData {
+    clientName?: string;
+    operationType?: 'recepcion' | 'despacho' | 'TODAS';
+    productType?: 'fijo' | 'variable' | 'TODOS';
+    description?: string;
+    baseMinutes?: number;
+}
+
+export async function updateMultipleStandards(ids: string[], data: BulkUpdateData): Promise<{ success: boolean; message: string }> {
+    if (!firestore) return { success: false, message: 'Error de configuración del servidor.' };
+    if (!ids || ids.length === 0) return { success: false, message: 'No se seleccionaron estándares para actualizar.' };
+    
+    // Construct the update object, only including fields that are actually being changed.
+    const updateData: { [key: string]: any } = {};
+    if (data.clientName) updateData.clientName = data.clientName;
+    if (data.operationType) updateData.operationType = data.operationType;
+    if (data.productType) updateData.productType = data.productType;
+    if (data.description) updateData.description = data.description;
+    if (data.baseMinutes !== undefined && !isNaN(data.baseMinutes)) {
+        updateData.baseMinutes = Number(data.baseMinutes);
+    }
+    
+    if (Object.keys(updateData).length === 0) {
+        return { success: false, message: 'No se especificaron cambios para aplicar.' };
+    }
+
+    try {
+        const batch = firestore.batch();
+        ids.forEach(id => {
+            const docRef = firestore.collection('performance_standards').doc(id);
+            batch.update(docRef, updateData);
+        });
+        await batch.commit();
+        revalidatePath('/gestion-estandares');
+        return { success: true, message: `${ids.length} estándar(es) actualizado(s) con éxito.` };
+    } catch (error) {
+        console.error('Error al actualizar estándares en lote:', error);
+        return { success: false, message: 'Ocurrió un error en el servidor.' };
+    }
+}
+
+
 // Action to delete one or more standards
 export async function deleteMultipleStandards(ids: string[]): Promise<{ success: boolean; message: string }> {
   if (!firestore) return { success: false, message: 'Error de configuración del servidor.' };
@@ -132,12 +179,15 @@ export async function deleteMultipleStandards(ids: string[]): Promise<{ success:
 export interface FindStandardCriteria {
     clientName?: string;
     operationType?: 'recepcion' | 'despacho';
-    productType?: 'fijo' | 'variable' | null;
+    productType?: 'fijo' | 'variable' | 'TODOS' | null;
     tons: number;
 }
 
 export async function findBestMatchingStandard(criteria: FindStandardCriteria): Promise<PerformanceStandard | null> {
-    const { clientName, operationType, productType, tons } = criteria;
+    const { clientName, operationType } = criteria;
+    const productType = criteria.productType || 'TODOS';
+    // Round tons to handle floating point inaccuracies before comparison
+    const tons = Number(criteria.tons.toFixed(2));
     
     // Always fetch the fresh list of standards from the database.
     const allStandards = await getPerformanceStandards();
@@ -145,10 +195,12 @@ export async function findBestMatchingStandard(criteria: FindStandardCriteria): 
     if (!clientName || !operationType || !productType || allStandards.length === 0) {
         return null;
     }
-    
+
     const potentialMatches = allStandards.filter(std => {
         // The comparison is inclusive for both min and max
-        return tons >= std.minTons && tons <= std.maxTons;
+        const minTons = Number(std.minTons.toFixed(2));
+        const maxTons = Number(std.maxTons.toFixed(2));
+        return tons >= minTons && tons <= maxTons;
     });
     
     if (potentialMatches.length === 0) return null;
@@ -179,6 +231,6 @@ export async function findBestMatchingStandard(criteria: FindStandardCriteria): 
             return found;
         }
     }
-
+    
     return null; // No matching standard found
 }

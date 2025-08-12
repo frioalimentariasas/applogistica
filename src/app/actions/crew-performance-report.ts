@@ -326,9 +326,11 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             let indicatorOnlyOperation: { conceptName: string, toneladas: number } | null = null;
             
             if (formData.aplicaCuadrilla === 'no') {
-                const isLoadOrUnload = formType.includes('recepcion') || formType.includes('reception') || formType.includes('despacho');
-                if (isLoadOrUnload) {
-                    const concept = (formType.includes('recepcion') || formType.includes('reception')) ? 'DESCARGUE' : 'CARGUE';
+                const isReception = formType.includes('recepcion') || formType.includes('reception');
+                const isDispatch = formType.includes('despacho');
+                
+                if (isReception || isDispatch) {
+                    const concept = isReception ? 'DESCARGUE' : 'CARGUE';
                     indicatorOnlyOperation = {
                         conceptName: concept,
                         toneladas: calculateTotalKilos(formType, formData) / 1000

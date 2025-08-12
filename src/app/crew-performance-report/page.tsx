@@ -145,10 +145,9 @@ const formatDuration = (totalMinutes: number | null): string => {
 };
 
 const getPerformanceIndicator = (row: CrewPerformanceReportRow): { text: string, className: string, icon: React.FC<any> } => {
-    const { operationalDurationMinutes, standard, conceptoLiquidado, cantidadConcepto } = row;
-    
-    // An operation must be CARGUE/DESCARGUE to be evaluated.
-    if (row.tipoOperacion !== 'Recepción' && row.tipoOperacion !== 'Despacho') {
+    const { operationalDurationMinutes, standard, cantidadConcepto, tipoOperacion } = row;
+
+    if (tipoOperacion !== 'Recepción' && tipoOperacion !== 'Despacho') {
         return { text: 'No Aplica', className: 'bg-gray-100 text-gray-600', icon: Circle };
     }
     
@@ -156,16 +155,17 @@ const getPerformanceIndicator = (row: CrewPerformanceReportRow): { text: string,
         return { text: 'Pendiente', className: 'bg-amber-100 text-amber-800 border-amber-200', icon: ClockIcon };
     }
     
+    // For non-crew operations, operationalDuration can be null if no novelties. In this case, use total duration.
     const effectiveOperationalTime = operationalDurationMinutes !== null && operationalDurationMinutes >= 0 
         ? operationalDurationMinutes 
         : (row.novelties.length === 0 ? row.totalDurationMinutes : null);
 
     if (effectiveOperationalTime === null || effectiveOperationalTime < 0) {
-        return { text: 'No Calculado', className: 'bg-gray-100 text-gray-600', icon: Circle };
+        return { text: 'Sin Tiempo', className: 'bg-gray-100 text-gray-600', icon: Circle };
     }
     
     if (!standard) {
-        return { text: 'N/A', className: 'bg-gray-100 text-gray-600', icon: Circle };
+        return { text: 'Sin Estándar', className: 'bg-gray-100 text-gray-600', icon: Circle };
     }
 
     const { baseMinutes } = standard;
@@ -428,8 +428,9 @@ export default function CrewPerformanceReportPage() {
             'Normal': { count: 0 },
             'Lento': { count: 0 },
             'Pendiente': { count: 0 },
-            'No Calculado': { count: 0 },
-            'N/A': { count: 0 }
+            'Sin Estándar': { count: 0 },
+            'Sin Tiempo': { count: 0 },
+            'No Aplica': { count: 0 }
         };
 
         cargaDescargaData.forEach(row => {
@@ -440,7 +441,7 @@ export default function CrewPerformanceReportPage() {
         });
         
         const totalEvaluableOperations = Object.entries(summary).reduce((acc, [key, value]) => {
-            return (key !== 'No Calculado' && key !== 'Pendiente' && key !== 'N/A') ? acc + value.count : acc;
+            return (key !== 'No Aplica' && key !== 'Sin Tiempo' && key !== 'Pendiente' && key !== 'Sin Estándar') ? acc + value.count : acc;
         }, 0);
 
         if (totalEvaluableOperations === 0) {
@@ -540,13 +541,13 @@ export default function CrewPerformanceReportPage() {
         XLSX.utils.book_append_sheet(workbook, mainWorksheet, 'Detalle Liquidación');
 
         if (performanceSummary) {
-            const evaluableOps = (performanceSummary.totalOperations || 0) - (performanceSummary.summary['Pendiente']?.count || 0) - (performanceSummary.summary['No Calculado']?.count || 0) - (performanceSummary.summary['N/A']?.count || 0);
+            const evaluableOps = (performanceSummary.totalOperations || 0) - (performanceSummary.summary['Pendiente']?.count || 0) - (performanceSummary.summary['Sin Tiempo']?.count || 0) - (performanceSummary.summary['Sin Estándar']?.count || 0) - (performanceSummary.summary['No Aplica']?.count || 0);
             
             const performanceData = [
                 ['Resumen de Productividad (Cargue/Descargue)'], [],
                 ['Indicador', 'Total Operaciones', 'Porcentaje (%)'],
                 ...Object.entries(performanceSummary.summary)
-                    .filter(([key]) => key !== 'No Calculado' && key !== 'Pendiente')
+                    .filter(([key]) => key !== 'Sin Tiempo' && key !== 'Sin Estándar' && key !== 'Pendiente' && key !== 'No Aplica')
                     .map(([key, value]) => {
                         const percentage = evaluableOps > 0 ? (value.count / evaluableOps * 100).toFixed(2) + '%' : '0.00%';
                         return [key, value.count, percentage];
@@ -726,7 +727,7 @@ export default function CrewPerformanceReportPage() {
                         <div>
                             <div className="flex items-center justify-center gap-2">
                                 <TrendingUp className="h-8 w-8 text-primary" />
-                                <h1 className="text-2xl font-bold text-primary">Informe de Productividad y Liquidación Cuadrilla</h1>
+                                <h1 className="text-2xl font-bold text-primary">Relación de Formatos por Concepto de Liquidación</h1>
                             </div>
                              <p className="text-sm text-gray-500">Analice los indicadores de productividad y liquide las operaciones de cuadrilla.</p>
                         </div>
