@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import admin from 'firebase-admin';
@@ -393,6 +394,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             
             row.novelties = novelties;
             row.totalDurationMinutes = totalDuration;
+            // Si no hay novedades, el tiempo operativo es el tiempo total.
             row.operationalDurationMinutes = totalDuration !== null ? totalDuration - downtimeMinutes : null;
 
             // Fetch standard for ALL operations that are CARGUE/DESCARGUE
