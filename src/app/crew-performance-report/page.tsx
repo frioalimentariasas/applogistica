@@ -32,7 +32,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ScrollArea, ScrollAreaViewport } from '@/components/ui/scroll-area';
+import { ScrollArea, ScrollAreaViewport, ScrollBar } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
 import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, File, FileDown, FolderSearch, ShieldAlert, TrendingUp, Circle, Settings, ChevronsUpDown, AlertCircle, PlusCircle, X, Edit2, CheckCircle2, ClockIcon, AlertTriangleIcon, DollarSign, Activity, FileSpreadsheet, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -777,11 +777,12 @@ export default function CrewPerformanceReportPage() {
                                                                     </TableCell>
                                                                     <TableCell className="text-right sticky right-0 bg-background/95 backdrop-blur-sm z-10">
                                                                         <div className="flex items-center justify-end gap-2">
-                                                                            {isPending && row.aplicaCuadrilla === 'si' ? (
+                                                                            {isPending && (
                                                                                 <Button size="sm" onClick={() => handleOpenLegalizeDialog(row)} className="bg-primary hover:bg-primary/90 text-primary-foreground h-8">
                                                                                     <Edit2 className="mr-2 h-4 w-4"/>Legalizar
                                                                                 </Button>
-                                                                            ) : indicator.text === 'Lento' ? (
+                                                                            )}
+                                                                            {indicator.text === 'Lento' ? (
                                                                                 <Button variant="secondary" size="sm" onClick={() => handleOpenNoveltyDialog(row)} className="h-8">
                                                                                     <PlusCircle className="mr-2 h-4 w-4"/>Novedad
                                                                                 </Button>
@@ -1005,6 +1006,7 @@ export default function CrewPerformanceReportPage() {
 
 
   
+
 
 
 
