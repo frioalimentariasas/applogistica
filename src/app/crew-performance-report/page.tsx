@@ -842,7 +842,7 @@ export default function CrewPerformanceReportPage() {
                                                     <TableCell className="text-xs font-semibold">{row.conceptoLiquidado}</TableCell><TableCell className="text-xs text-right font-mono">{isPending || row.valorUnitario === 0 ? 'N/A' : row.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 })}</TableCell><TableCell className="text-xs text-right font-mono">{isPending || row.valorTotalConcepto === 0 ? 'N/A' : row.valorTotalConcepto.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell>
                                                     <TableCell className="text-right">
                                                          {isPending ? (
-                                                            <Button size="sm" onClick={() => handleOpenLegalizeDialog(row)} className="h-8 bg-blue-600 hover:bg-blue-700 text-white">
+                                                            <Button size="sm" onClick={() => handleOpenLegalizeDialog(row)} className="h-8">
                                                                 <Edit2 className="mr-2 h-4 w-4"/>Legalizar
                                                             </Button>
                                                         ) : (indicator.text === 'Lento' || (row.aplicaCuadrilla === 'no' && indicator.text === 'Lento')) ? (
