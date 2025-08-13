@@ -4,7 +4,7 @@
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm, SubmitHandler, useFieldArray } from 'react-hook-form';
+import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import Link from 'next/link';
@@ -197,7 +197,6 @@ export default function CrewPerformanceReportPage() {
 
     // State for novelty management
     const [isNoveltyDialogOpen, setIsNoveltyDialogOpen] = useState(false);
-    const [isNoveltySelectorOpen, setIsNoveltySelectorOpen] = useState(false);
     const [isSubmittingNovelty, setIsSubmittingNovelty] = useState(false);
     const [selectedRowForNovelty, setSelectedRowForNovelty] = useState<CrewPerformanceReportRow | null>(null);
     const [noveltyToDelete, setNoveltyToDelete] = useState<{ rowId: string; noveltyId: string; } | null>(null);
@@ -457,7 +456,8 @@ export default function CrewPerformanceReportPage() {
              return {
                 summary,
                 totalOperations: cargaDescargaData.length,
-                qualification: "No Calculable"
+                qualification: "No Calculable",
+                totalEvaluable: 0,
             };
         }
 
@@ -477,7 +477,8 @@ export default function CrewPerformanceReportPage() {
         return {
             summary,
             totalOperations: cargaDescargaData.length,
-            qualification
+            qualification,
+            totalEvaluable: totalEvaluableOperations,
         };
     }, [reportData]);
 
@@ -516,7 +517,10 @@ export default function CrewPerformanceReportPage() {
 
     const handleExportExcel = (type: 'productivity' | 'settlement') => {
         if (type === 'productivity' && filteredReportData.length > 0) {
-            const data = filteredReportData.map(row => ({
+            const wb = XLSX.utils.book_new();
+
+            // Sheet 1: Detalle
+            const detailData = filteredReportData.map(row => ({
                 'Fecha': format(new Date(row.fecha), 'dd/MM/yy'),
                 'Operario': row.operario,
                 'Cliente': row.cliente,
@@ -534,10 +538,47 @@ export default function CrewPerformanceReportPage() {
                 'Productividad': getPerformanceIndicator(row).text,
                 'Novedades': row.novelties.map(n => `${n.type} (${n.downtimeMinutes} min)`).join(', '),
             }));
-             const ws = XLSX.utils.json_to_sheet(data);
-             const wb = XLSX.utils.book_new();
-             XLSX.utils.book_append_sheet(wb, ws, "Productividad");
-             XLSX.writeFile(wb, "Reporte_Productividad.xlsx");
+            const wsDetail = XLSX.utils.json_to_sheet(detailData);
+            XLSX.utils.book_append_sheet(wb, wsDetail, "Detalle Productividad");
+
+            // Sheet 2: Resumen
+            if (performanceSummary) {
+                const summarySheetData = [
+                    ["Estado", "Cantidad de Operaciones", "% sobre Total Evaluado"],
+                    ...Object.entries(performanceSummary.summary)
+                        .filter(([key]) => key !== 'No Aplica' && key !== 'Sin Tiempo')
+                        .map(([key, value]) => [
+                            key,
+                            value.count,
+                            performanceSummary.totalEvaluable > 0 ? (value.count / performanceSummary.totalEvaluable * 100).toFixed(2) + '%' : '0.00%'
+                        ]),
+                    [],
+                    ["Total Op. Evaluadas", performanceSummary.totalEvaluable],
+                    ["Calificación del Periodo", performanceSummary.qualification],
+                ];
+                const wsSummary = XLSX.utils.aoa_to_sheet(summarySheetData);
+                XLSX.utils.book_append_sheet(wb, wsSummary, "Resumen Productividad");
+            }
+            
+            // Sheet 3: Novedades
+            const noveltiesData = filteredReportData.filter(row => row.novelties.length > 0);
+            if (noveltiesData.length > 0) {
+                const noveltiesExport = noveltiesData.flatMap(row => row.novelties.map(n => ({
+                    'Fecha': format(new Date(row.fecha), 'dd/MM/yy'),
+                    'Pedido': row.pedidoSislog,
+                    'Cliente': row.cliente,
+                    'Novedad': n.type,
+                    'Minutos': n.downtimeMinutes,
+                    'Propósito': n.purpose === 'justification' ? 'Justificación' : 'Liquidación'
+                })));
+                const wsNovelties = XLSX.utils.json_to_sheet(noveltiesExport);
+                XLSX.utils.book_append_sheet(wb, wsNovelties, "Novedades");
+            } else {
+                const wsNovelties = XLSX.utils.json_to_sheet([{"Mensaje": "No se registraron novedades en el periodo consultado."}]);
+                XLSX.utils.book_append_sheet(wb, wsNovelties, "Novedades");
+            }
+
+            XLSX.writeFile(wb, "Reporte_Analisis_Productividad.xlsx");
 
         } else if (type === 'settlement' && liquidationData.length > 0) {
             const data = liquidationData.map(row => ({
@@ -570,11 +611,90 @@ export default function CrewPerformanceReportPage() {
     const handleExportPDF = (type: 'productivity' | 'settlement') => {
         const doc = new jsPDF({ orientation: 'landscape' });
         const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        let finalY = 15;
+
+        const addHeader = (title: string) => {
+            doc.setFontSize(14);
+            doc.setFont('helvetica', 'bold');
+            doc.text(title, pageWidth / 2, 15, { align: 'center' });
+            finalY = 25;
+        }
+
+        const addFooter = () => {
+             const pageCount = (doc as any).internal.getNumberOfPages();
+             for (let i = 1; i <= pageCount; i++) {
+                 doc.setPage(i);
+                 doc.setFontSize(8);
+                 doc.setTextColor(150);
+                 doc.text(`Página ${i} de ${pageCount}`, pageWidth - 20, pageHeight - 10, { align: 'right' });
+             }
+        }
 
         if (type === 'productivity' && filteredReportData.length > 0) {
-            doc.text("Reporte de Productividad", pageWidth / 2, 15, { align: 'center' });
+            addHeader("Reporte de Análisis de Productividad");
+            
+            // 1. Resumen
+            if (performanceSummary) {
+                doc.setFontSize(11);
+                doc.setFont('helvetica', 'bold');
+                doc.text("Resumen de Productividad (Cargue/Descargue)", 14, finalY);
+                finalY += 5;
+                autoTable(doc, {
+                    startY: finalY,
+                    head: [['Estado', 'Cantidad', '% sobre Total']],
+                    body: Object.entries(performanceSummary.summary)
+                        .filter(([key]) => key !== 'No Aplica' && key !== 'Sin Tiempo')
+                        .map(([key, value]) => [
+                            key,
+                            value.count,
+                            performanceSummary.totalEvaluable > 0 ? (value.count / performanceSummary.totalEvaluable * 100).toFixed(2) + '%' : '0.00%'
+                        ]),
+                    foot: [
+                        ['Total Evaluadas', performanceSummary.totalEvaluable, ''],
+                        ['Calificación', performanceSummary.qualification, '']
+                    ],
+                    theme: 'grid',
+                    styles: { fontSize: 8 },
+                    headStyles: { fillColor: '#e2e8f0', textColor: '#000' }
+                });
+                finalY = (doc as any).autoTable.previous.finalY + 10;
+            }
+
+            // 2. Novedades
+            const noveltiesData = filteredReportData.filter(row => row.novelties.length > 0);
+             if (noveltiesData.length > 0) {
+                 if(finalY + 40 > pageHeight) { doc.addPage(); finalY = 15; }
+                 doc.setFontSize(11);
+                 doc.setFont('helvetica', 'bold');
+                 doc.text("Operaciones con Novedades", 14, finalY);
+                 finalY += 5;
+                const noveltiesExport = noveltiesData.flatMap(row => row.novelties.map(n => [
+                    format(new Date(row.fecha), 'dd/MM/yy'),
+                    row.pedidoSislog,
+                    row.cliente,
+                    n.type,
+                    n.downtimeMinutes + ' min',
+                    n.purpose === 'justification' ? 'Justificación' : 'Liquidación'
+                ]));
+                autoTable(doc, {
+                    startY: finalY,
+                    head: [['Fecha', 'Pedido', 'Cliente', 'Novedad', 'Minutos', 'Propósito']],
+                    body: noveltiesExport,
+                    theme: 'grid',
+                    styles: { fontSize: 8 }
+                });
+                finalY = (doc as any).autoTable.previous.finalY + 10;
+            }
+
+            // 3. Detalle
+             if(finalY + 40 > pageHeight) { doc.addPage(); finalY = 15; }
+             doc.setFontSize(11);
+             doc.setFont('helvetica', 'bold');
+             doc.text("Detalle de Operaciones", 14, finalY);
+             finalY += 5;
             autoTable(doc, {
-                startY: 20,
+                startY: finalY,
                 head: [['Fecha', 'Operario', 'Cliente', 'Tipo Op.', 'Pedido', 'Contenedor', 'Placa', 'Concepto', 'H. Inicio', 'H. Fin', 'Cant.', 'T. Operativo', 'Productividad']],
                 body: filteredReportData.map(row => [
                     format(new Date(row.fecha), 'dd/MM/yy'),
@@ -591,15 +711,15 @@ export default function CrewPerformanceReportPage() {
                     formatDuration(row.operationalDurationMinutes),
                     getPerformanceIndicator(row).text,
                 ]),
-                styles: { fontSize: 7, cellPadding: 1 },
-                headStyles: { fontSize: 7, cellPadding: 1 },
-                columnStyles: {
-                    cliente: { cellWidth: 40 },
-                }
+                styles: { fontSize: 6, cellPadding: 1 },
+                headStyles: { fontSize: 6, cellPadding: 1 },
+                columnStyles: { cliente: { cellWidth: 35 } }
             });
-            doc.save("Reporte_Productividad.pdf");
+            addFooter();
+            doc.save("Reporte_Analisis_Productividad.pdf");
+
         } else if (type === 'settlement' && liquidationData.length > 0) {
-            doc.text("Reporte de Liquidación de Cuadrilla", pageWidth / 2, 15, { align: 'center' });
+            addHeader("Reporte de Liquidación de Cuadrilla");
             autoTable(doc, {
                 startY: 20,
                 head: [['Fecha', 'Cliente', 'Pedido', 'Concepto', 'Cantidad', 'Vlr. Unitario', 'Vlr. Total']],
@@ -617,6 +737,7 @@ export default function CrewPerformanceReportPage() {
                     { content: totalLiquidacion.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right' } }
                 ]]
             });
+            addFooter();
             doc.save("Reporte_Liquidacion_Cuadrilla.pdf");
         }
     };
@@ -1018,15 +1139,25 @@ export default function CrewPerformanceReportPage() {
                                 render={({ field }) => (
                                     <FormItem className="flex flex-col">
                                         <FormLabel>Tipo de Novedad</FormLabel>
-                                         <Button
-                                            type="button"
-                                            variant="outline"
-                                            className="w-full justify-between text-left font-normal"
-                                            onClick={() => setIsNoveltySelectorOpen(true)}
-                                          >
-                                            <span className="truncate">{field.value || "Seleccione o escriba una novedad..."}</span>
-                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                          </Button>
+                                         <Dialog open={isNoveltyDialogOpen} onOpenChange={setIsNoveltyDialogOpen}>
+                                            <DialogTrigger asChild>
+                                                <Button variant="outline" className="w-full justify-between text-left font-normal">
+                                                    <span className="truncate">{field.value || "Seleccione o escriba una novedad..."}</span>
+                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                </Button>
+                                            </DialogTrigger>
+                                            <DialogContent>
+                                                <DialogHeader><DialogTitle>Seleccionar Tipo de Novedad</DialogTitle></DialogHeader>
+                                                <Input placeholder="Buscar o crear novedad..." value={field.value} onChange={field.onChange} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); setIsNoveltyDialogOpen(false); } }} />
+                                                <ScrollArea className="h-60">
+                                                    {standardNoveltyTypes.filter(n => n.name.toLowerCase().includes(field.value.toLowerCase())).map((novelty) => (
+                                                        <Button key={novelty.id} variant="ghost" className="w-full justify-start" onClick={() => { field.onChange(novelty.name); setIsNoveltyDialogOpen(false); }}>
+                                                            {novelty.name}
+                                                        </Button>
+                                                    ))}
+                                                </ScrollArea>
+                                            </DialogContent>
+                                        </Dialog>
                                         <FormMessage />
                                     </FormItem>
                                 )}
@@ -1063,17 +1194,6 @@ export default function CrewPerformanceReportPage() {
                     </Form>
                 </DialogContent>
             </Dialog>
-
-            <NoveltySelectorDialog
-                open={isNoveltySelectorOpen}
-                onOpenChange={setIsNoveltySelectorOpen}
-                standardNoveltyTypes={standardNoveltyTypes}
-                onSelect={(value) => {
-                    noveltyForm.setValue('type', value, { shouldValidate: true });
-                    setIsNoveltySelectorOpen(false);
-                }}
-            />
-
             <Dialog open={isLegalizeDialogOpen} onOpenChange={setIsLegalizeDialogOpen}>
               <DialogContent className="max-w-2xl">
                 <DialogHeader>
@@ -1234,6 +1354,7 @@ function NoveltySelectorDialog({
     );
 }
   
+
 
 
 
