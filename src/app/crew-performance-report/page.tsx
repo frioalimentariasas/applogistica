@@ -174,6 +174,7 @@ export default function CrewPerformanceReportPage() {
     const [isClientDialogOpen, setClientDialogOpen] = useState(false);
     const [clientSearch, setClientSearch] = useState('');
     const [filterPending, setFilterPending] = useState(false);
+    const [filterLento, setFilterLento] = useState(false);
     
     const [standardNoveltyTypes, setStandardNoveltyTypes] = useState<StandardNoveltyType[]>([]);
     const [allBillingConcepts, setAllBillingConcepts] = useState<BillingConcept[]>([]);
@@ -296,9 +297,13 @@ export default function CrewPerformanceReportPage() {
         if (filterPending) {
             results = results.filter(row => row.cantidadConcepto === -1);
         }
+        
+        if(filterLento) {
+            results = results.filter(row => getPerformanceIndicator(row).text === 'Lento');
+        }
 
         setFilteredReportData(results);
-    }, [filterPending, reportData]);
+    }, [filterPending, filterLento, reportData]);
     
     const handleCheckScroll = useCallback(() => {
         const el = scrollViewportRef.current;
@@ -404,6 +409,7 @@ export default function CrewPerformanceReportPage() {
         setSelectedClients([]);
         setSelectedConcepts([]);
         setFilterPending(false);
+        setFilterLento(false);
         setReportData([]);
         setFilteredReportData([]);
         setSearched(false);
@@ -937,8 +943,17 @@ export default function CrewPerformanceReportPage() {
                                 </Dialog>
                             </div>
                             <div className="space-y-2"><Label>Operaciones de Cuadrilla</Label><Select value={cuadrillaFilter} onValueChange={setCuadrillaFilter as (value: 'con' | 'sin' | 'todas') => void}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="todas">Todas las Operaciones</SelectItem><SelectItem value="con">Solo con Cuadrilla</SelectItem><SelectItem value="sin">Solo sin Cuadrilla</SelectItem></SelectContent></Select></div>
-                            <div className="flex items-center space-x-2 self-end pb-2"><Checkbox id="filter-pending" checked={filterPending} onCheckedChange={(checked) => setFilterPending(checked as boolean)} /><Label htmlFor="filter-pending" className="cursor-pointer text-sm">Mostrar solo pendientes P. Bruto</Label></div>
-                            <div className="flex gap-2"><Button onClick={handleSearch} className="w-full" disabled={isLoading}>{isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}Generar</Button><Button onClick={handleClear} variant="outline" className="w-full"><XCircle className="mr-2 h-4 w-4" />Limpiar</Button></div>
+                             <div className="flex flex-col gap-2 self-end pb-2">
+                                <div className="flex items-center space-x-2">
+                                    <Checkbox id="filter-pending" checked={filterPending} onCheckedChange={(checked) => setFilterPending(checked as boolean)} />
+                                    <Label htmlFor="filter-pending" className="cursor-pointer text-sm font-normal">Mostrar solo pendientes P. Bruto</Label>
+                                </div>
+                                 <div className="flex items-center space-x-2">
+                                    <Checkbox id="filter-lento" checked={filterLento} onCheckedChange={(checked) => setFilterLento(checked as boolean)} />
+                                    <Label htmlFor="filter-lento" className="cursor-pointer text-sm font-normal">Mostrar solo para justificar</Label>
+                                </div>
+                            </div>
+                            <div className="flex gap-2 xl:col-span-4"><Button onClick={handleSearch} className="w-full" disabled={isLoading}>{isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}Generar</Button><Button onClick={handleClear} variant="outline" className="w-full"><XCircle className="mr-2 h-4 w-4" />Limpiar</Button></div>
                         </div>
                     </CardContent>
                 </Card>
@@ -1345,6 +1360,7 @@ function NoveltySelectorDialog({
     );
 }
   
+
 
 
 
