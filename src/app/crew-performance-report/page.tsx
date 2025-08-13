@@ -41,7 +41,6 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Combobox } from '@/components/ui/combobox';
 import { Badge, badgeVariants } from '@/components/ui/badge';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDialogDesc, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -165,7 +164,6 @@ export default function CrewPerformanceReportPage() {
     const [isClientDialogOpen, setClientDialogOpen] = useState(false);
     const [clientSearch, setClientSearch] = useState('');
     const [filterPending, setFilterPending] = useState(false);
-    const [filterLento, setFilterLento] = useState(false);
     
     const [standardNoveltyTypes, setStandardNoveltyTypes] = useState<StandardNoveltyType[]>([]);
     const [allBillingConcepts, setAllBillingConcepts] = useState<BillingConcept[]>([]);
@@ -284,11 +282,15 @@ export default function CrewPerformanceReportPage() {
 
     useEffect(() => {
         let results = reportData;
-        if(filterLento) {
-            results = results.filter(row => getPerformanceIndicator(row).text === 'Lento');
+        
+        // This is a simple client-side filter.
+        // It can be expanded if more filters like this are needed.
+        if (filterPending) {
+            results = results.filter(row => row.cantidadConcepto === -1);
         }
+
         setFilteredReportData(results);
-    }, [filterLento, reportData]);
+    }, [filterPending, reportData]);
     
     const handleCheckScroll = useCallback(() => {
         const el = scrollViewportRef.current;
@@ -362,7 +364,6 @@ export default function CrewPerformanceReportPage() {
                 operationType: operationType === 'all' ? undefined : operationType as 'recepcion' | 'despacho',
                 productType: productType === 'all' ? undefined : productType as 'fijo' | 'variable',
                 clientNames: selectedClients.length > 0 ? selectedClients : undefined,
-                filterPending: filterPending,
                 cuadrillaFilter: cuadrillaFilter,
                 conceptos: selectedConcepts.length > 0 ? selectedConcepts : undefined,
             };
@@ -390,7 +391,7 @@ export default function CrewPerformanceReportPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [dateRange, selectedOperario, operationType, productType, selectedClients, filterPending, cuadrillaFilter, selectedConcepts, toast]);
+    }, [dateRange, selectedOperario, operationType, productType, selectedClients, cuadrillaFilter, selectedConcepts, toast]);
     
     const handleClear = () => {
         setDateRange(undefined);
@@ -401,7 +402,6 @@ export default function CrewPerformanceReportPage() {
         setSelectedClients([]);
         setSelectedConcepts([]);
         setFilterPending(false);
-        setFilterLento(false);
         setReportData([]);
         setFilteredReportData([]);
         setSearched(false);
@@ -676,8 +676,6 @@ export default function CrewPerformanceReportPage() {
             </div>
         );
     }
-    
-    const noveltyComboboxOptions = standardNoveltyTypes.map(nt => ({ value: nt.name, label: nt.name }));
 
     return (
         <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
@@ -758,10 +756,7 @@ export default function CrewPerformanceReportPage() {
                                 </Dialog>
                             </div>
                             <div className="space-y-2"><Label>Operaciones de Cuadrilla</Label><Select value={cuadrillaFilter} onValueChange={setCuadrillaFilter as (value: 'con' | 'sin' | 'todas') => void}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="todas">Todas las Operaciones</SelectItem><SelectItem value="con">Solo con Cuadrilla</SelectItem><SelectItem value="sin">Solo sin Cuadrilla</SelectItem></SelectContent></Select></div>
-                            <div className="flex flex-col gap-2 self-end">
-                                <div className="flex items-center space-x-2"><Checkbox id="filter-pending" checked={filterPending} onCheckedChange={(checked) => setFilterPending(checked as boolean)} /><Label htmlFor="filter-pending" className="cursor-pointer text-sm">Mostrar solo pendientes P. Bruto</Label></div>
-                                <div className="flex items-center space-x-2"><Checkbox id="filter-lento" checked={filterLento} onCheckedChange={(checked) => setFilterLento(checked as boolean)} /><Label htmlFor="filter-lento" className="cursor-pointer text-sm">Mostrar solo "Lento"</Label></div>
-                            </div>
+                            <div className="flex items-center space-x-2 self-end pb-2"><Checkbox id="filter-pending" checked={filterPending} onCheckedChange={(checked) => setFilterPending(checked as boolean)} /><Label htmlFor="filter-pending" className="cursor-pointer text-sm">Mostrar solo pendientes P. Bruto</Label></div>
                             <div className="flex gap-2"><Button onClick={handleSearch} className="w-full" disabled={isLoading}>{isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}Generar</Button><Button onClick={handleClear} variant="outline" className="w-full"><XCircle className="mr-2 h-4 w-4" />Limpiar</Button></div>
                         </div>
                     </CardContent>
@@ -930,20 +925,25 @@ export default function CrewPerformanceReportPage() {
                     </DialogHeader>
                     <Form {...noveltyForm}>
                         <form onSubmit={noveltyForm.handleSubmit(onNoveltySubmit)} className="space-y-4 pt-4">
-                            <FormField
+                             <FormField
                                 control={noveltyForm.control}
                                 name="type"
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Tipo de Novedad</FormLabel>
                                         <FormControl>
-                                            <Combobox
-                                                options={noveltyComboboxOptions}
-                                                value={field.value}
-                                                onChange={field.onChange}
-                                                placeholder="Seleccione o cree una novedad..."
+                                            <Input
+                                                {...field}
+                                                list="novelty-types"
+                                                placeholder="Seleccione o escriba una novedad..."
+                                                onChange={(e) => field.onChange(e.target.value.toUpperCase())}
                                             />
                                         </FormControl>
+                                        <datalist id="novelty-types">
+                                            {standardNoveltyTypes.map(nt => (
+                                                <option key={nt.id} value={nt.name} />
+                                            ))}
+                                        </datalist>
                                         <FormMessage />
                                     </FormItem>
                                 )}
@@ -1064,6 +1064,7 @@ export default function CrewPerformanceReportPage() {
 
 
   
+
 
 
 

@@ -13,6 +13,7 @@ import {
   CommandInput,
   CommandItem,
   CommandList,
+  CommandSeparator,
 } from "@/components/ui/command";
 import {
   Popover,
@@ -34,6 +35,7 @@ interface ComboboxProps {
   searchPlaceholder?: string;
   emptyPlaceholder?: string;
   className?: string;
+  allowCreation?: boolean;
 }
 
 export function Combobox({
@@ -44,8 +46,30 @@ export function Combobox({
   searchPlaceholder = "Buscar opción...",
   emptyPlaceholder = "No se encontró ninguna opción.",
   className,
+  allowCreation = false,
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false);
+  const [inputValue, setInputValue] = React.useState("");
+
+  const filteredOptions = React.useMemo(() => {
+    if (!inputValue) return options;
+    return options.filter((option) =>
+      option.label.toLowerCase().includes(inputValue.toLowerCase())
+    );
+  }, [options, inputValue]);
+
+  const handleSelect = (selectedValue: string) => {
+    onChange(selectedValue);
+    setOpen(false);
+    setInputValue("");
+  };
+
+  const showCreationOption =
+    allowCreation &&
+    inputValue &&
+    !options.some(
+      (option) => option.label.toLowerCase() === inputValue.toLowerCase()
+    );
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -65,40 +89,53 @@ export function Combobox({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
-        <Command>
+        <Command
+          filter={(value, search) => {
+            if (value.toLowerCase().includes(search.toLowerCase())) return 1
+            return 0
+          }}
+        >
           <CommandInput
             placeholder={searchPlaceholder}
+            value={inputValue}
+            onValueChange={setInputValue}
           />
           <CommandList>
-            <CommandEmpty>{emptyPlaceholder}</CommandEmpty>
+            <CommandEmpty>
+                {emptyPlaceholder}
+            </CommandEmpty>
             <CommandGroup>
-              {options.map((option) => (
-                <CommandItem
-                  key={option.value}
-                  value={option.value}
-                  onSelect={(currentValue) => {
-                    // Normalize both values to lowercase for case-insensitive comparison
-                    const lowerCurrentValue = currentValue.toLowerCase();
-                    const lowerSelectedValue = value?.toLowerCase();
-
-                    // If the selected value is already the current value, do nothing to prevent unselecting.
-                    // Otherwise, set the new value.
-                    if (lowerSelectedValue !== lowerCurrentValue) {
-                         onChange(options.find(o => o.value.toLowerCase() === lowerCurrentValue)?.value || currentValue);
-                    }
-                    setOpen(false);
-                  }}
-                >
-                  <Check
-                    className={cn(
-                      "mr-2 h-4 w-4",
-                      value?.toLowerCase() === option.value.toLowerCase() ? "opacity-100" : "opacity-0"
-                    )}
-                  />
-                  {option.label}
-                </CommandItem>
-              ))}
+                <ScrollArea className="h-48">
+                    {filteredOptions.map((option) => (
+                        <CommandItem
+                        key={option.value}
+                        value={option.label}
+                        onSelect={() => handleSelect(option.value)}
+                        >
+                        <Check
+                            className={cn(
+                            "mr-2 h-4 w-4",
+                            value?.toLowerCase() === option.value.toLowerCase() ? "opacity-100" : "opacity-0"
+                            )}
+                        />
+                        {option.label}
+                        </CommandItem>
+                    ))}
+                </ScrollArea>
             </CommandGroup>
+            {showCreationOption && (
+                <>
+                <CommandSeparator />
+                <CommandGroup>
+                    <CommandItem
+                    value={inputValue}
+                    onSelect={() => handleSelect(inputValue)}
+                    >
+                    Crear "{inputValue}"
+                    </CommandItem>
+                </CommandGroup>
+                </>
+            )}
           </CommandList>
         </Command>
       </PopoverContent>
