@@ -4,7 +4,7 @@
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm, SubmitHandler, useFieldArray } from 'react-hook-form';
+import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import Link from 'next/link';
@@ -187,6 +187,7 @@ export default function CrewPerformanceReportPage() {
 
     // State for novelty management
     const [isNoveltyDialogOpen, setIsNoveltyDialogOpen] = useState(false);
+    const [isNoveltySelectorOpen, setIsNoveltySelectorOpen] = useState(false);
     const [isSubmittingNovelty, setIsSubmittingNovelty] = useState(false);
     const [selectedRowForNovelty, setSelectedRowForNovelty] = useState<CrewPerformanceReportRow | null>(null);
     const [noveltyToDelete, setNoveltyToDelete] = useState<{ rowId: string; noveltyId: string; } | null>(null);
@@ -210,7 +211,7 @@ export default function CrewPerformanceReportPage() {
       },
     });
 
-    const { fields: legalizeFields } = useFieldArray({
+    const { fields: legalizeFields } = useForm({
       control: legalizeForm.control,
       name: 'productos',
     });
@@ -283,8 +284,6 @@ export default function CrewPerformanceReportPage() {
     useEffect(() => {
         let results = reportData;
         
-        // This is a simple client-side filter.
-        // It can be expanded if more filters like this are needed.
         if (filterPending) {
             results = results.filter(row => row.cantidadConcepto === -1);
         }
@@ -547,7 +546,6 @@ export default function CrewPerformanceReportPage() {
                 'Valor Total': totalLiquidacion,
             };
             const ws = XLSX.utils.json_to_sheet([...data, totalRow]);
-            // Format currency columns
             ws['!cols'] = [ {wch:10}, {wch:25}, {wch:12}, {wch:20}, {wch:15}, {wch:15}, {wch:15} ];
             for (let i = 2; i <= data.length + 2; i++) {
                 if (ws[`F${i}`]) ws[`F${i}`].z = '"$"#,##0.00';
@@ -592,7 +590,6 @@ export default function CrewPerformanceReportPage() {
                 }
                 return row;
             }));
-             // Refetch novelty types to include the new one if it was added
              getStandardNoveltyTypes().then(setStandardNoveltyTypes);
             setIsNoveltyDialogOpen(false);
         } else {
@@ -646,7 +643,7 @@ export default function CrewPerformanceReportPage() {
         const result = await legalizeWeights(rowToLegalize.submissionId, data.productos);
         if (result.success) {
             toast({ title: "Éxito", description: result.message });
-            await handleSearch(); // Re-fetch all data to show updated row
+            await handleSearch();
             setIsLegalizeDialogOpen(false);
         } else {
             toast({ variant: "destructive", title: "Error", description: result.message });
@@ -929,21 +926,17 @@ export default function CrewPerformanceReportPage() {
                                 control={noveltyForm.control}
                                 name="type"
                                 render={({ field }) => (
-                                    <FormItem>
+                                    <FormItem className="flex flex-col">
                                         <FormLabel>Tipo de Novedad</FormLabel>
-                                        <FormControl>
-                                            <Input
-                                                {...field}
-                                                list="novelty-types"
-                                                placeholder="Seleccione o escriba una novedad..."
-                                                onChange={(e) => field.onChange(e.target.value.toUpperCase())}
-                                            />
-                                        </FormControl>
-                                        <datalist id="novelty-types">
-                                            {standardNoveltyTypes.map(nt => (
-                                                <option key={nt.id} value={nt.name} />
-                                            ))}
-                                        </datalist>
+                                         <Button
+                                            type="button"
+                                            variant="outline"
+                                            className="w-full justify-between text-left font-normal"
+                                            onClick={() => setIsNoveltySelectorOpen(true)}
+                                          >
+                                            <span className="truncate">{field.value || "Seleccione o escriba una novedad..."}</span>
+                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                          </Button>
                                         <FormMessage />
                                     </FormItem>
                                 )}
@@ -980,6 +973,16 @@ export default function CrewPerformanceReportPage() {
                     </Form>
                 </DialogContent>
             </Dialog>
+
+            <NoveltySelectorDialog
+                open={isNoveltySelectorOpen}
+                onOpenChange={setIsNoveltySelectorOpen}
+                standardNoveltyTypes={standardNoveltyTypes}
+                onSelect={(value) => {
+                    noveltyForm.setValue('type', value, { shouldValidate: true });
+                    setIsNoveltySelectorOpen(false);
+                }}
+            />
 
             <Dialog open={isLegalizeDialogOpen} onOpenChange={setIsLegalizeDialogOpen}>
               <DialogContent className="max-w-2xl">
@@ -1062,13 +1065,82 @@ export default function CrewPerformanceReportPage() {
     );
 }
 
+function NoveltySelectorDialog({
+    open,
+    onOpenChange,
+    standardNoveltyTypes,
+    onSelect,
+}: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    standardNoveltyTypes: StandardNoveltyType[];
+    onSelect: (value: string) => void;
+}) {
+    const [search, setSearch] = useState("");
 
+    const filteredNovelties = useMemo(() => {
+        if (!search) return standardNoveltyTypes;
+        return standardNoveltyTypes.filter(n => n.name.toLowerCase().includes(search.toLowerCase()));
+    }, [search, standardNoveltyTypes]);
+    
+    useEffect(() => {
+        if (!open) setSearch("");
+    }, [open]);
+
+    const handleSelect = (value: string) => {
+        onSelect(value.toUpperCase());
+        onOpenChange(false);
+    };
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Seleccionar Tipo de Novedad</DialogTitle>
+                </DialogHeader>
+                <div className="py-4">
+                    <Input
+                        placeholder="Buscar o crear novedad..."
+                        value={search}
+                        onChange={(e) => setSearch(e.target.value)}
+                        className="mb-4"
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter" && search.trim()) {
+                            e.preventDefault();
+                            handleSelect(search);
+                          }
+                        }}
+                    />
+                    <ScrollArea className="h-60">
+                        {filteredNovelties.length > 0 ? (
+                            filteredNovelties.map((novelty) => (
+                                <Button
+                                    key={novelty.id}
+                                    variant="ghost"
+                                    className="w-full justify-start"
+                                    onClick={() => handleSelect(novelty.name)}
+                                >
+                                    {novelty.name}
+                                </Button>
+                            ))
+                        ) : (
+                            <div className="p-4 text-center text-sm text-muted-foreground">
+                                No se encontraron coincidencias.
+                            </div>
+                        )}
+                    </ScrollArea>
+                </div>
+                 <DialogFooter>
+                    <Button
+                        type="button"
+                        onClick={() => handleSelect(search)}
+                        disabled={!search.trim()}
+                    >
+                        Crear y usar "{search.trim().toUpperCase()}"
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+    );
+}
   
-
-
-
-
-
-
-
-
