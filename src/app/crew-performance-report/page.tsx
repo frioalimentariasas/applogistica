@@ -4,7 +4,7 @@
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm, SubmitHandler } from 'react-hook-form';
+import { useForm, SubmitHandler, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import Link from 'next/link';
@@ -211,7 +211,7 @@ export default function CrewPerformanceReportPage() {
       },
     });
 
-    const { fields: legalizeFields } = useForm({
+    const { fields: legalizeFields } = useFieldArray({
       control: legalizeForm.control,
       name: 'productos',
     });
@@ -369,6 +369,8 @@ export default function CrewPerformanceReportPage() {
 
             const results = await getCrewPerformanceReport(criteria);
             
+            results.sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
+            
             setReportData(results);
             
             if (results.length === 0) {
@@ -511,7 +513,7 @@ export default function CrewPerformanceReportPage() {
 
 
     const handleExportExcel = (type: 'productivity' | 'settlement') => {
-        if (type === 'productivity') {
+        if (type === 'productivity' && filteredReportData.length > 0) {
             const data = filteredReportData.map(row => ({
                 'Fecha': format(new Date(row.fecha), 'dd/MM/yy'),
                 'Operario': row.operario,
@@ -530,7 +532,7 @@ export default function CrewPerformanceReportPage() {
              XLSX.utils.book_append_sheet(wb, ws, "Productividad");
              XLSX.writeFile(wb, "Reporte_Productividad.xlsx");
 
-        } else if (type === 'settlement') {
+        } else if (type === 'settlement' && liquidationData.length > 0) {
             const data = liquidationData.map(row => ({
                 'Fecha': format(new Date(row.fecha), 'dd/MM/yy'),
                 'Cliente': row.cliente,
@@ -1144,3 +1146,4 @@ function NoveltySelectorDialog({
     );
 }
   
+
