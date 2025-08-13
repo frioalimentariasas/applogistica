@@ -198,6 +198,7 @@ export default function CrewPerformanceReportPage() {
 
     // State for novelty management
     const [isNoveltyDialogOpen, setIsNoveltyDialogOpen] = useState(false);
+    const [isNoveltySelectorOpen, setIsNoveltySelectorOpen] = useState(false); // New state
     const [isSubmittingNovelty, setIsSubmittingNovelty] = useState(false);
     const [selectedRowForNovelty, setSelectedRowForNovelty] = useState<CrewPerformanceReportRow | null>(null);
     const [noveltyToDelete, setNoveltyToDelete] = useState<{ rowId: string; noveltyId: string; } | null>(null);
@@ -1148,19 +1149,13 @@ export default function CrewPerformanceReportPage() {
                     </DialogHeader>
                     <Form {...noveltyForm}>
                         <form onSubmit={noveltyForm.handleSubmit(onNoveltySubmit)} className="space-y-4 pt-4">
-                            <NoveltySelectorDialog
-                                open={isNoveltyDialogOpen}
-                                onOpenChange={setIsNoveltyDialogOpen}
-                                standardNoveltyTypes={standardNoveltyTypes}
-                                onSelect={(value) => noveltyForm.setValue('type', value, { shouldValidate: true })}
-                            />
                             <FormField
                                 control={noveltyForm.control}
                                 name="type"
                                 render={({ field }) => (
                                     <FormItem className="flex flex-col">
                                         <FormLabel>Tipo de Novedad</FormLabel>
-                                         <Button type="button" variant="outline" className="w-full justify-between" onClick={() => setIsNoveltyDialogOpen(true)}>
+                                         <Button type="button" variant="outline" className="w-full justify-between" onClick={() => setIsNoveltySelectorOpen(true)}>
                                             {field.value || "Seleccione o escriba una novedad..."}
                                             <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                         </Button>
@@ -1200,6 +1195,14 @@ export default function CrewPerformanceReportPage() {
                     </Form>
                 </DialogContent>
             </Dialog>
+
+            <NoveltySelectorDialog
+                open={isNoveltySelectorOpen}
+                onOpenChange={setIsNoveltySelectorOpen}
+                standardNoveltyTypes={standardNoveltyTypes}
+                onSelect={(value) => noveltyForm.setValue('type', value, { shouldValidate: true })}
+            />
+
             <Dialog open={isLegalizeDialogOpen} onOpenChange={setIsLegalizeDialogOpen}>
               <DialogContent className="max-w-2xl">
                 <DialogHeader>
@@ -1360,6 +1363,7 @@ function NoveltySelectorDialog({
     );
 }
   
+
 
 
 
