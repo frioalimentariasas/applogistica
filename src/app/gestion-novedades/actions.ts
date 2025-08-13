@@ -2,6 +2,7 @@
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
+import { revalidatePath } from 'next/cache';
 
 export interface StandardNoveltyType {
   id: string;
@@ -28,28 +29,51 @@ export async function getStandardNoveltyTypes(): Promise<StandardNoveltyType[]> 
 
 /**
  * Adds a new standard novelty type if it doesn't already exist (case-insensitive).
- * This function is intended to be called internally by other server actions.
  */
-export async function addStandardNoveltyType(name: string): Promise<void> {
+export async function addStandardNoveltyType(name: string): Promise<{ success: boolean; message: string; newNovelty?: StandardNoveltyType }> {
   if (!firestore) {
-    console.error('Firestore not initialized, cannot add novelty type.');
-    return;
+    return { success: false, message: 'Error de configuración del servidor.' };
   }
   
   const trimmedName = name.trim().toUpperCase();
-  if (!trimmedName) return;
+  if (!trimmedName) {
+      return { success: false, message: 'El nombre de la novedad no puede estar vacío.' };
+  }
 
   try {
     const noveltyTypesRef = firestore.collection('standard_novelty_types');
     const querySnapshot = await noveltyTypesRef.where('name', '==', trimmedName).limit(1).get();
 
-    // If the novelty type does not exist, add it.
-    if (querySnapshot.empty) {
-      await noveltyTypesRef.add({ name: trimmedName });
-      console.log(`Added new standard novelty type: "${trimmedName}"`);
+    if (!querySnapshot.empty) {
+        return { success: false, message: `La novedad "${trimmedName}" ya existe.` };
     }
+    
+    const docRef = await noveltyTypesRef.add({ name: trimmedName });
+    revalidatePath('/gestion-novedades');
+    return { success: true, message: 'Novedad agregada con éxito.', newNovelty: { id: docRef.id, name: trimmedName } };
+
   } catch (error) {
     console.error(`Error adding standard novelty type "${trimmedName}":`, error);
-    // We don't re-throw the error to avoid failing the primary operation (e.g., adding an operation novelty).
+    const errorMessage = error instanceof Error ? error.message : 'Ocurrió un error desconocido.';
+    return { success: false, message: `Error del servidor: ${errorMessage}` };
+  }
+}
+
+/**
+ * Deletes a standard novelty type from Firestore.
+ */
+export async function deleteStandardNoveltyType(id: string): Promise<{ success: boolean; message: string }> {
+  if (!firestore) {
+    return { success: false, message: 'Error de configuración del servidor.' };
+  }
+
+  try {
+    await firestore.collection('standard_novelty_types').doc(id).delete();
+    revalidatePath('/gestion-novedades');
+    return { success: true, message: 'Novedad eliminada con éxito.' };
+  } catch (error) {
+    console.error(`Error deleting novelty type ${id}:`, error);
+    const errorMessage = error instanceof Error ? error.message : 'Ocurrió un error desconocido.';
+    return { success: false, message: `Error del servidor: ${errorMessage}` };
   }
 }
