@@ -53,9 +53,9 @@ export function Combobox({
   }, [value]);
 
   const handleSelect = (currentValue: string) => {
-    const newValue = currentValue === value ? "" : currentValue;
-    onChange(newValue);
-    setInputValue(newValue);
+    // Always set the value to the one clicked from the list.
+    onChange(currentValue);
+    setInputValue(currentValue);
     setOpen(false);
   };
   
