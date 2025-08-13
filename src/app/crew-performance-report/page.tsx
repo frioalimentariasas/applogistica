@@ -1174,7 +1174,7 @@ export default function CrewPerformanceReportPage() {
                                                 <SelectTrigger><SelectValue/></SelectTrigger>
                                                 <SelectContent>
                                                     <SelectItem value="justification">Justificar Demora (Afecta Productividad)</SelectItem>
-                                                    <SelectItem value="settlement">Novedad para Liquidación (No afecta Productividad)</SelectItem>
+                                                    <SelectItem value="settlement">Novedad Para control Interno (No afecta Productividad)</SelectItem>
                                                 </SelectContent>
                                             </Select>
                                         </FormControl>
@@ -1363,6 +1363,7 @@ function NoveltySelectorDialog({
     );
 }
   
+
 
 
 
