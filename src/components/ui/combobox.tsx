@@ -46,31 +46,6 @@ export function Combobox({
   className,
 }: ComboboxProps) {
   const [open, setOpen] = React.useState(false);
-  const [inputValue, setInputValue] = React.useState(value || "");
-
-  React.useEffect(() => {
-    setInputValue(value || "");
-  }, [value]);
-
-  const handleSelect = (currentValue: string) => {
-    // Always set the value to the one clicked from the list.
-    onChange(currentValue);
-    setInputValue(currentValue);
-    setOpen(false);
-  };
-  
-  const handleInputChange = (search: string) => {
-    setInputValue(search);
-    // If you want to update the form value as the user types, you can call onChange here.
-    // Otherwise, it only updates on selection or blur.
-    onChange(search); 
-  };
-  
-  const handleBlur = () => {
-     // This ensures the final typed value is set in the form state
-     // even if the user doesn't select from the list.
-    onChange(inputValue);
-  };
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -90,34 +65,40 @@ export function Combobox({
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
-        <Command shouldFilter={false}>
+        <Command>
           <CommandInput
             placeholder={searchPlaceholder}
-            value={inputValue}
-            onValueChange={handleInputChange}
-            onBlur={handleBlur}
           />
-          <CommandEmpty>{emptyPlaceholder}</CommandEmpty>
           <CommandList>
-            <ScrollArea className="h-48">
-              <CommandGroup>
-                {options.map((option) => (
-                  <CommandItem
-                    key={option.value}
-                    value={option.value}
-                    onSelect={handleSelect}
-                  >
-                    <Check
-                      className={cn(
-                        "mr-2 h-4 w-4",
-                        value?.toLowerCase() === option.value.toLowerCase() ? "opacity-100" : "opacity-0"
-                      )}
-                    />
-                    {option.label}
-                  </CommandItem>
-                ))}
-              </CommandGroup>
-            </ScrollArea>
+            <CommandEmpty>{emptyPlaceholder}</CommandEmpty>
+            <CommandGroup>
+              {options.map((option) => (
+                <CommandItem
+                  key={option.value}
+                  value={option.value}
+                  onSelect={(currentValue) => {
+                    // Normalize both values to lowercase for case-insensitive comparison
+                    const lowerCurrentValue = currentValue.toLowerCase();
+                    const lowerSelectedValue = value?.toLowerCase();
+
+                    // If the selected value is already the current value, do nothing to prevent unselecting.
+                    // Otherwise, set the new value.
+                    if (lowerSelectedValue !== lowerCurrentValue) {
+                         onChange(options.find(o => o.value.toLowerCase() === lowerCurrentValue)?.value || currentValue);
+                    }
+                    setOpen(false);
+                  }}
+                >
+                  <Check
+                    className={cn(
+                      "mr-2 h-4 w-4",
+                      value?.toLowerCase() === option.value.toLowerCase() ? "opacity-100" : "opacity-0"
+                    )}
+                  />
+                  {option.label}
+                </CommandItem>
+              ))}
+            </CommandGroup>
           </CommandList>
         </Command>
       </PopoverContent>
