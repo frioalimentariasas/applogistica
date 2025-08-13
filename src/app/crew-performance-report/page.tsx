@@ -70,7 +70,7 @@ type LegalizeFormValues = z.infer<typeof legalizeFormSchema>;
 
 const EmptyState = ({ searched, title, description }: { searched: boolean; title: string; description: string; }) => (
     <TableRow>
-        <TableCell colSpan={17} className="py-20 text-center">
+        <TableCell colSpan={22} className="py-20 text-center">
             <div className="flex flex-col items-center gap-4">
                 <div className="rounded-full bg-primary/10 p-4">
                     <FolderSearch className="h-12 w-12 text-primary" />
@@ -97,6 +97,16 @@ const AccessDenied = () => (
         </p>
     </div>
 );
+
+const formatTime12Hour = (time24: string | undefined): string => {
+    if (!time24 || !time24.includes(':')) return 'N/A';
+    const [hours, minutes] = time24.split(':');
+    let h = parseInt(hours, 10);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12;
+    h = h ? h : 12; // the hour '0' should be '12'
+    return `${h}:${minutes} ${ampm}`;
+};
 
 const formatDuration = (totalMinutes: number | null): string => {
     if (totalMinutes === null || totalMinutes < 0) return 'N/A';
@@ -513,6 +523,11 @@ export default function CrewPerformanceReportPage() {
                 'Tipo Op.': row.tipoOperacion,
                 'Tipo Prod.': row.tipoProducto,
                 'Pedido': row.pedidoSislog,
+                'No. Contenedor': row.contenedor,
+                'Placa': row.placa,
+                'Concepto': row.conceptoLiquidado,
+                'Hora Inicio': row.horaInicio,
+                'Hora Fin': row.horaFin,
                 'Cantidad (Ton)': row.cantidadConcepto === -1 ? 'Pendiente' : row.cantidadConcepto.toFixed(2),
                 'Duración Total': formatDuration(row.totalDurationMinutes),
                 'T. Operativo': formatDuration(row.operationalDurationMinutes),
@@ -560,17 +575,27 @@ export default function CrewPerformanceReportPage() {
             doc.text("Reporte de Productividad", pageWidth / 2, 15, { align: 'center' });
             autoTable(doc, {
                 startY: 20,
-                head: [['Fecha', 'Operario', 'Cliente', 'Tipo Op.', 'Pedido', 'Cant.', 'T. Operativo', 'Productividad']],
+                head: [['Fecha', 'Operario', 'Cliente', 'Tipo Op.', 'Pedido', 'Contenedor', 'Placa', 'Concepto', 'H. Inicio', 'H. Fin', 'Cant.', 'T. Operativo', 'Productividad']],
                 body: filteredReportData.map(row => [
                     format(new Date(row.fecha), 'dd/MM/yy'),
                     row.operario,
                     row.cliente,
                     row.tipoOperacion,
                     row.pedidoSislog,
+                    row.contenedor,
+                    row.placa,
+                    row.conceptoLiquidado,
+                    row.horaInicio,
+                    row.horaFin,
                     row.cantidadConcepto === -1 ? 'Pendiente' : row.cantidadConcepto.toFixed(2) + ' Ton',
                     formatDuration(row.operationalDurationMinutes),
                     getPerformanceIndicator(row).text,
                 ]),
+                styles: { fontSize: 7, cellPadding: 1 },
+                headStyles: { fontSize: 7, cellPadding: 1 },
+                columnStyles: {
+                    cliente: { cellWidth: 40 },
+                }
             });
             doc.save("Reporte_Productividad.pdf");
         } else if (type === 'settlement' && liquidationData.length > 0) {
@@ -584,7 +609,7 @@ export default function CrewPerformanceReportPage() {
                     row.pedidoSislog,
                     row.conceptoLiquidado,
                     row.cantidadConcepto === -1 ? 'Pendiente' : `${row.cantidadConcepto.toFixed(2)} ${row.unidadMedidaConcepto}`,
-                    row.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }),
+                    row.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }),
                     row.valorTotalConcepto.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }),
                 ]),
                 foot: [[
@@ -714,7 +739,7 @@ export default function CrewPerformanceReportPage() {
 
     return (
         <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
-            <div className="max-w-7xl mx-auto">
+            <div className="max-w-screen-2xl mx-auto">
                 <header className="mb-8">
                     <div className="relative flex items-center justify-center text-center">
                          <Button variant="ghost" size="icon" className="absolute left-0 top-1/2 -translate-y-1/2" onClick={() => router.push('/')}>
@@ -819,7 +844,25 @@ export default function CrewPerformanceReportPage() {
                                  <div className="relative">
                                      <ScrollArea className="w-full whitespace-nowrap rounded-md border">
                                         <ScrollAreaViewport ref={scrollViewportRef}>
-                                            <Table><TableHeader><TableRow><TableHead>Fecha</TableHead><TableHead>Operario</TableHead><TableHead>Cliente</TableHead><TableHead>Tipo Op.</TableHead><TableHead>Tipo Prod.</TableHead><TableHead>Pedido</TableHead><TableHead>Cant.</TableHead><TableHead>Dur. Total</TableHead><TableHead>T. Operativo</TableHead><TableHead>Novedades</TableHead><TableHead>Productividad</TableHead><TableHead className="text-right sticky right-0 bg-background/95 backdrop-blur-sm z-10">Acciones</TableHead></TableRow></TableHeader>
+                                            <Table><TableHeader><TableRow>
+                                                <TableHead>Fecha</TableHead>
+                                                <TableHead>Operario</TableHead>
+                                                <TableHead>Cliente</TableHead>
+                                                <TableHead>Tipo Op.</TableHead>
+                                                <TableHead>Tipo Prod.</TableHead>
+                                                <TableHead>Pedido</TableHead>
+                                                <TableHead>No. Contenedor</TableHead>
+                                                <TableHead>Placa</TableHead>
+                                                <TableHead>Concepto</TableHead>
+                                                <TableHead>Hora Inicio</TableHead>
+                                                <TableHead>Hora Fin</TableHead>
+                                                <TableHead>Cant.</TableHead>
+                                                <TableHead>Dur. Total</TableHead>
+                                                <TableHead>T. Operativo</TableHead>
+                                                <TableHead>Novedades</TableHead>
+                                                <TableHead>Productividad</TableHead>
+                                                <TableHead className="text-right sticky right-0 bg-background/95 backdrop-blur-sm z-10">Acciones</TableHead>
+                                            </TableRow></TableHeader>
                                                 <TableBody>
                                                     {isLoading ? (<TableRow><TableCell colSpan={17}><Skeleton className="h-20 w-full" /></TableCell></TableRow>) : displayedData.length > 0 ? (
                                                         displayedData.map((row) => {
@@ -827,8 +870,17 @@ export default function CrewPerformanceReportPage() {
                                                             const isPending = row.cantidadConcepto === -1;
                                                             return (
                                                                 <TableRow key={row.id}>
-                                                                    <TableCell className="text-xs">{format(new Date(row.fecha), 'dd/MM/yy')}</TableCell><TableCell className="text-xs">{row.operario}</TableCell><TableCell className="text-xs max-w-[150px] truncate" title={row.cliente}>{row.cliente}</TableCell>
-                                                                    <TableCell className="text-xs">{row.tipoOperacion}</TableCell><TableCell className="text-xs">{row.tipoProducto}</TableCell><TableCell className="text-xs">{row.pedidoSislog}</TableCell>
+                                                                    <TableCell className="text-xs">{format(new Date(row.fecha), 'dd/MM/yy')}</TableCell>
+                                                                    <TableCell className="text-xs">{row.operario}</TableCell>
+                                                                    <TableCell className="text-xs max-w-[150px] truncate" title={row.cliente}>{row.cliente}</TableCell>
+                                                                    <TableCell className="text-xs">{row.tipoOperacion}</TableCell>
+                                                                    <TableCell className="text-xs">{row.tipoProducto}</TableCell>
+                                                                    <TableCell className="text-xs">{row.pedidoSislog}</TableCell>
+                                                                    <TableCell className="text-xs">{row.contenedor}</TableCell>
+                                                                    <TableCell className="text-xs">{row.placa}</TableCell>
+                                                                    <TableCell className="text-xs">{row.conceptoLiquidado}</TableCell>
+                                                                    <TableCell className="text-xs">{row.horaInicio}</TableCell>
+                                                                    <TableCell className="text-xs">{row.horaFin}</TableCell>
                                                                     <TableCell className="text-xs text-right font-mono">
                                                                         {isPending ? (
                                                                             <Badge className="bg-amber-100 text-amber-800 border-amber-200 hover:bg-amber-200">
@@ -1182,5 +1234,6 @@ function NoveltySelectorDialog({
     );
 }
   
+
 
 
