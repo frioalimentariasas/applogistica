@@ -142,7 +142,7 @@ export default function Home() {
                 <div>
                     <Card className="flex flex-col">
                         <CardHeader>
-                            <CardTitle className="text-lg md:text-xl text-center">Control de Operaciones Logísticas</CardTitle>
+                            <CardTitle className="text-lg md:text-xl text-center text-primary">Control de Operaciones Logísticas</CardTitle>
                         </CardHeader>
                         <CardContent className="flex-grow flex flex-col justify-between">
                             <form onSubmit={handleSubmit} className="space-y-6">
