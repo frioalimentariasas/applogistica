@@ -4,7 +4,7 @@
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm, SubmitHandler } from 'react-hook-form';
+import { useForm, SubmitHandler, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import Link from 'next/link';
@@ -1133,31 +1133,22 @@ export default function CrewPerformanceReportPage() {
                     </DialogHeader>
                     <Form {...noveltyForm}>
                         <form onSubmit={noveltyForm.handleSubmit(onNoveltySubmit)} className="space-y-4 pt-4">
-                             <FormField
+                            <NoveltySelectorDialog
+                                open={isNoveltyDialogOpen}
+                                onOpenChange={setIsNoveltyDialogOpen}
+                                standardNoveltyTypes={standardNoveltyTypes}
+                                onSelect={(value) => noveltyForm.setValue('type', value, { shouldValidate: true })}
+                            />
+                            <FormField
                                 control={noveltyForm.control}
                                 name="type"
                                 render={({ field }) => (
                                     <FormItem className="flex flex-col">
                                         <FormLabel>Tipo de Novedad</FormLabel>
-                                         <Dialog open={isNoveltyDialogOpen} onOpenChange={setIsNoveltyDialogOpen}>
-                                            <DialogTrigger asChild>
-                                                <Button variant="outline" className="w-full justify-between text-left font-normal">
-                                                    <span className="truncate">{field.value || "Seleccione o escriba una novedad..."}</span>
-                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                                </Button>
-                                            </DialogTrigger>
-                                            <DialogContent>
-                                                <DialogHeader><DialogTitle>Seleccionar Tipo de Novedad</DialogTitle></DialogHeader>
-                                                <Input placeholder="Buscar o crear novedad..." value={field.value} onChange={field.onChange} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); setIsNoveltyDialogOpen(false); } }} />
-                                                <ScrollArea className="h-60">
-                                                    {standardNoveltyTypes.filter(n => n.name.toLowerCase().includes(field.value.toLowerCase())).map((novelty) => (
-                                                        <Button key={novelty.id} variant="ghost" className="w-full justify-start" onClick={() => { field.onChange(novelty.name); setIsNoveltyDialogOpen(false); }}>
-                                                            {novelty.name}
-                                                        </Button>
-                                                    ))}
-                                                </ScrollArea>
-                                            </DialogContent>
-                                        </Dialog>
+                                         <Button type="button" variant="outline" className="w-full justify-between" onClick={() => setIsNoveltyDialogOpen(true)}>
+                                            {field.value || "Seleccione o escriba una novedad..."}
+                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                        </Button>
                                         <FormMessage />
                                     </FormItem>
                                 )}
@@ -1354,6 +1345,7 @@ function NoveltySelectorDialog({
     );
 }
   
+
 
 
 
