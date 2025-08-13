@@ -308,9 +308,19 @@ export default function CrewPerformanceReportPage() {
             handleCheckScroll();
             el.addEventListener('scroll', handleCheckScroll);
             window.addEventListener('resize', handleCheckScroll);
+            const handleKeyDown = (e: KeyboardEvent) => {
+                if (e.key === 'ArrowLeft') {
+                    handleScroll('left');
+                } else if (e.key === 'ArrowRight') {
+                    handleScroll('right');
+                }
+            };
+            window.addEventListener('keydown', handleKeyDown);
+
             return () => {
                 el.removeEventListener('scroll', handleCheckScroll);
                 window.removeEventListener('resize', handleCheckScroll);
+                window.removeEventListener('keydown', handleKeyDown);
             };
         }
     }, [handleCheckScroll, displayedData]);
@@ -322,22 +332,6 @@ export default function CrewPerformanceReportPage() {
             el.scrollBy({ left: scrollAmount, behavior: 'smooth' });
         }
     };
-
-    useEffect(() => {
-        const handleKeyDown = (e: KeyboardEvent) => {
-            if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-            if (e.key === 'ArrowLeft') {
-                handleScroll('left');
-            } else if (e.key === 'ArrowRight') {
-                handleScroll('right');
-            }
-        };
-
-        window.addEventListener('keydown', handleKeyDown);
-        return () => {
-            window.removeEventListener('keydown', handleKeyDown);
-        };
-    }, []);
 
 
     const handleSearch = useCallback(async () => {
@@ -368,8 +362,6 @@ export default function CrewPerformanceReportPage() {
             };
 
             const results = await getCrewPerformanceReport(criteria);
-            
-            results.sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
             
             setReportData(results);
             
@@ -557,6 +549,50 @@ export default function CrewPerformanceReportPage() {
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "Liquidacion");
             XLSX.writeFile(wb, "Reporte_Liquidacion_Cuadrilla.xlsx");
+        }
+    };
+    
+    const handleExportPDF = (type: 'productivity' | 'settlement') => {
+        const doc = new jsPDF({ orientation: 'landscape' });
+        const pageWidth = doc.internal.pageSize.getWidth();
+
+        if (type === 'productivity' && filteredReportData.length > 0) {
+            doc.text("Reporte de Productividad", pageWidth / 2, 15, { align: 'center' });
+            autoTable(doc, {
+                startY: 20,
+                head: [['Fecha', 'Operario', 'Cliente', 'Tipo Op.', 'Pedido', 'Cant.', 'T. Operativo', 'Productividad']],
+                body: filteredReportData.map(row => [
+                    format(new Date(row.fecha), 'dd/MM/yy'),
+                    row.operario,
+                    row.cliente,
+                    row.tipoOperacion,
+                    row.pedidoSislog,
+                    row.cantidadConcepto === -1 ? 'Pendiente' : row.cantidadConcepto.toFixed(2) + ' Ton',
+                    formatDuration(row.operationalDurationMinutes),
+                    getPerformanceIndicator(row).text,
+                ]),
+            });
+            doc.save("Reporte_Productividad.pdf");
+        } else if (type === 'settlement' && liquidationData.length > 0) {
+            doc.text("Reporte de Liquidación de Cuadrilla", pageWidth / 2, 15, { align: 'center' });
+            autoTable(doc, {
+                startY: 20,
+                head: [['Fecha', 'Cliente', 'Pedido', 'Concepto', 'Cantidad', 'Vlr. Unitario', 'Vlr. Total']],
+                body: liquidationData.map(row => [
+                    format(new Date(row.fecha), 'dd/MM/yy'),
+                    row.cliente,
+                    row.pedidoSislog,
+                    row.conceptoLiquidado,
+                    row.cantidadConcepto === -1 ? 'Pendiente' : `${row.cantidadConcepto.toFixed(2)} ${row.unidadMedidaConcepto}`,
+                    row.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }),
+                    row.valorTotalConcepto.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }),
+                ]),
+                foot: [[
+                    { content: 'TOTAL GENERAL', colSpan: 6, styles: { halign: 'right' } },
+                    { content: totalLiquidacion.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right' } }
+                ]]
+            });
+            doc.save("Reporte_Liquidacion_Cuadrilla.pdf");
         }
     };
 
@@ -776,7 +812,7 @@ export default function CrewPerformanceReportPage() {
                                     <Button onClick={() => handleExportExcel('productivity')} disabled={isLoading || filteredReportData.length === 0} variant="outline" size="sm">
                                         <File className="mr-2 h-4 w-4" /> Exportar a Excel
                                     </Button>
-                                    <Button onClick={() => {}} disabled={true} variant="outline" size="sm">
+                                    <Button onClick={() => handleExportPDF('productivity')} disabled={isLoading || filteredReportData.length === 0} variant="outline" size="sm">
                                         <FileDown className="mr-2 h-4 w-4" /> Exportar a PDF
                                     </Button>
                                 </div>
@@ -874,7 +910,7 @@ export default function CrewPerformanceReportPage() {
                                     <Button onClick={() => handleExportExcel('settlement')} disabled={isLoading || liquidationData.length === 0} variant="outline" size="sm">
                                         <File className="mr-2 h-4 w-4" /> Exportar a Excel
                                     </Button>
-                                    <Button onClick={() => {}} disabled={true} variant="outline" size="sm">
+                                    <Button onClick={() => handleExportPDF('settlement')} disabled={isLoading || liquidationData.length === 0} variant="outline" size="sm">
                                         <FileDown className="mr-2 h-4 w-4" /> Exportar a PDF
                                     </Button>
                                 </div>
@@ -1146,4 +1182,5 @@ function NoveltySelectorDialog({
     );
 }
   
+
 
