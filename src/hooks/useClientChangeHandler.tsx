@@ -23,19 +23,20 @@ export function useClientChangeHandler<T>({ form, setArticulos }: UseClientChang
     setIsVerifying(true);
     
     const formData = form.getValues();
-    
-    const productListName = formData.productos ? 'productos' : 
-                          (formData.destinos ? 'destinos' : 'items');
-    
     const clientFieldName = formData.nombreCliente !== undefined ? 'nombreCliente' : 'cliente';
-
-    const isDespachoPorDestino = productListName === 'destinos';
-    const formProducts = formData[productListName];
+    const isDespachoPorDestino = formData.despachoPorDestino === true;
     
+    let productListName;
+    if (formData.productos) productListName = 'productos';
+    else if (isDespachoPorDestino) productListName = 'destinos';
+    else productListName = 'items';
+
+    const formProducts = formData[productListName];
     const flatProductList = (isDespachoPorDestino 
         ? formProducts?.flatMap((d: any) => d.items || []) 
         : formProducts) || [];
 
+    // If there are no products in the form, just change the client and update the articles list
     if (flatProductList.length === 0 || flatProductList.every((p: any) => !p.descripcion)) {
         form.setValue(clientFieldName, newClient);
         setNewClientToSet(null);
@@ -50,21 +51,30 @@ export function useClientChangeHandler<T>({ form, setArticulos }: UseClientChang
         return; 
     }
     
+    // If there are products, perform validation
     try {
       const newClientArticulos = await getArticulosByClients([newClient]);
       
-      const allProductsExist = flatProductList.every((formProduct: any) => {
-        if (!formProduct.codigo || !formProduct.descripcion) return true; // Skip empty rows
-        
-        return newClientArticulos.some(newArticulo => 
-          newArticulo.codigoProducto.trim() === formProduct.codigo.trim() &&
-          newArticulo.denominacionArticulo.trim() === formProduct.descripcion.trim()
-        );
-      });
+      let allProductsExistInNewClient = true;
+      if (flatProductList.length > 0) {
+        for (const formProduct of flatProductList) {
+          if (!formProduct.codigo || !formProduct.descripcion) continue;
 
-      if (allProductsExist) {
+          const productExists = newClientArticulos.some(newArticulo => 
+            newArticulo.codigoProducto.trim() === formProduct.codigo.trim() &&
+            newArticulo.denominacionArticulo.trim() === formProduct.descripcion.trim()
+          );
+
+          if (!productExists) {
+            allProductsExistInNewClient = false;
+            break; 
+          }
+        }
+      }
+
+      if (allProductsExistInNewClient) {
         form.setValue(clientFieldName, newClient);
-        setArticulos(newClientArticulos); // Update the available articles list
+        setArticulos(newClientArticulos); // This is the crucial update
         setNewClientToSet(null);
       } else {
         setNewClientToSet(newClient);
@@ -81,9 +91,9 @@ export function useClientChangeHandler<T>({ form, setArticulos }: UseClientChang
   const onConfirmChange = async () => {
     if (newClientToSet) {
       const formData = form.getValues();
-      const productListName = formData.productos ? 'productos' : 
-                            (formData.destinos ? 'destinos' : 'items');
       const clientFieldName = formData.nombreCliente !== undefined ? 'nombreCliente' : 'cliente';
+      const isDespachoPorDestino = formData.despachoPorDestino === true;
+      const productListName = formData.productos ? 'productos' : (isDespachoPorDestino ? 'destinos' : 'items');
 
       form.setValue(clientFieldName, newClientToSet);
       form.setValue(productListName, []); // Clear the product list
