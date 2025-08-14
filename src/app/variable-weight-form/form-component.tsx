@@ -17,6 +17,7 @@ import { getClients, type ClientInfo } from "@/app/actions/clients";
 import { getArticulosByClients, type ArticuloInfo } from "@/app/actions/articulos";
 import { getUsersList, type UserInfo } from "@/app/actions/users";
 import { useFormPersistence } from "@/hooks/use-form-persistence";
+import { useClientChangeHandler } from "@/hooks/useClientChangeHandler.tsx";
 import { saveForm } from "@/app/actions/save-form";
 import { storage } from "@/lib/firebase";
 import { ref, uploadString, getDownloadURL } from "firebase/storage";
@@ -525,7 +526,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
   const submissionId = searchParams.get("id");
 
   const { toast } = useToast();
-  const { user, displayName, permissions } = useAuth();
+  const { user, displayName, permissions, email } = useAuth();
   
   const [clientes, setClientes] = useState<ClientInfo[]>([]);
   const [allUsers, setAllUsers] = useState<UserInfo[]>([]);
@@ -558,6 +559,8 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
 
 
   const isAdmin = permissions.canManageSessions;
+   const isAuthorizedEditor = submissionId && (email === 'sistemas@frioalimentaria.com.co' || email === 'planta@frioalimentaria.com.co');
+
 
   const filteredClients = useMemo(() => {
     if (!clientSearch) return clientes;
@@ -571,6 +574,12 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
     reValidateMode: "onSubmit"
   });
   
+  const { handleClientChange, ClientChangeDialog, VerifyingClientSpinner, isVerifying } = useClientChangeHandler({
+    form,
+    setArticulos,
+    isDespachoPorDestino: form.watch('despachoPorDestino'),
+  });
+
   const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: "items",
@@ -610,10 +619,11 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
 
 
   const isClientChangeDisabled = useMemo(() => {
+    if (isAuthorizedEditor) return false;
     const allItems = watchedDespachoPorDestino ? (watchedDestinos || []).flatMap(d => d.items) : (watchedItems || []);
     if (!allItems || allItems.length === 0) return false;
     return allItems.length > 1 || (allItems.length === 1 && !!allItems[0]?.descripcion);
-  }, [watchedItems, watchedDestinos, watchedDespachoPorDestino]);
+  }, [watchedItems, watchedDestinos, watchedDespachoPorDestino, isAuthorizedEditor]);
 
   
   const formIdentifier = submissionId ? `variable-weight-edit-${submissionId}` : `variable-weight-${operation}`;
@@ -643,64 +653,54 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                 acc[key] = {
                     descripcion: item.descripcion,
                     destino: item.destino,
-                    totalPeso: 0,
-                    totalCantidad: 0,
-                    paletas: new Set<number>(),
+                    items: [],
                     temperatura: summaryItem?.temperatura,
                 };
             }
     
-            if (Number(item.paleta) === 0) {
-                acc[key].totalPeso += Number(item.totalPesoNeto) || 0;
-                acc[key].totalCantidad += Number(item.totalCantidad) || 0;
-                acc[key].paletas.add(0); // Special handling for summary rows
-            } else {
-                acc[key].totalPeso += Number(item.pesoNeto) || 0;
-                acc[key].totalCantidad += Number(item.cantidadPorPaleta) || 0;
-                const paleta = Number(item.paleta);
-                if (!isNaN(paleta) && paleta > 0) {
-                    acc[key].paletas.add(paleta);
-                }
-            }
-            
+            acc[key].items.push(item);
             return acc;
-        }, {} as Record<string, { descripcion: string; destino?: string; totalPeso: number; totalCantidad: number; paletas: Set<number>; temperatura: any; }>);
-    
-        const totalGeneralPaletas = (() => {
-            if (isSummaryMode) {
-              if (watchedDespachoPorDestino) {
-                  return watchedTotalPaletasDespacho || 0;
-              }
-              return allItemsForSummary.reduce((sum, item) => sum + (Number(item.totalPaletas) || 0), 0);
-            }
-            const uniquePallets = new Set<number>();
-            allItemsForSummary.forEach(item => {
-                const paletaNum = Number(item?.paleta);
-                if (!isNaN(paletaNum) && paletaNum > 0) {
-                    uniquePallets.add(paletaNum);
-                }
-            });
-            return uniquePallets.size;
-        })();
+        }, {} as Record<string, { descripcion: string; destino?: string, items: any[], temperatura: any }>);
     
         return {
             items: Object.values(grouped).map(group => {
-                const totalPaletas = isSummaryMode
-                  ? allItemsForSummary
-                      .filter(item => item.descripcion === group.descripcion && (shouldGroupByDestino ? item.destino === group.destino : true) && Number(item.paleta) === 0)
-                      .reduce((sum, item) => sum + (Number(item.totalPaletas) || 0), 0)
-                  : group.paletas.size;
-
-                return {
-                    descripcion: group.descripcion,
-                    destino: group.destino,
-                    totalPeso: group.totalPeso,
-                    totalCantidad: group.totalCantidad,
-                    totalPaletas: totalPaletas,
-                    temperatura: group.temperatura,
-                };
+                let totalPeso = 0;
+                let totalCantidad = 0;
+                let totalPaletas = 0;
+                const uniquePallets = new Set<number>();
+                if (isSummaryMode) {
+                    group.items.forEach(item => {
+                        totalPeso += Number(item.totalPesoNeto) || 0;
+                        totalCantidad += Number(item.totalCantidad) || 0;
+                        totalPaletas += Number(item.totalPaletas) || 0;
+                    });
+                } else {
+                    group.items.forEach(item => {
+                        totalPeso += Number(item.pesoNeto) || 0;
+                        totalCantidad += Number(item.cantidadPorPaleta) || 0;
+                        const paletaNum = Number(item.paleta);
+                        if (!isNaN(paletaNum) && paletaNum > 0) uniquePallets.add(paletaNum);
+                    });
+                    totalPaletas = uniquePallets.size;
+                }
+                return { ...group, totalPeso, totalCantidad, totalPaletas };
             }),
-            totalGeneralPaletas
+            totalGeneralPaletas: (() => {
+                if (isSummaryMode) {
+                  if (watchedDespachoPorDestino) {
+                      return watchedTotalPaletasDespacho || 0;
+                  }
+                  return allItemsForSummary.reduce((sum, item) => sum + (Number(item.totalPaletas) || 0), 0);
+                }
+                const uniquePallets = new Set<number>();
+                allItemsForSummary.forEach(item => {
+                    const paletaNum = Number(item?.paleta);
+                    if (!isNaN(paletaNum) && paletaNum > 0) {
+                        uniquePallets.add(paletaNum);
+                    }
+                });
+                return uniquePallets.size;
+            })()
         };
     }, [watchedItems, watchedDestinos, watchedDespachoPorDestino, watchedTotalPaletasDespacho, isSummaryMode, form]);
 
@@ -975,7 +975,6 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                 processingToast.dismiss();
             }
         } else {
-          // Make sure camera is closed even if context is not available
           handleCloseCamera();
         }
     }
@@ -1116,12 +1115,9 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
   };
   
   const handleClientSelection = async (clientName: string) => {
-    form.setValue('cliente', clientName);
     setClientDialogOpen(false);
     setClientSearch('');
-    form.setValue('items', []);
-    form.setValue('destinos', []);
-    setArticulos([]);
+    await handleClientChange(clientName);
   };
 
   const handleProductDialogOpening = async (context: { itemIndex: number, destinoIndex?: number }) => {
@@ -1220,13 +1216,15 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
 
   return (
     <FormProvider {...form}>
-       <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
+       <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8 relative">
         <RestoreDialog
             open={isRestoreDialogOpen}
             onOpenChange={onOpenChange}
             onRestore={onRestore}
             onDiscard={handleDiscard}
         />
+        {ClientChangeDialog}
+        {VerifyingClientSpinner}
         <ProductSelectorDialog
             open={isProductDialogOpen}
             onOpenChange={setProductDialogOpen}
@@ -1324,6 +1322,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                                 <FormItem className="flex flex-col">
                                     <FormLabel>Cliente <span className="text-destructive">*</span></FormLabel>
                                     <Dialog open={isClientDialogOpen} onOpenChange={(isOpen) => {
+                                        if (isVerifying) return;
                                         if (!isOpen) setClientSearch('');
                                         setClientDialogOpen(isOpen);
                                     }}>
@@ -1367,7 +1366,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                                             </div>
                                         </DialogContent>
                                     </Dialog>
-                                      {isClientChangeDisabled && (
+                                      {isClientChangeDisabled && !isAuthorizedEditor && (
                                         <FormDescription>
                                           Para cambiar de cliente, elimine todos los ítems.
                                         </FormDescription>
@@ -1382,7 +1381,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                             render={({ field }) => (
                               <FormItem>
                                 <FormLabel>Fecha <span className="text-destructive">*</span></FormLabel>
-                                {isAdmin ? (
+                                {isAuthorizedEditor ? (
                                   <Popover>
                                     <PopoverTrigger asChild>
                                       <FormControl>
@@ -1815,7 +1814,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                 <Card>
                   <CardHeader><CardTitle>Responsables de la Operación</CardTitle></CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-center">
                         <FormField control={form.control} name="coordinador" render={({ field }) => (
                             <FormItem><FormLabel>Coordinador Responsable <span className="text-destructive">*</span></FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                         )}/>
@@ -1823,7 +1822,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                              <FormField control={form.control} name="operarioResponsable" render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Operario Responsable</FormLabel>
-                                    <Select onValueChange={field.onChange} value={field.value}>
+                                    <Select onValueChange={field.onChange} value={field.value} defaultValue={originalSubmission?.userId}>
                                         <FormControl><SelectTrigger><SelectValue placeholder="Seleccione un operario" /></SelectTrigger></FormControl>
                                         <SelectContent>
                                             {allUsers.map(u => <SelectItem key={u.uid} value={u.uid}>{u.displayName}</SelectItem>)}
@@ -2181,6 +2180,8 @@ function PedidoTypeSelectorDialog({
 }
 
     
+
+
 
 
 

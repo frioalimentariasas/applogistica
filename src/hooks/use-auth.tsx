@@ -48,6 +48,7 @@ type AuthContextType = {
   user: User | null;
   loading: boolean;
   displayName: string | null;
+  email: string | null;
   permissions: AppPermissions;
 };
 
@@ -55,12 +56,14 @@ const AuthContext = React.createContext<AuthContextType>({
   user: null,
   loading: true,
   displayName: null,
+  email: null,
   permissions: defaultPermissions,
 });
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [displayName, setDisplayName] = useState<string | null>(null);
+  const [email, setEmail] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [permissions, setPermissions] = useState<AppPermissions>(defaultPermissions);
   
@@ -68,6 +71,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     if (!auth || !app) {
       setUser(null);
       setDisplayName(null);
+      setEmail(null);
       setPermissions(defaultPermissions);
       setLoading(false);
       return;
@@ -75,6 +79,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setUser(user);
       if (user && user.email) {
+        setEmail(user.email);
         // Super admin override
         if (user.email === 'sistemas@frioalimentaria.com.co') {
             setPermissions({
@@ -116,6 +121,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
       } else {
         setDisplayName(null);
+        setEmail(null);
         setPermissions(defaultPermissions);
       }
       setLoading(false);
@@ -125,7 +131,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
   
   return (
-    <AuthContext.Provider value={{ user, loading, displayName, permissions }}>
+    <AuthContext.Provider value={{ user, loading, displayName, email, permissions }}>
       {children}
     </AuthContext.Provider>
   );

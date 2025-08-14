@@ -17,6 +17,7 @@ import { getClients, type ClientInfo } from "@/app/actions/clients";
 import { getArticulosByClients, type ArticuloInfo } from "@/app/actions/articulos";
 import { getUsersList, type UserInfo } from "@/app/actions/users";
 import { useFormPersistence } from "@/hooks/use-form-persistence";
+import { useClientChangeHandler } from "@/hooks/useClientChangeHandler.tsx";
 import { saveForm } from "@/app/actions/save-form";
 import { storage } from "@/lib/firebase";
 import { ref, uploadString, getDownloadURL } from "firebase/storage";
@@ -458,7 +459,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
   const submissionId = searchParams.get("id");
 
   const { toast } = useToast();
-  const { user, displayName, permissions } = useAuth();
+  const { user, displayName, permissions, email } = useAuth();
 
   const [clientes, setClientes] = useState<ClientInfo[]>([]);
   const [allUsers, setAllUsers] = useState<UserInfo[]>([]);
@@ -491,6 +492,8 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
 
 
   const isAdmin = permissions.canManageSessions;
+  const isAuthorizedEditor = submissionId && (email === 'sistemas@frioalimentaria.com.co' || email === 'planta@frioalimentaria.com.co');
+
 
   const filteredClients = useMemo(() => {
     if (!clientSearch) return clientes;
@@ -504,6 +507,12 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
     reValidateMode: "onSubmit"
   });
   
+  const { handleClientChange, ClientChangeDialog, VerifyingClientSpinner, isVerifying } = useClientChangeHandler({
+    form,
+    setArticulos,
+    isDespachoPorDestino: false, // Not applicable for reception form
+  });
+
   const watchedTipoPedido = useWatch({ control: form.control, name: 'tipoPedido' });
   const watchedRecepcionPorPlaca = useWatch({ control: form.control, name: 'recepcionPorPlaca' });
   const isTunelMode = watchedTipoPedido === 'TUNEL' || watchedTipoPedido === 'TUNEL DE CONGELACIÓN';
@@ -565,8 +574,9 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
   const itemsForCalculation = useMemo(() => (isTunelMode && watchedRecepcionPorPlaca) ? (watchedPlacas || []).flatMap(p => p.items) : (watchedItems || []), [isTunelMode, watchedRecepcionPorPlaca, watchedPlacas, watchedItems]);
 
   const isClientChangeDisabled = useMemo(() => {
+    if (isAuthorizedEditor) return false;
     return itemsForCalculation.length > 1 || (itemsForCalculation.length === 1 && !!itemsForCalculation[0]?.descripcion);
-  }, [itemsForCalculation]);
+  }, [itemsForCalculation, isAuthorizedEditor]);
 
   useEffect(() => {
     if (watchedTipoPedido === 'INGRESO DE SALDOS' || watchedTipoPedido === 'TUNEL A CÁMARA CONGELADOS') {
@@ -1178,12 +1188,9 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
   };
   
   const handleClientSelection = async (clientName: string) => {
-    form.setValue('cliente', clientName);
     setClientDialogOpen(false);
     setClientSearch('');
-    form.setValue('items', []);
-    form.setValue('placas', []);
-    setArticulos([]);
+    await handleClientChange(clientName);
   };
 
   const handleProductDialogOpening = async (context: { itemIndex: number, placaIndex?: number }) => {
@@ -1263,13 +1270,15 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
 
   return (
     <FormProvider {...form}>
-      <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
+      <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8 relative">
         <RestoreDialog
             open={isRestoreDialogOpen}
             onOpenChange={onOpenChange}
             onRestore={onRestore}
             onDiscard={handleDiscard}
         />
+        {ClientChangeDialog}
+        {VerifyingClientSpinner}
         <ProductSelectorDialog
             open={isProductDialogOpen}
             onOpenChange={setProductDialogOpen}
@@ -1390,6 +1399,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                               <FormItem className="flex flex-col">
                                   <FormLabel>Cliente <span className="text-destructive">*</span></FormLabel>
                                   <Dialog open={isClientDialogOpen} onOpenChange={(isOpen) => {
+                                      if (isVerifying) return;
                                       if (!isOpen) setClientSearch('');
                                       setClientDialogOpen(isOpen);
                                   }}>
@@ -1433,7 +1443,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                           </div>
                                       </DialogContent>
                                   </Dialog>
-                                    {isClientChangeDisabled && (
+                                    {isClientChangeDisabled && !isAuthorizedEditor && (
                                       <FormDescription>
                                         Para cambiar de cliente, elimine todos los ítems.
                                       </FormDescription>
@@ -1448,7 +1458,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                           render={({ field }) => (
                             <FormItem>
                               <FormLabel>Fecha <span className="text-destructive">*</span></FormLabel>
-                              {isAdmin ? (
+                              {isAuthorizedEditor ? (
                                 <Popover>
                                   <PopoverTrigger asChild>
                                     <FormControl>
@@ -1955,7 +1965,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                              <FormField control={form.control} name="operarioResponsable" render={({ field }) => (
                                 <FormItem>
                                     <FormLabel>Operario Responsable</FormLabel>
-                                    <Select onValueChange={field.onChange} value={field.value}>
+                                    <Select onValueChange={field.onChange} value={field.value} defaultValue={originalSubmission?.userId}>
                                         <FormControl><SelectTrigger><SelectValue placeholder="Seleccione un operario" /></SelectTrigger></FormControl>
                                         <SelectContent>
                                             {allUsers.map(u => <SelectItem key={u.uid} value={u.uid}>{u.displayName}</SelectItem>)}
@@ -2337,7 +2347,5 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
-
-    
 
     

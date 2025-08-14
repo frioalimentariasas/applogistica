@@ -17,6 +17,7 @@ import { getClients, type ClientInfo } from "@/app/actions/clients";
 import { getArticulosByClients, type ArticuloInfo } from "@/app/actions/articulos";
 import { getUsersList, type UserInfo } from "@/app/actions/users";
 import { useFormPersistence } from "@/hooks/use-form-persistence";
+import { useClientChangeHandler } from "@/hooks/useClientChangeHandler.tsx";
 import { saveForm } from "@/app/actions/save-form";
 import { storage } from "@/lib/firebase";
 import { ref, uploadString, getDownloadURL } from "firebase/storage";
@@ -262,7 +263,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
   const formSchema = useMemo(() => createFormSchema(isReception), [isReception]);
 
   const { toast } = useToast();
-  const { user, displayName, permissions } = useAuth();
+  const { user, displayName, permissions, email } = useAuth();
   
   const [clientes, setClientes] = useState<ClientInfo[]>([]);
   const [allUsers, setAllUsers] = useState<UserInfo[]>([]);
@@ -293,6 +294,8 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
 
 
   const isAdmin = permissions.canManageSessions;
+  const isAuthorizedEditor = submissionId && (email === 'sistemas@frioalimentaria.com.co' || email === 'planta@frioalimentaria.com.co');
+
 
   const filteredClients = useMemo(() => {
     if (!clientSearch) return clientes;
@@ -304,6 +307,11 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
     defaultValues: originalDefaultValues,
     mode: "onSubmit",
     reValidateMode: "onSubmit"
+  });
+
+   const { handleClientChange, ClientChangeDialog, VerifyingClientSpinner, isVerifying } = useClientChangeHandler({
+    form,
+    setArticulos
   });
 
   const { fields, append, remove } = useFieldArray({
@@ -338,8 +346,9 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
 
 
   const isClientChangeDisabled = useMemo(() => {
+    if (isAuthorizedEditor) return false;
     return productos.length > 1 || (productos.length === 1 && !!productos[0].descripcion);
-  }, [productos]);
+  }, [productos, isAuthorizedEditor]);
 
   const totalCajas = useMemo(() => {
     return (productos || []).reduce((acc, p) => acc + (Number(p.cajas) || 0), 0);
@@ -432,7 +441,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
               tipoPedido: formData.tipoPedido ?? undefined,
               tipoEmpaqueMaquila: formData.tipoEmpaqueMaquila ?? undefined,
               numeroOperariosCuadrilla: formData.numeroOperariosCuadrilla ?? undefined,
-              operarioResponsable: undefined,
+              operarioResponsable: submission.userId,
               productos: (formData.productos || []).map((p: any) => ({
                   ...originalDefaultValues.productos[0],
                   ...p,
@@ -764,12 +773,9 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
   }
   
   const handleClientSelection = async (clientName: string) => {
-      form.setValue('nombreCliente', clientName);
       setClientDialogOpen(false);
       setClientSearch('');
-  
-      form.setValue('productos', [{ codigo: '', descripcion: '', cajas: 0, totalPaletas: 0, pesoNetoKg: 0, temperatura1: null, temperatura2: null, temperatura3: null }]);
-      setArticulos([]);
+      await handleClientChange(clientName);
   };
 
   const handleProductDialogOpening = async (index: number) => {
@@ -817,13 +823,15 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
+    <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8 relative">
       <RestoreDialog
         open={isRestoreDialogOpen}
         onOpenChange={onOpenChange}
         onRestore={onRestore}
         onDiscard={handleDiscard}
       />
+      {ClientChangeDialog}
+      {VerifyingClientSpinner}
       <ProductSelectorDialog
         open={isProductDialogOpen}
         onOpenChange={setProductDialogOpen}
@@ -949,6 +957,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                         <FormItem className="flex flex-col">
                           <FormLabel>Nombre del Cliente <span className="text-destructive">*</span></FormLabel>
                             <Dialog open={isClientDialogOpen} onOpenChange={(isOpen) => {
+                                if (isVerifying) return;
                                 if (!isOpen) setClientSearch("");
                                 setClientDialogOpen(isOpen);
                             }}>
@@ -992,7 +1001,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                                     </div>
                                 </DialogContent>
                             </Dialog>
-                             {isClientChangeDisabled && (
+                             {isClientChangeDisabled && !isAuthorizedEditor && (
                                 <FormDescription>
                                   Para cambiar de cliente, elimine todos los ítems.
                                 </FormDescription>
@@ -1007,7 +1016,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                       render={({ field }) => (
                         <FormItem>
                           <FormLabel>Fecha <span className="text-destructive">*</span></FormLabel>
-                          {isAdmin ? (
+                          {isAuthorizedEditor ? (
                             <Popover>
                               <PopoverTrigger asChild>
                                 <FormControl>
@@ -1429,7 +1438,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                              <FormField control={form.control} name="operarioResponsable" render={({ field }) => (
                                 <FormItem className="lg:col-span-2">
                                     <FormLabel>Operario Responsable</FormLabel>
-                                    <Select onValueChange={field.onChange} value={field.value}>
+                                    <Select onValueChange={field.onChange} defaultValue={originalSubmission?.userId} value={field.value}>
                                         <FormControl><SelectTrigger><SelectValue placeholder="Operario" /></SelectTrigger></FormControl>
                                         <SelectContent>
                                             {allUsers.map(u => <SelectItem key={u.uid} value={u.uid}>{u.displayName}</SelectItem>)}
@@ -1610,148 +1619,22 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
               </AlertDialogFooter>
           </AlertDialogContent>
       </AlertDialog>
+      <AlertDialog open={isMixErrorDialogOpen} onOpenChange={setMixErrorDialogOpen}>
+        <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Error de Validación</AlertDialogTitle>
+                <AlertDialogDesc>
+                No se pueden mezclar ítems de resumen (Paleta 0) con ítems de paletas individuales. Por favor, use solo un método.
+                </AlertDialogDesc>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogAction onClick={() => setMixErrorDialogOpen(false)}>Entendido</AlertDialogAction>
+            </AlertDialogFooter>
+        </AlertDialogContent>
+    </AlertDialog>
     </div>
+    </FormProvider>
   );
-}
-
-function ObservationSelectorDialog({
-    open,
-    onOpenChange,
-    standardObservations,
-    onSelect,
-}: {
-    open: boolean;
-    onOpenChange: (open: boolean) => void;
-    standardObservations: StandardObservation[];
-    onSelect: (observation: { name: string, quantityType?: string }) => void;
-}) {
-    const [search, setSearch] = useState("");
-
-    const allObservations = useMemo(() => [
-        ...standardObservations,
-        { id: 'OTRAS', name: 'OTRAS OBSERVACIONES', quantityType: '' }
-    ], [standardObservations]);
-
-    const filteredObservations = useMemo(() => {
-        if (!search) return allObservations;
-        return allObservations.filter(obs => obs.name.toLowerCase().includes(search.toLowerCase()));
-    }, [search, allObservations]);
-
-    useEffect(() => {
-        if (!open) {
-            setSearch("");
-        }
-    }, [open]);
-
-    return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Seleccionar Tipo de Observación</DialogTitle>
-                    <DialogDescription>Busque y seleccione un tipo de la lista.</DialogDescription>
-                </DialogHeader>
-                <Input
-                    placeholder="Buscar observación..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="my-4"
-                />
-                <ScrollArea className="h-72">
-                    <div className="space-y-1">
-                        {filteredObservations.map((obs) => (
-                            <Button
-                                key={obs.id}
-                                variant="ghost"
-                                className="w-full justify-start"
-                                onClick={() => {
-                                    onSelect({ name: obs.name, quantityType: obs.quantityType });
-                                    onOpenChange(false);
-                                }}
-                            >
-                                {obs.name}
-                            </Button>
-                        ))}
-                        {filteredObservations.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontró la observación.</p>}
-                    </div>
-                </ScrollArea>
-            </DialogContent>
-        </Dialog>
-    );
-}
-
-// Component for the product selector dialog
-function ProductSelectorDialog({
-    open,
-    onOpenChange,
-    articulos,
-    isLoading,
-    clientSelected,
-    onSelect,
-}: {
-    open: boolean;
-    onOpenChange: (open: boolean) => void;
-    articulos: ArticuloInfo[];
-    isLoading: boolean;
-    clientSelected: boolean;
-    onSelect: (articulo: ArticuloInfo) => void;
-}) {
-    const [search, setSearch] = useState("");
-
-    const filteredArticulos = useMemo(() => {
-        if (!search) return articulos;
-        return articulos.filter(a => a.denominacionArticulo.toLowerCase().includes(search.toLowerCase()) || a.codigoProducto.toLowerCase().includes(search.toLowerCase()));
-    }, [search, articulos]);
-    
-    useEffect(() => {
-        if (!open) {
-            setSearch("");
-        }
-    }, [open]);
-
-    return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Seleccionar Producto</DialogTitle>
-                    <DialogDescription>Busque y seleccione un producto de la lista del cliente.</DialogDescription>
-                </DialogHeader>
-                {!clientSelected ? (
-                    <div className="p-4 text-center text-muted-foreground">Debe escoger primero un cliente.</div>
-                ) : (
-                    <>
-                        <Input
-                            placeholder="Buscar producto por código o descripción..."
-                            value={search}
-                            onChange={(e) => setSearch(e.target.value)}
-                            className="mb-4"
-                        />
-                        <ScrollArea className="h-72">
-                            <div className="space-y-1">
-                                {isLoading && <p className="text-center text-sm text-muted-foreground">Cargando...</p>}
-                                {!isLoading && filteredArticulos.length === 0 && <p className="text-center text-sm text-muted-foreground">No se encontraron productos.</p>}
-                                {filteredArticulos.map((p, i) => (
-                                    <Button
-                                        key={`${p.id}-${i}`}
-                                        variant="ghost"
-                                        className="w-full justify-start h-auto text-wrap"
-                                        onClick={() => {
-                                            onSelect(p);
-                                            onOpenChange(false);
-                                        }}
-                                    >
-                                        <div className="flex flex-col items-start">
-                                            <span>{p.denominacionArticulo}</span>
-                                            <span className="text-xs text-muted-foreground">{p.codigoProducto}</span>
-                                        </div>
-                                    </Button>
-                                ))}
-                            </div>
-                        </ScrollArea>
-                    </>
-                )}
-            </DialogContent>
-        </Dialog>
-    );
 }
 
 function PedidoTypeSelectorDialog({
