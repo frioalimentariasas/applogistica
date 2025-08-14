@@ -115,7 +115,7 @@ const formatDuration = (totalMinutes: number | null): string => {
 };
 
 const getPerformanceIndicator = (row: CrewPerformanceReportRow): { text: string, className: string, icon: React.FC<any> } => {
-    const { operationalDurationMinutes, totalDurationMinutes, standard, cantidadConcepto, tipoOperacion, conceptoLiquidado } => row;
+    const { operationalDurationMinutes, totalDurationMinutes, standard, cantidadConcepto, tipoOperacion, conceptoLiquidado } = row;
 
     if (conceptoLiquidado !== 'CARGUE' && conceptoLiquidado !== 'DESCARGUE') {
         return { text: 'No Aplica', className: 'bg-gray-100 text-gray-600', icon: Circle };
@@ -572,6 +572,8 @@ export default function CrewPerformanceReportPage() {
             XLSX.writeFile(wb, "Reporte_Analisis_Productividad.xlsx");
 
         } else if (type === 'settlement' && liquidationData.length > 0) {
+             const wb = XLSX.utils.book_new();
+
             const data = liquidationData.map(row => ({
                 'Mes': format(new Date(row.fecha), 'MMMM', { locale: es }),
                 'Fecha': format(new Date(row.fecha), 'dd/MM/yy'),
@@ -587,30 +589,45 @@ export default function CrewPerformanceReportPage() {
                 'Valor Unitario': row.valorUnitario,
                 'Valor Total': row.valorTotalConcepto,
             }));
-             const totalRow = {
+            
+            const totalRow = {
                 'Mes': 'TOTAL GENERAL',
-                'Fecha': '',
-                'Pedido': '',
-                'Contenedor': '',
-                'Placa': '',
-                'Cliente': '',
-                'Concepto': '',
-                'Cantidad': '',
-                'H. Inicio': '',
-                'H. Fin': '',
-                'Duración': '',
-                'Valor Unitario': '',
-                'Valor Total': totalLiquidacion,
+                'Fecha': '', 'Pedido': '', 'Contenedor': '', 'Placa': '', 'Cliente': '', 'Concepto': '', 'Cantidad': '',
+                'H. Inicio': '', 'H. Fin': '', 'Duración': '', 'Valor Unitario': '', 'Valor Total': totalLiquidacion,
             };
+            
             const ws = XLSX.utils.json_to_sheet([...data, totalRow]);
             ws['!cols'] = [ {wch:12}, {wch:12}, {wch:15}, {wch:15}, {wch:12}, {wch:25}, {wch:20}, {wch:20}, {wch:10}, {wch:10}, {wch:12}, {wch:15}, {wch:15} ];
+            
+            // Apply currency format
             for (let i = 2; i <= data.length + 2; i++) {
                 if (ws[`L${i}`]) ws[`L${i}`].z = '"$"#,##0.00';
                 if (ws[`M${i}`]) ws[`M${i}`].z = '"$"#,##0.00';
             }
             
-            const wb = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(wb, ws, "Liquidacion");
+            XLSX.utils.book_append_sheet(wb, ws, "Liquidacion_Detallada");
+
+            // Sheet 2: Resumen
+            if (conceptSummary) {
+                const summaryDataToExport = conceptSummary.map(item => ({
+                    'Concepto': item.name,
+                    'Cantidad Total': `${item.totalCantidad.toFixed(2)} ${item.unidadMedida}`,
+                    'Valor Unitario': item.valorUnitario,
+                    'Valor Total Liquidado': item.totalValor
+                }));
+                
+                const wsSummary = XLSX.utils.json_to_sheet(summaryDataToExport);
+                wsSummary['!cols'] = [{ wch: 25 }, { wch: 20 }, { wch: 15 }, { wch: 20 }];
+                
+                // Apply currency format for summary
+                for (let i = 2; i <= summaryDataToExport.length + 1; i++) {
+                    if (wsSummary[`C${i}`]) wsSummary[`C${i}`].z = '"$"#,##0.00';
+                    if (wsSummary[`D${i}`]) wsSummary[`D${i}`].z = '"$"#,##0.00';
+                }
+
+                XLSX.utils.book_append_sheet(wb, wsSummary, "Resumen_Liquidacion");
+            }
+            
             XLSX.writeFile(wb, "Reporte_Liquidacion_Cuadrilla.xlsx");
         }
     };
@@ -641,7 +658,6 @@ export default function CrewPerformanceReportPage() {
         if (type === 'productivity' && filteredReportData.length > 0) {
             addHeader("Reporte de Análisis de Productividad");
             
-            // 1. Resumen
             if (performanceSummary) {
                 doc.setFontSize(11);
                 doc.setFont('helvetica', 'bold');
@@ -668,7 +684,6 @@ export default function CrewPerformanceReportPage() {
                 finalY = (doc as any).autoTable.previous.finalY + 10;
             }
 
-            // 2. Novedades
             const noveltiesData = filteredReportData.filter(row => row.novelties.length > 0);
              if (noveltiesData.length > 0) {
                  if(finalY + 40 > pageHeight) { doc.addPage(); finalY = 15; }
@@ -693,7 +708,6 @@ export default function CrewPerformanceReportPage() {
                 finalY = (doc as any).autoTable.previous.finalY + 10;
             }
 
-            // 3. Detalle
              if(finalY + 40 > pageHeight) { doc.addPage(); finalY = 15; }
              doc.setFontSize(11);
              doc.setFont('helvetica', 'bold');
