@@ -44,13 +44,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge, badgeVariants } from '@/components/ui/badge';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDialogDesc, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-
 
 const noveltySchema = z.object({
     type: z.string().min(1, "Debe seleccionar o ingresar un tipo de novedad."),
     downtimeMinutes: z.coerce.number({invalid_type_error: "Debe ser un número"}).int("Debe ser un número entero.").min(0, "Los minutos no pueden ser negativos."),
-    purpose: z.enum(['justification', 'settlement'], { required_error: 'Debe seleccionar un propósito.' }),
 });
 
 type NoveltyFormValues = z.infer<typeof noveltySchema>;
@@ -206,7 +203,7 @@ export default function CrewPerformanceReportPage() {
 
     const noveltyForm = useForm<NoveltyFormValues>({
         resolver: zodResolver(noveltySchema),
-        defaultValues: { type: '', downtimeMinutes: 0, purpose: 'justification' }
+        defaultValues: { type: '', downtimeMinutes: 0 }
     });
     
     const legalizeForm = useForm<LegalizeFormValues>({
@@ -741,7 +738,7 @@ export default function CrewPerformanceReportPage() {
 
     const handleOpenNoveltyDialog = (row: CrewPerformanceReportRow) => {
         setSelectedRowForNovelty(row);
-        noveltyForm.reset({ type: '', downtimeMinutes: 0, purpose: 'justification' });
+        noveltyForm.reset({ type: '', downtimeMinutes: 0 });
         setIsNoveltyDialogOpen(true);
     };
     
@@ -753,7 +750,6 @@ export default function CrewPerformanceReportPage() {
             operationId: selectedRowForNovelty.submissionId,
             type: data.type.toUpperCase(),
             downtimeMinutes: data.downtimeMinutes,
-            purpose: data.purpose,
             createdBy: { uid: user.uid, displayName: displayName }
         };
     
@@ -766,7 +762,6 @@ export default function CrewPerformanceReportPage() {
                     let downtimeMinutes = 0;
                     if (row.aplicaCuadrilla === 'si') {
                         downtimeMinutes = updatedNovelties
-                            .filter(n => n.purpose === 'justification')
                             .reduce((sum, n) => sum + n.downtimeMinutes, 0);
                     }
                     const newOperationalDuration = row.totalDurationMinutes !== null ? row.totalDurationMinutes - downtimeMinutes : null;
@@ -796,7 +791,6 @@ export default function CrewPerformanceReportPage() {
                     let downtimeMinutes = 0;
                      if (row.aplicaCuadrilla === 'si') {
                         downtimeMinutes = updatedNovelties
-                            .filter(n => n.purpose === 'justification')
                             .reduce((sum, n) => sum + n.downtimeMinutes, 0);
                     }
                     const newOperationalDuration = row.totalDurationMinutes !== null ? row.totalDurationMinutes - downtimeMinutes : null;
@@ -1042,11 +1036,9 @@ export default function CrewPerformanceReportPage() {
                                                                                     <Edit2 className="mr-2 h-4 w-4"/>Legalizar
                                                                                 </Button>
                                                                             )}
-                                                                            {indicator.text === 'Lento' && (
-                                                                                <Button variant="secondary" size="sm" onClick={() => handleOpenNoveltyDialog(row)} className="h-8">
-                                                                                    <PlusCircle className="mr-2 h-4 w-4"/>Novedad
-                                                                                </Button>
-                                                                            )}
+                                                                             <Button variant="secondary" size="sm" onClick={() => handleOpenNoveltyDialog(row)} className="h-8">
+                                                                                <PlusCircle className="mr-2 h-4 w-4"/>Novedad
+                                                                            </Button>
                                                                         </div>
                                                                     </TableCell>
                                                                 </TableRow>
@@ -1158,28 +1150,6 @@ export default function CrewPerformanceReportPage() {
                                                 Seleccionar
                                             </Button>
                                         </div>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
-                            <FormField
-                                control={noveltyForm.control}
-                                name="purpose"
-                                render={({ field }) => (
-                                    <FormItem className="space-y-3">
-                                        <FormLabel>Propósito de la Novedad</FormLabel>
-                                        <FormControl>
-                                            <RadioGroup onValueChange={field.onChange} value={field.value} className="flex flex-col space-y-1">
-                                                <FormItem className="flex items-center space-x-3 space-y-0">
-                                                    <FormControl><RadioGroupItem value="justification" /></FormControl>
-                                                    <FormLabel className="font-normal cursor-pointer">Justificar Demora (Afecta Productividad)</FormLabel>
-                                                </FormItem>
-                                                <FormItem className="flex items-center space-x-3 space-y-0">
-                                                    <FormControl><RadioGroupItem value="settlement" /></FormControl>
-                                                    <FormLabel className="font-normal cursor-pointer">Novedad Para control Interno (No afecta Productividad)</FormLabel>
-                                                </FormItem>
-                                            </RadioGroup>
-                                        </FormControl>
                                         <FormMessage />
                                     </FormItem>
                                 )}
@@ -1342,6 +1312,7 @@ function NoveltySelectorDialog({
     );
 }
   
+
 
 
 

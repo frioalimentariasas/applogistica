@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -19,12 +20,13 @@ export interface NoveltyData {
   };
 }
 
-export async function addNoveltyToOperation(data: Omit<NoveltyData, 'id' | 'createdAt' | 'createdBy'> & { operationId: string; createdBy: { uid: string; displayName: string; } }): Promise<{ success: boolean; message: string; novelty?: NoveltyData }> {
+export async function addNoveltyToOperation(data: Omit<NoveltyData, 'id' | 'createdAt' | 'createdBy' | 'purpose'> & { operationId: string; createdBy: { uid: string; displayName: string; } }): Promise<{ success: boolean; message: string; novelty?: NoveltyData }> {
   if (!firestore) return { success: false, message: 'Error de configuración del servidor.' };
 
   const noveltyWithTimestamp = {
       ...data,
-      createdAt: new Date().toISOString()
+      createdAt: new Date().toISOString(),
+      purpose: 'justification' as const // Default to justification, logic is handled in report
   };
 
   try {
