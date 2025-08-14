@@ -23,10 +23,13 @@ export function useClientChangeHandler<T>({ form, setArticulos }: UseClientChang
     setIsVerifying(true);
     
     const formData = form.getValues();
-    const productListName = formData.productos ? 'productos' : (formData.destinos ? 'destinos' : 'items');
-    const clientFieldName = formData.nombreCliente !== undefined ? 'nombreCliente' : 'cliente';
-    const isDespachoPorDestino = productListName === 'destinos';
     
+    // Determine the correct field names for products and client
+    const productListName = formData.productos ? 'productos' : 
+                          (formData.destinos ? 'destinos' : 'items');
+    const clientFieldName = formData.nombreCliente !== undefined ? 'nombreCliente' : 'cliente';
+
+    const isDespachoPorDestino = productListName === 'destinos';
     const formProducts = formData[productListName];
 
     if (!formProducts || formProducts.length === 0 || formProducts.every((p:any) => !p.descripcion && (!p.items || p.items.length === 0))) {
@@ -53,7 +56,7 @@ export function useClientChangeHandler<T>({ form, setArticulos }: UseClientChang
 
       if (allProductsExist) {
         form.setValue(clientFieldName, newClient);
-        setArticulos(newClientArticulos);
+        setArticulos(newClientArticulos); // Update the available articles list
       } else {
         setNewClientToSet(newClient);
         setConfirmDialogOpen(true);
@@ -69,7 +72,8 @@ export function useClientChangeHandler<T>({ form, setArticulos }: UseClientChang
   const onConfirmChange = async () => {
     if (newClientToSet) {
       const formData = form.getValues();
-      const productListName = formData.productos ? 'productos' : (formData.destinos ? 'destinos' : 'items');
+      const productListName = formData.productos ? 'productos' : 
+                            (formData.destinos ? 'destinos' : 'items');
       const clientFieldName = formData.nombreCliente !== undefined ? 'nombreCliente' : 'cliente';
 
       form.setValue(clientFieldName, newClientToSet);
