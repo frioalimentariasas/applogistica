@@ -16,7 +16,7 @@ import { getClients, type ClientInfo } from "@/app/actions/clients";
 import { getArticulosByClients, type ArticuloInfo } from "@/app/actions/articulos";
 import { getUsersList, type UserInfo } from "@/app/actions/users";
 import { useFormPersistence } from "@/hooks/use-form-persistence";
-import { useClientChangeHandler } from "@/hooks/useClientChangeHandler";
+import { useClientChangeHandler } from "@/hooks/useClientChangeHandler.tsx";
 import { saveForm } from "@/app/actions/save-form";
 import { storage } from "@/lib/firebase";
 import { ref, uploadString, getDownloadURL } from "firebase/storage";
@@ -775,7 +775,10 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
   const handleClientSelection = async (clientName: string) => {
     setClientDialogOpen(false);
     setClientSearch('');
-    await handleClientChange(clientName);
+    const newArticulos = await handleClientChange(clientName);
+    if (newArticulos) {
+        setArticulos(newArticulos);
+    }
   };
 
   const handleProductDialogOpening = async (index: number) => {
