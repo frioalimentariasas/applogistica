@@ -223,7 +223,7 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
         const isDispatch = formType.includes('despacho');
         const conceptName = isReception ? 'DESCARGUE' : (isDispatch ? 'CARGUE' : null);
         
-        if (conceptName) {
+        if (conceptName && formData.tipoPedido !== 'MAQUILA') {
             const kilos = calculateTotalKilos(formType, formData);
             const operationConcept = billingConcepts.find(c => c.conceptName === conceptName && c.unitOfMeasure === 'TONELADA');
             
@@ -457,3 +457,5 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         throw error;
     }
 }
+
+    
