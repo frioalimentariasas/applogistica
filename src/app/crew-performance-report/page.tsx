@@ -301,6 +301,14 @@ export default function CrewPerformanceReportPage() {
         }
     }, []);
     
+    const handleScroll = useCallback((direction: 'left' | 'right') => {
+        const el = scrollViewportRef.current;
+        if (el) {
+            const scrollAmount = direction === 'left' ? -300 : 300;
+            el.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+        }
+    }, []);
+
     useEffect(() => {
         const el = scrollViewportRef.current;
         if (el) {
@@ -322,15 +330,7 @@ export default function CrewPerformanceReportPage() {
                 window.removeEventListener('keydown', handleKeyDown);
             };
         }
-    }, [handleCheckScroll, displayedData]);
-
-    const handleScroll = (direction: 'left' | 'right') => {
-        const el = scrollViewportRef.current;
-        if (el) {
-            const scrollAmount = direction === 'left' ? -300 : 300;
-            el.scrollBy({ left: scrollAmount, behavior: 'smooth' });
-        }
-    };
+    }, [handleCheckScroll, displayedData, handleScroll]);
 
 
     const handleSearch = useCallback(async () => {
