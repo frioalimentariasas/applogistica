@@ -308,31 +308,36 @@ export default function CrewPerformanceReportPage() {
             el.scrollBy({ left: scrollAmount, behavior: 'smooth' });
         }
     }, []);
-
+    
     useEffect(() => {
         const el = scrollViewportRef.current;
-        if (el) {
-            handleCheckScroll();
-            el.addEventListener('scroll', handleCheckScroll);
-            window.addEventListener('resize', handleCheckScroll);
-            const handleKeyDown = (e: KeyboardEvent) => {
-                if (e.key === 'ArrowLeft') {
-                    e.preventDefault();
-                    handleScroll('left');
-                } else if (e.key === 'ArrowRight') {
-                    e.preventDefault();
-                    handleScroll('right');
-                }
-            };
-            window.addEventListener('keydown', handleKeyDown);
+        if (!el) return;
 
-            return () => {
-                el.removeEventListener('scroll', handleCheckScroll);
-                window.removeEventListener('resize', handleCheckScroll);
-                window.removeEventListener('keydown', handleKeyDown);
-            };
-        }
-    }, [handleCheckScroll, displayedData, handleScroll]);
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                handleScroll('left');
+            } else if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                handleScroll('right');
+            }
+        };
+
+        handleCheckScroll();
+        el.addEventListener('scroll', handleCheckScroll, { passive: true });
+        window.addEventListener('resize', handleCheckScroll);
+        // Attach keydown listener to the scrollable element itself to ensure focus
+        el.addEventListener('keydown', handleKeyDown);
+        // Set tabindex to allow the div to be focused
+        el.setAttribute('tabindex', '0');
+
+        return () => {
+            el.removeEventListener('scroll', handleCheckScroll);
+            window.removeEventListener('resize', handleCheckScroll);
+            el.removeEventListener('keydown', handleKeyDown);
+            el.removeAttribute('tabindex');
+        };
+    }, [handleCheckScroll, handleScroll]);
 
 
     const handleSearch = useCallback(async () => {
@@ -1006,7 +1011,7 @@ export default function CrewPerformanceReportPage() {
                                 </div>
                                  <div className="relative">
                                      <ScrollArea className="w-full whitespace-nowrap rounded-md border">
-                                        <ScrollAreaViewport ref={scrollViewportRef}>
+                                        <ScrollAreaViewport ref={scrollViewportRef} className="outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
                                             <Table><TableHeader><TableRow>
                                                 <TableHead>Fecha</TableHead>
                                                 <TableHead>Operario</TableHead>
