@@ -26,6 +26,7 @@ export function useClientChangeHandler<T>({ form, setArticulos }: UseClientChang
     
     const productListName = formData.productos ? 'productos' : 
                           (formData.destinos ? 'destinos' : 'items');
+    
     const clientFieldName = formData.nombreCliente !== undefined ? 'nombreCliente' : 'cliente';
 
     const isDespachoPorDestino = productListName === 'destinos';
@@ -41,10 +42,10 @@ export function useClientChangeHandler<T>({ form, setArticulos }: UseClientChang
         try {
             const newClientArticulos = await getArticulosByClients([newClient]);
             setIsVerifying(false);
-            return newClientArticulos; // Return the new list
+            return newClientArticulos;
         } catch (e) {
             setIsVerifying(false);
-            return []; // Return empty list on error
+            return [];
         }
     }
     
@@ -53,8 +54,8 @@ export function useClientChangeHandler<T>({ form, setArticulos }: UseClientChang
       
       const allProductsExist = flatProductList.every((formProduct: any) => 
         newClientArticulos.some(newArticulo => 
-          newArticulo.codigoProducto?.trim() === formProduct.codigo?.trim() &&
-          newArticulo.denominacionArticulo?.trim() === formProduct.descripcion?.trim()
+          newArticulo.codigoProducto.trim() === formProduct.codigo?.trim() &&
+          newArticulo.denominacionArticulo.trim() === formProduct.descripcion?.trim()
         )
       );
 
@@ -62,12 +63,12 @@ export function useClientChangeHandler<T>({ form, setArticulos }: UseClientChang
         form.setValue(clientFieldName, newClient);
         setNewClientToSet(null);
         setIsVerifying(false);
-        return newClientArticulos; // <-- Return the list on success
+        return newClientArticulos;
       } else {
         setNewClientToSet(newClient);
         setConfirmDialogOpen(true);
         setIsVerifying(false);
-        return null; // Don't change the list yet
+        return null;
       }
 
     } catch (error) {
