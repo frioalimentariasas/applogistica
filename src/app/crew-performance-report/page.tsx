@@ -1032,9 +1032,11 @@ export default function CrewPerformanceReportPage() {
                                                                                     <Edit2 className="mr-2 h-4 w-4"/>Legalizar
                                                                                 </Button>
                                                                             )}
-                                                                             <Button variant="secondary" size="sm" onClick={() => handleOpenNoveltyDialog(row)} className="h-8">
-                                                                                <PlusCircle className="mr-2 h-4 w-4"/>Novedad
-                                                                            </Button>
+                                                                            {indicator.text === 'Lento' && (
+                                                                                <Button variant="secondary" size="sm" onClick={() => handleOpenNoveltyDialog(row)} className="h-8">
+                                                                                    <PlusCircle className="mr-2 h-4 w-4"/>Novedad
+                                                                                </Button>
+                                                                            )}
                                                                         </div>
                                                                     </TableCell>
                                                                 </TableRow>
