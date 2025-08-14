@@ -234,7 +234,7 @@ export default function CrewPerformanceReportPage() {
     }, [conceptSearch, allBillingConcepts]);
 
     const liquidationData = useMemo(() => {
-        return filteredReportData.filter(row => row.valorTotalConcepto > 0 || (row.aplicaCuadrilla === 'si' && (row.conceptoLiquidado === 'CARGUE' || row.conceptoLiquidado === 'DESCARGUE')));
+        return filteredReportData.filter(row => row.valorTotalConcepto > 0 || (row.aplicaCuadrilla === 'si' && (row.conceptoLiquidado === 'CARGUE' || row.conceptoLiquidado === 'DESCARGUE') && row.tipoPedido !== 'MAQUILA'));
     }, [filteredReportData]);
     
     const liquidationTotalPages = Math.ceil(liquidationData.length / itemsPerPage);
@@ -317,8 +317,10 @@ export default function CrewPerformanceReportPage() {
             window.addEventListener('resize', handleCheckScroll);
             const handleKeyDown = (e: KeyboardEvent) => {
                 if (e.key === 'ArrowLeft') {
+                    e.preventDefault();
                     handleScroll('left');
                 } else if (e.key === 'ArrowRight') {
+                    e.preventDefault();
                     handleScroll('right');
                 }
             };
