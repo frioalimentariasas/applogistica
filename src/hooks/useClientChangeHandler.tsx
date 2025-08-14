@@ -22,11 +22,10 @@ export function useClientChangeHandler<T>({ form, setArticulos }: UseClientChang
   const handleClientChange = async (newClient: string) => {
     setIsVerifying(true);
     
-    // Determine the correct field names for products and client
     const formData = form.getValues();
     const productListName = formData.productos ? 'productos' : (formData.destinos ? 'destinos' : 'items');
-    const isDespachoPorDestino = productListName === 'destinos';
     const clientFieldName = formData.nombreCliente !== undefined ? 'nombreCliente' : 'cliente';
+    const isDespachoPorDestino = productListName === 'destinos';
     
     const formProducts = formData[productListName];
 
@@ -67,16 +66,25 @@ export function useClientChangeHandler<T>({ form, setArticulos }: UseClientChang
     }
   };
 
-  const onConfirmChange = () => {
+  const onConfirmChange = async () => {
     if (newClientToSet) {
       const formData = form.getValues();
       const productListName = formData.productos ? 'productos' : (formData.destinos ? 'destinos' : 'items');
       const clientFieldName = formData.nombreCliente !== undefined ? 'nombreCliente' : 'cliente';
 
       form.setValue(clientFieldName, newClientToSet);
-      form.setValue(productListName, []);
+      form.setValue(productListName, []); // Clear products
       
-      setArticulos([]);
+      setIsVerifying(true);
+      try {
+        const newClientArticulos = await getArticulosByClients([newClientToSet]);
+        setArticulos(newClientArticulos);
+      } catch (e) {
+        setArticulos([]);
+      } finally {
+        setIsVerifying(false);
+      }
+      
       setConfirmDialogOpen(false);
       setNewClientToSet(null);
     }
