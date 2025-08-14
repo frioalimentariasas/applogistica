@@ -19,7 +19,7 @@ export function useClientChangeHandler<T>({ form, setArticulos }: UseClientChang
   const [isConfirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [newClientToSet, setNewClientToSet] = useState<string | null>(null);
 
-  const handleClientChange = async (newClient: string): Promise<ArticuloInfo[] | null> => {
+  const handleClientChange = async (newClient: string) => {
     setIsVerifying(true);
     
     const formData = form.getValues();
@@ -41,12 +41,13 @@ export function useClientChangeHandler<T>({ form, setArticulos }: UseClientChang
         setNewClientToSet(null);
         try {
             const newClientArticulos = await getArticulosByClients([newClient]);
-            setIsVerifying(false);
-            return newClientArticulos;
+            setArticulos(newClientArticulos); // Update directly
         } catch (e) {
-            setIsVerifying(false);
-            return [];
+            setArticulos([]); // Clear if error
+        } finally {
+             setIsVerifying(false);
         }
+        return; // Exit after handling
     }
     
     try {
@@ -62,19 +63,16 @@ export function useClientChangeHandler<T>({ form, setArticulos }: UseClientChang
       if (allProductsExist) {
         form.setValue(clientFieldName, newClient);
         setNewClientToSet(null);
-        setIsVerifying(false);
-        return newClientArticulos;
+        setArticulos(newClientArticulos); // Update state on success
       } else {
         setNewClientToSet(newClient);
         setConfirmDialogOpen(true);
-        setIsVerifying(false);
-        return null;
       }
 
     } catch (error) {
       toast({ variant: 'destructive', title: 'Error', description: 'No se pudo verificar la lista de productos del nuevo cliente.' });
-      setIsVerifying(false);
-      return null;
+    } finally {
+        setIsVerifying(false);
     }
   };
 
@@ -91,7 +89,7 @@ export function useClientChangeHandler<T>({ form, setArticulos }: UseClientChang
       setIsVerifying(true);
       try {
         const newClientArticulos = await getArticulosByClients([newClientToSet]);
-        setArticulos(newClientArticulos); // Update state here after confirmation
+        setArticulos(newClientArticulos);
       } catch (e) {
         setArticulos([]);
       } finally {
