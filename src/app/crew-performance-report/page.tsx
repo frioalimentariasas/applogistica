@@ -573,7 +573,13 @@ export default function CrewPerformanceReportPage() {
 
         } else if (type === 'settlement' && liquidationData.length > 0) {
             const data = liquidationData.map(row => ({
+                'Mes': format(new Date(row.fecha), 'MMMM', { locale: es }),
                 'Fecha': format(new Date(row.fecha), 'dd/MM/yy'),
+                'Placa': row.placa,
+                'Contenedor': row.contenedor,
+                'H. Inicio': row.horaInicio,
+                'H. Fin': row.horaFin,
+                'Duración': formatDuration(row.totalDurationMinutes),
                 'Cliente': row.cliente,
                 'Pedido': row.pedidoSislog,
                 'Concepto': row.conceptoLiquidado,
@@ -582,15 +588,15 @@ export default function CrewPerformanceReportPage() {
                 'Valor Total': row.valorTotalConcepto,
             }));
              const totalRow = {
-                'Fecha': 'TOTAL GENERAL',
+                'Mes': 'TOTAL GENERAL',
                 'Cliente': '', 'Pedido': '', 'Concepto': '', 'Cantidad': '', 'Valor Unitario': '',
                 'Valor Total': totalLiquidacion,
             };
             const ws = XLSX.utils.json_to_sheet([...data, totalRow]);
-            ws['!cols'] = [ {wch:10}, {wch:25}, {wch:12}, {wch:20}, {wch:15}, {wch:15}, {wch:15} ];
+            ws['!cols'] = [ {wch:12}, {wch:12}, {wch:12}, {wch:15}, {wch:10}, {wch:10}, {wch:12}, {wch:25}, {wch:15}, {wch:20}, {wch:20}, {wch:15}, {wch:15} ];
             for (let i = 2; i <= data.length + 2; i++) {
-                if (ws[`F${i}`]) ws[`F${i}`].z = '"$"#,##0.00';
-                if (ws[`G${i}`]) ws[`G${i}`].z = '"$"#,##0.00';
+                if (ws[`L${i}`]) ws[`L${i}`].z = '"$"#,##0.00';
+                if (ws[`M${i}`]) ws[`M${i}`].z = '"$"#,##0.00';
             }
             
             const wb = XLSX.utils.book_new();
@@ -710,22 +716,35 @@ export default function CrewPerformanceReportPage() {
 
         } else if (type === 'settlement' && liquidationData.length > 0) {
             addHeader("Reporte de Liquidación de Cuadrilla");
+            const head = [['Mes', 'Fecha', 'Placa', 'Contenedor', 'H. Inicio', 'H. Fin', 'Duración', 'Cliente', 'Pedido', 'Concepto', 'Cantidad', 'Vlr. Unitario', 'Vlr. Total']];
+            const body = liquidationData.map(row => [
+                format(new Date(row.fecha), 'MMMM', { locale: es }),
+                format(new Date(row.fecha), 'dd/MM/yy'),
+                row.placa,
+                row.contenedor,
+                row.horaInicio,
+                row.horaFin,
+                formatDuration(row.totalDurationMinutes),
+                row.cliente,
+                row.pedidoSislog,
+                row.conceptoLiquidado,
+                row.cantidadConcepto === -1 ? 'Pendiente' : `${row.cantidadConcepto.toFixed(2)} ${row.unidadMedidaConcepto}`,
+                row.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }),
+                row.valorTotalConcepto.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }),
+            ]);
+            const foot = [[
+                { content: 'TOTAL GENERAL', colSpan: 12, styles: { halign: 'right' } },
+                { content: totalLiquidacion.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right' } }
+            ]];
+
             autoTable(doc, {
                 startY: 20,
-                head: [['Fecha', 'Cliente', 'Pedido', 'Concepto', 'Cantidad', 'Vlr. Unitario', 'Vlr. Total']],
-                body: liquidationData.map(row => [
-                    format(new Date(row.fecha), 'dd/MM/yy'),
-                    row.cliente,
-                    row.pedidoSislog,
-                    row.conceptoLiquidado,
-                    row.cantidadConcepto === -1 ? 'Pendiente' : `${row.cantidadConcepto.toFixed(2)} ${row.unidadMedidaConcepto}`,
-                    row.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }),
-                    row.valorTotalConcepto.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }),
-                ]),
-                foot: [[
-                    { content: 'TOTAL GENERAL', colSpan: 6, styles: { halign: 'right' } },
-                    { content: totalLiquidacion.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right' } }
-                ]]
+                head,
+                body,
+                foot,
+                styles: { fontSize: 6, cellPadding: 1 },
+                headStyles: { fontSize: 6, cellPadding: 1, fillColor: '#3B82F6' },
+                footStyles: { fillColor: '#3B82F6', textColor: '#FFFFFF' },
             });
             addFooter();
             doc.save("Reporte_Liquidacion_Cuadrilla.pdf");
@@ -1032,7 +1051,7 @@ export default function CrewPerformanceReportPage() {
                                                                                     <Edit2 className="mr-2 h-4 w-4"/>Legalizar
                                                                                 </Button>
                                                                             )}
-                                                                            {indicator.text === 'Lento' && (
+                                                                             {indicator.text === 'Lento' && (
                                                                                 <Button variant="secondary" size="sm" onClick={() => handleOpenNoveltyDialog(row)} className="h-8">
                                                                                     <PlusCircle className="mr-2 h-4 w-4"/>Novedad
                                                                                 </Button>
@@ -1086,14 +1105,34 @@ export default function CrewPerformanceReportPage() {
                                 </div>
                                  <div className="w-full overflow-x-auto rounded-md border">
                                     <Table>
-                                        <TableHeader><TableRow><TableHead>Fecha</TableHead><TableHead>Cliente</TableHead><TableHead>Pedido</TableHead><TableHead>Concepto</TableHead><TableHead>Cant.</TableHead><TableHead>Vlr. Unitario</TableHead><TableHead>Vlr. Total</TableHead></TableRow></TableHeader>
+                                        <TableHeader><TableRow>
+                                            <TableHead>Mes</TableHead>
+                                            <TableHead>Fecha</TableHead>
+                                            <TableHead>Placa</TableHead>
+                                            <TableHead>Contenedor</TableHead>
+                                            <TableHead>H. Inicio</TableHead>
+                                            <TableHead>H. Fin</TableHead>
+                                            <TableHead>Duración</TableHead>
+                                            <TableHead>Cliente</TableHead>
+                                            <TableHead>Pedido</TableHead>
+                                            <TableHead>Concepto</TableHead>
+                                            <TableHead>Cant.</TableHead>
+                                            <TableHead>Vlr. Unitario</TableHead>
+                                            <TableHead>Vlr. Total</TableHead>
+                                        </TableRow></TableHeader>
                                         <TableBody>
-                                            {isLoading ? (<TableRow><TableCell colSpan={7}><Skeleton className="h-20 w-full" /></TableCell></TableRow>) : displayedLiquidationData.length > 0 ? (
+                                            {isLoading ? (<TableRow><TableCell colSpan={13}><Skeleton className="h-20 w-full" /></TableCell></TableRow>) : displayedLiquidationData.length > 0 ? (
                                                 displayedLiquidationData.map((row) => {
                                                     const isPending = row.cantidadConcepto === -1;
                                                     return (
                                                         <TableRow key={row.id}>
+                                                            <TableCell className="text-xs capitalize">{format(new Date(row.fecha), 'MMMM', { locale: es })}</TableCell>
                                                             <TableCell className="text-xs">{format(new Date(row.fecha), 'dd/MM/yy')}</TableCell>
+                                                            <TableCell className="text-xs">{row.placa}</TableCell>
+                                                            <TableCell className="text-xs">{row.contenedor}</TableCell>
+                                                            <TableCell className="text-xs">{row.horaInicio}</TableCell>
+                                                            <TableCell className="text-xs">{row.horaFin}</TableCell>
+                                                            <TableCell className="text-xs">{formatDuration(row.totalDurationMinutes)}</TableCell>
                                                             <TableCell className="text-xs max-w-[150px] truncate" title={row.cliente}>{row.cliente}</TableCell>
                                                             <TableCell className="text-xs">{row.pedidoSislog}</TableCell>
                                                             <TableCell className="text-xs font-semibold">{row.conceptoLiquidado}</TableCell>
@@ -1104,7 +1143,7 @@ export default function CrewPerformanceReportPage() {
                                                     )
                                                 })
                                             ) : (<EmptyState searched={searched} title="No se encontraron liquidaciones" description="No hay operaciones de cuadrilla con conceptos liquidables para los filtros seleccionados." />)}
-                                            {!isLoading && liquidationData.length > 0 && (<TableRow className="font-bold bg-muted hover:bg-muted"><TableCell colSpan={6} className="text-right">TOTAL GENERAL LIQUIDACIÓN</TableCell><TableCell className="text-right">{totalLiquidacion.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell></TableRow>)}
+                                            {!isLoading && liquidationData.length > 0 && (<TableRow className="font-bold bg-muted hover:bg-muted"><TableCell colSpan={12} className="text-right">TOTAL GENERAL LIQUIDACIÓN</TableCell><TableCell className="text-right">{totalLiquidacion.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell></TableRow>)}
                                         </TableBody>
                                     </Table>
                                  </div>
