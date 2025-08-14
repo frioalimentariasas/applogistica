@@ -115,7 +115,7 @@ const formatDuration = (totalMinutes: number | null): string => {
 };
 
 const getPerformanceIndicator = (row: CrewPerformanceReportRow): { text: string, className: string, icon: React.FC<any> } => {
-    const { operationalDurationMinutes, totalDurationMinutes, standard, cantidadConcepto, tipoOperacion, conceptoLiquidado } = row;
+    const { operationalDurationMinutes, totalDurationMinutes, standard, cantidadConcepto, tipoOperacion, conceptoLiquidado } => row;
 
     if (conceptoLiquidado !== 'CARGUE' && conceptoLiquidado !== 'DESCARGUE') {
         return { text: 'No Aplica', className: 'bg-gray-100 text-gray-600', icon: Circle };
@@ -575,25 +575,35 @@ export default function CrewPerformanceReportPage() {
             const data = liquidationData.map(row => ({
                 'Mes': format(new Date(row.fecha), 'MMMM', { locale: es }),
                 'Fecha': format(new Date(row.fecha), 'dd/MM/yy'),
-                'Placa': row.placa,
+                'Pedido': row.pedidoSislog,
                 'Contenedor': row.contenedor,
+                'Placa': row.placa,
+                'Cliente': row.cliente,
+                'Concepto': row.conceptoLiquidado,
+                'Cantidad': row.cantidadConcepto === -1 ? 'Pendiente' : `${row.cantidadConcepto.toFixed(2)} ${row.unidadMedidaConcepto}`,
                 'H. Inicio': row.horaInicio,
                 'H. Fin': row.horaFin,
                 'Duración': formatDuration(row.totalDurationMinutes),
-                'Cliente': row.cliente,
-                'Pedido': row.pedidoSislog,
-                'Concepto': row.conceptoLiquidado,
-                'Cantidad': row.cantidadConcepto === -1 ? 'Pendiente' : `${row.cantidadConcepto.toFixed(2)} ${row.unidadMedidaConcepto}`,
                 'Valor Unitario': row.valorUnitario,
                 'Valor Total': row.valorTotalConcepto,
             }));
              const totalRow = {
                 'Mes': 'TOTAL GENERAL',
-                'Cliente': '', 'Pedido': '', 'Concepto': '', 'Cantidad': '', 'Valor Unitario': '',
+                'Fecha': '',
+                'Pedido': '',
+                'Contenedor': '',
+                'Placa': '',
+                'Cliente': '',
+                'Concepto': '',
+                'Cantidad': '',
+                'H. Inicio': '',
+                'H. Fin': '',
+                'Duración': '',
+                'Valor Unitario': '',
                 'Valor Total': totalLiquidacion,
             };
             const ws = XLSX.utils.json_to_sheet([...data, totalRow]);
-            ws['!cols'] = [ {wch:12}, {wch:12}, {wch:12}, {wch:15}, {wch:10}, {wch:10}, {wch:12}, {wch:25}, {wch:15}, {wch:20}, {wch:20}, {wch:15}, {wch:15} ];
+            ws['!cols'] = [ {wch:12}, {wch:12}, {wch:15}, {wch:15}, {wch:12}, {wch:25}, {wch:20}, {wch:20}, {wch:10}, {wch:10}, {wch:12}, {wch:15}, {wch:15} ];
             for (let i = 2; i <= data.length + 2; i++) {
                 if (ws[`L${i}`]) ws[`L${i}`].z = '"$"#,##0.00';
                 if (ws[`M${i}`]) ws[`M${i}`].z = '"$"#,##0.00';
@@ -716,19 +726,19 @@ export default function CrewPerformanceReportPage() {
 
         } else if (type === 'settlement' && liquidationData.length > 0) {
             addHeader("Reporte de Liquidación de Cuadrilla");
-            const head = [['Mes', 'Fecha', 'Placa', 'Contenedor', 'H. Inicio', 'H. Fin', 'Duración', 'Cliente', 'Pedido', 'Concepto', 'Cantidad', 'Vlr. Unitario', 'Vlr. Total']];
+            const head = [['Mes', 'Fecha', 'Pedido', 'Contenedor', 'Placa', 'Cliente', 'Concepto', 'Cantidad', 'H. Inicio', 'H. Fin', 'Duración', 'Vlr. Unitario', 'Vlr. Total']];
             const body = liquidationData.map(row => [
                 format(new Date(row.fecha), 'MMMM', { locale: es }),
                 format(new Date(row.fecha), 'dd/MM/yy'),
-                row.placa,
+                row.pedidoSislog,
                 row.contenedor,
+                row.placa,
+                row.cliente,
+                row.conceptoLiquidado,
+                row.cantidadConcepto === -1 ? 'Pendiente' : `${row.cantidadConcepto.toFixed(2)} ${row.unidadMedidaConcepto}`,
                 row.horaInicio,
                 row.horaFin,
                 formatDuration(row.totalDurationMinutes),
-                row.cliente,
-                row.pedidoSislog,
-                row.conceptoLiquidado,
-                row.cantidadConcepto === -1 ? 'Pendiente' : `${row.cantidadConcepto.toFixed(2)} ${row.unidadMedidaConcepto}`,
                 row.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }),
                 row.valorTotalConcepto.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }),
             ]);
@@ -1108,15 +1118,15 @@ export default function CrewPerformanceReportPage() {
                                         <TableHeader><TableRow>
                                             <TableHead>Mes</TableHead>
                                             <TableHead>Fecha</TableHead>
-                                            <TableHead>Placa</TableHead>
+                                            <TableHead>Pedido</TableHead>
                                             <TableHead>Contenedor</TableHead>
+                                            <TableHead>Placa</TableHead>
+                                            <TableHead>Cliente</TableHead>
+                                            <TableHead>Concepto</TableHead>
+                                            <TableHead>Cant.</TableHead>
                                             <TableHead>H. Inicio</TableHead>
                                             <TableHead>H. Fin</TableHead>
                                             <TableHead>Duración</TableHead>
-                                            <TableHead>Cliente</TableHead>
-                                            <TableHead>Pedido</TableHead>
-                                            <TableHead>Concepto</TableHead>
-                                            <TableHead>Cant.</TableHead>
                                             <TableHead>Vlr. Unitario</TableHead>
                                             <TableHead>Vlr. Total</TableHead>
                                         </TableRow></TableHeader>
@@ -1128,15 +1138,15 @@ export default function CrewPerformanceReportPage() {
                                                         <TableRow key={row.id}>
                                                             <TableCell className="text-xs capitalize">{format(new Date(row.fecha), 'MMMM', { locale: es })}</TableCell>
                                                             <TableCell className="text-xs">{format(new Date(row.fecha), 'dd/MM/yy')}</TableCell>
-                                                            <TableCell className="text-xs">{row.placa}</TableCell>
+                                                            <TableCell className="text-xs">{row.pedidoSislog}</TableCell>
                                                             <TableCell className="text-xs">{row.contenedor}</TableCell>
+                                                            <TableCell className="text-xs">{row.placa}</TableCell>
+                                                            <TableCell className="text-xs max-w-[150px] truncate" title={row.cliente}>{row.cliente}</TableCell>
+                                                            <TableCell className="text-xs font-semibold">{row.conceptoLiquidado}</TableCell>
+                                                            <TableCell className="text-xs font-mono">{isPending ? 'Pendiente' : `${row.cantidadConcepto.toFixed(2)} ${row.unidadMedidaConcepto}`}</TableCell>
                                                             <TableCell className="text-xs">{row.horaInicio}</TableCell>
                                                             <TableCell className="text-xs">{row.horaFin}</TableCell>
                                                             <TableCell className="text-xs">{formatDuration(row.totalDurationMinutes)}</TableCell>
-                                                            <TableCell className="text-xs max-w-[150px] truncate" title={row.cliente}>{row.cliente}</TableCell>
-                                                            <TableCell className="text-xs">{row.pedidoSislog}</TableCell>
-                                                            <TableCell className="text-xs font-semibold">{row.conceptoLiquidado}</TableCell>
-                                                            <TableCell className="text-xs font-mono">{isPending ? 'Pendiente' : `${row.cantidadConcepto.toFixed(2)} ${row.unidadMedidaConcepto}`}</TableCell>
                                                             <TableCell className="text-xs font-mono">{isPending ? 'N/A' : row.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 })}</TableCell>
                                                             <TableCell className="text-xs font-mono">{isPending ? 'N/A' : row.valorTotalConcepto.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell>
                                                         </TableRow>
