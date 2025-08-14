@@ -41,29 +41,31 @@ export function useClientChangeHandler<T>({ form, setArticulos }: UseClientChang
         setNewClientToSet(null);
         try {
             const newClientArticulos = await getArticulosByClients([newClient]);
-            setArticulos(newClientArticulos); // Update directly
+            setArticulos(newClientArticulos); 
         } catch (e) {
-            setArticulos([]); // Clear if error
+            setArticulos([]);
         } finally {
              setIsVerifying(false);
         }
-        return; // Exit after handling
+        return; 
     }
     
     try {
       const newClientArticulos = await getArticulosByClients([newClient]);
       
-      const allProductsExist = flatProductList.every((formProduct: any) => 
-        newClientArticulos.some(newArticulo => 
-          newArticulo.codigoProducto.trim() === formProduct.codigo?.trim() &&
-          newArticulo.denominacionArticulo.trim() === formProduct.descripcion?.trim()
-        )
-      );
+      const allProductsExist = flatProductList.every((formProduct: any) => {
+        if (!formProduct.codigo || !formProduct.descripcion) return true; // Skip empty rows
+        
+        return newClientArticulos.some(newArticulo => 
+          newArticulo.codigoProducto.trim() === formProduct.codigo.trim() &&
+          newArticulo.denominacionArticulo.trim() === formProduct.descripcion.trim()
+        );
+      });
 
       if (allProductsExist) {
         form.setValue(clientFieldName, newClient);
+        setArticulos(newClientArticulos); // Update the available articles list
         setNewClientToSet(null);
-        setArticulos(newClientArticulos); // Update state on success
       } else {
         setNewClientToSet(newClient);
         setConfirmDialogOpen(true);
@@ -84,7 +86,7 @@ export function useClientChangeHandler<T>({ form, setArticulos }: UseClientChang
       const clientFieldName = formData.nombreCliente !== undefined ? 'nombreCliente' : 'cliente';
 
       form.setValue(clientFieldName, newClientToSet);
-      form.setValue(productListName, []);
+      form.setValue(productListName, []); // Clear the product list
       
       setIsVerifying(true);
       try {
