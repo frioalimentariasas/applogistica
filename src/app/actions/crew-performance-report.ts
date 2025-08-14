@@ -46,20 +46,27 @@ const calculateDuration = (horaInicio: string, horaFin: string): number | null =
 };
 
 const calculateTotalKilos = (formType: string, formData: any): number => {
-    // Para peso fijo, el total es la suma de los pesos brutos de la sección de productos.
+    // START: Logic for Fixed Weight forms (New and Old)
     if (formType.startsWith('fixed-weight-')) {
-        return (formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.pesoBrutoKg) || 0), 0);
+        // New forms have a dedicated total field.
+        if (formData.totalPesoBrutoKg !== undefined && formData.totalPesoBrutoKg > 0) {
+            return Number(formData.totalPesoBrutoKg);
+        }
+        // Old forms: sum up individual product weights for backward compatibility.
+        const totalFromProducts = (formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.pesoBrutoKg) || 0), 0);
+        return totalFromProducts;
     }
+    // END: Logic for Fixed Weight forms
     
-    // Para recepción de peso variable, la liquidación es por PESO BRUTO total.
+    // For variable weight reception, settlement is by total GROSS WEIGHT.
     if (formType.includes('reception') || formType.includes('recepcion')) {
         const allItems = (formData.items || [])
             .concat((formData.placas || []).flatMap((p: any) => p.items));
-        // Se suma el peso bruto de cada ítem, sin importar si es resumen o individual.
+        // Sum the gross weight of each item, regardless of whether it's summary or individual.
         return allItems.reduce((sum: number, p: any) => sum + (Number(p.pesoBruto) || 0), 0);
     }
     
-    // Para despacho de peso variable, se usa el peso NETO.
+    // For variable weight dispatch, use NET WEIGHT.
     if (formType.startsWith('variable-weight-')) {
         const allItems = (formData.items || [])
             .concat((formData.destinos || []).flatMap((d: any) => d.items));
@@ -72,6 +79,7 @@ const calculateTotalKilos = (formType: string, formData: any): number => {
 
     return 0;
 };
+
 
 const calculateTotalPallets = (formType: string, formData: any): number => {
     if (formType.startsWith('fixed-weight-')) {
@@ -148,6 +156,7 @@ export interface CrewPerformanceReportRow {
     unidadMedidaConcepto: string;
     valorTotalConcepto: number;
     aplicaCuadrilla: string | undefined;
+    formData: any; // Include full formData for legalization modal
 }
 
 
@@ -225,7 +234,9 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
             const operationConcept = billingConcepts.find(c => c.conceptName === conceptName && c.unitOfMeasure === 'TONELADA');
             
             if (operationConcept) {
-                const isPending = (formType.startsWith('fixed-weight-') && kilos === 0);
+                // Check if the weight is pending. For fixed weight, check totalPesoBrutoKg.
+                const isPending = formType.startsWith('fixed-weight-') && (formData.totalPesoBrutoKg === 0 || formData.totalPesoBrutoKg === undefined);
+                
                 if (isPending) {
                      if (!settlements.some(s => s.conceptName === conceptName)) {
                         settlements.push({ 
@@ -321,6 +332,15 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             return localDate >= criteria.startDate! && localDate <= criteria.endDate!;
         });
 
+        // **PRIORITY FILTER**: Apply filter for pending weights first if requested.
+        if (criteria.filterPending) {
+             allResults = allResults.filter(sub => {
+                 if (!sub.formType.startsWith('fixed-weight-')) return false;
+                 // A submission is pending if the new field is 0 or undefined.
+                 return (sub.formData.totalPesoBrutoKg === undefined || sub.formData.totalPesoBrutoKg === 0);
+             });
+        }
+
         if (criteria.operario) {
             allResults = allResults.filter(sub => sub.userDisplayName === criteria.operario);
         }
@@ -344,7 +364,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                     indicatorOnlyOperation = {
                         conceptName: concept,
                         toneladas: kilos / 1000,
-                        isPending: (formType.startsWith('fixed-weight-') && kilos === 0)
+                        isPending: formType.startsWith('fixed-weight-') && (formData.totalPesoBrutoKg === 0 || formData.totalPesoBrutoKg === undefined)
                     };
                 }
             }
@@ -385,6 +405,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                     unidadMedidaConcepto: settlement?.unitOfMeasure || (indicatorOnlyOperation ? 'TONELADA' : 'N/A'),
                     valorTotalConcepto: settlement?.totalValue || 0,
                     aplicaCuadrilla: formData.aplicaCuadrilla,
+                    formData: formData, // Pass full formData
                 };
             };
             
@@ -406,8 +427,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                 if(rowOpType !== criteria.operationType) continue;
             }
             if (criteria.conceptos && criteria.conceptos.length > 0 && !criteria.conceptos.includes(row.conceptoLiquidado)) continue;
-            if (criteria.filterPending && row.cantidadConcepto !== -1) continue;
-
+            
             const novelties = await getNoveltiesForOperation(row.submissionId);
             const totalDuration = calculateDuration(row.horaInicio, row.horaFin);
             const downtimeMinutes = novelties.filter(n => n.purpose === 'justification').reduce((sum, n) => sum + n.downtimeMinutes, 0);
@@ -421,8 +441,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                     clientName: row.cliente,
                     operationType: row.tipoOperacion === 'Recepción' ? 'recepcion' : 'despacho',
                     productType: row.tipoProducto === 'Fijo' ? 'fijo' : 'variable',
-                    tons: row.kilos / 1000,
-                    isCrewOperation: row.aplicaCuadrilla === 'si',
+                    tons: row.kilos / 1000
                 });
                 row.description = row.standard?.description || "Sin descripción";
             }
@@ -438,4 +457,3 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         throw error;
     }
 }
-

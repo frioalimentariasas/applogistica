@@ -4,20 +4,14 @@
 import { firestore } from '@/lib/firebase-admin';
 import { revalidatePath } from 'next/cache';
 
-interface ProductWeightData {
-  codigo: string;
-  pesoBrutoKg: number;
-  pesoNetoKg: number;
-}
-
 export async function legalizeWeights(
   submissionId: string,
-  productsToUpdate: ProductWeightData[]
+  totalPesoBrutoKg: number
 ): Promise<{ success: boolean; message: string }> {
   if (!firestore) {
     return { success: false, message: 'El servidor no está configurado correctamente.' };
   }
-  if (!submissionId || !productsToUpdate || productsToUpdate.length === 0) {
+  if (!submissionId || totalPesoBrutoKg === undefined || totalPesoBrutoKg === null) {
     return { success: false, message: 'Datos insuficientes para legalizar el peso.' };
   }
 
@@ -35,23 +29,9 @@ export async function legalizeWeights(
         throw new Error('No se encontraron datos en el formato.');
       }
 
-      const updatedProducts = (submissionData.formData.productos || []).map((existingProduct: any) => {
-        const updateInfo = productsToUpdate.find(
-          (p) => p.codigo === existingProduct.codigo
-        );
-        if (updateInfo) {
-          return {
-            ...existingProduct,
-            pesoBrutoKg: updateInfo.pesoBrutoKg,
-            pesoNetoKg: updateInfo.pesoNetoKg,
-          };
-        }
-        return existingProduct;
-      });
-
       const newFormData = {
         ...submissionData.formData,
-        productos: updatedProducts,
+        totalPesoBrutoKg: Number(totalPesoBrutoKg), // Ensure it's stored as a number
       };
 
       transaction.update(docRef, { formData: newFormData });
@@ -65,5 +45,3 @@ export async function legalizeWeights(
     return { success: false, message: `Error del servidor: ${errorMessage}` };
   }
 }
-
-  
