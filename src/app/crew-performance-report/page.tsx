@@ -115,9 +115,9 @@ const formatDuration = (totalMinutes: number | null): string => {
 };
 
 const getPerformanceIndicator = (row: CrewPerformanceReportRow): { text: string, className: string, icon: React.FC<any> } => {
-    const { operationalDurationMinutes, totalDurationMinutes, standard, cantidadConcepto, tipoOperacion } = row;
+    const { operationalDurationMinutes, totalDurationMinutes, standard, cantidadConcepto, tipoOperacion, conceptoLiquidado } = row;
 
-    if (tipoOperacion !== 'Recepción' && tipoOperacion !== 'Despacho') {
+    if (conceptoLiquidado !== 'CARGUE' && conceptoLiquidado !== 'DESCARGUE') {
         return { text: 'No Aplica', className: 'bg-gray-100 text-gray-600', icon: Circle };
     }
     
