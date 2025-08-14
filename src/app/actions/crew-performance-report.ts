@@ -53,6 +53,7 @@ const calculateTotalKilos = (formType: string, formData: any): number => {
             return Number(formData.totalPesoBrutoKg);
         }
         // Old forms: sum up individual product weights for backward compatibility.
+        // This part handles data created before the totalPesoBrutoKg field existed.
         const totalFromProducts = (formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.pesoBrutoKg) || 0), 0);
         return totalFromProducts;
     }
@@ -235,7 +236,7 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
             
             if (operationConcept) {
                 // Check if the weight is pending. For fixed weight, check totalPesoBrutoKg.
-                const isPending = formType.startsWith('fixed-weight-') && (formData.totalPesoBrutoKg === 0 || formData.totalPesoBrutoKg === undefined);
+                const isPending = formType.startsWith('fixed-weight-') && (!formData.totalPesoBrutoKg || formData.totalPesoBrutoKg === 0);
                 
                 if (isPending) {
                      if (!settlements.some(s => s.conceptName === conceptName)) {
@@ -364,7 +365,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                     indicatorOnlyOperation = {
                         conceptName: concept,
                         toneladas: kilos / 1000,
-                        isPending: formType.startsWith('fixed-weight-') && (formData.totalPesoBrutoKg === 0 || formData.totalPesoBrutoKg === undefined)
+                        isPending: formType.startsWith('fixed-weight-') && (!formData.totalPesoBrutoKg || formData.totalPesoBrutoKg === 0)
                     };
                 }
             }

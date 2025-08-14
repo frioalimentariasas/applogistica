@@ -88,8 +88,6 @@ const productSchema = z.object({
   descripcion: z.string().min(1, "La descripción es requerida."),
   cajas: z.coerce.number({required_error: "El No. de cajas es requerido.", invalid_type_error: "El No. de cajas es requerido."}).int().min(0, "El No. de Cajas debe ser 0 o mayor."),
   totalPaletas: z.coerce.number({required_error: "El Total Paletas es requerido.", invalid_type_error: "El Total Paletas es requerido."}).int("El Total Paletas debe ser un número entero.").min(0, "El total de paletas no puede ser negativo."),
-  pesoBrutoKg: z.coerce.number({ required_error: "El peso bruto es requerido.", invalid_type_error: "Peso Bruto (kg) debe ser un número."})
-    .min(0, "Peso Bruto (kg) debe ser un número no negativo."),
   pesoNetoKg: z.coerce.number({ required_error: "El peso neto es requerido.", invalid_type_error: "Peso Neto (kg) debe ser un número."})
     .min(0, "Peso Neto (kg) debe ser un número no negativo."),
   temperatura1: tempSchema,
@@ -131,6 +129,7 @@ const createFormSchema = (isReception: boolean) => z.object({
     documentoTransporte: z.string().max(15, "Máximo 15 caracteres.").optional(),
     facturaRemision: z.string().max(15, "Máximo 15 caracteres.").optional(),
     productos: z.array(productSchema).min(1, "Debe agregar al menos un producto."),
+    totalPesoBrutoKg: z.coerce.number({ required_error: "El peso bruto total es requerido."}).min(0, "El peso bruto total no puede ser negativo."),
     nombreConductor: z.string(),
     cedulaConductor: z.string().regex(/^[0-9]*$/, "La cédula solo puede contener números."),
     placa: z.string().regex(/^[A-Z]{3}[0-9]{3}$/, "Formato inválido. Deben ser 3 letras y 3 números (ej: ABC123)."),
@@ -220,6 +219,7 @@ const originalDefaultValues: Omit<FormValues, 'operation'> = {
   documentoTransporte: "",
   facturaRemision: "",
   productos: [],
+  totalPesoBrutoKg: 0,
   nombreConductor: "",
   cedulaConductor: "",
   placa: "",
@@ -352,10 +352,6 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
   const totalPesoNetoKg = useMemo(() => {
       return (productos || []).reduce((acc, p) => acc + (Number(p.pesoNetoKg) || 0), 0);
   }, [productos]);
-  
-  const totalPesoBrutoKg = useMemo(() => {
-      return (productos || []).reduce((acc, p) => acc + (Number(p.pesoBrutoKg) || 0), 0);
-  }, [productos]);
 
 
   const formIdentifier = submissionId ? `fixed-weight-edit-${submissionId}` : `fixed-weight-${operation}`;
@@ -402,7 +398,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
         form.reset({
             ...originalDefaultValues,
             productos: [ // Start with one empty product
-                { codigo: '', descripcion: '', cajas: 0, totalPaletas: 0, pesoBrutoKg: 0, pesoNetoKg: 0, temperatura1: null, temperatura2: null, temperatura3: null }
+                { codigo: '', descripcion: '', cajas: 0, totalPaletas: 0, pesoNetoKg: 0, temperatura1: null, temperatura2: null, temperatura3: null }
             ]
         });
     }
@@ -430,6 +426,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
               facturaRemision: formData.facturaRemision ?? "",
               contenedor: formData.contenedor ?? '',
               setPoint: formData.setPoint ?? null,
+              totalPesoBrutoKg: formData.totalPesoBrutoKg ?? 0,
               observaciones: formData.observaciones ?? [],
               aplicaCuadrilla: formData.aplicaCuadrilla ?? undefined,
               tipoPedido: formData.tipoPedido ?? undefined,
@@ -439,24 +436,19 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
               productos: (formData.productos || []).map((p: any) => ({
                   ...originalDefaultValues.productos[0],
                   ...p,
-                  // Handle old 'cantidadKg' field for backward compatibility
                   pesoNetoKg: p.pesoNetoKg ?? p.cantidadKg ?? 0,
-                  pesoBrutoKg: p.pesoBrutoKg ?? 0,
                   temperatura1: p.temperatura1 ?? p.temperatura ?? null,
                   temperatura2: p.temperatura2 ?? null,
                   temperatura3: p.temperatura3 ?? null,
               })),
           };
 
-          // Convert date string back to Date object for the form
           if (sanitizedFormData.fecha && typeof sanitizedFormData.fecha === 'string') {
             sanitizedFormData.fecha = new Date(sanitizedFormData.fecha);
           }
           form.reset(sanitizedFormData);
-          // Set attachments, which are URLs in this case
           setAttachments(submission.attachmentUrls);
 
-          // Pre-load articulos for the client
           if (sanitizedFormData.nombreCliente) {
             setIsLoadingArticulos(true);
             const fetchedArticulos = await getArticulosByClients([sanitizedFormData.nombreCliente]);
@@ -776,8 +768,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
       setClientDialogOpen(false);
       setClientSearch('');
   
-      // Reset dependent fields
-      form.setValue('productos', [{ codigo: '', descripcion: '', cajas: 0, totalPaletas: 0, pesoBrutoKg: 0, pesoNetoKg: 0, temperatura1: null, temperatura2: null, temperatura3: null }]);
+      form.setValue('productos', [{ codigo: '', descripcion: '', cajas: 0, totalPaletas: 0, pesoNetoKg: 0, temperatura1: null, temperatura2: null, temperatura3: null }]);
       setArticulos([]);
   };
 
@@ -1188,14 +1179,6 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                                         <FormMessage />
                                     </FormItem>
                                 )}/>
-                                <FormField control={form.control} name={`productos.${index}.pesoBrutoKg`} render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Peso Bruto (kg) <span className="text-destructive">*</span></FormLabel>
-                                        <FormControl><Input type="text" inputMode="decimal" step="0.01" min="0" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl>
-                                        <FormDescription>Si no aplica, ingrese 0.</FormDescription>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}/>
                                 <FormField control={form.control} name={`productos.${index}.pesoNetoKg`} render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Peso Neto (kg) <span className="text-destructive">*</span></FormLabel>
@@ -1216,13 +1199,35 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                         </div>
                     </div>
                 ))}
-                <Button type="button" variant="outline" onClick={() => append({ codigo: '', descripcion: '', cajas: 0, totalPaletas: 0, pesoBrutoKg: 0, pesoNetoKg: 0, temperatura1: null, temperatura2: null, temperatura3: null })}>
+                <Button type="button" variant="outline" onClick={() => append({ codigo: '', descripcion: '', cajas: 0, totalPaletas: 0, pesoNetoKg: 0, temperatura1: null, temperatura2: null, temperatura3: null })}>
                     <PlusCircle className="mr-2 h-4 w-4" />
                     Agregar Producto
                 </Button>
 
                 <Separator className="my-4" />
 
+                <div className="flex justify-end gap-x-6 gap-y-4 flex-wrap">
+                    <FormField control={form.control} name="totalPesoBrutoKg" render={({ field }) => (
+                        <FormItem className="flex items-center gap-2">
+                            <FormLabel className="font-semibold text-lg text-primary shrink-0">Total Peso Bruto (kg) <span className="text-destructive">*</span></FormLabel>
+                            <FormControl>
+                                <Input 
+                                    className="w-40 font-bold text-lg text-primary border-2 border-primary/50 focus-visible:ring-primary" 
+                                    type="text" 
+                                    inputMode="decimal" 
+                                    step="0.01" 
+                                    min="0" 
+                                    placeholder="0.00" 
+                                    {...field} 
+                                    onChange={e => field.onChange(e.target.value === '' ? 0 : e.target.value)} 
+                                    value={field.value ?? 0}
+                                />
+                            </FormControl>
+                             <FormMessage />
+                        </FormItem>
+                    )}/>
+                </div>
+                 <Separator className="my-4" />
                 <div className="flex justify-end gap-x-6 gap-y-4 flex-wrap">
                     <div className="flex items-center gap-2">
                         <span className="font-medium text-sm">Totales Cajas</span>
@@ -1231,10 +1236,6 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                     <div className="flex items-center gap-2">
                         <span className="font-medium text-sm">Totales Paletas</span>
                         <Input className="w-28" disabled value={totalPaletas} />
-                    </div>
-                    <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm">Total Peso Bruto (kg)</span>
-                        <Input className="w-28" disabled value={totalPesoBrutoKg % 1 === 0 ? totalPesoBrutoKg : totalPesoBrutoKg.toFixed(2)} />
                     </div>
                     <div className="flex items-center gap-2">
                         <span className="font-medium text-sm">Total Peso Neto (kg)</span>

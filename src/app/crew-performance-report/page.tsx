@@ -4,7 +4,7 @@
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm, SubmitHandler, useFieldArray } from 'react-hook-form';
+import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import Link from 'next/link';
@@ -54,15 +54,8 @@ const noveltySchema = z.object({
 
 type NoveltyFormValues = z.infer<typeof noveltySchema>;
 
-const legalizeProductSchema = z.object({
-  codigo: z.string(),
-  descripcion: z.string(),
-  pesoBrutoKg: z.coerce.number({ required_error: 'Requerido', invalid_type_error: 'Numérico' }).min(0, '>= 0'),
-  pesoNetoKg: z.coerce.number({ required_error: 'Requerido', invalid_type_error: 'Numérico' }).min(0, '>= 0'),
-});
-
 const legalizeFormSchema = z.object({
-  productos: z.array(legalizeProductSchema),
+  totalPesoBrutoKg: z.coerce.number({ required_error: 'Requerido', invalid_type_error: 'Numérico' }).min(0.01, 'Debe ser mayor a 0'),
 });
 
 type LegalizeFormValues = z.infer<typeof legalizeFormSchema>;
@@ -174,7 +167,6 @@ export default function CrewPerformanceReportPage() {
     const [isClientDialogOpen, setClientDialogOpen] = useState(false);
     const [clientSearch, setClientSearch] = useState('');
     const [filterPending, setFilterPending] = useState(false);
-    const [filterLento, setFilterLento] = useState(false);
     
     const [standardNoveltyTypes, setStandardNoveltyTypes] = useState<StandardNoveltyType[]>([]);
     const [allBillingConcepts, setAllBillingConcepts] = useState<BillingConcept[]>([]);
@@ -198,7 +190,6 @@ export default function CrewPerformanceReportPage() {
 
     // State for novelty management
     const [isNoveltyDialogOpen, setIsNoveltyDialogOpen] = useState(false);
-    const [isNoveltySelectorOpen, setIsNoveltySelectorOpen] = useState(false); // New state
     const [isSubmittingNovelty, setIsSubmittingNovelty] = useState(false);
     const [selectedRowForNovelty, setSelectedRowForNovelty] = useState<CrewPerformanceReportRow | null>(null);
     const [noveltyToDelete, setNoveltyToDelete] = useState<{ rowId: string; noveltyId: string; } | null>(null);
@@ -218,13 +209,8 @@ export default function CrewPerformanceReportPage() {
     const legalizeForm = useForm<LegalizeFormValues>({
       resolver: zodResolver(legalizeFormSchema),
       defaultValues: {
-        productos: [],
+        totalPesoBrutoKg: 0,
       },
-    });
-
-    const { fields: legalizeFields } = useFieldArray({
-      control: legalizeForm.control,
-      name: 'productos',
     });
 
 
@@ -298,13 +284,9 @@ export default function CrewPerformanceReportPage() {
         if (filterPending) {
             results = results.filter(row => row.cantidadConcepto === -1);
         }
-        
-        if(filterLento) {
-            results = results.filter(row => getPerformanceIndicator(row).text === 'Lento');
-        }
 
         setFilteredReportData(results);
-    }, [filterPending, filterLento, reportData]);
+    }, [filterPending, reportData]);
     
     const handleCheckScroll = useCallback(() => {
         const el = scrollViewportRef.current;
@@ -374,6 +356,7 @@ export default function CrewPerformanceReportPage() {
                 clientNames: selectedClients.length > 0 ? selectedClients : undefined,
                 cuadrillaFilter: cuadrillaFilter,
                 conceptos: selectedConcepts.length > 0 ? selectedConcepts : undefined,
+                filterPending: filterPending
             };
 
             const results = await getCrewPerformanceReport(criteria);
@@ -399,7 +382,7 @@ export default function CrewPerformanceReportPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [dateRange, selectedOperario, operationType, productType, selectedClients, cuadrillaFilter, selectedConcepts, toast]);
+    }, [dateRange, selectedOperario, operationType, productType, selectedClients, cuadrillaFilter, selectedConcepts, toast, filterPending]);
     
     const handleClear = () => {
         setDateRange(undefined);
@@ -410,7 +393,6 @@ export default function CrewPerformanceReportPage() {
         setSelectedClients([]);
         setSelectedConcepts([]);
         setFilterPending(false);
-        setFilterLento(false);
         setReportData([]);
         setFilteredReportData([]);
         setSearched(false);
@@ -818,12 +800,7 @@ export default function CrewPerformanceReportPage() {
     const handleOpenLegalizeDialog = (row: CrewPerformanceReportRow) => {
         setRowToLegalize(row);
         legalizeForm.reset({
-            productos: row.productos.map(p => ({
-                codigo: p.codigo,
-                descripcion: p.descripcion,
-                pesoBrutoKg: p.pesoBrutoKg || 0,
-                pesoNetoKg: p.pesoNetoKg || 0,
-            }))
+          totalPesoBrutoKg: 0,
         });
         setIsLegalizeDialogOpen(true);
     };
@@ -831,7 +808,7 @@ export default function CrewPerformanceReportPage() {
     const onLegalizeSubmit: SubmitHandler<LegalizeFormValues> = async (data) => {
         if (!rowToLegalize) return;
         setIsLegalizing(true);
-        const result = await legalizeWeights(rowToLegalize.submissionId, data.productos);
+        const result = await legalizeWeights(rowToLegalize.submissionId, data.totalPesoBrutoKg);
         if (result.success) {
             toast({ title: "Éxito", description: result.message });
             await handleSearch();
@@ -944,15 +921,9 @@ export default function CrewPerformanceReportPage() {
                                 </Dialog>
                             </div>
                             <div className="space-y-2"><Label>Operaciones de Cuadrilla</Label><Select value={cuadrillaFilter} onValueChange={setCuadrillaFilter as (value: 'con' | 'sin' | 'todas') => void}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="todas">Todas las Operaciones</SelectItem><SelectItem value="con">Solo con Cuadrilla</SelectItem><SelectItem value="sin">Solo sin Cuadrilla</SelectItem></SelectContent></Select></div>
-                             <div className="flex flex-col gap-2 self-end pb-2">
-                                <div className="flex items-center space-x-2">
-                                    <Checkbox id="filter-pending" checked={filterPending} onCheckedChange={(checked) => setFilterPending(checked as boolean)} />
-                                    <Label htmlFor="filter-pending" className="cursor-pointer text-sm font-normal">Mostrar solo pendientes P. Bruto</Label>
-                                </div>
-                                 <div className="flex items-center space-x-2">
-                                    <Checkbox id="filter-lento" checked={filterLento} onCheckedChange={(checked) => setFilterLento(checked as boolean)} />
-                                    <Label htmlFor="filter-lento" className="cursor-pointer text-sm font-normal">Mostrar solo para justificar</Label>
-                                </div>
+                             <div className="flex items-center space-x-2 self-end pb-2">
+                                <Checkbox id="filter-pending" checked={filterPending} onCheckedChange={(checked) => setFilterPending(checked as boolean)} />
+                                <Label htmlFor="filter-pending" className="cursor-pointer text-sm font-normal">Mostrar solo pendientes P. Bruto</Label>
                             </div>
                             <div className="flex gap-2 xl:col-span-4"><Button onClick={handleSearch} className="w-full" disabled={isLoading}>{isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}Generar</Button><Button onClick={handleClear} variant="outline" className="w-full"><XCircle className="mr-2 h-4 w-4" />Limpiar</Button></div>
                         </div>
@@ -1153,12 +1124,16 @@ export default function CrewPerformanceReportPage() {
                                 control={noveltyForm.control}
                                 name="type"
                                 render={({ field }) => (
-                                    <FormItem className="flex flex-col">
+                                    <FormItem>
                                         <FormLabel>Tipo de Novedad</FormLabel>
-                                         <Button type="button" variant="outline" className="w-full justify-between" onClick={() => setIsNoveltySelectorOpen(true)}>
-                                            {field.value || "Seleccione o escriba una novedad..."}
-                                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                        </Button>
+                                        <Select onValueChange={field.onChange} value={field.value}>
+                                            <FormControl><SelectTrigger><SelectValue placeholder="Seleccione un tipo..." /></SelectTrigger></FormControl>
+                                            <SelectContent>
+                                                {standardNoveltyTypes.map(type => (
+                                                    <SelectItem key={type.id} value={type.name}>{type.name}</SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
                                         <FormMessage />
                                     </FormItem>
                                 )}
@@ -1170,13 +1145,16 @@ export default function CrewPerformanceReportPage() {
                                     <FormItem className="space-y-3">
                                         <FormLabel>Propósito de la Novedad</FormLabel>
                                         <FormControl>
-                                            <Select onValueChange={field.onChange} value={field.value}>
-                                                <SelectTrigger><SelectValue/></SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="justification">Justificar Demora (Afecta Productividad)</SelectItem>
-                                                    <SelectItem value="settlement">Novedad Para control Interno (No afecta Productividad)</SelectItem>
-                                                </SelectContent>
-                                            </Select>
+                                            <RadioGroup onValueChange={field.onChange} value={field.value} className="flex flex-col space-y-1">
+                                                <FormItem className="flex items-center space-x-3 space-y-0">
+                                                    <FormControl><RadioGroupItem value="justification" /></FormControl>
+                                                    <FormLabel className="font-normal">Justificar Demora (Afecta Productividad)</FormLabel>
+                                                </FormItem>
+                                                <FormItem className="flex items-center space-x-3 space-y-0">
+                                                    <FormControl><RadioGroupItem value="settlement" /></FormControl>
+                                                    <FormLabel className="font-normal">Novedad para Liquidación (No afecta Productividad)</FormLabel>
+                                                </FormItem>
+                                            </RadioGroup>
                                         </FormControl>
                                         <FormMessage />
                                     </FormItem>
@@ -1196,62 +1174,32 @@ export default function CrewPerformanceReportPage() {
                 </DialogContent>
             </Dialog>
 
-            <NoveltySelectorDialog
-                open={isNoveltySelectorOpen}
-                onOpenChange={setIsNoveltySelectorOpen}
-                standardNoveltyTypes={standardNoveltyTypes}
-                onSelect={(value) => noveltyForm.setValue('type', value, { shouldValidate: true })}
-            />
-
             <Dialog open={isLegalizeDialogOpen} onOpenChange={setIsLegalizeDialogOpen}>
-              <DialogContent className="max-w-2xl">
+              <DialogContent className="max-w-md">
                 <DialogHeader>
-                  <DialogTitle>Legalizar Pesos del Pedido {rowToLegalize?.pedidoSislog}</DialogTitle>
+                  <DialogTitle>Legalizar Peso Bruto del Pedido {rowToLegalize?.pedidoSislog}</DialogTitle>
                   <DialogDescription>
-                    Ingrese el peso bruto y neto para cada producto del formato.
+                    Ingrese el peso bruto total de la operación para este formato.
                   </DialogDescription>
                 </DialogHeader>
                 <Form {...legalizeForm}>
                   <form onSubmit={legalizeForm.handleSubmit(onLegalizeSubmit)} className="space-y-4 pt-4">
-                    <ScrollArea className="h-72">
-                      <div className="space-y-4 pr-6">
-                        {legalizeFields.map((field, index) => (
-                          <div key={field.id} className="p-4 border rounded-lg">
-                            <p className="font-semibold text-sm">{field.descripcion}</p>
-                            <p className="text-xs text-muted-foreground mb-2">Código: {field.codigo}</p>
-                            <div className="grid grid-cols-2 gap-4">
-                              <FormField
-                                control={legalizeForm.control}
-                                name={`productos.${index}.pesoBrutoKg`}
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>Peso Bruto (kg)</FormLabel>
-                                    <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                              <FormField
-                                control={legalizeForm.control}
-                                name={`productos.${index}.pesoNetoKg`}
-                                render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>Peso Neto (kg)</FormLabel>
-                                    <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}
-                              />
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </ScrollArea>
+                    <FormField
+                      control={legalizeForm.control}
+                      name="totalPesoBrutoKg"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Total Peso Bruto (kg)</FormLabel>
+                          <FormControl><Input type="number" step="0.01" {...field} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                     <DialogFooter>
                       <Button type="button" variant="outline" onClick={() => setIsLegalizeDialogOpen(false)}>Cancelar</Button>
                       <Button type="submit" disabled={isLegalizing}>
                         {isLegalizing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                        Guardar Pesos
+                        Guardar Peso
                       </Button>
                     </DialogFooter>
                   </form>
@@ -1363,6 +1311,7 @@ function NoveltySelectorDialog({
     );
 }
   
+
 
 
 
