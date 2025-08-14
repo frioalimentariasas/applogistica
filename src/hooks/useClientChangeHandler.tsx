@@ -24,28 +24,30 @@ export function useClientChangeHandler<T>({ form, setArticulos }: UseClientChang
     
     const formData = form.getValues();
     
-    // Determine the correct field names for products and client
     const productListName = formData.productos ? 'productos' : 
                           (formData.destinos ? 'destinos' : 'items');
     const clientFieldName = formData.nombreCliente !== undefined ? 'nombreCliente' : 'cliente';
 
     const isDespachoPorDestino = productListName === 'destinos';
     const formProducts = formData[productListName];
-
-    // If there are no products to check, just change the client
-    if (!formProducts || formProducts.length === 0 || formProducts.every((p:any) => !p.descripcion && (!p.items || p.items.length === 0))) {
-        form.setValue(clientFieldName, newClient);
-        setNewClientToSet(null);
-        setArticulos([]);
-        setIsVerifying(false);
-        return;
-    }
     
-    // Flatten the product list if it's nested (like in despacho por destino)
     const flatProductList = isDespachoPorDestino 
         ? formProducts.flatMap((d: any) => d.items || []) 
         : formProducts;
 
+    if (!flatProductList || flatProductList.length === 0 || flatProductList.every((p:any) => !p.descripcion)) {
+        form.setValue(clientFieldName, newClient);
+        setNewClientToSet(null);
+        try {
+            const newClientArticulos = await getArticulosByClients([newClient]);
+            setArticulos(newClientArticulos);
+        } catch (e) {
+            setArticulos([]);
+        }
+        setIsVerifying(false);
+        return;
+    }
+    
     try {
       const newClientArticulos = await getArticulosByClients([newClient]);
       
@@ -58,7 +60,7 @@ export function useClientChangeHandler<T>({ form, setArticulos }: UseClientChang
 
       if (allProductsExist) {
         form.setValue(clientFieldName, newClient);
-        setArticulos(newClientArticulos); // Update the available articles list
+        setArticulos(newClientArticulos);
       } else {
         setNewClientToSet(newClient);
         setConfirmDialogOpen(true);
