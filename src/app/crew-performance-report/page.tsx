@@ -35,7 +35,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { ScrollArea, ScrollAreaViewport, ScrollBar } from '@/components/ui/scroll-area';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
-import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, File, FileDown, FolderSearch, ShieldAlert, TrendingUp, Circle, Settings, ChevronsUpDown, AlertCircle, PlusCircle, X, Edit2, CheckCircle2, ClockIcon, AlertTriangleIcon, DollarSign, Activity, FileSpreadsheet, ChevronLeft, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, File, FileDown, FolderSearch, ShieldAlert, TrendingUp, Circle, Settings, ChevronsUpDown, AlertCircle, PlusCircle, X, Edit2, CheckCircle2, ClockIcon, AlertTriangleIcon, DollarSign, Activity, FileSpreadsheet, ChevronLeft, ChevronRight, Info } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
@@ -44,6 +44,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge, badgeVariants } from '@/components/ui/badge';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDialogDesc, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Alert, AlertTitle } from '@/components/ui/alert';
+
 
 const noveltySchema = z.object({
     type: z.string().min(1, "Debe seleccionar o ingresar un tipo de novedad."),
@@ -281,16 +283,12 @@ export default function CrewPerformanceReportPage() {
     useEffect(() => {
         let results = reportData;
         
-        if (filterPending) {
-            results = results.filter(row => row.cantidadConcepto === -1);
-        }
-        
         if (filterLento) {
             results = results.filter(row => getPerformanceIndicator(row).text === 'Lento');
         }
 
         setFilteredReportData(results);
-    }, [filterPending, filterLento, reportData]);
+    }, [filterLento, reportData]);
     
     const handleCheckScroll = useCallback(() => {
         const el = scrollViewportRef.current;
@@ -563,7 +561,6 @@ export default function CrewPerformanceReportPage() {
                     'Cliente': row.cliente,
                     'Novedad': n.type,
                     'Minutos': n.downtimeMinutes,
-                    'Propósito': n.purpose === 'justification' ? 'Justificación' : 'Novedad Para control Interno'
                 })));
                 const wsNovelties = XLSX.utils.json_to_sheet(noveltiesExport);
                 XLSX.utils.book_append_sheet(wb, wsNovelties, "Novedades");
@@ -668,12 +665,11 @@ export default function CrewPerformanceReportPage() {
                     row.pedidoSislog,
                     row.cliente,
                     n.type,
-                    n.downtimeMinutes + ' min',
-                    n.purpose === 'justification' ? 'Justificación' : 'Novedad Para control Interno'
+                    n.downtimeMinutes + ' min'
                 ]));
                 autoTable(doc, {
                     startY: finalY,
-                    head: [['Fecha', 'Pedido', 'Cliente', 'Novedad', 'Minutos', 'Propósito']],
+                    head: [['Fecha', 'Pedido', 'Cliente', 'Novedad', 'Minutos']],
                     body: noveltiesExport,
                     theme: 'grid',
                     styles: { fontSize: 8 }
@@ -808,7 +804,7 @@ export default function CrewPerformanceReportPage() {
     const handleOpenLegalizeDialog = (row: CrewPerformanceReportRow) => {
         setRowToLegalize(row);
         legalizeForm.reset({
-          totalPesoBrutoKg: 0,
+          totalPesoBrutoKg: row.kilos > 0 ? row.kilos : 0,
         });
         setIsLegalizeDialogOpen(true);
     };
@@ -1130,6 +1126,19 @@ export default function CrewPerformanceReportPage() {
                             Registre un evento para la operación del pedido <strong>{selectedRowForNovelty?.pedidoSislog}</strong>.
                         </DialogDescription>
                     </DialogHeader>
+                     {selectedRowForNovelty && (
+                        <Alert variant={selectedRowForNovelty.aplicaCuadrilla === 'si' ? "default" : "destructive"} className={cn(selectedRowForNovelty.aplicaCuadrilla === 'si' ? 'bg-blue-50 border-blue-200' : 'bg-yellow-50 border-yellow-200')}>
+                            <Info className="h-4 w-4" />
+                            <AlertTitle className={cn(selectedRowForNovelty.aplicaCuadrilla === 'si' ? 'text-blue-800' : 'text-yellow-800')}>
+                                {selectedRowForNovelty.aplicaCuadrilla === 'si' ? 'Justificación de Productividad' : 'Novedad Informativa'}
+                            </AlertTitle>
+                            <AlertDescription className={cn(selectedRowForNovelty.aplicaCuadrilla === 'si' ? 'text-blue-700' : 'text-yellow-700')}>
+                                {selectedRowForNovelty.aplicaCuadrilla === 'si' 
+                                ? 'Los minutos ingresados se descontarán del tiempo total de la operación.'
+                                : 'Los minutos ingresados no afectarán el cálculo de productividad de la cuadrilla.'}
+                            </AlertDescription>
+                        </Alert>
+                    )}
                     <Form {...noveltyForm}>
                         <form onSubmit={noveltyForm.handleSubmit(onNoveltySubmit)} className="space-y-4 pt-4">
                              <FormField
@@ -1312,15 +1321,3 @@ function NoveltySelectorDialog({
     );
 }
   
-
-
-
-
-
-
-
-
-
-
-
-
