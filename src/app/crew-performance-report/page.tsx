@@ -44,6 +44,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge, badgeVariants } from '@/components/ui/badge';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDialogDesc, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 
 
 const noveltySchema = z.object({
@@ -167,6 +168,7 @@ export default function CrewPerformanceReportPage() {
     const [isClientDialogOpen, setClientDialogOpen] = useState(false);
     const [clientSearch, setClientSearch] = useState('');
     const [filterPending, setFilterPending] = useState(false);
+    const [filterLento, setFilterLento] = useState(false);
     
     const [standardNoveltyTypes, setStandardNoveltyTypes] = useState<StandardNoveltyType[]>([]);
     const [allBillingConcepts, setAllBillingConcepts] = useState<BillingConcept[]>([]);
@@ -190,6 +192,7 @@ export default function CrewPerformanceReportPage() {
 
     // State for novelty management
     const [isNoveltyDialogOpen, setIsNoveltyDialogOpen] = useState(false);
+    const [isNoveltySelectorOpen, setIsNoveltySelectorOpen] = useState(false);
     const [isSubmittingNovelty, setIsSubmittingNovelty] = useState(false);
     const [selectedRowForNovelty, setSelectedRowForNovelty] = useState<CrewPerformanceReportRow | null>(null);
     const [noveltyToDelete, setNoveltyToDelete] = useState<{ rowId: string; noveltyId: string; } | null>(null);
@@ -284,9 +287,13 @@ export default function CrewPerformanceReportPage() {
         if (filterPending) {
             results = results.filter(row => row.cantidadConcepto === -1);
         }
+        
+        if (filterLento) {
+            results = results.filter(row => getPerformanceIndicator(row).text === 'Lento');
+        }
 
         setFilteredReportData(results);
-    }, [filterPending, reportData]);
+    }, [filterPending, filterLento, reportData]);
     
     const handleCheckScroll = useCallback(() => {
         const el = scrollViewportRef.current;
@@ -393,6 +400,7 @@ export default function CrewPerformanceReportPage() {
         setSelectedClients([]);
         setSelectedConcepts([]);
         setFilterPending(false);
+        setFilterLento(false);
         setReportData([]);
         setFilteredReportData([]);
         setSearched(false);
@@ -558,7 +566,7 @@ export default function CrewPerformanceReportPage() {
                     'Cliente': row.cliente,
                     'Novedad': n.type,
                     'Minutos': n.downtimeMinutes,
-                    'Propósito': n.purpose === 'justification' ? 'Justificación' : 'Liquidación'
+                    'Propósito': n.purpose === 'justification' ? 'Justificación' : 'Novedad Para control Interno'
                 })));
                 const wsNovelties = XLSX.utils.json_to_sheet(noveltiesExport);
                 XLSX.utils.book_append_sheet(wb, wsNovelties, "Novedades");
@@ -664,7 +672,7 @@ export default function CrewPerformanceReportPage() {
                     row.cliente,
                     n.type,
                     n.downtimeMinutes + ' min',
-                    n.purpose === 'justification' ? 'Justificación' : 'Liquidación'
+                    n.purpose === 'justification' ? 'Justificación' : 'Novedad Para control Interno'
                 ]));
                 autoTable(doc, {
                     startY: finalY,
@@ -755,9 +763,12 @@ export default function CrewPerformanceReportPage() {
             setReportData(prevData => prevData.map(row => {
                 if (row.id === selectedRowForNovelty.id) {
                     const updatedNovelties = [...row.novelties, result.novelty!];
-                    const downtimeMinutes = updatedNovelties
-                        .filter(n => n.purpose === 'justification')
-                        .reduce((sum, n) => sum + n.downtimeMinutes, 0);
+                    let downtimeMinutes = 0;
+                    if (row.aplicaCuadrilla === 'si') {
+                        downtimeMinutes = updatedNovelties
+                            .filter(n => n.purpose === 'justification')
+                            .reduce((sum, n) => sum + n.downtimeMinutes, 0);
+                    }
                     const newOperationalDuration = row.totalDurationMinutes !== null ? row.totalDurationMinutes - downtimeMinutes : null;
                     return { ...row, novelties: updatedNovelties, operationalDurationMinutes: newOperationalDuration };
                 }
@@ -782,9 +793,12 @@ export default function CrewPerformanceReportPage() {
             setReportData(prevData => prevData.map(row => {
                 if (row.id === noveltyToDelete.rowId) {
                     const updatedNovelties = row.novelties.filter(n => n.id !== noveltyToDelete.noveltyId);
-                    const downtimeMinutes = updatedNovelties
-                        .filter(n => n.purpose === 'justification')
-                        .reduce((sum, n) => sum + n.downtimeMinutes, 0);
+                    let downtimeMinutes = 0;
+                     if (row.aplicaCuadrilla === 'si') {
+                        downtimeMinutes = updatedNovelties
+                            .filter(n => n.purpose === 'justification')
+                            .reduce((sum, n) => sum + n.downtimeMinutes, 0);
+                    }
                     const newOperationalDuration = row.totalDurationMinutes !== null ? row.totalDurationMinutes - downtimeMinutes : null;
                     return { ...row, novelties: updatedNovelties, operationalDurationMinutes: newOperationalDuration };
                 }
@@ -921,9 +935,15 @@ export default function CrewPerformanceReportPage() {
                                 </Dialog>
                             </div>
                             <div className="space-y-2"><Label>Operaciones de Cuadrilla</Label><Select value={cuadrillaFilter} onValueChange={setCuadrillaFilter as (value: 'con' | 'sin' | 'todas') => void}><SelectTrigger><SelectValue/></SelectTrigger><SelectContent><SelectItem value="todas">Todas las Operaciones</SelectItem><SelectItem value="con">Solo con Cuadrilla</SelectItem><SelectItem value="sin">Solo sin Cuadrilla</SelectItem></SelectContent></Select></div>
-                             <div className="flex items-center space-x-2 self-end pb-2">
-                                <Checkbox id="filter-pending" checked={filterPending} onCheckedChange={(checked) => setFilterPending(checked as boolean)} />
-                                <Label htmlFor="filter-pending" className="cursor-pointer text-sm font-normal">Mostrar solo pendientes P. Bruto</Label>
+                            <div className="flex flex-col space-y-2 self-end pb-2">
+                                <div className="flex items-center space-x-2">
+                                    <Checkbox id="filter-pending" checked={filterPending} onCheckedChange={(checked) => setFilterPending(checked as boolean)} />
+                                    <Label htmlFor="filter-pending" className="cursor-pointer text-sm font-normal">Mostrar solo pendientes P. Bruto</Label>
+                                </div>
+                                <div className="flex items-center space-x-2">
+                                    <Checkbox id="filter-lento" checked={filterLento} onCheckedChange={(checked) => setFilterLento(checked as boolean)} />
+                                    <Label htmlFor="filter-lento" className="cursor-pointer text-sm font-normal">Mostrar solo para justificar (Lento)</Label>
+                                </div>
                             </div>
                             <div className="flex gap-2 xl:col-span-4"><Button onClick={handleSearch} className="w-full" disabled={isLoading}>{isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}Generar</Button><Button onClick={handleClear} variant="outline" className="w-full"><XCircle className="mr-2 h-4 w-4" />Limpiar</Button></div>
                         </div>
@@ -1120,20 +1140,24 @@ export default function CrewPerformanceReportPage() {
                     </DialogHeader>
                     <Form {...noveltyForm}>
                         <form onSubmit={noveltyForm.handleSubmit(onNoveltySubmit)} className="space-y-4 pt-4">
-                            <FormField
+                             <FormField
                                 control={noveltyForm.control}
                                 name="type"
                                 render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Tipo de Novedad</FormLabel>
-                                        <Select onValueChange={field.onChange} value={field.value}>
-                                            <FormControl><SelectTrigger><SelectValue placeholder="Seleccione un tipo..." /></SelectTrigger></FormControl>
-                                            <SelectContent>
-                                                {standardNoveltyTypes.map(type => (
-                                                    <SelectItem key={type.id} value={type.name}>{type.name}</SelectItem>
-                                                ))}
-                                            </SelectContent>
-                                        </Select>
+                                         <div className="flex gap-2">
+                                            <Input
+                                                {...field}
+                                                placeholder="Escriba o seleccione..."
+                                                value={field.value}
+                                                onChange={(e) => field.onChange(e.target.value.toUpperCase())}
+                                                className="flex-grow"
+                                            />
+                                            <Button type="button" variant="outline" onClick={() => setIsNoveltySelectorOpen(true)}>
+                                                Seleccionar
+                                            </Button>
+                                        </div>
                                         <FormMessage />
                                     </FormItem>
                                 )}
@@ -1148,11 +1172,11 @@ export default function CrewPerformanceReportPage() {
                                             <RadioGroup onValueChange={field.onChange} value={field.value} className="flex flex-col space-y-1">
                                                 <FormItem className="flex items-center space-x-3 space-y-0">
                                                     <FormControl><RadioGroupItem value="justification" /></FormControl>
-                                                    <FormLabel className="font-normal">Justificar Demora (Afecta Productividad)</FormLabel>
+                                                    <FormLabel className="font-normal cursor-pointer">Justificar Demora (Afecta Productividad)</FormLabel>
                                                 </FormItem>
                                                 <FormItem className="flex items-center space-x-3 space-y-0">
                                                     <FormControl><RadioGroupItem value="settlement" /></FormControl>
-                                                    <FormLabel className="font-normal">Novedad para Liquidación (No afecta Productividad)</FormLabel>
+                                                    <FormLabel className="font-normal cursor-pointer">Novedad Para control Interno (No afecta Productividad)</FormLabel>
                                                 </FormItem>
                                             </RadioGroup>
                                         </FormControl>
@@ -1228,6 +1252,13 @@ export default function CrewPerformanceReportPage() {
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+
+            <NoveltySelectorDialog
+                open={isNoveltySelectorOpen}
+                onOpenChange={setIsNoveltySelectorOpen}
+                standardNoveltyTypes={standardNoveltyTypes}
+                onSelect={(value) => noveltyForm.setValue('type', value, { shouldValidate: true })}
+            />
         </div>
     );
 }
@@ -1311,6 +1342,7 @@ function NoveltySelectorDialog({
     );
 }
   
+
 
 
 

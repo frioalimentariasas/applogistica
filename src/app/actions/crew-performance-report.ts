@@ -46,18 +46,11 @@ const calculateDuration = (horaInicio: string, horaFin: string): number | null =
 };
 
 const calculateTotalKilos = (formType: string, formData: any): number => {
-    // START: Logic for Fixed Weight forms (New and Old)
+    // For fixed weight, the total gross weight is in a dedicated field.
+    // This handles both new forms and older ones after legalization.
     if (formType.startsWith('fixed-weight-')) {
-        // New forms have a dedicated total field.
-        if (formData.totalPesoBrutoKg !== undefined && formData.totalPesoBrutoKg > 0) {
-            return Number(formData.totalPesoBrutoKg);
-        }
-        // Old forms: sum up individual product weights for backward compatibility.
-        // This part handles data created before the totalPesoBrutoKg field existed.
-        const totalFromProducts = (formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.pesoBrutoKg) || 0), 0);
-        return totalFromProducts;
+        return Number(formData.totalPesoBrutoKg || 0);
     }
-    // END: Logic for Fixed Weight forms
     
     // For variable weight reception, settlement is by total GROSS WEIGHT.
     if (formType.includes('reception') || formType.includes('recepcion')) {
@@ -235,20 +228,20 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
             const operationConcept = billingConcepts.find(c => c.conceptName === conceptName && c.unitOfMeasure === 'TONELADA');
             
             if (operationConcept) {
-                // Check if the weight is pending. For fixed weight, check totalPesoBrutoKg.
-                const isPending = formType.startsWith('fixed-weight-') && (!formData.totalPesoBrutoKg || formData.totalPesoBrutoKg === 0);
-                
-                if (isPending) {
-                     if (!settlements.some(s => s.conceptName === conceptName)) {
-                        settlements.push({ 
-                            conceptName: operationConcept.conceptName, 
-                            unitValue: operationConcept.value, 
-                            quantity: -1, // Use -1 as a flag for pending
-                            unitOfMeasure: 'TONELADA', 
-                            totalValue: 0
-                        });
-                    }
-                } else if (kilos >= 0) { // Also include operations with 0 kilos if not pending
+                 // For fixed weight, the operation is pending if totalPesoBrutoKg is 0.
+                 const isFixedWeightPending = formType.startsWith('fixed-weight-') && kilos === 0;
+
+                 if (isFixedWeightPending) {
+                      if (!settlements.some(s => s.conceptName === conceptName)) {
+                         settlements.push({ 
+                             conceptName: operationConcept.conceptName, 
+                             unitValue: operationConcept.value, 
+                             quantity: -1, // Use -1 as a flag for pending
+                             unitOfMeasure: 'TONELADA', 
+                             totalValue: 0
+                         });
+                     }
+                 } else if (kilos >= 0) { // Also include operations with 0 kilos if not pending
                     const toneladas = kilos / 1000;
                     if (!settlements.some(s => s.conceptName === conceptName)) {
                         settlements.push({ 
@@ -305,7 +298,6 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
     
     let query: admin.firestore.Query = firestore.collection('submissions');
 
-    // Widen the query to account for timezone differences vs the stored UTC `createdAt` date.
     const serverQueryStartDate = new Date(criteria.startDate);
     serverQueryStartDate.setDate(serverQueryStartDate.getDate() - 1);
     
@@ -324,7 +316,6 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         
         let allResults = submissionsSnapshot.docs.map(doc => ({ id: doc.id, ...serializeTimestamps(doc.data()) }));
 
-        // Filter by the local form date in memory
         allResults = allResults.filter(sub => {
             const formIsoDate = sub.formData?.fecha;
             if (!formIsoDate || typeof formIsoDate !== 'string') return false;
@@ -333,7 +324,8 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             return localDate >= criteria.startDate! && localDate <= criteria.endDate!;
         });
 
-        // **PRIORITY FILTER**: Apply filter for pending weights first if requested.
+        // Apply filter for pending weights first if requested.
+        // This is a crucial filter that dramatically reduces the dataset for other filters.
         if (criteria.filterPending) {
              allResults = allResults.filter(sub => {
                  if (!sub.formType.startsWith('fixed-weight-')) return false;
@@ -362,10 +354,12 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                 if (isReception || isDispatch) {
                     const concept = isReception ? 'DESCARGUE' : 'CARGUE';
                     const kilos = calculateTotalKilos(formType, formData);
+                    const isPending = formType.startsWith('fixed-weight-') && kilos === 0;
+                    
                     indicatorOnlyOperation = {
                         conceptName: concept,
                         toneladas: kilos / 1000,
-                        isPending: formType.startsWith('fixed-weight-') && (!formData.totalPesoBrutoKg || formData.totalPesoBrutoKg === 0)
+                        isPending: isPending
                     };
                 }
             }
@@ -373,7 +367,6 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             const hasCrewSettlements = allPossibleConcepts.length > 0;
             const hasNonCrewIndicator = indicatorOnlyOperation !== null;
             
-            // Main filters for cuadrilla
             if (criteria.cuadrillaFilter === 'con' && !hasCrewSettlements) continue;
             if (criteria.cuadrillaFilter === 'sin' && !hasNonCrewIndicator) continue;
             
@@ -406,7 +399,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                     unidadMedidaConcepto: settlement?.unitOfMeasure || (indicatorOnlyOperation ? 'TONELADA' : 'N/A'),
                     valorTotalConcepto: settlement?.totalValue || 0,
                     aplicaCuadrilla: formData.aplicaCuadrilla,
-                    formData: formData, // Pass full formData
+                    formData: formData,
                 };
             };
             
@@ -431,7 +424,13 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             
             const novelties = await getNoveltiesForOperation(row.submissionId);
             const totalDuration = calculateDuration(row.horaInicio, row.horaFin);
-            const downtimeMinutes = novelties.filter(n => n.purpose === 'justification').reduce((sum, n) => sum + n.downtimeMinutes, 0);
+            
+            let downtimeMinutes = 0;
+            if (row.aplicaCuadrilla === 'si') {
+                 downtimeMinutes = novelties
+                    .filter(n => n.purpose === 'justification')
+                    .reduce((sum, n) => sum + n.downtimeMinutes, 0);
+            }
             
             row.novelties = novelties;
             row.totalDurationMinutes = totalDuration;
