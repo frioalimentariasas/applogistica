@@ -11,10 +11,9 @@ import { Loader2 } from 'lucide-react';
 interface UseClientChangeHandlerProps<T> {
   form: UseFormReturn<any>;
   setArticulos: (articulos: ArticuloInfo[]) => void;
-  isDespachoPorDestino?: boolean;
 }
 
-export function useClientChangeHandler<T>({ form, setArticulos, isDespachoPorDestino = false }: UseClientChangeHandlerProps<T>) {
+export function useClientChangeHandler<T>({ form, setArticulos }: UseClientChangeHandlerProps<T>) {
   const { toast } = useToast();
   const [isVerifying, setIsVerifying] = useState(false);
   const [isConfirmDialogOpen, setConfirmDialogOpen] = useState(false);
@@ -22,19 +21,23 @@ export function useClientChangeHandler<T>({ form, setArticulos, isDespachoPorDes
 
   const handleClientChange = async (newClient: string) => {
     setIsVerifying(true);
-    const productListName = isDespachoPorDestino ? 'destinos' : 'items';
-    const formProducts = form.getValues(productListName);
+    
+    // Determine the correct field names for products and client
+    const formData = form.getValues();
+    const productListName = formData.productos ? 'productos' : (formData.destinos ? 'destinos' : 'items');
+    const isDespachoPorDestino = productListName === 'destinos';
+    const clientFieldName = formData.nombreCliente !== undefined ? 'nombreCliente' : 'cliente';
+    
+    const formProducts = formData[productListName];
 
-    // If there are no products in the form, just change the client.
-    if (!formProducts || formProducts.length === 0 || formProducts.every((p:any) => !p.descripcion)) {
-        form.setValue('cliente', newClient);
+    if (!formProducts || formProducts.length === 0 || formProducts.every((p:any) => !p.descripcion && (!p.items || p.items.length === 0))) {
+        form.setValue(clientFieldName, newClient);
         setNewClientToSet(null);
-        setArticulos([]); // Clear old articles
+        setArticulos([]);
         setIsVerifying(false);
         return;
     }
     
-    // Flatten products if they are nested in destinations
     const flatProductList = isDespachoPorDestino 
         ? formProducts.flatMap((d: any) => d.items || []) 
         : formProducts;
@@ -50,8 +53,8 @@ export function useClientChangeHandler<T>({ form, setArticulos, isDespachoPorDes
       );
 
       if (allProductsExist) {
-        form.setValue('cliente', newClient);
-        setArticulos(newClientArticulos); // Update with new client's articles
+        form.setValue(clientFieldName, newClient);
+        setArticulos(newClientArticulos);
       } else {
         setNewClientToSet(newClient);
         setConfirmDialogOpen(true);
@@ -66,11 +69,14 @@ export function useClientChangeHandler<T>({ form, setArticulos, isDespachoPorDes
 
   const onConfirmChange = () => {
     if (newClientToSet) {
-      form.setValue('cliente', newClientToSet);
-      // Clear product list
-      const productListName = isDespachoPorDestino ? 'destinos' : 'items';
+      const formData = form.getValues();
+      const productListName = formData.productos ? 'productos' : (formData.destinos ? 'destinos' : 'items');
+      const clientFieldName = formData.nombreCliente !== undefined ? 'nombreCliente' : 'cliente';
+
+      form.setValue(clientFieldName, newClientToSet);
       form.setValue(productListName, []);
-      setArticulos([]); // Clear articles state
+      
+      setArticulos([]);
       setConfirmDialogOpen(false);
       setNewClientToSet(null);
     }

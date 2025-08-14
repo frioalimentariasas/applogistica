@@ -16,7 +16,7 @@ import { getClients, type ClientInfo } from "@/app/actions/clients";
 import { getArticulosByClients, type ArticuloInfo } from "@/app/actions/articulos";
 import { getUsersList, type UserInfo } from "@/app/actions/users";
 import { useFormPersistence } from "@/hooks/use-form-persistence";
-import { useClientChangeHandler } from "@/hooks/useClientChangeHandler.tsx";
+import { useClientChangeHandler } from "@/hooks/useClientChangeHandler";
 import { saveForm } from "@/app/actions/save-form";
 import { storage } from "@/lib/firebase";
 import { ref, uploadString, getDownloadURL } from "firebase/storage";
@@ -311,7 +311,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
 
    const { handleClientChange, ClientChangeDialog, VerifyingClientSpinner, isVerifying } = useClientChangeHandler({
     form,
-    setArticulos
+    setArticulos,
   });
 
   const { fields, append, remove } = useFieldArray({
