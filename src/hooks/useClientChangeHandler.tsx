@@ -24,7 +24,6 @@ export function useClientChangeHandler<T>({ form, setArticulos }: UseClientChang
     
     const formData = form.getValues();
     
-    // Determine the correct field names for products and client
     const productListName = formData.productos ? 'productos' : 
                           (formData.destinos ? 'destinos' : 'items');
     const clientFieldName = formData.nombreCliente !== undefined ? 'nombreCliente' : 'cliente';
@@ -56,7 +55,7 @@ export function useClientChangeHandler<T>({ form, setArticulos }: UseClientChang
 
       if (allProductsExist) {
         form.setValue(clientFieldName, newClient);
-        setArticulos(newClientArticulos); // Update the available articles list
+        setArticulos(newClientArticulos);
       } else {
         setNewClientToSet(newClient);
         setConfirmDialogOpen(true);
@@ -77,7 +76,7 @@ export function useClientChangeHandler<T>({ form, setArticulos }: UseClientChang
       const clientFieldName = formData.nombreCliente !== undefined ? 'nombreCliente' : 'cliente';
 
       form.setValue(clientFieldName, newClientToSet);
-      form.setValue(productListName, []); // Clear products
+      form.setValue(productListName, []);
       
       setIsVerifying(true);
       try {
