@@ -19,7 +19,7 @@ export function useClientChangeHandler<T>({ form, setArticulos }: UseClientChang
   const [isConfirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [newClientToSet, setNewClientToSet] = useState<string | null>(null);
 
-  const handleClientChange = async (newClient: string) => {
+  const handleClientChange = async (newClient: string): Promise<ArticuloInfo[] | null> => {
     setIsVerifying(true);
     
     const formData = form.getValues();
@@ -31,21 +31,21 @@ export function useClientChangeHandler<T>({ form, setArticulos }: UseClientChang
     const isDespachoPorDestino = productListName === 'destinos';
     const formProducts = formData[productListName];
     
-    const flatProductList = isDespachoPorDestino 
-        ? formProducts.flatMap((d: any) => d.items || []) 
-        : formProducts;
+    const flatProductList = (isDespachoPorDestino 
+        ? formProducts?.flatMap((d: any) => d.items || []) 
+        : formProducts) || [];
 
-    if (!flatProductList || flatProductList.length === 0 || flatProductList.every((p:any) => !p.descripcion)) {
+    if (flatProductList.length === 0 || flatProductList.every((p: any) => !p.descripcion)) {
         form.setValue(clientFieldName, newClient);
         setNewClientToSet(null);
         try {
             const newClientArticulos = await getArticulosByClients([newClient]);
-            setArticulos(newClientArticulos);
+            setIsVerifying(false);
+            return newClientArticulos; // Return the new list
         } catch (e) {
-            setArticulos([]);
+            setIsVerifying(false);
+            return []; // Return empty list on error
         }
-        setIsVerifying(false);
-        return;
     }
     
     try {
@@ -53,23 +53,27 @@ export function useClientChangeHandler<T>({ form, setArticulos }: UseClientChang
       
       const allProductsExist = flatProductList.every((formProduct: any) => 
         newClientArticulos.some(newArticulo => 
-          newArticulo.codigoProducto.trim() === formProduct.codigo.trim() &&
-          newArticulo.denominacionArticulo.trim() === formProduct.descripcion.trim()
+          newArticulo.codigoProducto?.trim() === formProduct.codigo?.trim() &&
+          newArticulo.denominacionArticulo?.trim() === formProduct.descripcion?.trim()
         )
       );
 
       if (allProductsExist) {
         form.setValue(clientFieldName, newClient);
-        setArticulos(newClientArticulos); // Correctly set the new articles and keep them
+        setNewClientToSet(null);
+        setIsVerifying(false);
+        return newClientArticulos; // <-- Return the list on success
       } else {
         setNewClientToSet(newClient);
         setConfirmDialogOpen(true);
+        setIsVerifying(false);
+        return null; // Don't change the list yet
       }
 
     } catch (error) {
       toast({ variant: 'destructive', title: 'Error', description: 'No se pudo verificar la lista de productos del nuevo cliente.' });
-    } finally {
       setIsVerifying(false);
+      return null;
     }
   };
 
@@ -81,12 +85,12 @@ export function useClientChangeHandler<T>({ form, setArticulos }: UseClientChang
       const clientFieldName = formData.nombreCliente !== undefined ? 'nombreCliente' : 'cliente';
 
       form.setValue(clientFieldName, newClientToSet);
-      form.setValue(productListName, []); // Clear the product list
+      form.setValue(productListName, []);
       
       setIsVerifying(true);
       try {
         const newClientArticulos = await getArticulosByClients([newClientToSet]);
-        setArticulos(newClientArticulos); // Set the new (empty) product list for the new client
+        setArticulos(newClientArticulos); // Update state here after confirmation
       } catch (e) {
         setArticulos([]);
       } finally {

@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback, ReactNode } from "react";
@@ -577,7 +576,6 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
   const { handleClientChange, ClientChangeDialog, VerifyingClientSpinner, isVerifying } = useClientChangeHandler({
     form,
     setArticulos,
-    isDespachoPorDestino: form.watch('despachoPorDestino'),
   });
 
   const { fields, append, remove } = useFieldArray({
@@ -1117,7 +1115,10 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
   const handleClientSelection = async (clientName: string) => {
     setClientDialogOpen(false);
     setClientSearch('');
-    await handleClientChange(clientName);
+    const newArticulos = await handleClientChange(clientName);
+    if (newArticulos) {
+        setArticulos(newArticulos);
+    }
   };
 
   const handleProductDialogOpening = async (context: { itemIndex: number, destinoIndex?: number }) => {
@@ -2180,6 +2181,7 @@ function PedidoTypeSelectorDialog({
 }
 
     
+
 
 
 

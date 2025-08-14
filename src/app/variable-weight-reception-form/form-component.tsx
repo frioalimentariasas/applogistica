@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef, useCallback, ReactNode } from "react";
@@ -510,7 +509,6 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
   const { handleClientChange, ClientChangeDialog, VerifyingClientSpinner, isVerifying } = useClientChangeHandler({
     form,
     setArticulos,
-    isDespachoPorDestino: false, // Not applicable for reception form
   });
 
   const watchedTipoPedido = useWatch({ control: form.control, name: 'tipoPedido' });
@@ -1190,7 +1188,10 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
   const handleClientSelection = async (clientName: string) => {
     setClientDialogOpen(false);
     setClientSearch('');
-    await handleClientChange(clientName);
+    const newArticulos = await handleClientChange(clientName);
+    if (newArticulos) {
+        setArticulos(newArticulos);
+    }
   };
 
   const handleProductDialogOpening = async (context: { itemIndex: number, placaIndex?: number }) => {
