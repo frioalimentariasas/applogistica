@@ -45,11 +45,13 @@ const calculateDuration = (horaInicio: string, horaFin: string): number | null =
 };
 
 const calculateTotalKilos = (formType: string, formData: any): number => {
+    // For fixed weight forms, the legalized weight takes precedence.
     if (formType.startsWith('fixed-weight-')) {
-        // This now correctly prioritizes the legalized weight.
-        if (formData.totalPesoBrutoKg !== undefined && formData.totalPesoBrutoKg > 0) {
-             return Number(formData.totalPesoBrutoKg);
+        const legalizedWeight = Number(formData.totalPesoBrutoKg);
+        if (legalizedWeight > 0) {
+            return legalizedWeight;
         }
+        // Fallback for non-legalized or older forms
         return (formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.pesoNetoKg) || 0), 0);
     }
     
@@ -467,7 +469,17 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             enrichedRows.push(row);
         }
 
-        enrichedRows.sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
+        enrichedRows.sort((a, b) => {
+            const dateA = new Date(a.fecha).getTime();
+            const dateB = new Date(b.fecha).getTime();
+            if (dateA !== dateB) {
+                return dateA - dateB;
+            }
+            // If dates are the same, sort by start time
+            const timeA = a.horaInicio.replace(':', '');
+            const timeB = b.horaInicio.replace(':', '');
+            return timeA.localeCompare(timeB);
+        });
 
         return enrichedRows;
     } catch (error: any) {
