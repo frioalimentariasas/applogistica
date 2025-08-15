@@ -46,26 +46,19 @@ const calculateDuration = (horaInicio: string, horaFin: string): number | null =
 };
 
 const calculateTotalKilos = (formType: string, formData: any): number => {
-    // For fixed weight, the total gross weight is in a dedicated field.
-    // This handles both new forms and older ones after legalization.
     if (formType.startsWith('fixed-weight-')) {
-        // After legalization, the weight is in totalPesoBrutoKg.
         if (formData.totalPesoBrutoKg !== undefined) {
              return Number(formData.totalPesoBrutoKg);
         }
-        // In some older or non-legalized forms, it might be in the products array as pesoNetoKg
         return (formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.pesoNetoKg) || 0), 0);
     }
     
-    // For variable weight reception, settlement is by total GROSS WEIGHT.
     if (formType.includes('reception') || formType.includes('recepcion')) {
         const allItems = (formData.items || [])
             .concat((formData.placas || []).flatMap((p: any) => p.items));
-        // Sum the gross weight of each item, regardless of whether it's summary or individual.
         return allItems.reduce((sum: number, p: any) => sum + (Number(p.pesoBruto) || 0), 0);
     }
     
-    // For variable weight dispatch, use NET WEIGHT.
     if (formType.startsWith('variable-weight-')) {
         const allItems = (formData.items || [])
             .concat((formData.destinos || []).flatMap((d: any) => d.items));
@@ -93,7 +86,6 @@ const calculateTotalPallets = (formType: string, formData: any): number => {
         const isSummaryFormat = allItems.some((p: any) => Number(p.paleta) === 0);
         
         if (isSummaryFormat) {
-             // For dispatch with destination and summary, a specific field holds the total
             if ((formType.includes('despacho') && formData.despachoPorDestino) || (formData.tipoPedido === 'TUNEL DE CONGELACIÓN')) {
                 return Number(formData.totalPaletasDespacho) || allItems.reduce((sum: number, p: any) => sum + (Number(p.totalPaletas) || 0), 0);
             }
@@ -222,68 +214,84 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
         }
     });
 
-    // Then process the main operation concept (CARGUE/DESCARGUE)
+    // Then process the main operation concept (CARGUE/DESCARGUE) and Maquila concepts
     if (formData.aplicaCuadrilla === 'si') {
         const isReception = formType.includes('recepcion') || formType.includes('reception');
         const isDispatch = formType.includes('despacho');
-        const conceptName = isReception ? 'DESCARGUE' : (isDispatch ? 'CARGUE' : null);
         
-        if (conceptName && formData.tipoPedido !== 'MAQUILA') {
-            const kilos = calculateTotalKilos(formType, formData);
-            const operationConcept = billingConcepts.find(c => c.conceptName === conceptName && c.unitOfMeasure === 'TONELADA');
-            
-            if (operationConcept) {
-                 // For fixed weight, the operation is pending if totalPesoBrutoKg is 0.
-                 const isFixedWeightPending = formType.startsWith('fixed-weight-') && kilos === 0;
+        if (formData.tipoPedido !== 'MAQUILA') {
+            const conceptName = isReception ? 'DESCARGUE' : (isDispatch ? 'CARGUE' : null);
+            if (conceptName) {
+                const kilos = calculateTotalKilos(formType, formData);
+                const operationConcept = billingConcepts.find(c => c.conceptName === conceptName && c.unitOfMeasure === 'TONELADA');
+                
+                if (operationConcept) {
+                     const isFixedWeightPending = formType.startsWith('fixed-weight-') && kilos === 0;
 
-                 if (isFixedWeightPending) {
-                      if (!settlements.some(s => s.conceptName === conceptName)) {
-                         settlements.push({ 
-                             conceptName: operationConcept.conceptName, 
-                             unitValue: operationConcept.value, 
-                             quantity: -1, // Use -1 as a flag for pending
-                             unitOfMeasure: 'TONELADA', 
-                             totalValue: 0
-                         });
-                     }
-                 } else if (kilos >= 0) { // Also include operations with 0 kilos if not pending
-                    const toneladas = kilos / 1000;
-                    if (!settlements.some(s => s.conceptName === conceptName)) {
-                        settlements.push({ 
-                            conceptName: operationConcept.conceptName, 
-                            unitValue: operationConcept.value, 
-                            quantity: toneladas, 
-                            unitOfMeasure: 'TONELADA', 
-                            totalValue: toneladas * operationConcept.value 
-                        });
+                     if (isFixedWeightPending) {
+                          if (!settlements.some(s => s.conceptName === conceptName)) {
+                             settlements.push({ 
+                                 conceptName: operationConcept.conceptName, 
+                                 unitValue: operationConcept.value, 
+                                 quantity: -1, // Use -1 as a flag for pending
+                                 unitOfMeasure: 'TONELADA', 
+                                 totalValue: 0
+                             });
+                         }
+                     } else if (kilos >= 0) { 
+                        const toneladas = kilos / 1000;
+                        if (!settlements.some(s => s.conceptName === conceptName)) {
+                            settlements.push({ 
+                                conceptName: operationConcept.conceptName, 
+                                unitValue: operationConcept.value, 
+                                quantity: toneladas, 
+                                unitOfMeasure: 'TONELADA', 
+                                totalValue: toneladas * operationConcept.value 
+                            });
+                        }
                     }
                 }
             }
-        }
-        
-        if (formData.tipoPedido === 'MAQUILA' && formData.tipoEmpaqueMaquila) {
-            const conceptName = formData.tipoEmpaqueMaquila;
-            const unitOfMeasure = conceptName === 'EMPAQUE DE CAJAS' ? 'CAJA' : 'SACO';
-            const maquilaConcept = billingConcepts.find(c => c.conceptName === conceptName && c.unitOfMeasure === unitOfMeasure);
+        } else { // It is MAQUILA
+            // Handle packaging type (SACOS/CAJAS)
+            if (formData.tipoEmpaqueMaquila) {
+                const conceptName = formData.tipoEmpaqueMaquila;
+                const unitOfMeasure = conceptName === 'EMPAQUE DE CAJAS' ? 'CAJA' : 'SACO';
+                const maquilaConcept = billingConcepts.find(c => c.conceptName === conceptName && c.unitOfMeasure === unitOfMeasure);
 
-            if (maquilaConcept) {
-                let quantity = 0;
-                if (formType.startsWith('fixed-weight-')) {
-                    quantity = (formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.cajas) || 0), 0);
-                } else if (formType.startsWith('variable-weight-')) {
-                    quantity = (formData.items || []).reduce((sum: number, p: any) => sum + (Number(p.cantidadPorPaleta) || 0), 0);
-                }
-                
-                if (quantity > 0) {
-                    if (!settlements.some(s => s.conceptName === conceptName)) {
-                        settlements.push({ 
-                            conceptName: maquilaConcept.conceptName, 
-                            unitValue: maquilaConcept.value, 
-                            quantity: quantity, 
-                            unitOfMeasure: maquilaConcept.unitOfMeasure, 
-                            totalValue: quantity * maquilaConcept.value 
-                        });
+                if (maquilaConcept) {
+                    let quantity = 0;
+                    if (formType.startsWith('fixed-weight-')) {
+                        quantity = (formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.cajas) || 0), 0);
+                    } else if (formType.startsWith('variable-weight-')) {
+                        quantity = (formData.items || []).reduce((sum: number, p: any) => sum + (Number(p.cantidadPorPaleta) || 0), 0);
                     }
+                    
+                    if (quantity > 0) {
+                        if (!settlements.some(s => s.conceptName === conceptName)) {
+                            settlements.push({ 
+                                conceptName: maquilaConcept.conceptName, 
+                                unitValue: maquilaConcept.value, 
+                                quantity: quantity, 
+                                unitOfMeasure: maquilaConcept.unitOfMeasure, 
+                                totalValue: quantity * maquilaConcept.value 
+                            });
+                        }
+                    }
+                }
+            }
+            // Handle JORNAL DIURNO
+            const jornalConcept = billingConcepts.find(c => c.conceptName === 'JORNAL DIURNO' && c.unitOfMeasure === 'UNIDAD');
+            if (jornalConcept && formData.numeroOperariosCuadrilla > 0) {
+                const quantity = Number(formData.numeroOperariosCuadrilla);
+                 if (!settlements.some(s => s.conceptName === 'JORNAL DIURNO')) {
+                    settlements.push({
+                        conceptName: jornalConcept.conceptName,
+                        unitValue: jornalConcept.value,
+                        quantity: quantity,
+                        unitOfMeasure: jornalConcept.unitOfMeasure,
+                        totalValue: quantity * jornalConcept.value,
+                    });
                 }
             }
         }
@@ -329,12 +337,9 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             return localDate >= criteria.startDate! && localDate <= criteria.endDate!;
         });
 
-        // Apply filter for pending weights first if requested.
-        // This is a crucial filter that dramatically reduces the dataset for other filters.
         if (criteria.filterPending) {
              allResults = allResults.filter(sub => {
                  if (!sub.formType.startsWith('fixed-weight-')) return false;
-                 // A submission is pending if the new field is 0 or undefined.
                  return (sub.formData.totalPesoBrutoKg === undefined || sub.formData.totalPesoBrutoKg === 0);
              });
         }

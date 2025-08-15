@@ -229,8 +229,9 @@ export default function CrewPerformanceReportPage() {
     }, [clientSearch, clients]);
 
     const filteredConcepts = useMemo(() => {
-        if (!conceptSearch) return allBillingConcepts.map(c => c.conceptName);
-        return allBillingConcepts.map(c => c.conceptName).filter(name => name.toLowerCase().includes(conceptSearch.toLowerCase()));
+        const uniqueConcepts = [...new Set(allBillingConcepts.map(c => c.conceptName))];
+        if (!conceptSearch) return uniqueConcepts;
+        return uniqueConcepts.filter(name => name.toLowerCase().includes(conceptSearch.toLowerCase()));
     }, [conceptSearch, allBillingConcepts]);
 
     const liquidationData = useMemo(() => {
@@ -419,8 +420,9 @@ export default function CrewPerformanceReportPage() {
     };
 
     const getSelectedConceptsText = () => {
+        const uniqueConcepts = [...new Set(allBillingConcepts.map(c => c.conceptName))];
         if (selectedConcepts.length === 0) return "Todos los conceptos...";
-        if (selectedConcepts.length === allBillingConcepts.length) return "Todos los conceptos";
+        if (selectedConcepts.length === uniqueConcepts.length) return "Todos los conceptos";
         if (selectedConcepts.length === 1) return selectedConcepts[0];
         return `${selectedConcepts.length} conceptos seleccionados`;
     }
@@ -1001,7 +1003,7 @@ export default function CrewPerformanceReportPage() {
                                         <Input placeholder="Buscar concepto..." value={conceptSearch} onChange={(e) => setConceptSearch(e.target.value)} className="my-4" />
                                         <ScrollArea className="h-72">
                                             <div className="space-y-1">
-                                                <div className="flex items-center space-x-2 rounded-md p-2 hover:bg-accent border-b"><Checkbox id="select-all-concepts" checked={selectedConcepts.length === allBillingConcepts.length} onCheckedChange={(checked) => { setSelectedConcepts(checked ? allBillingConcepts.map(c => c.conceptName) : []); }} /><Label htmlFor="select-all-concepts" className="w-full cursor-pointer font-semibold">Seleccionar Todos</Label></div>
+                                                <div className="flex items-center space-x-2 rounded-md p-2 hover:bg-accent border-b"><Checkbox id="select-all-concepts" checked={selectedConcepts.length === [...new Set(allBillingConcepts.map(c => c.conceptName))].length} onCheckedChange={(checked) => { setSelectedConcepts(checked ? [...new Set(allBillingConcepts.map(c => c.conceptName))] : []); }} /><Label htmlFor="select-all-concepts" className="w-full cursor-pointer font-semibold">Seleccionar Todos</Label></div>
                                                 {filteredConcepts.map((conceptName) => (<div key={conceptName} className="flex items-center space-x-2 rounded-md p-2 hover:bg-accent"><Checkbox id={`concept-${conceptName}`} checked={selectedConcepts.includes(conceptName)} onCheckedChange={(checked) => { setSelectedConcepts(prev => checked ? [...prev, conceptName] : prev.filter(s => s !== conceptName) ) }} /><Label htmlFor={`concept-${conceptName}`} className="w-full cursor-pointer">{conceptName}</Label></div>))}
                                             </div>
                                         </ScrollArea>
