@@ -997,6 +997,35 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                      }
                  }
                  addObservationsTable();
+                 
+                 const showCrewField = formData.tipoPedido !== 'INGRESO DE SALDOS' && formData.tipoPedido !== 'TUNEL A CÁMARA CONGELADOS';
+                 const responsablesBody = [
+                     [
+                        {content: 'Coordinador:', styles: {fontStyle: 'bold'}}, formData.coordinador || 'N/A',
+                        {content: 'Operario:', styles: {fontStyle: 'bold'}}, userDisplayName || 'N/A',
+                     ]
+                 ];
+
+                 if (showCrewField) {
+                     responsablesBody[0].push({content: 'Operación Realizada por Cuadrilla:', styles: {fontStyle: 'bold'}});
+                     responsablesBody[0].push(`${formData.aplicaCuadrilla ? formData.aplicaCuadrilla.charAt(0).toUpperCase() + formData.aplicaCuadrilla.slice(1) : 'N/A'}${formData.aplicaCuadrilla === 'si' && isReception && formData.tipoPedido === 'MAQUILA' && formData.numeroOperariosCuadrilla ? ` (${formData.numeroOperariosCuadrilla} operarios)`: ''}`);
+                 }
+
+                 autoTable(doc, { 
+                    startY: yPos, 
+                    head: [[{ content: 'Responsables de la Operación', colSpan: showCrewField ? 8 : 4, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]], 
+                    body: responsablesBody,
+                    theme: 'grid', 
+                    styles: { fontSize: 8, cellPadding: 4, valign: 'middle' },
+                    columnStyles: {
+                        0: { cellWidth: 'auto' }, 1: { cellWidth: '*' },
+                        2: { cellWidth: 'auto' }, 3: { cellWidth: '*' },
+                        4: { cellWidth: 'auto' }, 5: { cellWidth: '*' },
+                        6: { cellWidth: 'auto' }, 7: { cellWidth: '*' },
+                    },
+                    margin: { horizontal: margin },
+                });
+                yPos = (doc as any).autoTable.previous.finalY + 15;
              }
     
             if (base64Images.length > 0) {
