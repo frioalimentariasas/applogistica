@@ -165,7 +165,7 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
     const operationTerm = 'Descargue';
     const fieldCellStyle: React.CSSProperties = { padding: '2px', fontSize: '11px', lineHeight: '1.4', verticalAlign: 'top' };
     const hasStandardObservations = (formData.observaciones || []).some((obs: any) => obs.type !== 'OTRAS OBSERVACIONES');
-    const showCrewField = formData.tipoPedido !== 'TUNEL A CÁMARA CONGELADOS';
+    const showCrewField = formData.tipoPedido !== 'INGRESO DE SALDOS' && formData.tipoPedido !== 'TUNEL A CÁMARA CONGELADOS';
 
     return (
         <>
