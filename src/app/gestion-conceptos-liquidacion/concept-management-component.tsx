@@ -2,7 +2,8 @@
 
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from 'react';
+import * as React from 'react';
+import { useState, useMemo } from 'react';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -18,7 +19,7 @@ import { ArrowLeft, Loader2, PlusCircle, Edit, Trash2, ShieldAlert, DollarSign, 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -35,11 +36,11 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import type { ClientInfo } from '@/app/actions/clients';
 import { cn } from '@/lib/utils';
-
+import { Label } from '@/components/ui/label';
 
 const conceptSchema = z.object({
   conceptName: z.string().min(3, { message: "El nombre del concepto es requerido (mín. 3 caracteres)."}),
-  clientName: z.string().min(1, { message: 'Debe seleccionar un cliente o "TODOS".' }),
+  clientNames: z.array(z.string()).min(1, { message: 'Debe seleccionar al menos un cliente.' }),
   operationType: z.enum(['recepcion', 'despacho', 'TODAS'], { required_error: 'Debe seleccionar un tipo de operación.' }),
   productType: z.enum(['fijo', 'variable', 'TODOS'], { required_error: 'Debe seleccionar un tipo de producto.' }),
   unitOfMeasure: z.enum(['TONELADA', 'PALETA', 'UNIDAD', 'CAJA', 'SACO', 'CANASTILLA'], { required_error: 'Debe seleccionar una unidad de medida.'}),
@@ -72,16 +73,12 @@ export default function ConceptManagementComponent({ initialClients, initialConc
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [isConfirmBulkDeleteOpen, setIsConfirmBulkDeleteOpen] = useState(false);
   const [isBulkDeleting, setIsBulkDeleting] = useState(false);
-  const [isClientDialogOpen, setClientDialogOpen] = useState(false);
-  const [isEditClientDialogOpen, setEditClientDialogOpen] = useState(false);
-  const [clientSearch, setClientSearch] = useState('');
-
-
+  
   const addForm = useForm<ConceptFormValues>({
     resolver: zodResolver(conceptSchema),
     defaultValues: {
       conceptName: '',
-      clientName: 'TODOS',
+      clientNames: ['TODOS (Cualquier Cliente)'],
       operationType: 'TODAS',
       productType: 'TODOS',
       unitOfMeasure: 'TONELADA',
@@ -97,13 +94,7 @@ export default function ConceptManagementComponent({ initialClients, initialConc
     { id: 'TODOS', razonSocial: 'TODOS (Cualquier Cliente)' }, 
     ...initialClients
   ], [initialClients]);
-
-  const filteredClients = useMemo(() => {
-    if (!clientSearch) return clientOptions;
-    return clientOptions.filter(c => c.razonSocial.toLowerCase().includes(clientSearch.toLowerCase()));
-  }, [clientSearch, clientOptions]);
-
-
+  
   const onAddSubmit: SubmitHandler<ConceptFormValues> = async (data) => {
     setIsSubmitting(true);
     const result = await addBillingConcept({
@@ -223,50 +214,18 @@ export default function ConceptManagementComponent({ initialClients, initialConc
                                 <FormField control={addForm.control} name="conceptName" render={({ field }) => (<FormItem><FormLabel>Nombre del Concepto</FormLabel><FormControl><Input placeholder="Ej: REESTIBADO" {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)}/>
                                 <FormField
                                   control={addForm.control}
-                                  name="clientName"
+                                  name="clientNames"
                                   render={({ field }) => (
-                                      <FormItem className="flex flex-col">
-                                          <FormLabel>Cliente</FormLabel>
-                                          <Dialog open={isClientDialogOpen} onOpenChange={setClientDialogOpen}>
-                                              <DialogTrigger asChild>
-                                                  <Button variant="outline" className="w-full justify-between text-left font-normal">
-                                                      {field.value || "Seleccione un cliente..."}
-                                                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                                  </Button>
-                                              </DialogTrigger>
-                                              <DialogContent className="sm:max-w-[425px]">
-                                                  <DialogHeader>
-                                                      <DialogTitle>Seleccionar Cliente</DialogTitle>
-                                                      <DialogDescription>Busque y seleccione un cliente de la lista.</DialogDescription>
-                                                  </DialogHeader>
-                                                  <Input
-                                                      placeholder="Buscar cliente..."
-                                                      value={clientSearch}
-                                                      onChange={(e) => setClientSearch(e.target.value)}
-                                                      className="my-4"
-                                                  />
-                                                  <ScrollArea className="h-72">
-                                                      <div className="space-y-1">
-                                                          {filteredClients.map((c) => (
-                                                              <Button
-                                                                  key={c.id}
-                                                                  variant="ghost"
-                                                                  className="w-full justify-start"
-                                                                  onClick={() => {
-                                                                      field.onChange(c.razonSocial);
-                                                                      setClientDialogOpen(false);
-                                                                      setClientSearch('');
-                                                                  }}
-                                                              >
-                                                                  {c.razonSocial}
-                                                              </Button>
-                                                          ))}
-                                                      </div>
-                                                  </ScrollArea>
-                                              </DialogContent>
-                                          </Dialog>
-                                          <FormMessage />
-                                      </FormItem>
+                                    <FormItem>
+                                        <FormLabel>Aplicar a Cliente(s)</FormLabel>
+                                        <ClientMultiSelect
+                                            options={clientOptions.map(c => ({value: c.razonSocial, label: c.razonSocial}))}
+                                            selected={field.value}
+                                            onChange={field.onChange}
+                                            placeholder="Seleccione clientes..."
+                                        />
+                                        <FormMessage />
+                                    </FormItem>
                                   )}
                                 />
                                 <FormField control={addForm.control} name="operationType" render={({ field }) => (<FormItem><FormLabel>Tipo de Operación</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODAS">TODAS</SelectItem><SelectItem value="recepcion">Recepción</SelectItem><SelectItem value="despacho">Despacho</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
@@ -315,7 +274,9 @@ export default function ConceptManagementComponent({ initialClients, initialConc
                                             <TableCell><Checkbox checked={selectedIds.has(c.id)} onCheckedChange={(checked) => handleRowSelect(c.id, checked === true)} /></TableCell>
                                             <TableCell>
                                                 <div className="font-medium">{c.conceptName}</div>
-                                                <div className="text-xs text-muted-foreground">{c.clientName} / {c.operationType} / {c.productType}</div>
+                                                <div className="text-xs text-muted-foreground max-w-[250px] truncate" title={(c.clientNames || []).join(', ')}>
+                                                    {(c.clientNames || []).join(', ')} / {c.operationType} / {c.productType}
+                                                </div>
                                             </TableCell>
                                             <TableCell>{c.unitOfMeasure}</TableCell>
                                             <TableCell>{c.value.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
@@ -346,48 +307,16 @@ export default function ConceptManagementComponent({ initialClients, initialConc
                 <FormField control={editForm.control} name="conceptName" render={({ field }) => (<FormItem><FormLabel>Nombre del Concepto</FormLabel><FormControl><Input {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)}/>
                 <FormField
                   control={editForm.control}
-                  name="clientName"
+                  name="clientNames"
                   render={({ field }) => (
-                    <FormItem className="flex flex-col">
-                        <FormLabel>Cliente</FormLabel>
-                        <Dialog open={isEditClientDialogOpen} onOpenChange={setEditClientDialogOpen}>
-                            <DialogTrigger asChild>
-                                <Button variant="outline" className="w-full justify-between text-left font-normal">
-                                    {field.value || "Seleccione un cliente..."}
-                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                </Button>
-                            </DialogTrigger>
-                            <DialogContent className="sm:max-w-[425px]">
-                                <DialogHeader>
-                                    <DialogTitle>Seleccionar Cliente</DialogTitle>
-                                    <DialogDescription>Busque y seleccione un cliente de la lista.</DialogDescription>
-                                </DialogHeader>
-                                <Input
-                                    placeholder="Buscar cliente..."
-                                    value={clientSearch}
-                                    onChange={(e) => setClientSearch(e.target.value)}
-                                    className="my-4"
-                                />
-                                <ScrollArea className="h-72">
-                                    <div className="space-y-1">
-                                        {filteredClients.map((c) => (
-                                            <Button
-                                                key={c.id}
-                                                variant="ghost"
-                                                className="w-full justify-start"
-                                                onClick={() => {
-                                                    field.onChange(c.razonSocial);
-                                                    setEditClientDialogOpen(false);
-                                                    setClientSearch('');
-                                                }}
-                                            >
-                                                {c.razonSocial}
-                                            </Button>
-                                        ))}
-                                    </div>
-                                </ScrollArea>
-                            </DialogContent>
-                        </Dialog>
+                    <FormItem>
+                        <FormLabel>Aplicar a Cliente(s)</FormLabel>
+                        <ClientMultiSelect
+                            options={clientOptions.map(c => ({value: c.razonSocial, label: c.razonSocial}))}
+                            selected={field.value}
+                            onChange={field.onChange}
+                            placeholder="Seleccione clientes..."
+                        />
                         <FormMessage />
                     </FormItem>
                   )}
@@ -423,3 +352,62 @@ export default function ConceptManagementComponent({ initialClients, initialConc
     </div>
   );
 }
+
+
+function ClientMultiSelect({ options, selected, onChange, placeholder }: { options: { value: string, label: string }[], selected: string[], onChange: (selected: string[]) => void, placeholder: string }) {
+    const [open, setOpen] = useState(false);
+    
+    return (
+        <Popover open={open} onOpenChange={setOpen}>
+            <PopoverTrigger asChild>
+                <Button variant="outline" role="combobox" aria-expanded={open} className="w-full justify-between h-auto">
+                    <div className="flex flex-wrap gap-1">
+                        {selected.length > 0 ? options.filter(o => selected.includes(o.value)).map(o => (
+                            <Badge key={o.value} variant="secondary">{o.label}</Badge>
+                        )) : placeholder}
+                    </div>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-full p-0">
+                <Command>
+                    <CommandInput placeholder="Buscar cliente..." />
+                    <CommandList>
+                        <CommandEmpty>No se encontraron clientes.</CommandEmpty>
+                        <CommandGroup>
+                            <ScrollArea className="h-48">
+                            {options.map((option) => (
+                                <CommandItem
+                                    key={option.value}
+                                    onSelect={() => {
+                                        const isSelected = selected.includes(option.value);
+                                        const isTodos = option.value === 'TODOS (Cualquier Cliente)';
+                                        
+                                        if(isTodos) {
+                                            onChange(isSelected ? [] : ['TODOS (Cualquier Cliente)']);
+                                        } else {
+                                            const newSelection = isSelected 
+                                                ? selected.filter(s => s !== option.value)
+                                                : [...selected.filter(s => s !== 'TODOS (Cualquier Cliente)'), option.value];
+                                            onChange(newSelection);
+                                        }
+                                    }}
+                                >
+                                    <Check
+                                        className={cn(
+                                            "mr-2 h-4 w-4",
+                                            selected.includes(option.value) ? "opacity-100" : "opacity-0"
+                                        )}
+                                    />
+                                    {option.label}
+                                </CommandItem>
+                            ))}
+                            </ScrollArea>
+                        </CommandGroup>
+                    </CommandList>
+                </Command>
+            </PopoverContent>
+        </Popover>
+    );
+}
+

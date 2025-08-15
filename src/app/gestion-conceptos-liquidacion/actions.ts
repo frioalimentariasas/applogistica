@@ -7,7 +7,7 @@ import { revalidatePath } from 'next/cache';
 export interface BillingConcept {
   id: string;
   conceptName: string;
-  clientName: string; // "TODOS" or a specific client name
+  clientNames: string[]; // "TODOS (Cualquier Cliente)" or specific client names
   operationType: 'recepcion' | 'despacho' | 'TODAS';
   productType: 'fijo' | 'variable' | 'TODOS';
   unitOfMeasure: 'TONELADA' | 'PALETA' | 'UNIDAD' | 'CAJA' | 'SACO' | 'CANASTILLA';
@@ -25,7 +25,7 @@ export async function getBillingConcepts(): Promise<BillingConcept[]> {
       return {
         id: doc.id,
         conceptName: data.conceptName,
-        clientName: data.clientName,
+        clientNames: Array.isArray(data.clientNames) ? data.clientNames : [data.clientName], // Backward compatibility
         operationType: data.operationType,
         productType: data.productType,
         unitOfMeasure: data.unitOfMeasure,

@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import admin from 'firebase-admin';
@@ -169,6 +170,22 @@ const getLocalGroupingDate = (isoString: string): string => {
 const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]): { conceptName: string, unitValue: number, quantity: number, unitOfMeasure: string, totalValue: number }[] => {
     const settlements: { conceptName: string, unitValue: number, quantity: number, unitOfMeasure: string, totalValue: number }[] = [];
     const { formData, formType } = submission;
+    const clientName = formData.nombreCliente || formData.cliente;
+
+    const findMatchingConcept = (name: string, unit: string) => {
+        const specificConcept = billingConcepts.find(c => 
+            c.conceptName.toUpperCase() === name.toUpperCase() &&
+            c.unitOfMeasure.toUpperCase() === unit.toUpperCase() &&
+            c.clientNames.includes(clientName)
+        );
+        if (specificConcept) return specificConcept;
+
+        return billingConcepts.find(c =>
+            c.conceptName.toUpperCase() === name.toUpperCase() &&
+            c.unitOfMeasure.toUpperCase() === unit.toUpperCase() &&
+            c.clientNames.includes('TODOS (Cualquier Cliente)')
+        );
+    };
     
     // Process observations first
     const observaciones = Array.isArray(formData.observaciones) ? formData.observaciones : [];
@@ -183,7 +200,7 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
             const isSpecialConcept = specialHandledConcepts.includes(conceptType);
             
             if (isSpecialConcept && quantity === 0) {
-                 const conceptFromDb = billingConcepts.find(c => c.conceptName.toUpperCase() === conceptType.toUpperCase());
+                 const conceptFromDb = findMatchingConcept(conceptType, 'TONELADA') || findMatchingConcept(conceptType, 'PALETA');
                  if (conceptFromDb) {
                      quantityType = conceptFromDb.unitOfMeasure;
                  }
@@ -198,10 +215,7 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
             }
             
             if (quantity > 0 && quantityType) {
-                const billingConcept = billingConcepts.find(
-                    c => c.conceptName.toUpperCase() === conceptType.toUpperCase() && 
-                         c.unitOfMeasure.toUpperCase() === quantityType.toUpperCase()
-                );
+                const billingConcept = findMatchingConcept(conceptType, quantityType);
 
                 if (billingConcept) {
                     settlements.push({
@@ -225,7 +239,7 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
             const conceptName = isReception ? 'DESCARGUE' : (isDispatch ? 'CARGUE' : null);
             if (conceptName) {
                 const kilos = calculateTotalKilos(formType, formData);
-                const operationConcept = billingConcepts.find(c => c.conceptName === conceptName && c.unitOfMeasure === 'TONELADA');
+                const operationConcept = findMatchingConcept(conceptName, 'TONELADA');
                 
                 if (operationConcept) {
                      const isFixedWeightPending = formType.startsWith('fixed-weight-') && kilos === 0;
@@ -259,7 +273,7 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
             if (formData.tipoEmpaqueMaquila) {
                 const conceptName = formData.tipoEmpaqueMaquila;
                 const unitOfMeasure = conceptName === 'EMPAQUE DE CAJAS' ? 'CAJA' : 'SACO';
-                const maquilaConcept = billingConcepts.find(c => c.conceptName === conceptName && c.unitOfMeasure === unitOfMeasure);
+                const maquilaConcept = findMatchingConcept(conceptName, unitOfMeasure);
 
                 if (maquilaConcept) {
                     let quantity = 0;
@@ -283,7 +297,7 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
                 }
             }
             // Handle JORNAL DIURNO
-            const jornalConcept = billingConcepts.find(c => c.conceptName === 'JORNAL DIURNO' && c.unitOfMeasure === 'UNIDAD');
+            const jornalConcept = findMatchingConcept('JORNAL DIURNO', 'UNIDAD');
             if (jornalConcept && formData.numeroOperariosCuadrilla > 0) {
                 const quantity = Number(formData.numeroOperariosCuadrilla);
                  if (!settlements.some(s => s.conceptName === 'JORNAL DIURNO')) {
