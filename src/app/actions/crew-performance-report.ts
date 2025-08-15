@@ -49,7 +49,12 @@ const calculateTotalKilos = (formType: string, formData: any): number => {
     // For fixed weight, the total gross weight is in a dedicated field.
     // This handles both new forms and older ones after legalization.
     if (formType.startsWith('fixed-weight-')) {
-        return Number(formData.totalPesoBrutoKg || 0);
+        // After legalization, the weight is in totalPesoBrutoKg.
+        if (formData.totalPesoBrutoKg !== undefined) {
+             return Number(formData.totalPesoBrutoKg);
+        }
+        // In some older or non-legalized forms, it might be in the products array as pesoNetoKg
+        return (formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.pesoNetoKg) || 0), 0);
     }
     
     // For variable weight reception, settlement is by total GROSS WEIGHT.
@@ -457,5 +462,3 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         throw error;
     }
 }
-
-    

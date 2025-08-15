@@ -515,7 +515,18 @@ export default function CrewPerformanceReportPage() {
 
 
     const handleExportExcel = (type: 'productivity' | 'settlement') => {
-        if (type === 'productivity' && filteredReportData.length > 0) {
+        if (isLoading) return;
+        if ((type === 'productivity' && filteredReportData.length === 0) || (type === 'settlement' && liquidationData.length === 0)) {
+            toast({ variant: 'destructive', title: 'Sin datos', description: 'No hay datos para exportar.' });
+            return;
+        }
+
+        const dateSuffix = dateRange?.from && dateRange.to 
+            ? `${format(dateRange.from, 'yyyy-MM-dd')}_a_${format(dateRange.to, 'yyyy-MM-dd')}`
+            : 'rango_no_definido';
+        const timeSuffix = format(new Date(), 'yyyyMMdd-HHmm');
+    
+        if (type === 'productivity') {
             const wb = XLSX.utils.book_new();
 
             // Sheet 1: Detalle
@@ -576,9 +587,9 @@ export default function CrewPerformanceReportPage() {
                 XLSX.utils.book_append_sheet(wb, wsNovelties, "Novedades");
             }
 
-            XLSX.writeFile(wb, "Reporte_Analisis_Productividad.xlsx");
+            XLSX.writeFile(wb, `Reporte_Analisis_Productividad_${dateSuffix}_gen_${timeSuffix}.xlsx`);
 
-        } else if (type === 'settlement' && liquidationData.length > 0) {
+        } else if (type === 'settlement') {
              const wb = XLSX.utils.book_new();
 
             const data = liquidationData.map(row => ({
@@ -635,11 +646,22 @@ export default function CrewPerformanceReportPage() {
                 XLSX.utils.book_append_sheet(wb, wsSummary, "Resumen_Liquidacion");
             }
             
-            XLSX.writeFile(wb, "Reporte_Liquidacion_Cuadrilla.xlsx");
+            XLSX.writeFile(wb, `Reporte_Liquidacion_Cuadrilla_${dateSuffix}_gen_${timeSuffix}.xlsx`);
         }
     };
     
     const handleExportPDF = (type: 'productivity' | 'settlement') => {
+        if (isLoading) return;
+        if ((type === 'productivity' && filteredReportData.length === 0) || (type === 'settlement' && liquidationData.length === 0)) {
+            toast({ variant: 'destructive', title: 'Sin datos', description: 'No hay datos para exportar.' });
+            return;
+        }
+
+        const dateSuffix = dateRange?.from && dateRange.to 
+            ? `${format(dateRange.from, 'yyyy-MM-dd')}_a_${format(dateRange.to, 'yyyy-MM-dd')}`
+            : 'rango_no_definido';
+        const timeSuffix = format(new Date(), 'yyyyMMdd-HHmm');
+        
         const doc = new jsPDF({ orientation: 'landscape' });
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
@@ -662,7 +684,7 @@ export default function CrewPerformanceReportPage() {
              }
         }
 
-        if (type === 'productivity' && filteredReportData.length > 0) {
+        if (type === 'productivity') {
             addHeader("Reporte de Análisis de Productividad");
             
             if (performanceSummary) {
@@ -743,9 +765,9 @@ export default function CrewPerformanceReportPage() {
                 columnStyles: { cliente: { cellWidth: 35 } }
             });
             addFooter();
-            doc.save("Reporte_Analisis_Productividad.pdf");
+            doc.save(`Reporte_Analisis_Productividad_${dateSuffix}_gen_${timeSuffix}.pdf`);
 
-        } else if (type === 'settlement' && liquidationData.length > 0) {
+        } else if (type === 'settlement') {
             addHeader("Reporte de Liquidación de Cuadrilla");
             const head = [['Mes', 'Fecha', 'Pedido', 'Contenedor', 'Placa', 'Cliente', 'Concepto', 'Cantidad', 'H. Inicio', 'H. Fin', 'Duración', 'Vlr. Unitario', 'Vlr. Total']];
             const body = liquidationData.map(row => [
@@ -778,7 +800,7 @@ export default function CrewPerformanceReportPage() {
                 footStyles: { fillColor: '#3B82F6', textColor: '#FFFFFF' },
             });
             addFooter();
-            doc.save("Reporte_Liquidacion_Cuadrilla.pdf");
+            doc.save(`Reporte_Liquidacion_Cuadrilla_${dateSuffix}_gen_${timeSuffix}.pdf`);
         }
     };
 
@@ -1392,6 +1414,3 @@ function NoveltySelectorDialog({
         </Dialog>
     );
 }
-  
-
-    
