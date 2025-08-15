@@ -668,11 +668,11 @@ export default function CrewPerformanceReportPage() {
             return;
         }
 
-        const dateSuffix = dateRange?.from && dateRange.to 
+        const dateSuffix = dateRange?.from && dateRange.to
             ? `${format(dateRange.from, 'yyyy-MM-dd')}_a_${format(dateRange.to, 'yyyy-MM-dd')}`
             : 'rango_no_definido';
         const timeSuffix = format(new Date(), 'yyyyMMdd-HHmm');
-        
+
         const doc = new jsPDF({ orientation: 'landscape' });
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
@@ -780,37 +780,72 @@ export default function CrewPerformanceReportPage() {
 
         } else if (type === 'settlement') {
             addHeader("Reporte de Liquidación de Cuadrilla");
-            const head = [['Mes', 'Fecha', 'Pedido', 'Contenedor', 'Placa', 'Cliente', 'Concepto', 'Cantidad', 'Unidad', 'H. Inicio', 'H. Fin', 'Duración', 'Vlr. Unitario', 'Vlr. Total']];
-            const body = liquidationData.map(row => [
-                format(new Date(row.fecha), 'MMMM', { locale: es }),
-                format(new Date(row.fecha), 'dd/MM/yy'),
-                row.pedidoSislog,
-                row.contenedor,
-                row.placa,
-                row.cliente,
-                row.conceptoLiquidado,
-                row.cantidadConcepto === -1 ? 'Pendiente' : row.cantidadConcepto.toFixed(2),
-                row.cantidadConcepto === -1 ? '' : row.unidadMedidaConcepto,
-                row.horaInicio,
-                row.horaFin,
-                formatDuration(row.totalDurationMinutes),
-                row.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }),
-                row.valorTotalConcepto.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }),
-            ]);
-            const foot = [[
-                { content: 'TOTAL GENERAL', colSpan: 13, styles: { halign: 'right' } },
-                { content: totalLiquidacion.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right' } }
-            ]];
 
+            // Detailed Table
             autoTable(doc, {
                 startY: 20,
-                head,
-                body,
-                foot,
+                head: [[
+                    'Mes', 'Fecha', 'Pedido', 'Contenedor', 'Placa', 'Cliente', 'Concepto',
+                    'Cantidad', 'Unidad', 'H. Inicio', 'H. Fin', 'Duración', 'Vlr. Unitario', 'Vlr. Total'
+                ]],
+                body: liquidationData.map(row => [
+                    format(new Date(row.fecha), 'MMMM', { locale: es }),
+                    format(new Date(row.fecha), 'dd/MM/yy'),
+                    row.pedidoSislog,
+                    row.contenedor,
+                    row.placa,
+                    row.cliente,
+                    row.conceptoLiquidado,
+                    row.cantidadConcepto === -1 ? 'Pendiente' : row.cantidadConcepto.toFixed(2),
+                    row.cantidadConcepto === -1 ? '' : row.unidadMedidaConcepto,
+                    row.horaInicio,
+                    row.horaFin,
+                    formatDuration(row.totalDurationMinutes),
+                    row.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }),
+                    row.valorTotalConcepto.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }),
+                ]),
+                theme: 'grid',
                 styles: { fontSize: 6, cellPadding: 1 },
                 headStyles: { fontSize: 6, cellPadding: 1, fillColor: '#3B82F6' },
                 footStyles: { fillColor: '#3B82F6', textColor: '#FFFFFF' },
             });
+            finalY = (doc as any).autoTable.previous.finalY;
+
+            // Summary Table
+            if (conceptSummary && conceptSummary.length > 0) {
+                if (finalY > 150) { // Check if there is enough space, otherwise add a new page
+                    doc.addPage();
+                    finalY = 20;
+                } else {
+                    finalY += 15;
+                }
+
+                doc.setFontSize(11);
+                doc.setFont('helvetica', 'bold');
+                doc.text("Resumen de Conceptos Liquidados", 14, finalY);
+                finalY += 5;
+
+                autoTable(doc, {
+                    startY: finalY,
+                    head: [['Concepto', 'Cantidad Total', 'Unidad Medida', 'Valor Unitario', 'Valor Total Liquidado']],
+                    body: conceptSummary.map(item => [
+                        item.name,
+                        item.totalCantidad.toFixed(2),
+                        item.unidadMedida,
+                        item.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }),
+                        item.totalValor.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }),
+                    ]),
+                    foot: [[
+                        { content: 'TOTAL GENERAL', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold' } },
+                        { content: conceptSummary.reduce((acc, item) => acc + item.totalValor, 0).toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } }
+                    ]],
+                    theme: 'grid',
+                    styles: { fontSize: 8 },
+                    headStyles: { fillColor: '#e2e8f0', textColor: '#000' },
+                    footStyles: { fillColor: '#3B82F6', textColor: '#FFFFFF' },
+                });
+            }
+
             addFooter();
             doc.save(`Reporte_Liquidacion_Cuadrilla_${dateSuffix}_gen_${timeSuffix}.pdf`);
         }
