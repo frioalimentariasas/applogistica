@@ -42,6 +42,7 @@ const ResultsSkeleton = () => (
         <TableCell><Skeleton className="h-5 w-[100px] rounded-md" /></TableCell>
         <TableCell><Skeleton className="h-5 w-[100px] rounded-md" /></TableCell>
         <TableCell><Skeleton className="h-5 w-[150px] rounded-md" /></TableCell>
+        <TableCell><Skeleton className="h-5 w-[100px] rounded-md" /></TableCell>
         <TableCell><Skeleton className="h-5 w-[120px] rounded-md" /></TableCell>
         <TableCell className="text-right">
           <div className="flex justify-end gap-2">
@@ -57,7 +58,7 @@ const ResultsSkeleton = () => (
 
 const EmptyState = ({ searched }: { searched: boolean }) => (
     <TableRow>
-        <TableCell colSpan={8} className="py-20 text-center">
+        <TableCell colSpan={9} className="py-20 text-center">
             <div className="flex flex-col items-center gap-4">
                 <div className="rounded-full bg-primary/10 p-4">
                     <FolderSearch className="h-12 w-12 text-primary" />
@@ -500,6 +501,7 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
                                         <TableHead>Tipo de Pedido</TableHead>
                                         <TableHead>Pedido SISLOG</TableHead>
                                         <TableHead>Cliente</TableHead>
+                                        <TableHead>Placa</TableHead>
                                         <TableHead>Operario</TableHead>
                                         <TableHead className="text-right">Acciones</TableHead>
                                     </TableRow>
@@ -516,6 +518,7 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
                                                 <TableCell>{sub.formData.tipoPedido || 'N/A'}</TableCell>
                                                 <TableCell>{sub.formData.pedidoSislog}</TableCell>
                                                 <TableCell>{sub.formData.nombreCliente || sub.formData.cliente}</TableCell>
+                                                <TableCell>{sub.formData.placa || 'N/A'}</TableCell>
                                                 <TableCell>{sub.userDisplayName}</TableCell>
                                                 <TableCell className="text-right">
                                                     <TooltipProvider delayDuration={100}>
