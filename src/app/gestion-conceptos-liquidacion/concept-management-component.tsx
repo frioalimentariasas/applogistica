@@ -14,7 +14,7 @@ import { addBillingConcept, updateBillingConcept, deleteMultipleBillingConcepts,
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Loader2, PlusCircle, Edit, Trash2, ShieldAlert, DollarSign, ChevronsUpDown, Check } from 'lucide-react';
+import { ArrowLeft, Loader2, PlusCircle, Edit, Trash2, ShieldAlert, DollarSign, ChevronsUpDown, Check, Info } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -35,6 +35,7 @@ import type { ClientInfo } from '@/app/actions/clients';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 const conceptSchema = z.object({
   conceptName: z.string().min(3, { message: "El nombre del concepto es requerido (mín. 3 caracteres)."}),
@@ -43,6 +44,7 @@ const conceptSchema = z.object({
   productType: z.enum(['fijo', 'variable', 'TODOS'], { required_error: 'Debe seleccionar un tipo de producto.' }),
   unitOfMeasure: z.enum(['TONELADA', 'PALETA', 'UNIDAD', 'CAJA', 'SACO', 'CANASTILLA'], { required_error: 'Debe seleccionar una unidad de medida.'}),
   value: z.coerce.number({invalid_type_error: "Debe ser un número"}).min(0, "Debe ser 0 o mayor."),
+  excludeIfOtherApplies: z.boolean().default(false).optional(),
 });
 
 type ConceptFormValues = z.infer<typeof conceptSchema>;
@@ -81,6 +83,7 @@ export default function ConceptManagementComponent({ initialClients, initialConc
       productType: 'TODOS',
       unitOfMeasure: 'TONELADA',
       value: 0,
+      excludeIfOtherApplies: false,
     },
   });
 
@@ -109,6 +112,7 @@ export default function ConceptManagementComponent({ initialClients, initialConc
         productType: 'TODOS',
         unitOfMeasure: 'TONELADA',
         value: 0,
+        excludeIfOtherApplies: false,
       });
     } else {
       toast({ variant: 'destructive', title: 'Error', description: result.message });
@@ -182,7 +186,7 @@ export default function ConceptManagementComponent({ initialClients, initialConc
           <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8 flex items-center justify-center">
               <div className="max-w-xl mx-auto text-center">
                   <AccessDenied />
-                  <Button onClick={() => router.push('/')} className="mt-6"><ArrowLeft className="mr-2 h-4 w-4" />Volver al Inicio</Button>
+                  <Button onClick={() => router.push('/crew-performance-report')} className="mt-6"><ArrowLeft className="mr-2 h-4 w-4" />Volver al Inicio</Button>
               </div>
           </div>
       );
@@ -223,7 +227,7 @@ export default function ConceptManagementComponent({ initialClients, initialConc
                                   render={({ field }) => (
                                     <FormItem>
                                         <FormLabel>Aplicar a Cliente(s)</FormLabel>
-                                        <ClientMultiSelect
+                                        <ClientMultiSelectDialog
                                             options={clientOptions.map(c => ({value: c.razonSocial, label: c.razonSocial}))}
                                             selected={field.value}
                                             onChange={field.onChange}
@@ -278,7 +282,9 @@ export default function ConceptManagementComponent({ initialClients, initialConc
                                         <TableRow key={c.id} data-state={selectedIds.has(c.id) && "selected"}>
                                             <TableCell><Checkbox checked={selectedIds.has(c.id)} onCheckedChange={(checked) => handleRowSelect(c.id, checked === true)} /></TableCell>
                                             <TableCell>
-                                                <div className="font-medium">{c.conceptName}</div>
+                                                <div className="font-medium flex items-center gap-2">
+                                                    {c.conceptName}
+                                                </div>
                                                 <div className="text-xs text-muted-foreground max-w-[250px] truncate" title={(c.clientNames || []).join(', ')}>
                                                     {(c.clientNames || []).join(', ')} / {c.operationType} / {c.productType}
                                                 </div>
@@ -316,7 +322,7 @@ export default function ConceptManagementComponent({ initialClients, initialConc
                   render={({ field }) => (
                     <FormItem>
                         <FormLabel>Aplicar a Cliente(s)</FormLabel>
-                        <ClientMultiSelect
+                        <ClientMultiSelectDialog
                             options={clientOptions.map(c => ({value: c.razonSocial, label: c.razonSocial}))}
                             selected={field.value}
                             onChange={field.onChange}
@@ -359,7 +365,7 @@ export default function ConceptManagementComponent({ initialClients, initialConc
 }
 
 
-function ClientMultiSelect({
+function ClientMultiSelectDialog({
   options,
   selected,
   onChange,
@@ -380,16 +386,18 @@ function ClientMultiSelect({
     );
   }, [search, options]);
 
-  const handleSelect = (value: string) => {
-    const isSelected = selected.includes(value);
-    const isTodos = value === 'TODOS (Cualquier Cliente)';
+  const handleSelect = (valueToToggle: string) => {
+    const isTodos = valueToToggle === 'TODOS (Cualquier Cliente)';
     
+    // If "TODOS" is clicked
     if (isTodos) {
-      onChange(isSelected ? [] : ['TODOS (Cualquier Cliente)']);
+      // If it's already selected, unselect it. Otherwise, select only it.
+      onChange(selected.includes(valueToToggle) ? [] : [valueToToggle]);
     } else {
-      const newSelection = isSelected 
-        ? selected.filter(s => s !== value)
-        : [...selected.filter(s => s !== 'TODOS (Cualquier Cliente)'), value];
+      // If a specific client is clicked
+      const newSelection = selected.includes(valueToToggle)
+        ? selected.filter(s => s !== valueToToggle) // Unselect it
+        : [...selected.filter(s => s !== 'TODOS (Cualquier Cliente)'), valueToToggle]; // Select it and remove "TODOS"
       onChange(newSelection);
     }
   };
@@ -428,21 +436,20 @@ function ClientMultiSelect({
                 <div className="space-y-1 pr-4">
                 {filteredOptions.map((option) => (
                     <div
-                    key={option.value}
-                    className="flex items-center space-x-2 p-2 rounded-md hover:bg-accent"
+                        key={option.value}
+                        className="flex items-center space-x-2 p-2 rounded-md hover:bg-accent"
                     >
-                    <Checkbox
-                        id={`client-${option.value}`}
-                        checked={selected.includes(option.value)}
-                        onCheckedChange={() => handleSelect(option.value)}
-                        disabled={selected.includes('TODOS (Cualquier Cliente)') && option.value !== 'TODOS (Cualquier Cliente)'}
-                    />
-                    <Label
-                        htmlFor={`client-${option.value}`}
-                        className="w-full cursor-pointer"
-                    >
-                        {option.label}
-                    </Label>
+                        <Checkbox
+                            id={`client-${option.value}`}
+                            checked={selected.includes(option.value)}
+                            onCheckedChange={() => handleSelect(option.value)}
+                        />
+                        <Label
+                            htmlFor={`client-${option.value}`}
+                            className="w-full cursor-pointer"
+                        >
+                            {option.label}
+                        </Label>
                     </div>
                 ))}
                 </div>
@@ -455,3 +462,4 @@ function ClientMultiSelect({
     </Dialog>
   );
 }
+
