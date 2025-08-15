@@ -1,9 +1,8 @@
 
-
 "use client";
 
 import * as React from 'react';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -19,7 +18,7 @@ import { ArrowLeft, Loader2, PlusCircle, Edit, Trash2, ShieldAlert, DollarSign, 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -32,8 +31,6 @@ import {
 } from "@/components/ui/alert-dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 import type { ClientInfo } from '@/app/actions/clients';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
@@ -105,7 +102,14 @@ export default function ConceptManagementComponent({ initialClients, initialConc
     if (result.success && result.newConcept) {
       toast({ title: 'Éxito', description: result.message });
       setConcepts(prev => [...prev, result.newConcept!].sort((a,b) => a.conceptName.localeCompare(b.conceptName)));
-      addForm.reset();
+      addForm.reset({
+        conceptName: '',
+        clientNames: ['TODOS (Cualquier Cliente)'],
+        operationType: 'TODAS',
+        productType: 'TODOS',
+        unitOfMeasure: 'TONELADA',
+        value: 0,
+      });
     } else {
       toast({ variant: 'destructive', title: 'Error', description: result.message });
     }
@@ -355,60 +359,99 @@ export default function ConceptManagementComponent({ initialClients, initialConc
 }
 
 
-function ClientMultiSelect({ options, selected, onChange, placeholder }: { options: { value: string, label: string }[], selected: string[], onChange: (selected: string[]) => void, placeholder: string }) {
-    const [open, setOpen] = useState(false);
-    
-    return (
-        <Popover open={open} onOpenChange={setOpen}>
-            <PopoverTrigger asChild>
-                <Button variant="outline" role="combobox" aria-expanded={open} className="w-full justify-between h-auto">
-                    <div className="flex flex-wrap gap-1">
-                        {selected.length > 0 ? options.filter(o => selected.includes(o.value)).map(o => (
-                            <Badge key={o.value} variant="secondary">{o.label}</Badge>
-                        )) : placeholder}
-                    </div>
-                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-full p-0">
-                <Command>
-                    <CommandInput placeholder="Buscar cliente..." />
-                    <CommandList>
-                        <CommandEmpty>No se encontraron clientes.</CommandEmpty>
-                        <CommandGroup>
-                            <ScrollArea className="h-48">
-                            {options.map((option) => (
-                                <CommandItem
-                                    key={option.value}
-                                    onSelect={() => {
-                                        const isSelected = selected.includes(option.value);
-                                        const isTodos = option.value === 'TODOS (Cualquier Cliente)';
-                                        
-                                        if(isTodos) {
-                                            onChange(isSelected ? [] : ['TODOS (Cualquier Cliente)']);
-                                        } else {
-                                            const newSelection = isSelected 
-                                                ? selected.filter(s => s !== option.value)
-                                                : [...selected.filter(s => s !== 'TODOS (Cualquier Cliente)'), option.value];
-                                            onChange(newSelection);
-                                        }
-                                    }}
-                                >
-                                    <Check
-                                        className={cn(
-                                            "mr-2 h-4 w-4",
-                                            selected.includes(option.value) ? "opacity-100" : "opacity-0"
-                                        )}
-                                    />
-                                    {option.label}
-                                </CommandItem>
-                            ))}
-                            </ScrollArea>
-                        </CommandGroup>
-                    </CommandList>
-                </Command>
-            </PopoverContent>
-        </Popover>
-    );
-}
+function ClientMultiSelect({
+  options,
+  selected,
+  onChange,
+  placeholder,
+}: {
+  options: { value: string; label: string }[];
+  selected: string[];
+  onChange: (selected: string[]) => void;
+  placeholder: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
 
+  const filteredOptions = useMemo(() => {
+    if (!search) return options;
+    return options.filter((o) =>
+      o.label.toLowerCase().includes(search.toLowerCase())
+    );
+  }, [search, options]);
+
+  const handleSelect = (value: string) => {
+    const isSelected = selected.includes(value);
+    const isTodos = value === 'TODOS (Cualquier Cliente)';
+    
+    if (isTodos) {
+      onChange(isSelected ? [] : ['TODOS (Cualquier Cliente)']);
+    } else {
+      const newSelection = isSelected 
+        ? selected.filter(s => s !== value)
+        : [...selected.filter(s => s !== 'TODOS (Cualquier Cliente)'), value];
+      onChange(newSelection);
+    }
+  };
+
+  const getButtonLabel = () => {
+    if (selected.length === 0) return placeholder;
+    if (selected.length === 1) return selected[0];
+    if (selected.length === options.length) return "Todos los clientes seleccionados";
+    return `${selected.length} clientes seleccionados`;
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button
+          variant="outline"
+          className="w-full justify-between text-left font-normal"
+        >
+          <span className="truncate">{getButtonLabel()}</span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="p-0">
+        <DialogHeader className="p-6 pb-2">
+            <DialogTitle>Seleccionar Cliente(s)</DialogTitle>
+            <DialogDescription>Seleccione los clientes para este concepto.</DialogDescription>
+        </DialogHeader>
+        <div className="p-6 pt-0">
+            <Input
+                placeholder="Buscar cliente..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="mb-4"
+            />
+            <ScrollArea className="h-60">
+                <div className="space-y-1 pr-4">
+                {filteredOptions.map((option) => (
+                    <div
+                    key={option.value}
+                    className="flex items-center space-x-2 p-2 rounded-md hover:bg-accent"
+                    >
+                    <Checkbox
+                        id={`client-${option.value}`}
+                        checked={selected.includes(option.value)}
+                        onCheckedChange={() => handleSelect(option.value)}
+                        disabled={selected.includes('TODOS (Cualquier Cliente)') && option.value !== 'TODOS (Cualquier Cliente)'}
+                    />
+                    <Label
+                        htmlFor={`client-${option.value}`}
+                        className="w-full cursor-pointer"
+                    >
+                        {option.label}
+                    </Label>
+                    </div>
+                ))}
+                </div>
+            </ScrollArea>
+        </div>
+        <DialogFooter className="p-6 pt-0">
+            <Button onClick={() => setOpen(false)}>Cerrar</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}

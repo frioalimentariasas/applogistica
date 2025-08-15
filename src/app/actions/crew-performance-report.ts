@@ -59,7 +59,7 @@ const calculateTotalKilos = (formType: string, formData: any): number => {
     if (formType.includes('reception') || formType.includes('recepcion')) {
         const allItems = (formData.items || [])
             .concat((formData.placas || []).flatMap((p: any) => p.items));
-        return allItems.reduce((sum: number, p: any) => sum + (Number(p.pesoBruto) || 0), 0);
+        return allItems.reduce((sum: number, p: any) => sum + (Number(p.pesoNeto) || 0), 0);
     }
     
     if (formType.startsWith('variable-weight-')) {
@@ -172,22 +172,33 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
     const { formData, formType } = submission;
     const clientName = formData.nombreCliente || formData.cliente;
 
-    const findMatchingConcept = (name: string, unit: string) => {
-        const specificConcept = billingConcepts.find(c => 
+    const findMatchingConcepts = (name: string, unit: string) => {
+        return billingConcepts.filter(c => 
             c.conceptName.toUpperCase() === name.toUpperCase() &&
             c.unitOfMeasure.toUpperCase() === unit.toUpperCase() &&
-            c.clientNames.includes(clientName)
-        );
-        if (specificConcept) return specificConcept;
-
-        return billingConcepts.find(c =>
-            c.conceptName.toUpperCase() === name.toUpperCase() &&
-            c.unitOfMeasure.toUpperCase() === unit.toUpperCase() &&
-            c.clientNames.includes('TODOS (Cualquier Cliente)')
+            (c.clientNames.includes(clientName) || c.clientNames.includes('TODOS (Cualquier Cliente)'))
         );
     };
+
+    const addSettlement = (conceptType: string, quantity: number, quantityType: string) => {
+        const matchingConcepts = findMatchingConcepts(conceptType, quantityType);
+        if (matchingConcepts.length === 0) return;
+        
+        // Prioritize specific client concept over "TODOS"
+        const concept = matchingConcepts.find(c => c.clientNames.includes(clientName)) || matchingConcepts[0];
+        
+        if (concept && !settlements.some(s => s.conceptName === concept.conceptName)) {
+             settlements.push({
+                conceptName: concept.conceptName,
+                unitValue: concept.value,
+                quantity: quantity,
+                unitOfMeasure: concept.unitOfMeasure,
+                totalValue: quantity * concept.value,
+            });
+        }
+    };
     
-    // Process observations first
+    // Process observations
     const observaciones = Array.isArray(formData.observaciones) ? formData.observaciones : [];
     const specialHandledConcepts = ['REESTIBADO', 'SALIDA PALETAS TUNEL', 'TRANSBORDO CANASTILLA'];
 
@@ -199,14 +210,7 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
 
             const isSpecialConcept = specialHandledConcepts.includes(conceptType);
             
-            if (isSpecialConcept && quantity === 0) {
-                 const conceptFromDb = findMatchingConcept(conceptType, 'TONELADA') || findMatchingConcept(conceptType, 'PALETA');
-                 if (conceptFromDb) {
-                     quantityType = conceptFromDb.unitOfMeasure;
-                 }
-            }
-            
-            if (quantity === 0 && quantityType) {
+            if (isSpecialConcept && quantity === 0 && quantityType) {
                  if (quantityType.toUpperCase().startsWith('PALETA')) {
                     quantity = calculateTotalPallets(formType, formData);
                 } else if (quantityType.toUpperCase() === 'TONELADA') {
@@ -215,22 +219,12 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
             }
             
             if (quantity > 0 && quantityType) {
-                const billingConcept = findMatchingConcept(conceptType, quantityType);
-
-                if (billingConcept) {
-                    settlements.push({
-                        conceptName: billingConcept.conceptName,
-                        unitValue: billingConcept.value,
-                        quantity: quantity,
-                        unitOfMeasure: billingConcept.unitOfMeasure,
-                        totalValue: quantity * billingConcept.value,
-                    });
-                }
+                addSettlement(conceptType, quantity, quantityType);
             }
         }
     });
 
-    // Then process the main operation concept (CARGUE/DESCARGUE) and Maquila concepts
+    // Process the main operation concept (CARGUE/DESCARGUE) and Maquila concepts
     if (formData.aplicaCuadrilla === 'si') {
         const isReception = formType.includes('recepcion') || formType.includes('reception');
         const isDispatch = formType.includes('despacho');
@@ -239,33 +233,19 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
             const conceptName = isReception ? 'DESCARGUE' : (isDispatch ? 'CARGUE' : null);
             if (conceptName) {
                 const kilos = calculateTotalKilos(formType, formData);
-                const operationConcept = findMatchingConcept(conceptName, 'TONELADA');
-                
-                if (operationConcept) {
-                     const isFixedWeightPending = formType.startsWith('fixed-weight-') && kilos === 0;
+                const isFixedWeightPending = formType.startsWith('fixed-weight-') && kilos === 0;
 
-                     if (isFixedWeightPending) {
-                          if (!settlements.some(s => s.conceptName === conceptName)) {
-                             settlements.push({ 
-                                 conceptName: operationConcept.conceptName, 
-                                 unitValue: operationConcept.value, 
-                                 quantity: -1, // Use -1 as a flag for pending
-                                 unitOfMeasure: 'TONELADA', 
-                                 totalValue: 0
-                             });
-                         }
-                     } else if (kilos >= 0) { 
-                        const toneladas = kilos / 1000;
-                        if (!settlements.some(s => s.conceptName === conceptName)) {
-                            settlements.push({ 
-                                conceptName: operationConcept.conceptName, 
-                                unitValue: operationConcept.value, 
-                                quantity: toneladas, 
-                                unitOfMeasure: 'TONELADA', 
-                                totalValue: toneladas * operationConcept.value 
-                            });
-                        }
-                    }
+                 if (isFixedWeightPending) {
+                      settlements.push({ 
+                          conceptName: conceptName, 
+                          unitValue: 0, 
+                          quantity: -1, // Use -1 as a flag for pending
+                          unitOfMeasure: 'TONELADA', 
+                          totalValue: 0
+                      });
+                 } else if (kilos >= 0) { 
+                    const toneladas = kilos / 1000;
+                    addSettlement(conceptName, toneladas, 'TONELADA');
                 }
             }
         } else { // It is MAQUILA
@@ -273,42 +253,20 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
             if (formData.tipoEmpaqueMaquila) {
                 const conceptName = formData.tipoEmpaqueMaquila;
                 const unitOfMeasure = conceptName === 'EMPAQUE DE CAJAS' ? 'CAJA' : 'SACO';
-                const maquilaConcept = findMatchingConcept(conceptName, unitOfMeasure);
-
-                if (maquilaConcept) {
-                    let quantity = 0;
-                    if (formType.startsWith('fixed-weight-')) {
-                        quantity = (formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.cajas) || 0), 0);
-                    } else if (formType.startsWith('variable-weight-')) {
-                        quantity = (formData.items || []).reduce((sum: number, p: any) => sum + (Number(p.cantidadPorPaleta) || 0), 0);
-                    }
-                    
-                    if (quantity > 0) {
-                        if (!settlements.some(s => s.conceptName === conceptName)) {
-                            settlements.push({ 
-                                conceptName: maquilaConcept.conceptName, 
-                                unitValue: maquilaConcept.value, 
-                                quantity: quantity, 
-                                unitOfMeasure: maquilaConcept.unitOfMeasure, 
-                                totalValue: quantity * maquilaConcept.value 
-                            });
-                        }
-                    }
+                let quantity = 0;
+                if (formType.startsWith('fixed-weight-')) {
+                    quantity = (formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.cajas) || 0), 0);
+                } else if (formType.startsWith('variable-weight-')) {
+                    quantity = (formData.items || []).reduce((sum: number, p: any) => sum + (Number(p.cantidadPorPaleta) || 0), 0);
+                }
+                if (quantity > 0) {
+                    addSettlement(conceptName, quantity, unitOfMeasure);
                 }
             }
             // Handle JORNAL DIURNO
-            const jornalConcept = findMatchingConcept('JORNAL DIURNO', 'UNIDAD');
-            if (jornalConcept && formData.numeroOperariosCuadrilla > 0) {
+            if (formData.numeroOperariosCuadrilla > 0) {
                 const quantity = Number(formData.numeroOperariosCuadrilla);
-                 if (!settlements.some(s => s.conceptName === 'JORNAL DIURNO')) {
-                    settlements.push({
-                        conceptName: jornalConcept.conceptName,
-                        unitValue: jornalConcept.value,
-                        quantity: quantity,
-                        unitOfMeasure: jornalConcept.unitOfMeasure,
-                        totalValue: quantity * jornalConcept.value,
-                    });
-                }
+                addSettlement('JORNAL DIURNO', quantity, 'UNIDAD');
             }
         }
     }
@@ -501,5 +459,3 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         throw error;
     }
 }
-
-    
