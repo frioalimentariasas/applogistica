@@ -600,7 +600,8 @@ export default function CrewPerformanceReportPage() {
                 'Placa': row.placa,
                 'Cliente': row.cliente,
                 'Concepto': row.conceptoLiquidado,
-                'Cantidad': row.cantidadConcepto === -1 ? 'Pendiente' : `${row.cantidadConcepto.toFixed(2)} ${row.unidadMedidaConcepto}`,
+                'Cantidad': row.cantidadConcepto === -1 ? 'Pendiente' : row.cantidadConcepto,
+                'Unidad': row.cantidadConcepto === -1 ? '' : row.unidadMedidaConcepto,
                 'H. Inicio': row.horaInicio,
                 'H. Fin': row.horaFin,
                 'Duración': formatDuration(row.totalDurationMinutes),
@@ -610,17 +611,18 @@ export default function CrewPerformanceReportPage() {
             
             const totalRow = {
                 'Mes': 'TOTAL GENERAL',
-                'Fecha': '', 'Pedido': '', 'Contenedor': '', 'Placa': '', 'Cliente': '', 'Concepto': '', 'Cantidad': '',
+                'Fecha': '', 'Pedido': '', 'Contenedor': '', 'Placa': '', 'Cliente': '', 'Concepto': '', 'Cantidad': '', 'Unidad': '',
                 'H. Inicio': '', 'H. Fin': '', 'Duración': '', 'Valor Unitario': '', 'Valor Total': totalLiquidacion,
             };
             
             const ws = XLSX.utils.json_to_sheet([...data, totalRow]);
-            ws['!cols'] = [ {wch:12}, {wch:12}, {wch:15}, {wch:15}, {wch:12}, {wch:25}, {wch:20}, {wch:20}, {wch:10}, {wch:10}, {wch:12}, {wch:15}, {wch:15} ];
+            ws['!cols'] = [ {wch:12}, {wch:12}, {wch:15}, {wch:15}, {wch:12}, {wch:25}, {wch:20}, {wch:15}, {wch:15}, {wch:10}, {wch:10}, {wch:12}, {wch:15}, {wch:15} ];
             
-            // Apply currency format
+            // Apply number and currency formats
             for (let i = 2; i <= data.length + 2; i++) {
-                if (ws[`L${i}`]) ws[`L${i}`].z = '"$"#,##0.00';
+                if (ws[`H${i}`] && ws[`H${i}`].v !== 'Pendiente') ws[`H${i}`].z = '0.00';
                 if (ws[`M${i}`]) ws[`M${i}`].z = '"$"#,##0.00';
+                if (ws[`N${i}`]) ws[`N${i}`].z = '"$"#,##0.00';
             }
             
             XLSX.utils.book_append_sheet(wb, ws, "Liquidacion_Detallada");
@@ -629,18 +631,28 @@ export default function CrewPerformanceReportPage() {
             if (conceptSummary) {
                 const summaryDataToExport = conceptSummary.map(item => ({
                     'Concepto': item.name,
-                    'Cantidad Total': `${item.totalCantidad.toFixed(2)} ${item.unidadMedida}`,
+                    'Cantidad Total': item.totalCantidad,
+                    'Unidad Medida': item.unidadMedida,
                     'Valor Unitario': item.valorUnitario,
                     'Valor Total Liquidado': item.totalValor
                 }));
+
+                const summaryTotalRow = {
+                    'Concepto': 'TOTAL GENERAL',
+                    'Cantidad Total': '',
+                    'Unidad Medida': '',
+                    'Valor Unitario': '',
+                    'Valor Total Liquidado': conceptSummary.reduce((acc, item) => acc + item.totalValor, 0)
+                };
                 
-                const wsSummary = XLSX.utils.json_to_sheet(summaryDataToExport);
-                wsSummary['!cols'] = [{ wch: 25 }, { wch: 20 }, { wch: 15 }, { wch: 20 }];
+                const wsSummary = XLSX.utils.json_to_sheet([...summaryDataToExport, summaryTotalRow]);
+                wsSummary['!cols'] = [{ wch: 25 }, { wch: 20 }, { wch: 15 }, { wch: 20 }, { wch: 20 }];
                 
                 // Apply currency format for summary
-                for (let i = 2; i <= summaryDataToExport.length + 1; i++) {
-                    if (wsSummary[`C${i}`]) wsSummary[`C${i}`].z = '"$"#,##0.00';
+                for (let i = 2; i <= summaryDataToExport.length + 2; i++) {
+                    if (wsSummary[`B${i}`] && typeof wsSummary[`B${i}`].v === 'number') wsSummary[`B${i}`].z = '0.00';
                     if (wsSummary[`D${i}`]) wsSummary[`D${i}`].z = '"$"#,##0.00';
+                    if (wsSummary[`E${i}`]) wsSummary[`E${i}`].z = '"$"#,##0.00';
                 }
 
                 XLSX.utils.book_append_sheet(wb, wsSummary, "Resumen_Liquidacion");
@@ -769,7 +781,7 @@ export default function CrewPerformanceReportPage() {
 
         } else if (type === 'settlement') {
             addHeader("Reporte de Liquidación de Cuadrilla");
-            const head = [['Mes', 'Fecha', 'Pedido', 'Contenedor', 'Placa', 'Cliente', 'Concepto', 'Cantidad', 'H. Inicio', 'H. Fin', 'Duración', 'Vlr. Unitario', 'Vlr. Total']];
+            const head = [['Mes', 'Fecha', 'Pedido', 'Contenedor', 'Placa', 'Cliente', 'Concepto', 'Cantidad', 'Unidad', 'H. Inicio', 'H. Fin', 'Duración', 'Vlr. Unitario', 'Vlr. Total']];
             const body = liquidationData.map(row => [
                 format(new Date(row.fecha), 'MMMM', { locale: es }),
                 format(new Date(row.fecha), 'dd/MM/yy'),
@@ -778,7 +790,8 @@ export default function CrewPerformanceReportPage() {
                 row.placa,
                 row.cliente,
                 row.conceptoLiquidado,
-                row.cantidadConcepto === -1 ? 'Pendiente' : `${row.cantidadConcepto.toFixed(2)} ${row.unidadMedidaConcepto}`,
+                row.cantidadConcepto === -1 ? 'Pendiente' : row.cantidadConcepto.toFixed(2),
+                row.cantidadConcepto === -1 ? '' : row.unidadMedidaConcepto,
                 row.horaInicio,
                 row.horaFin,
                 formatDuration(row.totalDurationMinutes),
@@ -786,7 +799,7 @@ export default function CrewPerformanceReportPage() {
                 row.valorTotalConcepto.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }),
             ]);
             const foot = [[
-                { content: 'TOTAL GENERAL', colSpan: 12, styles: { halign: 'right' } },
+                { content: 'TOTAL GENERAL', colSpan: 13, styles: { halign: 'right' } },
                 { content: totalLiquidacion.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right' } }
             ]];
 
@@ -1166,7 +1179,8 @@ export default function CrewPerformanceReportPage() {
                                             <TableHead>Placa</TableHead>
                                             <TableHead>Cliente</TableHead>
                                             <TableHead>Concepto</TableHead>
-                                            <TableHead>Cant.</TableHead>
+                                            <TableHead>Cantidad</TableHead>
+                                            <TableHead>Unidad</TableHead>
                                             <TableHead>H. Inicio</TableHead>
                                             <TableHead>H. Fin</TableHead>
                                             <TableHead>Duración</TableHead>
@@ -1174,7 +1188,7 @@ export default function CrewPerformanceReportPage() {
                                             <TableHead>Vlr. Total</TableHead>
                                         </TableRow></TableHeader>
                                         <TableBody>
-                                            {isLoading ? (<TableRow><TableCell colSpan={13}><Skeleton className="h-20 w-full" /></TableCell></TableRow>) : displayedLiquidationData.length > 0 ? (
+                                            {isLoading ? (<TableRow><TableCell colSpan={14}><Skeleton className="h-20 w-full" /></TableCell></TableRow>) : displayedLiquidationData.length > 0 ? (
                                                 displayedLiquidationData.map((row) => {
                                                     const isPending = row.cantidadConcepto === -1;
                                                     return (
@@ -1186,17 +1200,18 @@ export default function CrewPerformanceReportPage() {
                                                             <TableCell className="text-xs">{row.placa}</TableCell>
                                                             <TableCell className="text-xs max-w-[150px] truncate" title={row.cliente}>{row.cliente}</TableCell>
                                                             <TableCell className="text-xs font-semibold">{row.conceptoLiquidado}</TableCell>
-                                                            <TableCell className="text-xs font-mono">{isPending ? 'Pendiente' : `${row.cantidadConcepto.toFixed(2)} ${row.unidadMedidaConcepto}`}</TableCell>
+                                                            <TableCell className="text-xs font-mono text-right">{isPending ? 'Pendiente' : row.cantidadConcepto.toFixed(2)}</TableCell>
+                                                            <TableCell className="text-xs">{isPending ? '' : row.unidadMedidaConcepto}</TableCell>
                                                             <TableCell className="text-xs">{row.horaInicio}</TableCell>
                                                             <TableCell className="text-xs">{row.horaFin}</TableCell>
                                                             <TableCell className="text-xs">{formatDuration(row.totalDurationMinutes)}</TableCell>
-                                                            <TableCell className="text-xs font-mono">{isPending ? 'N/A' : row.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 })}</TableCell>
-                                                            <TableCell className="text-xs font-mono">{isPending ? 'N/A' : row.valorTotalConcepto.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell>
+                                                            <TableCell className="text-xs font-mono text-right">{isPending ? 'N/A' : row.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 })}</TableCell>
+                                                            <TableCell className="text-xs font-mono text-right">{isPending ? 'N/A' : row.valorTotalConcepto.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell>
                                                         </TableRow>
                                                     )
                                                 })
                                             ) : (<EmptyState searched={searched} title="No se encontraron liquidaciones" description="No hay operaciones de cuadrilla con conceptos liquidables para los filtros seleccionados." />)}
-                                            {!isLoading && liquidationData.length > 0 && (<TableRow className="font-bold bg-muted hover:bg-muted"><TableCell colSpan={12} className="text-right">TOTAL GENERAL LIQUIDACIÓN</TableCell><TableCell className="text-right">{totalLiquidacion.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell></TableRow>)}
+                                            {!isLoading && liquidationData.length > 0 && (<TableRow className="font-bold bg-muted hover:bg-muted"><TableCell colSpan={13} className="text-right">TOTAL GENERAL LIQUIDACIÓN</TableCell><TableCell className="text-right">{totalLiquidacion.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell></TableRow>)}
                                         </TableBody>
                                     </Table>
                                  </div>
