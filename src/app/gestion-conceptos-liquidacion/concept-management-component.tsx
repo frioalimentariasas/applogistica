@@ -37,6 +37,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, Command
 import type { ClientInfo } from '@/app/actions/clients';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 
 const conceptSchema = z.object({
   conceptName: z.string().min(3, { message: "El nombre del concepto es requerido (mín. 3 caracteres)."}),
