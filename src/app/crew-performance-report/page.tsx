@@ -620,7 +620,6 @@ export default function CrewPerformanceReportPage() {
             const ws = XLSX.utils.json_to_sheet([...data, totalRow]);
             ws['!cols'] = [ {wch:12}, {wch:12}, {wch:15}, {wch:15}, {wch:12}, {wch:25}, {wch:20}, {wch:15}, {wch:15}, {wch:10}, {wch:10}, {wch:12}, {wch:15}, {wch:15} ];
             
-            // Apply number and currency formats
             for (let i = 2; i <= data.length + 2; i++) {
                 if (ws[`H${i}`] && ws[`H${i}`].v !== 'Pendiente') ws[`H${i}`].z = '0.00';
                 if (ws[`M${i}`]) ws[`M${i}`].z = '"$"#,##0.00';
@@ -629,7 +628,6 @@ export default function CrewPerformanceReportPage() {
             
             XLSX.utils.book_append_sheet(wb, ws, "Liquidacion_Detallada");
 
-            // Sheet 2: Resumen
             if (conceptSummary) {
                 const summaryDataToExport = conceptSummary.map(item => ({
                     'Concepto': item.name,
@@ -639,7 +637,7 @@ export default function CrewPerformanceReportPage() {
                     'Valor Total Liquidado': item.totalValor
                 }));
 
-                const summaryTotalRow = {
+                 const summaryTotalRow = {
                     'Concepto': 'TOTAL GENERAL',
                     'Cantidad Total': '',
                     'Unidad Medida': '',
@@ -650,7 +648,6 @@ export default function CrewPerformanceReportPage() {
                 const wsSummary = XLSX.utils.json_to_sheet([...summaryDataToExport, summaryTotalRow]);
                 wsSummary['!cols'] = [{ wch: 25 }, { wch: 20 }, { wch: 15 }, { wch: 20 }, { wch: 20 }];
                 
-                // Apply currency format for summary
                 for (let i = 2; i <= summaryDataToExport.length + 2; i++) {
                     if (wsSummary[`B${i}`] && typeof wsSummary[`B${i}`].v === 'number') wsSummary[`B${i}`].z = '0.00';
                     if (wsSummary[`D${i}`]) wsSummary[`D${i}`].z = '"$"#,##0.00';
@@ -659,7 +656,7 @@ export default function CrewPerformanceReportPage() {
 
                 XLSX.utils.book_append_sheet(wb, wsSummary, "Resumen_Liquidacion");
             }
-            
+
             XLSX.writeFile(wb, `Reporte_Liquidacion_Cuadrilla_${dateSuffix}_gen_${timeSuffix}.xlsx`);
         }
     };
