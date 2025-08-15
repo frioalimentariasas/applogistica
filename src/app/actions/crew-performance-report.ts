@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import admin from 'firebase-admin';
@@ -47,7 +46,8 @@ const calculateDuration = (horaInicio: string, horaFin: string): number | null =
 
 const calculateTotalKilos = (formType: string, formData: any): number => {
     if (formType.startsWith('fixed-weight-')) {
-        if (formData.totalPesoBrutoKg !== undefined) {
+        // This now correctly prioritizes the legalized weight.
+        if (formData.totalPesoBrutoKg !== undefined && formData.totalPesoBrutoKg > 0) {
              return Number(formData.totalPesoBrutoKg);
         }
         return (formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.pesoNetoKg) || 0), 0);
@@ -330,11 +330,19 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         let allResults = submissionsSnapshot.docs.map(doc => ({ id: doc.id, ...serializeTimestamps(doc.data()) }));
 
         allResults = allResults.filter(sub => {
+            // Filter by date range (local time)
             const formIsoDate = sub.formData?.fecha;
             if (!formIsoDate || typeof formIsoDate !== 'string') return false;
-            
             const localDate = getLocalGroupingDate(formIsoDate);
-            return localDate >= criteria.startDate! && localDate <= criteria.endDate!;
+            if (localDate < criteria.startDate! || localDate > criteria.endDate!) return false;
+
+            // Exclude GRUPO FRUTELLI SAS for variable weight forms
+            const clientName = sub.formData?.nombreCliente || sub.formData?.cliente;
+            if (clientName === 'GRUPO FRUTELLI SAS' && sub.formType?.includes('variable-weight')) {
+                return false;
+            }
+
+            return true;
         });
 
         if (criteria.filterPending) {
@@ -467,3 +475,5 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         throw error;
     }
 }
+
+    
