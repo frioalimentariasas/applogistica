@@ -109,9 +109,58 @@ Este módulo contiene 4 tipos de reportes:
 
 ### 5.3. Informe de Desempeño y Liquidación de Cuadrilla
 
-*   **Indicadores y Liquidación Cuadrilla:** Analiza los tiempos de las operaciones realizadas por cuadrillas, los compara con los estándares definidos y calcula los valores a liquidar por cada concepto (cargue, descargue, reestibado, etc.).
-*   **Gestión de Estándares:** (Acceso restringido) Define los tiempos base (en minutos) para diferentes operaciones según el cliente, tipo de producto y rango de toneladas.
-*   **Gestión de Conceptos de Liquidación:** (Acceso restringido) Define los conceptos facturables (ej. CARGUE, REESTIBADO) y su valor unitario (por tonelada, por paleta, etc.).
+Este módulo es una herramienta poderosa para medir la eficiencia de las operaciones y calcular automáticamente los valores a pagar a las cuadrillas. Se compone de tres partes interconectadas.
+
+#### 5.3.1. Indicadores y Liquidación Cuadrilla (El Informe Principal)
+
+Esta es la pantalla principal del módulo, donde puedes analizar el rendimiento.
+
+*   **Uso:** Generar un reporte detallado del desempeño de las operaciones de cargue y descargue, y ver los conceptos liquidados por operación.
+*   **Filtros Disponibles:**
+    *   Rango de Fechas (obligatorio).
+    *   Cliente(s), Operario, Tipo de Operación, Tipo de Producto.
+    *   **Operaciones de Cuadrilla:** Filtra para ver solo operaciones con cuadrilla, solo sin cuadrilla, o todas.
+    *   **Concepto Liquidación:** Permite buscar operaciones que incluyan un concepto específico (ej. todas las que tuvieron REESTIBADO).
+*   **Interpretación de la Tabla de Productividad:**
+    *   **T. Operativo:** Es el tiempo total de la operación menos los minutos justificados en novedades. Este es el tiempo que se compara con el estándar.
+    *   **Productividad:** Una calificación automática que te indica la eficiencia de la operación:
+        *   **Óptimo (Verde):** El tiempo operativo fue menor que el tiempo estándar definido.
+        *   **Normal (Amarillo):** El tiempo operativo estuvo dentro de un margen aceptable (hasta 10 minutos por encima del estándar).
+        *   **Lento (Rojo):** El tiempo operativo excedió significativamente el estándar. **Estas operaciones requieren una justificación**.
+        *   **Pendiente (Naranja):** En formatos de peso fijo, indica que falta legalizar el peso bruto para poder hacer el cálculo.
+        *   **Sin Estándar (Gris):** No se encontró una regla de tiempo (estándar) que coincida con esta operación. Debes crear una en la "Gestión de Estándares".
+*   **Acciones en la Tabla:**
+    *   **Legalizar (Peso Fijo):** Permite ingresar el peso bruto total de una operación de peso fijo que quedó pendiente.
+    *   **Novedad (Justificación):** Para operaciones marcadas como "Lento", puedes agregar una novedad (ej. "DAÑO TRILATERAL") y los minutos de inactividad. **Estos minutos se restarán del tiempo total para recalcular la productividad**.
+*   **Pestaña de Liquidación:**
+    *   Muestra un desglose de todos los conceptos que generan un cobro (CARGUE, DESCARGUE, REESTIBADO, etc.), con su cantidad, valor unitario y valor total.
+    *   El informe se puede exportar a Excel o PDF.
+
+#### 5.3.2. Gestión de Estándares (La Base del Rendimiento)
+
+*   **Uso:** Definir los **tiempos base en minutos** que el sistema usará para medir la productividad. Una operación se considera "Lenta" si su tiempo operativo supera el tiempo definido aquí.
+*   **¿Cómo Funciona?**
+    1.  **Crear un Nuevo Estándar:** Define una regla combinando criterios. Puedes ser tan general o específico como necesites.
+        *   **Cliente(s):** Selecciona uno, varios, o "TODOS".
+        *   **Tipo de Operación y Producto:** Recepción, Despacho, Fijo, Variable, o "TODAS".
+        *   **Descripción:** Un nombre claro para la regla (ej. "Cargue Pollo Entero").
+        *   **Rangos de Toneladas:** **Lo más importante.** Define uno o más rangos de peso (ej. de 0 a 5 Toneladas) y asigna los **minutos base** para cada uno (ej. 45 minutos).
+    2.  **Edición y Eliminación:** Puedes editar cualquier estándar existente o eliminarlo. También puedes seleccionar varios y aplicar cambios en lote (ej. cambiar el cliente a varios estándares a la vez).
+
+#### 5.3.3. Gestión de Conceptos de Liquidación (La Base del Cobro)
+
+*   **Uso:** Definir los **conceptos facturables** y su valor. El informe de liquidación usará estas reglas para calcular los totales.
+*   **¿Cómo Funciona?**
+    1.  **Crear un Nuevo Concepto:**
+        *   **Nombre del Concepto:** Debe coincidir con el nombre usado en los formularios (ej. CARGUE, DESCARGUE, REESTIBADO, EMPAQUE DE CAJAS, JORNAL DIURNO).
+        *   **Cliente(s):** **Función clave.** Asigna el concepto a uno, varios o "TODOS" los clientes. Esto te permite tener valores diferentes para un mismo concepto según el cliente o excluir a un cliente de un concepto general.
+        *   **Tipo de Operación y Producto:** Filtra aún más cuándo se debe aplicar la regla.
+        *   **Unidad de Medida y Valor:** Define cómo se cobra el concepto (por TONELADA, por PALETA, por UNIDAD, etc.) y cuál es su valor.
+
+> **Ejemplo Práctico:**
+> 1.  Creas un concepto **"EMPAQUE DE CAJAS"** de $500 por CAJA y lo asignas a **TODOS** los clientes.
+> 2.  Creas otro concepto **"JORNAL DIURNO"** de $80.000 por UNIDAD y lo asignas **únicamente** a "AVICOLA EL MADROÑO S.A.".
+> 3.  **Resultado:** Cuando se haga una operación de maquila para cualquier cliente, se liquidará el empaque. Pero cuando sea para AVICOLA EL MADROÑO S.A., se liquidará el jornal, no el empaque (siempre que el formulario se llene correctamente).
 
 ### 5.4. Módulos de Gestión (Acceso Restringido)
 
