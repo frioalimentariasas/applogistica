@@ -192,7 +192,7 @@ export default function Home() {
                 <div>
                     <Card className="w-full">
                         <CardHeader>
-                            <CardTitle className="text-lg md:text-xl text-center">Consultas y Herramientas</CardTitle>
+                            <CardTitle className="text-lg md:text-xl text-center text-primary">Consultas y Herramientas</CardTitle>
                         </CardHeader>
                         <CardContent>
                             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
