@@ -1,9 +1,10 @@
+
 'use server';
 
 import admin from 'firebase-admin';
 import { firestore, storage } from '@/lib/firebase-admin';
 import type { FormSubmissionData } from './save-form';
-import { parseISO, format, addDays } from 'date-fns';
+import { parseISO, format } from 'date-fns';
 
 const COLOMBIA_TIMEZONE = 'America/Bogota';
 
@@ -64,8 +65,6 @@ const getLocalGroupingDate = (isoString: string): string => {
     if (!isoString) return '';
     try {
         const date = new Date(isoString);
-        // Adjust for a fixed timezone offset. UTC-5 for Colombia.
-        date.setUTCHours(date.getUTCHours() - 5);
         return date.toISOString().split('T')[0];
     } catch (e) {
         console.error(`Invalid date string for grouping: ${isoString}`);
@@ -99,11 +98,15 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
 
         // Apply a server-side date filter ONLY if a date range is provided.
         if (criteria.searchDateStart && criteria.searchDateEnd) {
-             const startDateLocal = parseISO(criteria.searchDateStart);
-             const endDateLocal = parseISO(criteria.searchDateEnd);
+             const startDate = new Date(criteria.searchDateStart);
+             const endDate = new Date(criteria.searchDateEnd);
              
-             query = query.where('formData.fecha', '>=', format(startDateLocal, 'yyyy-MM-dd'))
-                          .where('formData.fecha', '<=', format(endDateLocal, 'yyyy-MM-dd'));
+             // Firestore timestamps are precise, so we need to set the time to the start and end of the day.
+             startDate.setUTCHours(0, 0, 0, 0);
+             endDate.setUTCHours(23, 59, 59, 999);
+             
+             query = query.where('formData.fecha', '>=', startDate)
+                          .where('formData.fecha', '<=', endDate);
         } else if (noFilters && !isOperario) {
              // For non-operarios with no filters, we must limit the query to avoid reading the whole collection.
              // We query the last 7 days. This is safe as createdAt will have a single-field index.

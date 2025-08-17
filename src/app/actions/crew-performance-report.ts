@@ -157,8 +157,6 @@ const getLocalGroupingDate = (isoString: string): string => {
     if (!isoString) return '';
     try {
         const date = new Date(isoString);
-        // Correct for Colombia Timezone (UTC-5)
-        date.setUTCHours(date.getUTCHours() - 5);
         return date.toISOString().split('T')[0];
     } catch (e) {
         console.error(`Invalid date string for grouping: ${isoString}`);
@@ -285,17 +283,20 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
     try {
         let submissionsQuery: admin.firestore.Query = firestore.collection('submissions');
         let manualOpsQuery: admin.firestore.Query = firestore.collection('manual_operations');
+        
+        const startDate = new Date(criteria.startDate);
+        const endDate = new Date(criteria.endDate);
 
-        const startDate = format(new Date(criteria.startDate), 'yyyy-MM-dd');
-        const endDate = format(new Date(criteria.endDate), 'yyyy-MM-dd');
+        startDate.setUTCHours(0, 0, 0, 0);
+        endDate.setUTCHours(23, 59, 59, 999);
 
         submissionsQuery = submissionsQuery
             .where('formData.fecha', '>=', startDate)
             .where('formData.fecha', '<=', endDate);
 
         manualOpsQuery = manualOpsQuery
-            .where('operationDate', '>=', startDate)
-            .where('operationDate', '<=', endDate);
+            .where('operationDate', '>=', criteria.startDate)
+            .where('operationDate', '<=', criteria.endDate);
 
         const [submissionsSnapshot, manualOpsSnapshot, billingConcepts] = await Promise.all([
             submissionsQuery.get(),
