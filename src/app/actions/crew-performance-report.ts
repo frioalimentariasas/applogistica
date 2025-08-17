@@ -4,7 +4,7 @@
 
 import admin from 'firebase-admin';
 import { firestore } from '@/lib/firebase-admin';
-import { parse, differenceInMinutes, addDays } from 'date-fns';
+import { parse, differenceInMinutes, startOfDay, endOfDay } from 'date-fns';
 import { findBestMatchingStandard, type PerformanceStandard } from '@/app/actions/standard-actions';
 import { getBillingConcepts, type BillingConcept } from '../gestion-conceptos-liquidacion/actions';
 import { getNoveltiesForOperation, type NoveltyData } from './novelty-actions';
@@ -130,7 +130,7 @@ export interface CrewPerformanceReportRow {
     operario: string;
     cliente: string;
     tipoOperacion: 'Recepción' | 'Despacho' | 'N/A';
-    tipoProducto: 'Fijo' | 'Variable' | 'N/A';
+    tipoProducto: 'Fijo' | 'Variable' | 'Manual' | 'N/A';
     productos: any[]; // For pending legalization
     kilos: number;
     horaInicio: string;
@@ -283,17 +283,17 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         throw new Error('Se requiere un rango de fechas para generar este informe.');
     }
     
-    const startDate = new Date(criteria.startDate);
-    const endDate = addDays(new Date(criteria.endDate), 1);
+    const startDate = startOfDay(new Date(criteria.startDate));
+    const endDate = endOfDay(new Date(criteria.endDate));
 
     const [submissionsSnapshot, manualOpsSnapshot, billingConcepts] = await Promise.all([
         firestore.collection('submissions')
             .where('createdAt', '>=', startDate.toISOString())
-            .where('createdAt', '<', endDate.toISOString())
+            .where('createdAt', '<=', endDate.toISOString())
             .get(),
         firestore.collection('manual_operations')
             .where('createdAt', '>=', startDate.toISOString())
-            .where('createdAt', '<', endDate.toISOString())
+            .where('createdAt', '<=', endDate.toISOString())
             .get(),
         getBillingConcepts()
     ]);
