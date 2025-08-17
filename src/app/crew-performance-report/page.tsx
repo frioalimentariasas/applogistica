@@ -530,7 +530,12 @@ export default function CrewPerformanceReportPage() {
                     valorUnitario: firstValidEntry ? firstValidEntry.valorUnitario : 0, 
                 };
             }
-            if (row.productType !== 'fijo' || (row.productType === 'fijo' && row.kilos > 0)) {
+            
+            const isWeightBased = ['CARGUE', 'DESCARGUE'].includes(conceptoLiquidado);
+            
+            // Only add to summary if it's not a weight-based concept with pending weight,
+            // or if it's a concept that doesn't depend on weight at all.
+            if (!isWeightBased || (isWeightBased && row.cantidadConcepto !== -1)) {
                  acc[conceptoLiquidado].totalCantidad += cantidadConcepto;
                  acc[conceptoLiquidado].totalValor += valorTotalConcepto;
             }
@@ -1552,3 +1557,5 @@ function NoveltySelectorDialog({
         </Dialog>
     );
 }
+
+    
