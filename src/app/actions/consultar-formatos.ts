@@ -61,19 +61,6 @@ const serializeTimestamps = (data: any): any => {
     return newObj;
 };
 
-// Helper to get a YYYY-MM-DD string adjusted for a specific timezone (e.g., UTC-5 for Colombia)
-const getLocalGroupingDate = (isoString: string): string => {
-    if (!isoString) return '';
-    try {
-        const date = new Date(isoString);
-        // This will correctly get the date part in UTC, which is what we need for consistent comparisons
-        return date.toISOString().split('T')[0];
-    } catch (e) {
-        console.error(`Invalid date string for grouping: ${isoString}`);
-        return '';
-    }
-};
-
 
 export async function searchSubmissions(criteria: SearchCriteria): Promise<SubmissionResult[]> {
     if (!firestore) {
@@ -100,12 +87,8 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
              const startDate = new Date(criteria.searchDateStart);
              const endDate = new Date(criteria.searchDateEnd);
 
-             // Widen the query to include records created outside the date range but whose operation date might have been edited to be inside.
-             const queryStartDate = addDays(startDate, -1);
-             const queryEndDate = addDays(endDate, 1);
-
-             query = query.where('createdAt', '>=', queryStartDate)
-                          .where('createdAt', '<=', queryEndDate);
+             query = query.where('formData.fecha', '>=', startDate)
+                          .where('formData.fecha', '<=', endOfDay(endDate)); // Use endOfDay for inclusivity
         } else if (noOtherFilters && !isOperario) {
             const endDate = new Date();
             const startDate = new Date();
@@ -115,7 +98,7 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
                          .where('createdAt', '<=', endDate);
         }
         
-        const snapshot = await query.get();
+        const snapshot = await query.orderBy('formData.fecha', 'desc').get();
 
         let results = snapshot.docs.map(doc => {
             const data = doc.data();
@@ -136,17 +119,6 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
             results = results.filter(sub => {
                 const subDate = new Date(sub.createdAt);
                 return subDate >= startDate && subDate <= endDate;
-            });
-        }
-        
-        // **Accurate Date Filtering in Memory**
-        if (criteria.searchDateStart && criteria.searchDateEnd) {
-            const filterStart = startOfDay(new Date(criteria.searchDateStart));
-            const filterEnd = endOfDay(new Date(criteria.searchDateEnd));
-            results = results.filter(sub => {
-                if (!sub.formData.fecha) return false;
-                const formOpDate = new Date(sub.formData.fecha);
-                return formOpDate >= filterStart && formOpDate <= filterEnd;
             });
         }
         
@@ -188,13 +160,11 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
                 return sub.formData.tipoPedido === criteria.tipoPedido;
             });
         }
-
-        results.sort((a, b) => new Date(b.formData.fecha).getTime() - new Date(a.formData.fecha).getTime());
         
         return results;
     } catch (error) {
         console.error('Error searching submissions:', error);
-        if (error instanceof Error && error.message.includes('requires an index')) {
+        if (error instanceof Error && (error.message.includes('requires an index') || error.message.includes('needs an index'))) {
             console.error("Firestore composite index required. See the full error log for the creation link.", error);
             throw new Error(error.message);
         }

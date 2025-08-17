@@ -153,17 +153,6 @@ export interface CrewPerformanceReportRow {
 }
 
 
-const getLocalGroupingDate = (isoString: string): string => {
-    if (!isoString) return '';
-    try {
-        const date = new Date(isoString);
-        return date.toISOString().split('T')[0];
-    } catch (e) {
-        console.error(`Invalid date string for grouping: ${isoString}`);
-        return '';
-    }
-};
-
 const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]): { conceptName: string, unitValue: number, quantity: number, unitOfMeasure: string, totalValue: number }[] => {
     const settlements: { conceptName: string, unitValue: number, quantity: number, unitOfMeasure: string, totalValue: number }[] = [];
     const { formData, formType } = submission;
@@ -281,47 +270,32 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
     }
 
     try {
-        const queryStartDate = addDays(new Date(criteria.startDate), -1);
-        const queryEndDate = addDays(new Date(criteria.endDate), 1);
-        
+        const startDate = new Date(criteria.startDate);
+        const endDate = new Date(criteria.endDate);
+
         let submissionsQuery: admin.firestore.Query = firestore.collection('submissions');
         submissionsQuery = submissionsQuery
-            .where('createdAt', '>=', queryStartDate)
-            .where('createdAt', '<=', queryEndDate);
+            .where('formData.fecha', '>=', startDate)
+            .where('formData.fecha', '<=', endOfDay(endDate));
 
         let manualOpsQuery: admin.firestore.Query = firestore.collection('manual_operations');
         manualOpsQuery = manualOpsQuery
-            .where('createdAt', '>=', queryStartDate)
-            .where('createdAt', '<=', queryEndDate);
+             .where('operationDate', '>=', startDate.toISOString())
+             .where('operationDate', '<=', endOfDay(endDate).toISOString());
 
 
         const [submissionsSnapshot, manualOpsSnapshot, billingConcepts] = await Promise.all([
-            submissionsQuery.get(),
-            manualOpsQuery.get(),
+            submissionsQuery.orderBy('formData.fecha', 'asc').get(),
+            manualOpsQuery.orderBy('operationDate', 'asc').get(),
             getBillingConcepts()
         ]);
-        
-        const filterStart = startOfDay(new Date(criteria.startDate));
-        const filterEnd = endOfDay(new Date(criteria.endDate));
         
         const submissionsData = submissionsSnapshot.docs.map(doc => ({ id: doc.id, type: 'submission', ...serializeTimestamps(doc.data()) }));
         const manualOpsData = manualOpsSnapshot.docs.map(doc => ({ id: doc.id, type: 'manual', ...serializeTimestamps(doc.data()) }));
 
-        const filteredSubmissions = submissionsData.filter(sub => {
-            if (!sub.formData.fecha) return false;
-            const formOpDate = new Date(sub.formData.fecha);
-            return formOpDate >= filterStart && formOpDate <= filterEnd;
-        });
-        
-        const filteredManualOps = manualOpsData.filter(op => {
-            if (!op.operationDate) return false;
-            const opDate = new Date(op.operationDate);
-            return opDate >= filterStart && opDate <= filterEnd;
-        });
-
-        let allResults: any[] = [...filteredSubmissions];
+        let allResults: any[] = [...submissionsData];
         if (criteria.cuadrillaFilter !== 'sin') {
-            allResults = [...allResults, ...filteredManualOps];
+            allResults = [...allResults, ...manualOpsData];
         }
 
         const finalReportRows: CrewPerformanceReportRow[] = [];
@@ -496,7 +470,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         return enrichedRows;
     } catch(error) {
         console.error('Error generating crew performance report:', error);
-        if (error instanceof Error && error.message.includes('requires an index')) {
+        if (error instanceof Error && (error.message.includes('requires an index') || error.message.includes('needs an index'))) {
             console.error("Firestore composite index required. See the full error log for the creation link.", error);
             // Re-throw the original error to pass the link to the client for debugging
             throw new Error(error.message);
