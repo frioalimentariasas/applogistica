@@ -266,31 +266,28 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         throw new Error('El servidor no está configurado correctamente.');
     }
 
-    let serverQueryStartDate, serverQueryEndDate;
+    let serverQueryStartDate: Date, serverQueryEndDate: Date;
 
     if (criteria.startDate && criteria.endDate) {
-        // Construct date objects from YYYY-MM-DD strings. 
-        // This ensures they are treated as local dates by the server's JS environment.
-        serverQueryStartDate = new Date(`${criteria.startDate}T00:00:00`);
-        const endDateBase = new Date(`${criteria.endDate}T00:00:00`);
-        serverQueryEndDate = new Date(endDateBase.setDate(endDateBase.getDate() + 1));
-
+        serverQueryStartDate = new Date(criteria.startDate + 'T00:00:00-05:00'); // Assume Colombia Time (UTC-5)
+        const endDateBase = new Date(criteria.endDate + 'T23:59:59.999-05:00'); // End of the day in Colombia Time
+        serverQueryEndDate = endDateBase;
     } else {
         const today = new Date();
-        const serverTodayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
-        serverQueryEndDate = new Date(serverTodayStart.setDate(serverTodayStart.getDate() + 1));
-        serverQueryStartDate = new Date(serverTodayStart.setDate(serverTodayStart.getDate() - 7));
+        today.setHours(today.getHours() - 5); // Adjust to Colombia time
+        serverQueryEndDate = endOfDay(today);
+        serverQueryStartDate = startOfDay(subDays(today, 6)); // Default to last 7 days
     }
 
 
     try {
         let submissionsQuery: admin.firestore.Query = firestore.collection('submissions')
             .where('formData.fecha', '>=', serverQueryStartDate)
-            .where('formData.fecha', '<', serverQueryEndDate);
+            .where('formData.fecha', '<=', serverQueryEndDate);
 
         let manualOpsQuery: admin.firestore.Query = firestore.collection('manual_operations')
             .where('operationDate', '>=', serverQueryStartDate)
-            .where('operationDate', '<', serverQueryEndDate);
+            .where('operationDate', '<=', serverQueryEndDate);
 
         
         const [submissionsSnapshot, manualOpsSnapshot, billingConcepts] = await Promise.all([
