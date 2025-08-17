@@ -285,20 +285,31 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         let submissionsQuery: admin.firestore.Query = firestore.collection('submissions');
         let manualOpsQuery: admin.firestore.Query = firestore.collection('manual_operations');
 
-        if (criteria.startDate) {
-            submissionsQuery = submissionsQuery.where('formData.fecha', '>=', new Date(criteria.startDate));
-            manualOpsQuery = manualOpsQuery.where('operationDate', '>=', new Date(criteria.startDate).toISOString());
-        }
-        if (criteria.endDate) {
-            submissionsQuery = submissionsQuery.where('formData.fecha', '<=', new Date(criteria.endDate));
-            manualOpsQuery = manualOpsQuery.where('operationDate', '<=', new Date(criteria.endDate).toISOString());
-        }
+        if (criteria.startDate && criteria.endDate) {
+            // Adjust dates for timezone consistency
+            const startDate = new Date(criteria.startDate);
+            const endDate = new Date(criteria.endDate);
+            endDate.setHours(23, 59, 59, 999); // Include the whole end day
 
-        if (!criteria.startDate && !criteria.endDate) {
+            submissionsQuery = submissionsQuery
+                .where('formData.fecha', '>=', startDate)
+                .where('formData.fecha', '<=', endDate);
+                
+            manualOpsQuery = manualOpsQuery
+                .where('operationDate', '>=', startDate.toISOString())
+                .where('operationDate', '<=', endDate.toISOString());
+
+        } else {
+             // If no date range, default to last 7 days using createdAt
             const defaultEndDate = new Date();
             const defaultStartDate = subDays(defaultEndDate, 7);
-            submissionsQuery = submissionsQuery.where('createdAt', '>=', defaultStartDate).where('createdAt', '<=', defaultEndDate);
-            manualOpsQuery = manualOpsQuery.where('createdAt', '>=', defaultStartDate).where('createdAt', '<=', defaultEndDate);
+            submissionsQuery = submissionsQuery
+                .where('createdAt', '>=', defaultStartDate)
+                .where('createdAt', '<=', defaultEndDate);
+
+            manualOpsQuery = manualOpsQuery
+                .where('createdAt', '>=', defaultStartDate)
+                .where('createdAt', '<=', defaultEndDate);
         }
         
         const [submissionsSnapshot, manualOpsSnapshot, billingConcepts] = await Promise.all([
@@ -398,6 +409,24 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             } else if (doc.type === 'manual') {
                 const { id, clientName, operationDate, startTime, endTime, plate, concept, quantity, createdAt } = doc;
                 const matchingConcept = billingConcepts.find(c => c.conceptName.toUpperCase() === concept.toUpperCase());
+                
+                let valorTotalConcepto = 0;
+                const valorUnitario = matchingConcept?.value || 0;
+
+                if (concept.toUpperCase() === 'CARGUE DE CANASTAS') {
+                    // quantity represents tons here
+                    valorTotalConcepto = valorUnitario * quantity;
+                } else if (concept.toUpperCase() === 'APOYO DE MONTACARGAS') {
+                    const durationMinutes = calculateDuration(startTime, endTime);
+                    if (durationMinutes !== null && durationMinutes > 0) {
+                        const durationHours = durationMinutes / 60;
+                        const hourlyRate = valorUnitario / 8; // Value is for an 8-hour shift
+                        valorTotalConcepto = hourlyRate * durationHours * quantity; // quantity is units
+                    }
+                } else {
+                    // Default calculation for other manual concepts
+                    valorTotalConcepto = valorUnitario * quantity;
+                }
 
                 finalReportRows.push({
                     id: id,
@@ -407,10 +436,10 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                     createdAt: createdAt,
                     operario: 'Manual',
                     cliente: clientName,
-                    tipoOperacion: (concept === 'CARGUE' || concept.includes('SALIDA')) ? 'Despacho' : 'Recepción',
+                    tipoOperacion: (concept === 'CARGUE' || concept.includes('SALIDA') || concept === 'CARGUE DE CANASTAS') ? 'Despacho' : 'Recepción',
                     tipoProducto: 'Manual',
                     productos: [],
-                    kilos: concept.includes('TONELADA') ? quantity * 1000 : 0,
+                    kilos: (matchingConcept?.unitOfMeasure === 'TONELADA') ? quantity * 1000 : 0,
                     horaInicio: startTime,
                     horaFin: endTime,
                     totalDurationMinutes: null,
@@ -423,10 +452,10 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                     standard: null,
                     description: 'Operación Manual',
                     conceptoLiquidado: concept,
-                    valorUnitario: matchingConcept?.value || 0,
+                    valorUnitario: valorUnitario,
                     cantidadConcepto: quantity,
                     unidadMedidaConcepto: matchingConcept?.unitOfMeasure || 'N/A',
-                    valorTotalConcepto: (matchingConcept?.value || 0) * quantity,
+                    valorTotalConcepto: valorTotalConcepto,
                     aplicaCuadrilla: 'si',
                     formData: doc,
                 });
