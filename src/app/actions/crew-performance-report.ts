@@ -283,32 +283,26 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
 
     try {
         let submissionsQuery: admin.firestore.Query = firestore.collection('submissions');
-        
-        // --- NEW DATE FILTERING LOGIC ---
-        if (criteria.startDate && criteria.endDate) {
-            // Widen the server query by a day on each side to account for timezone differences.
-            const serverQueryStartDate = subDays(new Date(criteria.startDate), 1);
-            const serverQueryEndDate = addDays(new Date(criteria.endDate), 1);
-            
-            submissionsQuery = submissionsQuery.where('createdAt', '>=', serverQueryStartDate)
-                                               .where('createdAt', '<=', serverQueryEndDate);
-        } else {
-            // Default to last 7 days if no range is provided
+        let manualOpsQuery: admin.firestore.Query = firestore.collection('manual_operations');
+
+        if (criteria.startDate) {
+            submissionsQuery = submissionsQuery.where('formData.fecha', '>=', new Date(criteria.startDate));
+            manualOpsQuery = manualOpsQuery.where('operationDate', '>=', new Date(criteria.startDate).toISOString());
+        }
+        if (criteria.endDate) {
+            submissionsQuery = submissionsQuery.where('formData.fecha', '<=', new Date(criteria.endDate));
+            manualOpsQuery = manualOpsQuery.where('operationDate', '<=', new Date(criteria.endDate).toISOString());
+        }
+
+        if (!criteria.startDate && !criteria.endDate) {
             const defaultEndDate = new Date();
             const defaultStartDate = subDays(defaultEndDate, 7);
             submissionsQuery = submissionsQuery.where('createdAt', '>=', defaultStartDate).where('createdAt', '<=', defaultEndDate);
+            manualOpsQuery = manualOpsQuery.where('createdAt', '>=', defaultStartDate).where('createdAt', '<=', defaultEndDate);
         }
-
-        let manualOpsQuery: admin.firestore.Query = firestore.collection('manual_operations');
-        if (criteria.startDate && criteria.endDate) {
-            const startDate = new Date(criteria.startDate).toISOString();
-            const endDate = new Date(criteria.endDate).toISOString();
-            manualOpsQuery = manualOpsQuery.where('operationDate', '>=', startDate)
-                                         .where('operationDate', '<=', endDate);
-        }
-
+        
         const [submissionsSnapshot, manualOpsSnapshot, billingConcepts] = await Promise.all([
-            submissionsQuery.get(),
+            submissionsQuery.orderBy('formData.fecha', 'desc').get(),
             manualOpsQuery.get(),
             getBillingConcepts()
         ]);
@@ -316,19 +310,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         const allSubmissions = submissionsSnapshot.docs.map(doc => ({ id: doc.id, type: 'submission', ...serializeTimestamps(doc.data()) }));
         const manualOpsData = manualOpsSnapshot.docs.map(doc => ({ id: doc.id, type: 'manual', ...serializeTimestamps(doc.data()) }));
 
-        // Filter submissions by the correct local date
-        let filteredSubmissions = allSubmissions;
-        if (criteria.startDate && criteria.endDate) {
-            filteredSubmissions = allSubmissions.filter(submission => {
-                const formIsoDate = submission.formData?.fecha;
-                if (!formIsoDate || typeof formIsoDate !== 'string') return false;
-                const formDatePart = getLocalGroupingDate(formIsoDate);
-                return formDatePart >= criteria.startDate! && formDatePart <= criteria.endDate!;
-            });
-        }
-
-
-        let allResults: any[] = [...filteredSubmissions];
+        let allResults: any[] = [...allSubmissions];
         if (criteria.cuadrillaFilter !== 'sin') {
             allResults = [...allResults, ...manualOpsData];
         }

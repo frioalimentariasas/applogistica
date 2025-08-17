@@ -8,7 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import Link from 'next/link';
 import { DateRange } from 'react-day-picker';
-import { format, subDays, parseISO } from 'date-fns';
+import { format, subDays, parseISO, startOfDay, endOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -376,9 +376,17 @@ export default function CrewPerformanceReportPage() {
         setCurrentPage(1);
 
         try {
+            let startDate, endDate;
+            if (dateRange?.from) {
+                startDate = startOfDay(dateRange.from).toISOString();
+            }
+            if (dateRange?.to) {
+                endDate = endOfDay(dateRange.to).toISOString();
+            }
+
             const criteria = {
-                startDate: dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : undefined,
-                endDate: dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : undefined,
+                startDate,
+                endDate,
                 operario: selectedOperario === 'all' ? undefined : selectedOperario,
                 operationType: operationType === 'all' ? undefined : operationType as 'recepcion' | 'despacho',
                 productType: productType === 'all' ? undefined : productType as 'fijo' | 'variable',
@@ -544,7 +552,7 @@ export default function CrewPerformanceReportPage() {
 
         const dateSuffix = dateRange?.from && dateRange.to 
             ? `${format(dateRange.from, 'yyyy-MM-dd')}_a_${format(dateRange.to, 'yyyy-MM-dd')}`
-            : 'rango_no_definido';
+            : 'ultimos_7_dias';
         const timeSuffix = format(new Date(), 'yyyyMMdd-HHmm');
     
         if (type === 'productivity') {
