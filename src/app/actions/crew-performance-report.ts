@@ -3,7 +3,7 @@
 
 import admin from 'firebase-admin';
 import { firestore } from '@/lib/firebase-admin';
-import { parse, differenceInMinutes, parseISO, format } from 'date-fns';
+import { parse, differenceInMinutes, parseISO, format, startOfDay, endOfDay, addDays } from 'date-fns';
 import { findBestMatchingStandard, type PerformanceStandard } from '@/app/actions/standard-actions';
 import { getBillingConcepts, type BillingConcept } from '../gestion-conceptos-liquidacion/actions';
 import { getNoveltiesForOperation, type NoveltyData } from './novelty-actions';
@@ -281,22 +281,19 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
     }
 
     try {
-        let submissionsQuery: admin.firestore.Query = firestore.collection('submissions');
-        let manualOpsQuery: admin.firestore.Query = firestore.collection('manual_operations');
+        const queryStartDate = addDays(new Date(criteria.startDate), -1);
+        const queryEndDate = addDays(new Date(criteria.endDate), 1);
         
-        const startDate = new Date(criteria.startDate);
-        const endDate = new Date(criteria.endDate);
-
-        startDate.setUTCHours(0, 0, 0, 0);
-        endDate.setUTCHours(23, 59, 59, 999);
-
+        let submissionsQuery: admin.firestore.Query = firestore.collection('submissions');
         submissionsQuery = submissionsQuery
-            .where('formData.fecha', '>=', startDate)
-            .where('formData.fecha', '<=', endDate);
+            .where('createdAt', '>=', queryStartDate)
+            .where('createdAt', '<=', queryEndDate);
 
+        let manualOpsQuery: admin.firestore.Query = firestore.collection('manual_operations');
         manualOpsQuery = manualOpsQuery
-            .where('operationDate', '>=', criteria.startDate)
-            .where('operationDate', '<=', criteria.endDate);
+            .where('createdAt', '>=', queryStartDate)
+            .where('createdAt', '<=', queryEndDate);
+
 
         const [submissionsSnapshot, manualOpsSnapshot, billingConcepts] = await Promise.all([
             submissionsQuery.get(),
@@ -304,27 +301,27 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             getBillingConcepts()
         ]);
         
-        let allResults: any[] = [];
+        const filterStart = startOfDay(new Date(criteria.startDate));
+        const filterEnd = endOfDay(new Date(criteria.endDate));
+        
+        const submissionsData = submissionsSnapshot.docs.map(doc => ({ id: doc.id, type: 'submission', ...serializeTimestamps(doc.data()) }));
+        const manualOpsData = manualOpsSnapshot.docs.map(doc => ({ id: doc.id, type: 'manual', ...serializeTimestamps(doc.data()) }));
 
-        submissionsSnapshot.docs.forEach(doc => {
-            const submissionData = serializeTimestamps(doc.data());
-            const formType = submissionData.formType;
-            const clientName = submissionData.formData?.nombreCliente || submissionData.formData?.cliente;
-            
-            if (
-                clientName === 'GRUPO FRUTELLI SAS' &&
-                (formType === 'variable-weight-recepcion' || formType === 'variable-weight-reception')
-            ) {
-                return; 
-            }
-
-            allResults.push({ id: doc.id, type: 'submission', ...submissionData });
+        const filteredSubmissions = submissionsData.filter(sub => {
+            if (!sub.formData.fecha) return false;
+            const formOpDate = new Date(sub.formData.fecha);
+            return formOpDate >= filterStart && formOpDate <= filterEnd;
         });
         
+        const filteredManualOps = manualOpsData.filter(op => {
+            if (!op.operationDate) return false;
+            const opDate = new Date(op.operationDate);
+            return opDate >= filterStart && opDate <= filterEnd;
+        });
+
+        let allResults: any[] = [...filteredSubmissions];
         if (criteria.cuadrillaFilter !== 'sin') {
-            manualOpsSnapshot.docs.forEach(doc => {
-                allResults.push({ id: doc.id, type: 'manual', ...serializeTimestamps(doc.data()) });
-            });
+            allResults = [...allResults, ...filteredManualOps];
         }
 
         const finalReportRows: CrewPerformanceReportRow[] = [];
@@ -332,8 +329,16 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         for (const doc of allResults) {
             if (doc.type === 'submission') {
                 const { id, formType, formData, userDisplayName } = doc;
-                const allPossibleConcepts = calculateSettlements(doc, billingConcepts);
+                const clientName = formData?.nombreCliente || formData?.cliente;
                 
+                if (
+                    clientName === 'GRUPO FRUTELLI SAS' &&
+                    (formType === 'variable-weight-recepcion' || formType === 'variable-weight-reception')
+                ) {
+                    continue; 
+                }
+                
+                const allPossibleConcepts = calculateSettlements(doc, billingConcepts);
                 let indicatorOnlyOperation: { conceptName: string, toneladas: number, isPending: boolean } | null = null;
                 
                  if (formData.aplicaCuadrilla === 'no') {

@@ -4,7 +4,7 @@
 import admin from 'firebase-admin';
 import { firestore, storage } from '@/lib/firebase-admin';
 import type { FormSubmissionData } from './save-form';
-import { parseISO, format } from 'date-fns';
+import { parseISO, format, addDays, startOfDay, endOfDay } from 'date-fns';
 
 const COLOMBIA_TIMEZONE = 'America/Bogota';
 
@@ -93,18 +93,20 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
             query = query.where('formData.pedidoSislog', '==', criteria.pedidoSislog.trim());
         }
 
-        const noFilters = !criteria.pedidoSislog && !criteria.nombreCliente && !criteria.searchDateStart && !criteria.placa && !criteria.operationType && !criteria.tipoPedido && !criteria.productType;
+        const noDateFilter = !criteria.searchDateStart && !criteria.searchDateEnd;
+        const noOtherFilters = !criteria.pedidoSislog && !criteria.nombreCliente && !criteria.placa && !criteria.operationType && !criteria.tipoPedido && !criteria.productType;
 
         if (criteria.searchDateStart && criteria.searchDateEnd) {
              const startDate = new Date(criteria.searchDateStart);
-             startDate.setUTCHours(0, 0, 0, 0); // Start of the selected day
-             
              const endDate = new Date(criteria.searchDateEnd);
-             endDate.setUTCHours(23, 59, 59, 999); // End of the selected day
-             
-             query = query.where('formData.fecha', '>=', startDate)
-                          .where('formData.fecha', '<=', endDate);
-        } else if (noFilters && !isOperario) {
+
+             // Widen the query to include records created outside the date range but whose operation date might have been edited to be inside.
+             const queryStartDate = addDays(startDate, -1);
+             const queryEndDate = addDays(endDate, 1);
+
+             query = query.where('createdAt', '>=', queryStartDate)
+                          .where('createdAt', '<=', queryEndDate);
+        } else if (noOtherFilters && !isOperario) {
             const endDate = new Date();
             const startDate = new Date();
             startDate.setDate(endDate.getDate() - 7);
@@ -126,7 +128,7 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
         });
 
         // Apply remaining filters in memory
-        if (isOperario && noFilters) {
+        if (isOperario && noDateFilter && noOtherFilters) {
             const endDate = new Date();
             const startDate = new Date();
             startDate.setDate(endDate.getDate() - 7);
@@ -134,6 +136,17 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
             results = results.filter(sub => {
                 const subDate = new Date(sub.createdAt);
                 return subDate >= startDate && subDate <= endDate;
+            });
+        }
+        
+        // **Accurate Date Filtering in Memory**
+        if (criteria.searchDateStart && criteria.searchDateEnd) {
+            const filterStart = startOfDay(new Date(criteria.searchDateStart));
+            const filterEnd = endOfDay(new Date(criteria.searchDateEnd));
+            results = results.filter(sub => {
+                if (!sub.formData.fecha) return false;
+                const formOpDate = new Date(sub.formData.fecha);
+                return formOpDate >= filterStart && formOpDate <= filterEnd;
             });
         }
         
