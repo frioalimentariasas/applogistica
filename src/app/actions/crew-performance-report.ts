@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import admin from 'firebase-admin';
@@ -270,25 +271,20 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         let submissionsQuery: admin.firestore.Query = firestore.collection('submissions');
         
         if (criteria.startDate && criteria.endDate) {
-            const startDate = startOfDay(new Date(criteria.startDate));
-            submissionsQuery = submissionsQuery.where('formData.fecha', '>=', startDate);
-            
+            const startDate = new Date(criteria.startDate);
             const endDate = endOfDay(new Date(criteria.endDate));
-            submissionsQuery = submissionsQuery.where('formData.fecha', '<=', endDate);
-        } else {
-            // Default to last 7 days if no date range is provided
-            const endDate = new Date();
-            const startDate = subDays(endDate, 7);
             submissionsQuery = submissionsQuery.where('formData.fecha', '>=', startDate).where('formData.fecha', '<=', endDate);
+        } else {
+            const defaultEndDate = new Date();
+            const defaultStartDate = subDays(defaultEndDate, 7);
+            submissionsQuery = submissionsQuery.where('formData.fecha', '>=', defaultStartDate).where('formData.fecha', '<=', defaultEndDate);
         }
-
 
         let manualOpsQuery: admin.firestore.Query = firestore.collection('manual_operations');
         if (criteria.startDate && criteria.endDate) {
             manualOpsQuery = manualOpsQuery.where('operationDate', '>=', new Date(criteria.startDate).toISOString());
             manualOpsQuery = manualOpsQuery.where('operationDate', '<=', new Date(criteria.endDate).toISOString());
         }
-
 
         const [submissionsSnapshot, manualOpsSnapshot, billingConcepts] = await Promise.all([
             submissionsQuery.get(),
