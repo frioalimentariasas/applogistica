@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -44,6 +45,7 @@ const ResultsSkeleton = () => (
         <TableCell><Skeleton className="h-5 w-[150px] rounded-md" /></TableCell>
         <TableCell><Skeleton className="h-5 w-[100px] rounded-md" /></TableCell>
         <TableCell><Skeleton className="h-5 w-[120px] rounded-md" /></TableCell>
+        <TableCell><Skeleton className="h-5 w-[120px] rounded-md" /></TableCell>
         <TableCell className="text-right">
           <div className="flex justify-end gap-2">
             <Skeleton className="h-8 w-8 rounded-md" />
@@ -58,7 +60,7 @@ const ResultsSkeleton = () => (
 
 const EmptyState = ({ searched }: { searched: boolean }) => (
     <TableRow>
-        <TableCell colSpan={9} className="py-20 text-center">
+        <TableCell colSpan={10} className="py-20 text-center">
             <div className="flex flex-col items-center gap-4">
                 <div className="rounded-full bg-primary/10 p-4">
                     <FolderSearch className="h-12 w-12 text-primary" />
@@ -195,7 +197,9 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
             searchDateStart = dateRange.from.toISOString();
         }
         if (dateRange?.to) {
-            searchDateEnd = dateRange.to.toISOString();
+            const endDate = new Date(dateRange.to);
+            endDate.setHours(23, 59, 59, 999);
+            searchDateEnd = endDate.toISOString();
         }
 
         const finalCriteria: SearchCriteria = {
@@ -510,6 +514,7 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>Fecha Operación</TableHead>
+                                        <TableHead>Fecha Creación</TableHead>
                                         <TableHead>Tipo Formato</TableHead>
                                         <TableHead>Operación</TableHead>
                                         <TableHead>Tipo de Pedido</TableHead>
@@ -527,6 +532,7 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
                                         results.map((sub) => (
                                             <TableRow key={sub.id}>
                                                 <TableCell>{format(parseISO(sub.formData.fecha), 'dd/MM/yyyy', { locale: es })}</TableCell>
+                                                <TableCell>{format(parseISO(sub.createdAt), 'dd/MM/yyyy HH:mm', { locale: es })}</TableCell>
                                                 <TableCell>{getFormTypeName(sub.formType)}</TableCell>
                                                 <TableCell>{getOperationTypeName(sub.formType)}</TableCell>
                                                 <TableCell>{sub.formData.tipoPedido || 'N/A'}</TableCell>
