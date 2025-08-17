@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -139,11 +138,13 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
                 }
             }
         } catch (error) {
+            console.error('Error en la búsqueda desde el cliente:', error);
             const errorMessage = error instanceof Error ? error.message : "Ocurrió un error desconocido.";
             toast({
                 variant: 'destructive',
                 title: 'Error en la búsqueda',
                 description: errorMessage,
+                duration: 9000,
             });
         } finally {
             setIsLoading(false);

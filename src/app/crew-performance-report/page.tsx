@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
@@ -973,7 +972,10 @@ export default function CrewPerformanceReportPage() {
 
     const onManualOpSubmit: SubmitHandler<ManualOperationValues> = async (data) => {
         setIsSubmittingManualOp(true);
-        const result = await addManualOperation(data);
+        const result = await addManualOperation({
+            ...data,
+            operationDate: format(data.operationDate, 'yyyy-MM-dd')
+        });
          if (result.success) {
             toast({ title: 'Éxito', description: result.message });
             setIsManualOpDialogOpen(false);

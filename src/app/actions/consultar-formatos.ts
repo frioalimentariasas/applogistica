@@ -1,10 +1,9 @@
-
 'use server';
 
 import admin from 'firebase-admin';
 import { firestore, storage } from '@/lib/firebase-admin';
 import type { FormSubmissionData } from './save-form';
-import { parseISO, format } from 'date-fns';
+import { parseISO, format, addDays } from 'date-fns';
 
 const COLOMBIA_TIMEZONE = 'America/Bogota';
 
@@ -99,26 +98,18 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
         const noFilters = !criteria.pedidoSislog && !criteria.nombreCliente && noDateFilter && !criteria.operationType && !criteria.tipoPedido && !criteria.productType;
 
         // Apply a server-side date filter ONLY if a date range is provided.
-        // This is now the most reliable way to handle date range queries.
         if (criteria.searchDateStart && criteria.searchDateEnd) {
              const startDateLocal = parseISO(criteria.searchDateStart);
              const endDateLocal = parseISO(criteria.searchDateEnd);
- 
-             // Start of day in Colombia (UTC-5)
-             const startUTC = new Date(Date.UTC(startDateLocal.getFullYear(), startDateLocal.getMonth(), startDateLocal.getDate(), 5, 0, 0, 0));
              
-             // End of day in Colombia (UTC-5)
-             const endUTC = new Date(Date.UTC(endDateLocal.getFullYear(), endDateLocal.getMonth(), endDateLocal.getDate() + 1, 4, 59, 59, 999));
-
-             query = query.where('createdAt', '>=', startUTC.toISOString())
-                          .where('createdAt', '<=', endUTC.toISOString());
+             query = query.where('formData.fecha', '>=', format(startDateLocal, 'yyyy-MM-dd'))
+                          .where('formData.fecha', '<=', format(endDateLocal, 'yyyy-MM-dd'));
         } else if (noFilters && !isOperario) {
              // For non-operarios with no filters, we must limit the query to avoid reading the whole collection.
              // We query the last 7 days. This is safe as createdAt will have a single-field index.
             const endDate = new Date();
             const startDate = new Date();
             startDate.setDate(endDate.getDate() - 7);
-            startDate.setUTCHours(0, 0, 0, 0);
             
             query = query.where('createdAt', '>=', startDate.toISOString())
                          .where('createdAt', '<=', endDate.toISOString());
@@ -193,10 +184,10 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
         return results;
     } catch (error) {
         console.error('Error searching submissions:', error);
-        // This catch block is now a fallback for unexpected errors, 
-        // as the index requirement should be less frequent.
         if (error instanceof Error && error.message.includes('requires an index')) {
-            throw new Error('La consulta requiere un índice compuesto en Firestore que no se encontró. Por favor, revise los registros del servidor para crear el índice necesario.');
+            console.error("Firestore composite index required. See the full error log for the creation link.", error);
+            // Re-throw the original error to pass the link to the client for debugging
+            throw new Error(error.message);
         }
         throw new Error('No se pudieron buscar los formularios.');
     }
