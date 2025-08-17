@@ -286,12 +286,16 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         let manualOpsQuery: admin.firestore.Query = firestore.collection('manual_operations');
 
         if (criteria.startDate && criteria.endDate) {
-            const startDate = startOfDay(new Date(criteria.startDate));
-            const endDate = endOfDay(new Date(criteria.endDate));
+            // Widen the server query by a day on each side to account for timezone differences.
+            const serverQueryStartDate = new Date(criteria.startDate);
+            serverQueryStartDate.setDate(serverQueryStartDate.getDate() - 1);
+            
+            const serverQueryEndDate = new Date(criteria.endDate);
+            serverQueryEndDate.setDate(serverQueryEndDate.getDate() + 2);
 
             submissionsQuery = submissionsQuery
-                .where('formData.fecha', '>=', startDate)
-                .where('formData.fecha', '<=', endDate);
+                .where('createdAt', '>=', serverQueryStartDate.toISOString().split('T')[0])
+                .where('createdAt', '<', serverQueryEndDate.toISOString().split('T')[0]);
                 
             manualOpsQuery = manualOpsQuery
                 .where('operationDate', '>=', criteria.startDate)
@@ -314,10 +318,21 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             getBillingConcepts()
         ]);
         
-        let allSubmissions = submissionsSnapshot.docs.map(doc => ({ id: doc.id, type: 'submission', ...serializeTimestamps(doc.data()) }));
+        const allSubmissionDocs = submissionsSnapshot.docs.map(doc => ({ id: doc.id, type: 'submission', ...serializeTimestamps(doc.data()) }));
+        
+        let dateFilteredSubmissions = allSubmissionDocs;
+        if (criteria.startDate && criteria.endDate) {
+             dateFilteredSubmissions = allSubmissionDocs.filter(submission => {
+                const formIsoDate = submission.formData?.fecha;
+                if (!formIsoDate || typeof formIsoDate !== 'string') return false;
+                const formDatePart = getLocalGroupingDate(formIsoDate);
+                return formDatePart >= criteria.startDate! && formDatePart <= criteria.endDate!;
+            });
+        }
+        
         let manualOpsData = manualOpsSnapshot.docs.map(doc => ({ id: doc.id, type: 'manual', ...serializeTimestamps(doc.data()) }));
 
-        let allResults: any[] = [...allSubmissions, ...manualOpsData];
+        let allResults: any[] = [...dateFilteredSubmissions, ...manualOpsData];
 
         const finalReportRows: CrewPerformanceReportRow[] = [];
 
@@ -410,7 +425,6 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                 const upperConcept = concept.toUpperCase();
 
                 if (upperConcept === 'CARGUE DE CANASTAS') {
-                    // quantity represents tons here
                     valorTotalConcepto = valorUnitario * quantity;
                 } else if (upperConcept === 'APOYO DE MONTACARGAS') {
                     const durationMinutes = calculateDuration(startTime, endTime);
@@ -420,7 +434,6 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                         valorTotalConcepto = hourlyRate * durationHours * quantity; // quantity is units
                     }
                 } else {
-                    // Default calculation for other manual concepts
                     valorTotalConcepto = valorUnitario * quantity;
                 }
 
