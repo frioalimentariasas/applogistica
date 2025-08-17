@@ -5,6 +5,7 @@
 import { firestore } from '@/lib/firebase-admin';
 import { revalidatePath } from 'next/cache';
 import { differenceInMinutes, parse, format } from 'date-fns';
+import admin from 'firebase-admin';
 
 interface ManualOperationData {
     clientName: string;
@@ -23,13 +24,10 @@ export async function addManualOperation(data: Omit<ManualOperationData, 'create
     }
 
     try {
-        // operationDate is already an ISO string from the client
-        // To query it as a string, we format it to YYYY-MM-DD
-        const formattedDate = format(new Date(data.operationDate), 'yyyy-MM-dd');
-
         const operationWithTimestamp = {
             ...data,
-            operationDate: formattedDate, // Store as YYYY-MM-DD string
+            // Convert the incoming string date to a Firestore Timestamp
+            operationDate: admin.firestore.Timestamp.fromDate(new Date(data.operationDate)),
             createdAt: new Date().toISOString(),
         };
 

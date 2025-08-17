@@ -286,29 +286,27 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         let manualOpsQuery: admin.firestore.Query = firestore.collection('manual_operations');
 
         if (criteria.startDate && criteria.endDate) {
-            // To include the end date fully, we search for dates less than the start of the next day.
-            const endDatePlusOne = addDays(new Date(criteria.endDate), 1);
-            const endDateString = format(endDatePlusOne, 'yyyy-MM-dd');
+            const startDateObj = startOfDay(new Date(criteria.startDate));
+            const endDateObj = endOfDay(new Date(criteria.endDate));
             
             submissionsQuery = submissionsQuery
-                .where('formData.fecha', '>=', criteria.startDate)
-                .where('formData.fecha', '<', endDateString);
+                .where('formData.fecha', '>=', startDateObj)
+                .where('formData.fecha', '<=', endDateObj);
                 
             manualOpsQuery = manualOpsQuery
-                .where('operationDate', '>=', criteria.startDate)
-                .where('operationDate', '<', endDateString);
+                .where('operationDate', '>=', startDateObj)
+                .where('operationDate', '<=', endDateObj);
         } else {
-             const defaultEndDate = new Date();
+            const defaultEndDate = new Date();
             const defaultStartDate = subDays(defaultEndDate, 7);
-            const defaultEndDatePlusOne = addDays(defaultEndDate, 1);
             
             submissionsQuery = submissionsQuery
                 .where('createdAt', '>=', defaultStartDate)
-                .where('createdAt', '<=', defaultEndDatePlusOne);
+                .where('createdAt', '<=', defaultEndDate);
 
             manualOpsQuery = manualOpsQuery
                 .where('createdAt', '>=', defaultStartDate.toISOString())
-                .where('createdAt', '<=', defaultEndDatePlusOne.toISOString());
+                .where('createdAt', '<=', defaultEndDate.toISOString());
         }
         
         const [submissionsSnapshot, manualOpsSnapshot, billingConcepts] = await Promise.all([
