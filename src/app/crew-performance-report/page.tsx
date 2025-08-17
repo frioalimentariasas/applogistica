@@ -975,7 +975,7 @@ export default function CrewPerformanceReportPage() {
         setIsSubmittingManualOp(true);
         const result = await addManualOperation({
             ...data,
-            operationDate: format(data.operationDate, 'yyyy-MM-dd')
+            operationDate: data.operationDate.toISOString()
         });
          if (result.success) {
             toast({ title: 'Éxito', description: result.message });
@@ -1389,7 +1389,7 @@ export default function CrewPerformanceReportPage() {
                                 <FormField control={manualOpForm.control} name="endTime" render={({ field }) => (<FormItem><FormLabel>Hora Fin</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>)} />
                             </div>
                             <FormField control={manualOpForm.control} name="plate" render={({ field }) => (<FormItem><FormLabel>Placa (Opcional)</FormLabel><FormControl><Input placeholder="ABC123" {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
-                             <FormField control={manualOpForm.control} name="quantity" render={({ field }) => (<FormItem><FormLabel>Cantidad</FormLabel><FormControl><Input type="number" step="0.001" placeholder="Ej: 10.5" {...field} /></FormControl><FormDescription>Para conceptos por TONELADA, ingrese la cantidad en toneladas (ej: 1.5). Para otros, la cantidad de unidades.</FormDescription><FormMessage /></FormItem>)}/>
+                             <FormField control={manualOpForm.control} name="quantity" render={({ field }) => (<FormItem><FormLabel>Cantidad</FormLabel><FormControl><Input type="number" step="0.001" placeholder="Ej: 1.5" {...field} /></FormControl><FormDescription>Para conceptos por TONELADA, ingrese la cantidad en toneladas (ej: 1.5). Para otros, la cantidad de unidades.</FormDescription><FormMessage /></FormItem>)}/>
                             <DialogFooter><Button variant="outline" onClick={() => setIsManualOpDialogOpen(false)}>Cancelar</Button><Button type="submit" disabled={isSubmittingManualOp}>{isSubmittingManualOp && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}Guardar Operación</Button></DialogFooter>
                         </form>
                     </Form>

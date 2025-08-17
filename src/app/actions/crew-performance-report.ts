@@ -286,16 +286,17 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         let manualOpsQuery: admin.firestore.Query = firestore.collection('manual_operations');
 
         if (criteria.startDate && criteria.endDate) {
-            const startDateObj = startOfDay(new Date(criteria.startDate));
-            const endDateObj = endOfDay(new Date(criteria.endDate));
+            // Widen the server query by a day on each side to account for timezone differences.
+            const serverQueryStartDate = subDays(new Date(criteria.startDate), 1);
+            const serverQueryEndDate = addDays(new Date(criteria.endDate), 1);
             
             submissionsQuery = submissionsQuery
-                .where('formData.fecha', '>=', startDateObj)
-                .where('formData.fecha', '<=', endDateObj);
+                .where('createdAt', '>=', serverQueryStartDate)
+                .where('createdAt', '<=', serverQueryEndDate);
                 
             manualOpsQuery = manualOpsQuery
-                .where('operationDate', '>=', startDateObj)
-                .where('operationDate', '<=', endDateObj);
+                .where('createdAt', '>=', serverQueryStartDate.toISOString())
+                .where('createdAt', '<=', serverQueryEndDate.toISOString());
         } else {
             const defaultEndDate = new Date();
             const defaultStartDate = subDays(defaultEndDate, 7);
@@ -315,8 +316,25 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             getBillingConcepts()
         ]);
         
-        const allSubmissionDocs = submissionsSnapshot.docs.map(doc => ({ id: doc.id, type: 'submission', ...serializeTimestamps(doc.data()) }));
-        const manualOpsData = manualOpsSnapshot.docs.map(doc => ({ id: doc.id, type: 'manual', ...serializeTimestamps(doc.data()) }));
+        const allSubmissionDocs = submissionsSnapshot.docs
+            .map(doc => ({ id: doc.id, type: 'submission', ...serializeTimestamps(doc.data()) }))
+            .filter(doc => {
+                 if (criteria.startDate && criteria.endDate) {
+                    const formDate = getLocalGroupingDate(doc.formData?.fecha);
+                    return formDate >= criteria.startDate && formDate <= criteria.endDate;
+                }
+                return true;
+            });
+
+        const manualOpsData = manualOpsSnapshot.docs
+            .map(doc => ({ id: doc.id, type: 'manual', ...serializeTimestamps(doc.data()) }))
+            .filter(doc => {
+                 if (criteria.startDate && criteria.endDate) {
+                    const formDate = getLocalGroupingDate(doc.operationDate);
+                    return formDate >= criteria.startDate && formDate <= criteria.endDate;
+                }
+                return true;
+            });
 
         let allResults: any[] = [...allSubmissionDocs, ...manualOpsData];
 
@@ -407,7 +425,6 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                 
                 let valorTotalConcepto = 0;
                 const valorUnitario = matchingConcept?.value || 0;
-
                 const upperConcept = concept.toUpperCase();
 
                 if (upperConcept === 'CARGUE DE CANASTAS') {
