@@ -263,10 +263,10 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
                     addSettlement(conceptName, quantity, unitOfMeasure);
                 }
             }
-            // Handle JORNAL DIURNO
+            // Handle JORNAL ORDINARIO
             if (formData.numeroOperariosCuadrilla > 0) {
                 const quantity = Number(formData.numeroOperariosCuadrilla);
-                addSettlement('JORNAL DIURNO', quantity, 'UNIDAD');
+                addSettlement('JORNAL ORDINARIO', quantity, 'UNIDAD');
             }
         }
     }
