@@ -28,18 +28,6 @@ const serializeTimestamps = (data: any): any => {
     return newObj;
 };
 
-// Helper to get a YYYY-MM-DD string from an ISO string, respecting no timezone changes.
-const getLocalGroupingDate = (isoString: string): string => {
-    if (!isoString) return '';
-    try {
-        // The date is already stored correctly, just format it.
-        return isoString.split('T')[0];
-    } catch (e) {
-        console.error(`Invalid date string for grouping: ${isoString}`);
-        return '';
-    }
-};
-
 const calculateDuration = (horaInicio: string, horaFin: string): number | null => {
     if (!horaInicio || !horaFin) return null;
     try {
@@ -282,23 +270,18 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
     }
 
     try {
-        const serverQueryStartDate = new Date(criteria.startDate);
-        const serverQueryEndDate = addDays(new Date(criteria.endDate), 1);
-
         let submissionsQuery: admin.firestore.Query = firestore.collection('submissions');
-        submissionsQuery = submissionsQuery
-            .where('createdAt', '>=', serverQueryStartDate)
-            .where('createdAt', '<=', serverQueryEndDate);
+        if (criteria.startDate) submissionsQuery = submissionsQuery.where('formData.fecha', '>=', startOfDay(new Date(criteria.startDate)));
+        if (criteria.endDate) submissionsQuery = submissionsQuery.where('formData.fecha', '<=', endOfDay(new Date(criteria.endDate)));
 
         let manualOpsQuery: admin.firestore.Query = firestore.collection('manual_operations');
-        manualOpsQuery = manualOpsQuery
-             .where('createdAt', '>=', serverQueryStartDate)
-             .where('createdAt', '<=', serverQueryEndDate);
+        if (criteria.startDate) manualOpsQuery = manualOpsQuery.where('operationDate', '>=', startOfDay(new Date(criteria.startDate)).toISOString());
+        if (criteria.endDate) manualOpsQuery = manualOpsQuery.where('operationDate', '<=', endOfDay(new Date(criteria.endDate)).toISOString());
 
 
         const [submissionsSnapshot, manualOpsSnapshot, billingConcepts] = await Promise.all([
-            submissionsQuery.orderBy('createdAt', 'asc').get(),
-            manualOpsQuery.orderBy('createdAt', 'asc').get(),
+            submissionsQuery.orderBy('formData.fecha', 'asc').get(),
+            manualOpsQuery.orderBy('operationDate', 'asc').get(),
             getBillingConcepts()
         ]);
         
@@ -313,11 +296,6 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         const finalReportRows: CrewPerformanceReportRow[] = [];
 
         for (const doc of allResults) {
-            const docDateStr = getLocalGroupingDate(doc.type === 'submission' ? doc.formData.fecha : doc.operationDate);
-            if (docDateStr < criteria.startDate || docDateStr > criteria.endDate) {
-                continue;
-            }
-
             if (doc.type === 'submission') {
                 const { id, formType, formData, userDisplayName } = doc;
                 const clientName = formData?.nombreCliente || formData?.cliente;
