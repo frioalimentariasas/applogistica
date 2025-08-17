@@ -126,6 +126,7 @@ export interface CrewPerformanceReportRow {
     submissionId: string;
     formType: string;
     fecha: string;
+    createdAt: string; // Added this
     operario: string;
     cliente: string;
     tipoOperacion: 'Recepción' | 'Despacho' | 'N/A';
@@ -269,11 +270,13 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         let submissionsQuery: admin.firestore.Query = firestore.collection('submissions');
         
         if (criteria.startDate && criteria.endDate) {
-            submissionsQuery = submissionsQuery.where('formData.fecha', '>=', new Date(criteria.startDate));
-            const endOfDay = new Date(criteria.endDate);
-            endOfDay.setHours(23, 59, 59, 999);
-            submissionsQuery = submissionsQuery.where('formData.fecha', '<=', endOfDay);
+            const startDate = startOfDay(new Date(criteria.startDate));
+            submissionsQuery = submissionsQuery.where('formData.fecha', '>=', startDate);
+            
+            const endDate = endOfDay(new Date(criteria.endDate));
+            submissionsQuery = submissionsQuery.where('formData.fecha', '<=', endDate);
         } else {
+            // Default to last 7 days if no date range is provided
             const endDate = new Date();
             const startDate = subDays(endDate, 7);
             submissionsQuery = submissionsQuery.where('formData.fecha', '>=', startDate).where('formData.fecha', '<=', endDate);
@@ -305,7 +308,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
 
         for (const doc of allResults) {
             if (doc.type === 'submission') {
-                const { id, formType, formData, userDisplayName } = doc;
+                const { id, formType, formData, userDisplayName, createdAt } = doc;
                 const clientName = formData?.nombreCliente || formData?.cliente;
                 
                 if (
@@ -359,7 +362,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                     
                     return {
                         id: settlement ? `${id}-${settlement.conceptName.replace(/\s+/g, '-')}` : id,
-                        submissionId: id, formType, fecha: formData.fecha, operario: userDisplayName || 'N/A', cliente: formData.nombreCliente || formData.cliente || 'N/A',
+                        submissionId: id, formType, fecha: formData.fecha, createdAt: createdAt, operario: userDisplayName || 'N/A', cliente: formData.nombreCliente || formData.cliente || 'N/A',
                         tipoOperacion, tipoProducto, productos: formData.productos || [], kilos: calculateTotalKilos(formType, formData), horaInicio: formData.horaInicio || 'N/A', horaFin: formData.horaFin || 'N/A',
                         totalDurationMinutes: null, operationalDurationMinutes: null, novelties: [], pedidoSislog: formData.pedidoSislog || 'N/A',
                         placa: formData.placa || 'N/A', contenedor: formData.contenedor || 'N/A', productType: tipoProducto === 'Fijo' ? 'fijo' : (tipoProducto === 'Variable' ? 'variable' : null),
@@ -382,7 +385,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                      finalReportRows.push(buildRow());
                 }
             } else if (doc.type === 'manual') {
-                const { id, clientName, operationDate, startTime, endTime, plate, concept, quantity } = doc;
+                const { id, clientName, operationDate, startTime, endTime, plate, concept, quantity, createdAt } = doc;
                 const matchingConcept = billingConcepts.find(c => c.conceptName.toUpperCase() === concept.toUpperCase());
 
                 finalReportRows.push({
@@ -390,6 +393,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                     submissionId: id,
                     formType: 'manual',
                     fecha: operationDate,
+                    createdAt: createdAt,
                     operario: 'Manual',
                     cliente: clientName,
                     tipoOperacion: (concept === 'CARGUE' || concept.includes('SALIDA')) ? 'Despacho' : 'Recepción',

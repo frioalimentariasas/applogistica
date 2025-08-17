@@ -8,7 +8,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import Link from 'next/link';
 import { DateRange } from 'react-day-picker';
-import { format, subDays } from 'date-fns';
+import { format, subDays, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -1124,7 +1124,8 @@ export default function CrewPerformanceReportPage() {
                                      <ScrollArea className="w-full whitespace-nowrap rounded-md border">
                                         <ScrollAreaViewport ref={scrollViewportRef} className="outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2">
                                             <Table><TableHeader><TableRow>
-                                                <TableHead>Fecha</TableHead>
+                                                <TableHead>Fecha Op.</TableHead>
+                                                <TableHead>Fecha Creación</TableHead>
                                                 <TableHead>Operario</TableHead>
                                                 <TableHead>Cliente</TableHead>
                                                 <TableHead>Tipo Op.</TableHead>
@@ -1143,13 +1144,14 @@ export default function CrewPerformanceReportPage() {
                                                 <TableHead className="text-right sticky right-0 bg-background/95 backdrop-blur-sm z-10">Acciones</TableHead>
                                             </TableRow></TableHeader>
                                                 <TableBody>
-                                                    {isLoading ? (<TableRow><TableCell colSpan={17}><Skeleton className="h-20 w-full" /></TableCell></TableRow>) : displayedData.length > 0 ? (
+                                                    {isLoading ? (<TableRow><TableCell colSpan={18}><Skeleton className="h-20 w-full" /></TableCell></TableRow>) : displayedData.length > 0 ? (
                                                         displayedData.map((row) => {
                                                             const indicator = getPerformanceIndicator(row);
                                                             const isPending = row.cantidadConcepto === -1;
                                                             return (
                                                                 <TableRow key={row.id}>
                                                                     <TableCell className="text-xs">{format(new Date(row.fecha), 'dd/MM/yy')}</TableCell>
+                                                                    <TableCell className="text-xs">{format(parseISO(row.createdAt), 'dd/MM/yy HH:mm')}</TableCell>
                                                                     <TableCell className="text-xs">{row.operario}</TableCell>
                                                                     <TableCell className="text-xs max-w-[150px] truncate" title={row.cliente}>{row.cliente}</TableCell>
                                                                     <TableCell className="text-xs">{row.tipoOperacion}</TableCell>
@@ -1249,7 +1251,8 @@ export default function CrewPerformanceReportPage() {
                                     <Table>
                                         <TableHeader><TableRow>
                                             <TableHead>Mes</TableHead>
-                                            <TableHead>Fecha</TableHead>
+                                            <TableHead>Fecha Op.</TableHead>
+                                            <TableHead>Fecha Creación</TableHead>
                                             <TableHead>Pedido</TableHead>
                                             <TableHead>Contenedor</TableHead>
                                             <TableHead>Placa</TableHead>
@@ -1264,13 +1267,14 @@ export default function CrewPerformanceReportPage() {
                                             <TableHead>Vlr. Total</TableHead>
                                         </TableRow></TableHeader>
                                         <TableBody>
-                                            {isLoading ? (<TableRow><TableCell colSpan={14}><Skeleton className="h-20 w-full" /></TableCell></TableRow>) : displayedLiquidationData.length > 0 ? (
+                                            {isLoading ? (<TableRow><TableCell colSpan={15}><Skeleton className="h-20 w-full" /></TableCell></TableRow>) : displayedLiquidationData.length > 0 ? (
                                                 displayedLiquidationData.map((row) => {
                                                     const isPending = row.cantidadConcepto === -1;
                                                     return (
                                                         <TableRow key={row.id}>
                                                             <TableCell className="text-xs capitalize">{format(new Date(row.fecha), 'MMMM', { locale: es })}</TableCell>
                                                             <TableCell className="text-xs">{format(new Date(row.fecha), 'dd/MM/yy')}</TableCell>
+                                                            <TableCell className="text-xs">{format(parseISO(row.createdAt), 'dd/MM/yy HH:mm')}</TableCell>
                                                             <TableCell className="text-xs">{row.pedidoSislog}</TableCell>
                                                             <TableCell className="text-xs">{row.contenedor}</TableCell>
                                                             <TableCell className="text-xs">{row.placa}</TableCell>
@@ -1287,7 +1291,7 @@ export default function CrewPerformanceReportPage() {
                                                     )
                                                 })
                                             ) : (<EmptyState searched={searched} title="No se encontraron liquidaciones" description="No hay operaciones de cuadrilla con conceptos liquidables para los filtros seleccionados." />)}
-                                            {!isLoading && liquidationData.length > 0 && (<TableRow className="font-bold bg-muted hover:bg-muted"><TableCell colSpan={13} className="text-right">TOTAL GENERAL LIQUIDACIÓN</TableCell><TableCell className="text-right">{totalLiquidacion.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell></TableRow>)}
+                                            {!isLoading && liquidationData.length > 0 && (<TableRow className="font-bold bg-muted hover:bg-muted"><TableCell colSpan={14} className="text-right">TOTAL GENERAL LIQUIDACIÓN</TableCell><TableCell className="text-right">{totalLiquidacion.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell></TableRow>)}
                                         </TableBody>
                                     </Table>
                                  </div>
