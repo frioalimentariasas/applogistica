@@ -370,15 +370,6 @@ export default function CrewPerformanceReportPage() {
 
 
     const handleSearch = useCallback(async () => {
-        if (!dateRange || !dateRange.from || !dateRange.to) {
-            toast({
-                variant: 'destructive',
-                title: 'Filtros incompletos',
-                description: 'Por favor, seleccione un rango de fechas.',
-            });
-            return;
-        }
-
         setIsLoading(true);
         setSearched(true);
         setReportData([]);
@@ -386,8 +377,8 @@ export default function CrewPerformanceReportPage() {
 
         try {
             const criteria = {
-                startDate: format(dateRange.from, 'yyyy-MM-dd'),
-                endDate: format(dateRange.to, 'yyyy-MM-dd'),
+                startDate: dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : undefined,
+                endDate: dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : undefined,
                 operario: selectedOperario === 'all' ? undefined : selectedOperario,
                 operationType: operationType === 'all' ? undefined : operationType as 'recepcion' | 'despacho',
                 productType: productType === 'all' ? undefined : productType as 'fijo' | 'variable',

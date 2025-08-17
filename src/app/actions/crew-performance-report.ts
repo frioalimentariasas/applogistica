@@ -265,27 +265,26 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         throw new Error('El servidor no está configurado correctamente.');
     }
 
-    if (!criteria.startDate || !criteria.endDate) {
-        throw new Error('Se requiere un rango de fechas para generar este informe.');
-    }
-
     try {
         let submissionsQuery: admin.firestore.Query = firestore.collection('submissions');
         
-        // This is the main change: Filter directly by formData.fecha.
-        // It requires a composite index, which the user will be prompted to create.
-        if (criteria.startDate) {
+        if (criteria.startDate && criteria.endDate) {
             submissionsQuery = submissionsQuery.where('formData.fecha', '>=', new Date(criteria.startDate));
-        }
-        if (criteria.endDate) {
             const endOfDay = new Date(criteria.endDate);
             endOfDay.setHours(23, 59, 59, 999);
             submissionsQuery = submissionsQuery.where('formData.fecha', '<=', endOfDay);
+        } else {
+            const endDate = new Date();
+            const startDate = subDays(endDate, 7);
+            submissionsQuery = submissionsQuery.where('formData.fecha', '>=', startDate).where('formData.fecha', '<=', endDate);
         }
 
+
         let manualOpsQuery: admin.firestore.Query = firestore.collection('manual_operations');
-        if (criteria.startDate) manualOpsQuery = manualOpsQuery.where('operationDate', '>=', new Date(criteria.startDate).toISOString());
-        if (criteria.endDate) manualOpsQuery = manualOpsQuery.where('operationDate', '<=', new Date(criteria.endDate).toISOString());
+        if (criteria.startDate && criteria.endDate) {
+            manualOpsQuery = manualOpsQuery.where('operationDate', '>=', new Date(criteria.startDate).toISOString());
+            manualOpsQuery = manualOpsQuery.where('operationDate', '<=', new Date(criteria.endDate).toISOString());
+        }
 
 
         const [submissionsSnapshot, manualOpsSnapshot, billingConcepts] = await Promise.all([
