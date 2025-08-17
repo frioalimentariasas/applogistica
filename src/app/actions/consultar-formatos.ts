@@ -4,7 +4,7 @@
 import admin from 'firebase-admin';
 import { firestore, storage } from '@/lib/firebase-admin';
 import type { FormSubmissionData } from './save-form';
-import { parseISO, format, addDays, startOfDay, endOfDay } from 'date-fns';
+import { parseISO, format, addDays, startOfDay, endOfDay, subDays } from 'date-fns';
 
 const COLOMBIA_TIMEZONE = 'America/Bogota';
 
@@ -61,6 +61,18 @@ const serializeTimestamps = (data: any): any => {
     return newObj;
 };
 
+// Helper to get a YYYY-MM-DD string from an ISO string, respecting no timezone changes.
+const getLocalGroupingDate = (isoString: string): string => {
+    if (!isoString) return '';
+    try {
+        // The date is already stored correctly, just format it.
+        return isoString.split('T')[0];
+    } catch (e) {
+        console.error(`Invalid date string for grouping: ${isoString}`);
+        return '';
+    }
+};
+
 
 export async function searchSubmissions(criteria: SearchCriteria): Promise<SubmissionResult[]> {
     if (!firestore) {
@@ -83,13 +95,15 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
         const noDateFilter = !criteria.searchDateStart && !criteria.searchDateEnd;
         const noOtherFilters = !criteria.pedidoSislog && !criteria.nombreCliente && !criteria.placa && !criteria.operationType && !criteria.tipoPedido && !criteria.productType;
 
+        // Apply a wide createdAt filter to catch edited documents, then filter precisely by formData.fecha later.
         if (criteria.searchDateStart && criteria.searchDateEnd) {
-             const startDate = new Date(criteria.searchDateStart);
-             const endDate = new Date(criteria.searchDateEnd);
+             const serverQueryStartDate = subDays(new Date(criteria.searchDateStart), 1);
+             const serverQueryEndDate = addDays(new Date(criteria.searchDateEnd), 1);
 
-             query = query.where('formData.fecha', '>=', startDate)
-                          .where('formData.fecha', '<=', endOfDay(endDate)); // Use endOfDay for inclusivity
+             query = query.where('createdAt', '>=', serverQueryStartDate)
+                          .where('createdAt', '<=', serverQueryEndDate);
         } else if (noOtherFilters && !isOperario) {
+            // Default to last 7 days if no filters are applied
             const endDate = new Date();
             const startDate = new Date();
             startDate.setDate(endDate.getDate() - 7);
@@ -98,7 +112,7 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
                          .where('createdAt', '<=', endDate);
         }
         
-        const snapshot = await query.orderBy('formData.fecha', 'desc').get();
+        const snapshot = await query.orderBy('createdAt', 'desc').get();
 
         let results = snapshot.docs.map(doc => {
             const data = doc.data();
@@ -110,11 +124,23 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
             } as SubmissionResult;
         });
 
-        // Apply remaining filters in memory
+        // --- In-memory filtering for accuracy ---
+
+        // Precise date filtering using formData.fecha
+        if (criteria.searchDateStart && criteria.searchDateEnd) {
+            const startStr = getLocalGroupingDate(criteria.searchDateStart);
+            const endStr = getLocalGroupingDate(criteria.searchDateEnd);
+
+            results = results.filter(sub => {
+                const subDateStr = getLocalGroupingDate(sub.formData.fecha);
+                return subDateStr >= startStr && subDateStr <= endStr;
+            });
+        }
+        
+        // Default date filter for operarios if no other filters are set
         if (isOperario && noDateFilter && noOtherFilters) {
             const endDate = new Date();
-            const startDate = new Date();
-            startDate.setDate(endDate.getDate() - 7);
+            const startDate = subDays(endDate, 7);
             
             results = results.filter(sub => {
                 const subDate = new Date(sub.createdAt);
@@ -161,6 +187,9 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
             });
         }
         
+        // Final sort by the correct operation date
+        results.sort((a, b) => new Date(b.formData.fecha).getTime() - new Date(a.formData.fecha).getTime());
+
         return results;
     } catch (error) {
         console.error('Error searching submissions:', error);
