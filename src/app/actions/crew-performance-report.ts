@@ -4,7 +4,7 @@
 
 import admin from 'firebase-admin';
 import { firestore } from '@/lib/firebase-admin';
-import { parse, differenceInMinutes, startOfDay, endOfDay } from 'date-fns';
+import { parse, differenceInMinutes, parseISO } from 'date-fns';
 import { findBestMatchingStandard, type PerformanceStandard } from '@/app/actions/standard-actions';
 import { getBillingConcepts, type BillingConcept } from '../gestion-conceptos-liquidacion/actions';
 import { getNoveltiesForOperation, type NoveltyData } from './novelty-actions';
@@ -283,17 +283,24 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         throw new Error('Se requiere un rango de fechas para generar este informe.');
     }
     
-    const startDate = startOfDay(new Date(criteria.startDate));
-    const endDate = endOfDay(new Date(criteria.endDate));
+    const startDateLocal = parseISO(criteria.startDate);
+    const endDateLocal = parseISO(criteria.endDate);
+
+    // Set the time to the beginning of the day in Colombia (UTC-5)
+    const startUTC = new Date(Date.UTC(startDateLocal.getFullYear(), startDateLocal.getMonth(), startDateLocal.getDate(), 5, 0, 0, 0));
+    
+    // Set the time to the end of the day in Colombia (UTC-5)
+    const endUTC = new Date(Date.UTC(endDateLocal.getFullYear(), endDateLocal.getMonth(), endDateLocal.getDate() + 1, 4, 59, 59, 999));
+
 
     const [submissionsSnapshot, manualOpsSnapshot, billingConcepts] = await Promise.all([
         firestore.collection('submissions')
-            .where('createdAt', '>=', startDate.toISOString())
-            .where('createdAt', '<=', endDate.toISOString())
+            .where('createdAt', '>=', startUTC.toISOString())
+            .where('createdAt', '<=', endUTC.toISOString())
             .get(),
         firestore.collection('manual_operations')
-            .where('createdAt', '>=', startDate.toISOString())
-            .where('createdAt', '<=', endDate.toISOString())
+             .where('operationDate', '>=', startUTC.toISOString())
+             .where('operationDate', '<=', endUTC.toISOString())
             .get(),
         getBillingConcepts()
     ]);

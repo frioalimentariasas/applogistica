@@ -23,8 +23,9 @@ export async function addManualOperation(data: Omit<ManualOperationData, 'create
     }
 
     try {
-        const operationWithTimestamp: ManualOperationData = {
+        const operationWithTimestamp = {
             ...data,
+            operationDate: new Date(data.operationDate).toISOString(),
             createdAt: new Date().toISOString(),
         };
 
