@@ -284,29 +284,31 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
     try {
         let submissionsQuery: admin.firestore.Query = firestore.collection('submissions');
         let manualOpsQuery: admin.firestore.Query = firestore.collection('manual_operations');
-        let startDate, endDate;
 
         if (criteria.startDate && criteria.endDate) {
-            startDate = startOfDay(new Date(criteria.startDate));
-            endDate = endOfDay(new Date(criteria.endDate));
-
+            // To include the end date fully, we search for dates less than the start of the next day.
+            const endDatePlusOne = addDays(new Date(criteria.endDate), 1);
+            const endDateString = format(endDatePlusOne, 'yyyy-MM-dd');
+            
             submissionsQuery = submissionsQuery
-                .where('formData.fecha', '>=', startDate)
-                .where('formData.fecha', '<=', endDate);
+                .where('formData.fecha', '>=', criteria.startDate)
+                .where('formData.fecha', '<', endDateString);
                 
             manualOpsQuery = manualOpsQuery
-                .where('operationDate', '>=', startDate)
-                .where('operationDate', '<=', endDate);
+                .where('operationDate', '>=', criteria.startDate)
+                .where('operationDate', '<', endDateString);
         } else {
-            const defaultEndDate = endOfDay(new Date());
-            const defaultStartDate = startOfDay(subDays(defaultEndDate, 7));
+             const defaultEndDate = new Date();
+            const defaultStartDate = subDays(defaultEndDate, 7);
+            const defaultEndDatePlusOne = addDays(defaultEndDate, 1);
+            
             submissionsQuery = submissionsQuery
-                .where('formData.fecha', '>=', defaultStartDate)
-                .where('formData.fecha', '<=', defaultEndDate);
+                .where('createdAt', '>=', defaultStartDate)
+                .where('createdAt', '<=', defaultEndDatePlusOne);
 
             manualOpsQuery = manualOpsQuery
-                .where('operationDate', '>=', defaultStartDate)
-                .where('operationDate', '<=', defaultEndDate);
+                .where('createdAt', '>=', defaultStartDate.toISOString())
+                .where('createdAt', '<=', defaultEndDatePlusOne.toISOString());
         }
         
         const [submissionsSnapshot, manualOpsSnapshot, billingConcepts] = await Promise.all([

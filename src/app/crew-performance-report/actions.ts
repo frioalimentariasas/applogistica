@@ -4,11 +4,11 @@
 
 import { firestore } from '@/lib/firebase-admin';
 import { revalidatePath } from 'next/cache';
-import { differenceInMinutes, parse } from 'date-fns';
+import { differenceInMinutes, parse, format } from 'date-fns';
 
 interface ManualOperationData {
     clientName: string;
-    operationDate: string; // ISO string
+    operationDate: string; // ISO string like '2024-07-23T15:49:01.859Z'
     startTime: string; // HH:mm
     endTime: string; // HH:mm
     plate?: string;
@@ -23,10 +23,13 @@ export async function addManualOperation(data: Omit<ManualOperationData, 'create
     }
 
     try {
+        // operationDate is already an ISO string from the client
+        // To query it as a string, we format it to YYYY-MM-DD
+        const formattedDate = format(new Date(data.operationDate), 'yyyy-MM-dd');
+
         const operationWithTimestamp = {
             ...data,
-            // Convert the date string to a Firestore Timestamp
-            operationDate: new Date(data.operationDate),
+            operationDate: formattedDate, // Store as YYYY-MM-DD string
             createdAt: new Date().toISOString(),
         };
 
