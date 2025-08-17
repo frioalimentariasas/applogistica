@@ -25,7 +25,8 @@ export async function addManualOperation(data: Omit<ManualOperationData, 'create
     try {
         const operationWithTimestamp = {
             ...data,
-            operationDate: new Date(data.operationDate).toISOString(),
+            // Convert the date string to a Firestore Timestamp
+            operationDate: new Date(data.operationDate),
             createdAt: new Date().toISOString(),
         };
 

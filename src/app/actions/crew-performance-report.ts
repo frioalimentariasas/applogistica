@@ -284,32 +284,29 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
     try {
         let submissionsQuery: admin.firestore.Query = firestore.collection('submissions');
         let manualOpsQuery: admin.firestore.Query = firestore.collection('manual_operations');
+        let startDate, endDate;
 
         if (criteria.startDate && criteria.endDate) {
-            // Widen the server query by a day on each side to account for timezone differences.
-            const serverQueryStartDate = new Date(criteria.startDate);
-            serverQueryStartDate.setDate(serverQueryStartDate.getDate() - 1);
-            
-            const serverQueryEndDate = new Date(criteria.endDate);
-            serverQueryEndDate.setDate(serverQueryEndDate.getDate() + 2);
+            startDate = startOfDay(new Date(criteria.startDate));
+            endDate = endOfDay(new Date(criteria.endDate));
 
             submissionsQuery = submissionsQuery
-                .where('createdAt', '>=', serverQueryStartDate.toISOString().split('T')[0])
-                .where('createdAt', '<', serverQueryEndDate.toISOString().split('T')[0]);
+                .where('formData.fecha', '>=', startDate)
+                .where('formData.fecha', '<=', endDate);
                 
             manualOpsQuery = manualOpsQuery
-                .where('operationDate', '>=', criteria.startDate)
-                .where('operationDate', '<=', criteria.endDate);
+                .where('operationDate', '>=', startDate)
+                .where('operationDate', '<=', endDate);
         } else {
-            const defaultEndDate = new Date();
-            const defaultStartDate = subDays(defaultEndDate, 7);
+            const defaultEndDate = endOfDay(new Date());
+            const defaultStartDate = startOfDay(subDays(defaultEndDate, 7));
             submissionsQuery = submissionsQuery
-                .where('createdAt', '>=', defaultStartDate)
-                .where('createdAt', '<=', defaultEndDate);
+                .where('formData.fecha', '>=', defaultStartDate)
+                .where('formData.fecha', '<=', defaultEndDate);
 
             manualOpsQuery = manualOpsQuery
-                .where('createdAt', '>=', defaultStartDate)
-                .where('createdAt', '<=', defaultEndDate);
+                .where('operationDate', '>=', defaultStartDate)
+                .where('operationDate', '<=', defaultEndDate);
         }
         
         const [submissionsSnapshot, manualOpsSnapshot, billingConcepts] = await Promise.all([
@@ -319,20 +316,9 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         ]);
         
         const allSubmissionDocs = submissionsSnapshot.docs.map(doc => ({ id: doc.id, type: 'submission', ...serializeTimestamps(doc.data()) }));
-        
-        let dateFilteredSubmissions = allSubmissionDocs;
-        if (criteria.startDate && criteria.endDate) {
-             dateFilteredSubmissions = allSubmissionDocs.filter(submission => {
-                const formIsoDate = submission.formData?.fecha;
-                if (!formIsoDate || typeof formIsoDate !== 'string') return false;
-                const formDatePart = getLocalGroupingDate(formIsoDate);
-                return formDatePart >= criteria.startDate! && formDatePart <= criteria.endDate!;
-            });
-        }
-        
-        let manualOpsData = manualOpsSnapshot.docs.map(doc => ({ id: doc.id, type: 'manual', ...serializeTimestamps(doc.data()) }));
+        const manualOpsData = manualOpsSnapshot.docs.map(doc => ({ id: doc.id, type: 'manual', ...serializeTimestamps(doc.data()) }));
 
-        let allResults: any[] = [...dateFilteredSubmissions, ...manualOpsData];
+        let allResults: any[] = [...allSubmissionDocs, ...manualOpsData];
 
         const finalReportRows: CrewPerformanceReportRow[] = [];
 
