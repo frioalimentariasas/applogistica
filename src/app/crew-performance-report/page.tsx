@@ -389,17 +389,9 @@ export default function CrewPerformanceReportPage() {
         setCurrentPage(1);
 
         try {
-            let startDate, endDate;
-            if (dateRange?.from) {
-                startDate = format(dateRange.from, 'yyyy-MM-dd');
-            }
-            if (dateRange?.to) {
-                endDate = format(dateRange.to, 'yyyy-MM-dd');
-            }
-
             const criteria = {
-                startDate,
-                endDate,
+                startDate: dateRange?.from ? format(dateRange.from, 'yyyy-MM-dd') : undefined,
+                endDate: dateRange?.to ? format(dateRange.to, 'yyyy-MM-dd') : undefined,
                 operario: selectedOperario === 'all' ? undefined : selectedOperario,
                 operationType: operationType === 'all' ? undefined : operationType as 'recepcion' | 'despacho',
                 productType: productType === 'all' ? undefined : productType as 'fijo' | 'variable',
@@ -1386,27 +1378,34 @@ export default function CrewPerformanceReportPage() {
                 </DialogContent>
             </Dialog>
             <Dialog open={isManualOpDialogOpen} onOpenChange={setIsManualOpDialogOpen}>
-                <DialogContent>
+                <DialogContent className="sm:max-w-md">
                     <DialogHeader>
                         <DialogTitle>Registrar Operación Manual</DialogTitle>
                         <DialogDescription>Ingrese los datos para registrar una operación que no fue capturada por un operario.</DialogDescription>
                     </DialogHeader>
-                    <Form {...manualOpForm}>
-                        <form onSubmit={manualOpForm.handleSubmit(onManualOpSubmit)} className="space-y-4 pt-4">
-                            <FormField control={manualOpForm.control} name="concept" render={({ field }) => ( <FormItem><FormLabel>Concepto de Liquidación</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un concepto" /></SelectTrigger></FormControl><SelectContent><ScrollArea className="h-60">{[...new Set(allBillingConcepts.map(c => c.conceptName))].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</ScrollArea></SelectContent></Select><FormMessage /></FormItem> )}/>
-                            {watchedConcept !== 'APOYO DE MONTACARGAS' && (
-                                <FormField control={manualOpForm.control} name="clientName" render={({ field }) => ( <FormItem><FormLabel>Cliente</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un cliente" /></SelectTrigger></FormControl><SelectContent><ScrollArea className="h-60">{clients.map(c => <SelectItem key={c.id} value={c.razonSocial}>{c.razonSocial}</SelectItem>)}</ScrollArea></SelectContent></Select><FormMessage /></FormItem> )}/>
-                            )}
-                             <FormField control={manualOpForm.control} name="operationDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha de Operación</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4 opacity-50" />{field.value ? format(field.value, "PPP", { locale: es }) : <span>Seleccione una fecha</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
-                             <div className="grid grid-cols-2 gap-4">
-                                <FormField control={manualOpForm.control} name="startTime" render={({ field }) => (<FormItem><FormLabel>Hora Inicio</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                <FormField control={manualOpForm.control} name="endTime" render={({ field }) => (<FormItem><FormLabel>Hora Fin</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                            </div>
-                            <FormField control={manualOpForm.control} name="plate" render={({ field }) => (<FormItem><FormLabel>Placa (Opcional)</FormLabel><FormControl><Input placeholder="ABC123" {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
-                             <FormField control={manualOpForm.control} name="quantity" render={({ field }) => (<FormItem><FormLabel>Cantidad</FormLabel><FormControl><Input type="number" step="0.001" placeholder="Ej: 1.5" {...field} /></FormControl><FormDescription>Para conceptos por TONELADA, ingrese la cantidad en toneladas (ej: 1.5). Para otros, la cantidad de unidades.</FormDescription><FormMessage /></FormItem>)}/>
-                            <DialogFooter><Button variant="outline" onClick={() => setIsManualOpDialogOpen(false)}>Cancelar</Button><Button type="submit" disabled={isSubmittingManualOp}>{isSubmittingManualOp && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}Guardar Operación</Button></DialogFooter>
-                        </form>
-                    </Form>
+                    <ScrollArea className="max-h-[70vh]">
+                        <div className="p-4">
+                            <Form {...manualOpForm}>
+                                <form onSubmit={manualOpForm.handleSubmit(onManualOpSubmit)} className="space-y-4">
+                                    <FormField control={manualOpForm.control} name="concept" render={({ field }) => ( <FormItem><FormLabel>Concepto de Liquidación</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un concepto" /></SelectTrigger></FormControl><SelectContent><ScrollArea className="h-60">{[...new Set(allBillingConcepts.map(c => c.conceptName))].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</ScrollArea></SelectContent></Select><FormMessage /></FormItem> )}/>
+                                    {watchedConcept !== 'APOYO DE MONTACARGAS' && (
+                                        <FormField control={manualOpForm.control} name="clientName" render={({ field }) => ( <FormItem><FormLabel>Cliente</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un cliente" /></SelectTrigger></FormControl><SelectContent><ScrollArea className="h-60">{clients.map(c => <SelectItem key={c.id} value={c.razonSocial}>{c.razonSocial}</SelectItem>)}</ScrollArea></SelectContent></Select><FormMessage /></FormItem> )}/>
+                                    )}
+                                    <FormField control={manualOpForm.control} name="operationDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha de Operación</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4 opacity-50" />{field.value ? format(field.value, "PPP", { locale: es }) : <span>Seleccione una fecha</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <FormField control={manualOpForm.control} name="startTime" render={({ field }) => (<FormItem><FormLabel>Hora Inicio</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                        <FormField control={manualOpForm.control} name="endTime" render={({ field }) => (<FormItem><FormLabel>Hora Fin</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                    </div>
+                                    <FormField control={manualOpForm.control} name="plate" render={({ field }) => (<FormItem><FormLabel>Placa (Opcional)</FormLabel><FormControl><Input placeholder="ABC123" {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
+                                    <FormField control={manualOpForm.control} name="quantity" render={({ field }) => (<FormItem><FormLabel>Cantidad</FormLabel><FormControl><Input type="number" step="0.001" placeholder="Ej: 1.5" {...field} /></FormControl><FormDescription>Para conceptos por TONELADA, ingrese la cantidad en toneladas (ej: 1.5). Para otros, la cantidad de unidades.</FormDescription><FormMessage /></FormItem>)}/>
+                                    <DialogFooter>
+                                        <Button type="button" variant="outline" onClick={() => setIsManualOpDialogOpen(false)}>Cancelar</Button>
+                                        <Button type="submit" disabled={isSubmittingManualOp}>{isSubmittingManualOp && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}Guardar Operación</Button>
+                                    </DialogFooter>
+                                </form>
+                            </Form>
+                        </div>
+                    </ScrollArea>
                 </DialogContent>
             </Dialog>
 
