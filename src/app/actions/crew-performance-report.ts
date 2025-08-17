@@ -286,17 +286,18 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         let manualOpsQuery: admin.firestore.Query = firestore.collection('manual_operations');
 
         if (criteria.startDate && criteria.endDate) {
-            // Adjust dates to be UTC but represent the start and end of the day in Colombia time (UTC-5)
-            const startDate = new Date(`${criteria.startDate}T00:00:00.000-05:00`);
-            const endDate = new Date(`${criteria.endDate}T23:59:59.999-05:00`);
+            // Widen the server query by a day on each side to account for timezone differences.
+            // Client-side filtering will handle the exact local date.
+            const serverQueryStartDate = subDays(new Date(criteria.startDate), 1);
+            const serverQueryEndDate = addDays(new Date(criteria.endDate), 1);
 
             submissionsQuery = submissionsQuery
-                .where('createdAt', '>=', startDate)
-                .where('createdAt', '<=', endDate);
+                .where('createdAt', '>=', serverQueryStartDate)
+                .where('createdAt', '<=', serverQueryEndDate);
                 
             manualOpsQuery = manualOpsQuery
-                .where('createdAt', '>=', startDate)
-                .where('createdAt', '<=', endDate);
+                .where('createdAt', '>=', serverQueryStartDate)
+                .where('createdAt', '<=', serverQueryEndDate);
 
         } else {
              // If no date range, default to last 7 days using createdAt
