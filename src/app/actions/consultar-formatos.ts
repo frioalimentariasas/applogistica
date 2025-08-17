@@ -81,10 +81,12 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
 
         // --- NEW DATE FILTERING LOGIC ---
         if (criteria.searchDateStart) {
-            query = query.where('formData.fecha', '>=', new Date(criteria.searchDateStart));
+            const startDate = startOfDay(new Date(criteria.searchDateStart));
+            query = query.where('formData.fecha', '>=', startDate);
         }
         if (criteria.searchDateEnd) {
-            query = query.where('formData.fecha', '<=', new Date(criteria.searchDateEnd));
+            const endDate = endOfDay(new Date(criteria.searchDateEnd));
+            query = query.where('formData.fecha', '<=', endDate);
         }
         
         // Default to last 7 days if no filters are applied and user is not operario
