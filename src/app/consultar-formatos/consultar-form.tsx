@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -86,6 +87,7 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
     const [criteria, setCriteria] = useState<Omit<SearchCriteria, 'requestingUser' | 'searchDateStart' | 'searchDateEnd'>>({
         pedidoSislog: '',
         nombreCliente: '',
+        placa: '',
         operationType: undefined,
         productType: undefined,
         tipoPedido: undefined,
@@ -124,7 +126,7 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
             setResults(searchResults);
 
             if (!isAutoSearch) {
-                const isDefaultSearch = !searchCriteria.pedidoSislog && !searchCriteria.nombreCliente && !searchCriteria.searchDateStart && !searchCriteria.searchDateEnd && !searchCriteria.operationType && !searchCriteria.tipoPedido;
+                const isDefaultSearch = !searchCriteria.pedidoSislog && !searchCriteria.nombreCliente && !searchCriteria.placa && !searchCriteria.searchDateStart && !searchCriteria.searchDateEnd && !searchCriteria.operationType && !searchCriteria.tipoPedido;
                 if (isDefaultSearch && searchResults.length > 0) {
                      toast({
                         title: "Mostrando resultados de la última semana",
@@ -160,6 +162,7 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
                 const restoredCriteria: Omit<SearchCriteria, 'requestingUser' | 'searchDateStart' | 'searchDateEnd'> = {
                     pedidoSislog: savedCriteria.pedidoSislog || '',
                     nombreCliente: savedCriteria.nombreCliente || '',
+                    placa: savedCriteria.placa || '',
                     operationType: savedCriteria.operationType,
                     productType: savedCriteria.productType,
                     tipoPedido: savedCriteria.tipoPedido,
@@ -216,6 +219,7 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
         setCriteria({
             pedidoSislog: '',
             nombreCliente: '',
+            placa: '',
             operationType: undefined,
             productType: undefined,
             tipoPedido: undefined,
@@ -313,6 +317,15 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
                                     placeholder="Pedido SISLOG"
                                     value={criteria.pedidoSislog}
                                     onChange={(e) => setCriteria({...criteria, pedidoSislog: e.target.value})}
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="placa">Placa</Label>
+                                <Input 
+                                    id="placa"
+                                    placeholder="Placa del vehículo"
+                                    value={criteria.placa}
+                                    onChange={(e) => setCriteria({...criteria, placa: e.target.value.toUpperCase()})}
                                 />
                             </div>
                             <div className="space-y-2">

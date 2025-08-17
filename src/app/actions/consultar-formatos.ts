@@ -12,6 +12,7 @@ const COLOMBIA_TIMEZONE = 'America/Bogota';
 export interface SearchCriteria {
   pedidoSislog?: string;
   nombreCliente?: string;
+  placa?: string;
   searchDateStart?: string; // ISO String
   searchDateEnd?: string; // ISO String
   operationType?: 'recepcion' | 'despacho';
@@ -65,6 +66,7 @@ const getLocalGroupingDate = (isoString: string): string => {
     if (!isoString) return '';
     try {
         const date = new Date(isoString);
+        // This will correctly get the date part in UTC, which is what we need for consistent comparisons
         return date.toISOString().split('T')[0];
     } catch (e) {
         console.error(`Invalid date string for grouping: ${isoString}`);
@@ -83,42 +85,34 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
         let query: admin.firestore.Query = firestore.collection('submissions');
         const isOperario = criteria.requestingUser && operarioEmails.includes(criteria.requestingUser.email);
         
-        // User is the most selective filter for operarios
         if (isOperario) {
             query = query.where('userId', '==', criteria.requestingUser!.id);
         }
 
-        // pedidoSislog is also highly selective
         if (criteria.pedidoSislog) {
             query = query.where('formData.pedidoSislog', '==', criteria.pedidoSislog.trim());
         }
 
-        const noDateFilter = !criteria.searchDateStart && !criteria.searchDateEnd;
-        const noFilters = !criteria.pedidoSislog && !criteria.nombreCliente && noDateFilter && !criteria.operationType && !criteria.tipoPedido && !criteria.productType;
+        const noFilters = !criteria.pedidoSislog && !criteria.nombreCliente && !criteria.searchDateStart && !criteria.placa && !criteria.operationType && !criteria.tipoPedido && !criteria.productType;
 
-        // Apply a server-side date filter ONLY if a date range is provided.
         if (criteria.searchDateStart && criteria.searchDateEnd) {
              const startDate = new Date(criteria.searchDateStart);
-             const endDate = new Date(criteria.searchDateEnd);
+             startDate.setUTCHours(0, 0, 0, 0); // Start of the selected day
              
-             // Firestore timestamps are precise, so we need to set the time to the start and end of the day.
-             startDate.setUTCHours(0, 0, 0, 0);
-             endDate.setUTCHours(23, 59, 59, 999);
+             const endDate = new Date(criteria.searchDateEnd);
+             endDate.setUTCHours(23, 59, 59, 999); // End of the selected day
              
              query = query.where('formData.fecha', '>=', startDate)
                           .where('formData.fecha', '<=', endDate);
         } else if (noFilters && !isOperario) {
-             // For non-operarios with no filters, we must limit the query to avoid reading the whole collection.
-             // We query the last 7 days. This is safe as createdAt will have a single-field index.
             const endDate = new Date();
             const startDate = new Date();
             startDate.setDate(endDate.getDate() - 7);
             
-            query = query.where('createdAt', '>=', startDate.toISOString())
-                         .where('createdAt', '<=', endDate.toISOString());
+            query = query.where('createdAt', '>=', startDate)
+                         .where('createdAt', '<=', endDate);
         }
         
-        // Execute the query.
         const snapshot = await query.get();
 
         let results = snapshot.docs.map(doc => {
@@ -131,7 +125,7 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
             } as SubmissionResult;
         });
 
-        // Apply the rest of the filters in memory
+        // Apply remaining filters in memory
         if (isOperario && noFilters) {
             const endDate = new Date();
             const startDate = new Date();
@@ -143,7 +137,6 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
             });
         }
         
-        // Filter by client name (exact match)
         if (criteria.nombreCliente) {
             results = results.filter(sub => {
                 const clientName = sub.formData.nombreCliente || sub.formData.cliente;
@@ -151,7 +144,12 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
             });
         }
         
-        // Filter by operation type
+        if (criteria.placa) {
+            results = results.filter(sub => 
+                sub.formData.placa && sub.formData.placa.toLowerCase().includes(criteria.placa!.toLowerCase())
+            );
+        }
+        
         if (criteria.operationType) {
             results = results.filter(sub => {
                 if (criteria.operationType === 'recepcion') {
@@ -164,7 +162,6 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
             });
         }
 
-        // Filter by product type
         if (criteria.productType) {
             if (criteria.productType === 'fijo') {
                 results = results.filter(sub => sub.formType.includes('fixed-weight'));
@@ -173,15 +170,12 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
             }
         }
 
-        // Filter by Tipo Pedido
         if (criteria.tipoPedido) {
             results = results.filter(sub => {
                 return sub.formData.tipoPedido === criteria.tipoPedido;
             });
         }
 
-
-        // Finally, sort results by date descending in memory
         results.sort((a, b) => new Date(b.formData.fecha).getTime() - new Date(a.formData.fecha).getTime());
         
         return results;
@@ -189,7 +183,6 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
         console.error('Error searching submissions:', error);
         if (error instanceof Error && error.message.includes('requires an index')) {
             console.error("Firestore composite index required. See the full error log for the creation link.", error);
-            // Re-throw the original error to pass the link to the client for debugging
             throw new Error(error.message);
         }
         throw new Error('No se pudieron buscar los formularios.');
