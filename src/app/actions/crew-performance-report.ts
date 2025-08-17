@@ -108,21 +108,6 @@ const calculateTotalPallets = (formType: string, formData: any): number => {
     return 0;
 };
 
-// Helper to get a YYYY-MM-DD string adjusted for a specific timezone (e.g., UTC-5 for Colombia)
-const getLocalGroupingDate = (isoString: string): string => {
-    if (!isoString) return '';
-    try {
-        const date = new Date(isoString);
-        // Adjust for a fixed timezone offset. UTC-5 for Colombia.
-        date.setUTCHours(date.getUTCHours() - 5);
-        return date.toISOString().split('T')[0];
-    } catch (e) {
-        console.error(`Invalid date string for grouping: ${isoString}`);
-        return '';
-    }
-};
-
-
 
 export interface CrewPerformanceReportCriteria {
     startDate?: string;
@@ -281,34 +266,26 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         throw new Error('El servidor no está configurado correctamente.');
     }
 
+    let serverQueryStartDate: Date, serverQueryEndDate: Date;
+
+    if (criteria.startDate && criteria.endDate) {
+        serverQueryStartDate = startOfDay(new Date(criteria.startDate));
+        serverQueryEndDate = endOfDay(new Date(criteria.endDate));
+    } else {
+        const today = new Date();
+        serverQueryEndDate = endOfDay(today);
+        serverQueryStartDate = startOfDay(subDays(today, 7));
+    }
+
     try {
-        let submissionsQuery: admin.firestore.Query = firestore.collection('submissions');
-        let manualOpsQuery: admin.firestore.Query = firestore.collection('manual_operations');
+        let submissionsQuery: admin.firestore.Query = firestore.collection('submissions')
+            .where('formData.fecha', '>=', serverQueryStartDate)
+            .where('formData.fecha', '<=', serverQueryEndDate);
 
-        if (criteria.startDate && criteria.endDate) {
-            // Widen the server query by a day on each side to account for timezone differences.
-            const serverQueryStartDate = subDays(new Date(criteria.startDate), 1);
-            const serverQueryEndDate = addDays(new Date(criteria.endDate), 1);
-            
-            submissionsQuery = submissionsQuery
-                .where('createdAt', '>=', serverQueryStartDate)
-                .where('createdAt', '<=', serverQueryEndDate);
-                
-            manualOpsQuery = manualOpsQuery
-                .where('createdAt', '>=', serverQueryStartDate.toISOString())
-                .where('createdAt', '<=', serverQueryEndDate.toISOString());
-        } else {
-            const defaultEndDate = new Date();
-            const defaultStartDate = subDays(defaultEndDate, 7);
-            
-            submissionsQuery = submissionsQuery
-                .where('createdAt', '>=', defaultStartDate)
-                .where('createdAt', '<=', defaultEndDate);
+        let manualOpsQuery: admin.firestore.Query = firestore.collection('manual_operations')
+            .where('operationDate', '>=', serverQueryStartDate)
+            .where('operationDate', '<=', serverQueryEndDate);
 
-            manualOpsQuery = manualOpsQuery
-                .where('createdAt', '>=', defaultStartDate.toISOString())
-                .where('createdAt', '<=', defaultEndDate.toISOString());
-        }
         
         const [submissionsSnapshot, manualOpsSnapshot, billingConcepts] = await Promise.all([
             submissionsQuery.get(),
@@ -316,25 +293,8 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             getBillingConcepts()
         ]);
         
-        const allSubmissionDocs = submissionsSnapshot.docs
-            .map(doc => ({ id: doc.id, type: 'submission', ...serializeTimestamps(doc.data()) }))
-            .filter(doc => {
-                 if (criteria.startDate && criteria.endDate) {
-                    const formDate = getLocalGroupingDate(doc.formData?.fecha);
-                    return formDate >= criteria.startDate && formDate <= criteria.endDate;
-                }
-                return true;
-            });
-
-        const manualOpsData = manualOpsSnapshot.docs
-            .map(doc => ({ id: doc.id, type: 'manual', ...serializeTimestamps(doc.data()) }))
-            .filter(doc => {
-                 if (criteria.startDate && criteria.endDate) {
-                    const formDate = getLocalGroupingDate(doc.operationDate);
-                    return formDate >= criteria.startDate && formDate <= criteria.endDate;
-                }
-                return true;
-            });
+        const allSubmissionDocs = submissionsSnapshot.docs.map(doc => ({ id: doc.id, type: 'submission', ...serializeTimestamps(doc.data()) }));
+        const manualOpsData = manualOpsSnapshot.docs.map(doc => ({ id: doc.id, type: 'manual', ...serializeTimestamps(doc.data()) }));
 
         let allResults: any[] = [...allSubmissionDocs, ...manualOpsData];
 
