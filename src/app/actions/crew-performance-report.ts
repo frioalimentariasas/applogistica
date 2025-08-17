@@ -53,13 +53,13 @@ const calculateTotalKilos = (formType: string, formData: any): number => {
             return legalizedWeight;
         }
         // Fallback for non-legalized or older forms
-        return (formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.pesoNetoKg) || 0), 0);
+        return (formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.pesoBrutoKg) || 0), 0);
     }
     
     if (formType.includes('reception') || formType.includes('recepcion')) {
         const allItems = (formData.items || [])
             .concat((formData.placas || []).flatMap((p: any) => p.items));
-        return allItems.reduce((sum: number, p: any) => sum + (Number(p.pesoNeto) || 0), 0);
+        return allItems.reduce((sum: number, p: any) => sum + (Number(p.pesoBruto) || 0), 0);
     }
     
     if (formType.startsWith('variable-weight-')) {
@@ -283,59 +283,41 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         throw new Error('Se requiere un rango de fechas para generar este informe.');
     }
     
-    let query: admin.firestore.Query = firestore.collection('submissions');
+    const startDate = new Date(criteria.startDate);
+    const endDate = addDays(new Date(criteria.endDate), 1);
 
-    const serverQueryStartDate = new Date(criteria.startDate);
-    serverQueryStartDate.setDate(serverQueryStartDate.getDate() - 1);
+    const [submissionsSnapshot, manualOpsSnapshot, billingConcepts] = await Promise.all([
+        firestore.collection('submissions')
+            .where('createdAt', '>=', startDate.toISOString())
+            .where('createdAt', '<', endDate.toISOString())
+            .get(),
+        firestore.collection('manual_operations')
+            .where('createdAt', '>=', startDate.toISOString())
+            .where('createdAt', '<', endDate.toISOString())
+            .get(),
+        getBillingConcepts()
+    ]);
     
-    const serverQueryEndDate = new Date(criteria.endDate);
-    serverQueryEndDate.setDate(serverQueryEndDate.getDate() + 2);
+    let allResults: any[] = [];
 
-    query = query.where('createdAt', '>=', serverQueryStartDate.toISOString().split('T')[0])
-                 .where('createdAt', '<', serverQueryEndDate.toISOString().split('T')[0]);
+    // Process Submissions
+    submissionsSnapshot.docs.forEach(doc => {
+        allResults.push({ id: doc.id, type: 'submission', ...serializeTimestamps(doc.data()) });
+    });
 
-
-    try {
-        const [submissionsSnapshot, billingConcepts] = await Promise.all([
-            query.get(),
-            getBillingConcepts()
-        ]);
-        
-        let allResults = submissionsSnapshot.docs.map(doc => ({ id: doc.id, ...serializeTimestamps(doc.data()) }));
-
-        allResults = allResults.filter(sub => {
-            // Filter by date range (local time)
-            const formIsoDate = sub.formData?.fecha;
-            if (!formIsoDate || typeof formIsoDate !== 'string') return false;
-            const localDate = getLocalGroupingDate(formIsoDate);
-            if (localDate < criteria.startDate! || localDate > criteria.endDate!) return false;
-
-            // Exclude GRUPO FRUTELLI SAS for variable weight forms
-            const clientName = sub.formData?.nombreCliente || sub.formData?.cliente;
-            if (clientName === 'GRUPO FRUTELLI SAS' && sub.formType?.includes('variable-weight')) {
-                return false;
-            }
-
-            return true;
+    // Process Manual Operations, but only if the filter is not 'sin'
+    if (criteria.cuadrillaFilter !== 'sin') {
+        manualOpsSnapshot.docs.forEach(doc => {
+            allResults.push({ id: doc.id, type: 'manual', ...serializeTimestamps(doc.data()) });
         });
+    }
 
-        if (criteria.filterPending) {
-             allResults = allResults.filter(sub => {
-                 if (!sub.formType.startsWith('fixed-weight-')) return false;
-                 return (sub.formData.totalPesoBrutoKg === undefined || sub.formData.totalPesoBrutoKg === 0);
-             });
-        }
+    const finalReportRows: CrewPerformanceReportRow[] = [];
 
-        if (criteria.operario) {
-            allResults = allResults.filter(sub => sub.userDisplayName === criteria.operario);
-        }
-
-        const finalReportRows: CrewPerformanceReportRow[] = [];
-
-        for (const submission of allResults) {
-            const { id, formType, formData, userDisplayName } = submission;
-            
-            const allPossibleConcepts = calculateSettlements(submission, billingConcepts);
+    for (const doc of allResults) {
+        if (doc.type === 'submission') {
+            const { id, formType, formData, userDisplayName } = doc;
+            const allPossibleConcepts = calculateSettlements(doc, billingConcepts);
             
             let indicatorOnlyOperation: { conceptName: string, toneladas: number, isPending: boolean } | null = null;
             
@@ -402,60 +384,94 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             } else if (hasNonCrewIndicator) {
                  finalReportRows.push(buildRow());
             }
+        } else if (doc.type === 'manual') {
+            const { id, clientName, operationDate, startTime, endTime, plate, concept, quantity } = doc;
+            const matchingConcept = billingConcepts.find(c => c.conceptName.toUpperCase() === concept.toUpperCase());
+
+            finalReportRows.push({
+                id: id,
+                submissionId: id,
+                formType: 'manual',
+                fecha: operationDate,
+                operario: 'Manual',
+                cliente: clientName,
+                tipoOperacion: (concept === 'CARGUE' || concept.includes('SALIDA')) ? 'Despacho' : 'Recepción',
+                tipoProducto: 'Manual',
+                productos: [],
+                kilos: concept.includes('TONELADA') ? quantity * 1000 : 0,
+                horaInicio: startTime,
+                horaFin: endTime,
+                totalDurationMinutes: null,
+                operationalDurationMinutes: null,
+                novelties: [],
+                pedidoSislog: 'Manual',
+                placa: plate || 'N/A',
+                contenedor: 'Manual',
+                productType: null,
+                standard: null,
+                description: 'Operación Manual',
+                conceptoLiquidado: concept,
+                valorUnitario: matchingConcept?.value || 0,
+                cantidadConcepto: quantity,
+                unidadMedidaConcepto: matchingConcept?.unitOfMeasure || 'N/A',
+                valorTotalConcepto: (matchingConcept?.value || 0) * quantity,
+                aplicaCuadrilla: 'si',
+                formData: doc,
+            });
+        }
+    }
+        
+    const enrichedRows = [];
+    for (const row of finalReportRows) {
+        // Apply secondary filters
+        if (criteria.clientNames && criteria.clientNames.length > 0 && !criteria.clientNames.includes(row.cliente)) continue;
+        if (criteria.productType && row.productType !== criteria.productType) continue;
+        if (criteria.operationType) {
+            const rowOpType = (row.tipoOperacion === 'Recepción') ? 'recepcion' : (row.tipoOperacion === 'Despacho' ? 'despacho' : null);
+            if(rowOpType !== criteria.operationType) continue;
+        }
+        if (criteria.conceptos && criteria.conceptos.length > 0 && !criteria.conceptos.includes(row.conceptoLiquidado)) continue;
+        if (criteria.operario && row.operario !== criteria.operario && row.operario !== 'Manual') continue;
+         if (criteria.filterPending && row.cantidadConcepto !== -1) continue;
+
+        // Enrich with novelty and performance data
+        const novelties = await getNoveltiesForOperation(row.submissionId);
+        const totalDuration = calculateDuration(row.horaInicio, row.horaFin);
+        
+        let downtimeMinutes = 0;
+        if (row.aplicaCuadrilla === 'si') {
+             downtimeMinutes = novelties
+                .filter(n => n.purpose === 'justification')
+                .reduce((sum, n) => sum + n.downtimeMinutes, 0);
         }
         
-        const enrichedRows = [];
-        for (const row of finalReportRows) {
-            if (criteria.clientNames && criteria.clientNames.length > 0 && !criteria.clientNames.includes(row.cliente)) continue;
-            if (criteria.productType && row.productType !== criteria.productType) continue;
-            if (criteria.operationType) {
-                const rowOpType = (row.tipoOperacion === 'Recepción') ? 'recepcion' : (row.tipoOperacion === 'Despacho' ? 'despacho' : null);
-                if(rowOpType !== criteria.operationType) continue;
-            }
-            if (criteria.conceptos && criteria.conceptos.length > 0 && !criteria.conceptos.includes(row.conceptoLiquidado)) continue;
-            
-            const novelties = await getNoveltiesForOperation(row.submissionId);
-            const totalDuration = calculateDuration(row.horaInicio, row.horaFin);
-            
-            let downtimeMinutes = 0;
-            if (row.aplicaCuadrilla === 'si') {
-                 downtimeMinutes = novelties
-                    .filter(n => n.purpose === 'justification')
-                    .reduce((sum, n) => sum + n.downtimeMinutes, 0);
-            }
-            
-            row.novelties = novelties;
-            row.totalDurationMinutes = totalDuration;
-            row.operationalDurationMinutes = totalDuration !== null ? totalDuration - downtimeMinutes : null;
+        row.novelties = novelties;
+        row.totalDurationMinutes = totalDuration;
+        row.operationalDurationMinutes = totalDuration !== null ? totalDuration - downtimeMinutes : null;
 
-            if (row.tipoOperacion === 'Recepción' || row.tipoOperacion === 'Despacho') {
-                 row.standard = await findBestMatchingStandard({
-                    clientName: row.cliente,
-                    operationType: row.tipoOperacion === 'Recepción' ? 'recepcion' : 'despacho',
-                    productType: row.tipoProducto === 'Fijo' ? 'fijo' : 'variable',
-                    tons: row.kilos / 1000
-                });
-                row.description = row.standard?.description || "Sin descripción";
-            }
-
-            enrichedRows.push(row);
+        if (row.tipoOperacion === 'Recepción' || row.tipoOperacion === 'Despacho') {
+             row.standard = await findBestMatchingStandard({
+                clientName: row.cliente,
+                operationType: row.tipoOperacion === 'Recepción' ? 'recepcion' : 'despacho',
+                productType: row.tipoProducto === 'Fijo' ? 'fijo' : 'variable',
+                tons: row.kilos / 1000
+            });
+            row.description = row.standard?.description || "Sin descripción";
         }
 
-        enrichedRows.sort((a, b) => {
-            const dateA = new Date(a.fecha).getTime();
-            const dateB = new Date(b.fecha).getTime();
-            if (dateA !== dateB) {
-                return dateA - dateB;
-            }
-            // If dates are the same, sort by start time
-            const timeA = a.horaInicio.replace(':', '');
-            const timeB = b.horaInicio.replace(':', '');
-            return timeA.localeCompare(timeB);
-        });
-
-        return enrichedRows;
-    } catch (error: any) {
-        console.error('Error fetching crew performance report:', error);
-        throw error;
+        enrichedRows.push(row);
     }
+
+    enrichedRows.sort((a, b) => {
+        const dateA = new Date(a.fecha).getTime();
+        const dateB = new Date(b.fecha).getTime();
+        if (dateA !== dateB) {
+            return dateA - dateB;
+        }
+        const timeA = a.horaInicio.replace(':', '');
+        const timeB = b.horaInicio.replace(':', '');
+        return timeA.localeCompare(timeB);
+    });
+
+    return enrichedRows;
 }
