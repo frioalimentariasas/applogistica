@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
@@ -239,7 +240,8 @@ export default function CrewPerformanceReportPage() {
             operationDate: new Date(),
             startTime: '00:00',
             endTime: '00:00',
-            quantity: 0
+            quantity: 0,
+            plate: "",
         }
     });
 
@@ -378,10 +380,10 @@ export default function CrewPerformanceReportPage() {
         try {
             let startDate, endDate;
             if (dateRange?.from) {
-                startDate = startOfDay(dateRange.from).toISOString();
+                startDate = format(dateRange.from, 'yyyy-MM-dd');
             }
             if (dateRange?.to) {
-                endDate = endOfDay(dateRange.to).toISOString();
+                endDate = format(dateRange.to, 'yyyy-MM-dd');
             }
 
             const criteria = {
@@ -1260,7 +1262,6 @@ export default function CrewPerformanceReportPage() {
                                         <TableHeader><TableRow>
                                             <TableHead>Mes</TableHead>
                                             <TableHead>Fecha Op.</TableHead>
-                                            <TableHead>Fecha Creación</TableHead>
                                             <TableHead>Pedido</TableHead>
                                             <TableHead>Contenedor</TableHead>
                                             <TableHead>Placa</TableHead>
@@ -1275,14 +1276,13 @@ export default function CrewPerformanceReportPage() {
                                             <TableHead>Vlr. Total</TableHead>
                                         </TableRow></TableHeader>
                                         <TableBody>
-                                            {isLoading ? (<TableRow><TableCell colSpan={15}><Skeleton className="h-20 w-full" /></TableCell></TableRow>) : displayedLiquidationData.length > 0 ? (
+                                            {isLoading ? (<TableRow><TableCell colSpan={14}><Skeleton className="h-20 w-full" /></TableCell></TableRow>) : displayedLiquidationData.length > 0 ? (
                                                 displayedLiquidationData.map((row) => {
                                                     const isPending = row.cantidadConcepto === -1;
                                                     return (
                                                         <TableRow key={row.id}>
                                                             <TableCell className="text-xs capitalize">{format(new Date(row.fecha), 'MMMM', { locale: es })}</TableCell>
                                                             <TableCell className="text-xs">{format(new Date(row.fecha), 'dd/MM/yy')}</TableCell>
-                                                            <TableCell className="text-xs">{format(parseISO(row.createdAt), 'dd/MM/yy HH:mm')}</TableCell>
                                                             <TableCell className="text-xs">{row.pedidoSislog}</TableCell>
                                                             <TableCell className="text-xs">{row.contenedor}</TableCell>
                                                             <TableCell className="text-xs">{row.placa}</TableCell>
@@ -1299,7 +1299,7 @@ export default function CrewPerformanceReportPage() {
                                                     )
                                                 })
                                             ) : (<EmptyState searched={searched} title="No se encontraron liquidaciones" description="No hay operaciones de cuadrilla con conceptos liquidables para los filtros seleccionados." />)}
-                                            {!isLoading && liquidationData.length > 0 && (<TableRow className="font-bold bg-muted hover:bg-muted"><TableCell colSpan={14} className="text-right">TOTAL GENERAL LIQUIDACIÓN</TableCell><TableCell className="text-right">{totalLiquidacion.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell></TableRow>)}
+                                            {!isLoading && liquidationData.length > 0 && (<TableRow className="font-bold bg-muted hover:bg-muted"><TableCell colSpan={13} className="text-right">TOTAL GENERAL LIQUIDACIÓN</TableCell><TableCell className="text-right">{totalLiquidacion.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell></TableRow>)}
                                         </TableBody>
                                     </Table>
                                  </div>
