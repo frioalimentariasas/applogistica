@@ -286,11 +286,8 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
     const startDateLocal = parseISO(criteria.startDate);
     const endDateLocal = parseISO(criteria.endDate);
 
-    // Set the time to the beginning of the day in Colombia (UTC-5)
-    const startUTC = new Date(Date.UTC(startDateLocal.getFullYear(), startDateLocal.getMonth(), startDateLocal.getDate(), 5, 0, 0, 0));
-    
-    // Set the time to the end of the day in Colombia (UTC-5)
-    const endUTC = new Date(Date.UTC(endDateLocal.getFullYear(), endDateLocal.getMonth(), endDateLocal.getDate() + 1, 4, 59, 59, 999));
+    const startUTC = new Date(Date.UTC(startDateLocal.getUTCFullYear(), startDateLocal.getUTCMonth(), startDateLocal.getUTCDate(), 5, 0, 0, 0));
+    const endUTC = new Date(Date.UTC(endDateLocal.getUTCFullYear(), endDateLocal.getUTCMonth(), endDateLocal.getUTCDate() + 1, 4, 59, 59, 999));
 
 
     const [submissionsSnapshot, manualOpsSnapshot, billingConcepts] = await Promise.all([
@@ -307,12 +304,21 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
     
     let allResults: any[] = [];
 
-    // Process Submissions
     submissionsSnapshot.docs.forEach(doc => {
-        allResults.push({ id: doc.id, type: 'submission', ...serializeTimestamps(doc.data()) });
-    });
+        const submissionData = serializeTimestamps(doc.data());
+        const formType = submissionData.formType;
+        const clientName = submissionData.formData?.nombreCliente || submissionData.formData?.cliente;
+        
+        if (
+            clientName === 'GRUPO FRUTELLI SAS' &&
+            (formType === 'variable-weight-recepcion' || formType === 'variable-weight-reception')
+        ) {
+            return; 
+        }
 
-    // Process Manual Operations, but only if the filter is not 'sin'
+        allResults.push({ id: doc.id, type: 'submission', ...submissionData });
+    });
+    
     if (criteria.cuadrillaFilter !== 'sin') {
         manualOpsSnapshot.docs.forEach(doc => {
             allResults.push({ id: doc.id, type: 'manual', ...serializeTimestamps(doc.data()) });
