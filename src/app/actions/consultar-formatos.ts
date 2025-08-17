@@ -81,11 +81,11 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
 
         // --- NEW DATE FILTERING LOGIC ---
         if (criteria.searchDateStart) {
-            const startDate = new Date(criteria.searchDateStart);
+            const startDate = startOfDay(new Date(criteria.searchDateStart));
             query = query.where('formData.fecha', '>=', startDate);
         }
         if (criteria.searchDateEnd) {
-            const endDate = new Date(criteria.searchDateEnd);
+            const endDate = endOfDay(new Date(criteria.searchDateEnd));
             query = query.where('formData.fecha', '<=', endDate);
         }
         

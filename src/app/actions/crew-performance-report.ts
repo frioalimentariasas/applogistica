@@ -286,16 +286,16 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         let manualOpsQuery: admin.firestore.Query = firestore.collection('manual_operations');
 
         if (criteria.startDate && criteria.endDate) {
-            const serverQueryStartDate = subDays(new Date(criteria.startDate), 1);
-            const serverQueryEndDate = addDays(new Date(criteria.endDate), 1);
+            const startDate = startOfDay(new Date(criteria.startDate));
+            const endDate = endOfDay(new Date(criteria.endDate));
 
             submissionsQuery = submissionsQuery
-                .where('createdAt', '>=', serverQueryStartDate)
-                .where('createdAt', '<=', serverQueryEndDate);
+                .where('formData.fecha', '>=', startDate)
+                .where('formData.fecha', '<=', endDate);
                 
             manualOpsQuery = manualOpsQuery
-                .where('createdAt', '>=', serverQueryStartDate)
-                .where('createdAt', '<=', serverQueryEndDate);
+                .where('operationDate', '>=', criteria.startDate)
+                .where('operationDate', '<=', criteria.endDate);
         } else {
             const defaultEndDate = new Date();
             const defaultStartDate = subDays(defaultEndDate, 7);
@@ -317,21 +317,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         let allSubmissions = submissionsSnapshot.docs.map(doc => ({ id: doc.id, type: 'submission', ...serializeTimestamps(doc.data()) }));
         let manualOpsData = manualOpsSnapshot.docs.map(doc => ({ id: doc.id, type: 'manual', ...serializeTimestamps(doc.data()) }));
 
-        if (criteria.startDate && criteria.endDate) {
-            allSubmissions = allSubmissions.filter(sub => {
-                const localDate = getLocalGroupingDate(sub.createdAt);
-                return localDate >= criteria.startDate! && localDate <= criteria.endDate!;
-            });
-            manualOpsData = manualOpsData.filter(op => {
-                const localDate = getLocalGroupingDate(op.operationDate);
-                return localDate >= criteria.startDate! && localDate <= criteria.endDate!;
-            });
-        }
-
-        let allResults: any[] = [...allSubmissions];
-        if (criteria.cuadrillaFilter !== 'sin') {
-            allResults = [...allResults, ...manualOpsData];
-        }
+        let allResults: any[] = [...allSubmissions, ...manualOpsData];
 
         const finalReportRows: CrewPerformanceReportRow[] = [];
 
