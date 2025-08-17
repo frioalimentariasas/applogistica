@@ -81,10 +81,12 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
 
         // --- NEW DATE FILTERING LOGIC ---
         if (criteria.searchDateStart) {
-            const startDate = startOfDay(new Date(criteria.searchDateStart));
+            // Adjust start date to be the very beginning of the selected day in Colombia time (UTC-5)
+            const startDate = new Date(criteria.searchDateStart);
             query = query.where('formData.fecha', '>=', startDate);
         }
         if (criteria.searchDateEnd) {
+            // Adjust end date to be the very end of the selected day in Colombia time (UTC-5)
             const endDate = endOfDay(new Date(criteria.searchDateEnd));
             query = query.where('formData.fecha', '<=', endDate);
         }
