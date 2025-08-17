@@ -2,7 +2,7 @@
 "use client";
 
 import * as React from 'react';
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
@@ -109,7 +109,7 @@ export default function ConceptManagementComponent({ initialClients, initialConc
         conceptName: '',
         clientNames: ['TODOS (Cualquier Cliente)'],
         operationType: 'TODAS',
-        productType: 'TODOS',
+        productType: 'TODAS',
         unitOfMeasure: 'TONELADA',
         value: 0,
         excludeIfOtherApplies: false,
@@ -462,4 +462,3 @@ function ClientMultiSelectDialog({
     </Dialog>
   );
 }
-
