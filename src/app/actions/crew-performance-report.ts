@@ -282,7 +282,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
     }
 
     try {
-        const serverQueryStartDate = subDays(new Date(criteria.startDate), 1);
+        const serverQueryStartDate = new Date(criteria.startDate);
         const serverQueryEndDate = addDays(new Date(criteria.endDate), 1);
 
         let submissionsQuery: admin.firestore.Query = firestore.collection('submissions');

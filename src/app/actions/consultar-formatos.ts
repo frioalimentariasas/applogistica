@@ -97,7 +97,7 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
 
         // Apply a wide createdAt filter to catch edited documents, then filter precisely by formData.fecha later.
         if (criteria.searchDateStart && criteria.searchDateEnd) {
-             const serverQueryStartDate = subDays(new Date(criteria.searchDateStart), 1);
+             const serverQueryStartDate = new Date(criteria.searchDateStart);
              const serverQueryEndDate = addDays(new Date(criteria.searchDateEnd), 1);
 
              query = query.where('createdAt', '>=', serverQueryStartDate)
