@@ -286,8 +286,6 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         let manualOpsQuery: admin.firestore.Query = firestore.collection('manual_operations');
 
         if (criteria.startDate && criteria.endDate) {
-            // Widen the server query by a day on each side to account for timezone differences.
-            // Client-side filtering will handle the exact local date.
             const serverQueryStartDate = subDays(new Date(criteria.startDate), 1);
             const serverQueryEndDate = addDays(new Date(criteria.endDate), 1);
 
@@ -298,9 +296,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             manualOpsQuery = manualOpsQuery
                 .where('createdAt', '>=', serverQueryStartDate)
                 .where('createdAt', '<=', serverQueryEndDate);
-
         } else {
-             // If no date range, default to last 7 days using createdAt
             const defaultEndDate = new Date();
             const defaultStartDate = subDays(defaultEndDate, 7);
             submissionsQuery = submissionsQuery
@@ -319,16 +315,18 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         ]);
         
         let allSubmissions = submissionsSnapshot.docs.map(doc => ({ id: doc.id, type: 'submission', ...serializeTimestamps(doc.data()) }));
-        const manualOpsData = manualOpsSnapshot.docs.map(doc => ({ id: doc.id, type: 'manual', ...serializeTimestamps(doc.data()) }));
+        let manualOpsData = manualOpsSnapshot.docs.map(doc => ({ id: doc.id, type: 'manual', ...serializeTimestamps(doc.data()) }));
 
-        // Filter submissions by date in memory to match local time, since createdAt is UTC
         if (criteria.startDate && criteria.endDate) {
             allSubmissions = allSubmissions.filter(sub => {
                 const localDate = getLocalGroupingDate(sub.createdAt);
                 return localDate >= criteria.startDate! && localDate <= criteria.endDate!;
             });
+            manualOpsData = manualOpsData.filter(op => {
+                const localDate = getLocalGroupingDate(op.operationDate);
+                return localDate >= criteria.startDate! && localDate <= criteria.endDate!;
+            });
         }
-
 
         let allResults: any[] = [...allSubmissions];
         if (criteria.cuadrillaFilter !== 'sin') {
@@ -418,23 +416,17 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             } else if (doc.type === 'manual') {
                 const { id, clientName, operationDate, startTime, endTime, plate, concept, quantity, createdAt } = doc;
                 
-                // Filter manual operations by date in memory as well
-                if (criteria.startDate && criteria.endDate) {
-                    const localOpDate = getLocalGroupingDate(operationDate);
-                    if (localOpDate < criteria.startDate || localOpDate > criteria.endDate) {
-                        continue;
-                    }
-                }
-
                 const matchingConcept = billingConcepts.find(c => c.conceptName.toUpperCase() === concept.toUpperCase());
                 
                 let valorTotalConcepto = 0;
                 const valorUnitario = matchingConcept?.value || 0;
 
-                if (concept.toUpperCase() === 'CARGUE DE CANASTAS') {
+                const upperConcept = concept.toUpperCase();
+
+                if (upperConcept === 'CARGUE DE CANASTAS') {
                     // quantity represents tons here
                     valorTotalConcepto = valorUnitario * quantity;
-                } else if (concept.toUpperCase() === 'APOYO DE MONTACARGAS') {
+                } else if (upperConcept === 'APOYO DE MONTACARGAS') {
                     const durationMinutes = calculateDuration(startTime, endTime);
                     if (durationMinutes !== null && durationMinutes > 0) {
                         const durationHours = durationMinutes / 60;
@@ -454,10 +446,10 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                     createdAt: createdAt,
                     operario: 'Manual',
                     cliente: clientName,
-                    tipoOperacion: (concept === 'CARGUE' || concept.includes('SALIDA') || concept === 'CARGUE DE CANASTAS') ? 'Despacho' : 'Recepción',
+                    tipoOperacion: (upperConcept.includes('CARGUE') || upperConcept.includes('SALIDA')) ? 'Despacho' : 'Recepción',
                     tipoProducto: 'Manual',
                     productos: [],
-                    kilos: (matchingConcept?.unitOfMeasure === 'TONELADA') ? quantity * 1000 : 0,
+                    kilos: matchingConcept?.unitOfMeasure === 'TONELADA' ? quantity * 1000 : 0,
                     horaInicio: startTime,
                     horaFin: endTime,
                     totalDurationMinutes: null,
