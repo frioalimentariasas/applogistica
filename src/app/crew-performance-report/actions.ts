@@ -8,7 +8,7 @@ import { differenceInMinutes, parse, format } from 'date-fns';
 import admin from 'firebase-admin';
 
 interface ManualOperationData {
-    clientName: string;
+    clientName?: string;
     operationDate: string; // ISO string like '2024-07-23T15:49:01.859Z'
     startTime: string; // HH:mm
     endTime: string; // HH:mm

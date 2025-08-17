@@ -62,13 +62,21 @@ const legalizeFormSchema = z.object({
 type LegalizeFormValues = z.infer<typeof legalizeFormSchema>;
 
 const manualOperationSchema = z.object({
-    clientName: z.string().min(1, 'El cliente es obligatorio.'),
+    clientName: z.string().optional(),
     operationDate: z.date({ required_error: 'La fecha es obligatoria.' }),
     startTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM requerido.'),
     endTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM requerido.'),
     plate: z.string().optional(),
     concept: z.string().min(1, 'El concepto es obligatorio.'),
     quantity: z.coerce.number().min(0.001, 'La cantidad debe ser mayor a 0.'),
+}).refine(data => {
+    if (data.concept !== 'APOYO DE MONTACARGAS' && !data.clientName) {
+        return false;
+    }
+    return true;
+}, {
+    message: 'El cliente es obligatorio para este concepto.',
+    path: ['clientName'],
 }).refine(data => data.startTime !== data.endTime, {
     message: "La hora de inicio no puede ser igual a la de fin.",
     path: ["endTime"],
@@ -242,8 +250,11 @@ export default function CrewPerformanceReportPage() {
             endTime: '00:00',
             quantity: 0,
             plate: "",
+            clientName: "",
         }
     });
+
+    const watchedConcept = manualOpForm.watch('concept');
 
 
     const totalPages = Math.ceil(filteredReportData.length / itemsPerPage);
@@ -975,7 +986,8 @@ export default function CrewPerformanceReportPage() {
         setIsSubmittingManualOp(true);
         const result = await addManualOperation({
             ...data,
-            operationDate: data.operationDate.toISOString()
+            operationDate: data.operationDate.toISOString(),
+            clientName: data.clientName || undefined,
         });
          if (result.success) {
             toast({ title: 'Éxito', description: result.message });
@@ -1381,8 +1393,10 @@ export default function CrewPerformanceReportPage() {
                     </DialogHeader>
                     <Form {...manualOpForm}>
                         <form onSubmit={manualOpForm.handleSubmit(onManualOpSubmit)} className="space-y-4 pt-4">
-                             <FormField control={manualOpForm.control} name="clientName" render={({ field }) => ( <FormItem><FormLabel>Cliente</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un cliente" /></SelectTrigger></FormControl><SelectContent><ScrollArea className="h-60">{clients.map(c => <SelectItem key={c.id} value={c.razonSocial}>{c.razonSocial}</SelectItem>)}</ScrollArea></SelectContent></Select><FormMessage /></FormItem> )}/>
                             <FormField control={manualOpForm.control} name="concept" render={({ field }) => ( <FormItem><FormLabel>Concepto de Liquidación</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un concepto" /></SelectTrigger></FormControl><SelectContent><ScrollArea className="h-60">{[...new Set(allBillingConcepts.map(c => c.conceptName))].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</ScrollArea></SelectContent></Select><FormMessage /></FormItem> )}/>
+                            {watchedConcept !== 'APOYO DE MONTACARGAS' && (
+                                <FormField control={manualOpForm.control} name="clientName" render={({ field }) => ( <FormItem><FormLabel>Cliente</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un cliente" /></SelectTrigger></FormControl><SelectContent><ScrollArea className="h-60">{clients.map(c => <SelectItem key={c.id} value={c.razonSocial}>{c.razonSocial}</SelectItem>)}</ScrollArea></SelectContent></Select><FormMessage /></FormItem> )}/>
+                            )}
                              <FormField control={manualOpForm.control} name="operationDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha de Operación</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4 opacity-50" />{field.value ? format(field.value, "PPP", { locale: es }) : <span>Seleccione una fecha</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
                              <div className="grid grid-cols-2 gap-4">
                                 <FormField control={manualOpForm.control} name="startTime" render={({ field }) => (<FormItem><FormLabel>Hora Inicio</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>)} />

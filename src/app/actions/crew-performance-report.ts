@@ -410,7 +410,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                     fecha: operationDate,
                     createdAt: createdAt,
                     operario: 'Manual',
-                    cliente: clientName,
+                    cliente: clientName || 'N/A',
                     tipoOperacion: (upperConcept.includes('CARGUE') || upperConcept.includes('SALIDA')) ? 'Despacho' : 'Recepción',
                     tipoProducto: 'Manual',
                     productos: [],
