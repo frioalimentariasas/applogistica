@@ -6,7 +6,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { DateRange } from 'react-day-picker';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, endOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 import { searchSubmissions, SubmissionResult, SearchCriteria, deleteSubmission } from '@/app/actions/consultar-formatos';
@@ -197,9 +197,7 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
             searchDateStart = dateRange.from.toISOString();
         }
         if (dateRange?.to) {
-            const endDate = new Date(dateRange.to);
-            endDate.setHours(23, 59, 59, 999);
-            searchDateEnd = endDate.toISOString();
+            searchDateEnd = endOfDay(dateRange.to).toISOString();
         }
 
         const finalCriteria: SearchCriteria = {
