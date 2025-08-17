@@ -271,8 +271,17 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
 
     try {
         let submissionsQuery: admin.firestore.Query = firestore.collection('submissions');
-        if (criteria.startDate) submissionsQuery = submissionsQuery.where('formData.fecha', '>=', new Date(criteria.startDate));
-        if (criteria.endDate) submissionsQuery = submissionsQuery.where('formData.fecha', '<=', new Date(criteria.endDate));
+        
+        // This is the main change: Filter directly by formData.fecha.
+        // It requires a composite index, which the user will be prompted to create.
+        if (criteria.startDate) {
+            submissionsQuery = submissionsQuery.where('formData.fecha', '>=', new Date(criteria.startDate));
+        }
+        if (criteria.endDate) {
+            const endOfDay = new Date(criteria.endDate);
+            endOfDay.setHours(23, 59, 59, 999);
+            submissionsQuery = submissionsQuery.where('formData.fecha', '<=', endOfDay);
+        }
 
         let manualOpsQuery: admin.firestore.Query = firestore.collection('manual_operations');
         if (criteria.startDate) manualOpsQuery = manualOpsQuery.where('operationDate', '>=', new Date(criteria.startDate).toISOString());
@@ -280,8 +289,8 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
 
 
         const [submissionsSnapshot, manualOpsSnapshot, billingConcepts] = await Promise.all([
-            submissionsQuery.orderBy('formData.fecha', 'asc').get(),
-            manualOpsQuery.orderBy('operationDate', 'asc').get(),
+            submissionsQuery.get(),
+            manualOpsQuery.get(),
             getBillingConcepts()
         ]);
         
