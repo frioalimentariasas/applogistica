@@ -27,7 +27,7 @@ import type { PerformanceStandard } from '@/app/actions/standard-actions';
 import { getStandardNoveltyTypes, type StandardNoveltyType } from '@/app/gestion-novedades/actions';
 import { getBillingConcepts, type BillingConcept } from '@/app/gestion-conceptos-liquidacion/actions';
 
-import { Button } from '@/components/ui/button';
+import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
