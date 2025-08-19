@@ -46,7 +46,11 @@ const calculateDuration = (horaInicio: string, horaFin: string): number | null =
 };
 
 const calculateTotalKilos = (formType: string, formData: any): number => {
-    // For fixed weight forms, the legalized weight takes precedence.
+    const allItems = (formData.items || [])
+        .concat((formData.destinos || []).flatMap((d: any) => d.items))
+        .concat((formData.placas || []).flatMap((p: any) => p.items));
+    
+    // --- Fixed Weight Forms ---
     if (formType.startsWith('fixed-weight-')) {
         const legalizedWeight = Number(formData.totalPesoBrutoKg);
         if (legalizedWeight > 0) {
@@ -55,40 +59,38 @@ const calculateTotalKilos = (formType: string, formData: any): number => {
         // Fallback for non-legalized or older forms
         return (formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.pesoBrutoKg) || 0), 0);
     }
-    
+
+    // --- Variable Weight Reception ---
     if (formType.includes('reception') || formType.includes('recepcion')) {
-        const allItems = (formData.items || [])
-            .concat((formData.placas || []).flatMap((p: any) => p.items));
-            
         const isSummaryFormat = allItems.some((p: any) => Number(p.paleta) === 0);
 
-        // For variable weight reception with summary rows, check for legalized weight first.
         if (isSummaryFormat) {
+            // For summary format, check for legalized weight first.
             const legalizedWeight = Number(formData.totalPesoBrutoKg);
             if (legalizedWeight > 0) {
                 return legalizedWeight;
             }
-             // If not legalized, calculate from summary rows
+            // If not legalized, calculate from summary rows
             return allItems.reduce((sum: number, p: any) => sum + (Number(p.totalPesoNeto) || 0), 0);
         }
         
-        // For itemized (non-summary) variable weight reception
+        // For itemized (non-summary) variable weight reception (the user's specific case)
         const totalPesoBruto = allItems.reduce((sum: number, p: any) => sum + (Number(p.pesoBruto) || 0), 0);
         const totalTaraEstiba = allItems.reduce((sum: number, p: any) => sum + (Number(p.taraEstiba) || 0), 0);
         return totalPesoBruto - totalTaraEstiba;
     }
     
-    if (formType.startsWith('variable-weight-')) {
-        const allItems = (formData.items || [])
-            .concat((formData.destinos || []).flatMap((d: any) => d.items));
-
-        if (allItems.some((p: any) => Number(p.paleta) === 0)) {
+    // --- Variable Weight Dispatch ---
+    if (formType.startsWith('variable-weight-despacho')) {
+        const isSummaryFormat = allItems.some((p: any) => Number(p.paleta) === 0);
+        if (isSummaryFormat) {
              return allItems.reduce((sum: number, p: any) => sum + (Number(p.totalPesoNeto) || 0), 0);
         }
+        // For itemized dispatch, we use the pre-calculated net weight
         return allItems.reduce((sum: number, p: any) => sum + (Number(p.pesoNeto) || 0), 0);
     }
 
-    return 0;
+    return 0; // Default fallback
 };
 
 
@@ -526,3 +528,5 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         throw new Error('No se pudo generar el reporte de productividad.');
     }
 }
+
+    
