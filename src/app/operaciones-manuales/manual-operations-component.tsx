@@ -116,6 +116,7 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
     };
 
     const onSubmit: SubmitHandler<ManualOperationValues> = async (data) => {
+        if (!user) return;
         setIsSubmitting(true);
         
         let result;
@@ -124,8 +125,8 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
             operationDate: data.operationDate.toISOString(),
             clientName: data.clientName || undefined,
             createdBy: {
-                uid: user!.uid,
-                displayName: displayName || user!.email!
+                uid: user.uid,
+                displayName: displayName || user.email!,
             }
         };
 
@@ -141,7 +142,7 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
             setOpToEdit(null);
             form.reset();
             setIsLoading(true);
-            await getManualOperationsForUser(user!.uid).then(setOperations).finally(() => setIsLoading(false));
+            await getManualOperationsForUser(user.uid).then(setOperations).finally(() => setIsLoading(false));
         } else {
             toast({ variant: "destructive", title: "Error", description: result.message });
         }
