@@ -73,22 +73,24 @@ const UserSkeleton = () => (
 );
 
 const permissionLabels: { key: keyof AppPermissions; label: string }[] = [
-    { key: 'canGenerateForms', label: 'Generar Formatos' },
+    { key: 'canGenerateForms', label: 'Generar Formatos (Página Principal)' },
     { key: 'canConsultForms', label: 'Consultar Formatos Guardados' },
-    { key: 'canEditForms', label: 'Editar Formatos' },
-    { key: 'canDeleteForms', label: 'Eliminar Formatos' },
-    { key: 'canViewBillingReports', label: 'Ver Informes para Facturación' },
-    { key: 'canViewPerformanceReport', label: 'Ver Informe Productividad Operarios' },
-    { key: 'canViewCrewPerformanceReport', label: 'Ver Informe Productividad Cuadrilla' },
-    { key: 'canViewSpecialReports', label: 'Ver Reportes Especiales Liquidación' },
-    { key: 'canManageClients', label: 'Gestionar Clientes' },
-    { key: 'canManageArticles', label: 'Gestionar Artículos' },
-    { key: 'canManageObservations', label: 'Gestionar Observaciones' },
-    { key: 'canManageOrderTypes', label: 'Gestionar Tipos de Pedido' },
-    { key: 'canManageStandards', label: 'Gestionar Estándares de Productividad' },
-    { key: 'canManageLiquidationConcepts', label: 'Gestionar Conceptos de Liquidación' },
-    { key: 'canManageSessions', label: 'Gestionar Usuarios' },
+    { key: 'canViewBillingReports', label: 'Informes para Facturación' },
+    { key: 'canViewPerformanceReport', label: 'Informe Productividad Operarios Frio Alimentaria' },
+    { key: 'canViewCrewPerformanceReport', label: 'Informe de Productividad y Liquidación Cuadrilla' },
+    { key: 'canViewSpecialReports', label: 'Relación de Formatos por Concepto de Liquidación' },
+    { key: 'canManageClients', label: 'Gestión de Clientes' },
+    { key: 'canManageArticles', label: 'Gestión de Artículos' },
+    { key: 'canManageObservations', label: 'Gestión de Observaciones' },
+    { key: 'canManageOrderTypes', label: 'Gestión de Tipos de Pedido' },
+    { key: 'canManageStandards', label: 'Gestión de Estándares de Productividad' },
+    { key: 'canManageLiquidationConcepts', label: 'Gestión de Conceptos de Liquidación' },
+    { key: 'canManageNovelties', label: 'Gestión de Novedades' },
+    { key: 'canManageSessions', label: 'Gestión de Usuarios (SUPER ADMIN)' },
+    { key: 'canEditForms', label: 'Permiso para Editar Formatos' },
+    { key: 'canDeleteForms', label: 'Permiso para Eliminar Formatos' },
 ];
+
 
 const addUserSchema = z.object({
   email: z.string().email({ message: 'Debe ser un correo válido.' }),

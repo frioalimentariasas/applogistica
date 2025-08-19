@@ -131,23 +131,11 @@ export async function getUserPermissions(email: string): Promise<AppPermissions>
 
     // Special override for the super admin user
     if (email === 'sistemas@frioalimentaria.com.co') {
-        return {
-            canGenerateForms: true,
-            canConsultForms: true,
-            canEditForms: true,
-            canDeleteForms: true,
-            canViewBillingReports: true,
-            canViewPerformanceReport: true,
-            canViewCrewPerformanceReport: true,
-            canViewSpecialReports: true,
-            canManageClients: true,
-            canManageArticles: true,
-            canManageObservations: true,
-            canManageOrderTypes: true,
-            canManageStandards: true,
-            canManageLiquidationConcepts: true,
-            canManageSessions: true,
-        };
+        const allPermissionsTrue: any = {};
+        Object.keys(defaultPermissions).forEach(key => {
+            allPermissionsTrue[key] = true;
+        });
+        return allPermissionsTrue as AppPermissions;
     }
 
     const docRef = firestore.collection('user_permissions').doc(email);

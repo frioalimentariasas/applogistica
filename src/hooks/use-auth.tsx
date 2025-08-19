@@ -10,8 +10,6 @@ import { getFirestore, doc, getDoc } from 'firebase/firestore';
 export interface AppPermissions {
   canGenerateForms: boolean;
   canConsultForms: boolean;
-  canEditForms: boolean;
-  canDeleteForms: boolean;
   canViewBillingReports: boolean;
   canViewPerformanceReport: boolean;
   canViewCrewPerformanceReport: boolean;
@@ -22,14 +20,16 @@ export interface AppPermissions {
   canManageOrderTypes: boolean;
   canManageStandards: boolean;
   canManageLiquidationConcepts: boolean;
+  canManageNovelties: boolean;
   canManageSessions: boolean;
+  // Permisos granulares que no están en el menú
+  canEditForms: boolean;
+  canDeleteForms: boolean;
 }
 
 export const defaultPermissions: AppPermissions = {
   canGenerateForms: false,
   canConsultForms: false,
-  canEditForms: false,
-  canDeleteForms: false,
   canViewBillingReports: false,
   canViewPerformanceReport: false,
   canViewCrewPerformanceReport: false,
@@ -40,7 +40,10 @@ export const defaultPermissions: AppPermissions = {
   canManageOrderTypes: false,
   canManageStandards: false,
   canManageLiquidationConcepts: false,
+  canManageNovelties: false,
   canManageSessions: false,
+  canEditForms: false,
+  canDeleteForms: false,
 };
 
 
@@ -97,6 +100,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 canManageOrderTypes: true,
                 canManageStandards: true,
                 canManageLiquidationConcepts: true,
+                canManageNovelties: true,
                 canManageSessions: true,
             });
         } else {
