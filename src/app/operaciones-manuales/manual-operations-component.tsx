@@ -22,12 +22,14 @@ import { Calendar } from '@/components/ui/calendar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { ArrowLeft, Loader2, CalendarIcon, PlusCircle, X, Edit2, Trash2, Edit } from 'lucide-react';
+import { ArrowLeft, Loader2, CalendarIcon, PlusCircle, X, Edit2, Trash2, Edit, Search, XCircle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDialogDesc, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Label } from '@/components/ui/label';
+
 
 const manualOperationSchema = z.object({
     clientName: z.string().optional(),
@@ -62,8 +64,13 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
     const { toast } = useToast();
     const { user, displayName } = useAuth();
     
-    const [operations, setOperations] = useState<any[]>([]);
+    const [allOperations, setAllOperations] = useState<any[]>([]);
+    const [filteredOperations, setFilteredOperations] = useState<any[]>([]);
     const [isLoading, setIsLoading] = useState(true);
+    
+    const [selectedDate, setSelectedDate] = useState<Date | undefined>();
+    const [selectedClient, setSelectedClient] = useState<string>('all');
+    const [selectedConcept, setSelectedConcept] = useState<string>('all');
 
     const [isDialogOpen, setIsDialogOpen] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
@@ -81,7 +88,8 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
         setIsLoading(true);
         try {
             const data = await getAllManualOperations();
-            setOperations(data);
+            setAllOperations(data);
+            setFilteredOperations(data); // Initially show all
         } catch (error) {
             toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar las operaciones.' });
         } finally {
@@ -92,7 +100,28 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
     useEffect(() => {
         fetchOperations();
     }, [fetchOperations]);
+    
+    useEffect(() => {
+        let results = allOperations;
 
+        if (selectedDate) {
+            results = results.filter(op => format(new Date(op.operationDate), 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd'));
+        }
+        if (selectedClient !== 'all') {
+            results = results.filter(op => op.clientName === selectedClient);
+        }
+        if (selectedConcept !== 'all') {
+            results = results.filter(op => op.concept === selectedConcept);
+        }
+
+        setFilteredOperations(results);
+    }, [selectedDate, selectedClient, selectedConcept, allOperations]);
+    
+    const handleClearFilters = () => {
+        setSelectedDate(undefined);
+        setSelectedClient('all');
+        setSelectedConcept('all');
+    };
 
     const openDialog = (op?: any) => {
         if (op) {
@@ -125,7 +154,6 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
         if (!user) return;
         setIsSubmitting(true);
         
-        let result;
         const payload: ManualOperationData = {
             ...data,
             operationDate: data.operationDate.toISOString(),
@@ -136,6 +164,7 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
             }
         };
 
+        let result;
         if (opToEdit) {
             result = await updateManualOperation(opToEdit.id, payload);
         } else {
@@ -160,7 +189,7 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
         const result = await deleteManualOperation(opToDelete.id);
         if (result.success) {
             toast({ title: 'Éxito', description: result.message });
-            setOperations(prev => prev.filter(op => op.id !== opToDelete.id));
+            setAllOperations(prev => prev.filter(op => op.id !== opToDelete.id));
         } else {
             toast({ variant: 'destructive', title: 'Error', description: result.message });
         }
@@ -195,8 +224,38 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
                                 Nueva Operación
                             </Button>
                         </div>
+                        <CardDescription>Filtre y consulte las operaciones manuales guardadas en el sistema.</CardDescription>
                     </CardHeader>
                     <CardContent>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end mb-6 p-4 border rounded-lg bg-muted/50">
+                             <div className="space-y-2">
+                                <Label>Fecha</Label>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !selectedDate && "text-muted-foreground")}>
+                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                            {selectedDate ? format(selectedDate, "PPP", { locale: es }) : <span>Todas las fechas</span>}
+                                        </Button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={selectedDate} onSelect={setSelectedDate} initialFocus /></PopoverContent>
+                                </Popover>
+                            </div>
+                             <div className="space-y-2">
+                                <Label>Cliente</Label>
+                                <Select value={selectedClient} onValueChange={setSelectedClient}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Todos los Clientes</SelectItem>{[...new Set(allOperations.map(op => op.clientName).filter(Boolean))].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select>
+                            </div>
+                             <div className="space-y-2">
+                                <Label>Concepto</Label>
+                                <Select value={selectedConcept} onValueChange={setSelectedConcept}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Todos los Conceptos</SelectItem>{[...new Set(allOperations.map(op => op.concept))].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select>
+                            </div>
+                            <div className="flex items-end">
+                                <Button onClick={handleClearFilters} variant="outline" className="w-full">
+                                    <XCircle className="mr-2 h-4 w-4" />
+                                    Limpiar
+                                </Button>
+                            </div>
+                        </div>
+
                         <ScrollArea className="h-96">
                             <Table>
                                 <TableHeader>
@@ -211,8 +270,8 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
                                 <TableBody>
                                     {isLoading ? (
                                         <TableRow><TableCell colSpan={5} className="text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow>
-                                    ) : operations.length > 0 ? (
-                                        operations.map((op) => (
+                                    ) : filteredOperations.length > 0 ? (
+                                        filteredOperations.map((op) => (
                                             <TableRow key={op.id}>
                                                 <TableCell>{format(new Date(op.operationDate), 'dd/MM/yyyy')}</TableCell>
                                                 <TableCell>{op.concept}</TableCell>
@@ -229,7 +288,7 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
                                             </TableRow>
                                         ))
                                     ) : (
-                                        <TableRow><TableCell colSpan={5} className="text-center h-24">No ha registrado operaciones manuales.</TableCell></TableRow>
+                                        <TableRow><TableCell colSpan={5} className="text-center h-24">No se encontraron operaciones con los filtros actuales.</TableCell></TableRow>
                                     )}
                                 </TableBody>
                             </Table>
@@ -289,3 +348,4 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
         </div>
     );
 }
+
