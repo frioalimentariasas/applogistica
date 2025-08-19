@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
@@ -194,10 +193,10 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
         let searchDateEnd: string | undefined;
 
         if (dateRange?.from) {
-            searchDateStart = startOfDay(dateRange.from).toISOString();
+            searchDateStart = format(dateRange.from, 'yyyy-MM-dd');
         }
         if (dateRange?.to) {
-            searchDateEnd = endOfDay(dateRange.to).toISOString();
+            searchDateEnd = format(dateRange.to, 'yyyy-MM-dd');
         }
 
         const finalCriteria: SearchCriteria = {

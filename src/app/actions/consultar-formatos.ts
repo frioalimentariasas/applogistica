@@ -4,7 +4,7 @@
 import admin from 'firebase-admin';
 import { firestore, storage } from '@/lib/firebase-admin';
 import type { FormSubmissionData } from './save-form';
-import { parseISO, format, addDays, startOfDay, endOfDay, subDays } from 'date-fns';
+import { parseISO, format, startOfDay, endOfDay, subDays } from 'date-fns';
 
 const COLOMBIA_TIMEZONE = 'America/Bogota';
 
@@ -80,12 +80,15 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
         }
 
         // --- NEW DATE FILTERING LOGIC ---
+        // Adjust dates to handle timezone correctly.
         if (criteria.searchDateStart) {
-            const startDate = startOfDay(new Date(criteria.searchDateStart));
+            // The date comes in as '2024-08-01'. We interpret it as the start of that day in Colombia time.
+            const startDate = new Date(criteria.searchDateStart + 'T00:00:00-05:00');
             query = query.where('formData.fecha', '>=', startDate);
         }
         if (criteria.searchDateEnd) {
-            const endDate = endOfDay(new Date(criteria.searchDateEnd));
+             // The date comes in as '2024-08-01'. We interpret it as the end of that day in Colombia time.
+            const endDate = new Date(criteria.searchDateEnd + 'T23:59:59.999-05:00');
             query = query.where('formData.fecha', '<=', endDate);
         }
         
