@@ -173,7 +173,7 @@ const formSchema = z.object({
     operarioResponsable: z.string().optional(),
     tipoPedido: z.string({required_error: "El tipo de pedido es obligatorio."}).min(1, "El tipo de pedido es obligatorio."),
     tipoEmpaqueMaquila: z.enum(['EMPAQUE DE SACOS', 'EMPAQUE DE CAJAS']).optional(),
-    numeroOperariosCuadrilla: z.coerce.number().int().min(1, "Debe ser al menos 1.").optional(),
+    numeroOperariosCuadrilla: z.coerce.number().min(0.1, "Debe ser mayor a 0.").optional(),
     unidadDeMedidaPrincipal: z.string().optional(),
 }).superRefine((data, ctx) => {
       const isSpecialReception = data.tipoPedido === 'INGRESO DE SALDOS' || data.tipoPedido === 'TUNEL' || data.tipoPedido === 'TUNEL A CÁMARA CONGELADOS' || data.tipoPedido === 'MAQUILA' || data.tipoPedido === 'TUNEL DE CONGELACIÓN';
@@ -246,43 +246,31 @@ const formSchema = z.object({
 
 const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, isTunel = false, placaIndex }: { control: any, itemIndex: number, handleProductDialogOpening: (context: { itemIndex: number, placaIndex?: number }) => void, remove?: (index: number) => void, isTunel?: boolean, placaIndex?: number }) => {
     const basePath = isTunel ? `placas.${placaIndex}.items` : 'items';
-    const { setValue, getValues } = useFormContext();
+    const { setValue, getValues, watch } = useFormContext();
 
-    const watchedCantidad = useWatch({ control, name: `${basePath}.${itemIndex}.cantidadPorPaleta` });
-    const watchedTaraCaja = useWatch({ control, name: `${basePath}.${itemIndex}.taraCaja` });
-    const watchedPesoBruto = useWatch({ control, name: `${basePath}.${itemIndex}.pesoBruto` });
-    const watchedTaraEstiba = useWatch({ control, name: `${basePath}.${itemIndex}.taraEstiba` });
-    const watchedItem = useWatch({ control, name: `${basePath}.${itemIndex}` });
+    const watchedItem = watch(`${basePath}.${itemIndex}`);
 
-
-    const calculatedPesoNeto = useMemo(() => {
-        const cantidadPorPaleta = Number(watchedCantidad) || 0;
-        const taraCaja = Number(watchedTaraCaja) || 0;
-        const pesoBruto = Number(watchedPesoBruto) || 0;
-        const taraEstiba = Number(watchedTaraEstiba) || 0;
-        const calculatedTotalTaraCaja = cantidadPorPaleta * taraCaja;
-        
-        return pesoBruto - taraEstiba - calculatedTotalTaraCaja;
-    }, [watchedCantidad, watchedTaraCaja, watchedPesoBruto, watchedTaraEstiba]);
-    
     useEffect(() => {
-        const cantidadPorPaleta = Number(watchedCantidad) || 0;
-        const taraCaja = Number(watchedTaraCaja) || 0;
-        const calculatedTotalTaraCaja = cantidadPorPaleta * taraCaja;
-        
-        const currentTotalTara = getValues(`${basePath}.${itemIndex}.totalTaraCaja`);
-        if (currentTotalTara !== calculatedTotalTaraCaja) {
-            setValue(`${basePath}.${itemIndex}.totalTaraCaja`, calculatedTotalTaraCaja, { shouldValidate: false });
-        }
+        if (watchedItem && watchedItem.paleta !== 0) {
+            const cantidadPorPaleta = Number(watchedItem.cantidadPorPaleta) || 0;
+            const taraCaja = Number(watchedItem.taraCaja) || 0;
+            const pesoBruto = Number(watchedItem.pesoBruto) || 0;
+            const taraEstiba = Number(watchedItem.taraEstiba) || 0;
 
-        const currentPesoNeto = getValues(`${basePath}.${itemIndex}.pesoNeto`);
-        if (currentPesoNeto !== calculatedPesoNeto) {
-            setValue(`${basePath}.${itemIndex}.pesoNeto`, calculatedPesoNeto, { shouldValidate: false });
-        }
-    }, [watchedCantidad, watchedTaraCaja, watchedPesoBruto, watchedTaraEstiba, basePath, itemIndex, getValues, setValue, calculatedPesoNeto]);
+            const calculatedTotalTaraCaja = cantidadPorPaleta * taraCaja;
+            const calculatedPesoNeto = pesoBruto - taraEstiba - calculatedTotalTaraCaja;
 
+            if (watchedItem.totalTaraCaja !== calculatedTotalTaraCaja) {
+                setValue(`${basePath}.${itemIndex}.totalTaraCaja`, calculatedTotalTaraCaja, { shouldValidate: false });
+            }
+            if (watchedItem.pesoNeto !== calculatedPesoNeto) {
+                setValue(`${basePath}.${itemIndex}.pesoNeto`, calculatedPesoNeto, { shouldValidate: false });
+            }
+        }
+    }, [watchedItem?.cantidadPorPaleta, watchedItem?.taraCaja, watchedItem?.pesoBruto, watchedItem?.taraEstiba, watchedItem?.paleta, basePath, itemIndex, setValue, watchedItem]);
 
     const isSummaryRow = getValues(`${basePath}.${itemIndex}.paleta`) === 0;
+    const pesoNeto = watchedItem?.pesoNeto;
     
     return (
       <div className="p-4 border rounded-lg relative bg-white space-y-4">
@@ -356,7 +344,7 @@ const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, is
                     <FormField control={control} name={`${basePath}.${itemIndex}.taraCaja`} render={({ field }) => (
                         <FormItem><FormLabel>T. Caja (kg) <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="decimal" min="0" step="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                     )} />
-                    <FormItem><FormLabel>Peso Neto (kg)</FormLabel><FormControl><Input disabled readOnly value={calculatedPesoNeto != null && !isNaN(calculatedPesoNeto) ? calculatedPesoNeto.toFixed(2) : '0.00'} /></FormControl></FormItem>
+                    <FormItem><FormLabel>Peso Neto (kg)</FormLabel><FormControl><Input disabled readOnly value={pesoNeto != null && !isNaN(pesoNeto) ? pesoNeto.toFixed(2) : '0.00'} /></FormControl></FormItem>
                 </div>
             )}
         </>
@@ -1000,12 +988,12 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
             try {
                 const optimizedImage = await optimizeImage(dataUrl);
 
-                const newImageSize = getByteSizeFromBase64(optimizedImage.split(',')[1]);
+                const newImagesSize = getByteSizeFromBase64(optimizedImage.split(',')[1]);
                 const existingImagesSize = attachments
                     .filter(a => a.startsWith('data:image'))
                     .reduce((sum, base64) => sum + getByteSizeFromBase64(base64.split(',')[1]), 0);
 
-                if (existingImagesSize + newImageSize > MAX_TOTAL_SIZE_BYTES) {
+                if (existingImagesSize + newImagesSize > MAX_TOTAL_SIZE_BYTES) {
                     toast({
                         variant: "destructive",
                         title: "Límite de tamaño excedido",
@@ -1674,6 +1662,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                             itemIndex={index}
                                             remove={remove}
                                             handleProductDialogOpening={handleProductDialogOpening}
+                                            isTunel={isTunelMode}
                                         />
                                     ))}
                                     <Button type="button" variant="outline" onClick={handleAddItem}><PlusCircle className="mr-2 h-4 w-4" />Agregar Ítem</Button>
@@ -1989,7 +1978,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                 <Card>
                   <CardHeader><CardTitle>Responsables de la Operación</CardTitle></CardHeader>
                   <CardContent>
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-center">
                         <FormField control={form.control} name="coordinador" render={({ field }) => (
                             <FormItem><FormLabel>Coordinador Responsable <span className="text-destructive">*</span></FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un coordinador" /></SelectTrigger></FormControl><SelectContent>{coordinadores.map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
                         )}/>
@@ -2031,13 +2020,14 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                             <FormItem>
                                             <FormLabel>No. de Operarios <span className="text-destructive">*</span></FormLabel>
                                             <FormControl>
-                                                <Input
+                                                <Input 
                                                     type="number"
-                                                    min="1"
-                                                    placeholder="Ej: 3"
-                                                    {...field}
+                                                    step="0.1"
+                                                    min="0.1"
+                                                    placeholder="Ej: 3" 
+                                                    {...field} 
                                                     value={field.value ?? ''}
-                                                    onChange={e => field.onChange(parseInt(e.target.value, 10) || undefined)}
+                                                    onChange={e => field.onChange(parseFloat(e.target.value) || undefined)}
                                                 />
                                             </FormControl>
                                             <FormMessage />
