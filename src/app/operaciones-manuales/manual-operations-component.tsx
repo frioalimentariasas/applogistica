@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -10,7 +9,7 @@ import * as z from 'zod';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 
-import { addManualOperation, updateManualOperation, deleteManualOperation, getManualOperationsForUser, type ManualOperationData } from '@/app/crew-performance-report/actions';
+import { addManualOperation, updateManualOperation, deleteManualOperation, getAllManualOperations, type ManualOperationData } from '@/app/crew-performance-report/actions';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import type { ClientInfo } from '@/app/actions/clients';
@@ -78,15 +77,22 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
     
     const watchedConcept = form.watch('concept');
 
-    useEffect(() => {
-        if (user) {
-            setIsLoading(true);
-            getManualOperationsForUser(user.uid)
-                .then(data => setOperations(data))
-                .catch(() => toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar las operaciones.' }))
-                .finally(() => setIsLoading(false));
+    const fetchOperations = useCallback(async () => {
+        setIsLoading(true);
+        try {
+            const data = await getAllManualOperations();
+            setOperations(data);
+        } catch (error) {
+            toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar las operaciones.' });
+        } finally {
+            setIsLoading(false);
         }
-    }, [user, toast]);
+    }, [toast]);
+
+    useEffect(() => {
+        fetchOperations();
+    }, [fetchOperations]);
+
 
     const openDialog = (op?: any) => {
         if (op) {
@@ -141,8 +147,7 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
             setIsDialogOpen(false);
             setOpToEdit(null);
             form.reset();
-            setIsLoading(true);
-            await getManualOperationsForUser(user.uid).then(setOperations).finally(() => setIsLoading(false));
+            await fetchOperations();
         } else {
             toast({ variant: "destructive", title: "Error", description: result.message });
         }
@@ -184,7 +189,7 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
                 <Card>
                     <CardHeader>
                         <div className="flex justify-between items-center">
-                            <CardTitle>Mis Operaciones Registradas</CardTitle>
+                            <CardTitle>Operaciones Registradas</CardTitle>
                             <Button onClick={() => openDialog()}>
                                 <PlusCircle className="mr-2 h-4 w-4" />
                                 Nueva Operación
@@ -199,7 +204,7 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
                                         <TableHead>Fecha</TableHead>
                                         <TableHead>Concepto</TableHead>
                                         <TableHead>Cliente</TableHead>
-                                        <TableHead>Placa</TableHead>
+                                        <TableHead>Creado Por</TableHead>
                                         <TableHead className="text-right">Acciones</TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -212,7 +217,7 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
                                                 <TableCell>{format(new Date(op.operationDate), 'dd/MM/yyyy')}</TableCell>
                                                 <TableCell>{op.concept}</TableCell>
                                                 <TableCell>{op.clientName || 'N/A'}</TableCell>
-                                                <TableCell>{op.plate || 'N/A'}</TableCell>
+                                                <TableCell>{op.createdBy?.displayName || 'N/A'}</TableCell>
                                                 <TableCell className="text-right">
                                                      <Button variant="ghost" size="icon" title="Editar" onClick={() => openDialog(op)}>
                                                         <Edit2 className="h-4 w-4 text-blue-600" />

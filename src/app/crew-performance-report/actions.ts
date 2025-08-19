@@ -30,7 +30,6 @@ export async function addManualOperation(data: ManualOperationData): Promise<{ s
     try {
         const operationWithTimestamp = {
             ...data,
-            // Convert the incoming string date to a Firestore Timestamp
             operationDate: admin.firestore.Timestamp.fromDate(new Date(data.operationDate)),
             createdAt: new Date().toISOString(),
         };
@@ -90,13 +89,12 @@ export async function deleteManualOperation(id: string): Promise<{ success: bool
     }
 }
 
-export async function getManualOperationsForUser(userId: string): Promise<any[]> {
+export async function getAllManualOperations(): Promise<any[]> {
     if (!firestore) {
         return [];
     }
     try {
         const snapshot = await firestore.collection('manual_operations')
-            .where('createdBy.uid', '==', userId)
             .orderBy('operationDate', 'desc')
             .get();
         
@@ -110,7 +108,7 @@ export async function getManualOperationsForUser(userId: string): Promise<any[]>
             }
         });
     } catch (error) {
-        console.error("Error fetching user's manual operations:", error);
+        console.error("Error fetching all manual operations:", error);
         return [];
     }
 }
