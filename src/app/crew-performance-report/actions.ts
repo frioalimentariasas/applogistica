@@ -15,7 +15,7 @@ interface ManualOperationData {
     plate?: string;
     concept: string;
     quantity: number;
-    createdAt: string; // ISO string for timestamping
+    createdAt?: string; // ISO string for timestamping
 }
 
 export async function addManualOperation(data: Omit<ManualOperationData, 'createdAt'>): Promise<{ success: boolean; message: string }> {
@@ -42,3 +42,44 @@ export async function addManualOperation(data: Omit<ManualOperationData, 'create
         return { success: false, message: `Error del servidor: ${errorMessage}` };
     }
 }
+
+
+export async function updateManualOperation(id: string, data: Omit<ManualOperationData, 'createdAt'>): Promise<{ success: boolean; message: string }> {
+    if (!firestore) {
+        return { success: false, message: 'El servidor no está configurado correctamente.' };
+    }
+
+    try {
+        const docRef = firestore.collection('manual_operations').doc(id);
+        const operationWithTimestamp = {
+            ...data,
+            operationDate: admin.firestore.Timestamp.fromDate(new Date(data.operationDate)),
+        };
+        await docRef.update(operationWithTimestamp);
+        
+        revalidatePath('/crew-performance-report');
+        return { success: true, message: 'Operación manual actualizada con éxito.' };
+    } catch (error) {
+        console.error(`Error al actualizar operación manual ${id}:`, error);
+        const errorMessage = error instanceof Error ? error.message : 'Ocurrió un error desconocido.';
+        return { success: false, message: `Error del servidor: ${errorMessage}` };
+    }
+}
+
+
+export async function deleteManualOperation(id: string): Promise<{ success: boolean; message: string }> {
+    if (!firestore) {
+        return { success: false, message: 'El servidor no está configurado correctamente.' };
+    }
+
+    try {
+        await firestore.collection('manual_operations').doc(id).delete();
+        revalidatePath('/crew-performance-report');
+        return { success: true, message: 'Operación manual eliminada con éxito.' };
+    } catch (error) {
+        console.error(`Error al eliminar operación manual ${id}:`, error);
+        const errorMessage = error instanceof Error ? error.message : 'Ocurrió un error desconocido.';
+        return { success: false, message: `Error del servidor: ${errorMessage}` };
+    }
+}
+

@@ -16,7 +16,7 @@ import autoTable from 'jspdf-autotable';
 import * as XLSX from 'xlsx';
 
 import { getCrewPerformanceReport, type CrewPerformanceReportRow } from '@/app/actions/crew-performance-report';
-import { addManualOperation } from '@/app/crew-performance-report/actions';
+import { addManualOperation, updateManualOperation, deleteManualOperation } from '@/app/crew-performance-report/actions';
 import { addNoveltyToOperation, deleteNovelty } from '@/app/actions/novelty-actions';
 import { legalizeWeights } from '@/app/actions/legalize-weights';
 import { getAvailableOperarios } from '@/app/actions/performance-report';
@@ -229,6 +229,10 @@ export default function CrewPerformanceReportPage() {
     // State for manual operation
     const [isManualOpDialogOpen, setIsManualOpDialogOpen] = useState(false);
     const [isSubmittingManualOp, setIsSubmittingManualOp] = useState(false);
+    const [manualOpToEdit, setManualOpToEdit] = useState<CrewPerformanceReportRow | null>(null);
+    const [isEditingManualOp, setIsEditingManualOp] = useState(false);
+    const [manualOpToDelete, setManualOpToDelete] = useState<CrewPerformanceReportRow | null>(null);
+    const [isDeletingManualOp, setIsDeletingManualOp] = useState(false);
 
     const noveltyForm = useForm<NoveltyFormValues>({
         resolver: zodResolver(noveltySchema),
@@ -244,14 +248,6 @@ export default function CrewPerformanceReportPage() {
 
     const manualOpForm = useForm<ManualOperationValues>({
         resolver: zodResolver(manualOperationSchema),
-        defaultValues: {
-            operationDate: new Date(),
-            startTime: '00:00',
-            endTime: '00:00',
-            quantity: 0,
-            plate: "",
-            clientName: "",
-        }
     });
 
     const watchedConcept = manualOpForm.watch('concept');
@@ -276,7 +272,11 @@ export default function CrewPerformanceReportPage() {
     }, [conceptSearch, allBillingConcepts]);
 
     const liquidationData = useMemo(() => {
-        return filteredReportData.filter(row => row.valorTotalConcepto > 0 || (row.aplicaCuadrilla === 'si' && (row.conceptoLiquidado === 'CARGUE' || row.conceptoLiquidado === 'DESCARGUE') && row.tipoPedido !== 'MAQUILA'));
+        return filteredReportData.filter(row => {
+            if (row.aplicaCuadrilla === 'si') return true;
+            if (row.valorTotalConcepto > 0) return true;
+            return false;
+        });
     }, [filteredReportData]);
     
     const liquidationTotalPages = Math.ceil(liquidationData.length / itemsPerPage);
@@ -515,8 +515,8 @@ export default function CrewPerformanceReportPage() {
         };
     }, [reportData]);
 
-      const conceptSummary = useMemo(() => {
-        if (reportData.length === 0) return null;
+     const conceptSummary = useMemo(() => {
+        if (liquidationData.length === 0) return null;
         
         const summary = liquidationData.reduce((acc, row) => {
             const { conceptoLiquidado, cantidadConcepto, valorUnitario, valorTotalConcepto, unidadMedidaConcepto } = row;
@@ -978,14 +978,24 @@ export default function CrewPerformanceReportPage() {
 
     const onManualOpSubmit: SubmitHandler<ManualOperationValues> = async (data) => {
         setIsSubmittingManualOp(true);
-        const result = await addManualOperation({
+        
+        let result;
+        const payload = {
             ...data,
             operationDate: data.operationDate.toISOString(),
             clientName: data.clientName || undefined,
-        });
-         if (result.success) {
+        };
+
+        if (manualOpToEdit) {
+            result = await updateManualOperation(manualOpToEdit.id, payload);
+        } else {
+            result = await addManualOperation(payload);
+        }
+        
+        if (result.success) {
             toast({ title: 'Éxito', description: result.message });
             setIsManualOpDialogOpen(false);
+            setManualOpToEdit(null);
             manualOpForm.reset();
             await handleSearch();
         } else {
@@ -993,6 +1003,47 @@ export default function CrewPerformanceReportPage() {
         }
         setIsSubmittingManualOp(false);
     }
+    
+    const openManualOpDialog = (row?: CrewPerformanceReportRow) => {
+        if (row) {
+            setManualOpToEdit(row);
+            manualOpForm.reset({
+                clientName: row.cliente === 'N/A' ? '' : row.cliente,
+                operationDate: parseISO(row.fecha),
+                startTime: row.horaInicio,
+                endTime: row.horaFin,
+                plate: row.placa === 'N/A' ? '' : row.placa,
+                concept: row.conceptoLiquidado,
+                quantity: row.cantidadConcepto,
+            });
+        } else {
+            setManualOpToEdit(null);
+            manualOpForm.reset({
+                operationDate: new Date(),
+                startTime: '00:00',
+                endTime: '00:00',
+                quantity: 0,
+                plate: "",
+                clientName: "",
+                concept: "",
+            });
+        }
+        setIsManualOpDialogOpen(true);
+    }
+
+    const handleDeleteManualOpConfirm = async () => {
+        if (!manualOpToDelete) return;
+        setIsDeletingManualOp(true);
+        const result = await deleteManualOperation(manualOpToDelete.id);
+        if (result.success) {
+            toast({ title: 'Éxito', description: result.message });
+            await handleSearch(); // Refresh data
+        } else {
+            toast({ variant: 'destructive', title: 'Error', description: result.message });
+        }
+        setManualOpToDelete(null);
+        setIsDeletingManualOp(false);
+    };
 
 
     if (authLoading) {
@@ -1043,7 +1094,7 @@ export default function CrewPerformanceReportPage() {
                                 <CardDescription>Seleccione los filtros para generar los informes.</CardDescription>
                             </div>
                             <div className="flex gap-2">
-                                <Button onClick={() => setIsManualOpDialogOpen(true)} variant="secondary">
+                                <Button onClick={() => openManualOpDialog()} variant="secondary">
                                     <PlusCircle className="mr-2 h-4 w-4" />
                                     Registrar Operación Manual
                                 </Button>
@@ -1280,11 +1331,13 @@ export default function CrewPerformanceReportPage() {
                                             <TableHead>Duración</TableHead>
                                             <TableHead>Vlr. Unitario</TableHead>
                                             <TableHead>Vlr. Total</TableHead>
+                                            <TableHead className="text-right sticky right-0 bg-background/95 backdrop-blur-sm z-10">Acciones</TableHead>
                                         </TableRow></TableHeader>
                                         <TableBody>
-                                            {isLoading ? (<TableRow><TableCell colSpan={14}><Skeleton className="h-20 w-full" /></TableCell></TableRow>) : displayedLiquidationData.length > 0 ? (
+                                            {isLoading ? (<TableRow><TableCell colSpan={15}><Skeleton className="h-20 w-full" /></TableCell></TableRow>) : displayedLiquidationData.length > 0 ? (
                                                 displayedLiquidationData.map((row) => {
                                                     const isPending = row.cantidadConcepto === -1;
+                                                    const isManual = row.formType === 'manual';
                                                     return (
                                                         <TableRow key={row.id}>
                                                             <TableCell className="text-xs capitalize">{format(new Date(row.fecha), 'MMMM', { locale: es })}</TableCell>
@@ -1301,11 +1354,23 @@ export default function CrewPerformanceReportPage() {
                                                             <TableCell className="text-xs">{formatDuration(row.totalDurationMinutes)}</TableCell>
                                                             <TableCell className="text-xs font-mono text-right">{isPending ? 'N/A' : row.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 })}</TableCell>
                                                             <TableCell className="text-xs font-mono text-right">{isPending ? 'N/A' : row.valorTotalConcepto.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell>
+                                                            <TableCell className="text-right sticky right-0 bg-background/95 backdrop-blur-sm z-10">
+                                                                {isManual && (
+                                                                    <div className="flex items-center justify-end gap-1">
+                                                                        <Button variant="ghost" size="icon" title="Editar" onClick={() => openManualOpDialog(row)}>
+                                                                            <Edit2 className="h-4 w-4 text-blue-600" />
+                                                                        </Button>
+                                                                        <Button variant="ghost" size="icon" title="Eliminar" onClick={() => setManualOpToDelete(row)}>
+                                                                            <Trash2 className="h-4 w-4 text-destructive" />
+                                                                        </Button>
+                                                                    </div>
+                                                                )}
+                                                            </TableCell>
                                                         </TableRow>
                                                     )
                                                 })
                                             ) : (<EmptyState searched={searched} title="No se encontraron liquidaciones" description="No hay operaciones de cuadrilla con conceptos liquidables para los filtros seleccionados." />)}
-                                            {!isLoading && liquidationData.length > 0 && (<TableRow className="font-bold bg-muted hover:bg-muted"><TableCell colSpan={13} className="text-right">TOTAL GENERAL LIQUIDACIÓN</TableCell><TableCell className="text-right">{totalLiquidacion.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell></TableRow>)}
+                                            {!isLoading && liquidationData.length > 0 && (<TableRow className="font-bold bg-muted hover:bg-muted"><TableCell colSpan={13} className="text-right">TOTAL GENERAL LIQUIDACIÓN</TableCell><TableCell className="text-right">{totalLiquidacion.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell><TableCell></TableCell></TableRow>)}
                                         </TableBody>
                                     </Table>
                                  </div>
@@ -1379,11 +1444,11 @@ export default function CrewPerformanceReportPage() {
                     </Form>
                 </DialogContent>
             </Dialog>
-            <Dialog open={isManualOpDialogOpen} onOpenChange={setIsManualOpDialogOpen}>
+            <Dialog open={isManualOpDialogOpen} onOpenChange={(isOpen) => { if (!isOpen) setManualOpToEdit(null); setIsManualOpDialogOpen(isOpen); }}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
-                        <DialogTitle>Registrar Operación Manual</DialogTitle>
-                        <DialogDescription>Ingrese los datos para registrar una operación que no fue capturada por un operario.</DialogDescription>
+                        <DialogTitle>{manualOpToEdit ? 'Editar' : 'Registrar'} Operación Manual</DialogTitle>
+                        <DialogDescription>{manualOpToEdit ? 'Modifique los datos de la operación.' : 'Ingrese los datos para registrar una operación que no fue capturada por un operario.'}</DialogDescription>
                     </DialogHeader>
                     <ScrollArea className="max-h-[70vh]">
                         <div className="p-4">
@@ -1410,6 +1475,28 @@ export default function CrewPerformanceReportPage() {
                     </ScrollArea>
                 </DialogContent>
             </Dialog>
+
+             <AlertDialog open={!!manualOpToDelete} onOpenChange={() => setManualOpToDelete(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>¿Está seguro?</AlertDialogTitle>
+                        <AlertDialogDesc>
+                           Esta acción eliminará permanentemente la operación manual de <strong>{manualOpToDelete?.conceptoLiquidado}</strong> del cliente <strong>{manualOpToDelete?.cliente}</strong> en la fecha <strong>{manualOpToDelete ? format(new Date(manualOpToDelete.fecha), 'dd/MM/yyyy') : ''}</strong>.
+                        </AlertDialogDesc>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                        <AlertDialogAction 
+                            onClick={handleDeleteManualOpConfirm} 
+                            disabled={isDeletingManualOp}
+                            className={buttonVariants({ variant: 'destructive' })}
+                        >
+                            {isDeletingManualOp ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                            Sí, Eliminar Operación
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
 
             <Dialog open={isLegalizeDialogOpen} onOpenChange={setIsLegalizeDialogOpen}>
               <DialogContent className="max-w-md">
@@ -1554,5 +1641,3 @@ function NoveltySelectorDialog({
         </Dialog>
     );
 }
-
-    
