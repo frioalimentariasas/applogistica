@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -42,7 +43,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, RefreshCw, ShieldAlert, ShieldCheck, UserX, Loader2, KeyRound, UserPlus, Pencil, KeySquare, Trash2, DatabaseZap, Wrench } from 'lucide-react';
+import { ArrowLeft, RefreshCw, ShieldAlert, ShieldCheck, UserX, Loader2, KeyRound, UserPlus, Pencil, KeySquare, Trash2, DatabaseZap, Wrench, Edit } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Label } from '@/components/ui/label';
@@ -78,6 +79,7 @@ const permissionLabels: { key: keyof AppPermissions; label: string }[] = [
     { key: 'canViewBillingReports', label: 'Informes para Facturación' },
     { key: 'canViewPerformanceReport', label: 'Informe Productividad Operarios Frio Alimentaria' },
     { key: 'canViewCrewPerformanceReport', label: 'Informe de Productividad y Liquidación Cuadrilla' },
+    { key: 'canManageManualOperations', label: 'Registro de Operaciones Manuales' },
     { key: 'canViewSpecialReports', label: 'Relación de Formatos por Concepto de Liquidación' },
     { key: 'canManageClients', label: 'Gestión de Clientes' },
     { key: 'canManageArticles', label: 'Gestión de Artículos' },
@@ -637,3 +639,4 @@ export default function SessionManagementComponent() {
         </div>
     )
 }
+

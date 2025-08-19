@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { type ReactNode, useEffect, useState, useContext, useCallback } from 'react';
@@ -22,9 +23,9 @@ export interface AppPermissions {
   canManageLiquidationConcepts: boolean;
   canManageNovelties: boolean;
   canManageSessions: boolean;
-  // Permisos granulares que no están en el menú
   canEditForms: boolean;
   canDeleteForms: boolean;
+  canManageManualOperations: boolean;
 }
 
 export const defaultPermissions: AppPermissions = {
@@ -44,6 +45,7 @@ export const defaultPermissions: AppPermissions = {
   canManageSessions: false,
   canEditForms: false,
   canDeleteForms: false,
+  canManageManualOperations: false,
 };
 
 
@@ -102,6 +104,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 canManageLiquidationConcepts: true,
                 canManageNovelties: true,
                 canManageSessions: true,
+                canManageManualOperations: true,
             });
         } else {
             try {
@@ -142,3 +145,4 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 };
 
 export const useAuth = () => useContext(AuthContext);
+

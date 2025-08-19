@@ -1,10 +1,11 @@
 
+
 "use client";
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { FileText, LogOut, Users2, Box, ScrollText, BookCopy, ShieldCheck, Settings, Timer, ArrowRight, ArrowDownCircle, ArrowUpCircle, Boxes, ClipboardList, Users, TrendingUp, DollarSign, ListTodo, FileSpreadsheet, ListPlus } from 'lucide-react';
+import { FileText, LogOut, Users2, Box, ScrollText, BookCopy, ShieldCheck, Settings, Timer, ArrowRight, ArrowDownCircle, ArrowUpCircle, Boxes, ClipboardList, Users, TrendingUp, DollarSign, ListTodo, FileSpreadsheet, ListPlus, Edit } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -94,14 +95,15 @@ export default function Home() {
     { label: 'Informes para Facturación', href: '/billing-reports', icon: BookCopy, permission: 'canViewBillingReports' },
     { label: 'Informe Productividad Operarios Frio Alimentaria', href: '/performance-report', icon: Timer, permission: 'canViewPerformanceReport' },
     { label: 'Informe de Productividad y Liquidación Cuadrilla', href: '/crew-performance-report', icon: TrendingUp, permission: 'canViewCrewPerformanceReport' },
-    { label: 'Relación de Formatos por Concepto de Liquidación', href: '/reportes-especiales', icon: FileSpreadsheet, permission: 'canViewCrewPerformanceReport' },
-    { label: 'Gestión de Novedades', href: '/gestion-novedades', icon: ListPlus, permission: 'canManageArticles' },
-    { label: 'Gestión de Tipos de Pedido', href: '/gestion-tipos-pedido', icon: ListTodo, permission: 'canManageArticles' },
+    { label: 'Registro de Operaciones Manuales', href: '/operaciones-manuales', icon: Edit, permission: 'canManageManualOperations' },
+    { label: 'Relación de Formatos por Concepto de Liquidación', href: '/reportes-especiales', icon: FileSpreadsheet, permission: 'canViewSpecialReports' },
+    { label: 'Gestión de Novedades', href: '/gestion-novedades', icon: ListPlus, permission: 'canManageNovelties' },
+    { label: 'Gestión de Tipos de Pedido', href: '/gestion-tipos-pedido', icon: ListTodo, permission: 'canManageOrderTypes' },
     { label: 'Gestión de Estándares de Productividad', href: '/gestion-estandares', icon: Settings, permission: 'canManageStandards' },
-    { label: 'Gestión de Conceptos de Liquidación', href: '/gestion-conceptos-liquidacion', icon: DollarSign, permission: 'canManageStandards' },
+    { label: 'Gestión de Conceptos de Liquidación', href: '/gestion-conceptos-liquidacion', icon: DollarSign, permission: 'canManageLiquidationConcepts' },
     { label: 'Gestión de Artículos', href: '/gestion-articulos', icon: Box, permission: 'canManageArticles' },
     { label: 'Gestión de Clientes', href: '/gestion-clientes', icon: Users2, permission: 'canManageClients' },
-    { label: 'Gestión de Observaciones', href: '/gestion-observaciones', icon: ClipboardList, permission: 'canManageArticles' },
+    { label: 'Gestión de Observaciones', href: '/gestion-observaciones', icon: ClipboardList, permission: 'canManageObservations' },
     { label: 'Gestión de Usuarios', href: '/session-management', icon: ShieldCheck, permission: 'canManageSessions' },
   ];
 
@@ -232,3 +234,4 @@ export default function Home() {
     </div>
   );
 }
+
