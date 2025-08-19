@@ -22,7 +22,7 @@ export interface ManualOperationData {
     }
 }
 
-export async function addManualOperation(data: Omit<ManualOperationData, 'createdAt'>): Promise<{ success: boolean; message: string }> {
+export async function addManualOperation(data: ManualOperationData): Promise<{ success: boolean; message: string }> {
     if (!firestore) {
         return { success: false, message: 'El servidor no está configurado correctamente.' };
     }
