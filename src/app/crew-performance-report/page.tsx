@@ -520,7 +520,8 @@ export default function CrewPerformanceReportPage() {
         
         const summary = liquidationData.reduce((acc, row) => {
             const { conceptoLiquidado, cantidadConcepto, valorUnitario, valorTotalConcepto, unidadMedidaConcepto } = row;
-            if (conceptoLiquidado === 'N/A' || row.valorTotalConcepto === 0) return acc;
+
+            if (conceptoLiquidado === 'N/A') return acc;
             if (!acc[conceptoLiquidado]) {
                 const firstValidEntry = reportData.find(r => r.conceptoLiquidado === conceptoLiquidado && r.valorUnitario > 0);
                 acc[conceptoLiquidado] = {
@@ -531,11 +532,7 @@ export default function CrewPerformanceReportPage() {
                 };
             }
             
-            const isWeightBased = ['CARGUE', 'DESCARGUE'].includes(conceptoLiquidado);
-            
-            // Only add to summary if it's not a weight-based concept with pending weight,
-            // or if it's a concept that doesn't depend on weight at all.
-            if (!isWeightBased || (isWeightBased && row.cantidadConcepto !== -1)) {
+            if (cantidadConcepto !== -1) {
                  acc[conceptoLiquidado].totalCantidad += cantidadConcepto;
                  acc[conceptoLiquidado].totalValor += valorTotalConcepto;
             }
