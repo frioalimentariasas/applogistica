@@ -75,10 +75,6 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
             query = query.where('userId', '==', criteria.requestingUser!.id);
         }
 
-        if (criteria.pedidoSislog) {
-            query = query.where('formData.pedidoSislog', '==', criteria.pedidoSislog.trim());
-        }
-
         // --- NEW DATE FILTERING LOGIC ---
         // Adjust dates to handle timezone correctly.
         if (criteria.searchDateStart) {
@@ -93,7 +89,7 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
         }
         
         // Default to last 7 days if no filters are applied and user is not operario
-        if (!criteria.searchDateStart && !criteria.searchDateEnd && !criteria.pedidoSislog && !criteria.nombreCliente && !criteria.placa && !isOperario) {
+        if (!isOperario && !criteria.searchDateStart && !criteria.searchDateEnd && !criteria.pedidoSislog && !criteria.nombreCliente && !criteria.placa) {
             const endDate = new Date();
             const startDate = subDays(endDate, 7);
             query = query.where('createdAt', '>=', startDate)
@@ -113,7 +109,7 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
         });
 
         // --- In-memory filtering for remaining criteria ---
-        if (isOperario && !criteria.searchDateStart && !criteria.searchDateEnd) {
+        if (isOperario && !criteria.searchDateStart && !criteria.searchDateEnd && !criteria.pedidoSislog && !criteria.nombreCliente && !criteria.placa) {
             const endDate = new Date();
             const startDate = subDays(endDate, 7);
             results = results.filter(sub => {
