@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef, useCallback, ReactNode } from "react";
@@ -74,6 +75,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Calendar } from "@/components/ui/calendar";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { Separator } from "@/components/ui/separator";
 
 const itemSchema = z.object({
     codigo: z.string().min(1, "El código es requerido."),
@@ -156,6 +158,7 @@ const formSchema = z.object({
         message: "Formato inválido. Debe ser 'N/A', 4 letras y 7 números, o 2 letras, 6 números, guion y 4 números."
     }),
     facturaRemision: z.string().max(15, "Máximo 15 caracteres.").nullable().optional(),
+    totalPesoBrutoKg: z.coerce.number().min(0, "El peso bruto total no puede ser negativo.").optional(),
     
     recepcionPorPlaca: z.boolean().default(false),
     items: z.array(itemSchema).optional(),
@@ -420,6 +423,7 @@ const originalDefaultValues: FormValues = {
   setPoint: undefined,
   contenedor: "",
   facturaRemision: "N/A",
+  totalPesoBrutoKg: 0,
   recepcionPorPlaca: false,
   items: [],
   placas: [],
@@ -521,6 +525,9 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
   const watchedObservations = useWatch({ control: form.control, name: "observaciones" });
   const isSpecialReception = watchedTipoPedido === 'INGRESO DE SALDOS' || watchedTipoPedido === 'TUNEL' || watchedTipoPedido === 'TUNEL A CÁMARA CONGELADOS' || watchedTipoPedido === 'MAQUILA' || watchedTipoPedido === 'TUNEL DE CONGELACIÓN';
   
+  const itemsForSummary = useMemo(() => (isTunelMode && watchedRecepcionPorPlaca) ? (watchedPlacas || []).flatMap(p => p.items) : (watchedItems || []), [isTunelMode, watchedRecepcionPorPlaca, watchedPlacas, watchedItems]);
+  const isSummaryMode = useMemo(() => itemsForSummary.some(item => Number(item?.paleta) === 0), [itemsForSummary]);
+
 
   useEffect(() => {
     if (watchedTipoPedido === 'TUNEL DE CONGELACIÓN') {
@@ -596,7 +603,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
             ? (watchedPlacas || []).flatMap(p => (p.items || []).map(i => ({ ...i, placa: p.numeroPlaca })))
             : (watchedItems || []);
 
-        const isSummaryMode = allItems.some(item => Number(item?.paleta) === 0);
+        const currentIsSummaryMode = allItems.some(item => Number(item?.paleta) === 0);
 
         if (isTunelCongelacion) {
             const groupedByPlaca = (watchedPlacas || []).map(placa => {
@@ -805,6 +812,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
               operarioResponsable: submission.userId,
               unidadDeMedidaPrincipal: formData.unidadDeMedidaPrincipal ?? 'PALETA',
               recepcionPorPlaca: formData.recepcionPorPlaca ?? false,
+              totalPesoBrutoKg: formData.totalPesoBrutoKg ?? 0,
               summary: (formData.summary || []).map((s: any) => ({
                   ...s,
                   temperatura1: s.temperatura1 ?? s.temperatura ?? null,
@@ -1686,6 +1694,32 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                             <Button type="button" variant="outline" onClick={handleAddItem}><PlusCircle className="mr-2 h-4 w-4" />Agregar Ítem</Button>
                         </div>
                      )}
+                    {isSummaryMode && (
+                        <>
+                         <Separator className="my-4" />
+                          <div className="flex justify-end gap-x-6 gap-y-4 flex-wrap">
+                              <FormField control={form.control} name="totalPesoBrutoKg" render={({ field }) => (
+                                  <FormItem className="flex items-center gap-2">
+                                      <FormLabel className="font-semibold text-lg text-primary shrink-0">Total Peso Bruto (kg) <span className="text-destructive">*</span></FormLabel>
+                                      <FormControl>
+                                          <Input 
+                                              className="w-40 font-bold text-lg text-primary border-2 border-primary/50 focus-visible:ring-primary" 
+                                              type="text" 
+                                              inputMode="decimal" 
+                                              step="0.01" 
+                                              min="0" 
+                                              placeholder="0.00" 
+                                              {...field} 
+                                              onChange={e => field.onChange(e.target.value === '' ? 0 : e.target.value)} 
+                                              value={field.value ?? 0}
+                                          />
+                                      </FormControl>
+                                      <FormMessage />
+                                  </FormItem>
+                              )}/>
+                          </div>
+                        </>
+                    )}
                   </CardContent>
                 </Card>
 

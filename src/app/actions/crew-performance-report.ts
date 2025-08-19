@@ -59,6 +59,15 @@ const calculateTotalKilos = (formType: string, formData: any): number => {
     if (formType.includes('reception') || formType.includes('recepcion')) {
         const allItems = (formData.items || [])
             .concat((formData.placas || []).flatMap((p: any) => p.items));
+
+        // For variable weight reception with summary rows, check for legalized weight first.
+        const isSummaryFormat = allItems.some((p: any) => Number(p.paleta) === 0);
+        if (isSummaryFormat) {
+            const legalizedWeight = Number(formData.totalPesoBrutoKg);
+            if (legalizedWeight > 0) {
+                return legalizedWeight;
+            }
+        }
         return allItems.reduce((sum: number, p: any) => sum + (Number(p.pesoBruto) || 0), 0);
     }
     
@@ -220,9 +229,13 @@ const calculateSettlements = (submission: any, billingConcepts: BillingConcept[]
             const conceptName = isReception ? 'DESCARGUE' : (isDispatch ? 'CARGUE' : null);
             if (conceptName) {
                 const kilos = calculateTotalKilos(formType, formData);
+                
                 const isFixedWeightPending = formType.startsWith('fixed-weight-') && kilos === 0;
+                const allItems = formData.items || [];
+                const isSummaryVarReception = formType.startsWith('variable-weight-reception') && allItems.some((p: any) => Number(p.paleta) === 0);
+                const isVarReceptionPending = isSummaryVarReception && kilos === 0;
 
-                 if (isFixedWeightPending) {
+                 if (isFixedWeightPending || isVarReceptionPending) {
                       settlements.push({ 
                           conceptName: conceptName, 
                           unitValue: 0, 
@@ -325,7 +338,13 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                     if (isReception || isDispatch) {
                         const concept = isReception ? 'DESCARGUE' : 'CARGUE';
                         const kilos = calculateTotalKilos(formType, formData);
-                        const isPending = formType.startsWith('fixed-weight-') && kilos === 0;
+                        
+                        const isFixedWeightPending = formType.startsWith('fixed-weight-') && kilos === 0;
+                        const allItems = formData.items || [];
+                        const isSummaryVarReception = formType.startsWith('variable-weight-reception') && allItems.some((p: any) => Number(p.paleta) === 0);
+                        const isVarReceptionPending = isSummaryVarReception && kilos === 0;
+
+                        const isPending = isFixedWeightPending || isVarReceptionPending;
                         
                         indicatorOnlyOperation = {
                             conceptName: concept,
