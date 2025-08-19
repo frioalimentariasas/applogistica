@@ -71,25 +71,37 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
         let query: admin.firestore.Query = firestore.collection('submissions');
         const isOperario = criteria.requestingUser && operarioEmails.includes(criteria.requestingUser.email);
         
+        // --- QUERY BUILDING ---
         if (isOperario) {
             query = query.where('userId', '==', criteria.requestingUser!.id);
         }
 
-        // --- NEW DATE FILTERING LOGIC ---
-        // Adjust dates to handle timezone correctly.
+        if (criteria.pedidoSislog) {
+            query = query.where('formData.pedidoSislog', '==', criteria.pedidoSislog);
+        }
+        if (criteria.nombreCliente) {
+             // Firestore does not support multiple inequality filters.
+             // Client name will be filtered in-memory if other field-based filters are used.
+            if (!criteria.searchDateStart && !criteria.searchDateEnd && !criteria.placa && !criteria.pedidoSislog) {
+                query = query.where('formData.nombreCliente', '==', criteria.nombreCliente);
+            }
+        }
+         if (criteria.placa) {
+            query = query.where('formData.placa', '==', criteria.placa);
+        }
+
         if (criteria.searchDateStart) {
-            // The date comes in as '2024-08-01'. We interpret it as the start of that day in Colombia time.
             const startDate = new Date(criteria.searchDateStart + 'T00:00:00-05:00');
             query = query.where('formData.fecha', '>=', startDate);
         }
         if (criteria.searchDateEnd) {
-             // The date comes in as '2024-08-01'. We interpret it as the end of that day in Colombia time.
             const endDate = new Date(criteria.searchDateEnd + 'T23:59:59.999-05:00');
             query = query.where('formData.fecha', '<=', endDate);
         }
         
-        // Default to last 7 days if no filters are applied and user is not operario
-        if (!isOperario && !criteria.searchDateStart && !criteria.searchDateEnd && !criteria.pedidoSislog && !criteria.nombreCliente && !criteria.placa) {
+        const hasSpecificFilters = criteria.pedidoSislog || criteria.placa || criteria.searchDateStart || criteria.searchDateEnd || criteria.nombreCliente;
+        // Default to last 7 days ONLY if no other filters are applied and user is not operario
+        if (!isOperario && !hasSpecificFilters) {
             const endDate = new Date();
             const startDate = subDays(endDate, 7);
             query = query.where('createdAt', '>=', startDate)
@@ -108,8 +120,8 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
             } as SubmissionResult;
         });
 
-        // --- In-memory filtering for remaining criteria ---
-        if (isOperario && !criteria.searchDateStart && !criteria.searchDateEnd && !criteria.pedidoSislog && !criteria.nombreCliente && !criteria.placa) {
+        // --- IN-MEMORY FILTERING for criteria that couldn't be added to the query ---
+        if (isOperario && !hasSpecificFilters) {
             const endDate = new Date();
             const startDate = subDays(endDate, 7);
             results = results.filter(sub => {
@@ -117,18 +129,13 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
                 return subDate >= startDate && subDate <= endDate;
             });
         }
-        
-        if (criteria.nombreCliente) {
+
+        // Apply client name filter in-memory if it was skipped in the query build
+        if (criteria.nombreCliente && (criteria.searchDateStart || criteria.searchDateEnd || criteria.placa || criteria.pedidoSislog)) {
             results = results.filter(sub => {
                 const clientName = sub.formData.nombreCliente || sub.formData.cliente;
                 return clientName && clientName === criteria.nombreCliente;
             });
-        }
-        
-        if (criteria.placa) {
-            results = results.filter(sub => 
-                sub.formData.placa && sub.formData.placa.toLowerCase().includes(criteria.placa!.toLowerCase())
-            );
         }
         
         if (criteria.operationType) {
