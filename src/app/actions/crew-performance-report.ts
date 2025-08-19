@@ -59,16 +59,23 @@ const calculateTotalKilos = (formType: string, formData: any): number => {
     if (formType.includes('reception') || formType.includes('recepcion')) {
         const allItems = (formData.items || [])
             .concat((formData.placas || []).flatMap((p: any) => p.items));
+            
+        const isSummaryFormat = allItems.some((p: any) => Number(p.paleta) === 0);
 
         // For variable weight reception with summary rows, check for legalized weight first.
-        const isSummaryFormat = allItems.some((p: any) => Number(p.paleta) === 0);
         if (isSummaryFormat) {
             const legalizedWeight = Number(formData.totalPesoBrutoKg);
             if (legalizedWeight > 0) {
                 return legalizedWeight;
             }
+             // If not legalized, calculate from summary rows
+            return allItems.reduce((sum: number, p: any) => sum + (Number(p.totalPesoNeto) || 0), 0);
         }
-        return allItems.reduce((sum: number, p: any) => sum + (Number(p.pesoBruto) || 0), 0);
+        
+        // For itemized (non-summary) variable weight reception
+        const totalPesoBruto = allItems.reduce((sum: number, p: any) => sum + (Number(p.pesoBruto) || 0), 0);
+        const totalTaraEstiba = allItems.reduce((sum: number, p: any) => sum + (Number(p.taraEstiba) || 0), 0);
+        return totalPesoBruto - totalTaraEstiba;
     }
     
     if (formType.startsWith('variable-weight-')) {
