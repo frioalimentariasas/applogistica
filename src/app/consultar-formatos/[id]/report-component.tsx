@@ -2,7 +2,7 @@
 
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import Link from 'next/link';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -196,6 +196,26 @@ const processTunelCongelacionData = (formData: any) => {
     return { placaGroups, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso };
 };
 
+const processTunelACamaraData = (formData: any) => {
+    const allItems = formData.placas?.flatMap((p: any) => p.items) || [];
+    
+    const groupedByPresentation = allItems.reduce((acc: any, item: any) => {
+        const presentation = item.presentacion || 'SIN PRESENTACIÓN';
+        if (!acc[presentation]) {
+            acc[presentation] = { items: [], subTotalCantidad: 0, subTotalPeso: 0 };
+        }
+        acc[presentation].items.push(item);
+        acc[presentation].subTotalCantidad += Number(item.cantidadPorPaleta) || 0;
+        acc[presentation].subTotalPeso += Number(item.pesoNeto) || 0;
+        return acc;
+    }, {});
+
+    const totalGeneralCantidad = Object.values(groupedByPresentation).reduce((sum: number, group: any) => sum + group.subTotalCantidad, 0);
+    const totalGeneralPeso = Object.values(groupedByPresentation).reduce((sum: number, group: any) => sum + group.subTotalPeso, 0);
+
+    return { groupedByPresentation, totalGeneralCantidad, totalGeneralPeso };
+};
+
 export default function ReportComponent({ submission }: ReportComponentProps) {
     const [isDownloading, setIsDownloading] = useState(false);
     const [areImagesLoading, setAreImagesLoading] = useState(true);
@@ -373,9 +393,12 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 }
             };
             
-            const addTableWithPageBreak = (options: any) => {
-                const tableHeight = (doc as any).autoTable.calculateHeight(options);
-                
+             const addTableWithPageBreak = (options: any) => {
+                // Clone the doc object to run a simulation
+                const clonedDoc = new jsPDF();
+                autoTable(clonedDoc, { ...options, startY: 0, addPageContent: () => {} });
+                const tableHeight = (clonedDoc as any).autoTable.previous.finalY;
+
                 if (yPos + tableHeight > pageHeight - margin) {
                     doc.addPage();
                     yPos = margin;
@@ -624,7 +647,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                  const isReception = formType.includes('recepcion') || formType.includes('reception');
                  if (isReception) {
                     const operationTerm = 'Descargue';
-                    const isTunelModeByPlate = (formData.tipoPedido === 'TUNEL') && formData.recepcionPorPlaca;
+                    const isTunelModeByPlate = (formData.tipoPedido === 'TUNEL' || formData.tipoPedido === 'TUNEL DE CONGELACIÓN') && formData.recepcionPorPlaca;
                     
                     const generalInfoBody: any[][] = [
                         [
@@ -700,62 +723,78 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     }
                     if (formData.tipoPedido === 'TUNEL DE CONGELACIÓN') {
                         const { placaGroups, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso } = processTunelCongelacionData(formData);
-                        if (placaGroups.length > 0) {
-                             const addSummaryWithPageBreak = () => {
-                                const body = placaGroups.flatMap(placaGroup => 
-                                    [
-                                        [{ content: `Placa: ${placaGroup.placa}`, colSpan: 5, styles: { fontStyle: 'bold', fillColor: '#d9e2f3', textColor: '#000' } }],
-                                        ...placaGroup.presentationGroups.flatMap((group: any) => [
-                                            [{ content: `Presentación: ${group.presentation}`, colSpan: 5, styles: { fontStyle: 'bold', fillColor: '#f2f2f2', textColor: '#000' } }],
-                                            ...group.products.map((p: any) => [
-                                                p.descripcion,
-                                                [p.temperatura1, p.temperatura2, p.temperatura3].filter(t => t != null).join(' / '),
-                                                p.totalPaletas,
-                                                p.totalCantidad,
-                                                p.totalPeso.toFixed(2),
-                                            ]),
-                                            [{ content: `Subtotal ${group.presentation}:`, colSpan: 2, styles: { halign: 'right', fontStyle: 'bold', textColor: '#000' } }, group.subTotalPaletas, group.subTotalCantidad, group.subTotalPeso.toFixed(2)]
+                        
+                        const addSummaryWithPageBreak = () => {
+                            const body = placaGroups.flatMap(placaGroup => 
+                                [
+                                    [{ content: `Placa: ${placaGroup.placa}`, colSpan: 5, styles: { fontStyle: 'bold', fillColor: '#d9e2f3', textColor: '#000' } }],
+                                    ...placaGroup.presentationGroups.flatMap((group: any) => [
+                                        [{ content: `Presentación: ${group.presentation}`, colSpan: 5, styles: { fontStyle: 'bold', fillColor: '#f2f2f2', textColor: '#000' } }],
+                                        ...group.products.map((p: any) => [
+                                            p.descripcion,
+                                            [p.temperatura1, p.temperatura2, p.temperatura3].filter(t => t != null).join(' / '),
+                                            p.totalPaletas,
+                                            p.totalCantidad,
+                                            p.totalPeso.toFixed(2),
                                         ]),
-                                        [{ content: `Subtotal Placa ${placaGroup.placa}:`, colSpan: 2, styles: { halign: 'right', fontStyle: 'bold', textColor: '#000', fillColor: '#c9d9f8' } }, placaGroup.totalPaletasPlaca, placaGroup.totalCantidadPlaca, placaGroup.totalPesoPlaca.toFixed(2)]
-                                    ]
-                                );
-                                
-                                const summaryTableOptions = {
-                                    head: [['Descripción', 'Temp(°C)', 'Total Paletas', 'Total Cantidad', 'Total Peso (kg)']],
-                                    body,
-                                    foot: [[
-                                        { content: 'TOTALES GENERALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold', fillColor: '#1A90C8', textColor: '#FFFFFF' } },
-                                        totalGeneralPaletas,
-                                        totalGeneralCantidad,
-                                        totalGeneralPeso.toFixed(2),
-                                    ]],
-                                    theme: 'grid',
-                                    margin: { horizontal: margin },
-                                    styles: { fontSize: 7, cellPadding: 3 },
-                                    headStyles: { fillColor: '#fff', textColor: '#333' },
-                                    footStyles: { fillColor: '#1A90C8', fontStyle: 'bold', textColor: '#fff' }
-                                };
-                                
-                                const tableHeight = (doc as any).autoTable.calculateHeight(summaryTableOptions);
-                                
-                                if (yPos + tableHeight > pageHeight - margin) {
-                                    doc.addPage();
-                                    yPos = margin;
-                                }
-
-                                autoTable(doc, {
-                                    startY: yPos,
-                                    head: [[{ content: 'Resumen Agrupado de Productos', styles: {halign: 'center', fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold' } }]],
-                                    body: [],
-                                    theme: 'grid',
-                                    margin: { horizontal: margin },
-                                });
-
-                                autoTable(doc, { ...summaryTableOptions, startY: (doc as any).autoTable.previous.finalY });
-                                yPos = (doc as any).autoTable.previous.finalY + 15;
+                                        [{ content: `Subtotal ${group.presentation}:`, colSpan: 2, styles: { halign: 'right', fontStyle: 'bold', textColor: '#000' } }, group.subTotalPaletas, group.subTotalCantidad, group.subTotalPeso.toFixed(2)]
+                                    ]),
+                                    [{ content: `Subtotal Placa ${placaGroup.placa}:`, colSpan: 2, styles: { halign: 'right', fontStyle: 'bold', textColor: '#000', fillColor: '#c9d9f8' } }, placaGroup.totalPaletasPlaca, placaGroup.totalCantidadPlaca, placaGroup.totalPesoPlaca.toFixed(2)]
+                                ]
+                            );
+                            
+                            const summaryTableOptions = {
+                                head: [['Descripción', 'Temp(°C)', 'Total Paletas', 'Total Cantidad', 'Total Peso (kg)']],
+                                body,
+                                foot: [[
+                                    { content: 'TOTALES GENERALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold', fillColor: '#1A90C8', textColor: '#FFFFFF' } },
+                                    totalGeneralPaletas,
+                                    totalGeneralCantidad,
+                                    totalGeneralPeso.toFixed(2),
+                                ]],
+                                theme: 'grid',
+                                margin: { horizontal: margin },
+                                styles: { fontSize: 7, cellPadding: 3 },
+                                headStyles: { fillColor: '#fff', textColor: '#333' },
+                                footStyles: { fillColor: '#1A90C8', fontStyle: 'bold', textColor: '#fff' }
                             };
-                            addSummaryWithPageBreak();
-                        }
+                            
+                            addTableWithPageBreak({
+                                startY: yPos,
+                                head: [[{ content: 'Resumen Agrupado de Productos', styles: {halign: 'center', fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold' } }]],
+                                body: [],
+                                theme: 'grid',
+                                margin: { horizontal: margin },
+                            });
+                            yPos -= 15;
+                            addTableWithPageBreak({ ...summaryTableOptions });
+                        };
+                        addSummaryWithPageBreak();
+
+                    } else if (formData.tipoPedido === 'TUNEL A CÁMARA CONGELADOS') {
+                        const { groupedByPresentation, totalGeneralCantidad, totalGeneralPeso } = processTunelACamaraData(formData);
+                        
+                        const body = Object.entries(groupedByPresentation).flatMap(([presentation, groupData]: [string, any]) => [
+                            [{ content: `Presentación: ${presentation}`, colSpan: 3, styles: { fontStyle: 'bold', fillColor: '#f2f2f2', textColor: '#000' } }],
+                            ...groupData.items.map((item: any) => [
+                                item.descripcion,
+                                item.cantidadPorPaleta || 0,
+                                (Number(item.pesoNeto) || 0).toFixed(2)
+                            ]),
+                            [{ content: 'Subtotal:', styles: { halign: 'right', fontStyle: 'bold' } }, groupData.subTotalCantidad, groupData.subTotalPeso.toFixed(2)]
+                        ]);
+                        
+                        const summaryTableOptions = {
+                            head: [['Descripción', 'Cantidad', 'Peso Neto (kg)']],
+                            body,
+                            foot: [[{ content: 'TOTAL GENERAL:', styles: { halign: 'right', fontStyle: 'bold', fillColor: '#1A90C8', textColor: '#FFFFFF' } }, totalGeneralCantidad, totalGeneralPeso.toFixed(2)]],
+                            theme: 'grid', margin: { horizontal: margin }, styles: { fontSize: 8, cellPadding: 3 }, headStyles: { fillColor: '#fff', textColor: '#333' }, footStyles: { fillColor: '#1A90C8', fontStyle: 'bold', textColor: '#fff' }
+                        };
+
+                        addTableWithPageBreak({ startY: yPos, head: [[{ content: 'Resumen Agrupado de Productos', styles: { halign: 'center', fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold' } }]], body: [], theme: 'grid', margin: { horizontal: margin } });
+                        yPos -= 15;
+                        addTableWithPageBreak(summaryTableOptions);
+
                     } else {
                          const { summaryData, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso } = processDefaultData(formData);
                          if (summaryData.length > 0) {
@@ -1040,9 +1079,11 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
             case 'variable-weight-recepcion':
             case 'variable-weight-reception':
                 if (submission.formData.tipoPedido === 'TUNEL A CÁMARA CONGELADOS') {
-                    return <TunelACamaraSummary formData={formData} />
+                    return <VariableWeightReceptionReport {...props} summaryComponent={TunelACamaraSummary} />;
+                } else if (submission.formData.tipoPedido === 'TUNEL DE CONGELACIÓN') {
+                    return <VariableWeightReceptionReport {...props} summaryComponent={TunelCongelacionSummary} />;
                 }
-                return <VariableWeightReceptionReport {...props} />;
+                return <VariableWeightReceptionReport {...props} summaryComponent={DefaultSummary} />;
             default:
                 return <div className="p-4">Tipo de formato no reconocido.</div>;
         }
@@ -1147,27 +1188,82 @@ const DefaultSummary = ({ formData }: { formData: any }) => {
     );
 }
 
+const TunelCongelacionSummary = ({ formData }: { formData: any }) => {
+    const { placaGroups, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso } = processTunelCongelacionData(formData);
+    if (placaGroups.length === 0) return null;
+    return (
+        <ReportSection title="Resumen Agrupado de Productos">
+            {placaGroups.map((placaGroup, placaIndex) => (
+                <div key={`placa-summary-${placaIndex}`} style={{ marginBottom: '15px' }}>
+                    <h3 style={{ backgroundColor: '#ddebf7', padding: '6px 12px', fontWeight: 'bold', borderBottom: '1px solid #ddd', borderTop: '1px solid #aaa' }}>
+                        Placa: {placaGroup.placa} | Conductor: {placaGroup.conductor} (C.C. {placaGroup.cedulaConductor})
+                    </h3>
+                    {placaGroup.presentationGroups.map((group, groupIndex) => (
+                        <div key={`presentation-summary-${groupIndex}`} style={{ paddingLeft: '15px', marginTop: '5px' }}>
+                             <h4 style={{ padding: '4px 0', fontWeight: 'bold' }}>Presentación: {group.presentation}</h4>
+                             <table style={{ width: '100%', fontSize: '10px', borderCollapse: 'collapse' }}>
+                                <thead>
+                                    <tr style={{ borderBottom: '1px solid #ccc', backgroundColor: '#fafafa' }}>
+                                        <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Descripción</th>
+                                        <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Temp(°C)</th>
+                                        <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Paletas</th>
+                                        <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Cantidad</th>
+                                        <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Peso (kg)</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {group.products.map((p: any, productIndex: number) => {
+                                         const temps = [p.temperatura1, p.temperatura2, p.temperatura3].filter((t: any) => t != null && !isNaN(t));
+                                         const tempString = temps.join(' / ');
+                                         return (
+                                            <tr key={productIndex} style={{ borderBottom: '1px solid #eee' }}>
+                                                <td style={{ padding: '4px' }}>{p.descripcion}</td>
+                                                <td style={{ textAlign: 'right', padding: '4px' }}>{tempString}</td>
+                                                <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPaletas}</td>
+                                                <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalCantidad}</td>
+                                                <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPeso.toFixed(2)}</td>
+                                            </tr>
+                                         )
+                                    })}
+                                    <tr style={{ fontWeight: 'bold', backgroundColor: '#f8f9fa' }}>
+                                        <td colSpan={2} style={{ textAlign: 'right', padding: '4px' }}>Subtotal Presentación:</td>
+                                        <td style={{ textAlign: 'right', padding: '4px' }}>{group.subTotalPaletas}</td>
+                                        <td style={{ textAlign: 'right', padding: '4px' }}>{group.subTotalCantidad}</td>
+                                        <td style={{ textAlign: 'right', padding: '4px' }}>{group.subTotalPeso.toFixed(2)}</td>
+                                    </tr>
+                                </tbody>
+                             </table>
+                        </div>
+                    ))}
+                    <table style={{ width: '100%', fontSize: '10px', borderCollapse: 'collapse', marginTop: '5px' }}>
+                        <tbody>
+                            <tr style={{ fontWeight: 'bold', backgroundColor: '#ddebf7' }}>
+                                <td colSpan={2} style={{ textAlign: 'right', padding: '4px' }}>Subtotal Placa:</td>
+                                <td style={{ textAlign: 'right', padding: '4px', width: '80px' }}>{placaGroup.totalPaletasPlaca}</td>
+                                <td style={{ textAlign: 'right', padding: '4px', width: '80px' }}>{placaGroup.totalCantidadPlaca}</td>
+                                <td style={{ textAlign: 'right', padding: '4px', width: '80px' }}>{placaGroup.totalPesoPlaca.toFixed(2)}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            ))}
+            <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse', marginTop: '15px' }}>
+                 <tbody>
+                    <tr style={{ fontWeight: 'bold', backgroundColor: '#e2e8f0', borderTop: '2px solid #aaa' }}>
+                        <td colSpan={2} style={{ textAlign: 'right', padding: '6px 4px' }}>TOTAL GENERAL:</td>
+                        <td style={{ textAlign: 'right', padding: '6px 4px', width: '80px' }}>{totalGeneralPaletas}</td>
+                        <td style={{ textAlign: 'right', padding: '6px 4px', width: '80px' }}>{totalGeneralCantidad}</td>
+                        <td style={{ textAlign: 'right', padding: '6px 4px', width: '80px' }}>{totalGeneralPeso.toFixed(2)}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </ReportSection>
+    )
+}
+
 const TunelACamaraSummary = ({ formData }: { formData: any }) => {
-    const allItems = formData.placas?.flatMap((p: any) => p.items) || [];
-
-    const groupedByPresentation = allItems.reduce((acc: any, item: any) => {
-        const presentation = item.presentacion || 'SIN PRESENTACIÓN';
-        if (!acc[presentation]) {
-            acc[presentation] = {
-                items: [],
-                subTotalCantidad: 0,
-                subTotalPeso: 0,
-            };
-        }
-        acc[presentation].items.push(item);
-        acc[presentation].subTotalCantidad += Number(item.cantidadPorPaleta) || 0;
-        acc[presentation].subTotalPeso += Number(item.pesoNeto) || 0;
-        return acc;
-    }, {});
-
-    const totalGeneralCantidad = Object.values(groupedByPresentation).reduce((sum: number, group: any) => sum + group.subTotalCantidad, 0);
-    const totalGeneralPeso = Object.values(groupedByPresentation).reduce((sum: number, group: any) => sum + group.subTotalPeso, 0);
-
+    const { groupedByPresentation, totalGeneralCantidad, totalGeneralPeso } = processTunelACamaraData(formData);
+    
     return (
         <ReportSection title="Resumen Agrupado de Productos">
             {Object.entries(groupedByPresentation).map(([presentation, groupData]: [string, any]) => (
