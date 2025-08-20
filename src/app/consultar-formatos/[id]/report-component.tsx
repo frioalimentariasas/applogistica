@@ -159,7 +159,7 @@ const processTunelCongelacionData = (formData: any) => {
 };
 
 const processTunelACamaraData = (formData: any) => {
-    const allItems = formData.placas?.flatMap((p: any) => p.items) || [];
+    const allItems = formData.placas?.flatMap((p: any) => p.items) || formData.items || [];
     
     const groupedByPresentation = allItems.reduce((acc: any, item: any) => {
         const presentation = item.presentacion || 'SIN PRESENTACIÓN';
@@ -766,17 +766,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                                 footStyles: { fillColor: '#1A90C8', fontStyle: 'bold', textColor: '#fff' }
                             };
                             
-                            const clonedDoc = new jsPDF();
-                            autoTable(clonedDoc, { ...summaryTableOptions, startY: 0, didDrawPage: () => {} });
-                            const tableHeight = (clonedDoc as any).autoTable.previous.finalY;
-
-                            const headerHeight = 20; 
-                            if (yPos + tableHeight + headerHeight > pageHeight - margin) {
-                                doc.addPage();
-                                yPos = margin;
-                            }
-                            
-                            autoTable(doc, {
+                            addTableWithPageBreak({
                                 startY: yPos,
                                 head: [[{ content: 'Resumen Agrupado de Productos', styles: {halign: 'center', fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold' } }]],
                                 body: [],
@@ -784,7 +774,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                                 margin: { horizontal: margin },
                             });
                             yPos -= 15;
-                            addTableWithPageBreak({ ...summaryTableOptions });
+                            addTableWithPageBreak(summaryTableOptions);
                         };
                         addSummaryWithPageBreak();
 
@@ -1080,7 +1070,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
     };
     
     const renderReportContent = () => {
-        const { userDisplayName } = submission;
+        const { formData, userDisplayName } = submission;
         const props = { 
             formData: submission.formData,
             userDisplayName, 
@@ -1095,11 +1085,6 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 return <VariableWeightDispatchReport {...props} />;
             case 'variable-weight-recepcion':
             case 'variable-weight-reception':
-                if (submission.formData.tipoPedido === 'TUNEL A CÁMARA CONGELADOS') {
-                    return <VariableWeightReceptionReport {...props} />;
-                } else if (submission.formData.tipoPedido === 'TUNEL DE CONGELACIÓN') {
-                    return <VariableWeightReceptionReport {...props} />;
-                }
                 return <VariableWeightReceptionReport {...props} />;
             default:
                 return <div className="p-4">Tipo de formato no reconocido.</div>;
@@ -1325,3 +1310,67 @@ const TunelACamaraSummary = ({ formData }: { formData: any }) => {
         </ReportSection>
     );
 };
+
+const ItemsTable = ({ items, tipoPedido }: { items: any[], tipoPedido: string }) => {
+    const isTunelCongelacion = tipoPedido === 'TUNEL DE CONGELACIÓN';
+    const isSummaryFormat = items.some((p: any) => Number(p.paleta) === 0);
+
+    const baseColumns = [
+        { key: 'paleta', label: 'Paleta' },
+        { key: 'descripcion', label: 'Descripción' },
+        { key: 'lote', label: 'Lote' },
+        { key: 'presentacion', label: 'Presentación' },
+        { key: 'cantidadPorPaleta', label: 'Cant.', align: 'right' },
+        { key: 'pesoBruto', label: 'P. Bruto', align: 'right', format: (val: any) => val?.toFixed(2) },
+        { key: 'taraEstiba', label: 'T. Estiba', align: 'right', format: (val: any) => val?.toFixed(2) },
+        { key: 'taraCaja', label: 'T. Caja', align: 'right', format: (val: any) => val?.toFixed(2) },
+        { key: 'totalTaraCaja', label: 'Total Tara', align: 'right', format: (val: any) => val?.toFixed(2) },
+        { key: 'pesoNeto', label: 'P. Neto', align: 'right', format: (val: any) => val?.toFixed(2) },
+    ];
+    
+    const summaryColumns = [
+        { key: 'descripcion', label: 'Descripción' },
+        { key: 'lote', label: 'Lote' },
+        { key: 'presentacion', label: 'Presentación' },
+        { key: 'totalCantidad', label: 'Total Cant.', align: 'right' },
+        { key: 'totalPaletas', label: 'Total Paletas', align: 'right' },
+        { key: 'totalPesoNeto', label: 'Total P. Neto', align: 'right', format: (val: any) => val?.toFixed(2) },
+    ];
+
+    const tunelColumns = baseColumns.filter(c => c.key !== 'paleta');
+
+    const columnsToRender = isSummaryFormat 
+        ? summaryColumns 
+        : isTunelCongelacion
+        ? tunelColumns
+        : baseColumns;
+
+    return (
+        <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse', tableLayout: 'auto' }}>
+            <thead>
+                <tr style={{ borderBottom: '1px solid #ddd', backgroundColor: '#fafafa' }}>
+                    {columnsToRender.map(col => (
+                        <th key={col.key} style={{ textAlign: col.align || 'left', padding: '4px', fontWeight: 'bold' }}>
+                            {col.label}
+                        </th>
+                    ))}
+                </tr>
+            </thead>
+            <tbody>
+                {items.map((item, index) => (
+                    <tr key={index} style={{ borderBottom: '1px solid #eee' }}>
+                        {columnsToRender.map(col => {
+                            const value = item[col.key as keyof typeof item];
+                            return (
+                                <td key={col.key} style={{ padding: '4px', textAlign: col.align || 'left' }}>
+                                    {col.format ? col.format(value) : value}
+                                </td>
+                            );
+                        })}
+                    </tr>
+                ))}
+            </tbody>
+        </table>
+    );
+};
+
