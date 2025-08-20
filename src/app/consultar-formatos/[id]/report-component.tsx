@@ -1,5 +1,4 @@
 
-
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -30,6 +29,8 @@ interface ImageWithDimensions {
     width: number;
     height: number;
 }
+
+// --- HELPER FUNCTIONS ---
 
 const getImageWithDimensions = (src: string): Promise<ImageWithDimensions> => {
     return new Promise((resolve, reject) => {
@@ -73,6 +74,20 @@ const formatTime12Hour = (time24: string | undefined): string => {
     return `${h}:${minutes} ${ampm}`;
 };
 
+const formatDateLocal = (isoDateString: string | undefined): string => {
+    if (!isoDateString) return 'N/A';
+    try {
+        const date = new Date(isoDateString);
+        date.setUTCHours(date.getUTCHours() - 5);
+        const day = String(date.getUTCDate()).padStart(2, '0');
+        const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+        const year = date.getUTCFullYear();
+        return `${day}/${month}/${year}`;
+    } catch (e) {
+        return 'Invalid Date';
+    }
+};
+
 const formatOptionalNumber = (num: any): string => {
     if (num === null || num === undefined || Number.isNaN(Number(num))) {
         return 'N/A';
@@ -80,6 +95,19 @@ const formatOptionalNumber = (num: any): string => {
     return String(num);
 };
 
+const formatPaletas = (num: any): string => {
+    const number = Number(num);
+    if (num === null || num === undefined || isNaN(number)) return '0';
+    return String(Math.floor(number));
+};
+
+const formatTipoPedido = (tipo: string | undefined): string => {
+    if (tipo === 'DESPACHO GENERICO') return 'GENERICO';
+    return tipo || 'N/A';
+};
+
+
+// --- MAIN COMPONENT ---
 
 export default function ReportComponent({ submission }: ReportComponentProps) {
     const [isDownloading, setIsDownloading] = useState(false);
@@ -189,7 +217,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
 
             const totalPaletasPlaca = presentationGroups.reduce((acc: number, group: any) => acc + group.subTotalPaletas, 0);
             const totalCantidadPlaca = presentationGroups.reduce((acc: number, group: any) => acc + group.subTotalCantidad, 0);
-            const totalPesoPlaca = presentationGroups.reduce((acc: number, group: any) => acc + group.subTotalPeso, 0);
+            const totalPesoPlaca = presentationGroups.reduce((acc: number, group: any) => acc + group.totalPesoPlaca, 0);
 
             return {
                 placa: placa.numeroPlaca,
@@ -221,32 +249,19 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
             });
     
             const pageHeight = doc.internal.pageSize.getHeight();
-            const pageWidth = doc.internal.pageSize.getWidth();
             const margin = 30;
             let yPos = 0;
-            let attachmentsStartPage = -1; // To track where attachments start
-
-            const formatPaletas = (num: any): string => {
-                const number = Number(num);
-                if (num === null || num === undefined || isNaN(number)) return '0';
-                return String(Math.floor(number));
-            };
-
-            const formatTipoPedido = (tipo: string | undefined): string => {
-                if (tipo === 'DESPACHO GENERICO') return 'GENERICO';
-                return tipo || 'N/A';
-            };
-
+            let attachmentsStartPage = -1;
+    
             const { formType, formData, userDisplayName } = submission;
     
             const addHeader = (title: string) => {
                 const logoPdfHeight = 35;
 
-                // Centered Logo
                 if (logoBase64 && logoDimensions) {
                     const logoAspectRatio = logoDimensions.width / logoDimensions.height;
                     const logoPdfWidth = logoPdfHeight * logoAspectRatio;
-                    const logoX = (pageWidth - logoPdfWidth) / 2;
+                    const logoX = (doc.internal.pageSize.getWidth() - logoPdfWidth) / 2;
                     try {
                         doc.addImage(logoBase64, 'PNG', logoX, margin, logoPdfWidth, logoPdfHeight); 
                     } catch (e) {
@@ -254,20 +269,19 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     }
                 }
                 
-                // Info Box
                 const isFixedWeight = formType.startsWith('fixed-weight-');
                 const isVariableWeight = formType.startsWith('variable-weight-');
                 
                 let boxHeight = 0;
                 if (isFixedWeight || isVariableWeight) {
                     doc.setFontSize(8);
-                    doc.setTextColor(51, 51, 51); // #333
+                    doc.setTextColor(51, 51, 51);
                     
                     const code = isFixedWeight ? 'FA-GL-F01' : 'FA-GL-F02';
                     
                     const boxWidth = 110; 
                     boxHeight = 35; 
-                    const boxX = pageWidth - margin - boxWidth;
+                    const boxX = doc.internal.pageSize.getWidth() - margin - boxWidth;
                     const boxY = margin;
                     const padding = 6;
                     
@@ -275,27 +289,23 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     const valueX = boxX + boxWidth - padding;
                     const lineHeight = 10;
                     
-                    // Draw the styled box
-                    doc.setFillColor(248, 249, 250); // #f8f9fa
-                    doc.setDrawColor(204, 204, 204); // #ccc
-                    doc.rect(boxX, boxY, boxWidth, boxHeight, 'FD'); // Fill and Draw
+                    doc.setFillColor(248, 249, 250);
+                    doc.setDrawColor(204, 204, 204);
+                    doc.rect(boxX, boxY, boxWidth, boxHeight, 'FD');
                     
-                    let currentY = boxY + padding + 2; // Start with top padding
+                    let currentY = boxY + padding + 2;
                     
-                    // Line 1: Código
                     doc.setFont('helvetica', 'bold');
                     doc.text('Código:', labelX, currentY, { align: 'left' });
                     doc.setFont('helvetica', 'normal');
                     doc.text(code, valueX, currentY, { align: 'right' });
                     
-                    // Line 2: Versión
                     currentY += lineHeight;
                     doc.setFont('helvetica', 'bold');
                     doc.text('Versión:', labelX, currentY, { align: 'left' });
                     doc.setFont('helvetica', 'normal');
                     doc.text('01', valueX, currentY, { align: 'right' });
                     
-                    // Line 3: Fecha
                     currentY += lineHeight;
                     doc.setFont('helvetica', 'bold');
                     doc.text('Fecha:', labelX, currentY, { align: 'left' });
@@ -303,19 +313,18 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     doc.text('16/06/2025', valueX, currentY, { align: 'right' });
                 }
                 
-                // Report Title and Subtitle (positioned below logo/box)
                 const headerBottomY = margin + Math.max(logoPdfHeight, boxHeight);
-                const titleY = headerBottomY + 30; // Increased spacing
+                const titleY = headerBottomY + 30;
 
                 doc.setFontSize(16);
                 doc.setFont('helvetica', 'bold');
                 doc.setTextColor('#005a9e');
-                doc.text(title, pageWidth / 2, titleY, { align: 'center' });
+                doc.text(title, doc.internal.pageSize.getWidth() / 2, titleY, { align: 'center' });
                 
                 doc.setFontSize(9);
                 doc.setFont('helvetica', 'bold');
                 doc.setTextColor('#3588CC');
-                doc.text('FRIO ALIMENTARIA SAS NIT 900736914-0', pageWidth / 2, titleY + 15, { align: 'center' });
+                doc.text('FRIO ALIMENTARIA SAS NIT 900736914-0', doc.internal.pageSize.getWidth() / 2, titleY + 15, { align: 'center' });
                 
                 yPos = titleY + 30;
             };
@@ -323,17 +332,14 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
             const addWatermark = () => {
                 if (!logoBase64 || !logoDimensions) return;
                 
-                const watermarkImgHeight = pageHeight * 0.4; // Watermark covers 40% of page height
-                const watermarkAspectRatio = logoDimensions.width / logoDimensions.height; // Use real aspect ratio
+                const watermarkImgHeight = pageHeight * 0.4;
+                const watermarkAspectRatio = logoDimensions.width / logoDimensions.height;
                 const watermarkImgWidth = watermarkImgHeight * watermarkAspectRatio;
-                const watermarkX = (pageWidth - watermarkImgWidth) / 2;
+                const watermarkX = (doc.internal.pageSize.getWidth() - watermarkImgWidth) / 2;
                 const watermarkY = (pageHeight - watermarkImgHeight) / 2;
 
-                // Set transparency
                 (doc as any).setGState(new (doc as any).GState({opacity: 0.05})); 
-                // Add the image
                 doc.addImage(logoBase64, 'PNG', watermarkX, watermarkY, watermarkImgWidth, watermarkImgHeight, 'watermark', 'FAST');
-                // Reset transparency
                 (doc as any).setGState(new (doc as any).GState({opacity: 1}));
             }
     
@@ -341,16 +347,31 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 const pageCount = (doc as any).internal.getNumberOfPages();
                 for (let i = 1; i <= pageCount; i++) {
                     doc.setPage(i);
-                    // Conditionally add watermark. Do not add on attachment pages.
                     if (attachmentsStartPage === -1 || i < attachmentsStartPage) {
                         addWatermark();
                     }
                     doc.setFontSize(8);
                     doc.setTextColor(150);
-                    doc.text(`Página ${i} de ${pageCount}`, pageWidth - margin, pageHeight - 20, { align: 'right' });
+                    doc.text(`Página ${i} de ${pageCount}`, doc.internal.pageSize.getWidth() - margin, pageHeight - 20, { align: 'right' });
                 }
             };
             
+            const addTableWithPageBreak = (options: any) => {
+                // Estimate height
+                const headHeight = (options.head?.length || 0) * 15;
+                const bodyHeight = (options.body?.length || 0) * 15;
+                const footHeight = (options.foot?.length || 0) * 15;
+                const totalHeight = headHeight + bodyHeight + footHeight + 20;
+
+                if (yPos + totalHeight > pageHeight - margin) {
+                    doc.addPage();
+                    yPos = margin;
+                }
+                
+                autoTable(doc, { ...options, startY: yPos });
+                yPos = (doc as any).autoTable.previous.finalY + 15;
+            };
+
             const addObservationsTable = () => {
                 if (formData.observaciones && formData.observaciones.length > 0) {
                     const obsBody = formData.observaciones.map((obs: any) => {
@@ -373,17 +394,18 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         }
                     });
 
-                    autoTable(doc, {
-                        startY: yPos,
+                    addTableWithPageBreak({
                         head: [[{ content: 'Observaciones', colSpan: 2, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]],
                         body: [],
                         theme: 'grid',
                         margin: { horizontal: margin },
                         styles: { fontSize: 8, cellPadding: 4 },
                     });
-                    
-                    autoTable(doc, {
-                        startY: (doc as any).autoTable.previous.finalY,
+
+                    // Remove the header height from yPos to draw the body table right after
+                    yPos -= 15; 
+
+                    addTableWithPageBreak({
                         head: [['Tipo de Observación', 'Cantidad']],
                         body: obsBody,
                         theme: 'grid',
@@ -395,8 +417,6 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             1: { cellWidth: 'auto', halign: 'right' },
                         },
                     });
-
-                    yPos = (doc as any).autoTable.previous.finalY + 15;
                 }
             };
     
@@ -418,7 +438,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         ],
                         [
                             {content: 'Fecha:', styles: {fontStyle: 'bold'}},
-                            formData.fecha ? format(new Date(formData.fecha), "dd/MM/yyyy") : 'N/A',
+                            formData.fecha ? formatDateLocal(formData.fecha) : 'N/A',
                             {content: `Hora Inicio ${operationTerm}:`, styles: {fontStyle: 'bold'}},
                             formatTime12Hour(formData.horaInicio),
                             {content: `Hora Fin ${operationTerm}:`, styles: {fontStyle: 'bold'}},
@@ -600,7 +620,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                                 [
                                     {content: 'Pedido SISLOG:', styles: {fontStyle: 'bold'}}, formData.pedidoSislog || 'N/A',
                                     {content: 'Cliente:', styles: {fontStyle: 'bold'}}, formData.cliente || 'N/A',
-                                    {content: 'Fecha:', styles: {fontStyle: 'bold'}}, formData.fecha ? format(new Date(formData.fecha), "dd/MM/yyyy") : 'N/A'
+                                    {content: 'Fecha:', styles: {fontStyle: 'bold'}}, formData.fecha ? formatDateLocal(formData.fecha) : 'N/A'
                                 ],
                                 [
                                     {content: `H. Inicio Descargue:`, styles: {fontStyle: 'bold'}}, formatTime12Hour(formData.horaInicio),
@@ -648,15 +668,14 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         yPos += 15;
 
                         if (placaGroups.length > 0) {
-                            autoTable(doc, {
-                                startY: yPos,
+                            addTableWithPageBreak({
                                 head: [[{ content: 'Resumen Agrupado de Productos', styles: {halign: 'center', fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold' } }]],
                                 body: [],
                                 theme: 'grid',
                                 margin: { horizontal: margin },
                             });
-                            yPos = (doc as any).autoTable.previous.finalY;
-
+                             yPos -= 15; // To draw right after the header
+                            
                             for (const placaGroup of placaGroups) {
                                 autoTable(doc, {
                                     startY: yPos,
@@ -693,7 +712,6 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                                     yPos = (doc as any).autoTable.previous.finalY;
                                 }
 
-                                // Subtotal por placa
                                 autoTable(doc, {
                                     startY: yPos,
                                     body: [[
@@ -712,14 +730,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             
                             yPos = (doc as any).autoTable.previous.finalY + 15;
                             
-                            const tableHeight = 4 * 18 + 20;
-                            if (yPos + tableHeight > pageHeight - margin) {
-                                doc.addPage();
-                                yPos = margin;
-                            }
-                            
-                            autoTable(doc, {
-                                startY: yPos,
+                            addTableWithPageBreak({
                                 head: [[{ content: 'TOTALES GENERALES', colSpan: 2, styles: { fillColor: '#1A90C8', textColor: '#FFFFFF', fontStyle: 'bold', halign: 'center' } }]],
                                 body: [
                                     [{ content: 'Total General Paletas:', styles: { fontStyle: 'bold' } }, { content: totalGeneralPaletas, styles: { halign: 'right', fontStyle: 'bold', textColor: '#000' } }],
@@ -729,7 +740,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                                 theme: 'grid',
                                 styles: { fontSize: 8, cellPadding: 4, valign: 'middle' },
                                 headStyles: { halign: 'center' },
-                                didParseCell: function (data) {
+                                didParseCell: function (data: any) {
                                     if (data.section === 'body') {
                                         data.cell.styles.fillColor = '#f8fafc';
                                     }
@@ -739,10 +750,8 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                                     1: { halign: 'right', cellWidth: '*' },
                                 }
                             });
-                            yPos = (doc as any).autoTable.previous.finalY + 15;
                         }
                     } else {
-                         // --- START: Existing logic for other Variable Weight Receptions ---
                         const operationTerm = 'Descargue';
                         const isTunelModeByPlate = (formData.tipoPedido === 'TUNEL') && formData.recepcionPorPlaca;
                         
@@ -750,7 +759,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             [
                                {content: 'Pedido SISLOG:', styles: {fontStyle: 'bold'}}, formData.pedidoSislog || 'N/A',
                                {content: 'Cliente:', styles: {fontStyle: 'bold'}}, formData.cliente || 'N/A',
-                               {content: 'Fecha:', styles: {fontStyle: 'bold'}}, formData.fecha ? format(new Date(formData.fecha), "dd/MM/yyyy") : 'N/A'
+                               {content: 'Fecha:', styles: {fontStyle: 'bold'}}, formData.fecha ? formatDateLocal(formData.fecha) : 'N/A'
                             ],
                              [
                                {content: 'Conductor:', styles: {fontStyle: 'bold'}}, formData.conductor || 'N/A',
@@ -821,24 +830,23 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
 
                         const { summaryData, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso } = processDefaultData(formData);
                          if (summaryData.length > 0) {
-                            autoTable(doc, {
-                                startY: yPos,
+                             addTableWithPageBreak({
                                 head: [[{ content: 'Resumen Agrupado de Productos', styles: { halign: 'center', fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold' } }]],
+                                body: [],
                                 theme: 'grid',
                                 margin: { horizontal: margin },
-                            });
-                             autoTable(doc, {
-                                 startY: (doc as any).autoTable.previous.finalY,
+                             });
+                              yPos -= 15;
+                             addTableWithPageBreak({
                                  head: [['Descripción', 'Temp(°C)', 'Total Cantidad', 'Total Paletas', 'Total Peso (kg)']],
                                  body: summaryData.map((p: any) => [ p.descripcion, [p.temperatura1, p.temperatura2, p.temperatura3].filter(t => t != null).join(' / '), p.totalCantidad, p.totalPaletas, p.totalPeso.toFixed(2) ]),
                                  foot: [[ { content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }, totalGeneralCantidad, totalGeneralPaletas, totalGeneralPeso.toFixed(2) ]],
                                  theme: 'grid',
                                  footStyles: { fillColor: '#f1f5f9', fontStyle: 'bold', textColor: '#1a202c' },
                                  styles: { fontSize: 8, cellPadding: 4 },
-                                 headStyles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold' },
+                                 headStyles: { fillColor: '#f8fafc', textColor: '#334155', fontStyle: 'bold' },
                                  margin: { horizontal: margin, bottom: 40 },
                              });
-                             yPos = (doc as any).autoTable.previous.finalY + 15;
                          }
                     }
                  } else { // Despacho Peso Variable
@@ -899,7 +907,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             if (formData.despachoPorDestino) {
                                 return formData.totalPaletasDespacho || 0;
                             }
-                            return recalculateTotalPaletas(formData);
+                            return recalculatedSummary.reduce((sum: number, item: any) => sum + (Number(item.totalPaletas) || 0), 0);
                         }
                         const uniquePallets = new Set<number>();
                         allItems.forEach((i: any) => {
@@ -913,7 +921,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         [
                             {content: 'Pedido SISLOG:', styles: {fontStyle: 'bold'}}, formData.pedidoSislog || 'N/A',
                             {content: 'Cliente:', styles: {fontStyle: 'bold'}}, formData.cliente || 'N/A',
-                            {content: 'Fecha:', styles: {fontStyle: 'bold'}}, formData.fecha ? format(new Date(formData.fecha), "dd/MM/yyyy") : 'N/A'
+                            {content: 'Fecha:', styles: {fontStyle: 'bold'}}, formData.fecha ? formatDateLocal(formData.fecha) : 'N/A'
                         ],
                         [
                             {content: 'Conductor:', styles: {fontStyle: 'bold'}}, formData.conductor || 'N/A',
@@ -976,24 +984,23 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                          yPos = (doc as any).autoTable.previous.finalY + 15;
                     }
                     if (recalculatedSummary.length > 0) {
-                         autoTable(doc, {
-                            startY: yPos,
+                         addTableWithPageBreak({
                             head: [[{ content: 'Resumen Agrupado de Productos', styles: { halign: 'center', fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold' } }]],
+                            body: [],
                             theme: 'grid',
                             margin: { horizontal: margin },
                          });
-                         autoTable(doc, {
-                             startY: (doc as any).autoTable.previous.finalY,
+                         yPos -= 15;
+                         addTableWithPageBreak({
                              head: [['Descripción', 'Temp(°C)', 'Total Cantidad', 'Total Paletas', 'Total Peso (kg)']],
                              body: recalculatedSummary.map((p: any) => [ p.descripcion, p.temperatura, p.totalCantidad, p.totalPaletas, p.totalPeso.toFixed(2) ]),
                              foot: [[ { content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }, totalGeneralCantidad, totalGeneralPaletas, totalGeneralPeso.toFixed(2) ]],
                              theme: 'grid',
                              footStyles: { fillColor: '#f1f5f9', fontStyle: 'bold', textColor: '#1a202c' },
                              styles: { fontSize: 8, cellPadding: 4 },
-                             headStyles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold' },
+                             headStyles: { fillColor: '#f8fafc', textColor: '#334155', fontStyle: 'bold' },
                              margin: { horizontal: margin, bottom: 40 },
                          });
-                         yPos = (doc as any).autoTable.previous.finalY + 15;
                      }
                  }
                  addObservationsTable();
@@ -1040,7 +1047,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 let xPos = margin;
                 for (let i = 0; i < base64Images.length; i++) {
                     const imgData = base64Images[i];
-                    const imgWidth = (pageWidth - margin * 2 - (margin / 2)) / 2;
+                    const imgWidth = (doc.internal.pageSize.getWidth() - margin * 2 - (margin / 2)) / 2;
                     const aspectRatio = imgData.height / imgData.width;
                     const imgHeight = imgWidth * aspectRatio;
 
@@ -1126,7 +1133,10 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 return <VariableWeightDispatchReport {...props} />;
             case 'variable-weight-recepcion':
             case 'variable-weight-reception':
-                return <VariableWeightReceptionReport {...props} />;
+                if (submission.formData.tipoPedido === 'TUNEL A CÁMARA CONGELADOS') {
+                    return <VariableWeightReceptionReport {...props} summaryComponent={TunelACamaraSummary} />
+                }
+                return <VariableWeightReceptionReport {...props} summaryComponent={DefaultSummary} />;
             default:
                 return <div className="p-4">Tipo de formato no reconocido.</div>;
         }
@@ -1205,8 +1215,105 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
     );
 }
 
+// --- SUMMARY SUB-COMPONENTS ---
 
-
-
-
+const DefaultSummary = ({ formData }: { formData: any }) => {
+    const { summaryData, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso } = processDefaultData(formData);
     
+    if (summaryData.length === 0) return null;
+
+    return (
+        <ReportSection title="Resumen Agrupado de Productos">
+            <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse' }}>
+                <thead>
+                    <tr style={{ borderBottom: '1px solid #aaa' }}>
+                        <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Producto</th>
+                        <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Temperaturas (°C)</th>
+                        <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Paletas</th>
+                        <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Cantidad</th>
+                        <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Peso (kg)</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {summaryData.map((p: any, i: number) => {
+                        const temps = [p.temperatura1, p.temperatura2, p.temperatura3].filter((t: any) => t != null && !isNaN(t));
+                        const tempString = temps.join(' / ');
+                        return (
+                            <tr key={i} style={{ borderBottom: '1px solid #eee' }}>
+                                <td style={{ padding: '4px' }}>{p.descripcion}</td>
+                                <td style={{ textAlign: 'right', padding: '4px' }}>{tempString}</td>
+                                <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPaletas}</td>
+                                <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalCantidad}</td>
+                                <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPeso.toFixed(2)}</td>
+                            </tr>
+                        );
+                    })}
+                    <tr style={{ fontWeight: 'bold', backgroundColor: '#f1f5f9' }}>
+                        <td colSpan={2} style={{ textAlign: 'right', padding: '6px 4px' }}>TOTAL GENERAL:</td>
+                        <td style={{ textAlign: 'right', padding: '6px 4px' }}>{totalGeneralPaletas}</td>
+                        <td style={{ textAlign: 'right', padding: '6px 4px' }}>{totalGeneralCantidad}</td>
+                        <td style={{ textAlign: 'right', padding: '6px 4px' }}>{totalGeneralPeso.toFixed(2)}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </ReportSection>
+    );
+}
+
+const TunelACamaraSummary = ({ formData }: { formData: any }) => {
+    const { presentationGroups, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso } = processTunelACamaraData(formData);
+
+    if (presentationGroups.length === 0) return null;
+
+    return (
+        <ReportSection title="Resumen Agrupado de Productos">
+            {presentationGroups.map((group, groupIndex) => (
+                <div key={group.presentation} style={{ marginBottom: '15px' }}>
+                    <h4 style={{ padding: '4px 0', fontWeight: 'bold', backgroundColor: '#fafafa', borderTop: '1px solid #ddd', borderBottom: '1px solid #ddd' }}>Presentación: {group.presentation}</h4>
+                    <table style={{ width: '100%', fontSize: '10px', borderCollapse: 'collapse' }}>
+                        <thead>
+                            <tr style={{ borderBottom: '1px solid #ccc' }}>
+                                <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Descripción</th>
+                                <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Temp(°C)</th>
+                                <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Paletas</th>
+                                <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Cantidad</th>
+                                <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Peso (kg)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {group.products.map((p: any, productIndex: number) => {
+                                const temps = [p.temperatura1, p.temperatura2, p.temperatura3].filter((t: any) => t != null && !isNaN(t));
+                                const tempString = temps.join(' / ');
+                                return (
+                                    <tr key={productIndex} style={{ borderBottom: '1px solid #eee' }}>
+                                        <td style={{ padding: '4px' }}>{p.descripcion}</td>
+                                        <td style={{ textAlign: 'right', padding: '4px' }}>{tempString}</td>
+                                        <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPaletas}</td>
+                                        <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalCantidad}</td>
+                                        <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPeso.toFixed(2)}</td>
+                                    </tr>
+                                );
+                            })}
+                            <tr style={{ fontWeight: 'bold', backgroundColor: '#f8f9fa' }}>
+                                <td colSpan={2} style={{ textAlign: 'right', padding: '4px' }}>Subtotal Presentación:</td>
+                                <td style={{ textAlign: 'right', padding: '4px' }}>{group.subTotalPaletas}</td>
+                                <td style={{ textAlign: 'right', padding: '4px' }}>{group.subTotalCantidad}</td>
+                                <td style={{ textAlign: 'right', padding: '4px' }}>{group.subTotalPeso.toFixed(2)}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            ))}
+            <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse', marginTop: '15px' }}>
+                <tbody>
+                    <tr style={{ fontWeight: 'bold', backgroundColor: '#e2e8f0', borderTop: '2px solid #aaa' }}>
+                        <td colSpan={2} style={{ textAlign: 'right', padding: '6px 4px' }}>TOTAL GENERAL:</td>
+                        <td style={{ textAlign: 'right', padding: '6px 4px', width: '80px' }}>{totalGeneralPaletas}</td>
+                        <td style={{ textAlign: 'right', padding: '6px 4px', width: '80px' }}>{totalGeneralCantidad}</td>
+                        <td style={{ textAlign: 'right', padding: '6px 4px', width: '80px' }}>{totalGeneralPeso.toFixed(2)}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </ReportSection>
+    );
+};
