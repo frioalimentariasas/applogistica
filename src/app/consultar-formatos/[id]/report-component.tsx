@@ -78,9 +78,10 @@ const formatDateLocal = (isoDateString: string | undefined): string => {
     if (!isoDateString) return 'N/A';
     try {
         const date = new Date(isoDateString);
+        // Manually adjust for Colombia's timezone (UTC-5)
         date.setUTCHours(date.getUTCHours() - 5);
         const day = String(date.getUTCDate()).padStart(2, '0');
-        const month = String(date.getUTCMonth() + 1).padStart(2, '0');
+        const month = String(date.getUTCMonth() + 1).padStart(2, '0'); // Month is 0-indexed
         const year = date.getUTCFullYear();
         return `${day}/${month}/${year}`;
     } catch (e) {
@@ -622,63 +623,83 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
             } else if (formType.startsWith('variable-weight-')) {
                  const isReception = formType.includes('recepcion') || formType.includes('reception');
                  if (isReception) {
-                     if (formData.tipoPedido === 'TUNEL DE CONGELACIÓN') {
-                        const { placaGroups, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso } = processTunelCongelacionData(formData);
-                        
-                        autoTable(doc, {
-                            startY: yPos,
-                            head: [[{ content: `Datos de Recepción`, colSpan: 6, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]],
-                            body: [
-                                [
-                                    {content: 'Pedido SISLOG:', styles: {fontStyle: 'bold'}}, formData.pedidoSislog || 'N/A',
-                                    {content: 'Cliente:', styles: {fontStyle: 'bold'}}, formData.cliente || 'N/A',
-                                    {content: 'Fecha:', styles: {fontStyle: 'bold'}}, formData.fecha ? formatDateLocal(formData.fecha) : 'N/A'
-                                ],
-                                [
-                                    {content: `H. Inicio Descargue:`, styles: {fontStyle: 'bold'}}, formatTime12Hour(formData.horaInicio),
-                                    {content: `H. Fin Descargue:`, styles: {fontStyle: 'bold'}}, formatTime12Hour(formData.horaFin),
-                                    {content: 'Tipo Pedido:', styles: {fontStyle: 'bold'}}, formData.tipoPedido || 'N/A'
-                                ],
-                                [
-                                    {content: 'Precinto:', styles: {fontStyle: 'bold'}}, formData.precinto || 'N/A',
-                                    {content: 'Set Point (°C):', styles: {fontStyle: 'bold'}}, formatOptionalNumber(formData.setPoint),
-                                    {content: 'Contenedor:', styles: {fontStyle: 'bold'}}, formData.contenedor || 'N/A'
-                                ],
-                            ],
-                            theme: 'grid',
-                            styles: { fontSize: 8, cellPadding: 4, valign: 'middle' },
-                            columnStyles: { 0: { cellWidth: 'auto' }, 1: { cellWidth: '*' }, 2: { cellWidth: 'auto' }, 3: { cellWidth: '*' }, 4: { cellWidth: 'auto' }, 5: { cellWidth: '*' } },
-                            margin: { horizontal: margin },
-                        });
-                        yPos = (doc as any).autoTable.previous.finalY + 15;
+                    const operationTerm = 'Descargue';
+                    const isTunelModeByPlate = (formData.tipoPedido === 'TUNEL') && formData.recepcionPorPlaca;
+                    
+                    const generalInfoBody: any[][] = [
+                        [
+                           {content: 'Pedido SISLOG:', styles: {fontStyle: 'bold'}}, formData.pedidoSislog || 'N/A',
+                           {content: 'Cliente:', styles: {fontStyle: 'bold'}}, formData.cliente || 'N/A',
+                           {content: 'Fecha:', styles: {fontStyle: 'bold'}}, formData.fecha ? formatDateLocal(formData.fecha) : 'N/A'
+                        ],
+                         [
+                           {content: 'Conductor:', styles: {fontStyle: 'bold'}}, formData.conductor || 'N/A',
+                           {content: 'Cédula:', styles: {fontStyle: 'bold'}}, formData.cedulaConductor || 'N/A',
+                           {content: 'Placa:', styles: {fontStyle: 'bold'}}, formData.placa || 'N/A'
+                         ],
+                         [
+                           {content: 'Precinto:', styles: {fontStyle: 'bold'}}, formData.precinto || 'N/A',
+                           {content: 'Set Point (°C):', styles: {fontStyle: 'bold'}}, formatOptionalNumber(formData.setPoint),
+                           {content: 'Contenedor:', styles: {fontStyle: 'bold'}}, formData.contenedor || 'N/A'
+                         ],
+                         [
+                           {content: `H. Inicio ${operationTerm}:`, styles: {fontStyle: 'bold'}}, formatTime12Hour(formData.horaInicio),
+                           {content: `H. Fin ${operationTerm}:`, styles: {fontStyle: 'bold'}}, formatTime12Hour(formData.horaFin),
+                           {content: 'Factura/Remisión:', styles: {fontStyle: 'bold'}}, formData.facturaRemision || 'N/A'
+                         ],
+                    ];
+                    
+                   if (formData.tipoPedido) {
+                       const tipoPedidoText = `Tipo Pedido: ${formData.tipoPedido || 'N/A'}`;
+                       const maquilaText = formData.tipoPedido === 'MAQUILA' ? ` (${formData.tipoEmpaqueMaquila || 'N/A'})` : '';
+                       generalInfoBody.push([
+                           { content: `${tipoPedidoText}${maquilaText}`, styles: { fontStyle: 'bold' }, colSpan: 6 }
+                       ]);
+                   }
 
+                    autoTable(doc, {
+                       startY: yPos,
+                       head: [[{ content: `Datos de Recepción`, colSpan: 6, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]],
+                       body: generalInfoBody,
+                       theme: 'grid',
+                       styles: { fontSize: 8, cellPadding: 4, valign: 'middle' },
+                       columnStyles: { 0: { cellWidth: 'auto' }, 1: { cellWidth: '*' }, 2: { cellWidth: 'auto' }, 3: { cellWidth: '*' }, 4: { cellWidth: 'auto' }, 5: { cellWidth: '*' } },
+                       margin: { horizontal: margin },
+                   });
+                   yPos = (doc as any).autoTable.previous.finalY + 15;
+
+                    const drawItemsTable = (items: any[], subtitle?: string) => {
+                         if(subtitle) {
+                              autoTable(doc, {
+                                 startY: yPos,
+                                 body: [[{ content: subtitle, styles: { fontStyle: 'bold', fillColor: '#f1f5f9', textColor: '#1a202c' } }]],
+                                 theme: 'grid',
+                                 margin: { horizontal: margin },
+                             });
+                             yPos = (doc as any).autoTable.previous.finalY;
+                         }
+                        const isSummaryFormat = items.some((p: any) => Number(p.paleta) === 0);
+                        const head = isSummaryFormat
+                            ? [['Descripción', 'Lote', 'Presentación', 'Total Cant.', 'Total Paletas', 'Total P. Neto']]
+                            : [['Paleta', 'Descripción', 'Lote', 'Presentación', 'Cant.', 'P. Bruto', 'T. Estiba', 'T. Caja', 'Total Tara', 'P. Neto']];
+                        const body = items.map((p: any) => isSummaryFormat
+                            ? [p.descripcion, p.lote, p.presentacion, p.totalCantidad, p.totalPaletas, p.totalPesoNeto?.toFixed(2)]
+                            : [p.paleta, p.descripcion, p.lote, p.presentacion, p.cantidadPorPaleta, p.pesoBruto?.toFixed(2), p.taraEstiba?.toFixed(2), p.taraCaja?.toFixed(2), p.totalTaraCaja?.toFixed(2), p.pesoNeto?.toFixed(2)]
+                        );
+                         autoTable(doc, { startY: yPos, head, body, theme: 'grid', styles: { fontSize: 7, cellPadding: 3 }, headStyles: { fillColor: '#f8fafc', textColor: '#334155', fontStyle: 'bold' }, margin: { horizontal: margin }, });
+                         yPos = (doc as any).autoTable.previous.finalY + 15;
+                    };
+                    
+                     if(isTunelModeByPlate) {
                         (formData.placas || []).forEach((placa: any) => {
-                             autoTable(doc, {
-                                startY: yPos,
-                                head: [[{ content: `Placa: ${placa.numeroPlaca} | Conductor: ${placa.conductor} (C.C. ${placa.cedulaConductor})`, colSpan: 8, styles: { fillColor: '#ddebf7', fontStyle: 'bold', textColor: '#000' } }]],
-                                theme: 'grid',
-                                margin: { horizontal: margin },
-                                styles: { fontSize: 7, cellPadding: 3 },
-                             });
-                             yPos = (doc as any).autoTable.previous.finalY;
-
-                             autoTable(doc, {
-                                startY: yPos,
-                                head: [['Descripción', 'Lote', 'Presentación', 'Cant.', 'P. Bruto', 'T. Estiba', 'T. Caja', 'P. Neto']],
-                                body: (placa.items || []).map((p: any) => [
-                                    p.descripcion, p.lote, p.presentacion, p.cantidadPorPaleta,
-                                    p.pesoBruto?.toFixed(2), p.taraEstiba?.toFixed(2), p.taraCaja?.toFixed(2), p.pesoNeto?.toFixed(2)
-                                ]),
-                                theme: 'grid',
-                                styles: { fontSize: 7, cellPadding: 3 },
-                                headStyles: { fillColor: false, textColor: '#333', fontStyle: 'bold' },
-                                margin: { horizontal: margin },
-                             });
-                             yPos = (doc as any).autoTable.previous.finalY;
+                            const subTitle = `Placa: ${placa.numeroPlaca} | Conductor: ${placa.conductor} (C.C. ${placa.cedulaConductor})`;
+                            drawItemsTable(placa.items || [], subTitle);
                         });
-                        
-                        yPos += 15;
-
+                    } else {
+                        drawItemsTable(formData.items || []);
+                    }
+                    if (formData.tipoPedido === 'TUNEL DE CONGELACIÓN') {
+                        const { placaGroups, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso } = processTunelCongelacionData(formData);
                         if (placaGroups.length > 0) {
                              const addSummaryWithPageBreak = () => {
                                 const body = placaGroups.flatMap(placaGroup => 
@@ -733,87 +754,10 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                                 autoTable(doc, { ...summaryTableOptions, startY: (doc as any).autoTable.previous.finalY });
                                 yPos = (doc as any).autoTable.previous.finalY + 15;
                             };
-
                             addSummaryWithPageBreak();
                         }
                     } else {
-                        const operationTerm = 'Descargue';
-                        const isTunelModeByPlate = (formData.tipoPedido === 'TUNEL') && formData.recepcionPorPlaca;
-                        
-                        const generalInfoBody: any[][] = [
-                            [
-                               {content: 'Pedido SISLOG:', styles: {fontStyle: 'bold'}}, formData.pedidoSislog || 'N/A',
-                               {content: 'Cliente:', styles: {fontStyle: 'bold'}}, formData.cliente || 'N/A',
-                               {content: 'Fecha:', styles: {fontStyle: 'bold'}}, formData.fecha ? formatDateLocal(formData.fecha) : 'N/A'
-                            ],
-                             [
-                               {content: 'Conductor:', styles: {fontStyle: 'bold'}}, formData.conductor || 'N/A',
-                               {content: 'Cédula:', styles: {fontStyle: 'bold'}}, formData.cedulaConductor || 'N/A',
-                               {content: 'Placa:', styles: {fontStyle: 'bold'}}, formData.placa || 'N/A'
-                             ],
-                             [
-                               {content: 'Precinto:', styles: {fontStyle: 'bold'}}, formData.precinto || 'N/A',
-                               {content: 'Set Point (°C):', styles: {fontStyle: 'bold'}}, formatOptionalNumber(formData.setPoint),
-                               {content: 'Contenedor:', styles: {fontStyle: 'bold'}}, formData.contenedor || 'N/A'
-                             ],
-                             [
-                               {content: `H. Inicio ${operationTerm}:`, styles: {fontStyle: 'bold'}}, formatTime12Hour(formData.horaInicio),
-                               {content: `H. Fin ${operationTerm}:`, styles: {fontStyle: 'bold'}}, formatTime12Hour(formData.horaFin),
-                               {content: 'Factura/Remisión:', styles: {fontStyle: 'bold'}}, formData.facturaRemision || 'N/A'
-                             ],
-                        ];
-                        
-                       if (formData.tipoPedido) {
-                           const tipoPedidoText = `Tipo Pedido: ${formData.tipoPedido || 'N/A'}`;
-                           const maquilaText = formData.tipoPedido === 'MAQUILA' ? ` (${formData.tipoEmpaqueMaquila || 'N/A'})` : '';
-                           generalInfoBody.push([
-                               { content: `${tipoPedidoText}${maquilaText}`, styles: { fontStyle: 'bold' }, colSpan: 6 }
-                           ]);
-                       }
-
-                        autoTable(doc, {
-                           startY: yPos,
-                           head: [[{ content: `Datos de Recepción`, colSpan: 6, styles: { fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold', halign: 'center' } }]],
-                           body: generalInfoBody,
-                           theme: 'grid',
-                           styles: { fontSize: 8, cellPadding: 4, valign: 'middle' },
-                           columnStyles: { 0: { cellWidth: 'auto' }, 1: { cellWidth: '*' }, 2: { cellWidth: 'auto' }, 3: { cellWidth: '*' }, 4: { cellWidth: 'auto' }, 5: { cellWidth: '*' } },
-                           margin: { horizontal: margin },
-                       });
-                       yPos = (doc as any).autoTable.previous.finalY + 15;
-
-                        const drawItemsTable = (items: any[], subtitle?: string) => {
-                             if(subtitle) {
-                                  autoTable(doc, {
-                                     startY: yPos,
-                                     body: [[{ content: subtitle, styles: { fontStyle: 'bold', fillColor: '#f1f5f9', textColor: '#1a202c' } }]],
-                                     theme: 'grid',
-                                     margin: { horizontal: margin },
-                                 });
-                                 yPos = (doc as any).autoTable.previous.finalY;
-                             }
-                            const isSummaryFormat = items.some((p: any) => Number(p.paleta) === 0);
-                            const head = isSummaryFormat
-                                ? [['Descripción', 'Lote', 'Presentación', 'Total Cant.', 'Total Paletas', 'Total P. Neto']]
-                                : [['Paleta', 'Descripción', 'Lote', 'Presentación', 'Cant.', 'P. Bruto', 'T. Estiba', 'T. Caja', 'Total Tara', 'P. Neto']];
-                            const body = items.map((p: any) => isSummaryFormat
-                                ? [p.descripcion, p.lote, p.presentacion, p.totalCantidad, p.totalPaletas, p.totalPesoNeto?.toFixed(2)]
-                                : [p.paleta, p.descripcion, p.lote, p.presentacion, p.cantidadPorPaleta, p.pesoBruto?.toFixed(2), p.taraEstiba?.toFixed(2), p.taraCaja?.toFixed(2), p.totalTaraCaja?.toFixed(2), p.pesoNeto?.toFixed(2)]
-                            );
-                             autoTable(doc, { startY: yPos, head, body, theme: 'grid', styles: { fontSize: 7, cellPadding: 3 }, headStyles: { fillColor: '#f8fafc', textColor: '#334155', fontStyle: 'bold' }, margin: { horizontal: margin }, });
-                             yPos = (doc as any).autoTable.previous.finalY + 15;
-                        };
-                        
-                         if(isTunelModeByPlate) {
-                            (formData.placas || []).forEach((placa: any) => {
-                                const subTitle = `Placa: ${placa.numeroPlaca} | Conductor: ${placa.conductor} (C.C. ${placa.cedulaConductor})`;
-                                drawItemsTable(placa.items || [], subTitle);
-                            });
-                        } else {
-                            drawItemsTable(formData.items || []);
-                        }
-
-                        const { summaryData, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso } = processDefaultData(formData);
+                         const { summaryData, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso } = processDefaultData(formData);
                          if (summaryData.length > 0) {
                              addTableWithPageBreak({
                                 head: [[{ content: 'Resumen Agrupado de Productos', styles: { halign: 'center', fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold' } }]],
@@ -968,25 +912,23 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                          autoTable(doc, { startY: yPos, head, body, theme: 'grid', styles: { fontSize: 7, cellPadding: 3 }, headStyles: { fillColor: '#f8fafc', textColor: '#334155', fontStyle: 'bold' }, margin: { horizontal: margin }, });
                          yPos = (doc as any).autoTable.previous.finalY + 15;
                     }
-                    if (recalculatedSummary.length > 0) {
-                         addTableWithPageBreak({
-                            head: [[{ content: 'Resumen Agrupado de Productos', styles: { halign: 'center', fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold' } }]],
-                            body: [],
-                            theme: 'grid',
-                            margin: { horizontal: margin },
-                         });
-                         yPos -= 15;
-                         addTableWithPageBreak({
-                             head: [['Descripción', 'Temp(°C)', 'Total Cantidad', 'Total Paletas', 'Total Peso (kg)']],
-                             body: recalculatedSummary.map((p: any) => [ p.descripcion, p.temperatura, p.totalCantidad, p.totalPaletas, p.totalPeso.toFixed(2) ]),
-                             foot: [[ { content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }, totalGeneralCantidad, totalGeneralPaletas, totalGeneralPeso.toFixed(2) ]],
-                             theme: 'grid',
-                             footStyles: { fillColor: '#f1f5f9', fontStyle: 'bold', textColor: '#1a202c' },
-                             styles: { fontSize: 8, cellPadding: 4 },
-                             headStyles: { fillColor: '#f8fafc', textColor: '#334155', fontStyle: 'bold' },
-                             margin: { horizontal: margin, bottom: 40 },
-                         });
-                     }
+                     addTableWithPageBreak({
+                        head: [[{ content: 'Resumen Agrupado de Productos', styles: { halign: 'center', fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold' } }]],
+                        body: [],
+                        theme: 'grid',
+                        margin: { horizontal: margin },
+                     });
+                     yPos -= 15;
+                     addTableWithPageBreak({
+                         head: [['Descripción', 'Temp(°C)', 'Total Cantidad', 'Total Paletas', 'Total Peso (kg)']],
+                         body: recalculatedSummary.map((p: any) => [ p.descripcion, p.temperatura, p.totalCantidad, p.totalPaletas, p.totalPeso.toFixed(2) ]),
+                         foot: [[ { content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }, totalGeneralCantidad, totalGeneralPaletas, totalGeneralPeso.toFixed(2) ]],
+                         theme: 'grid',
+                         footStyles: { fillColor: '#f1f5f9', fontStyle: 'bold', textColor: '#1a202c' },
+                         styles: { fontSize: 8, cellPadding: 4 },
+                         headStyles: { fillColor: '#f8fafc', textColor: '#334155', fontStyle: 'bold' },
+                         margin: { horizontal: margin, bottom: 40 },
+                     });
                  }
                  addObservationsTable();
                  
@@ -1082,7 +1024,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
     };
     
     const renderReportContent = () => {
-        const { formData, userDisplayName } = submission;
+        const { formData, userDisplayName, formType } = submission;
         const props = { 
             formData, 
             userDisplayName, 
@@ -1098,7 +1040,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
             case 'variable-weight-recepcion':
             case 'variable-weight-reception':
                 if (submission.formData.tipoPedido === 'TUNEL A CÁMARA CONGELADOS') {
-                    return <TunelCongelacionSummary formData={formData} />
+                    return <TunelACamaraSummary formData={formData} />
                 }
                 return <VariableWeightReceptionReport {...props} />;
             default:
@@ -1205,62 +1147,54 @@ const DefaultSummary = ({ formData }: { formData: any }) => {
     );
 }
 
-const TunelCongelacionSummary = ({ formData }: { formData: any }) => {
-    const { placaGroups, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso } = processTunelCongelacionData(formData);
+const TunelACamaraSummary = ({ formData }: { formData: any }) => {
+    const allItems = formData.placas?.flatMap((p: any) => p.items) || [];
 
-    if (placaGroups.length === 0) return null;
+    const groupedByPresentation = allItems.reduce((acc: any, item: any) => {
+        const presentation = item.presentacion || 'SIN PRESENTACIÓN';
+        if (!acc[presentation]) {
+            acc[presentation] = {
+                items: [],
+                subTotalCantidad: 0,
+                subTotalPeso: 0,
+            };
+        }
+        acc[presentation].items.push(item);
+        acc[presentation].subTotalCantidad += Number(item.cantidadPorPaleta) || 0;
+        acc[presentation].subTotalPeso += Number(item.pesoNeto) || 0;
+        return acc;
+    }, {});
+
+    const totalGeneralCantidad = Object.values(groupedByPresentation).reduce((sum: number, group: any) => sum + group.subTotalCantidad, 0);
+    const totalGeneralPeso = Object.values(groupedByPresentation).reduce((sum: number, group: any) => sum + group.subTotalPeso, 0);
 
     return (
         <ReportSection title="Resumen Agrupado de Productos">
-            {placaGroups.map((placaGroup, groupIndex) => (
-                <div key={placaGroup.placa} style={{ marginBottom: '15px' }}>
-                     <h3 style={{ backgroundColor: '#ddebf7', padding: '6px 12px', fontWeight: 'bold', borderBottom: '1px solid #ddd', borderTop: groupIndex > 0 ? '1px solid #aaa' : 'none' }}>
-                        Placa: {placaGroup.placa} | Conductor: {placaGroup.conductor} (C.C. {placaGroup.cedulaConductor})
+            {Object.entries(groupedByPresentation).map(([presentation, groupData]: [string, any]) => (
+                <div key={presentation} style={{ marginBottom: '15px' }}>
+                    <h3 style={{ backgroundColor: '#f1f5f9', padding: '6px 12px', fontWeight: 'bold', borderBottom: '1px solid #ddd' }}>
+                        Presentación: {presentation}
                     </h3>
-                    {placaGroup.presentationGroups.map((group: any, presentationIndex: number) => (
-                        <div key={group.presentation} style={{ paddingLeft: '15px', marginTop: '5px' }}>
-                            <h4 style={{ padding: '4px 0', fontWeight: 'bold' }}>Presentación: {group.presentation}</h4>
-                            <table style={{ width: '100%', fontSize: '10px', borderCollapse: 'collapse' }}>
-                                <thead>
-                                    <tr style={{ borderBottom: '1px solid #ccc' }}>
-                                        <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Descripción</th>
-                                        <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Temp(°C)</th>
-                                        <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Paletas</th>
-                                        <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Cantidad</th>
-                                        <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Peso (kg)</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {group.products.map((p: any, productIndex: number) => {
-                                        const temps = [p.temperatura1, p.temperatura2, p.temperatura3].filter((t: any) => t != null && !isNaN(t));
-                                        const tempString = temps.join(' / ');
-                                        return (
-                                            <tr key={productIndex} style={{ borderBottom: '1px solid #eee' }}>
-                                                <td style={{ padding: '4px' }}>{p.descripcion}</td>
-                                                <td style={{ textAlign: 'right', padding: '4px' }}>{tempString}</td>
-                                                <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPaletas}</td>
-                                                <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalCantidad}</td>
-                                                <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPeso.toFixed(2)}</td>
-                                            </tr>
-                                        );
-                                    })}
-                                    <tr style={{ fontWeight: 'bold', backgroundColor: '#f8f9fa' }}>
-                                        <td colSpan={2} style={{ textAlign: 'right', padding: '4px' }}>Subtotal Presentación:</td>
-                                        <td style={{ textAlign: 'right', padding: '4px' }}>{group.subTotalPaletas}</td>
-                                        <td style={{ textAlign: 'right', padding: '4px' }}>{group.subTotalCantidad}</td>
-                                        <td style={{ textAlign: 'right', padding: '4px' }}>{group.subTotalPeso.toFixed(2)}</td>
-                                    </tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    ))}
-                    <table style={{ width: '100%', fontSize: '10px', borderCollapse: 'collapse', marginTop: '5px' }}>
+                    <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse' }}>
+                        <thead>
+                             <tr style={{ borderBottom: '1px solid #ddd', backgroundColor: '#fafafa' }}>
+                                <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Descripción</th>
+                                <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Cantidad</th>
+                                <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Peso Neto (kg)</th>
+                            </tr>
+                        </thead>
                         <tbody>
-                            <tr style={{ fontWeight: 'bold', backgroundColor: '#ddebf7' }}>
-                                <td colSpan={2} style={{ textAlign: 'right', padding: '4px' }}>Subtotal Placa:</td>
-                                <td style={{ textAlign: 'right', padding: '4px', width: '80px' }}>{placaGroup.totalPaletasPlaca}</td>
-                                <td style={{ textAlign: 'right', padding: '4px', width: '80px' }}>{placaGroup.totalCantidadPlaca}</td>
-                                <td style={{ textAlign: 'right', padding: '4px', width: '80px' }}>{placaGroup.totalPesoPlaca.toFixed(2)}</td>
+                            {groupData.items.map((item: any, index: number) => (
+                                <tr key={index} style={{ borderBottom: '1px solid #eee' }}>
+                                    <td style={{ padding: '4px' }}>{item.descripcion}</td>
+                                    <td style={{ textAlign: 'right', padding: '4px' }}>{Number(item.cantidadPorPaleta) || 0}</td>
+                                    <td style={{ textAlign: 'right', padding: '4px' }}>{(Number(item.pesoNeto) || 0).toFixed(2)}</td>
+                                </tr>
+                            ))}
+                            <tr style={{ fontWeight: 'bold', backgroundColor: '#f8f9fa' }}>
+                                <td style={{ textAlign: 'right', padding: '4px' }}>Subtotal Presentación:</td>
+                                <td style={{ textAlign: 'right', padding: '4px' }}>{groupData.subTotalCantidad}</td>
+                                <td style={{ textAlign: 'right', padding: '4px' }}>{groupData.subTotalPeso.toFixed(2)}</td>
                             </tr>
                         </tbody>
                     </table>
@@ -1269,8 +1203,7 @@ const TunelCongelacionSummary = ({ formData }: { formData: any }) => {
             <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse', marginTop: '15px' }}>
                 <tbody>
                     <tr style={{ fontWeight: 'bold', backgroundColor: '#e2e8f0', borderTop: '2px solid #aaa' }}>
-                        <td colSpan={2} style={{ textAlign: 'right', padding: '6px 4px' }}>TOTAL GENERAL:</td>
-                        <td style={{ textAlign: 'right', padding: '6px 4px', width: '80px' }}>{totalGeneralPaletas}</td>
+                        <td style={{ textAlign: 'right', padding: '6px 4px' }}>TOTAL GENERAL:</td>
                         <td style={{ textAlign: 'right', padding: '6px 4px', width: '80px' }}>{totalGeneralCantidad}</td>
                         <td style={{ textAlign: 'right', padding: '6px 4px', width: '80px' }}>{totalGeneralPeso.toFixed(2)}</td>
                     </tr>
