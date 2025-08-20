@@ -21,48 +21,7 @@ import { VariableWeightDispatchReport } from '@/components/app/reports/VariableW
 import { VariableWeightReceptionReport } from '@/components/app/reports/VariableWeightReceptionReport';
 import { optimizeImage } from '@/lib/image-optimizer';
 
-
-interface ReportComponentProps {
-    submission: SubmissionResult;
-}
-
-interface ImageWithDimensions {
-    src: string;
-    width: number;
-    height: number;
-}
-
-const getImageWithDimensions = (src: string): Promise<ImageWithDimensions> => {
-    return new Promise((resolve, reject) => {
-        const img = new Image();
-        img.onload = () => {
-            resolve({ src, width: img.width, height: img.height });
-        };
-        img.onerror = reject;
-        img.src = src;
-    });
-};
-
-const getImageAsBase64Client = async (url: string): Promise<string> => {
-    try {
-        const response = await fetch(url);
-        if (!response.ok) {
-            throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
-        }
-        const blob = await response.blob();
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onerror = reject;
-            reader.onload = () => {
-                resolve(reader.result as string);
-            };
-            reader.readAsDataURL(blob);
-        });
-    } catch(e) {
-        console.error("Error fetching client image", e);
-        return "";
-    }
-};
+// --- HELPER FUNCTIONS ---
 
 const formatTime12Hour = (time24: string | undefined): string => {
     if (!time24 || !time24.includes(':')) return 'N/A';
@@ -106,6 +65,9 @@ const formatTipoPedido = (tipo: string | undefined): string => {
     if (tipo === 'DESPACHO GENERICO') return 'GENERICO';
     return tipo || 'N/A';
 };
+
+
+// --- DATA PROCESSING LOGIC ---
 
 const processDefaultData = (formData: any) => {
     const allItems = formData.items || [];
@@ -214,6 +176,51 @@ const processTunelACamaraData = (formData: any) => {
     const totalGeneralPeso = Object.values(groupedByPresentation).reduce((sum: number, group: any) => sum + group.subTotalPeso, 0);
 
     return { groupedByPresentation, totalGeneralCantidad, totalGeneralPeso };
+};
+
+
+// --- REACT COMPONENT ---
+
+interface ReportComponentProps {
+    submission: SubmissionResult;
+}
+
+interface ImageWithDimensions {
+    src: string;
+    width: number;
+    height: number;
+}
+
+const getImageWithDimensions = (src: string): Promise<ImageWithDimensions> => {
+    return new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => {
+            resolve({ src, width: img.width, height: img.height });
+        };
+        img.onerror = reject;
+        img.src = src;
+    });
+};
+
+const getImageAsBase64Client = async (url: string): Promise<string> => {
+    try {
+        const response = await fetch(url);
+        if (!response.ok) {
+            throw new Error(`Failed to fetch image: ${response.status} ${response.statusText}`);
+        }
+        const blob = await response.blob();
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onerror = reject;
+            reader.onload = () => {
+                resolve(reader.result as string);
+            };
+            reader.readAsDataURL(blob);
+        });
+    } catch(e) {
+        console.error("Error fetching client image", e);
+        return "";
+    }
 };
 
 export default function ReportComponent({ submission }: ReportComponentProps) {
@@ -396,7 +403,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
              const addTableWithPageBreak = (options: any) => {
                 // Clone the doc object to run a simulation
                 const clonedDoc = new jsPDF();
-                autoTable(clonedDoc, { ...options, startY: 0, addPageContent: () => {} });
+                autoTable(clonedDoc, { ...options, startY: 0, didDrawPage: () => {} });
                 const tableHeight = (clonedDoc as any).autoTable.previous.finalY;
 
                 if (yPos + tableHeight > pageHeight - margin) {
@@ -721,10 +728,10 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     } else {
                         drawItemsTable(formData.items || []);
                     }
+                    
                     if (formData.tipoPedido === 'TUNEL DE CONGELACIÓN') {
-                        const { placaGroups, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso } = processTunelCongelacionData(formData);
-                        
                         const addSummaryWithPageBreak = () => {
+                            const { placaGroups, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso } = processTunelCongelacionData(formData);
                             const body = placaGroups.flatMap(placaGroup => 
                                 [
                                     [{ content: `Placa: ${placaGroup.placa}`, colSpan: 5, styles: { fontStyle: 'bold', fillColor: '#d9e2f3', textColor: '#000' } }],
@@ -759,7 +766,17 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                                 footStyles: { fillColor: '#1A90C8', fontStyle: 'bold', textColor: '#fff' }
                             };
                             
-                            addTableWithPageBreak({
+                            const clonedDoc = new jsPDF();
+                            autoTable(clonedDoc, { ...summaryTableOptions, startY: 0, didDrawPage: () => {} });
+                            const tableHeight = (clonedDoc as any).autoTable.previous.finalY;
+
+                            const headerHeight = 20; 
+                            if (yPos + tableHeight + headerHeight > pageHeight - margin) {
+                                doc.addPage();
+                                yPos = margin;
+                            }
+                            
+                            autoTable(doc, {
                                 startY: yPos,
                                 head: [[{ content: 'Resumen Agrupado de Productos', styles: {halign: 'center', fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold' } }]],
                                 body: [],
@@ -1063,14 +1080,14 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
     };
     
     const renderReportContent = () => {
-        const { formData, userDisplayName, formType } = submission;
+        const { userDisplayName } = submission;
         const props = { 
-            formData, 
+            formData: submission.formData,
             userDisplayName, 
             attachments: base64Images.map(img => img.src),
         };
 
-        switch (formType) {
+        switch (submission.formType) {
             case 'fixed-weight-recepcion':
             case 'fixed-weight-despacho':
                  return <FixedWeightReport {...props} formType={submission.formType} />;
@@ -1079,11 +1096,11 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
             case 'variable-weight-recepcion':
             case 'variable-weight-reception':
                 if (submission.formData.tipoPedido === 'TUNEL A CÁMARA CONGELADOS') {
-                    return <VariableWeightReceptionReport {...props} summaryComponent={TunelACamaraSummary} />;
+                    return <VariableWeightReceptionReport {...props} />;
                 } else if (submission.formData.tipoPedido === 'TUNEL DE CONGELACIÓN') {
-                    return <VariableWeightReceptionReport {...props} summaryComponent={TunelCongelacionSummary} />;
+                    return <VariableWeightReceptionReport {...props} />;
                 }
-                return <VariableWeightReceptionReport {...props} summaryComponent={DefaultSummary} />;
+                return <VariableWeightReceptionReport {...props} />;
             default:
                 return <div className="p-4">Tipo de formato no reconocido.</div>;
         }
@@ -1198,7 +1215,7 @@ const TunelCongelacionSummary = ({ formData }: { formData: any }) => {
                     <h3 style={{ backgroundColor: '#ddebf7', padding: '6px 12px', fontWeight: 'bold', borderBottom: '1px solid #ddd', borderTop: '1px solid #aaa' }}>
                         Placa: {placaGroup.placa} | Conductor: {placaGroup.conductor} (C.C. {placaGroup.cedulaConductor})
                     </h3>
-                    {placaGroup.presentationGroups.map((group, groupIndex) => (
+                    {placaGroup.presentationGroups.map((group: any, groupIndex: number) => (
                         <div key={`presentation-summary-${groupIndex}`} style={{ paddingLeft: '15px', marginTop: '5px' }}>
                              <h4 style={{ padding: '4px 0', fontWeight: 'bold' }}>Presentación: {group.presentation}</h4>
                              <table style={{ width: '100%', fontSize: '10px', borderCollapse: 'collapse' }}>
