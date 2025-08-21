@@ -138,7 +138,7 @@ const processTunelCongelacionData = (formData: any) => {
 
         const totalPaletasPlaca = presentationGroups.reduce((acc: number, group: any) => acc + group.subTotalPaletas, 0);
         const totalCantidadPlaca = presentationGroups.reduce((acc: number, group: any) => acc + group.subTotalCantidad, 0);
-        const totalPesoPlaca = presentationGroups.reduce((acc, group: any) => acc + group.subTotalPeso, 0);
+        const totalPesoPlaca = presentationGroups.reduce((acc: number, group: any) => acc + group.subTotalPeso, 0);
 
         return {
             placa: placa.numeroPlaca,
@@ -161,24 +161,25 @@ const processTunelCongelacionData = (formData: any) => {
 const processTunelACamaraData = (formData: any) => {
     const allItems = formData.items || [];
     
+    // 1. Group items by presentation
     const groupedByPresentation = allItems.reduce((acc: any, item: any) => {
         const presentation = item.presentacion || 'SIN PRESENTACIÓN';
         if (!acc[presentation]) {
-            acc[presentation] = {
-                products: {},
-                subTotalCantidad: 0,
-                subTotalPeso: 0,
-                subTotalPaletas: 0
-            };
+            acc[presentation] = { products: {} };
         }
         
         const desc = item.descripcion || 'SIN DESCRIPCIÓN';
         if (!acc[presentation].products[desc]) {
+            // Find corresponding summary item to get temperatures
+            const summaryItem = formData.summary?.find((s: any) => s.descripcion === desc && s.presentacion === presentation);
             acc[presentation].products[desc] = {
                 descripcion: desc,
                 cantidad: 0,
                 paletas: new Set(),
                 pesoNeto: 0,
+                temperatura1: summaryItem?.temperatura1,
+                temperatura2: summaryItem?.temperatura2,
+                temperatura3: summaryItem?.temperatura3,
             };
         }
         
@@ -191,7 +192,8 @@ const processTunelACamaraData = (formData: any) => {
 
         return acc;
     }, {});
-
+    
+    // 2. Calculate totals for each presentation group
     Object.values(groupedByPresentation).forEach((group: any) => {
         group.products = Object.values(group.products).map((prod: any) => ({
             ...prod,
@@ -202,6 +204,7 @@ const processTunelACamaraData = (formData: any) => {
         group.subTotalPaletas = group.products.reduce((sum: number, p: any) => sum + p.totalPaletas, 0);
     });
 
+    // 3. Calculate grand totals
     const totalGeneralCantidad = Object.values(groupedByPresentation).reduce((sum: number, group: any) => sum + group.subTotalCantidad, 0);
     const totalGeneralPeso = Object.values(groupedByPresentation).reduce((sum: number, group: any) => sum + group.subTotalPeso, 0);
     const totalGeneralPaletas = Object.values(groupedByPresentation).reduce((sum: number, group: any) => sum + group.subTotalPaletas, 0);
@@ -823,29 +826,35 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         const { groupedByPresentation, totalGeneralCantidad, totalGeneralPeso, totalGeneralPaletas } = processTunelACamaraData(formData);
                         
                         const body = Object.entries(groupedByPresentation).flatMap(([presentation, groupData]: [string, any]) => {
-                            const presentationRow = [{ content: `Presentación: ${presentation}`, colSpan: 4, styles: { fontStyle: 'bold', fillColor: '#f2f2f2' } }];
-                            const productRows = groupData.products.map((item: any) => [
-                                item.descripcion,
-                                item.cantidad || 0,
-                                item.totalPaletas,
-                                (Number(item.pesoNeto) || 0).toFixed(2)
-                            ]);
-                            const subtotalRow = [{ content: 'Subtotal:', styles: { halign: 'right', fontStyle: 'bold' } }, 
-                                { content: groupData.subTotalCantidad, styles: { fontStyle: 'bold' } }, 
-                                { content: groupData.subTotalPaletas, styles: { fontStyle: 'bold' } }, 
-                                { content: groupData.subTotalPeso.toFixed(2), styles: { fontStyle: 'bold' } }
+                            const presentationRow = [{ content: `Presentación: ${presentation}`, colSpan: 5, styles: { fontStyle: 'bold', fillColor: '#f2f2f2' } }];
+                            const productRows = groupData.products.map((item: any) => {
+                                const temps = [item.temperatura1, item.temperatura2, item.temperatura3].filter(t => t != null && !isNaN(t)).join(' / ');
+                                return [
+                                    item.descripcion,
+                                    temps,
+                                    item.cantidad || 0,
+                                    item.totalPaletas,
+                                    (Number(item.pesoNeto) || 0).toFixed(2)
+                                ];
+                            });
+                            const subtotalRow = [
+                                { content: 'Subtotal:', styles: { halign: 'right', fontStyle: 'bold', fillColor: '#f8f8f8' } },
+                                { content: '', styles: {fillColor: '#f8f8f8'}}, // Empty cell for temp
+                                { content: groupData.subTotalCantidad, styles: { halign: 'right', fontStyle: 'bold', fillColor: '#f8f8f8' } },
+                                { content: groupData.subTotalPaletas, styles: { halign: 'right', fontStyle: 'bold', fillColor: '#f8f8f8' } },
+                                { content: groupData.subTotalPeso.toFixed(2), styles: { halign: 'right', fontStyle: 'bold', fillColor: '#f8f8f8' } }
                             ];
                             return [presentationRow, ...productRows, subtotalRow];
                         });
                         
                         const summaryTableOptions = {
-                            head: [['Descripción', 'Cantidad', 'Total Paletas', 'Peso Neto (kg)']],
+                            head: [['Descripción', 'Temperaturas (°C)', 'Cantidad', 'Total Paletas', 'Peso Neto (kg)']],
                             body,
                             foot: [[
-                                { content: 'TOTAL GENERAL:', styles: { halign: 'right', fontStyle: 'bold', fillColor: '#1A90C8', textColor: '#FFFFFF' } }, 
-                                { content: totalGeneralCantidad, styles: { fontStyle: 'bold', fillColor: '#1A90C8', textColor: '#FFFFFF' } },
-                                { content: totalGeneralPaletas, styles: { fontStyle: 'bold', fillColor: '#1A90C8', textColor: '#FFFFFF' } },
-                                { content: totalGeneralPeso.toFixed(2), styles: { fontStyle: 'bold', fillColor: '#1A90C8', textColor: '#FFFFFF' } }
+                                { content: 'TOTAL GENERAL:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold', fillColor: '#1A90C8', textColor: '#FFFFFF' } }, 
+                                { content: totalGeneralCantidad, styles: { fontStyle: 'bold', fillColor: '#1A90C8', textColor: '#FFFFFF', halign: 'right' } },
+                                { content: totalGeneralPaletas, styles: { fontStyle: 'bold', fillColor: '#1A90C8', textColor: '#FFFFFF', halign: 'right' } },
+                                { content: totalGeneralPeso.toFixed(2), styles: { fontStyle: 'bold', fillColor: '#1A90C8', textColor: '#FFFFFF', halign: 'right' } }
                             ]],
                             theme: 'grid', margin: { horizontal: margin }, styles: { fontSize: 8, cellPadding: 3 }, headStyles: { fillColor: '#fff', textColor: '#333' }, footStyles: { fillColor: '#1A90C8', fontStyle: 'bold', textColor: '#fff' }
                         };
@@ -1196,3 +1205,5 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
         </div>
     );
 }
+
+    
