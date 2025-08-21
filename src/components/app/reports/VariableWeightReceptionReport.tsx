@@ -62,7 +62,7 @@ const ReportField = ({ label, value }: { label: string, value: any }) => (
 
 // --- DATA PROCESSING LOGIC ---
 
-const processDefaultData = (formData: any) => {
+export const processDefaultData = (formData: any) => {
     const allItems = formData.items || [];
     const isSummaryMode = allItems.some((p: any) => Number(p.paleta) === 0);
     
@@ -81,7 +81,7 @@ const processDefaultData = (formData: any) => {
     return { summaryData, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso, isSummaryMode };
 };
 
-const processTunelCongelacionData = (formData: any) => {
+export const processTunelCongelacionData = (formData: any) => {
     const placaGroups = (formData.placas || []).map((placa: any) => {
         const itemsByPresentation = (placa.items || []).reduce((acc: any, item: any) => {
             const presentation = item.presentacion || 'SIN PRESENTACIÓN';
@@ -149,6 +149,52 @@ const processTunelCongelacionData = (formData: any) => {
     const totalGeneralPeso = placaGroups.reduce((acc, placa) => acc + placa.totalPesoPlaca, 0);
 
     return { placaGroups, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso };
+};
+
+export const processTunelACamaraData = (formData: any) => {
+    const allItems = formData.items || [];
+    
+    const groupedByPresentation = allItems.reduce((acc: any, item: any) => {
+        const presentation = item.presentacion || 'SIN PRESENTACIÓN';
+        if (!acc[presentation]) {
+            acc[presentation] = { products: {}, subTotalCantidad: 0, subTotalPeso: 0, subTotalPaletas: 0 };
+        }
+        
+        const desc = item.descripcion || 'SIN DESCRIPCIÓN';
+        if (!acc[presentation].products[desc]) {
+            acc[presentation].products[desc] = {
+                descripcion: desc,
+                cantidad: 0,
+                paletas: new Set(),
+                pesoNeto: 0,
+            };
+        }
+        
+        const productGroup = acc[presentation].products[desc];
+        productGroup.cantidad += Number(item.cantidadPorPaleta) || 0;
+        productGroup.pesoNeto += Number(item.pesoNeto) || 0;
+        if (item.paleta !== undefined && !isNaN(Number(item.paleta)) && Number(item.paleta) > 0) {
+            productGroup.paletas.add(item.paleta);
+        }
+
+        return acc;
+    }, {});
+
+    Object.values(groupedByPresentation).forEach((group: any) => {
+        group.products = Object.values(group.products).map((prod: any) => ({
+            ...prod,
+            totalPaletas: prod.paletas.size,
+        }));
+        group.subTotalCantidad = group.products.reduce((sum: number, p: any) => sum + p.cantidad, 0);
+        group.subTotalPeso = group.products.reduce((sum: number, p: any) => sum + p.pesoNeto, 0);
+        group.subTotalPaletas = group.products.reduce((sum: number, p: any) => sum + p.totalPaletas, 0);
+    });
+
+    const totalGeneralCantidad = Object.values(groupedByPresentation).reduce((sum: number, group: any) => sum + group.subTotalCantidad, 0);
+    const totalGeneralPeso = Object.values(groupedByPresentation).reduce((sum: number, group: any) => sum + group.subTotalPeso, 0);
+    const totalGeneralPaletas = Object.values(groupedByPresentation).reduce((sum: number, group: any) => sum + group.subTotalPaletas, 0);
+    
+    return { groupedByPresentation, totalGeneralCantidad, totalGeneralPeso, totalGeneralPaletas };
 };
 
 
@@ -225,6 +271,8 @@ export function VariableWeightReceptionReport({ formData, userDisplayName, attac
 
             {isTunelCongelacion ? (
                 <TunelCongelacionSummary formData={formData} />
+            ) : formData.tipoPedido === 'TUNEL A CÁMARA CONGELADOS' ? (
+                 <TunelACamaraSummary formData={formData} />
             ) : (
                 <DefaultSummary formData={formData} />
             )}
@@ -373,7 +421,7 @@ const TunelCongelacionSummary = ({ formData }: { formData: any }) => {
                     <h3 style={{ backgroundColor: '#ddebf7', padding: '6px 12px', fontWeight: 'bold', borderBottom: '1px solid #ddd', borderTop: '1px solid #aaa' }}>
                         Placa: {placaGroup.placa} | Conductor: {placaGroup.conductor} (C.C. {placaGroup.cedulaConductor})
                     </h3>
-                    {placaGroup.presentationGroups.map((group, groupIndex) => (
+                    {placaGroup.presentationGroups.map((group: any, groupIndex: number) => (
                         <div key={`presentation-summary-${groupIndex}`} style={{ paddingLeft: '15px', marginTop: '5px' }}>
                              <h4 style={{ padding: '4px 0', fontWeight: 'bold' }}>Presentación: {group.presentation}</h4>
                              <table style={{ width: '100%', fontSize: '10px', borderCollapse: 'collapse' }}>
@@ -428,6 +476,58 @@ const TunelCongelacionSummary = ({ formData }: { formData: any }) => {
                         <td colSpan={2} style={{ textAlign: 'right', padding: '6px 4px' }}>TOTAL GENERAL:</td>
                         <td style={{ textAlign: 'right', padding: '6px 4px', width: '80px' }}>{totalGeneralPaletas}</td>
                         <td style={{ textAlign: 'right', padding: '6px 4px', width: '80px' }}>{totalGeneralCantidad}</td>
+                        <td style={{ textAlign: 'right', padding: '6px 4px', width: '80px' }}>{totalGeneralPeso.toFixed(2)}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </ReportSection>
+    );
+};
+
+export const TunelACamaraSummary = ({ formData }: { formData: any }) => {
+    const { groupedByPresentation, totalGeneralCantidad, totalGeneralPeso, totalGeneralPaletas } = processTunelACamaraData(formData);
+    
+    return (
+        <ReportSection title="Resumen Agrupado de Productos">
+            {Object.entries(groupedByPresentation).map(([presentation, groupData]: [string, any]) => (
+                <div key={presentation} style={{ marginBottom: '15px' }}>
+                    <h3 style={{ backgroundColor: '#f1f5f9', padding: '6px 12px', fontWeight: 'bold', borderBottom: '1px solid #ddd' }}>
+                        Presentación: {presentation}
+                    </h3>
+                    <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse' }}>
+                        <thead>
+                             <tr style={{ borderBottom: '1px solid #ddd', backgroundColor: '#fafafa' }}>
+                                <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Descripción</th>
+                                <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Cantidad</th>
+                                <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Paletas</th>
+                                <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Peso Neto (kg)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {groupData.products.map((item: any, index: number) => (
+                                <tr key={index} style={{ borderBottom: '1px solid #eee' }}>
+                                    <td style={{ padding: '4px' }}>{item.descripcion}</td>
+                                    <td style={{ textAlign: 'right', padding: '4px' }}>{item.cantidad}</td>
+                                    <td style={{ textAlign: 'right', padding: '4px' }}>{item.totalPaletas}</td>
+                                    <td style={{ textAlign: 'right', padding: '4px' }}>{item.pesoNeto.toFixed(2)}</td>
+                                </tr>
+                            ))}
+                            <tr style={{ fontWeight: 'bold', backgroundColor: '#f8f9fa' }}>
+                                <td style={{ textAlign: 'right', padding: '4px' }}>Subtotal Presentación:</td>
+                                <td style={{ textAlign: 'right', padding: '4px' }}>{groupData.subTotalCantidad}</td>
+                                <td style={{ textAlign: 'right', padding: '4px' }}>{groupData.subTotalPaletas}</td>
+                                <td style={{ textAlign: 'right', padding: '4px' }}>{groupData.subTotalPeso.toFixed(2)}</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            ))}
+            <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse', marginTop: '15px' }}>
+                <tbody>
+                    <tr style={{ fontWeight: 'bold', backgroundColor: '#e2e8f0', borderTop: '2px solid #aaa' }}>
+                        <td style={{ textAlign: 'right', padding: '6px 4px' }}>TOTAL GENERAL:</td>
+                        <td style={{ textAlign: 'right', padding: '6px 4px', width: '80px' }}>{totalGeneralCantidad}</td>
+                        <td style={{ textAlign: 'right', padding: '6px 4px', width: '80px' }}>{totalGeneralPaletas}</td>
                         <td style={{ textAlign: 'right', padding: '6px 4px', width: '80px' }}>{totalGeneralPeso.toFixed(2)}</td>
                     </tr>
                 </tbody>
