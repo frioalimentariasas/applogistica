@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useMemo } from 'react';
@@ -157,16 +156,21 @@ export const processTunelACamaraData = (formData: any) => {
     const groupedByPresentation = allItems.reduce((acc: any, item: any) => {
         const presentation = item.presentacion || 'SIN PRESENTACIÓN';
         if (!acc[presentation]) {
-            acc[presentation] = { products: {}, subTotalCantidad: 0, subTotalPeso: 0, subTotalPaletas: 0 };
+            acc[presentation] = { products: {} };
         }
         
         const desc = item.descripcion || 'SIN DESCRIPCIÓN';
         if (!acc[presentation].products[desc]) {
+            // Find corresponding summary item to get temperatures
+            const summaryItem = formData.summary?.find((s: any) => s.descripcion === desc && s.presentacion === presentation);
             acc[presentation].products[desc] = {
                 descripcion: desc,
                 cantidad: 0,
                 paletas: new Set(),
                 pesoNeto: 0,
+                temperatura1: summaryItem?.temperatura1,
+                temperatura2: summaryItem?.temperatura2,
+                temperatura3: summaryItem?.temperatura3,
             };
         }
         
@@ -179,7 +183,7 @@ export const processTunelACamaraData = (formData: any) => {
 
         return acc;
     }, {});
-
+    
     Object.values(groupedByPresentation).forEach((group: any) => {
         group.products = Object.values(group.products).map((prod: any) => ({
             ...prod,
@@ -492,28 +496,34 @@ export const TunelACamaraSummary = ({ formData }: { formData: any }) => {
             {Object.entries(groupedByPresentation).map(([presentation, groupData]: [string, any]) => (
                 <div key={presentation} style={{ marginBottom: '15px' }}>
                     <h3 style={{ backgroundColor: '#f1f5f9', padding: '6px 12px', fontWeight: 'bold', borderBottom: '1px solid #ddd' }}>
-                        Presentación: {presentation}
+                        Presentación: {presentation || 'SIN PRESENTACIÓN'}
                     </h3>
                     <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse' }}>
                         <thead>
                              <tr style={{ borderBottom: '1px solid #ddd', backgroundColor: '#fafafa' }}>
                                 <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Descripción</th>
+                                <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Temperaturas (°C)</th>
                                 <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Cantidad</th>
                                 <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Paletas</th>
                                 <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Peso Neto (kg)</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {groupData.products.map((item: any, index: number) => (
-                                <tr key={index} style={{ borderBottom: '1px solid #eee' }}>
-                                    <td style={{ padding: '4px' }}>{item.descripcion}</td>
-                                    <td style={{ textAlign: 'right', padding: '4px' }}>{item.cantidad}</td>
-                                    <td style={{ textAlign: 'right', padding: '4px' }}>{item.totalPaletas}</td>
-                                    <td style={{ textAlign: 'right', padding: '4px' }}>{item.pesoNeto.toFixed(2)}</td>
-                                </tr>
-                            ))}
+                            {groupData.products.map((item: any, index: number) => {
+                                const temps = [item.temperatura1, item.temperatura2, item.temperatura3].filter((t: any) => t != null && !isNaN(t));
+                                const tempString = temps.join(' / ');
+                                return (
+                                    <tr key={index} style={{ borderBottom: '1px solid #eee' }}>
+                                        <td style={{ padding: '4px' }}>{item.descripcion}</td>
+                                        <td style={{ textAlign: 'right', padding: '4px' }}>{tempString}</td>
+                                        <td style={{ textAlign: 'right', padding: '4px' }}>{item.cantidad}</td>
+                                        <td style={{ textAlign: 'right', padding: '4px' }}>{item.totalPaletas}</td>
+                                        <td style={{ textAlign: 'right', padding: '4px' }}>{item.pesoNeto.toFixed(2)}</td>
+                                    </tr>
+                                );
+                            })}
                             <tr style={{ fontWeight: 'bold', backgroundColor: '#f8f9fa' }}>
-                                <td style={{ textAlign: 'right', padding: '4px' }}>Subtotal Presentación:</td>
+                                <td colSpan={2} style={{ textAlign: 'right', padding: '4px' }}>Subtotal Presentación:</td>
                                 <td style={{ textAlign: 'right', padding: '4px' }}>{groupData.subTotalCantidad}</td>
                                 <td style={{ textAlign: 'right', padding: '4px' }}>{groupData.subTotalPaletas}</td>
                                 <td style={{ textAlign: 'right', padding: '4px' }}>{groupData.subTotalPeso.toFixed(2)}</td>
@@ -525,7 +535,7 @@ export const TunelACamaraSummary = ({ formData }: { formData: any }) => {
             <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse', marginTop: '15px' }}>
                 <tbody>
                     <tr style={{ fontWeight: 'bold', backgroundColor: '#e2e8f0', borderTop: '2px solid #aaa' }}>
-                        <td style={{ textAlign: 'right', padding: '6px 4px' }}>TOTAL GENERAL:</td>
+                        <td colSpan={2} style={{ textAlign: 'right', padding: '6px 4px' }}>TOTAL GENERAL:</td>
                         <td style={{ textAlign: 'right', padding: '6px 4px', width: '80px' }}>{totalGeneralCantidad}</td>
                         <td style={{ textAlign: 'right', padding: '6px 4px', width: '80px' }}>{totalGeneralPaletas}</td>
                         <td style={{ textAlign: 'right', padding: '6px 4px', width: '80px' }}>{totalGeneralPeso.toFixed(2)}</td>
@@ -600,3 +610,4 @@ const ItemsTable = ({ items, tipoPedido }: { items: any[], tipoPedido: string })
 };
 
     
+
