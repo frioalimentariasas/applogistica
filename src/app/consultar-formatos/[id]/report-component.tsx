@@ -708,14 +708,25 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                              });
                              yPos = (doc as any).autoTable.previous.finalY;
                          }
+                        const isTunelCongelacion = formData.tipoPedido === 'TUNEL DE CONGELACIÓN';
                         const isSummaryFormat = items.some((p: any) => Number(p.paleta) === 0);
+                        
                         const head = isSummaryFormat
                             ? [['Descripción', 'Lote', 'Presentación', 'Total Cant.', 'Total Paletas', 'Total P. Neto']]
-                            : [['Paleta', 'Descripción', 'Lote', 'Presentación', 'Cant.', 'P. Bruto', 'T. Estiba', 'T. Caja', 'Total Tara', 'P. Neto']];
-                        const body = items.map((p: any) => isSummaryFormat
-                            ? [p.descripcion, p.lote, p.presentacion, p.totalCantidad, p.totalPaletas, p.totalPesoNeto?.toFixed(2)]
-                            : [p.paleta, p.descripcion, p.lote, p.presentacion, p.cantidadPorPaleta, p.pesoBruto?.toFixed(2), p.taraEstiba?.toFixed(2), p.taraCaja?.toFixed(2), p.totalTaraCaja?.toFixed(2), p.pesoNeto?.toFixed(2)]
-                        );
+                            : isTunelCongelacion
+                                ? [['Descripción', 'Lote', 'Presentación', 'Cant.', 'P. Bruto', 'T. Estiba', 'T. Caja', 'Total Tara', 'P. Neto']]
+                                : [['Paleta', 'Descripción', 'Lote', 'Presentación', 'Cant.', 'P. Bruto', 'T. Estiba', 'T. Caja', 'Total Tara', 'P. Neto']];
+
+                        const body = items.map((p: any) => {
+                            if (isSummaryFormat) {
+                                return [p.descripcion, p.lote, p.presentacion, p.totalCantidad, p.totalPaletas, p.totalPesoNeto?.toFixed(2)];
+                            }
+                            if (isTunelCongelacion) {
+                                return [p.descripcion, p.lote, p.presentacion, p.cantidadPorPaleta, p.pesoBruto?.toFixed(2), p.taraEstiba?.toFixed(2), p.taraCaja?.toFixed(2), p.totalTaraCaja?.toFixed(2), p.pesoNeto?.toFixed(2)];
+                            }
+                            return [p.paleta, p.descripcion, p.lote, p.presentacion, p.cantidadPorPaleta, p.pesoBruto?.toFixed(2), p.taraEstiba?.toFixed(2), p.taraCaja?.toFixed(2), p.totalTaraCaja?.toFixed(2), p.pesoNeto?.toFixed(2)];
+                        });
+
                          autoTable(doc, { startY: yPos, head, body, theme: 'grid', styles: { fontSize: 7, cellPadding: 3 }, headStyles: { fillColor: '#f8fafc', textColor: '#334155', fontStyle: 'bold' }, margin: { horizontal: margin }, });
                          yPos = (doc as any).autoTable.previous.finalY + 15;
                     };
@@ -1373,4 +1384,3 @@ const ItemsTable = ({ items, tipoPedido }: { items: any[], tipoPedido: string })
         </table>
     );
 };
-
