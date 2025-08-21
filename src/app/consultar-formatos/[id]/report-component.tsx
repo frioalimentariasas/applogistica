@@ -30,7 +30,7 @@ const formatTime12Hour = (time24: string | undefined): string => {
     const ampm = h >= 12 ? 'PM' : 'AM';
     h = h % 12;
     h = h ? h : 12; // the hour '0' should be '12'
-    return `${h}:${minutes} ${ampm}`;
+    return `${hours}:${minutes} ${ampm}`;
 };
 
 const formatDateLocal = (isoDateString: string | undefined): string => {
@@ -164,18 +164,29 @@ const processTunelACamaraData = (formData: any) => {
     const groupedByPresentation = allItems.reduce((acc: any, item: any) => {
         const presentation = item.presentacion || 'SIN PRESENTACIÓN';
         if (!acc[presentation]) {
-            acc[presentation] = { items: [], subTotalCantidad: 0, subTotalPeso: 0 };
+            acc[presentation] = { items: [], subTotalCantidad: 0, subTotalPeso: 0, uniquePallets: new Set() };
         }
         acc[presentation].items.push(item);
         acc[presentation].subTotalCantidad += Number(item.cantidadPorPaleta) || 0;
         acc[presentation].subTotalPeso += Number(item.pesoNeto) || 0;
+        if(item.paleta !== undefined && !isNaN(Number(item.paleta)) && Number(item.paleta) > 0) {
+            acc[presentation].uniquePallets.add(item.paleta);
+        }
         return acc;
     }, {});
 
-    const totalGeneralCantidad = Object.values(groupedByPresentation).reduce((sum: number, group: any) => sum + group.subTotalCantidad, 0);
-    const totalGeneralPeso = Object.values(groupedByPresentation).reduce((sum: number, group: any) => sum + group.subTotalPeso, 0);
+    const presentationGroupsWithPallets = Object.fromEntries(
+        Object.entries(groupedByPresentation).map(([presentation, group]: [string, any]) => [
+            presentation,
+            { ...group, subTotalPaletas: group.uniquePallets.size }
+        ])
+    );
 
-    return { groupedByPresentation, totalGeneralCantidad, totalGeneralPeso };
+    const totalGeneralCantidad = Object.values(presentationGroupsWithPallets).reduce((sum: number, group: any) => sum + group.subTotalCantidad, 0);
+    const totalGeneralPeso = Object.values(presentationGroupsWithPallets).reduce((sum: number, group: any) => sum + group.subTotalPeso, 0);
+    const totalGeneralPaletas = Object.values(presentationGroupsWithPallets).reduce((sum: number, group: any) => sum + group.subTotalPaletas, 0);
+    
+    return { groupedByPresentation: presentationGroupsWithPallets, totalGeneralCantidad, totalGeneralPeso, totalGeneralPaletas };
 };
 
 
@@ -699,15 +710,15 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                    yPos = (doc as any).autoTable.previous.finalY + 15;
 
                     const drawItemsTable = (items: any[], subtitle?: string) => {
-                         if(subtitle) {
-                              autoTable(doc, {
-                                 startY: yPos,
-                                 body: [[{ content: subtitle, styles: { fontStyle: 'bold', fillColor: '#f1f5f9', textColor: '#1a202c' } }]],
-                                 theme: 'grid',
-                                 margin: { horizontal: margin },
-                             });
-                             yPos = (doc as any).autoTable.previous.finalY;
-                         }
+                        if(subtitle) {
+                            autoTable(doc, {
+                                startY: yPos,
+                                body: [[{ content: subtitle, styles: { fontStyle: 'bold', fillColor: '#f1f5f9', textColor: '#1a202c' } }]],
+                                theme: 'grid',
+                                margin: { horizontal: margin },
+                            });
+                            yPos = (doc as any).autoTable.previous.finalY;
+                        }
                         const isTunelCongelacion = formData.tipoPedido === 'TUNEL DE CONGELACIÓN';
                         const isSummaryFormat = items.some((p: any) => Number(p.paleta) === 0);
                         
@@ -721,11 +732,13 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             if (isSummaryFormat) {
                                 return [p.descripcion, p.lote, p.presentacion, p.totalCantidad, p.totalPaletas, p.totalPesoNeto?.toFixed(2)];
                             }
-                            if (isTunelCongelacion) {
-                                return [p.descripcion, p.lote, p.presentacion, p.cantidadPorPaleta, p.pesoBruto?.toFixed(2), p.taraEstiba?.toFixed(2), p.taraCaja?.toFixed(2), p.totalTaraCaja?.toFixed(2), p.pesoNeto?.toFixed(2)];
+                            const rowData = [p.descripcion, p.lote, p.presentacion, p.cantidadPorPaleta, p.pesoBruto?.toFixed(2), p.taraEstiba?.toFixed(2), p.taraCaja?.toFixed(2), p.totalTaraCaja?.toFixed(2), p.pesoNeto?.toFixed(2)];
+                            if (!isTunelCongelacion) {
+                                rowData.unshift(p.paleta);
                             }
-                            return [p.paleta, p.descripcion, p.lote, p.presentacion, p.cantidadPorPaleta, p.pesoBruto?.toFixed(2), p.taraEstiba?.toFixed(2), p.taraCaja?.toFixed(2), p.totalTaraCaja?.toFixed(2), p.pesoNeto?.toFixed(2)];
+                            return rowData;
                         });
+
 
                          autoTable(doc, { startY: yPos, head, body, theme: 'grid', styles: { fontSize: 7, cellPadding: 3 }, headStyles: { fillColor: '#f8fafc', textColor: '#334155', fontStyle: 'bold' }, margin: { horizontal: margin }, });
                          yPos = (doc as any).autoTable.previous.finalY + 15;
@@ -790,22 +803,28 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         addSummaryWithPageBreak();
 
                     } else if (formData.tipoPedido === 'TUNEL A CÁMARA CONGELADOS') {
-                        const { groupedByPresentation, totalGeneralCantidad, totalGeneralPeso } = processTunelACamaraData(formData);
+                        const { groupedByPresentation, totalGeneralCantidad, totalGeneralPeso, totalGeneralPaletas } = processTunelACamaraData(formData);
                         
                         const body = Object.entries(groupedByPresentation).flatMap(([presentation, groupData]: [string, any]) => [
-                            [{ content: `Presentación: ${presentation}`, colSpan: 3, styles: { fontStyle: 'bold', fillColor: '#f2f2f2', textColor: '#000' } }],
+                            [{ content: `Presentación: ${presentation}`, colSpan: 4, styles: { fontStyle: 'bold', fillColor: '#f2f2f2', textColor: '#000' } }],
                             ...groupData.items.map((item: any) => [
                                 item.descripcion,
                                 item.cantidadPorPaleta || 0,
+                                item.paleta || 'N/A', // Muestra la paleta aquí
                                 (Number(item.pesoNeto) || 0).toFixed(2)
                             ]),
-                            [{ content: 'Subtotal:', styles: { halign: 'right', fontStyle: 'bold' } }, groupData.subTotalCantidad, groupData.subTotalPeso.toFixed(2)]
+                            [{ content: 'Subtotal:', styles: { halign: 'right', fontStyle: 'bold' } }, groupData.subTotalCantidad, groupData.subTotalPaletas, groupData.subTotalPeso.toFixed(2)]
                         ]);
                         
                         const summaryTableOptions = {
-                            head: [['Descripción', 'Cantidad', 'Peso Neto (kg)']],
+                            head: [['Descripción', 'Cantidad', 'Total Paletas', 'Peso Neto (kg)']],
                             body,
-                            foot: [[{ content: 'TOTAL GENERAL:', styles: { halign: 'right', fontStyle: 'bold', fillColor: '#1A90C8', textColor: '#FFFFFF' } }, totalGeneralCantidad, totalGeneralPeso.toFixed(2)]],
+                            foot: [[
+                                { content: 'TOTAL GENERAL:', styles: { halign: 'right', fontStyle: 'bold', fillColor: '#1A90C8', textColor: '#FFFFFF' } }, 
+                                totalGeneralCantidad,
+                                totalGeneralPaletas,
+                                totalGeneralPeso.toFixed(2)
+                            ]],
                             theme: 'grid', margin: { horizontal: margin }, styles: { fontSize: 8, cellPadding: 3 }, headStyles: { fillColor: '#fff', textColor: '#333' }, footStyles: { fillColor: '#1A90C8', fontStyle: 'bold', textColor: '#fff' }
                         };
 
@@ -1275,7 +1294,7 @@ const TunelCongelacionSummary = ({ formData }: { formData: any }) => {
 }
 
 const TunelACamaraSummary = ({ formData }: { formData: any }) => {
-    const { groupedByPresentation, totalGeneralCantidad, totalGeneralPeso } = processTunelACamaraData(formData);
+    const { groupedByPresentation, totalGeneralCantidad, totalGeneralPeso, totalGeneralPaletas } = processTunelACamaraData(formData);
     
     return (
         <ReportSection title="Resumen Agrupado de Productos">
@@ -1348,12 +1367,10 @@ const ItemsTable = ({ items, tipoPedido }: { items: any[], tipoPedido: string })
         { key: 'totalPesoNeto', label: 'Total P. Neto', align: 'right', format: (val: any) => val?.toFixed(2) },
     ];
 
-    const tunelColumns = baseColumns.filter(c => c.key !== 'paleta');
-
     const columnsToRender = isSummaryFormat 
         ? summaryColumns 
         : isTunelCongelacion
-        ? tunelColumns
+        ? baseColumns.filter(c => c.key !== 'paleta')
         : baseColumns;
 
     return (
@@ -1384,3 +1401,5 @@ const ItemsTable = ({ items, tipoPedido }: { items: any[], tipoPedido: string })
         </table>
     );
 };
+
+    
