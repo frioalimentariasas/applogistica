@@ -13,7 +13,7 @@ import { format, subDays, parseISO, startOfDay, endOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import * as XLSX from 'xlsx';
+import * as XLSX from 'xlsx-js-style';
 
 import { getCrewPerformanceReport, type CrewPerformanceReportRow } from '@/app/actions/crew-performance-report';
 import { addManualOperation, updateManualOperation, deleteManualOperation } from '@/app/crew-performance-report/actions';
@@ -139,7 +139,7 @@ const formatDuration = (totalMinutes: number | null): string => {
 };
 
 const getPerformanceIndicator = (row: CrewPerformanceReportRow): { text: string, className: string, icon: React.FC<any> } => {
-    const { operationalDurationMinutes, totalDurationMinutes, standard, cantidadConcepto, tipoOperacion, conceptoLiquidado } = row;
+    const { operationalDurationMinutes, totalDurationMinutes, standard, cantidadConcepto, conceptoLiquidado } = row;
 
     if (conceptoLiquidado !== 'CARGUE' && conceptoLiquidado !== 'DESCARGUE') {
         return { text: 'No Aplica', className: 'bg-gray-100 text-gray-600', icon: Circle };
@@ -556,17 +556,23 @@ export default function CrewPerformanceReportPage() {
             toast({ variant: 'destructive', title: 'Sin datos', description: 'No hay datos para exportar.' });
             return;
         }
+        
+        const wb = XLSX.utils.book_new();
 
-        const dateSuffix = dateRange?.from && dateRange.to 
-            ? `${format(dateRange.from, 'yyyy-MM-dd')}_a_${format(dateRange.to, 'yyyy-MM-dd')}`
-            : 'ultimos_7_dias';
+        const dateTitle = dateRange?.from && dateRange.to 
+            ? `Periodo: ${format(dateRange.from, 'dd/MM/yyyy', { locale: es })} - ${format(dateRange.to, 'dd/MM/yyyy', { locale: es })}`
+            : "Periodo: últimos 7 días";
         const timeSuffix = format(new Date(), 'yyyyMMdd-HHmm');
     
         if (type === 'productivity') {
-            const wb = XLSX.utils.book_new();
-
-            // Sheet 1: Detalle
-            const detailData = filteredReportData.map(row => ({
+            const title = "Reporte de Análisis de Productividad";
+            const wsDetailData = [
+                [{v: title, s: { font: { bold: true, sz: 14 }, alignment: { horizontal: 'center' } }}],
+                [{v: dateTitle, s: { font: { italic: true, sz: 10 }, alignment: { horizontal: 'center' } }}],
+                []
+            ];
+            XLSX.utils.sheet_add_aoa(wb, wsDetailData, { origin: 'A1' });
+            const wsDetail = XLSX.utils.sheet_add_json(wb, filteredReportData.map(row => ({
                 'Fecha': format(new Date(row.fecha), 'dd/MM/yy'),
                 'Operario': row.operario,
                 'Cliente': row.cliente,
@@ -583,11 +589,9 @@ export default function CrewPerformanceReportPage() {
                 'T. Operativo': formatDuration(row.operationalDurationMinutes),
                 'Productividad': getPerformanceIndicator(row).text,
                 'Novedades': row.novelties.map(n => `${n.type} (${n.downtimeMinutes} min)`).join(', '),
-            }));
-            const wsDetail = XLSX.utils.json_to_sheet(detailData);
+            })), { origin: 'A4', skipHeader: false });
             XLSX.utils.book_append_sheet(wb, wsDetail, "Detalle Productividad");
 
-            // Sheet 2: Resumen
             if (performanceSummary) {
                 const summarySheetData = [
                     ["Estado", "Cantidad de Operaciones", "% sobre Total Evaluado"],
@@ -605,8 +609,7 @@ export default function CrewPerformanceReportPage() {
                 const wsSummary = XLSX.utils.aoa_to_sheet(summarySheetData);
                 XLSX.utils.book_append_sheet(wb, wsSummary, "Resumen Productividad");
             }
-            
-            // Sheet 3: Novedades
+
             const noveltiesData = filteredReportData.filter(row => row.novelties.length > 0);
             if (noveltiesData.length > 0) {
                 const noveltiesExport = noveltiesData.flatMap(row => row.novelties.map(n => ({
@@ -618,80 +621,63 @@ export default function CrewPerformanceReportPage() {
                 })));
                 const wsNovelties = XLSX.utils.json_to_sheet(noveltiesExport);
                 XLSX.utils.book_append_sheet(wb, wsNovelties, "Novedades");
-            } else {
-                const wsNovelties = XLSX.utils.json_to_sheet([{"Mensaje": "No se registraron novedades en el periodo consultado."}]);
-                XLSX.utils.book_append_sheet(wb, wsNovelties, "Novedades");
             }
 
-            XLSX.writeFile(wb, `Reporte_Analisis_Productividad_${dateSuffix}_gen_${timeSuffix}.xlsx`);
+            XLSX.writeFile(wb, `Reporte_Analisis_Productividad_gen_${timeSuffix}.xlsx`);
 
         } else if (type === 'settlement') {
-             const wb = XLSX.utils.book_new();
+             const title = "Reporte de Liquidación de Cuadrilla";
+             const wsData = [
+                [{v: title, s: { font: { bold: true, sz: 14 }, alignment: { horizontal: 'center' } }}],
+                [{v: dateTitle, s: { font: { italic: true, sz: 10 }, alignment: { horizontal: 'center' } }}],
+                [],
+             ];
+             const ws = XLSX.utils.aoa_to_sheet(wsData);
+             ws['!merges'] = [ XLSX.utils.decode_range("A1:N1"), XLSX.utils.decode_range("A2:N2") ];
 
             const data = liquidationData.map(row => ({
-                'Mes': format(new Date(row.fecha), 'MMMM', { locale: es }),
-                'Fecha': format(new Date(row.fecha), 'dd/MM/yy'),
-                'Pedido': row.pedidoSislog,
-                'Contenedor': row.contenedor,
-                'Placa': row.placa,
-                'Cliente': row.cliente,
-                'Concepto': row.conceptoLiquidado,
-                'Cantidad': row.cantidadConcepto === -1 ? 'Pendiente' : row.cantidadConcepto,
-                'Unidad': row.cantidadConcepto === -1 ? '' : row.unidadMedidaConcepto,
-                'H. Inicio': row.horaInicio,
-                'H. Fin': row.horaFin,
-                'Duración': formatDuration(row.totalDurationMinutes),
-                'Valor Unitario': row.valorUnitario,
-                'Valor Total': row.valorTotalConcepto,
+                'Mes': format(new Date(row.fecha), 'MMMM', { locale: es }), 'Fecha': format(new Date(row.fecha), 'dd/MM/yy'), 'Pedido': row.pedidoSislog,
+                'Contenedor': row.contenedor, 'Placa': row.placa, 'Cliente': row.cliente, 'Concepto': row.conceptoLiquidado,
+                'Cantidad': row.cantidadConcepto === -1 ? 'Pendiente' : row.cantidadConcepto, 'Unidad': row.cantidadConcepto === -1 ? '' : row.unidadMedidaConcepto,
+                'H. Inicio': row.horaInicio, 'H. Fin': row.horaFin, 'Duración': formatDuration(row.totalDurationMinutes), 'Valor Unitario': row.valorUnitario, 'Valor Total': row.valorTotalConcepto,
             }));
+            const totalRow = { 'Mes': 'TOTAL GENERAL', 'Valor Total': totalLiquidacion };
             
-            const totalRow = {
-                'Mes': 'TOTAL GENERAL',
-                'Fecha': '', 'Pedido': '', 'Contenedor': '', 'Placa': '', 'Cliente': '', 'Concepto': '', 'Cantidad': '', 'Unidad': '',
-                'H. Inicio': '', 'H. Fin': '', 'Duración': '', 'Valor Unitario': '', 'Valor Total': totalLiquidacion,
-            };
-            
-            const ws = XLSX.utils.json_to_sheet([...data, totalRow]);
+            XLSX.utils.sheet_add_json(ws, [...data, totalRow], { origin: 'A4' });
+
             ws['!cols'] = [ {wch:12}, {wch:12}, {wch:15}, {wch:15}, {wch:12}, {wch:25}, {wch:20}, {wch:15}, {wch:15}, {wch:10}, {wch:10}, {wch:12}, {wch:15}, {wch:15} ];
-            
-            for (let i = 2; i <= data.length + 2; i++) {
-                if (ws[`H${i}`] && ws[`H${i}`].v !== 'Pendiente') ws[`H${i}`].z = '0.00';
-                if (ws[`M${i}`]) ws[`M${i}`].z = '"$"#,##0.00';
-                if (ws[`N${i}`]) ws[`N${i}`].z = '"$"#,##0.00';
-            }
-            
             XLSX.utils.book_append_sheet(wb, ws, "Liquidacion_Detallada");
 
             if (conceptSummary) {
-                const summaryDataToExport = conceptSummary.map(item => ({
-                    'Concepto': item.name,
-                    'Cantidad Total': item.totalCantidad,
-                    'Unidad Medida': item.unidadMedida,
-                    'Valor Unitario': item.valorUnitario,
-                    'Valor Total Liquidado': item.totalValor
-                }));
-
-                 const summaryTotalRow = {
-                    'Concepto': 'TOTAL GENERAL',
-                    'Cantidad Total': '',
-                    'Unidad Medida': '',
-                    'Valor Unitario': '',
-                    'Valor Total Liquidado': conceptSummary.reduce((acc, item) => acc + item.totalValor, 0)
-                };
+                const headerStyle = { font: { bold: true, color: { rgb: "FFFFFF" } }, fill: { fgColor: { rgb: "2563EB" } }, border: { top: {style: 'thin'}, bottom: {style: 'thin'}, left: {style: 'thin'}, right: {style: 'thin'} } };
+                const summaryWsData = [
+                    [{v: "Resumen de Liquidación", s: { font: { bold: true, sz: 14 }, alignment: { horizontal: 'center' } }}],
+                    [{v: dateTitle, s: { font: { italic: true, sz: 10 }, alignment: { horizontal: 'center' } }}],
+                    [],
+                    [
+                        {v: 'Concepto', s: headerStyle},
+                        {v: 'Cantidad Total', s: headerStyle},
+                        {v: 'Unidad Medida', s: headerStyle},
+                        {v: 'Valor Unitario', s: headerStyle},
+                        {v: 'Valor Total Liquidado', s: headerStyle},
+                    ]
+                ];
+                 const summaryDataToExport = conceptSummary.map(item => [
+                    {v: item.name}, {v: item.totalCantidad, t: 'n', z: '0.00'}, {v: item.unidadMedida},
+                    {v: item.valorUnitario, t: 'n', z: '"$"#,##0'}, {v: item.totalValor, t: 'n', z: '"$"#,##0.00'}
+                ]);
+                const summaryTotalRow = [
+                    {v: 'TOTAL GENERAL', s: { font: { bold: true }}}, '', '', '',
+                    {v: conceptSummary.reduce((acc, item) => acc + item.totalValor, 0), t: 'n', z: '"$"#,##0.00', s: { font: { bold: true }}}
+                ];
                 
-                const wsSummary = XLSX.utils.json_to_sheet([...summaryDataToExport, summaryTotalRow]);
-                wsSummary['!cols'] = [{ wch: 25 }, { wch: 20 }, { wch: 15 }, { wch: 20 }, { wch: 20 }];
-                
-                for (let i = 2; i <= summaryDataToExport.length + 2; i++) {
-                    if (wsSummary[`B${i}`] && typeof wsSummary[`B${i}`].v === 'number') wsSummary[`B${i}`].z = '0.00';
-                    if (wsSummary[`D${i}`]) wsSummary[`D${i}`].z = '"$"#,##0.00';
-                    if (wsSummary[`E${i}`]) wsSummary[`E${i}`].z = '"$"#,##0.00';
-                }
-
+                const wsSummary = XLSX.utils.aoa_to_sheet([...summaryWsData, ...summaryDataToExport, summaryTotalRow]);
+                wsSummary['!cols'] = [{ wch: 25 }, { wch: 15 }, { wch: 15 }, { wch: 20 }, { wch: 20 }];
+                wsSummary['!merges'] = [ XLSX.utils.decode_range("A1:E1"), XLSX.utils.decode_range("A2:E2") ];
                 XLSX.utils.book_append_sheet(wb, wsSummary, "Resumen_Liquidacion");
             }
-
-            XLSX.writeFile(wb, `Reporte_Liquidacion_Cuadrilla_${dateSuffix}_gen_${timeSuffix}.xlsx`);
+            
+            XLSX.writeFile(wb, `Reporte_Liquidacion_Cuadrilla_gen_${timeSuffix}.xlsx`);
         }
     };
     
@@ -702,184 +688,68 @@ export default function CrewPerformanceReportPage() {
             return;
         }
 
-        const dateSuffix = dateRange?.from && dateRange.to
-            ? `${format(dateRange.from, 'yyyy-MM-dd')}_a_${format(dateRange.to, 'yyyy-MM-dd')}`
-            : 'rango_no_definido';
+        const dateSuffix = dateRange?.from && dateRange.to ? `${format(dateRange.from, 'yyyy-MM-dd')}_a_${format(dateRange.to, 'yyyy-MM-dd')}` : 'rango_no_definido';
         const timeSuffix = format(new Date(), 'yyyyMMdd-HHmm');
-
         const doc = new jsPDF({ orientation: 'landscape' });
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
         let finalY = 15;
+        
+        const dateTitle = dateRange?.from && dateRange.to ? `Periodo: ${format(dateRange.from, 'dd/MM/yyyy', { locale: es })} - ${format(dateRange.to, 'dd/MM/yyyy', { locale: es })}` : "Periodo no especificado";
 
         const addHeader = (title: string) => {
-            doc.setFontSize(14);
-            doc.setFont('helvetica', 'bold');
-            doc.text(title, pageWidth / 2, 15, { align: 'center' });
-            finalY = 25;
+            doc.setFontSize(14); doc.setFont('helvetica', 'bold'); doc.text(title, pageWidth / 2, 15, { align: 'center' });
+            doc.setFontSize(10); doc.setFont('helvetica', 'normal'); doc.text(dateTitle, pageWidth / 2, 22, { align: 'center' });
+            finalY = 30;
         }
 
         const addFooter = () => {
              const pageCount = (doc as any).internal.getNumberOfPages();
              for (let i = 1; i <= pageCount; i++) {
                  doc.setPage(i);
-                 doc.setFontSize(8);
-                 doc.setTextColor(150);
+                 doc.setFontSize(8); doc.setTextColor(150);
                  doc.text(`Página ${i} de ${pageCount}`, pageWidth - 20, pageHeight - 10, { align: 'right' });
              }
         }
 
         if (type === 'productivity') {
             addHeader("Reporte de Análisis de Productividad");
-            
-            if (performanceSummary) {
-                doc.setFontSize(11);
-                doc.setFont('helvetica', 'bold');
-                doc.text("Resumen de Productividad (Cargue/Descargue)", 14, finalY);
-                finalY += 5;
-                autoTable(doc, {
-                    startY: finalY,
-                    head: [['Estado', 'Cantidad', '% sobre Total']],
-                    body: Object.entries(performanceSummary.summary)
-                        .filter(([key]) => key !== 'No Aplica' && key !== 'Sin Tiempo')
-                        .map(([key, value]) => [
-                            key,
-                            value.count,
-                            performanceSummary.totalEvaluable > 0 ? (value.count / performanceSummary.totalEvaluable * 100).toFixed(2) + '%' : '0.00%'
-                        ]),
-                    foot: [
-                        ['Total Evaluadas', performanceSummary.totalEvaluable, ''],
-                        ['Calificación', performanceSummary.qualification, '']
-                    ],
-                    theme: 'grid',
-                    styles: { fontSize: 8 },
-                    headStyles: { fillColor: '#e2e8f0', textColor: '#000' }
-                });
-                finalY = (doc as any).autoTable.previous.finalY + 10;
-            }
-
-            const noveltiesData = filteredReportData.filter(row => row.novelties.length > 0);
-             if (noveltiesData.length > 0) {
-                 if(finalY + 40 > pageHeight) { doc.addPage(); finalY = 15; }
-                 doc.setFontSize(11);
-                 doc.setFont('helvetica', 'bold');
-                 doc.text("Operaciones con Novedades", 14, finalY);
-                 finalY += 5;
-                const noveltiesExport = noveltiesData.flatMap(row => row.novelties.map(n => [
-                    format(new Date(row.fecha), 'dd/MM/yy'),
-                    row.pedidoSislog,
-                    row.cliente,
-                    n.type,
-                    n.downtimeMinutes + ' min'
-                ]));
-                autoTable(doc, {
-                    startY: finalY,
-                    head: [['Fecha', 'Pedido', 'Cliente', 'Novedad', 'Minutos']],
-                    body: noveltiesExport,
-                    theme: 'grid',
-                    styles: { fontSize: 8 }
-                });
-                finalY = (doc as any).autoTable.previous.finalY + 10;
-            }
-
-             if(finalY + 40 > pageHeight) { doc.addPage(); finalY = 15; }
-             doc.setFontSize(11);
-             doc.setFont('helvetica', 'bold');
-             doc.text("Detalle de Operaciones", 14, finalY);
-             finalY += 5;
-            autoTable(doc, {
-                startY: finalY,
-                head: [['Fecha', 'Operario', 'Cliente', 'Tipo Op.', 'Pedido', 'Contenedor', 'Placa', 'Concepto', 'H. Inicio', 'H. Fin', 'Cant.', 'T. Operativo', 'Productividad']],
-                body: filteredReportData.map(row => [
-                    format(new Date(row.fecha), 'dd/MM/yy'),
-                    row.operario,
-                    row.cliente,
-                    row.tipoOperacion,
-                    row.pedidoSislog,
-                    row.contenedor,
-                    row.placa,
-                    row.conceptoLiquidado,
-                    row.horaInicio,
-                    row.horaFin,
-                    row.cantidadConcepto === -1 ? 'Pendiente' : row.cantidadConcepto.toFixed(2) + ' Ton',
-                    formatDuration(row.operationalDurationMinutes),
-                    getPerformanceIndicator(row).text,
-                ]),
-                styles: { fontSize: 6, cellPadding: 1 },
-                headStyles: { fontSize: 6, cellPadding: 1 },
-                columnStyles: { cliente: { cellWidth: 35 } }
-            });
-            addFooter();
-            doc.save(`Reporte_Analisis_Productividad_${dateSuffix}_gen_${timeSuffix}.pdf`);
-
+            // ... (el resto de la lógica de productividad se mantiene)
         } else if (type === 'settlement') {
             addHeader("Reporte de Liquidación de Cuadrilla");
-
-            // Detailed Table
-            autoTable(doc, {
-                startY: 20,
-                head: [[
-                    'Mes', 'Fecha', 'Pedido', 'Contenedor', 'Placa', 'Cliente', 'Concepto',
-                    'Cantidad', 'Unidad', 'H. Inicio', 'H. Fin', 'Duración', 'Vlr. Unitario', 'Vlr. Total'
-                ]],
-                body: liquidationData.map(row => [
-                    format(new Date(row.fecha), 'MMMM', { locale: es }),
-                    format(new Date(row.fecha), 'dd/MM/yy'),
-                    row.pedidoSislog,
-                    row.contenedor,
-                    row.placa,
-                    row.cliente,
-                    row.conceptoLiquidado,
-                    row.cantidadConcepto === -1 ? 'Pendiente' : row.cantidadConcepto.toFixed(2),
-                    row.cantidadConcepto === -1 ? '' : row.unidadMedidaConcepto,
-                    row.horaInicio,
-                    row.horaFin,
-                    formatDuration(row.totalDurationMinutes),
-                    row.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }),
-                    row.valorTotalConcepto.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }),
-                ]),
-                theme: 'grid',
-                styles: { fontSize: 6, cellPadding: 1 },
-                headStyles: { fontSize: 6, cellPadding: 1, fillColor: '#3B82F6' },
-                footStyles: { fillColor: '#3B82F6', textColor: '#FFFFFF' },
-            });
-            finalY = (doc as any).autoTable.previous.finalY;
-
-            // Summary Table
-            if (conceptSummary && conceptSummary.length > 0) {
-                if (finalY > 150) { // Check if there is enough space, otherwise add a new page
-                    doc.addPage();
-                    finalY = 20;
-                } else {
-                    finalY += 15;
-                }
-
-                doc.setFontSize(11);
-                doc.setFont('helvetica', 'bold');
-                doc.text("Resumen de Conceptos Liquidados", 14, finalY);
-                finalY += 5;
-
-                autoTable(doc, {
-                    startY: finalY,
-                    head: [['Concepto', 'Cantidad Total', 'Unidad Medida', 'Valor Unitario', 'Valor Total Liquidado']],
-                    body: conceptSummary.map(item => [
-                        item.name,
-                        item.totalCantidad.toFixed(2),
-                        item.unidadMedida,
-                        item.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }),
-                        item.totalValor.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }),
-                    ]),
-                    foot: [[
-                        { content: 'TOTAL GENERAL', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold' } },
-                        { content: conceptSummary.reduce((acc, item) => acc + item.totalValor, 0).toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } }
-                    ]],
-                    theme: 'grid',
-                    styles: { fontSize: 8 },
-                    headStyles: { fillColor: '#e2e8f0', textColor: '#000' },
-                    footStyles: { fillColor: '#3B82F6', textColor: '#FFFFFF' },
-                });
+            // ... (el resto de la lógica de liquidación se mantiene)
+        }
+        
+        // El resto del código de generación de PDF no necesita cambios funcionales,
+        // solo el encabezado que ya fue modificado.
+        // Se omite para brevedad.
+        if (type === 'productivity') {
+             if (performanceSummary) {
+                doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.text("Resumen de Productividad (Cargue/Descargue)", 14, finalY); finalY += 5;
+                autoTable(doc, { startY: finalY, head: [['Estado', 'Cantidad', '% sobre Total']], body: Object.entries(performanceSummary.summary).filter(([key]) => key !== 'No Aplica' && key !== 'Sin Tiempo').map(([key, value]) => [ key, value.count, performanceSummary.totalEvaluable > 0 ? (value.count / performanceSummary.totalEvaluable * 100).toFixed(2) + '%' : '0.00%' ]), foot: [ ['Total Evaluadas', performanceSummary.totalEvaluable, ''], ['Calificación', performanceSummary.qualification, ''] ], theme: 'grid', styles: { fontSize: 8 }, headStyles: { fillColor: '#e2e8f0', textColor: '#000' } });
+                finalY = (doc as any).autoTable.previous.finalY + 10;
             }
-
+             const noveltiesData = filteredReportData.filter(row => row.novelties.length > 0);
+             if (noveltiesData.length > 0) {
+                 if(finalY + 40 > pageHeight) { doc.addPage(); finalY = 15; }
+                 doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.text("Operaciones con Novedades", 14, finalY); finalY += 5;
+                const noveltiesExport = noveltiesData.flatMap(row => row.novelties.map(n => [ format(new Date(row.fecha), 'dd/MM/yy'), row.pedidoSislog, row.cliente, n.type, n.downtimeMinutes + ' min' ]));
+                autoTable(doc, { startY: finalY, head: [['Fecha', 'Pedido', 'Cliente', 'Novedad', 'Minutos']], body: noveltiesExport, theme: 'grid', styles: { fontSize: 8 } });
+                finalY = (doc as any).autoTable.previous.finalY + 10;
+            }
+             if(finalY + 40 > pageHeight) { doc.addPage(); finalY = 15; }
+             doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.text("Detalle de Operaciones", 14, finalY); finalY += 5;
+            autoTable(doc, { startY: finalY, head: [['Fecha', 'Operario', 'Cliente', 'Tipo Op.', 'Pedido', 'Contenedor', 'Placa', 'Concepto', 'H. Inicio', 'H. Fin', 'Cant.', 'T. Operativo', 'Productividad']], body: filteredReportData.map(row => [ format(new Date(row.fecha), 'dd/MM/yy'), row.operario, row.cliente, row.tipoOperacion, row.pedidoSislog, row.contenedor, row.placa, row.conceptoLiquidado, row.horaInicio, row.horaFin, row.cantidadConcepto === -1 ? 'Pendiente' : row.cantidadConcepto.toFixed(2) + ' Ton', formatDuration(row.operationalDurationMinutes), getPerformanceIndicator(row).text, ]), styles: { fontSize: 6, cellPadding: 1 }, headStyles: { fontSize: 6, cellPadding: 1 }, columnStyles: { cliente: { cellWidth: 35 } } });
+            addFooter();
+            doc.save(`Reporte_Analisis_Productividad_${dateSuffix}_gen_${timeSuffix}.pdf`);
+        } else if (type === 'settlement') {
+            autoTable(doc, { startY: finalY, head: [[ 'Mes', 'Fecha', 'Pedido', 'Contenedor', 'Placa', 'Cliente', 'Concepto', 'Cantidad', 'Unidad', 'H. Inicio', 'H. Fin', 'Duración', 'Vlr. Unitario', 'Vlr. Total' ]], body: liquidationData.map(row => [ format(new Date(row.fecha), 'MMMM', { locale: es }), format(new Date(row.fecha), 'dd/MM/yy'), row.pedidoSislog, row.contenedor, row.placa, row.cliente, row.conceptoLiquidado, row.cantidadConcepto === -1 ? 'Pendiente' : row.cantidadConcepto.toFixed(2), row.cantidadConcepto === -1 ? '' : row.unidadMedidaConcepto, row.horaInicio, row.horaFin, formatDuration(row.totalDurationMinutes), row.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }), row.valorTotalConcepto.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), ]), theme: 'grid', styles: { fontSize: 6, cellPadding: 1 }, headStyles: { fontSize: 6, cellPadding: 1, fillColor: '#3B82F6' }, footStyles: { fillColor: '#3B82F6', textColor: '#FFFFFF' }, });
+            finalY = (doc as any).autoTable.previous.finalY;
+            if (conceptSummary && conceptSummary.length > 0) {
+                if (finalY > 150) { doc.addPage(); finalY = 20; } else { finalY += 15; }
+                doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.text("Resumen de Conceptos Liquidados", 14, finalY); finalY += 5;
+                autoTable(doc, { startY: finalY, head: [['Concepto', 'Cantidad Total', 'Unidad Medida', 'Valor Unitario', 'Valor Total Liquidado']], body: conceptSummary.map(item => [ item.name, item.totalCantidad.toFixed(2), item.unidadMedida, item.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }), item.totalValor.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), ]), foot: [[ { content: 'TOTAL GENERAL', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold' } }, { content: conceptSummary.reduce((acc, item) => acc + item.totalValor, 0).toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } } ]], theme: 'grid', styles: { fontSize: 8 }, headStyles: { fillColor: '#e2e8f0', textColor: '#000' }, footStyles: { fillColor: '#3B82F6', textColor: '#FFFFFF' }, });
+            }
             addFooter();
             doc.save(`Reporte_Liquidacion_Cuadrilla_${dateSuffix}_gen_${timeSuffix}.pdf`);
         }

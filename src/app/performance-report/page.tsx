@@ -249,6 +249,17 @@ export default function PerformanceReportPage() {
     
     const handleExportExcel = () => {
         if (reportData.length === 0) return;
+        const dateTitle = dateRange?.from && dateRange.to ? `Periodo: ${format(dateRange.from, 'dd/MM/yyyy', { locale: es })} - ${format(dateRange.to, 'dd/MM/yyyy', { locale: es })}` : "Periodo no especificado";
+
+        const header = [
+            {v: "Informe Productividad Operarios Frio Alimentaria", s: { font: { bold: true, sz: 14 }, alignment: { horizontal: 'center' }}},
+        ];
+        const subHeader = [
+            {v: dateTitle, s: { font: { italic: true, sz: 10 }, alignment: { horizontal: 'center' }}},
+        ]
+        
+        const ws = XLSX.utils.aoa_to_sheet([header, subHeader, []]);
+        ws['!merges'] = [ XLSX.utils.decode_range("A1:H1"), XLSX.utils.decode_range("A2:H2") ];
 
         const dataToExport = reportData.map(row => ({
             'Fecha': format(new Date(row.fecha), 'dd/MM/yyyy'),
@@ -272,9 +283,10 @@ export default function PerformanceReportPage() {
             'Duración (Minutos)': totalDuration
         };
 
-        const worksheet = XLSX.utils.json_to_sheet([...dataToExport, totalRow]);
+        XLSX.utils.sheet_add_json(ws, [...dataToExport, totalRow], { origin: 'A4' });
+
         const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'Informe Productividad');
+        XLSX.utils.book_append_sheet(workbook, ws, 'Informe Productividad');
         const fileName = `Informe_Productividad_Operarios_${format(dateRange!.from!, 'yyyy-MM-dd')}_a_${format(dateRange!.to!, 'yyyy-MM-dd')}.xlsx`;
         XLSX.writeFile(workbook, fileName);
     };
@@ -284,6 +296,7 @@ export default function PerformanceReportPage() {
         
         const doc = new jsPDF({ orientation: 'landscape' });
         const pageWidth = doc.internal.pageSize.getWidth();
+        const dateTitle = dateRange?.from && dateRange.to ? `Periodo: ${format(dateRange.from, 'dd/MM/yyyy', { locale: es })} - ${format(dateRange.to, 'dd/MM/yyyy', { locale: es })}` : "Periodo no especificado";
 
         // --- HEADER ---
         const logoWidth = 60;
@@ -297,12 +310,12 @@ export default function PerformanceReportPage() {
         doc.setFontSize(11);
         doc.setFont('helvetica', 'bold');
         doc.text(`Informe Productividad Operarios Frio Alimentaria`, pageWidth / 2, titleY, { align: 'center' });
-        
         doc.setFontSize(9);
         doc.setFont('helvetica', 'normal');
-        doc.text(`Periodo: ${format(dateRange!.from!, 'dd/MM/yyyy')} - ${format(dateRange!.to!, 'dd/MM/yyyy')}`, 14, titleY + 10);
+        doc.text(dateTitle, pageWidth / 2, titleY + 5, { align: 'center' });
+
         if (selectedOperario !== 'all') {
-            doc.text(`Operario: ${selectedOperario}`, pageWidth - 14, titleY + 10, { align: 'right' });
+            doc.text(`Operario: ${selectedOperario}`, pageWidth - 14, titleY + 12, { align: 'right' });
         }
 
 
