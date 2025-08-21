@@ -30,7 +30,7 @@ const formatTime12Hour = (time24: string | undefined): string => {
     const ampm = h >= 12 ? 'PM' : 'AM';
     h = h % 12;
     h = h ? h : 12; // the hour '0' should be '12'
-    return `${hours}:${minutes} ${ampm}`;
+    return `${h}:${minutes} ${ampm}`;
 };
 
 const formatDateLocal = (isoDateString: string | undefined): string => {
@@ -164,7 +164,12 @@ const processTunelACamaraData = (formData: any) => {
     const groupedByPresentation = allItems.reduce((acc: any, item: any) => {
         const presentation = item.presentacion || 'SIN PRESENTACIÓN';
         if (!acc[presentation]) {
-            acc[presentation] = { products: {}, subTotalCantidad: 0, subTotalPeso: 0, subTotalPaletas: 0 };
+            acc[presentation] = {
+                products: {},
+                subTotalCantidad: 0,
+                subTotalPeso: 0,
+                subTotalPaletas: 0
+            };
         }
         
         const desc = item.descripcion || 'SIN DESCRIPCIÓN';
@@ -817,25 +822,30 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     } else if (formData.tipoPedido === 'TUNEL A CÁMARA CONGELADOS') {
                         const { groupedByPresentation, totalGeneralCantidad, totalGeneralPeso, totalGeneralPaletas } = processTunelACamaraData(formData);
                         
-                        const body = Object.values(groupedByPresentation).flatMap((presentationGroup: any) => [
-                            [{ content: `Presentación: ${presentationGroup.presentation}`, colSpan: 4, styles: { fontStyle: 'bold', fillColor: '#f2f2f2' } }],
-                            ...presentationGroup.products.map((item: any) => [
+                        const body = Object.entries(groupedByPresentation).flatMap(([presentation, groupData]: [string, any]) => {
+                            const presentationRow = [{ content: `Presentación: ${presentation}`, colSpan: 4, styles: { fontStyle: 'bold', fillColor: '#f2f2f2' } }];
+                            const productRows = groupData.products.map((item: any) => [
                                 item.descripcion,
                                 item.cantidad || 0,
                                 item.totalPaletas,
                                 (Number(item.pesoNeto) || 0).toFixed(2)
-                            ]),
-                            [{ content: 'Subtotal:', styles: { halign: 'right', fontStyle: 'bold' } }, presentationGroup.subTotalCantidad, presentationGroup.subTotalPaletas, presentationGroup.subTotalPeso.toFixed(2)]
-                        ]);
+                            ]);
+                            const subtotalRow = [{ content: 'Subtotal:', styles: { halign: 'right', fontStyle: 'bold' } }, 
+                                { content: groupData.subTotalCantidad, styles: { fontStyle: 'bold' } }, 
+                                { content: groupData.subTotalPaletas, styles: { fontStyle: 'bold' } }, 
+                                { content: groupData.subTotalPeso.toFixed(2), styles: { fontStyle: 'bold' } }
+                            ];
+                            return [presentationRow, ...productRows, subtotalRow];
+                        });
                         
                         const summaryTableOptions = {
                             head: [['Descripción', 'Cantidad', 'Total Paletas', 'Peso Neto (kg)']],
                             body,
                             foot: [[
                                 { content: 'TOTAL GENERAL:', styles: { halign: 'right', fontStyle: 'bold', fillColor: '#1A90C8', textColor: '#FFFFFF' } }, 
-                                totalGeneralCantidad,
-                                totalGeneralPaletas,
-                                totalGeneralPeso.toFixed(2)
+                                { content: totalGeneralCantidad, styles: { fontStyle: 'bold', fillColor: '#1A90C8', textColor: '#FFFFFF' } },
+                                { content: totalGeneralPaletas, styles: { fontStyle: 'bold', fillColor: '#1A90C8', textColor: '#FFFFFF' } },
+                                { content: totalGeneralPeso.toFixed(2), styles: { fontStyle: 'bold', fillColor: '#1A90C8', textColor: '#FFFFFF' } }
                             ]],
                             theme: 'grid', margin: { horizontal: margin }, styles: { fontSize: 8, cellPadding: 3 }, headStyles: { fillColor: '#fff', textColor: '#333' }, footStyles: { fillColor: '#1A90C8', fontStyle: 'bold', textColor: '#fff' }
                         };
