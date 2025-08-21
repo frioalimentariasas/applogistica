@@ -159,7 +159,7 @@ const processTunelCongelacionData = (formData: any) => {
 };
 
 const processTunelACamaraData = (formData: any) => {
-    const allItems = formData.placas?.flatMap((p: any) => p.items) || formData.items || [];
+    const allItems = formData.items || [];
     
     const groupedByPresentation = allItems.reduce((acc: any, item: any) => {
         const presentation = item.presentacion || 'SIN PRESENTACIÓN';
@@ -806,11 +806,11 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         const { groupedByPresentation, totalGeneralCantidad, totalGeneralPeso, totalGeneralPaletas } = processTunelACamaraData(formData);
                         
                         const body = Object.entries(groupedByPresentation).flatMap(([presentation, groupData]: [string, any]) => [
-                            [{ content: `Presentación: ${presentation}`, colSpan: 4, styles: { fontStyle: 'bold', fillColor: '#f2f2f2', textColor: '#000' } }],
+                            [{ content: `Presentación: ${presentation}`, colSpan: 4, styles: { fontStyle: 'bold', fillColor: '#f2f2f2' } }],
                             ...groupData.items.map((item: any) => [
                                 item.descripcion,
                                 item.cantidadPorPaleta || 0,
-                                item.paleta || 'N/A', // Muestra la paleta aquí
+                                item.paleta || 'N/A',
                                 (Number(item.pesoNeto) || 0).toFixed(2)
                             ]),
                             [{ content: 'Subtotal:', styles: { halign: 'right', fontStyle: 'bold' } }, groupData.subTotalCantidad, groupData.subTotalPaletas, groupData.subTotalPeso.toFixed(2)]
@@ -1367,10 +1367,12 @@ const ItemsTable = ({ items, tipoPedido }: { items: any[], tipoPedido: string })
         { key: 'totalPesoNeto', label: 'Total P. Neto', align: 'right', format: (val: any) => val?.toFixed(2) },
     ];
 
+    const tunelColumns = baseColumns.filter(c => c.key !== 'paleta');
+
     const columnsToRender = isSummaryFormat 
         ? summaryColumns 
         : isTunelCongelacion
-        ? baseColumns.filter(c => c.key !== 'paleta')
+        ? tunelColumns
         : baseColumns;
 
     return (
