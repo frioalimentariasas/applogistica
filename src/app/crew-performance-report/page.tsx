@@ -13,7 +13,7 @@ import { format, subDays, parseISO, startOfDay, endOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import * as XLSX from 'xlsx';
+import ExcelJS from 'exceljs';
 
 import { getCrewPerformanceReport, type CrewPerformanceReportRow } from '@/app/actions/crew-performance-report';
 import { addNoveltyToOperation, deleteNovelty } from '@/app/actions/novelty-actions';
@@ -510,134 +510,141 @@ export default function CrewPerformanceReportPage() {
      }, [liquidationData, reportData]);
 
 
-    const handleExportExcel = (type: 'productivity' | 'settlement') => {
+    const handleExportExcel = async (type: 'productivity' | 'settlement') => {
         if (isLoading) return;
         if ((type === 'productivity' && filteredReportData.length === 0) || (type === 'settlement' && liquidationData.length === 0)) {
             toast({ variant: 'destructive', title: 'Sin datos', description: 'No hay datos para exportar.' });
             return;
         }
-        
-        const wb = XLSX.utils.book_new();
 
-        const dateTitle = dateRange?.from && dateRange.to 
+        const workbook = new ExcelJS.Workbook();
+        const dateTitle = dateRange?.from && dateRange.to
             ? `Periodo: ${format(dateRange.from, 'dd/MM/yyyy', { locale: es })} - ${format(dateRange.to, 'dd/MM/yyyy', { locale: es })}`
             : "Periodo: últimos 7 días";
         const timeSuffix = format(new Date(), 'yyyyMMdd-HHmm');
-    
-        if (type === 'productivity') {
-            const title = "Reporte de Análisis de Productividad";
-            const wsDetailData = [
-                [{v: title, s: { font: { bold: true, sz: 14 }, alignment: { horizontal: 'center' } }}],
-                [{v: dateTitle, s: { font: { italic: true, sz: 10 }, alignment: { horizontal: 'center' } }}],
-                []
+        
+        const headerFont: Partial<ExcelJS.Font> = { name: 'Calibri', bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
+        const headerFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF002060' } };
+        const border: Partial<ExcelJS.Borders> = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
+
+
+        if (type === 'settlement') {
+            // --- Hoja Detallada ---
+            const wsDetail = workbook.addWorksheet("Liquidacion_Detallada");
+            
+            // Títulos
+            wsDetail.mergeCells('A1:N1');
+            wsDetail.getCell('A1').value = "Reporte de Liquidación de Cuadrilla";
+            wsDetail.getCell('A1').font = { name: 'Calibri', bold: true, size: 16 };
+            wsDetail.getCell('A1').alignment = { horizontal: 'center' };
+            wsDetail.mergeCells('A2:N2');
+            wsDetail.getCell('A2').value = dateTitle;
+            wsDetail.getCell('A2').font = { name: 'Calibri', italic: true, size: 10 };
+            wsDetail.getCell('A2').alignment = { horizontal: 'center' };
+
+            // Encabezados de tabla
+            const detailHeaders = ['Mes', 'Fecha Op.', 'Pedido', 'Contenedor', 'Placa', 'Cliente', 'Concepto', 'Cantidad', 'Unidad', 'H. Inicio', 'H. Fin', 'Duración', 'Valor Unitario', 'Valor Total'];
+            const detailHeaderRow = wsDetail.getRow(4);
+            detailHeaderRow.values = detailHeaders;
+            detailHeaderRow.eachCell(cell => {
+                cell.font = headerFont;
+                cell.fill = headerFill;
+                cell.border = border;
+            });
+            
+            // Datos Detallados
+            liquidationData.forEach((row, index) => {
+                const dataRow = wsDetail.getRow(5 + index);
+                dataRow.values = [
+                    format(new Date(row.fecha), 'MMMM', { locale: es }), format(new Date(row.fecha), 'dd/MM/yy'), row.pedidoSislog,
+                    row.contenedor, row.placa, row.cliente, row.conceptoLiquidado,
+                    row.cantidadConcepto === -1 ? 'Pendiente' : row.cantidadConcepto,
+                    row.cantidadConcepto === -1 ? '' : row.unidadMedidaConcepto,
+                    row.horaInicio, row.horaFin, formatDuration(row.totalDurationMinutes),
+                    row.valorUnitario, row.valorTotalConcepto
+                ];
+                 dataRow.getCell('H').numFmt = '0.00';
+                 dataRow.getCell('M').numFmt = '"$"#,##0;[Red]-"$"#,##0';
+                 dataRow.getCell('N').numFmt = '"$"#,##0.00;[Red]-"$"#,##0.00';
+                 dataRow.eachCell({ includeEmpty: true }, cell => { cell.border = border; });
+            });
+
+            // Fila de Total
+            const totalRowIndex = 5 + liquidationData.length;
+            const totalRow = wsDetail.getRow(totalRowIndex);
+            totalRow.getCell('L').value = 'TOTAL GENERAL';
+            totalRow.getCell('L').font = { bold: true };
+            totalRow.getCell('N').value = totalLiquidacion;
+            totalRow.getCell('N').numFmt = '"$"#,##0.00;[Red]-"$"#,##0.00';
+            totalRow.getCell('N').font = { bold: true };
+
+             // Ajustar columnas
+            wsDetail.columns = [
+                { key: 'Mes', width: 12 }, { key: 'Fecha', width: 12 }, { key: 'Pedido', width: 15 },
+                { key: 'Contenedor', width: 15 }, { key: 'Placa', width: 12 }, { key: 'Cliente', width: 25 },
+                { key: 'Concepto', width: 20 }, { key: 'Cantidad', width: 12 }, { key: 'Unidad', width: 12 },
+                { key: 'HInicio', width: 10 }, { key: 'HFin', width: 10 }, { key: 'Duracion', width: 12 },
+                { key: 'VlrUnitario', width: 15 }, { key: 'VlrTotal', width: 15 }
             ];
-            XLSX.utils.sheet_add_aoa(wb, wsDetailData, { origin: 'A1' });
-            const wsDetail = XLSX.utils.sheet_add_json(wb, filteredReportData.map(row => ({
-                'Fecha': format(new Date(row.fecha), 'dd/MM/yy'),
-                'Operario': row.operario,
-                'Cliente': row.cliente,
-                'Tipo Op.': row.tipoOperacion,
-                'Tipo Prod.': row.tipoProducto,
-                'Pedido': row.pedidoSislog,
-                'No. Contenedor': row.contenedor,
-                'Placa': row.placa,
-                'Concepto': row.conceptoLiquidado,
-                'Hora Inicio': row.horaInicio,
-                'Hora Fin': row.horaFin,
-                'Cantidad (Ton)': row.cantidadConcepto === -1 ? 'Pendiente' : row.cantidadConcepto.toFixed(2),
-                'Duración Total': formatDuration(row.totalDurationMinutes),
-                'T. Operativo': formatDuration(row.operationalDurationMinutes),
-                'Productividad': getPerformanceIndicator(row).text,
-                'Novedades': row.novelties.map(n => `${n.type} (${n.downtimeMinutes} min)`).join(', '),
-            })), { origin: 'A4', skipHeader: false });
-            XLSX.utils.book_append_sheet(wb, wsDetail, "Detalle Productividad");
 
-            if (performanceSummary) {
-                const summarySheetData = [
-                    ["Estado", "Cantidad de Operaciones", "% sobre Total Evaluado"],
-                    ...Object.entries(performanceSummary.summary)
-                        .filter(([key]) => key !== 'No Aplica' && key !== 'Sin Tiempo')
-                        .map(([key, value]) => [
-                            key,
-                            value.count,
-                            performanceSummary.totalEvaluable > 0 ? (value.count / performanceSummary.totalEvaluable * 100).toFixed(2) + '%' : '0.00%'
-                        ]),
-                    [],
-                    ["Total Op. Evaluadas", performanceSummary.totalEvaluable],
-                    ["Calificación del Periodo", performanceSummary.qualification],
-                ];
-                const wsSummary = XLSX.utils.aoa_to_sheet(summarySheetData);
-                XLSX.utils.book_append_sheet(wb, wsSummary, "Resumen Productividad");
-            }
 
-            const noveltiesData = filteredReportData.filter(row => row.novelties.length > 0);
-            if (noveltiesData.length > 0) {
-                const noveltiesExport = noveltiesData.flatMap(row => row.novelties.map(n => ({
-                    'Fecha': format(new Date(row.fecha), 'dd/MM/yy'),
-                    'Pedido': row.pedidoSislog,
-                    'Cliente': row.cliente,
-                    'Novedad': n.type,
-                    'Minutos': n.downtimeMinutes,
-                })));
-                const wsNovelties = XLSX.utils.json_to_sheet(noveltiesExport);
-                XLSX.utils.book_append_sheet(wb, wsNovelties, "Novedades");
-            }
-
-            XLSX.writeFile(wb, `Reporte_Analisis_Productividad_gen_${timeSuffix}.xlsx`);
-
-        } else if (type === 'settlement') {
-             const title = "Reporte de Liquidación de Cuadrilla";
-             const wsData = [
-                [{v: title, s: { font: { bold: true, sz: 14 }, alignment: { horizontal: 'center' } }}],
-                [{v: dateTitle, s: { font: { italic: true, sz: 10 }, alignment: { horizontal: 'center' } }}],
-                [],
-             ];
-             const ws = XLSX.utils.aoa_to_sheet(wsData);
-             ws['!merges'] = [ XLSX.utils.decode_range("A1:N1"), XLSX.utils.decode_range("A2:N2") ];
-
-            const data = liquidationData.map(row => ({
-                'Mes': format(new Date(row.fecha), 'MMMM', { locale: es }), 'Fecha': format(new Date(row.fecha), 'dd/MM/yy'), 'Pedido': row.pedidoSislog,
-                'Contenedor': row.contenedor, 'Placa': row.placa, 'Cliente': row.cliente, 'Concepto': row.conceptoLiquidado,
-                'Cantidad': row.cantidadConcepto === -1 ? 'Pendiente' : row.cantidadConcepto, 'Unidad': row.cantidadConcepto === -1 ? '' : row.unidadMedidaConcepto,
-                'H. Inicio': row.horaInicio, 'H. Fin': row.horaFin, 'Duración': formatDuration(row.totalDurationMinutes), 'Valor Unitario': row.valorUnitario, 'Valor Total': row.valorTotalConcepto,
-            }));
-            const totalRow = { 'Mes': 'TOTAL GENERAL', 'Valor Total': totalLiquidacion };
-            
-            XLSX.utils.sheet_add_json(ws, [...data, totalRow], { origin: 'A4' });
-
-            ws['!cols'] = [ {wch:12}, {wch:12}, {wch:15}, {wch:15}, {wch:12}, {wch:25}, {wch:20}, {wch:15}, {wch:15}, {wch:10}, {wch:10}, {wch:12}, {wch:15}, {wch:15} ];
-            XLSX.utils.book_append_sheet(wb, ws, "Liquidacion_Detallada");
-
+            // --- Hoja Resumen ---
             if (conceptSummary) {
-                const headerStyle = { font: { bold: true, color: { rgb: "FFFFFF" } }, fill: { fgColor: { rgb: "2563EB" } }, border: { top: {style: 'thin'}, bottom: {style: 'thin'}, left: {style: 'thin'}, right: {style: 'thin'} } };
-                const summaryWsData = [
-                    [{v: "Resumen de Liquidación", s: { font: { bold: true, sz: 14 }, alignment: { horizontal: 'center' } }}],
-                    [{v: dateTitle, s: { font: { italic: true, sz: 10 }, alignment: { horizontal: 'center' } }}],
-                    [],
-                    [
-                        {v: 'Concepto', s: headerStyle},
-                        {v: 'Cantidad Total', s: headerStyle},
-                        {v: 'Unidad Medida', s: headerStyle},
-                        {v: 'Valor Unitario', s: headerStyle},
-                        {v: 'Valor Total Liquidado', s: headerStyle},
-                    ]
-                ];
-                 const summaryDataToExport = conceptSummary.map(item => [
-                    {v: item.name}, {v: item.totalCantidad, t: 'n', z: '0.00'}, {v: item.unidadMedida},
-                    {v: item.valorUnitario, t: 'n', z: '"$"#,##0'}, {v: item.totalValor, t: 'n', z: '"$"#,##0.00'}
-                ]);
-                const summaryTotalRow = [
-                    {v: 'TOTAL GENERAL', s: { font: { bold: true }}}, '', '', '',
-                    {v: conceptSummary.reduce((acc, item) => acc + item.totalValor, 0), t: 'n', z: '"$"#,##0.00', s: { font: { bold: true }}}
-                ];
+                const wsSummary = workbook.addWorksheet("Resumen_Liquidacion");
+
+                // Títulos
+                wsSummary.mergeCells('A1:E1');
+                wsSummary.getCell('A1').value = "Resumen de Liquidación";
+                wsSummary.getCell('A1').font = { name: 'Calibri', bold: true, size: 16 };
+                wsSummary.getCell('A1').alignment = { horizontal: 'center' };
+                wsSummary.mergeCells('A2:E2');
+                wsSummary.getCell('A2').value = dateTitle;
+                wsSummary.getCell('A2').font = { name: 'Calibri', italic: true, size: 10 };
+                wsSummary.getCell('A2').alignment = { horizontal: 'center' };
+
+                // Encabezados
+                const summaryHeaders = ['Concepto', 'Cantidad Total', 'Unidad Medida', 'Valor Unitario', 'Valor Total Liquidado'];
+                const summaryHeaderRow = wsSummary.getRow(4);
+                summaryHeaderRow.values = summaryHeaders;
+                summaryHeaderRow.eachCell(cell => {
+                    cell.font = headerFont;
+                    cell.fill = headerFill;
+                    cell.border = border;
+                });
                 
-                const wsSummary = XLSX.utils.aoa_to_sheet([...summaryWsData, ...summaryDataToExport, summaryTotalRow]);
-                wsSummary['!cols'] = [{ wch: 25 }, { wch: 15 }, { wch: 15 }, { wch: 20 }, { wch: 20 }];
-                wsSummary['!merges'] = [ XLSX.utils.decode_range("A1:E1"), XLSX.utils.decode_range("A2:E2") ];
-                XLSX.utils.book_append_sheet(wb, wsSummary, "Resumen_Liquidacion");
+                // Datos Resumen
+                conceptSummary.forEach((item, index) => {
+                    const dataRow = wsSummary.getRow(5 + index);
+                    dataRow.values = [item.name, item.totalCantidad, item.unidadMedida, item.valorUnitario, item.totalValor];
+                    dataRow.getCell('B').numFmt = '0.00';
+                    dataRow.getCell('D').numFmt = '"$"#,##0';
+                    dataRow.getCell('E').numFmt = '"$"#,##0.00';
+                    dataRow.eachCell({ includeEmpty: true }, cell => { cell.border = border; });
+                });
+
+                // Total Resumen
+                const totalSummaryRowIndex = 5 + conceptSummary.length;
+                const totalSummaryRow = wsSummary.getRow(totalSummaryRowIndex);
+                totalSummaryRow.getCell('D').value = 'TOTAL GENERAL';
+                totalSummaryRow.getCell('D').font = { bold: true };
+                totalSummaryRow.getCell('D').alignment = { horizontal: 'right' };
+                totalSummaryRow.getCell('E').value = totalLiquidacion;
+                totalSummaryRow.getCell('E').numFmt = '"$"#,##0.00';
+                totalSummaryRow.getCell('E').font = { bold: true };
+
+                wsSummary.columns = [ { key: 'Concepto', width: 25 }, { key: 'Cantidad', width: 15 }, { key: 'Unidad', width: 15 }, { key: 'ValorUnitario', width: 20 }, { key: 'ValorTotal', width: 20 } ];
             }
-            
-            XLSX.writeFile(wb, `Reporte_Liquidacion_Cuadrilla_gen_${timeSuffix}.xlsx`);
+
+             const buffer = await workbook.xlsx.writeBuffer();
+             const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+             const link = document.createElement("a");
+             link.href = URL.createObjectURL(blob);
+             link.download = `Reporte_Liquidacion_Cuadrilla_gen_${timeSuffix}.xlsx`;
+             link.click();
+
+        } else if (type === 'productivity') {
+            // Logic for productivity report will go here if needed in the future
+            toast({ title: "En construcción", description: "La exportación del reporte de productividad se implementará próximamente."});
         }
     };
     
@@ -1336,3 +1343,4 @@ function NoveltySelectorDialog({
         </Dialog>
     );
 }
+
