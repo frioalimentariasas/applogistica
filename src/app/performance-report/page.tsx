@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -9,7 +8,7 @@ import { format, subDays, addDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import * as XLSX from 'xlsx-js-style';
+import * as ExcelJS from 'exceljs';
 
 import { getPerformanceReport, getAvailableOperarios, type PerformanceReportRow } from '@/app/actions/performance-report';
 import { useToast } from '@/hooks/use-toast';
@@ -247,48 +246,52 @@ export default function PerformanceReportPage() {
         return reportData.reduce((acc, row) => acc + (row.duracionMinutos || 0), 0);
     }, [reportData]);
     
-    const handleExportExcel = () => {
+    const handleExportExcel = async () => {
         if (reportData.length === 0) return;
+
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Informe Productividad');
+
         const dateTitle = dateRange?.from && dateRange.to ? `Periodo: ${format(dateRange.from, 'dd/MM/yyyy', { locale: es })} - ${format(dateRange.to, 'dd/MM/yyyy', { locale: es })}` : "Periodo no especificado";
 
-        const header = [
-            {v: "Informe Productividad Operarios Frio Alimentaria", s: { font: { bold: true, sz: 14 }, alignment: { horizontal: 'center' }}},
-        ];
-        const subHeader = [
-            {v: dateTitle, s: { font: { italic: true, sz: 10 }, alignment: { horizontal: 'center' }}},
-        ]
+        worksheet.mergeCells('A1:H1');
+        worksheet.getCell('A1').value = "Informe Productividad Operarios Frio Alimentaria";
+        worksheet.getCell('A1').font = { bold: true, size: 14 };
+        worksheet.getCell('A1').alignment = { horizontal: 'center' };
+
+        worksheet.mergeCells('A2:H2');
+        worksheet.getCell('A2').value = dateTitle;
+        worksheet.getCell('A2').alignment = { horizontal: 'center' };
+        worksheet.addRow([]);
         
-        const ws = XLSX.utils.aoa_to_sheet([header, subHeader, []]);
-        ws['!merges'] = [ XLSX.utils.decode_range("A1:H1"), XLSX.utils.decode_range("A2:H2") ];
+        const headerRow = worksheet.addRow(['Fecha', 'Operario', 'Cliente', 'Tipo Operación', 'No. Pedido (SISLOG)', 'Hora Inicio', 'Hora Fin', 'Duración (Minutos)']);
+        headerRow.font = { bold: true };
+        
+        reportData.forEach(row => {
+            worksheet.addRow([
+                format(new Date(row.fecha), 'dd/MM/yyyy'),
+                row.operario,
+                row.cliente,
+                row.tipoOperacion,
+                row.pedidoSislog,
+                formatTime12Hour(row.horaInicio),
+                formatTime12Hour(row.horaFin),
+                row.duracionMinutos ?? 'N/A',
+            ]);
+        });
 
-        const dataToExport = reportData.map(row => ({
-            'Fecha': format(new Date(row.fecha), 'dd/MM/yyyy'),
-            'Operario': row.operario,
-            'Cliente': row.cliente,
-            'Tipo Operación': row.tipoOperacion,
-            'No. Pedido (SISLOG)': row.pedidoSislog,
-            'Hora Inicio': formatTime12Hour(row.horaInicio),
-            'Hora Fin': formatTime12Hour(row.horaFin),
-            'Duración (Minutos)': row.duracionMinutos ?? 'N/A',
-        }));
+        worksheet.addRow([]);
+        const totalRow = worksheet.addRow(['', '', '', '', '', '', 'Duración Total:', totalDuration]);
+        totalRow.getCell('G').font = { bold: true };
+        totalRow.getCell('H').font = { bold: true };
 
-        const totalRow = {
-            'Fecha': '',
-            'Operario': '',
-            'Cliente': '',
-            'Tipo Operación': '',
-            'No. Pedido (SISLOG)': '',
-            'Hora Inicio': '',
-            'Hora Fin': 'Duración Total:',
-            'Duración (Minutos)': totalDuration
-        };
-
-        XLSX.utils.sheet_add_json(ws, [...dataToExport, totalRow], { origin: 'A4' });
-
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, ws, 'Informe Productividad');
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
         const fileName = `Informe_Productividad_Operarios_${format(dateRange!.from!, 'yyyy-MM-dd')}_a_${format(dateRange!.to!, 'yyyy-MM-dd')}.xlsx`;
-        XLSX.writeFile(workbook, fileName);
+        link.download = fileName;
+        link.click();
     };
 
     const handleExportPDF = async () => {

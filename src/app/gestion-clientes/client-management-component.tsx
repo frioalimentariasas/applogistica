@@ -7,7 +7,7 @@ import { useFormStatus } from 'react-dom';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useRouter } from 'next/navigation';
-import * as XLSX from 'xlsx-js-style';
+import * as ExcelJS from 'exceljs';
 
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
@@ -220,15 +220,24 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
     }
   }
 
-  const handleExportClients = () => {
-    const dataToExport = clients.map(client => ({
-      'Razón Social': client.razonSocial
-    }));
+  const handleExportClients = async () => {
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Clientes');
 
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Clientes');
-    XLSX.writeFile(workbook, 'Maestro_Clientes.xlsx');
+    worksheet.columns = [
+        { header: 'Razón Social', key: 'razonSocial', width: 50 },
+    ];
+    
+    clients.forEach(client => {
+        worksheet.addRow({ razonSocial: client.razonSocial });
+    });
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = 'Maestro_Clientes.xlsx';
+    link.click();
   };
 
   const filteredClients = clients.filter(client => 
@@ -328,7 +337,7 @@ export default function ClientManagementComponent({ }: ClientManagementComponent
                             name="file" 
                             type="file" 
                             required 
-                            accept=".xlsx, .xls"
+                            accept=".xlsx, .xls, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
                             onChange={handleUploadFileChange}
                             className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
                         />

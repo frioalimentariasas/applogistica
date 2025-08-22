@@ -2,7 +2,7 @@
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
-import * as xlsx from 'xlsx';
+import * as ExcelJS from 'exceljs';
 import { revalidatePath } from 'next/cache';
 
 // Define the structure of an article based on the Excel columns

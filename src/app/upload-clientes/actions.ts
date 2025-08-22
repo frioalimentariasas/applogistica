@@ -2,7 +2,7 @@
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
-import * as xlsx from 'xlsx';
+import * as ExcelJS from 'exceljs';
 import { revalidatePath } from 'next/cache';
 
 // Define the structure of a client based on the Excel columns
@@ -25,10 +25,25 @@ export async function uploadClientes(formData: FormData): Promise<{ success: boo
 
   try {
     const buffer = await file.arrayBuffer();
-    const workbook = xlsx.read(buffer, { type: 'buffer' });
-    const sheetName = workbook.SheetNames[0];
-    const sheet = workbook.Sheets[sheetName];
-    const data = xlsx.utils.sheet_to_json<Cliente>(sheet);
+    const workbook = new ExcelJS.Workbook();
+    await workbook.xlsx.load(buffer);
+    const worksheet = workbook.worksheets[0];
+    
+    const data: Cliente[] = [];
+    const headers: string[] = [];
+    worksheet.getRow(1).eachCell((cell) => {
+        headers.push(cell.value as string);
+    });
+
+    worksheet.eachRow((row, rowNumber) => {
+        if (rowNumber > 1) {
+            const rowData: any = {};
+            row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+                rowData[headers[colNumber - 1]] = cell.value;
+            });
+            data.push(rowData);
+        }
+    });
 
     if (!data.length) {
         return { success: false, message: 'El archivo Excel está vacío o no tiene el formato correcto.' };

@@ -8,7 +8,7 @@ import { format, addDays, differenceInDays, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import * as XLSX from 'xlsx-js-style';
+import * as ExcelJS from 'exceljs';
 
 import { getBillingReport, DailyReportData } from '@/app/actions/billing-report';
 import { getDetailedReport, type DetailedReportRow } from '@/app/actions/detailed-report';
@@ -357,22 +357,35 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         }
     };
 
-    const handleExportExcel = () => {
+    const handleExportExcel = async () => {
         if (!selectedClient || reportData.length === 0) return;
 
-        const dataToExport = reportData.map(row => ({
-            'Fecha': format(new Date(row.date.replace(/-/g, '/')), 'dd/MM/yyyy'),
-            'Cliente': selectedClient,
-            'Paletas Recibidas': row.paletasRecibidas,
-            'Paletas Despachadas': row.paletasDespachadas,
-        }));
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Reporte Facturación');
 
-        const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'Reporte Facturación');
+        worksheet.columns = [
+            { header: 'Fecha', key: 'fecha', width: 15 },
+            { header: 'Cliente', key: 'cliente', width: 30 },
+            { header: 'Paletas Recibidas', key: 'recibidas', width: 20 },
+            { header: 'Paletas Despachadas', key: 'despachadas', width: 20 },
+        ];
+        
+        reportData.forEach(row => {
+            worksheet.addRow({
+                fecha: format(new Date(row.date.replace(/-/g, '/')), 'dd/MM/yyyy'),
+                cliente: selectedClient,
+                recibidas: row.paletasRecibidas,
+                despachadas: row.paletasDespachadas,
+            });
+        });
 
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
         const fileName = `Reporte_Facturacion_${selectedClient.replace(/\s/g, '_')}_${format(dateRange!.from!, 'yyyy-MM-dd')}_a_${format(dateRange!.to!, 'yyyy-MM-dd')}.xlsx`;
-        XLSX.writeFile(workbook, fileName);
+        link.download = fileName;
+        link.click();
     };
 
     const handleExportPDF = () => {
@@ -477,41 +490,69 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         setIsDetailedReportSearched(false);
     };
 
-    const handleDetailedReportExportExcel = () => {
+    const handleDetailedReportExportExcel = async () => {
         if (detailedReportData.length === 0) return;
         
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Reporte Detallado');
+
         const totalDuration = detailedReportData.reduce((acc, row) => acc + (row.duracionMinutos || 0), 0);
 
-        const dataToExport = detailedReportData.map(row => ({
-            'Fecha': format(new Date(row.fecha), 'dd/MM/yyyy'),
-            'Op. Logística': row.operacionLogistica,
-            'Duración': formatDuration(row.duracionMinutos),
-            'Hora Inicio': formatTime12Hour(row.horaInicio),
-            'Hora Fin': formatTime12Hour(row.horaFin),
-            'Placa Vehículo': row.placa,
-            'No. Contenedor': row.contenedor,
-            'Cliente': row.cliente,
-            'Tipo Operación': row.tipoOperacion,
-            'Tipo Pedido': row.tipoPedido,
-            'Tipo Empaque': row.tipoEmpaqueMaquila,
-            'No. Pedido (SISLOG)': row.pedidoSislog,
-            'Op. Cuadrilla': row.operacionPorCuadrilla,
-            'No. Operarios': row.numeroOperariosCuadrilla,
-            'Total Paletas': row.totalPaletas,
-            'Observaciones': formatObservaciones(row.observaciones),
-        }));
-        
-        const footer = {
-            'Fecha': 'TOTAL:',
-            'Op. Logística': '',
-            'Duración': formatDuration(totalDuration),
-        };
+        worksheet.columns = [
+            { header: 'Fecha', key: 'fecha', width: 12 },
+            { header: 'Op. Logística', key: 'opLogistica', width: 15 },
+            { header: 'Duración', key: 'duracion', width: 12 },
+            { header: 'Hora Inicio', key: 'horaInicio', width: 12 },
+            { header: 'Hora Fin', key: 'horaFin', width: 12 },
+            { header: 'Placa Vehículo', key: 'placa', width: 15 },
+            { header: 'No. Contenedor', key: 'contenedor', width: 18 },
+            { header: 'Cliente', key: 'cliente', width: 30 },
+            { header: 'Tipo Operación', key: 'tipoOperacion', width: 15 },
+            { header: 'Tipo Pedido', key: 'tipoPedido', width: 15 },
+            { header: 'Tipo Empaque', key: 'tipoEmpaque', width: 15 },
+            { header: 'No. Pedido (SISLOG)', key: 'pedidoSislog', width: 20 },
+            { header: 'Op. Cuadrilla', key: 'opCuadrilla', width: 15 },
+            { header: 'No. Operarios', key: 'numOperarios', width: 15 },
+            { header: 'Total Paletas', key: 'totalPaletas', width: 15 },
+            { header: 'Observaciones', key: 'observaciones', width: 40 },
+        ];
 
-        const worksheet = XLSX.utils.json_to_sheet([...dataToExport, footer]);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'Reporte Detallado');
+        detailedReportData.forEach(row => {
+            worksheet.addRow({
+                fecha: format(new Date(row.fecha), 'dd/MM/yyyy'),
+                opLogistica: row.operacionLogistica,
+                duracion: formatDuration(row.duracionMinutos),
+                horaInicio: formatTime12Hour(row.horaInicio),
+                horaFin: formatTime12Hour(row.horaFin),
+                placa: row.placa,
+                contenedor: row.contenedor,
+                cliente: row.cliente,
+                tipoOperacion: row.tipoOperacion,
+                tipoPedido: row.tipoPedido,
+                tipoEmpaque: row.tipoEmpaqueMaquila,
+                pedidoSislog: row.pedidoSislog,
+                opCuadrilla: row.operacionPorCuadrilla,
+                numOperarios: row.numeroOperariosCuadrilla,
+                totalPaletas: row.totalPaletas,
+                observaciones: formatObservaciones(row.observaciones),
+            });
+        });
+        
+        worksheet.addRow({}); // Empty row as spacer
+        const totalRow = worksheet.addRow({
+            opLogistica: 'TOTAL:',
+            duracion: formatDuration(totalDuration)
+        });
+        totalRow.font = { bold: true };
+
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
         const fileName = `Reporte_Detallado_Operacion_${format(detailedReportDateRange!.from!, 'yyyy-MM-dd')}_a_${format(detailedReportDateRange!.to!, 'yyyy-MM-dd')}.xlsx`;
-        XLSX.writeFile(workbook, fileName);
+        link.download = fileName;
+        link.click();
     };
 
     const handleDetailedReportExportPDF = () => {
@@ -678,9 +719,12 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         }
     };
     
-    const handleInventoryExportExcel = () => {
+    const handleInventoryExportExcel = async () => {
         if (!inventoryReportData || inventoryReportData.rows.length === 0) return;
-    
+        
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Reporte Inventario');
+
         const { clientHeaders, rows } = inventoryReportData;
     
         const sessionMap: { [key: string]: string } = {
@@ -691,35 +735,28 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         };
         const sessionText = `Sesión: ${sessionMap[inventorySesion] || inventorySesion}`;
     
-        const headers = ['Fecha', ...clientHeaders];
-
-        const sheetData: (string | number)[][] = [
-            [sessionText],
-            [], // Empty row for spacing
-            headers
-        ];
-
+        worksheet.addRow([sessionText]);
+        worksheet.mergeCells('A1:B1');
+        worksheet.addRow([]); // Empty row
+        
+        const headerRow = worksheet.addRow(['Fecha', ...clientHeaders]);
+        headerRow.font = { bold: true };
+        
         rows.forEach(row => {
             const rowData: (string | number)[] = [format(new Date(row.date.replace(/-/g, '/')), 'dd/MM/yyyy')];
             clientHeaders.forEach(client => {
                 rowData.push(row.clientData[client] || 0);
             });
-            sheetData.push(rowData);
+            worksheet.addRow(rowData);
         });
-    
-        const worksheet = XLSX.utils.aoa_to_sheet(sheetData);
-        // Set column widths for better legibility
-        const colWidths = [
-            { wch: 15 }, // Date column
-            ...clientHeaders.map(header => ({ wch: Math.max(header.length, 18) })) // Client columns
-        ];
-        worksheet['!cols'] = colWidths;
-        
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'Reporte Inventario');
-        
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
         const fileName = `Reporte_Inventario_Pivot_${inventorySesion}_${format(inventoryDateRange!.from!, 'yyyy-MM-dd')}_a_${format(inventoryDateRange!.to!, 'yyyy-MM-dd')}.xlsx`;
-        XLSX.writeFile(workbook, fileName);
+        link.download = fileName;
+        link.click();
     };
     
     const handleInventoryExportPDF = () => {
@@ -779,7 +816,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const body = rows.map(row => {
             const rowData: (string | number)[] = [format(new Date(row.date.replace(/-/g, '/')), 'dd/MM/yyyy')];
             clientHeaders.forEach(client => {
-                rowData.push(row.clientData[client] || 0);
+                rowData.push(row.clientData[client] ?? 0);
             });
             return rowData;
         });
@@ -924,22 +961,37 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         setConsolidatedSearched(false);
     };
 
-    const handleConsolidatedExportExcel = () => {
+    const handleConsolidatedExportExcel = async () => {
         if (!consolidatedClient || consolidatedReportData.length === 0) return;
 
-        const dataToExport = consolidatedReportData.map(row => ({
-            'Fecha': format(new Date(row.date.replace(/-/g, '/')), 'dd/MM/yyyy'),
-            'Cliente': consolidatedClient,
-            'Paletas Recibidas': row.paletasRecibidas,
-            'Paletas Despachadas': row.paletasDespachadas,
-            'Inventario Final Día': row.inventarioFinalDia,
-        }));
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Reporte Consolidado');
 
-        const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-        const workbook = XLSX.utils.book_new();
-        XLSX.utils.book_append_sheet(workbook, worksheet, 'Reporte Consolidado');
+        worksheet.columns = [
+            { header: 'Fecha', key: 'fecha', width: 15 },
+            { header: 'Cliente', key: 'cliente', width: 30 },
+            { header: 'Paletas Recibidas', key: 'recibidas', width: 20 },
+            { header: 'Paletas Despachadas', key: 'despachadas', width: 20 },
+            { header: 'Inventario Final Día', key: 'inventario', width: 20 },
+        ];
+        
+        consolidatedReportData.forEach(row => {
+            worksheet.addRow({
+                fecha: format(new Date(row.date.replace(/-/g, '/')), 'dd/MM/yyyy'),
+                cliente: consolidatedClient,
+                recibidas: row.paletasRecibidas,
+                despachadas: row.paletasDespachadas,
+                inventario: row.inventarioFinalDia,
+            });
+        });
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
         const fileName = `Reporte_Consolidado_${consolidatedClient.replace(/\s/g, '_')}_${format(consolidatedDateRange!.from!, 'yyyy-MM-dd')}_a_${format(consolidatedDateRange!.to!, 'yyyy-MM-dd')}.xlsx`;
-        XLSX.writeFile(workbook, fileName);
+        link.download = fileName;
+        link.click();
     };
 
     const handleConsolidatedExportPDF = () => {
@@ -1010,12 +1062,23 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 return;
             }
 
-            const worksheet = XLSX.utils.json_to_sheet(results);
-            const workbook = XLSX.utils.book_new();
-            XLSX.utils.book_append_sheet(workbook, worksheet, `Inventario`);
-
+            const workbook = new ExcelJS.Workbook();
+            const worksheet = workbook.addWorksheet('Inventario Detallado');
+            
+            // Assuming the first row contains headers
+            if (results.length > 0) {
+                const headers = Object.keys(results[0]);
+                worksheet.columns = headers.map(header => ({ header, key: header, width: 20 }));
+                worksheet.addRows(results);
+            }
+            
+            const buffer = await workbook.xlsx.writeBuffer();
+            const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
             const fileName = `Inventario_Detallado_${format(exportDateRange.from, 'yyyy-MM-dd')}_a_${format(exportDateRange.to, 'yyyy-MM-dd')}.xlsx`;
-            XLSX.writeFile(workbook, fileName);
+            link.download = fileName;
+            link.click();
 
         } catch (error) {
             const errorMessage = error instanceof Error ? error.message : "Ocurrió un error desconocido.";
@@ -1518,7 +1581,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                     id="csv-upload"
                                                     name="file"
                                                     type="file"
-                                                    accept=".csv, .xlsx, .xls"
+                                                    accept=".csv, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
                                                     disabled={isUploading}
                                                     multiple
                                                     className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"

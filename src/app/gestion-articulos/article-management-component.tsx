@@ -6,7 +6,7 @@ import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useRouter } from 'next/navigation';
-import * as XLSX from 'xlsx-js-style';
+import * as ExcelJS from 'exceljs';
 
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
@@ -284,10 +284,20 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
   
     try {
       const buffer = await file.arrayBuffer();
-      const workbook = XLSX.read(buffer, { type: 'buffer' });
-      const sheetName = workbook.SheetNames[0];
-      const sheet = workbook.Sheets[sheetName];
-      const jsonFromSheet: any[] = XLSX.utils.sheet_to_json(sheet);
+      const workbook = new ExcelJS.Workbook();
+      await workbook.xlsx.load(buffer);
+      const worksheet = workbook.worksheets[0];
+      const jsonFromSheet: any[] = [];
+      worksheet.eachRow((row, rowNumber) => {
+          if (rowNumber > 1) { // Assuming first row is header
+              const rowData: any = {};
+              row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+                  const headerCell = worksheet.getCell(1, colNumber);
+                  rowData[headerCell.value as string] = cell.value;
+              });
+              jsonFromSheet.push(rowData);
+          }
+      });
   
       if (jsonFromSheet.length === 0) {
         throw new Error("El archivo está vacío o no tiene un formato válido.");
@@ -361,20 +371,27 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
     return `${selectedClients.length} clientes seleccionados`;
   };
 
-  const handleExportArticles = () => {
+  const handleExportArticles = async () => {
     if (filteredArticles.length === 0) return;
 
-    const dataToExport = filteredArticles.map(article => ({
-      'Razón Social': article.razonSocial,
-      'Código Producto': article.codigoProducto,
-      'Descripción Artículo': article.denominacionArticulo,
-      'Sesión': article.sesion,
-    }));
+    const workbook = new ExcelJS.Workbook();
+    const worksheet = workbook.addWorksheet('Artículos');
 
-    const worksheet = XLSX.utils.json_to_sheet(dataToExport);
-    const workbook = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(workbook, worksheet, 'Artículos');
-    XLSX.writeFile(workbook, 'Maestro_Articulos.xlsx');
+    worksheet.columns = [
+        { header: 'Razón Social', key: 'razonSocial', width: 40 },
+        { header: 'Código Producto', key: 'codigoProducto', width: 20 },
+        { header: 'Descripción Artículo', key: 'denominacionArticulo', width: 50 },
+        { header: 'Sesión', key: 'sesion', width: 10 },
+    ];
+    
+    worksheet.addRows(filteredArticles);
+
+    const buffer = await workbook.xlsx.writeBuffer();
+    const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+    const link = document.createElement("a");
+    link.href = URL.createObjectURL(blob);
+    link.download = 'Maestro_Articulos.xlsx';
+    link.click();
   };
 
   const isAllDisplayedSelected = useMemo(() => {
@@ -578,7 +595,7 @@ export default function ArticleManagementComponent({ clients }: ArticleManagemen
                                       name="file" 
                                       type="file" 
                                       required 
-                                      accept=".xlsx, .xls"
+                                      accept=".xlsx, .xls, application/vnd.openxmlformats-officedocument.spreadsheetml.sheet, application/vnd.ms-excel"
                                       disabled={isUploading}
                                       className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:font-semibold file:bg-primary/10 file:text-primary hover:file:bg-primary/20"
                                   />
