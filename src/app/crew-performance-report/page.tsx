@@ -25,6 +25,8 @@ import { useAuth } from '@/hooks/use-auth';
 import type { PerformanceStandard } from '@/app/actions/standard-actions';
 import { getStandardNoveltyTypes, type StandardNoveltyType } from '@/app/gestion-novedades/actions';
 import { getBillingConcepts, type BillingConcept } from '@/app/gestion-conceptos-liquidacion/actions';
+import { addManualOperation, updateManualOperation } from '../operaciones-manuales/actions';
+
 
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -454,17 +456,14 @@ export default function CrewPerformanceReportPage() {
             };
         }
 
-        const optimoPercent = (summary['Óptimo'].count / totalEvaluableOperations) * 100;
-        const normalPercent = (summary['Normal'].count / totalEvaluableOperations) * 100;
-        const lentoPercent = (summary['Lento'].count / totalEvaluableOperations) * 100;
-
-        let qualification = 'Regular';
-        if (optimoPercent >= 80) {
+        const optimoPercent = (summary['Óptimo'].count / totalEvaluableOperations);
+        const normalPercent = (summary['Normal'].count / totalEvaluableOperations);
+        
+        let qualification = 'Deficiente';
+        if (optimoPercent >= 0.95) {
             qualification = 'Excelente';
-        } else if ((optimoPercent + normalPercent) >= 80) {
-            qualification = 'Bueno';
-        } else if (lentoPercent > 20) {
-            qualification = 'Necesita Mejora';
+        } else if ((optimoPercent + normalPercent) >= 0.85) {
+            qualification = 'Sobresaliente';
         }
 
         return {
@@ -512,8 +511,13 @@ export default function CrewPerformanceReportPage() {
 
     const handleExportExcel = async (type: 'productivity' | 'settlement') => {
         if (isLoading) return;
-        if ((type === 'productivity' && filteredReportData.length === 0) || (type === 'settlement' && liquidationData.length === 0)) {
-            toast({ variant: 'destructive', title: 'Sin datos', description: 'No hay datos para exportar.' });
+        if (type === 'settlement' && liquidationData.length === 0) {
+            toast({ variant: 'destructive', title: 'Sin datos', description: 'No hay datos de liquidación para exportar.' });
+            return;
+        }
+
+        if (type === 'productivity' && filteredReportData.length === 0) {
+             toast({ variant: 'destructive', title: 'Sin datos', description: 'No hay datos de productividad para exportar.' });
             return;
         }
 
@@ -524,6 +528,7 @@ export default function CrewPerformanceReportPage() {
         const timeSuffix = format(new Date(), 'yyyyMMdd-HHmm');
         
         const headerFont: Partial<ExcelJS.Font> = { name: 'Calibri', bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
+        const titleFont: Partial<ExcelJS.Font> = { name: 'Calibri', bold: true, size: 16 };
         const headerFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF002060' } };
         const border: Partial<ExcelJS.Borders> = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
 
@@ -534,7 +539,7 @@ export default function CrewPerformanceReportPage() {
             
             wsDetail.mergeCells('A1:N1');
             wsDetail.getCell('A1').value = "Reporte de Liquidación de Cuadrilla";
-            wsDetail.getCell('A1').font = { name: 'Calibri', bold: true, size: 16 };
+            wsDetail.getCell('A1').font = titleFont;
             wsDetail.getCell('A1').alignment = { horizontal: 'center' };
             wsDetail.mergeCells('A2:N2');
             wsDetail.getCell('A2').value = dateTitle;
@@ -562,20 +567,22 @@ export default function CrewPerformanceReportPage() {
                     row.valorUnitario, row.valorTotalConcepto
                 ];
                  dataRow.getCell('H').numFmt = '0.00';
-                 dataRow.getCell('M').numFmt = '"$"#,##0;[Red]-"$"#,##0';
-                 dataRow.getCell('N').numFmt = '"$"#,##0.00;[Red]-"$"#,##0.00';
+                 dataRow.getCell('M').numFmt = '$ #,##0;[Red]-$ #,##0';
+                 dataRow.getCell('N').numFmt = '$ #,##0.00;[Red]-$ #,##0.00';
                  dataRow.eachCell({ includeEmpty: true }, cell => { cell.border = border; });
             });
 
             const totalRowIndex = 5 + liquidationData.length;
             const totalRow = wsDetail.getRow(totalRowIndex);
-            totalRow.getCell('M').value = 'TOTAL GENERAL';
+            totalRow.getCell('M').value = 'TOTAL GENERAL:';
             totalRow.getCell('M').font = { bold: true };
             totalRow.getCell('M').alignment = { horizontal: 'right' };
             totalRow.getCell('N').value = totalLiquidacion;
-            totalRow.getCell('N').numFmt = '"$"#,##0.00;[Red]-"$"#,##0.00';
+            totalRow.getCell('N').numFmt = '$ #,##0.00;[Red]-$ #,##0.00';
             totalRow.getCell('N').font = { bold: true };
-            totalRow.eachCell({includeEmpty: true}, (c, colNumber) => { if(colNumber >= 13) c.border = border; });
+            totalRow.getCell('M').border = border;
+            totalRow.getCell('N').border = border;
+
 
             wsDetail.columns = [
                 { key: 'Mes', width: 12 }, { key: 'Fecha', width: 12 }, { key: 'Pedido', width: 15 },
@@ -592,7 +599,7 @@ export default function CrewPerformanceReportPage() {
 
                 wsSummary.mergeCells('A1:E1');
                 wsSummary.getCell('A1').value = "Resumen de Liquidación";
-                wsSummary.getCell('A1').font = { name: 'Calibri', bold: true, size: 16 };
+                wsSummary.getCell('A1').font = titleFont;
                 wsSummary.getCell('A1').alignment = { horizontal: 'center' };
                 wsSummary.mergeCells('A2:E2');
                 wsSummary.getCell('A2').value = dateTitle;
@@ -613,18 +620,18 @@ export default function CrewPerformanceReportPage() {
                     const dataRow = wsSummary.getRow(5 + index);
                     dataRow.values = [item.name, item.totalCantidad, item.unidadMedida, item.valorUnitario, item.totalValor];
                     dataRow.getCell('B').numFmt = '0.00';
-                    dataRow.getCell('D').numFmt = '"$"#,##0';
-                    dataRow.getCell('E').numFmt = '"$"#,##0.00';
+                    dataRow.getCell('D').numFmt = '$ #,##0';
+                    dataRow.getCell('E').numFmt = '$ #,##0.00';
                     dataRow.eachCell({ includeEmpty: true }, cell => { cell.border = border; });
                 });
 
                 const totalSummaryRowIndex = 5 + conceptSummary.length;
                 const totalSummaryRow = wsSummary.getRow(totalSummaryRowIndex);
-                totalSummaryRow.getCell('D').value = 'TOTAL GENERAL';
+                totalSummaryRow.getCell('D').value = 'TOTAL GENERAL:';
                 totalSummaryRow.getCell('D').font = { bold: true };
                 totalSummaryRow.getCell('D').alignment = { horizontal: 'right' };
                 totalSummaryRow.getCell('E').value = totalLiquidacion;
-                totalSummaryRow.getCell('E').numFmt = '"$"#,##0.00';
+                totalSummaryRow.getCell('E').numFmt = '$ #,##0.00';
                 totalSummaryRow.getCell('E').font = { bold: true };
                 totalSummaryRow.getCell('D').border = border;
                 totalSummaryRow.getCell('E').border = border;
@@ -644,7 +651,7 @@ export default function CrewPerformanceReportPage() {
         
             wsProd.mergeCells('A1:Q1');
             wsProd.getCell('A1').value = "Reporte de Análisis de Productividad";
-            wsProd.getCell('A1').font = { name: 'Calibri', bold: true, size: 16 };
+            wsProd.getCell('A1').font = titleFont;
             wsProd.getCell('A1').alignment = { horizontal: 'center' };
             wsProd.mergeCells('A2:Q2');
             wsProd.getCell('A2').value = dateTitle;
@@ -678,36 +685,6 @@ export default function CrewPerformanceReportPage() {
                 ];
                 dataRow.eachCell({ includeEmpty: true }, cell => { cell.border = border; });
             });
-
-            if (performanceSummary) {
-                const summaryStartRow = 5 + filteredReportData.length + 2;
-                const summaryHeader = wsProd.getRow(summaryStartRow);
-                summaryHeader.values = ["Resumen de Productividad (Cargue/Descargue)"];
-                summaryHeader.getCell(1).font = { bold: true };
-                
-                const summaryDataHeaders = wsProd.getRow(summaryStartRow + 1);
-                summaryDataHeaders.values = ["Estado", "Cantidad", "% sobre Total"];
-                summaryDataHeaders.eachCell(cell => { cell.font = { bold: true }; cell.border = border; });
-                
-                let currentRow = summaryStartRow + 2;
-                Object.entries(performanceSummary.summary).filter(([key]) => key !== 'No Aplica' && key !== 'Sin Tiempo').forEach(([key, value]) => {
-                     const row = wsProd.getRow(currentRow);
-                     row.values = [key, value.count, performanceSummary.totalEvaluable > 0 ? (value.count / performanceSummary.totalEvaluable) : 0];
-                     row.getCell(3).numFmt = '0.00%';
-                     row.eachCell({ includeEmpty: true }, cell => { cell.border = border; });
-                     currentRow++;
-                });
-
-                const totalEvalRow = wsProd.getRow(currentRow);
-                totalEvalRow.values = ["Total Evaluadas", performanceSummary.totalEvaluable];
-                totalEvalRow.eachCell(cell => { cell.font = { bold: true }; cell.border = border; });
-                currentRow++;
-
-                const qualificationRow = wsProd.getRow(currentRow);
-                qualificationRow.values = ["Calificación General", performanceSummary.qualification];
-                qualificationRow.eachCell(cell => { cell.font = { bold: true }; cell.border = border; });
-            }
-
             wsProd.columns = [
                 { key: 'Fecha', width: 12 }, { key: 'Operario', width: 20 }, { key: 'Cliente', width: 25 },
                 { key: 'TipoOp', width: 12 }, { key: 'TipoProd', width: 12 }, { key: 'Pedido', width: 15 },
@@ -716,6 +693,55 @@ export default function CrewPerformanceReportPage() {
                 { key: 'DurTotal', width: 12 }, { key: 'TOperativo', width: 12 }, { key: 'Productividad', width: 15 },
                 { key: 'Novedades', width: 30 }, { key: 'Estandar', width: 30 }
             ];
+
+             // --- Hoja Resumen de Productividad ---
+            if (performanceSummary) {
+                const wsSummary = workbook.addWorksheet("Resumen_Productividad");
+                
+                wsSummary.mergeCells('A1:C1');
+                wsSummary.getCell('A1').value = "Resumen de Productividad (Cargue/Descargue)";
+                wsSummary.getCell('A1').font = titleFont;
+                wsSummary.getCell('A1').alignment = { horizontal: 'center' };
+                wsSummary.mergeCells('A2:C2');
+                wsSummary.getCell('A2').value = dateTitle;
+                wsSummary.getCell('A2').font = { name: 'Calibri', italic: true, size: 10 };
+                wsSummary.getCell('A2').alignment = { horizontal: 'center' };
+                wsSummary.addRow([]);
+                
+                const summaryHeaders = ["Estado", "Cantidad", "% sobre Total"];
+                const summaryHeaderRow = wsSummary.getRow(4);
+                summaryHeaderRow.values = summaryHeaders;
+                summaryHeaderRow.eachCell(cell => {
+                    cell.font = headerFont;
+                    cell.fill = headerFill;
+                    cell.border = border;
+                });
+
+                let currentRow = 5;
+                const evaluableStates = Object.entries(performanceSummary.summary).filter(([key]) => key !== 'No Aplica' && key !== 'Sin Tiempo' && key !== 'Pendiente' && key !== 'Sin Estándar');
+                evaluableStates.forEach(([key, value]) => {
+                     const row = wsSummary.getRow(currentRow);
+                     row.values = [key, value.count, performanceSummary.totalEvaluable > 0 ? (value.count / performanceSummary.totalEvaluable) : 0];
+                     row.getCell(3).numFmt = '0.00%';
+                     row.eachCell({ includeEmpty: true }, cell => { cell.border = border; });
+                     currentRow++;
+                });
+
+                const totalEvalRow = wsSummary.getRow(currentRow);
+                totalEvalRow.values = ["Total Evaluadas", performanceSummary.totalEvaluable];
+                totalEvalRow.getCell(1).font = { bold: true };
+                totalEvalRow.getCell(2).font = { bold: true };
+                totalEvalRow.eachCell({ includeEmpty: true }, cell => { cell.border = border; });
+                currentRow++;
+
+                const qualificationRow = wsSummary.getRow(currentRow);
+                qualificationRow.values = ["Calificación General", performanceSummary.qualification];
+                qualificationRow.getCell(1).font = { bold: true };
+                qualificationRow.getCell(2).font = { bold: true };
+                qualificationRow.eachCell({ includeEmpty: true }, cell => { cell.border = border; });
+                
+                wsSummary.columns = [{ key: 'Estado', width: 20 }, { key: 'Cantidad', width: 15 }, { key: 'Porcentaje', width: 15 }];
+            }
 
             const buffer = await workbook.xlsx.writeBuffer();
             const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
