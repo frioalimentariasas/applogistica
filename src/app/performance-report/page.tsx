@@ -9,7 +9,7 @@ import { format, subDays, addDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import * as XLSX from 'xlsx';
+import * as XLSX from 'xlsx-js-style';
 
 import { getPerformanceReport, getAvailableOperarios, type PerformanceReportRow } from '@/app/actions/performance-report';
 import { useToast } from '@/hooks/use-toast';
