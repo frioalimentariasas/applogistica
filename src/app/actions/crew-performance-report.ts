@@ -410,7 +410,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                      finalReportRows.push(buildRow());
                 }
             } else if (doc.type === 'manual') {
-                const { id, clientName, operationDate, startTime, endTime, plate, concept, quantity, createdAt } = doc;
+                const { id, clientName, operationDate, startTime, endTime, plate, concept, quantity, createdAt, createdBy } = doc;
                 
                 const matchingConcept = billingConcepts.find(c => c.conceptName.toUpperCase() === concept.toUpperCase());
                 
@@ -437,7 +437,7 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
                     formType: 'manual',
                     fecha: operationDate,
                     createdAt: createdAt,
-                    operario: 'Manual',
+                    operario: createdBy?.displayName || 'N/A',
                     cliente: clientName || 'N/A',
                     tipoOperacion: (upperConcept.includes('CARGUE') || upperConcept.includes('SALIDA')) ? 'Despacho' : 'Recepción',
                     tipoProducto: 'Manual',
