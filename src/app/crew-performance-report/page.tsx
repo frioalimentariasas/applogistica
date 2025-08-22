@@ -532,7 +532,6 @@ export default function CrewPerformanceReportPage() {
             // --- Hoja Detallada ---
             const wsDetail = workbook.addWorksheet("Liquidacion_Detallada");
             
-            // Títulos
             wsDetail.mergeCells('A1:N1');
             wsDetail.getCell('A1').value = "Reporte de Liquidación de Cuadrilla";
             wsDetail.getCell('A1').font = { name: 'Calibri', bold: true, size: 16 };
@@ -541,8 +540,8 @@ export default function CrewPerformanceReportPage() {
             wsDetail.getCell('A2').value = dateTitle;
             wsDetail.getCell('A2').font = { name: 'Calibri', italic: true, size: 10 };
             wsDetail.getCell('A2').alignment = { horizontal: 'center' };
+            wsDetail.addRow([]);
 
-            // Encabezados de tabla
             const detailHeaders = ['Mes', 'Fecha Op.', 'Pedido', 'Contenedor', 'Placa', 'Cliente', 'Concepto', 'Cantidad', 'Unidad', 'H. Inicio', 'H. Fin', 'Duración', 'Valor Unitario', 'Valor Total'];
             const detailHeaderRow = wsDetail.getRow(4);
             detailHeaderRow.values = detailHeaders;
@@ -552,7 +551,6 @@ export default function CrewPerformanceReportPage() {
                 cell.border = border;
             });
             
-            // Datos Detallados
             liquidationData.forEach((row, index) => {
                 const dataRow = wsDetail.getRow(5 + index);
                 dataRow.values = [
@@ -569,16 +567,16 @@ export default function CrewPerformanceReportPage() {
                  dataRow.eachCell({ includeEmpty: true }, cell => { cell.border = border; });
             });
 
-            // Fila de Total
             const totalRowIndex = 5 + liquidationData.length;
             const totalRow = wsDetail.getRow(totalRowIndex);
-            totalRow.getCell('L').value = 'TOTAL GENERAL';
-            totalRow.getCell('L').font = { bold: true };
+            totalRow.getCell('M').value = 'TOTAL GENERAL';
+            totalRow.getCell('M').font = { bold: true };
+            totalRow.getCell('M').alignment = { horizontal: 'right' };
             totalRow.getCell('N').value = totalLiquidacion;
             totalRow.getCell('N').numFmt = '"$"#,##0.00;[Red]-"$"#,##0.00';
             totalRow.getCell('N').font = { bold: true };
+            totalRow.eachCell({includeEmpty: true}, (c, colNumber) => { if(colNumber >= 13) c.border = border; });
 
-             // Ajustar columnas
             wsDetail.columns = [
                 { key: 'Mes', width: 12 }, { key: 'Fecha', width: 12 }, { key: 'Pedido', width: 15 },
                 { key: 'Contenedor', width: 15 }, { key: 'Placa', width: 12 }, { key: 'Cliente', width: 25 },
@@ -592,7 +590,6 @@ export default function CrewPerformanceReportPage() {
             if (conceptSummary) {
                 const wsSummary = workbook.addWorksheet("Resumen_Liquidacion");
 
-                // Títulos
                 wsSummary.mergeCells('A1:E1');
                 wsSummary.getCell('A1').value = "Resumen de Liquidación";
                 wsSummary.getCell('A1').font = { name: 'Calibri', bold: true, size: 16 };
@@ -601,8 +598,8 @@ export default function CrewPerformanceReportPage() {
                 wsSummary.getCell('A2').value = dateTitle;
                 wsSummary.getCell('A2').font = { name: 'Calibri', italic: true, size: 10 };
                 wsSummary.getCell('A2').alignment = { horizontal: 'center' };
-
-                // Encabezados
+                wsSummary.addRow([]);
+                
                 const summaryHeaders = ['Concepto', 'Cantidad Total', 'Unidad Medida', 'Valor Unitario', 'Valor Total Liquidado'];
                 const summaryHeaderRow = wsSummary.getRow(4);
                 summaryHeaderRow.values = summaryHeaders;
@@ -612,7 +609,6 @@ export default function CrewPerformanceReportPage() {
                     cell.border = border;
                 });
                 
-                // Datos Resumen
                 conceptSummary.forEach((item, index) => {
                     const dataRow = wsSummary.getRow(5 + index);
                     dataRow.values = [item.name, item.totalCantidad, item.unidadMedida, item.valorUnitario, item.totalValor];
@@ -622,7 +618,6 @@ export default function CrewPerformanceReportPage() {
                     dataRow.eachCell({ includeEmpty: true }, cell => { cell.border = border; });
                 });
 
-                // Total Resumen
                 const totalSummaryRowIndex = 5 + conceptSummary.length;
                 const totalSummaryRow = wsSummary.getRow(totalSummaryRowIndex);
                 totalSummaryRow.getCell('D').value = 'TOTAL GENERAL';
@@ -631,6 +626,8 @@ export default function CrewPerformanceReportPage() {
                 totalSummaryRow.getCell('E').value = totalLiquidacion;
                 totalSummaryRow.getCell('E').numFmt = '"$"#,##0.00';
                 totalSummaryRow.getCell('E').font = { bold: true };
+                totalSummaryRow.getCell('D').border = border;
+                totalSummaryRow.getCell('E').border = border;
 
                 wsSummary.columns = [ { key: 'Concepto', width: 25 }, { key: 'Cantidad', width: 15 }, { key: 'Unidad', width: 15 }, { key: 'ValorUnitario', width: 20 }, { key: 'ValorTotal', width: 20 } ];
             }
@@ -643,8 +640,89 @@ export default function CrewPerformanceReportPage() {
              link.click();
 
         } else if (type === 'productivity') {
-            // Logic for productivity report will go here if needed in the future
-            toast({ title: "En construcción", description: "La exportación del reporte de productividad se implementará próximamente."});
+            const wsProd = workbook.addWorksheet("Productividad_Detallada");
+        
+            wsProd.mergeCells('A1:Q1');
+            wsProd.getCell('A1').value = "Reporte de Análisis de Productividad";
+            wsProd.getCell('A1').font = { name: 'Calibri', bold: true, size: 16 };
+            wsProd.getCell('A1').alignment = { horizontal: 'center' };
+            wsProd.mergeCells('A2:Q2');
+            wsProd.getCell('A2').value = dateTitle;
+            wsProd.getCell('A2').font = { name: 'Calibri', italic: true, size: 10 };
+            wsProd.getCell('A2').alignment = { horizontal: 'center' };
+            wsProd.addRow([]);
+    
+            const prodHeaders = ['Fecha Op.', 'Operario', 'Cliente', 'Tipo Op.', 'Tipo Prod.', 'Pedido', 'Contenedor', 'Placa', 'Concepto', 'H. Inicio', 'H. Fin', 'Cant.', 'Dur. Total', 'T. Operativo', 'Productividad', 'Novedades', 'Estándar Aplicado'];
+            const prodHeaderRow = wsProd.getRow(4);
+            prodHeaderRow.values = prodHeaders;
+            prodHeaderRow.eachCell(cell => {
+                cell.font = headerFont;
+                cell.fill = headerFill;
+                cell.border = border;
+            });
+    
+            filteredReportData.forEach((row, index) => {
+                const dataRow = wsProd.getRow(5 + index);
+                const indicator = getPerformanceIndicator(row);
+                dataRow.values = [
+                    format(new Date(row.fecha), 'dd/MM/yy'),
+                    row.operario, row.cliente, row.tipoOperacion, row.tipoProducto,
+                    row.pedidoSislog, row.contenedor, row.placa, row.conceptoLiquidado,
+                    row.horaInicio, row.horaFin,
+                    row.cantidadConcepto === -1 ? 'Pendiente' : row.cantidadConcepto.toFixed(2),
+                    formatDuration(row.totalDurationMinutes),
+                    formatDuration(row.operationalDurationMinutes),
+                    indicator.text,
+                    row.novelties.map(n => `${n.type}: ${n.downtimeMinutes} min`).join(', '),
+                    row.standard?.description || 'N/A',
+                ];
+                dataRow.eachCell({ includeEmpty: true }, cell => { cell.border = border; });
+            });
+
+            if (performanceSummary) {
+                const summaryStartRow = 5 + filteredReportData.length + 2;
+                const summaryHeader = wsProd.getRow(summaryStartRow);
+                summaryHeader.values = ["Resumen de Productividad (Cargue/Descargue)"];
+                summaryHeader.getCell(1).font = { bold: true };
+                
+                const summaryDataHeaders = wsProd.getRow(summaryStartRow + 1);
+                summaryDataHeaders.values = ["Estado", "Cantidad", "% sobre Total"];
+                summaryDataHeaders.eachCell(cell => { cell.font = { bold: true }; cell.border = border; });
+                
+                let currentRow = summaryStartRow + 2;
+                Object.entries(performanceSummary.summary).filter(([key]) => key !== 'No Aplica' && key !== 'Sin Tiempo').forEach(([key, value]) => {
+                     const row = wsProd.getRow(currentRow);
+                     row.values = [key, value.count, performanceSummary.totalEvaluable > 0 ? (value.count / performanceSummary.totalEvaluable) : 0];
+                     row.getCell(3).numFmt = '0.00%';
+                     row.eachCell({ includeEmpty: true }, cell => { cell.border = border; });
+                     currentRow++;
+                });
+
+                const totalEvalRow = wsProd.getRow(currentRow);
+                totalEvalRow.values = ["Total Evaluadas", performanceSummary.totalEvaluable];
+                totalEvalRow.eachCell(cell => { cell.font = { bold: true }; cell.border = border; });
+                currentRow++;
+
+                const qualificationRow = wsProd.getRow(currentRow);
+                qualificationRow.values = ["Calificación General", performanceSummary.qualification];
+                qualificationRow.eachCell(cell => { cell.font = { bold: true }; cell.border = border; });
+            }
+
+            wsProd.columns = [
+                { key: 'Fecha', width: 12 }, { key: 'Operario', width: 20 }, { key: 'Cliente', width: 25 },
+                { key: 'TipoOp', width: 12 }, { key: 'TipoProd', width: 12 }, { key: 'Pedido', width: 15 },
+                { key: 'Contenedor', width: 15 }, { key: 'Placa', width: 12 }, { key: 'Concepto', width: 20 },
+                { key: 'HInicio', width: 10 }, { key: 'HFin', width: 10 }, { key: 'Cantidad', width: 12 },
+                { key: 'DurTotal', width: 12 }, { key: 'TOperativo', width: 12 }, { key: 'Productividad', width: 15 },
+                { key: 'Novedades', width: 30 }, { key: 'Estandar', width: 30 }
+            ];
+
+            const buffer = await workbook.xlsx.writeBuffer();
+            const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = `Reporte_Productividad_gen_${timeSuffix}.xlsx`;
+            link.click();
         }
     };
     
