@@ -9,7 +9,9 @@ import * as z from 'zod';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 
-import { addManualOperation, updateManualOperation, deleteManualOperation, getAllManualOperations, type ManualOperationData } from '@/app/crew-performance-report/actions';
+import { addManualOperation, updateManualOperation, deleteManualOperation } from './actions';
+import { getAllManualOperations } from '@/app/crew-performance-report/actions';
+import type { ManualOperationData } from '@/app/crew-performance-report/actions';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import type { ClientInfo } from '@/app/actions/clients';
