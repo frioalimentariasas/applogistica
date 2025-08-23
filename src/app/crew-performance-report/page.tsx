@@ -11,8 +11,6 @@ import Link from 'next/link';
 import { DateRange } from 'react-day-picker';
 import { format, subDays, parseISO, startOfDay, endOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
 import ExcelJS from 'exceljs';
 
 import { getCrewPerformanceReport, type CrewPerformanceReportRow } from '@/app/actions/crew-performance-report';
@@ -48,6 +46,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
+
+const SESSION_STORAGE_KEY = 'crewPerformanceReportCriteria';
 
 const noveltySchema = z.object({
     type: z.string().min(1, "Debe seleccionar o ingresar un tipo de novedad."),
@@ -248,7 +248,6 @@ export default function CrewPerformanceReportPage() {
         return liquidationData.slice(startIndex, endIndex);
     }, [liquidationData, currentPage, itemsPerPage]);
 
-
     useEffect(() => {
         const fetchInitialData = async () => {
              const [clientList, noveltyTypes, billingConcepts] = await Promise.all([
@@ -330,9 +329,7 @@ export default function CrewPerformanceReportPage() {
         handleCheckScroll();
         el.addEventListener('scroll', handleCheckScroll, { passive: true });
         window.addEventListener('resize', handleCheckScroll);
-        // Attach keydown listener to the scrollable element itself to ensure focus
         el.addEventListener('keydown', handleKeyDown);
-        // Set tabindex to allow the div to be focused
         el.setAttribute('tabindex', '0');
 
         return () => {
@@ -344,9 +341,11 @@ export default function CrewPerformanceReportPage() {
     }, [handleCheckScroll, handleScroll]);
 
 
-    const handleSearch = useCallback(async () => {
+    const handleSearch = useCallback(async (isAutoSearch = false) => {
         setIsLoading(true);
-        setSearched(true);
+        if (!isAutoSearch) {
+            setSearched(true);
+        }
         setReportData([]);
         setCurrentPage(1);
 
@@ -367,11 +366,19 @@ export default function CrewPerformanceReportPage() {
             
             setReportData(results);
             
-            if (results.length === 0) {
+            if (results.length === 0 && searched) {
                  toast({
                     title: "Sin resultados",
                     description: "No se encontraron operaciones para los filtros seleccionados.",
                 });
+            }
+            
+            if (!isAutoSearch) {
+              const criteriaToSave = {
+                dateRange, selectedOperario, operationType, productType, 
+                selectedClients, cuadrillaFilter, selectedConcepts, filterPending, filterLento
+              };
+              sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(criteriaToSave));
             }
         } catch (error: any) {
             console.error("Crew Performance Report Error:", error);
@@ -386,7 +393,35 @@ export default function CrewPerformanceReportPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [dateRange, selectedOperario, operationType, productType, selectedClients, cuadrillaFilter, selectedConcepts, toast, filterPending]);
+    }, [dateRange, selectedOperario, operationType, productType, selectedClients, cuadrillaFilter, selectedConcepts, toast, filterPending, searched, filterLento]);
+    
+    // Effect to load filters from sessionStorage on component mount
+    useEffect(() => {
+        const savedCriteriaJSON = sessionStorage.getItem(SESSION_STORAGE_KEY);
+        if (savedCriteriaJSON) {
+            const savedCriteria = JSON.parse(savedCriteriaJSON);
+            
+            if (savedCriteria.dateRange?.from && savedCriteria.dateRange?.to) {
+                setDateRange({
+                    from: parseISO(savedCriteria.dateRange.from),
+                    to: parseISO(savedCriteria.dateRange.to)
+                });
+            }
+            setSelectedOperario(savedCriteria.selectedOperario || 'all');
+            setOperationType(savedCriteria.operationType || 'all');
+            setProductType(savedCriteria.productType || 'all');
+            setSelectedClients(savedCriteria.selectedClients || []);
+            setCuadrillaFilter(savedCriteria.cuadrillaFilter || 'todas');
+            setSelectedConcepts(savedCriteria.selectedConcepts || []);
+            setFilterPending(savedCriteria.filterPending || false);
+            setFilterLento(savedCriteria.filterLento || false);
+            
+            setSearched(true);
+            const timer = setTimeout(() => handleSearch(true), 100);
+            return () => clearTimeout(timer);
+        }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []); // Run only once on mount
     
     const handleClear = () => {
         setDateRange(undefined);
@@ -402,6 +437,7 @@ export default function CrewPerformanceReportPage() {
         setFilteredReportData([]);
         setSearched(false);
         setCurrentPage(1);
+        sessionStorage.removeItem(SESSION_STORAGE_KEY);
     };
 
     const totalLiquidacion = useMemo(() => liquidationData.reduce((acc, row) => acc + (row.valorTotalConcepto || 0), 0), [liquidationData]);
@@ -458,11 +494,12 @@ export default function CrewPerformanceReportPage() {
 
         const optimoPercent = (summary['Óptimo'].count / totalEvaluableOperations);
         const normalPercent = (summary['Normal'].count / totalEvaluableOperations);
-        
+        const optimoNormalPercent = optimoPercent + normalPercent;
+
         let qualification = 'Deficiente';
         if (optimoPercent >= 0.95) {
             qualification = 'Excelente';
-        } else if ((optimoPercent + normalPercent) >= 0.85) {
+        } else if (optimoNormalPercent >= 0.85) {
             qualification = 'Sobresaliente';
         }
 
@@ -534,7 +571,6 @@ export default function CrewPerformanceReportPage() {
 
 
         if (type === 'settlement') {
-            // --- Hoja Detallada ---
             const wsDetail = workbook.addWorksheet("Liquidacion_Detallada");
             
             wsDetail.mergeCells('A1:N1');
@@ -583,7 +619,6 @@ export default function CrewPerformanceReportPage() {
             totalRow.getCell('M').border = border;
             totalRow.getCell('N').border = border;
 
-
             wsDetail.columns = [
                 { key: 'Mes', width: 12 }, { key: 'Fecha', width: 12 }, { key: 'Pedido', width: 15 },
                 { key: 'Contenedor', width: 15 }, { key: 'Placa', width: 12 }, { key: 'Cliente', width: 25 },
@@ -592,8 +627,6 @@ export default function CrewPerformanceReportPage() {
                 { key: 'VlrUnitario', width: 15 }, { key: 'VlrTotal', width: 15 }
             ];
 
-
-            // --- Hoja Resumen ---
             if (conceptSummary) {
                 const wsSummary = workbook.addWorksheet("Resumen_Liquidacion");
 
@@ -752,80 +785,6 @@ export default function CrewPerformanceReportPage() {
         }
     };
     
-    const handleExportPDF = (type: 'productivity' | 'settlement') => {
-        if (isLoading) return;
-        if ((type === 'productivity' && filteredReportData.length === 0) || (type === 'settlement' && liquidationData.length === 0)) {
-            toast({ variant: 'destructive', title: 'Sin datos', description: 'No hay datos para exportar.' });
-            return;
-        }
-
-        const dateSuffix = dateRange?.from && dateRange.to ? `${format(dateRange.from, 'yyyy-MM-dd')}_a_${format(dateRange.to, 'yyyy-MM-dd')}` : 'rango_no_definido';
-        const timeSuffix = format(new Date(), 'yyyyMMdd-HHmm');
-        const doc = new jsPDF({ orientation: 'landscape' });
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const pageHeight = doc.internal.pageSize.getHeight();
-        let finalY = 15;
-        
-        const dateTitle = dateRange?.from && dateRange.to ? `Periodo: ${format(dateRange.from, 'dd/MM/yyyy', { locale: es })} - ${format(dateRange.to, 'dd/MM/yyyy', { locale: es })}` : "Periodo no especificado";
-
-        const addHeader = (title: string) => {
-            doc.setFontSize(14); doc.setFont('helvetica', 'bold'); doc.text(title, pageWidth / 2, 15, { align: 'center' });
-            doc.setFontSize(10); doc.setFont('helvetica', 'normal'); doc.text(dateTitle, pageWidth / 2, 22, { align: 'center' });
-            finalY = 30;
-        }
-
-        const addFooter = () => {
-             const pageCount = (doc as any).internal.getNumberOfPages();
-             for (let i = 1; i <= pageCount; i++) {
-                 doc.setPage(i);
-                 doc.setFontSize(8); doc.setTextColor(150);
-                 doc.text(`Página ${i} de ${pageCount}`, pageWidth - 20, pageHeight - 10, { align: 'right' });
-             }
-        }
-
-        if (type === 'productivity') {
-            addHeader("Reporte de Análisis de Productividad");
-            // ... (el resto de la lógica de productividad se mantiene)
-        } else if (type === 'settlement') {
-            addHeader("Reporte de Liquidación de Cuadrilla");
-            // ... (el resto de la lógica de liquidación se mantiene)
-        }
-        
-        // El resto del código de generación de PDF no necesita cambios funcionales,
-        // solo el encabezado que ya fue modificado.
-        // Se omite para brevedad.
-        if (type === 'productivity') {
-             if (performanceSummary) {
-                doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.text("Resumen de Productividad (Cargue/Descargue)", 14, finalY); finalY += 5;
-                autoTable(doc, { startY: finalY, head: [['Estado', 'Cantidad', '% sobre Total']], body: Object.entries(performanceSummary.summary).filter(([key]) => key !== 'No Aplica' && key !== 'Sin Tiempo').map(([key, value]) => [ key, value.count, performanceSummary.totalEvaluable > 0 ? (value.count / performanceSummary.totalEvaluable * 100).toFixed(2) + '%' : '0.00%' ]), foot: [ ['Total Evaluadas', performanceSummary.totalEvaluable, ''], ['Calificación', performanceSummary.qualification, ''] ], theme: 'grid', styles: { fontSize: 8 }, headStyles: { fillColor: '#e2e8f0', textColor: '#000' } });
-                finalY = (doc as any).autoTable.previous.finalY + 10;
-            }
-             const noveltiesData = filteredReportData.filter(row => row.novelties.length > 0);
-             if (noveltiesData.length > 0) {
-                 if(finalY + 40 > pageHeight) { doc.addPage(); finalY = 15; }
-                 doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.text("Operaciones con Novedades", 14, finalY); finalY += 5;
-                const noveltiesExport = noveltiesData.flatMap(row => row.novelties.map(n => [ format(new Date(row.fecha), 'dd/MM/yy'), row.pedidoSislog, row.cliente, n.type, n.downtimeMinutes + ' min' ]));
-                autoTable(doc, { startY: finalY, head: [['Fecha', 'Pedido', 'Cliente', 'Novedad', 'Minutos']], body: noveltiesExport, theme: 'grid', styles: { fontSize: 8 } });
-                finalY = (doc as any).autoTable.previous.finalY + 10;
-            }
-             if(finalY + 40 > pageHeight) { doc.addPage(); finalY = 15; }
-             doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.text("Detalle de Operaciones", 14, finalY); finalY += 5;
-            autoTable(doc, { startY: finalY, head: [['Fecha', 'Operario', 'Cliente', 'Tipo Op.', 'Pedido', 'Contenedor', 'Placa', 'Concepto', 'H. Inicio', 'H. Fin', 'Cant.', 'T. Operativo', 'Productividad']], body: filteredReportData.map(row => [ format(new Date(row.fecha), 'dd/MM/yy'), row.operario, row.cliente, row.tipoOperacion, row.pedidoSislog, row.contenedor, row.placa, row.conceptoLiquidado, row.horaInicio, row.horaFin, row.cantidadConcepto === -1 ? 'Pendiente' : row.cantidadConcepto.toFixed(2) + ' Ton', formatDuration(row.operationalDurationMinutes), getPerformanceIndicator(row).text, ]), styles: { fontSize: 6, cellPadding: 1 }, headStyles: { fontSize: 6, cellPadding: 1 }, columnStyles: { cliente: { cellWidth: 35 } } });
-            addFooter();
-            doc.save(`Reporte_Analisis_Productividad_${dateSuffix}_gen_${timeSuffix}.pdf`);
-        } else if (type === 'settlement') {
-            autoTable(doc, { startY: finalY, head: [[ 'Mes', 'Fecha', 'Pedido', 'Contenedor', 'Placa', 'Cliente', 'Concepto', 'Cantidad', 'Unidad', 'H. Inicio', 'H. Fin', 'Duración', 'Vlr. Unitario', 'Vlr. Total' ]], body: liquidationData.map(row => [ format(new Date(row.fecha), 'MMMM', { locale: es }), format(new Date(row.fecha), 'dd/MM/yy'), row.pedidoSislog, row.contenedor, row.placa, row.cliente, row.conceptoLiquidado, row.cantidadConcepto === -1 ? 'Pendiente' : row.cantidadConcepto.toFixed(2), row.cantidadConcepto === -1 ? '' : row.unidadMedidaConcepto, row.horaInicio, row.horaFin, formatDuration(row.totalDurationMinutes), row.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }), row.valorTotalConcepto.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), ]), theme: 'grid', styles: { fontSize: 6, cellPadding: 1 }, headStyles: { fontSize: 6, cellPadding: 1, fillColor: '#3B82F6' }, footStyles: { fillColor: '#3B82F6', textColor: '#FFFFFF' }, });
-            finalY = (doc as any).autoTable.previous.finalY;
-            if (conceptSummary && conceptSummary.length > 0) {
-                if (finalY > 150) { doc.addPage(); finalY = 20; } else { finalY += 15; }
-                doc.setFontSize(11); doc.setFont('helvetica', 'bold'); doc.text("Resumen de Conceptos Liquidados", 14, finalY); finalY += 5;
-                autoTable(doc, { startY: finalY, head: [['Concepto', 'Cantidad Total', 'Unidad Medida', 'Valor Unitario', 'Valor Total Liquidado']], body: conceptSummary.map(item => [ item.name, item.totalCantidad.toFixed(2), item.unidadMedida, item.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }), item.totalValor.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), ]), foot: [[ { content: 'TOTAL GENERAL', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold' } }, { content: conceptSummary.reduce((acc, item) => acc + item.totalValor, 0).toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } } ]], theme: 'grid', styles: { fontSize: 8 }, headStyles: { fillColor: '#e2e8f0', textColor: '#000' }, footStyles: { fillColor: '#3B82F6', textColor: '#FFFFFF' }, });
-            }
-            addFooter();
-            doc.save(`Reporte_Liquidacion_Cuadrilla_${dateSuffix}_gen_${timeSuffix}.pdf`);
-        }
-    };
-
     const handleOpenNoveltyDialog = (row: CrewPerformanceReportRow) => {
         setSelectedRowForNovelty(row);
         noveltyForm.reset({ type: '', downtimeMinutes: 0 });
@@ -1036,7 +995,7 @@ export default function CrewPerformanceReportPage() {
                                     <Label htmlFor="filter-lento" className="cursor-pointer text-sm font-normal">Mostrar solo para justificar (Lento)</Label>
                                 </div>
                             </div>
-                            <div className="flex gap-2 xl:col-span-4"><Button onClick={handleSearch} className="w-full" disabled={isLoading}>{isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}Generar</Button><Button onClick={handleClear} variant="outline" className="w-full"><XCircle className="mr-2 h-4 w-4" />Limpiar</Button></div>
+                            <div className="flex gap-2 xl:col-span-4"><Button onClick={() => handleSearch()} className="w-full" disabled={isLoading}>{isLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}Generar</Button><Button onClick={handleClear} variant="outline" className="w-full"><XCircle className="mr-2 h-4 w-4" />Limpiar</Button></div>
                         </div>
                     </CardContent>
                 </Card>
@@ -1056,9 +1015,7 @@ export default function CrewPerformanceReportPage() {
                                     <Button onClick={() => handleExportExcel('productivity')} disabled={isLoading || filteredReportData.length === 0} variant="outline" size="sm">
                                         <File className="mr-2 h-4 w-4" /> Exportar a Excel
                                     </Button>
-                                    <Button onClick={() => handleExportPDF('productivity')} disabled={isLoading || filteredReportData.length === 0} variant="outline" size="sm">
-                                        <FileDown className="mr-2 h-4 w-4" /> Exportar a PDF
-                                    </Button>
+                                    
                                 </div>
                                  <div className="relative">
                                      <ScrollArea className="w-full whitespace-nowrap rounded-md border">
@@ -1183,9 +1140,7 @@ export default function CrewPerformanceReportPage() {
                                     <Button onClick={() => handleExportExcel('settlement')} disabled={isLoading || liquidationData.length === 0} variant="outline" size="sm">
                                         <File className="mr-2 h-4 w-4" /> Exportar a Excel
                                     </Button>
-                                    <Button onClick={() => handleExportPDF('settlement')} disabled={isLoading || liquidationData.length === 0} variant="outline" size="sm">
-                                        <FileDown className="mr-2 h-4 w-4" /> Exportar a PDF
-                                    </Button>
+                                    
                                 </div>
                                  <div className="w-full overflow-x-auto rounded-md border">
                                     <Table>
@@ -1447,4 +1402,5 @@ function NoveltySelectorDialog({
         </Dialog>
     );
 }
+
 
