@@ -12,7 +12,7 @@ import { es } from 'date-fns/locale';
 import { addManualOperation, updateManualOperation, deleteManualOperation } from './actions';
 import { getAllManualOperations } from '@/app/crew-performance-report/actions';
 import type { ManualOperationData } from '@/app/crew-performance-report/actions';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/use-auth';
 import { useAuth } from '@/hooks/use-auth';
 import type { ClientInfo } from '@/app/actions/clients';
 import type { BillingConcept } from '@/app/gestion-conceptos-liquidacion/actions';
@@ -224,7 +224,7 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
             <div className="max-w-4xl mx-auto">
                 <header className="mb-8">
                     <div className="relative flex items-center justify-center text-center">
-                         <Button variant="ghost" size="icon" className="absolute left-0 top-1/2 -translate-y-1/2" onClick={() => router.push('/')}>
+                         <Button variant="ghost" size="icon" className="absolute left-0 top-1/2 -translate-y-1/2" onClick={() => router.push('/crew-performance-report')}>
                             <ArrowLeft className="h-6 w-6" />
                         </Button>
                         <div>
