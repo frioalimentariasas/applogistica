@@ -915,7 +915,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             let totalPeso = 0;
                             let totalCantidad = 0;
                             let totalPaletas = 0;
-                            const uniquePallets = new Set<number>();
+                            
                             if (isSummaryFormat) {
                                 group.items.forEach((item:any) => {
                                     totalPeso += Number(item.totalPesoNeto) || 0;
@@ -923,13 +923,21 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                                     totalPaletas += Number(item.totalPaletas) || 0;
                                 });
                             } else {
+                                const uniquePallets = new Set<number>();
+                                let pallets999Count = 0;
                                 group.items.forEach((item:any) => {
                                     totalPeso += Number(item.pesoNeto) || 0;
                                     totalCantidad += Number(item.cantidadPorPaleta) || 0;
                                     const paletaNum = Number(item.paleta);
-                                    if (!isNaN(paletaNum) && paletaNum > 0) uniquePallets.add(paletaNum);
+                                    if (!isNaN(paletaNum) && paletaNum > 0) {
+                                      if (paletaNum === 999) {
+                                          pallets999Count++;
+                                      } else {
+                                          uniquePallets.add(paletaNum);
+                                      }
+                                    }
                                 });
-                                totalPaletas = uniquePallets.size;
+                                totalPaletas = uniquePallets.size + pallets999Count;
                             }
                             return { ...group, totalPeso, totalCantidad, totalPaletas };
                         });
@@ -946,11 +954,18 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             return recalculatedSummary.reduce((sum: number, item: any) => sum + (Number(item.totalPaletas) || 0), 0);
                         }
                         const uniquePallets = new Set<number>();
+                        let count999 = 0;
                         allItems.forEach((i: any) => {
                             const pNum = Number(i.paleta);
-                            if (!isNaN(pNum) && pNum > 0) uniquePallets.add(pNum);
+                            if (!isNaN(pNum) && pNum > 0) {
+                                if (pNum === 999) {
+                                    count999++;
+                                } else {
+                                    uniquePallets.add(pNum);
+                                }
+                            }
                         });
-                        return uniquePallets.size;
+                        return uniquePallets.size + count999;
                     })();
 
                     const generalInfoBody: any[][] = [
@@ -1205,5 +1220,3 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
         </div>
     );
 }
-
-    
