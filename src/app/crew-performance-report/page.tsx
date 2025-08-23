@@ -47,8 +47,6 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 
 
-const SESSION_STORAGE_KEY = 'crewPerformanceReportCriteria';
-
 const noveltySchema = z.object({
     type: z.string().min(1, "Debe seleccionar o ingresar un tipo de novedad."),
     downtimeMinutes: z.coerce.number({invalid_type_error: "Debe ser un número"}).int("Debe ser un número entero.").min(0, "Los minutos no pueden ser negativos."),
@@ -372,14 +370,6 @@ export default function CrewPerformanceReportPage() {
                     description: "No se encontraron operaciones para los filtros seleccionados.",
                 });
             }
-            
-            if (!isAutoSearch) {
-              const criteriaToSave = {
-                dateRange, selectedOperario, operationType, productType, 
-                selectedClients, cuadrillaFilter, selectedConcepts, filterPending, filterLento
-              };
-              sessionStorage.setItem(SESSION_STORAGE_KEY, JSON.stringify(criteriaToSave));
-            }
         } catch (error: any) {
             console.error("Crew Performance Report Error:", error);
             const errorMessage = error instanceof Error ? error.message : "Ocurrió un error desconocido.";
@@ -393,35 +383,8 @@ export default function CrewPerformanceReportPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [dateRange, selectedOperario, operationType, productType, selectedClients, cuadrillaFilter, selectedConcepts, toast, filterPending, searched, filterLento]);
+    }, [dateRange, selectedOperario, operationType, productType, selectedClients, cuadrillaFilter, selectedConcepts, toast, filterPending, searched]);
     
-    // Effect to load filters from sessionStorage on component mount
-    useEffect(() => {
-        const savedCriteriaJSON = sessionStorage.getItem(SESSION_STORAGE_KEY);
-        if (savedCriteriaJSON) {
-            const savedCriteria = JSON.parse(savedCriteriaJSON);
-            
-            if (savedCriteria.dateRange?.from && savedCriteria.dateRange?.to) {
-                setDateRange({
-                    from: parseISO(savedCriteria.dateRange.from),
-                    to: parseISO(savedCriteria.dateRange.to)
-                });
-            }
-            setSelectedOperario(savedCriteria.selectedOperario || 'all');
-            setOperationType(savedCriteria.operationType || 'all');
-            setProductType(savedCriteria.productType || 'all');
-            setSelectedClients(savedCriteria.selectedClients || []);
-            setCuadrillaFilter(savedCriteria.cuadrillaFilter || 'todas');
-            setSelectedConcepts(savedCriteria.selectedConcepts || []);
-            setFilterPending(savedCriteria.filterPending || false);
-            setFilterLento(savedCriteria.filterLento || false);
-            
-            setSearched(true);
-            const timer = setTimeout(() => handleSearch(true), 100);
-            return () => clearTimeout(timer);
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, []); // Run only once on mount
     
     const handleClear = () => {
         setDateRange(undefined);
@@ -437,7 +400,6 @@ export default function CrewPerformanceReportPage() {
         setFilteredReportData([]);
         setSearched(false);
         setCurrentPage(1);
-        sessionStorage.removeItem(SESSION_STORAGE_KEY);
     };
 
     const totalLiquidacion = useMemo(() => liquidationData.reduce((acc, row) => acc + (row.valorTotalConcepto || 0), 0), [liquidationData]);
@@ -493,8 +455,7 @@ export default function CrewPerformanceReportPage() {
         }
 
         const optimoPercent = (summary['Óptimo'].count / totalEvaluableOperations);
-        const normalPercent = (summary['Normal'].count / totalEvaluableOperations);
-        const optimoNormalPercent = optimoPercent + normalPercent;
+        const optimoNormalPercent = optimoPercent + (summary['Normal'].count / totalEvaluableOperations);
 
         let qualification = 'Deficiente';
         if (optimoPercent >= 0.95) {
@@ -548,241 +509,18 @@ export default function CrewPerformanceReportPage() {
 
     const handleExportExcel = async (type: 'productivity' | 'settlement') => {
         if (isLoading) return;
-        if (type === 'settlement' && liquidationData.length === 0) {
-            toast({ variant: 'destructive', title: 'Sin datos', description: 'No hay datos de liquidación para exportar.' });
+        if (type === 'settlement') {
+            toast({ variant: 'destructive', title: 'En construcción', description: 'La exportación de liquidación está en desarrollo.' });
             return;
         }
-
+        
         if (type === 'productivity' && filteredReportData.length === 0) {
              toast({ variant: 'destructive', title: 'Sin datos', description: 'No hay datos de productividad para exportar.' });
             return;
         }
 
-        const workbook = new ExcelJS.Workbook();
-        const dateTitle = dateRange?.from && dateRange.to
-            ? `Periodo: ${format(dateRange.from, 'dd/MM/yyyy', { locale: es })} - ${format(dateRange.to, 'dd/MM/yyyy', { locale: es })}`
-            : "Periodo: últimos 7 días";
-        const timeSuffix = format(new Date(), 'yyyyMMdd-HHmm');
-        
-        const headerFont: Partial<ExcelJS.Font> = { name: 'Calibri', bold: true, size: 11, color: { argb: 'FFFFFFFF' } };
-        const titleFont: Partial<ExcelJS.Font> = { name: 'Calibri', bold: true, size: 16 };
-        const headerFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF002060' } };
-        const border: Partial<ExcelJS.Borders> = { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } };
-
-
-        if (type === 'settlement') {
-            const wsDetail = workbook.addWorksheet("Liquidacion_Detallada");
-            
-            wsDetail.mergeCells('A1:N1');
-            wsDetail.getCell('A1').value = "Reporte de Liquidación de Cuadrilla";
-            wsDetail.getCell('A1').font = titleFont;
-            wsDetail.getCell('A1').alignment = { horizontal: 'center' };
-            wsDetail.mergeCells('A2:N2');
-            wsDetail.getCell('A2').value = dateTitle;
-            wsDetail.getCell('A2').font = { name: 'Calibri', italic: true, size: 10 };
-            wsDetail.getCell('A2').alignment = { horizontal: 'center' };
-            wsDetail.addRow([]);
-
-            const detailHeaders = ['Mes', 'Fecha Op.', 'Pedido', 'Contenedor', 'Placa', 'Cliente', 'Concepto', 'Cantidad', 'Unidad', 'H. Inicio', 'H. Fin', 'Duración', 'Valor Unitario', 'Valor Total'];
-            const detailHeaderRow = wsDetail.getRow(4);
-            detailHeaderRow.values = detailHeaders;
-            detailHeaderRow.eachCell(cell => {
-                cell.font = headerFont;
-                cell.fill = headerFill;
-                cell.border = border;
-            });
-            
-            liquidationData.forEach((row, index) => {
-                const dataRow = wsDetail.getRow(5 + index);
-                dataRow.values = [
-                    format(new Date(row.fecha), 'MMMM', { locale: es }), format(new Date(row.fecha), 'dd/MM/yy'), row.pedidoSislog,
-                    row.contenedor, row.placa, row.cliente, row.conceptoLiquidado,
-                    row.cantidadConcepto === -1 ? 'Pendiente' : row.cantidadConcepto,
-                    row.cantidadConcepto === -1 ? '' : row.unidadMedidaConcepto,
-                    row.horaInicio, row.horaFin, formatDuration(row.totalDurationMinutes),
-                    row.valorUnitario, row.valorTotalConcepto
-                ];
-                 dataRow.getCell('H').numFmt = '0.00';
-                 dataRow.getCell('M').numFmt = '$ #,##0;[Red]-$ #,##0';
-                 dataRow.getCell('N').numFmt = '$ #,##0.00;[Red]-$ #,##0.00';
-                 dataRow.eachCell({ includeEmpty: true }, cell => { cell.border = border; });
-            });
-
-            const totalRowIndex = 5 + liquidationData.length;
-            const totalRow = wsDetail.getRow(totalRowIndex);
-            totalRow.getCell('M').value = 'TOTAL GENERAL:';
-            totalRow.getCell('M').font = { bold: true };
-            totalRow.getCell('M').alignment = { horizontal: 'right' };
-            totalRow.getCell('N').value = totalLiquidacion;
-            totalRow.getCell('N').numFmt = '$ #,##0.00;[Red]-$ #,##0.00';
-            totalRow.getCell('N').font = { bold: true };
-            totalRow.getCell('M').border = border;
-            totalRow.getCell('N').border = border;
-
-            wsDetail.columns = [
-                { key: 'Mes', width: 12 }, { key: 'Fecha', width: 12 }, { key: 'Pedido', width: 15 },
-                { key: 'Contenedor', width: 15 }, { key: 'Placa', width: 12 }, { key: 'Cliente', width: 25 },
-                { key: 'Concepto', width: 20 }, { key: 'Cantidad', width: 12 }, { key: 'Unidad', width: 12 },
-                { key: 'HInicio', width: 10 }, { key: 'HFin', width: 10 }, { key: 'Duracion', width: 12 },
-                { key: 'VlrUnitario', width: 15 }, { key: 'VlrTotal', width: 15 }
-            ];
-
-            if (conceptSummary) {
-                const wsSummary = workbook.addWorksheet("Resumen_Liquidacion");
-
-                wsSummary.mergeCells('A1:E1');
-                wsSummary.getCell('A1').value = "Resumen de Liquidación";
-                wsSummary.getCell('A1').font = titleFont;
-                wsSummary.getCell('A1').alignment = { horizontal: 'center' };
-                wsSummary.mergeCells('A2:E2');
-                wsSummary.getCell('A2').value = dateTitle;
-                wsSummary.getCell('A2').font = { name: 'Calibri', italic: true, size: 10 };
-                wsSummary.getCell('A2').alignment = { horizontal: 'center' };
-                wsSummary.addRow([]);
-                
-                const summaryHeaders = ['Concepto', 'Cantidad Total', 'Unidad Medida', 'Valor Unitario', 'Valor Total Liquidado'];
-                const summaryHeaderRow = wsSummary.getRow(4);
-                summaryHeaderRow.values = summaryHeaders;
-                summaryHeaderRow.eachCell(cell => {
-                    cell.font = headerFont;
-                    cell.fill = headerFill;
-                    cell.border = border;
-                });
-                
-                conceptSummary.forEach((item, index) => {
-                    const dataRow = wsSummary.getRow(5 + index);
-                    dataRow.values = [item.name, item.totalCantidad, item.unidadMedida, item.valorUnitario, item.totalValor];
-                    dataRow.getCell('B').numFmt = '0.00';
-                    dataRow.getCell('D').numFmt = '$ #,##0';
-                    dataRow.getCell('E').numFmt = '$ #,##0.00';
-                    dataRow.eachCell({ includeEmpty: true }, cell => { cell.border = border; });
-                });
-
-                const totalSummaryRowIndex = 5 + conceptSummary.length;
-                const totalSummaryRow = wsSummary.getRow(totalSummaryRowIndex);
-                totalSummaryRow.getCell('D').value = 'TOTAL GENERAL:';
-                totalSummaryRow.getCell('D').font = { bold: true };
-                totalSummaryRow.getCell('D').alignment = { horizontal: 'right' };
-                totalSummaryRow.getCell('E').value = totalLiquidacion;
-                totalSummaryRow.getCell('E').numFmt = '$ #,##0.00';
-                totalSummaryRow.getCell('E').font = { bold: true };
-                totalSummaryRow.getCell('D').border = border;
-                totalSummaryRow.getCell('E').border = border;
-
-                wsSummary.columns = [ { key: 'Concepto', width: 25 }, { key: 'Cantidad', width: 15 }, { key: 'Unidad', width: 15 }, { key: 'ValorUnitario', width: 20 }, { key: 'ValorTotal', width: 20 } ];
-            }
-
-             const buffer = await workbook.xlsx.writeBuffer();
-             const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-             const link = document.createElement("a");
-             link.href = URL.createObjectURL(blob);
-             link.download = `Reporte_Liquidacion_Cuadrilla_gen_${timeSuffix}.xlsx`;
-             link.click();
-
-        } else if (type === 'productivity') {
-            const wsProd = workbook.addWorksheet("Productividad_Detallada");
-        
-            wsProd.mergeCells('A1:Q1');
-            wsProd.getCell('A1').value = "Reporte de Análisis de Productividad";
-            wsProd.getCell('A1').font = titleFont;
-            wsProd.getCell('A1').alignment = { horizontal: 'center' };
-            wsProd.mergeCells('A2:Q2');
-            wsProd.getCell('A2').value = dateTitle;
-            wsProd.getCell('A2').font = { name: 'Calibri', italic: true, size: 10 };
-            wsProd.getCell('A2').alignment = { horizontal: 'center' };
-            wsProd.addRow([]);
-    
-            const prodHeaders = ['Fecha Op.', 'Operario', 'Cliente', 'Tipo Op.', 'Tipo Prod.', 'Pedido', 'Contenedor', 'Placa', 'Concepto', 'H. Inicio', 'H. Fin', 'Cant.', 'Dur. Total', 'T. Operativo', 'Productividad', 'Novedades', 'Estándar Aplicado'];
-            const prodHeaderRow = wsProd.getRow(4);
-            prodHeaderRow.values = prodHeaders;
-            prodHeaderRow.eachCell(cell => {
-                cell.font = headerFont;
-                cell.fill = headerFill;
-                cell.border = border;
-            });
-    
-            filteredReportData.forEach((row, index) => {
-                const dataRow = wsProd.getRow(5 + index);
-                const indicator = getPerformanceIndicator(row);
-                dataRow.values = [
-                    format(new Date(row.fecha), 'dd/MM/yy'),
-                    row.operario, row.cliente, row.tipoOperacion, row.tipoProducto,
-                    row.pedidoSislog, row.contenedor, row.placa, row.conceptoLiquidado,
-                    row.horaInicio, row.horaFin,
-                    row.cantidadConcepto === -1 ? 'Pendiente' : row.cantidadConcepto.toFixed(2),
-                    formatDuration(row.totalDurationMinutes),
-                    formatDuration(row.operationalDurationMinutes),
-                    indicator.text,
-                    row.novelties.map(n => `${n.type}: ${n.downtimeMinutes} min`).join(', '),
-                    row.standard?.description || 'N/A',
-                ];
-                dataRow.eachCell({ includeEmpty: true }, cell => { cell.border = border; });
-            });
-            wsProd.columns = [
-                { key: 'Fecha', width: 12 }, { key: 'Operario', width: 20 }, { key: 'Cliente', width: 25 },
-                { key: 'TipoOp', width: 12 }, { key: 'TipoProd', width: 12 }, { key: 'Pedido', width: 15 },
-                { key: 'Contenedor', width: 15 }, { key: 'Placa', width: 12 }, { key: 'Concepto', width: 20 },
-                { key: 'HInicio', width: 10 }, { key: 'HFin', width: 10 }, { key: 'Cantidad', width: 12 },
-                { key: 'DurTotal', width: 12 }, { key: 'TOperativo', width: 12 }, { key: 'Productividad', width: 15 },
-                { key: 'Novedades', width: 30 }, { key: 'Estandar', width: 30 }
-            ];
-
-             // --- Hoja Resumen de Productividad ---
-            if (performanceSummary) {
-                const wsSummary = workbook.addWorksheet("Resumen_Productividad");
-                
-                wsSummary.mergeCells('A1:C1');
-                wsSummary.getCell('A1').value = "Resumen de Productividad (Cargue/Descargue)";
-                wsSummary.getCell('A1').font = titleFont;
-                wsSummary.getCell('A1').alignment = { horizontal: 'center' };
-                wsSummary.mergeCells('A2:C2');
-                wsSummary.getCell('A2').value = dateTitle;
-                wsSummary.getCell('A2').font = { name: 'Calibri', italic: true, size: 10 };
-                wsSummary.getCell('A2').alignment = { horizontal: 'center' };
-                wsSummary.addRow([]);
-                
-                const summaryHeaders = ["Estado", "Cantidad", "% sobre Total"];
-                const summaryHeaderRow = wsSummary.getRow(4);
-                summaryHeaderRow.values = summaryHeaders;
-                summaryHeaderRow.eachCell(cell => {
-                    cell.font = headerFont;
-                    cell.fill = headerFill;
-                    cell.border = border;
-                });
-
-                let currentRow = 5;
-                const evaluableStates = Object.entries(performanceSummary.summary).filter(([key]) => key !== 'No Aplica' && key !== 'Sin Tiempo' && key !== 'Pendiente' && key !== 'Sin Estándar');
-                evaluableStates.forEach(([key, value]) => {
-                     const row = wsSummary.getRow(currentRow);
-                     row.values = [key, value.count, performanceSummary.totalEvaluable > 0 ? (value.count / performanceSummary.totalEvaluable) : 0];
-                     row.getCell(3).numFmt = '0.00%';
-                     row.eachCell({ includeEmpty: true }, cell => { cell.border = border; });
-                     currentRow++;
-                });
-
-                const totalEvalRow = wsSummary.getRow(currentRow);
-                totalEvalRow.values = ["Total Evaluadas", performanceSummary.totalEvaluable];
-                totalEvalRow.getCell(1).font = { bold: true };
-                totalEvalRow.getCell(2).font = { bold: true };
-                totalEvalRow.eachCell({ includeEmpty: true }, cell => { cell.border = border; });
-                currentRow++;
-
-                const qualificationRow = wsSummary.getRow(currentRow);
-                qualificationRow.values = ["Calificación General", performanceSummary.qualification];
-                qualificationRow.getCell(1).font = { bold: true };
-                qualificationRow.getCell(2).font = { bold: true };
-                qualificationRow.eachCell({ includeEmpty: true }, cell => { cell.border = border; });
-                
-                wsSummary.columns = [{ key: 'Estado', width: 20 }, { key: 'Cantidad', width: 15 }, { key: 'Porcentaje', width: 15 }];
-            }
-
-            const buffer = await workbook.xlsx.writeBuffer();
-            const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-            const link = document.createElement("a");
-            link.href = URL.createObjectURL(blob);
-            link.download = `Reporte_Productividad_gen_${timeSuffix}.xlsx`;
-            link.click();
-        }
+        toast({ variant: 'destructive', title: 'En construcción', description: 'La exportación de productividad está en desarrollo.' });
+        return;
     };
     
     const handleOpenNoveltyDialog = (row: CrewPerformanceReportRow) => {
@@ -1402,5 +1140,6 @@ function NoveltySelectorDialog({
         </Dialog>
     );
 }
+
 
 
