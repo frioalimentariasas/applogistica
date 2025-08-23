@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -12,7 +11,7 @@ import { es } from 'date-fns/locale';
 import { addManualOperation, updateManualOperation, deleteManualOperation } from './actions';
 import { getAllManualOperations } from '@/app/crew-performance-report/actions';
 import type { ManualOperationData } from '@/app/crew-performance-report/actions';
-import { useToast } from '@/hooks/use-auth';
+import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import type { ClientInfo } from '@/app/actions/clients';
 import type { BillingConcept } from '@/app/gestion-conceptos-liquidacion/actions';
