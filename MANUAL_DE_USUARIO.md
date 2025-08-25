@@ -12,6 +12,8 @@ Para acceder a la aplicación, necesitarás un correo electrónico y una contras
 2.  **Ingresa tus credenciales:** Escribe tu correo electrónico y contraseña en los campos correspondientes.
 3.  **Haz clic en "Ingresar":** Si los datos son correctos, serás dirigido a la pantalla principal.
 
+> [PENDIENTE: Insertar pantallazo de la pantalla de inicio de sesión]
+
 > **Nota:** Si olvidas tu contraseña, contacta al administrador para que te asigne una nueva.
 
 ## 3. Pantalla Principal
@@ -20,6 +22,8 @@ La pantalla principal es tu centro de operaciones. Desde aquí puedes:
 
 *   **Generar nuevos formatos de operación:** Elige el tipo de operación y producto.
 *   **Acceder a los módulos de consulta y gestión:** Utiliza los botones de la sección "Consultas y Herramientas".
+
+> [PENDIENTE: Insertar pantallazo de la pantalla principal, mostrando la sección de "Generar Formato" y "Consultas y Herramientas"]
 
 ### 3.1. Generar un Nuevo Formato
 
@@ -34,6 +38,8 @@ Esta es la tarea más común. Sigue estos pasos:
     *   **Peso Variable:** Para productos cuyo peso varía en cada unidad (ej. piezas de carne).
 
 3.  **Haz clic en "Generar Formato":** Esto te llevará al formulario correspondiente.
+
+> [PENDIENTE: Insertar pantallazo de la sección "Generar Nuevo Formato" con las opciones seleccionadas]
 
 ## 4. Formularios de Operación
 
@@ -55,6 +61,8 @@ Existen tres formularios principales que se adaptan a las necesidades de la oper
     *   **Anexos:** Puedes subir fotos desde tu galería o tomarlas directamente con la cámara del dispositivo.
     *   **Responsables:** Asigna al coordinador y define si la operación fue realizada por cuadrilla.
 
+> [PENDIENTE: Insertar pantallazo del formulario de Peso Fijo, destacando las secciones principales]
+
 ### 4.2. Formulario de Peso Variable (Recepción)
 
 *   **Uso:** Para productos que necesitan ser pesados individualmente al momento de la recepción.
@@ -70,6 +78,8 @@ Existen tres formularios principales que se adaptan a las necesidades de la oper
         6.  El sistema llenará automáticamente los campos de información general del vehículo con los datos de todas las placas que hayas agregado.
     *   **Recepción tipo "MAQUILA" o "INGRESO DE SALDOS":** Los campos de información del vehículo (conductor, placa, etc.) son opcionales.
 
+> [PENDIENTE: Insertar pantallazo del formulario de Peso Variable (Recepción), mostrando la sección de ítems y la opción "Recepción por Placa"]
+
 ### 4.3. Formulario de Peso Variable (Despacho)
 
 *   **Uso:** Similar a la recepción de peso variable, pero para la salida de mercancía.
@@ -81,6 +91,8 @@ Existen tres formularios principales que se adaptan a las necesidades de la oper
         3.  Ingresa el nombre del destino (ej. una ciudad o sucursal).
         4.  Dentro de cada destino, agrega los ítems correspondientes, ya sea de forma individual o en modo resumen.
 
+> [PENDIENTE: Insertar pantallazo del formulario de Peso Variable (Despacho), mostrando la opción "Pedido por Destino"]
+
 ### 4.4. Funciones Comunes en Formularios
 
 *   **Observaciones Especiales:**
@@ -88,6 +100,9 @@ Existen tres formularios principales que se adaptan a las necesidades de la oper
         *   **Cantidad de Paletas**: El número de paletas movidas en la operación parcial.
         *   **Peso por Paleta (KG)**: El peso promedio de una de esas paletas.
         El sistema usará estos datos para calcular las toneladas a liquidar automáticamente.
+
+> [PENDIENTE: Insertar pantallazo mostrando los campos que aparecen al seleccionar la observación "CARGUE/DESCARGUE PARCIAL DE PALETAS"]
+
 *   **Guardar Borrador:** El formulario se guarda automáticamente en tu dispositivo cada pocos segundos. Si cierras la aplicación, al volver al mismo tipo de formulario se te preguntará si quieres restaurar los datos.
 *   **Limpiar Formato:** El botón **"Limpiar Formato"** borra todos los datos ingresados para que puedas empezar de nuevo.
 *   **Anexos:** Usa los botones **"Subir archivos"** o **"Tomar Foto"** para adjuntar evidencia fotográfica.
@@ -104,6 +119,8 @@ Desde la pantalla principal, puedes acceder a varios módulos para gestionar y c
     *   **Editar (Lápiz):** Abre el formulario con los datos cargados para que puedas modificarlos.
     *   **Eliminar (Basura):** Borra el formulario permanentemente.
 
+> [PENDIENTE: Insertar pantallazo de la página "Consultar Formatos Guardados" con los filtros y la tabla de resultados]
+
 ### 5.2. Informes para Facturación
 
 Este módulo contiene 4 tipos de reportes:
@@ -116,6 +133,8 @@ Este módulo contiene 4 tipos de reportes:
     *   **Exportar Detallado:** Descarga un Excel con el detalle completo del inventario para los filtros seleccionados.
 4.  **Consolidado Movimientos/Inventario:** Combina los datos de movimientos y de inventario para mostrar entradas, salidas y el stock final de cada día.
 
+> [PENDIENTE: Insertar pantallazo de una de las pestañas del módulo "Informes para Facturación", por ejemplo, "Movimientos Diarios"]
+
 ### 5.3. Informe de Desempeño y Liquidación de Cuadrilla
 
 Este módulo es una herramienta poderosa para medir la eficiencia de las operaciones y calcular automáticamente los valores a pagar a las cuadrillas. Se compone de dos pestañas principales.
@@ -123,6 +142,8 @@ Este módulo es una herramienta poderosa para medir la eficiencia de las operaci
 #### 5.3.1. Pestaña "Análisis de Productividad"
 
 Esta es la pantalla principal del módulo, donde puedes analizar el rendimiento.
+
+> [PENDIENTE: Insertar pantallazo de la pestaña "Análisis de Productividad" con la tabla de resultados]
 
 *   **Uso:** Generar un reporte detallado del desempeño de las operaciones de cargue y descargue.
 *   **Filtros Disponibles:**
@@ -146,6 +167,8 @@ Esta es la pantalla principal del módulo, donde puedes analizar el rendimiento.
 
 Muestra un desglose de todos los conceptos que generan un cobro a la cuadrilla.
 
+> [PENDIENTE: Insertar pantallazo de la pestaña "Liquidación de Cuadrilla"]
+
 *   **Interpretación de la Tabla:**
     *   Muestra cada concepto (CARGUE, DESCARGUE, REESTIBADO, etc.), con su cantidad, valor unitario y valor total.
     *   Al final de la tabla, se muestra un **TOTAL GENERAL LIQUIDACIÓN**.
@@ -163,6 +186,8 @@ Muestra un desglose de todos los conceptos que generan un cobro a la cuadrilla.
             *   **Rangos de Toneladas:** **Lo más importante.** Define uno o más rangos de peso (ej. de 0 a 5 Toneladas) y asigna los **minutos base** para cada uno (ej. 45 minutos).
         2.  **Edición y Eliminación:** Puedes editar cualquier estándar existente o eliminarlo. También puedes seleccionar varios y aplicar cambios en lote (ej. cambiar el cliente a varios estándares a la vez).
 
+> [PENDIENTE: Insertar pantallazo del módulo "Gestionar Estándares"]
+
 *   **Gestionar Conceptos de Liquidación (La Base del Cobro)**
     *   **Uso:** Definir los **conceptos facturables** y su valor. El informe de liquidación usará estas reglas para calcular los totales.
     *   **¿Cómo Funciona?**
@@ -171,6 +196,8 @@ Muestra un desglose de todos los conceptos que generan un cobro a la cuadrilla.
             *   **Cliente(s):** **Función clave.** Asigna el concepto a uno, varios o "TODOS" los clientes. Esto te permite tener valores diferentes para un mismo concepto según el cliente.
             *   **Tipo de Operación y Producto:** Filtra aún más cuándo se debe aplicar la regla.
             *   **Unidad de Medida y Valor:** Define cómo se cobra el concepto (por TONELADA, por PALETA, por UNIDAD, etc.) y cuál es su valor.
+
+> [PENDIENTE: Insertar pantallazo del módulo "Gestionar Conceptos de Liquidación"]
 
 > **Ejemplo Práctico:**
 > 1.  Creas un concepto **"EMPAQUE DE CAJAS"** de $500 por CAJA y lo asignas a **TODOS** los clientes.
@@ -184,6 +211,8 @@ Muestra un desglose de todos los conceptos que generan un cobro a la cuadrilla.
 *   **Gestión de Observaciones:** Administra las observaciones estándar que aparecen en los formularios.
 *   **Gestión de Tipos de Pedido:** Define los diferentes tipos de pedido (TUNEL, MAQUILA, etc.) y a qué formularios se aplican.
 *   **Gestión de Usuarios:** (Solo Super Admin) Permite crear usuarios, asignar permisos, cambiar contraseñas y cerrar sesiones activas.
+
+> [PENDIENTE: Insertar un pantallazo de uno de los módulos de gestión, por ejemplo, "Gestión de Artículos"]
 
 ---
 
