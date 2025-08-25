@@ -5,15 +5,16 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm, SubmitHandler } from 'react-hook-form';
-import { zodResolver } from '@hookform/resolvers/zod';
+import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from 'zod';
 import Link from 'next/link';
 import { DateRange } from 'react-day-picker';
 import { format, subDays, parseISO, startOfDay, endOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import ExcelJS from 'exceljs';
-import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import jsPDF from 'jspdf';
+
 
 import { getCrewPerformanceReport, type CrewPerformanceReportRow } from '@/app/actions/crew-performance-report';
 import { addNoveltyToOperation, deleteNovelty } from '@/app/actions/novelty-actions';
@@ -540,8 +541,6 @@ export default function CrewPerformanceReportPage() {
         const titleStyle: Partial<ExcelJS.Style> = { font: { bold: true, size: 14 }, alignment: { horizontal: 'center' } };
         const subtitleStyle: Partial<ExcelJS.Style> = { font: { size: 11 }, alignment: { horizontal: 'center' } };
         const headerStyle: Partial<ExcelJS.Style> = { font: { bold: true, color: { argb: 'FFFFFFFF' } }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2196F3' } }, border: { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } } };
-        const cellStyle: Partial<ExcelJS.Style> = { border: { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } } };
-        const totalRowStyle: Partial<ExcelJS.Style> = { font: { bold: true }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } }, border: { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } } };
         
         const periodText = dateRange?.from && dateRange.to ? `Periodo: ${format(dateRange.from, 'dd/MM/yyyy')} a ${format(dateRange.to, 'dd/MM/yyyy')}` : 'Periodo no especificado';
 
@@ -559,25 +558,33 @@ export default function CrewPerformanceReportPage() {
             wsProd.addRow([]);
             
             const prodHeaders = ['Fecha Op.', 'Fecha Creación', 'Operario', 'Cliente', 'Tipo Op.', 'Tipo Prod.', 'Pedido', 'Contenedor', 'Placa', 'Concepto', 'Hora Inicio', 'Hora Fin', 'Cant.', 'Dur. Total', 'T. Operativo', 'Novedades', 'Productividad'];
-            const prodHeaderRow = wsProd.addRow(prodHeaders);
-            prodHeaderRow.eachCell(cell => cell.style = headerStyle);
+            wsProd.columns = prodHeaders.map(header => ({ header, key: header.toLowerCase().replace(/\s/g, '_'), width: 15 }));
+            wsProd.getRow(4).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+            wsProd.getRow(4).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2196F3' } };
+
             
             filteredReportData.forEach(row => {
                 const indicator = getPerformanceIndicator(row);
-                wsProd.addRow([
-                    format(new Date(row.fecha), 'dd/MM/yy'), format(parseISO(row.createdAt), 'dd/MM/yy HH:mm'), row.operario, row.cliente,
-                    row.tipoOperacion, row.tipoProducto, row.pedidoSislog, row.contenedor, row.placa, row.conceptoLiquidado,
-                    row.horaInicio, row.horaFin, row.cantidadConcepto === -1 ? 'Pendiente' : row.cantidadConcepto,
-                    formatDuration(row.totalDurationMinutes), formatDuration(row.operationalDurationMinutes),
-                    row.novelties.map(n => `${n.type}: ${n.downtimeMinutes} min`).join(', '), indicator.text
-                ]).eachCell((cell, colNumber) => {
-                    cell.style = cellStyle;
-                    if(colNumber === 13 && typeof cell.value === 'number') {
-                         cell.numFmt = '#,##0.00';
-                    }
+                wsProd.addRow({
+                    'fecha_op.': format(new Date(row.fecha), 'dd/MM/yy'),
+                    'fecha_creación': format(parseISO(row.createdAt), 'dd/MM/yy HH:mm'),
+                    operario: row.operario,
+                    cliente: row.cliente,
+                    'tipo_op.': row.tipoOperacion,
+                    'tipo_prod.': row.tipoProducto,
+                    pedido: row.pedidoSislog,
+                    contenedor: row.contenedor,
+                    placa: row.placa,
+                    concepto: row.conceptoLiquidado,
+                    'hora_inicio': row.horaInicio,
+                    'hora_fin': row.horaFin,
+                    'cant.': row.cantidadConcepto === -1 ? 'Pendiente' : row.cantidadConcepto,
+                    'dur._total': formatDuration(row.totalDurationMinutes),
+                    't._operativo': formatDuration(row.operationalDurationMinutes),
+                    novedades: row.novelties.map(n => `${n.type}: ${n.downtimeMinutes} min`).join(', '),
+                    productividad: indicator.text
                 });
             });
-            wsProd.columns.forEach(column => { column.width = 15; });
             
             // --- Sheet 2: Resumen Productividad ---
             if(performanceSummary) {
@@ -600,25 +607,23 @@ export default function CrewPerformanceReportPage() {
                     const r = wsSum.addRow(row);
                     r.getCell(2).numFmt = '#,##0';
                     r.getCell(3).numFmt = '0.00%';
-                    r.eachCell(cell => cell.style = cellStyle);
                 });
 
                 const totalRow = wsSum.addRow(['TOTAL EVALUABLES', performanceSummary.totalEvaluable, 1]);
-                totalRow.eachCell(cell => cell.style = totalRowStyle);
+                totalRow.eachCell(cell => cell.font = { bold: true });
                 totalRow.getCell(2).numFmt = '#,##0.00';
                 totalRow.getCell(3).numFmt = '0.00%';
                 
                 wsSum.addRow([]);
                 const qualificationRow = wsSum.addRow(['CALIFICACIÓN GENERAL', performanceSummary.qualification]);
-                qualificationRow.getCell(1).style = totalRowStyle;
-                qualificationRow.getCell(2).style = totalRowStyle;
+                qualificationRow.eachCell(cell => cell.font = { bold: true });
                 wsSum.mergeCells(`B${qualificationRow.number}:C${qualificationRow.number}`);
                 
                 wsSum.columns = [{ width: 25 }, { width: 15 }, { width: 15 }];
             }
 
         } else if (type === 'settlement') {
-            if(liquidationData.length === 0) {
+             if(liquidationData.length === 0) {
                  toast({ variant: 'destructive', title: 'Sin datos', description: 'No hay datos de liquidación para exportar.' });
                  return;
             }
@@ -629,45 +634,36 @@ export default function CrewPerformanceReportPage() {
              wsLiq.mergeCells('A2:H2');
              wsLiq.addRow([]);
 
-             const liqHeaders = ['Mes', 'Fecha Op.', 'Pedido', 'Cliente', 'Concepto', 'Cantidad', 'Vlr. Unitario', 'Vlr. Total'];
-             wsLiq.addRow(liqHeaders).eachCell(cell => cell.style = headerStyle);
+             wsLiq.columns = [
+                 { header: 'Mes', key: 'mes', width: 15 },
+                 { header: 'Fecha Op.', key: 'fechaOp', width: 12 },
+                 { header: 'Pedido', key: 'pedido', width: 15 },
+                 { header: 'Cliente', key: 'cliente', width: 30 },
+                 { header: 'Concepto', key: 'concepto', width: 25 },
+                 { header: 'Cantidad', key: 'cantidad', width: 12, style: { numFmt: '#,##0.00' } },
+                 { header: 'Vlr. Unitario', key: 'vlrUnitario', width: 15, style: { numFmt: '$ #,##0' } },
+                 { header: 'Vlr. Total', key: 'vlrTotal', width: 18, style: { numFmt: '$ #,##0.00' } }
+             ];
+             wsLiq.getRow(4).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+             wsLiq.getRow(4).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2196F3' } };
              
              liquidationData.forEach(row => {
                 const isPending = row.cantidadConcepto === -1;
-                 const newRow = wsLiq.addRow([
-                    format(new Date(row.fecha), 'MMMM', { locale: es }),
-                    format(new Date(row.fecha), 'dd/MM/yy'),
-                    row.pedidoSislog,
-                    row.cliente,
-                    row.conceptoLiquidado,
-                    isPending ? 'Pendiente' : row.cantidadConcepto,
-                    isPending ? 'N/A' : row.valorUnitario,
-                    isPending ? 'N/A' : row.valorTotalConcepto
-                 ]);
-                 
-                const cantidadCell = newRow.getCell(6);
-                cantidadCell.style = cellStyle;
-                if (!isPending) cantidadCell.numFmt = '#,##0.00';
-
-                const unitarioCell = newRow.getCell(7);
-                unitarioCell.style = cellStyle;
-                if (!isPending) unitarioCell.numFmt = '$ #,##0';
-
-                const totalCell = newRow.getCell(8);
-                totalCell.style = cellStyle;
-                if (!isPending) totalCell.numFmt = '$ #,##0.00';
-
-                // Apply style to other cells
-                for(let i = 1; i <= 5; i++) {
-                    newRow.getCell(i).style = cellStyle;
-                }
+                 wsLiq.addRow({
+                    mes: format(new Date(row.fecha), 'MMMM', { locale: es }),
+                    fechaOp: format(new Date(row.fecha), 'dd/MM/yy'),
+                    pedido: row.pedidoSislog,
+                    cliente: row.cliente,
+                    concepto: row.conceptoLiquidado,
+                    cantidad: isPending ? 'Pendiente' : row.cantidadConcepto,
+                    vlrUnitario: isPending ? 'N/A' : row.valorUnitario,
+                    vlrTotal: isPending ? 'N/A' : row.valorTotalConcepto
+                 });
              });
              wsLiq.addRow([]);
-             const totalLiqRow = wsLiq.addRow(['', '', '', '', '', '', 'TOTAL GENERAL:', totalLiquidacion]);
-             totalLiqRow.eachCell(cell => cell.style = totalRowStyle);
-             totalLiqRow.getCell(8).numFmt = '$ #,##0.00';
-             
-             wsLiq.columns = [ {width: 15}, {width: 12}, {width: 15}, {width: 30}, {width: 25}, {width: 12}, {width: 15}, {width: 18}];
+             const totalLiqRow = wsLiq.addRow({ vlrUnitario: 'TOTAL GENERAL:', vlrTotal: totalLiquidacion });
+             totalLiqRow.getCell('vlrUnitario').font = { bold: true };
+             totalLiqRow.getCell('vlrTotal').font = { bold: true };
              
              // Sheet 2: Concept Summary
              if(conceptSummary) {
@@ -678,24 +674,24 @@ export default function CrewPerformanceReportPage() {
                 wsSumCon.mergeCells('A2:F2');
                 wsSumCon.addRow([]);
                 
-                const conceptHeader = ['Item', 'Concepto', 'Total Cantidad', 'Unidad Medida', 'Vlr. Unitario', 'Vlr. Total'];
-                wsSumCon.addRow(conceptHeader).eachCell(c => c.style = headerStyle);
+                wsSumCon.columns = [
+                    { header: 'Item', key: 'item', width: 8 },
+                    { header: 'Concepto', key: 'name', width: 30 },
+                    { header: 'Total Cantidad', key: 'totalCantidad', width: 15, style: { numFmt: '#,##0.00' } },
+                    { header: 'Unidad Medida', key: 'unidadMedida', width: 15 },
+                    { header: 'Vlr. Unitario', key: 'valorUnitario', width: 15, style: { numFmt: '$ #,##0' } },
+                    { header: 'Vlr. Total', key: 'totalValor', width: 18, style: { numFmt: '$ #,##0.00' } }
+                ];
+                wsSumCon.getRow(4).font = { bold: true, color: { argb: 'FFFFFFFF' } };
+                wsSumCon.getRow(4).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2196F3' } };
 
-                conceptSummary.forEach(row => {
-                    const r = wsSumCon.addRow([row.item, row.name, row.totalCantidad, row.unidadMedida, row.valorUnitario, row.totalValor]);
-                    r.getCell(3).numFmt = '#,##0.00'; // Total Cantidad
-                    r.getCell(5).numFmt = '$ #,##0'; // Valor Unitario
-                    r.getCell(6).numFmt = '$ #,##0.00'; // Valor Total
-                    r.eachCell(c => { c.style = cellStyle; });
-                });
+
+                wsSumCon.addRows(conceptSummary);
                 wsSumCon.addRow([]);
-                const totalSumRow = wsSumCon.addRow(['', '', '', '', 'TOTAL GENERAL:', totalLiquidacion]);
-                totalSumRow.eachCell(c => c.style = totalRowStyle);
-                totalSumRow.getCell(6).numFmt = '$ #,##0.00';
-
-                wsSumCon.columns = [{width: 8}, {width: 30}, {width: 15}, {width: 15}, {width: 15}, {width: 18}];
+                const totalSumRow = wsSumCon.addRow({ valorUnitario: 'TOTAL GENERAL:', totalValor: totalLiquidacion });
+                totalSumRow.getCell('valorUnitario').font = { bold: true };
+                totalSumRow.getCell('totalValor').font = { bold: true };
              }
-
         }
         
         // --- Download ---
@@ -713,8 +709,7 @@ export default function CrewPerformanceReportPage() {
     
         const doc = new jsPDF({ orientation: 'landscape' });
         const pageWidth = doc.internal.pageSize.getWidth();
-        const margin = 14;
-    
+        
         try {
             const logoAspectRatio = 300 / 86;
             const logoPdfWidth = 50;
@@ -1467,4 +1462,5 @@ function NoveltySelectorDialog({
         </Dialog>
     );
 }
+
 
