@@ -457,12 +457,12 @@ export default function CrewPerformanceReportPage() {
         }
 
         const optimoPercent = (summary['Óptimo'].count / totalEvaluableOperations);
-        const optimoNormalPercent = optimoPercent + (summary['Normal'].count / totalEvaluableOperations);
+        const optimoNormalSum = summary['Óptimo'].count + summary['Normal'].count;
 
         let qualification = 'Deficiente';
         if (optimoPercent >= 0.95) {
             qualification = 'Excelente';
-        } else if (optimoNormalPercent >= 0.85) {
+        } else if ((optimoNormalSum / totalEvaluableOperations) >= 0.85) {
             qualification = 'Sobresaliente';
         }
 
@@ -597,9 +597,9 @@ export default function CrewPerformanceReportPage() {
             }
              const wsLiq = workbook.addWorksheet('Liquidacion_Cuadrilla');
              wsLiq.addRow(['Informe de Liquidación de Cuadrilla']).getCell(1).style = titleStyle;
-             wsLiq.mergeCells('A1:G1');
+             wsLiq.mergeCells('A1:H1');
              wsLiq.addRow([periodText]).getCell(1).style = subtitleStyle;
-             wsLiq.mergeCells('A2:G2');
+             wsLiq.mergeCells('A2:H2');
              wsLiq.addRow([]);
 
              const liqHeaders = ['Mes', 'Fecha Op.', 'Pedido', 'Cliente', 'Concepto', 'Cantidad', 'Vlr. Unitario', 'Vlr. Total'];
@@ -607,7 +607,7 @@ export default function CrewPerformanceReportPage() {
              
              liquidationData.forEach(row => {
                 const isPending = row.cantidadConcepto === -1;
-                 wsLiq.addRow([
+                 const newRow = wsLiq.addRow([
                     format(new Date(row.fecha), 'MMMM', { locale: es }),
                     format(new Date(row.fecha), 'dd/MM/yy'),
                     row.pedidoSislog,
@@ -616,10 +616,14 @@ export default function CrewPerformanceReportPage() {
                     isPending ? 'Pendiente' : row.cantidadConcepto,
                     isPending ? 'N/A' : row.valorUnitario,
                     isPending ? 'N/A' : row.valorTotalConcepto
-                 ]).eachCell((cell, colNumber) => {
-                     cell.style = cellStyle;
-                     if(colNumber >= 6 && !isPending) cell.numFmt = colNumber === 6 ? '#,##0.00' : '$ #,##0.00';
-                 });
+                 ]);
+                 
+                newRow.eachCell(cell => cell.style = cellStyle);
+                if (!isPending) {
+                    newRow.getCell(6).numFmt = '#,##0.00';
+                    newRow.getCell(7).numFmt = '$ #,##0.00';
+                    newRow.getCell(8).numFmt = '$ #,##0.00';
+                }
              });
              wsLiq.addRow([]);
              const totalLiqRow = wsLiq.addRow(['', '', '', '', '', '', 'TOTAL GENERAL:', totalLiquidacion]);
@@ -640,11 +644,10 @@ export default function CrewPerformanceReportPage() {
                 wsSumCon.addRow(['Item', 'Concepto', 'Total Cantidad', 'Vlr. Unitario', 'Vlr. Total']).eachCell(c => c.style = headerStyle);
                 conceptSummary.forEach(row => {
                     const r = wsSumCon.addRow([row.item, row.name, row.totalCantidad, row.valorUnitario, row.totalValor]);
-                    r.eachCell((c, colNum) => {
-                        c.style = cellStyle;
-                        if(colNum === 3) c.numFmt = '#,##0.00';
-                        if(colNum > 3) c.numFmt = '$ #,##0.00';
-                    });
+                    r.getCell(3).numFmt = '#,##0.00';
+                    r.getCell(4).numFmt = '$ #,##0.00';
+                    r.getCell(5).numFmt = '$ #,##0.00';
+                    r.eachCell(c => c.style = cellStyle);
                 });
                 wsSumCon.addRow([]);
                 const totalSumRow = wsSumCon.addRow(['', '', '', 'TOTAL GENERAL:', totalLiquidacion]);
@@ -1294,4 +1297,5 @@ function NoveltySelectorDialog({
         </Dialog>
     );
 }
+
 
