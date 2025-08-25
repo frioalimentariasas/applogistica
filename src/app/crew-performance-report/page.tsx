@@ -666,7 +666,8 @@ export default function CrewPerformanceReportPage() {
         const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
         const link = document.createElement("a");
         link.href = URL.createObjectURL(blob);
-        link.download = `Reporte_${type}_${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
+        const reportName = type === 'productivity' ? 'Productividad_Cuadrilla' : 'Liquidacion_Cuadrilla';
+        link.download = `Reporte_${reportName}_${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
         link.click();
     };
 
@@ -1297,5 +1298,6 @@ function NoveltySelectorDialog({
         </Dialog>
     );
 }
+
 
 
