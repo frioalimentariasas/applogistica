@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -23,7 +24,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { ArrowLeft, Loader2, CalendarIcon, PlusCircle, X, Edit2, Trash2, Edit, Search, XCircle, FolderSearch } from 'lucide-react';
+import { ArrowLeft, Loader2, CalendarIcon, PlusCircle, X, Edit2, Trash2, Edit, Search, XCircle, FolderSearch, Eye, Clock } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -60,6 +61,8 @@ interface ManualOperationsComponentProps {
     billingConcepts: BillingConcept[];
 }
 
+type DialogMode = 'add' | 'edit' | 'view';
+
 export default function ManualOperationsComponent({ clients, billingConcepts }: ManualOperationsComponentProps) {
     const router = useRouter();
     const { toast } = useToast();
@@ -75,8 +78,9 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
     const [selectedConcept, setSelectedConcept] = useState<string>('all');
 
     const [isDialogOpen, setIsDialogOpen] = useState(false);
+    const [dialogMode, setDialogMode] = useState<DialogMode>('add');
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const [opToEdit, setOpToEdit] = useState<any | null>(null);
+    const [opToManage, setOpToManage] = useState<any | null>(null);
     const [opToDelete, setOpToDelete] = useState<any | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
 
@@ -142,9 +146,11 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
         setSearched(false);
     };
 
-    const openDialog = (op?: any) => {
+    const openDialog = (mode: DialogMode, op?: any) => {
+        setDialogMode(mode);
+        setOpToManage(op || null);
+
         if (op) {
-            setOpToEdit(op);
             form.reset({
                 clientName: op.clientName || '',
                 operationDate: parseISO(op.operationDate),
@@ -155,7 +161,6 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
                 quantity: op.quantity,
             });
         } else {
-            setOpToEdit(null);
             form.reset({
                 operationDate: new Date(),
                 startTime: '00:00',
@@ -184,8 +189,8 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
         };
 
         let result;
-        if (opToEdit) {
-            result = await updateManualOperation(opToEdit.id, payload);
+        if (dialogMode === 'edit' && opToManage) {
+            result = await updateManualOperation(opToManage.id, payload);
         } else {
             result = await addManualOperation(payload);
         }
@@ -193,7 +198,6 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
         if (result.success) {
             toast({ title: 'Éxito', description: result.message });
             setIsDialogOpen(false);
-            setOpToEdit(null);
             form.reset();
             await fetchAllOperations();
             handleSearch();
@@ -218,6 +222,13 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
         setIsDeleting(false);
     };
 
+    const handleCaptureTime = (fieldName: 'startTime' | 'endTime') => {
+        const now = new Date();
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        form.setValue(fieldName, `${hours}:${minutes}`, { shouldValidate: true });
+    };
+
     return (
         <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
             <div className="max-w-4xl mx-auto">
@@ -240,7 +251,7 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
                     <CardHeader>
                         <div className="flex justify-between items-center">
                             <CardTitle>Operaciones Registradas</CardTitle>
-                            <Button onClick={() => openDialog()}>
+                            <Button onClick={() => openDialog('add')}>
                                 <PlusCircle className="mr-2 h-4 w-4" />
                                 Nueva Operación
                             </Button>
@@ -303,7 +314,10 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
                                                 <TableCell>{op.clientName || 'N/A'}</TableCell>
                                                 <TableCell>{op.createdBy?.displayName || 'N/A'}</TableCell>
                                                 <TableCell className="text-right">
-                                                     <Button variant="ghost" size="icon" title="Editar" onClick={() => openDialog(op)}>
+                                                    <Button variant="ghost" size="icon" title="Ver" onClick={() => openDialog('view', op)}>
+                                                        <Eye className="h-4 w-4 text-gray-500" />
+                                                    </Button>
+                                                    <Button variant="ghost" size="icon" title="Editar" onClick={() => openDialog('edit', op)}>
                                                         <Edit2 className="h-4 w-4 text-blue-600" />
                                                     </Button>
                                                     <Button variant="ghost" size="icon" title="Eliminar" onClick={() => setOpToDelete(op)}>
@@ -335,30 +349,40 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
                     </CardContent>
                 </Card>
 
-                <Dialog open={isDialogOpen} onOpenChange={(isOpen) => { if (!isOpen) setOpToEdit(null); setIsDialogOpen(isOpen); }}>
+                <Dialog open={isDialogOpen} onOpenChange={(isOpen) => { if (!isOpen) setOpToManage(null); setIsDialogOpen(isOpen); }}>
                     <DialogContent className="sm:max-w-md">
                         <DialogHeader>
-                            <DialogTitle>{opToEdit ? 'Editar' : 'Registrar'} Operación Manual</DialogTitle>
-                            <DialogDescription>{opToEdit ? 'Modifique los datos de la operación.' : 'Ingrese los datos para registrar una operación.'}</DialogDescription>
+                            <DialogTitle>
+                                {dialogMode === 'add' && 'Registrar Operación Manual'}
+                                {dialogMode === 'edit' && 'Editar Operación Manual'}
+                                {dialogMode === 'view' && 'Detalles de la Operación Manual'}
+                            </DialogTitle>
+                            <DialogDescription>
+                                {dialogMode === 'view' ? 'Viendo detalles de una operación registrada.' : 'Complete los datos para registrar una operación.'}
+                            </DialogDescription>
                         </DialogHeader>
                         <ScrollArea className="max-h-[70vh]">
                             <div className="p-4">
                                 <Form {...form}>
                                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                                        <FormField control={form.control} name="concept" render={({ field }) => ( <FormItem><FormLabel>Concepto de Liquidación</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un concepto" /></SelectTrigger></FormControl><SelectContent><ScrollArea className="h-60">{[...new Set(billingConcepts.map(c => c.conceptName))].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</ScrollArea></SelectContent></Select><FormMessage /></FormItem> )}/>
+                                        <FormField control={form.control} name="concept" render={({ field }) => ( <FormItem><FormLabel>Concepto de Liquidación</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={dialogMode === 'view'}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un concepto" /></SelectTrigger></FormControl><SelectContent><ScrollArea className="h-60">{[...new Set(billingConcepts.map(c => c.conceptName))].map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</ScrollArea></SelectContent></Select><FormMessage /></FormItem> )}/>
                                         {watchedConcept !== 'APOYO DE MONTACARGAS' && (
-                                            <FormField control={form.control} name="clientName" render={({ field }) => ( <FormItem><FormLabel>Cliente</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un cliente" /></SelectTrigger></FormControl><SelectContent><ScrollArea className="h-60">{clients.map(c => <SelectItem key={c.id} value={c.razonSocial}>{c.razonSocial}</SelectItem>)}</ScrollArea></SelectContent></Select><FormMessage /></FormItem> )}/>
+                                            <FormField control={form.control} name="clientName" render={({ field }) => ( <FormItem><FormLabel>Cliente</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={dialogMode === 'view'}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un cliente" /></SelectTrigger></FormControl><SelectContent><ScrollArea className="h-60">{clients.map(c => <SelectItem key={c.id} value={c.razonSocial}>{c.razonSocial}</SelectItem>)}</ScrollArea></SelectContent></Select><FormMessage /></FormItem> )}/>
                                         )}
-                                        <FormField control={form.control} name="operationDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha de Operación</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4 opacity-50" />{field.value ? format(field.value, "PPP", { locale: es }) : <span>Seleccione una fecha</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
+                                        <FormField control={form.control} name="operationDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha de Operación</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={dialogMode === 'view'} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4 opacity-50" />{field.value ? format(field.value, "PPP", { locale: es }) : <span>Seleccione una fecha</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={dialogMode === 'view'} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
                                         <div className="grid grid-cols-2 gap-4">
-                                            <FormField control={form.control} name="startTime" render={({ field }) => (<FormItem><FormLabel>Hora Inicio</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>)} />
-                                            <FormField control={form.control} name="endTime" render={({ field }) => (<FormItem><FormLabel>Hora Fin</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                            <FormField control={form.control} name="startTime" render={({ field }) => (<FormItem><FormLabel>Hora Inicio</FormLabel><div className="flex items-center gap-2"><FormControl><Input type="time" {...field} disabled={dialogMode === 'view'} className="flex-grow" /></FormControl>{dialogMode !== 'view' && (<Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('startTime')}><Clock className="h-4 w-4" /></Button>)}</div><FormMessage /></FormItem>)} />
+                                            <FormField control={form.control} name="endTime" render={({ field }) => (<FormItem><FormLabel>Hora Fin</FormLabel><div className="flex items-center gap-2"><FormControl><Input type="time" {...field} disabled={dialogMode === 'view'} className="flex-grow" /></FormControl>{dialogMode !== 'view' && (<Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('endTime')}><Clock className="h-4 w-4" /></Button>)}</div><FormMessage /></FormItem>)} />
                                         </div>
-                                        <FormField control={form.control} name="plate" render={({ field }) => (<FormItem><FormLabel>Placa (Opcional)</FormLabel><FormControl><Input placeholder="ABC123" {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
-                                        <FormField control={form.control} name="quantity" render={({ field }) => (<FormItem><FormLabel>Cantidad</FormLabel><FormControl><Input type="number" step="0.001" placeholder="Ej: 1.5" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                                        <FormField control={form.control} name="plate" render={({ field }) => (<FormItem><FormLabel>Placa (Opcional)</FormLabel><FormControl><Input placeholder="ABC123" {...field} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
+                                        <FormField control={form.control} name="quantity" render={({ field }) => (<FormItem><FormLabel>Cantidad</FormLabel><FormControl><Input type="number" step="0.001" placeholder="Ej: 1.5" {...field} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)}/>
                                         <DialogFooter>
-                                            <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>Cancelar</Button>
-                                            <Button type="submit" disabled={isSubmitting}>{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}Guardar</Button>
+                                            <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
+                                                {dialogMode === 'view' ? 'Cerrar' : 'Cancelar'}
+                                            </Button>
+                                            {dialogMode !== 'view' && (
+                                                <Button type="submit" disabled={isSubmitting}>{isSubmitting && <Loader2 className="mr-2 h-4 w-4 animate-spin"/>}Guardar</Button>
+                                            )}
                                         </DialogFooter>
                                     </form>
                                 </Form>
@@ -387,3 +411,4 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
         </div>
     );
 }
+
