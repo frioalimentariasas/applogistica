@@ -541,7 +541,6 @@ export default function CrewPerformanceReportPage() {
         const titleStyle: Partial<ExcelJS.Style> = { font: { bold: true, size: 14, color: { argb: 'FF005A9E' } }, alignment: { horizontal: 'center' } };
         const subtitleStyle: Partial<ExcelJS.Style> = { font: { size: 11, italic: true }, alignment: { horizontal: 'center' } };
         const headerStyle: Partial<ExcelJS.Style> = { font: { bold: true, color: { argb: 'FFFFFFFF' } }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF005A9E' } }, border: { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } } };
-        const cellStyle: Partial<ExcelJS.Style> = { border: { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } } };
     
         const periodText = dateRange?.from && dateRange.to ? `Periodo: ${format(dateRange.from, 'dd/MM/yyyy')} a ${format(dateRange.to, 'dd/MM/yyyy')}` : 'Periodo no especificado';
     
@@ -561,7 +560,7 @@ export default function CrewPerformanceReportPage() {
             wsLiq.addRow([periodText]).getCell(1).style = subtitleStyle;
             wsLiq.mergeCells('A2:H2');
             wsLiq.addRow([]);
-    
+
             const liqHeaders = ['Mes', 'Fecha Op.', 'Pedido', 'Cliente', 'Concepto', 'Cantidad', 'Vlr. Unitario', 'Vlr. Total'];
             const liqHeaderRow = wsLiq.addRow(liqHeaders);
             liqHeaderRow.eachCell(cell => cell.style = headerStyle);
@@ -580,12 +579,10 @@ export default function CrewPerformanceReportPage() {
                 ]);
     
                 newRow.eachCell((cell, colNumber) => {
-                    cell.style = cellStyle;
-                    if (!isPending) {
-                        if (colNumber === 6) { cell.numFmt = '#,##0.00'; } // Cantidad
-                        if (colNumber === 7) { cell.numFmt = '$ #,##0.00'; } // Vlr. Unitario
-                        if (colNumber === 8) { cell.numFmt = '$ #,##0.00'; } // Vlr. Total
-                    }
+                    if (isPending) return;
+                    if (colNumber === 6) { cell.numFmt = '#,##0.00'; }
+                    if (colNumber === 7) { cell.numFmt = '$#,##0;[Red]-$#,##0'; }
+                    if (colNumber === 8) { cell.numFmt = '$#,##0.00;[Red]-$#,##0.00'; }
                 });
             });
     
@@ -594,7 +591,24 @@ export default function CrewPerformanceReportPage() {
             totalLiqRow.getCell(7).style = { font: { bold: true }, alignment: { horizontal: 'right' } };
             const totalLiqValueCell = totalLiqRow.getCell(8);
             totalLiqValueCell.value = totalLiquidacion;
-            totalLiqValueCell.style = { font: { bold: true }, numFmt: '$ #,##0.00' };
+            totalLiqValueCell.numFmt = '$#,##0.00;[Red]-$#,##0.00';
+            totalLiqValueCell.style.font = { bold: true };
+
+            // Auto-fit columns
+            wsLiq.columns.forEach(column => {
+                let maxLength = 0;
+                column.eachCell({ includeEmpty: true }, cell => {
+                    let cellLength = cell.value ? cell.value.toString().length : 10;
+                    if (cell.numFmt === '$#,##0.00;[Red]-$#,##0.00' && typeof cell.value === 'number') {
+                         cellLength = cell.value.toLocaleString('es-CO', {style: 'currency', currency: 'COP'}).length;
+                    }
+                    if (cellLength > maxLength) {
+                        maxLength = cellLength;
+                    }
+                });
+                column.width = maxLength < 10 ? 12 : maxLength + 2;
+            });
+
 
             // --- Hoja: Resumen_Conceptos ---
             if (conceptSummary) {
@@ -617,12 +631,10 @@ export default function CrewPerformanceReportPage() {
                         item.valorUnitario,
                         item.totalValor
                     ]);
-                    row.getCell(1).style = { ...cellStyle, numFmt: '0' };
-                    row.getCell(2).style = cellStyle;
-                    row.getCell(3).style = { ...cellStyle, numFmt: '#,##0.00' };
-                    row.getCell(4).style = cellStyle;
-                    row.getCell(5).style = { ...cellStyle, numFmt: '$ #,##0.00' };
-                    row.getCell(6).style = { ...cellStyle, numFmt: '$ #,##0.00' };
+                    row.getCell(1).numFmt = '0';
+                    row.getCell(3).numFmt = '#,##0.00';
+                    row.getCell(5).numFmt = '$#,##0;[Red]-$#,##0';
+                    row.getCell(6).numFmt = '$#,##0.00;[Red]-$#,##0.00';
                 });
                 
                 wsSumCon.addRow([]);
@@ -630,7 +642,23 @@ export default function CrewPerformanceReportPage() {
                 totalSumRow.getCell(5).style = { font: { bold: true }, alignment: { horizontal: 'right' } };
                 const totalSumValueCell = totalSumRow.getCell(6);
                 totalSumValueCell.value = totalLiquidacion;
-                totalSumValueCell.style = { font: { bold: true }, numFmt: '$ #,##0.00' };
+                totalSumValueCell.numFmt = '$#,##0.00;[Red]-$#,##0.00';
+                totalSumValueCell.style.font = { bold: true };
+                
+                // Auto-fit columns
+                wsSumCon.columns.forEach(column => {
+                    let maxLength = 0;
+                    column.eachCell({ includeEmpty: true }, cell => {
+                         let cellLength = cell.value ? cell.value.toString().length : 10;
+                         if (cell.numFmt === '$#,##0.00;[Red]-$#,##0.00' && typeof cell.value === 'number') {
+                             cellLength = cell.value.toLocaleString('es-CO', {style: 'currency', currency: 'COP'}).length;
+                         }
+                        if (cellLength > maxLength) {
+                            maxLength = cellLength;
+                        }
+                    });
+                    column.width = maxLength < 10 ? 12 : maxLength + 2;
+                });
             }
         }
     
@@ -1405,3 +1433,4 @@ function NoveltySelectorDialog({
 
     
     
+
