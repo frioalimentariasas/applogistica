@@ -624,27 +624,24 @@ export default function CrewPerformanceReportPage() {
             }
 
         } else if (type === 'settlement') {
-             if(liquidationData.length === 0) {
-                 toast({ variant: 'destructive', title: 'Sin datos', description: 'No hay datos de liquidación para exportar.' });
-                 return;
+            if (liquidationData.length === 0) {
+                toast({ variant: 'destructive', title: 'Sin datos', description: 'No hay datos de liquidación para exportar.' });
+                return;
             }
-             const wsLiq = workbook.addWorksheet('Liquidacion_Cuadrilla');
-             
-             // Main Title
-            const titleRow = wsLiq.addRow(['Informe de Liquidación de Cuadrilla']);
-            titleRow.getCell(1).style = titleStyle;
-            wsLiq.mergeCells('A1:H1');
 
-            // Subtitle
-            const subtitleRow = wsLiq.addRow([periodText]);
-            subtitleRow.getCell(1).style = subtitleStyle;
+            // Hoja de Liquidación Detallada
+            const wsLiq = workbook.addWorksheet('Liquidacion_Cuadrilla');
+            wsLiq.addRow(['Informe de Liquidación de Cuadrilla']).getCell(1).style = titleStyle;
+            wsLiq.mergeCells('A1:H1');
+            wsLiq.addRow([periodText]).getCell(1).style = subtitleStyle;
             wsLiq.mergeCells('A2:H2');
             wsLiq.addRow([]); // Spacer
 
-             const headerRow = wsLiq.addRow(['Mes', 'Fecha Op.', 'Pedido', 'Cliente', 'Concepto', 'Cantidad', 'Vlr. Unitario', 'Vlr. Total']);
-             headerRow.eachCell(cell => cell.style = headerStyle);
-             
-             liquidationData.forEach(row => {
+            const liqHeaders = ['Mes', 'Fecha Op.', 'Pedido', 'Cliente', 'Concepto', 'Cantidad', 'Vlr. Unitario', 'Vlr. Total'];
+            const liqHeaderRow = wsLiq.addRow(liqHeaders);
+            liqHeaderRow.eachCell(cell => cell.style = headerStyle);
+
+            liquidationData.forEach(row => {
                 const isPending = row.cantidadConcepto === -1;
                 const newRow = wsLiq.addRow([
                     format(new Date(row.fecha), 'MMMM', { locale: es }),
@@ -656,27 +653,27 @@ export default function CrewPerformanceReportPage() {
                     isPending ? 'N/A' : row.valorUnitario,
                     isPending ? 'N/A' : row.valorTotalConcepto
                 ]);
-                 newRow.getCell(6).numFmt = '#,##0.00';
-                 newRow.getCell(7).numFmt = '$ #,##0';
-                 newRow.getCell(8).numFmt = '$ #,##0.00';
-                 newRow.eachCell(cell => cell.style = cellStyle);
-             });
-             wsLiq.addRow([]);
-             const totalLiqRow = wsLiq.addRow(['', '', '', '', '', '', 'TOTAL GENERAL:', totalLiquidacion]);
-             totalLiqRow.getCell('G').font = { bold: true };
-             totalLiqRow.getCell('H').font = { bold: true };
-             totalLiqRow.getCell('H').numFmt = '$ #,##0.00';
-             
-             wsLiq.columns = [ { key: 'mes', width: 15 }, { key: 'fechaOp', width: 12 }, { key: 'pedido', width: 15 }, { key: 'cliente', width: 30 }, { key: 'concepto', width: 25 }, { key: 'cantidad', width: 12 }, { key: 'vlrUnitario', width: 15 }, { key: 'vlrTotal', width: 18 } ];
-
-             if(conceptSummary) {
+                newRow.getCell(6).numFmt = '$ #,##0.00';
+                newRow.getCell(7).numFmt = '$ #,##0';
+                newRow.getCell(8).numFmt = '$ #,##0.00';
+                newRow.eachCell(cell => { if (cell.style) cell.style.border = cellStyle.border; });
+            });
+            wsLiq.addRow([]);
+            const totalLiqRow = wsLiq.addRow(['', '', '', '', '', '', 'TOTAL GENERAL:', totalLiquidacion]);
+            totalLiqRow.getCell('G').font = { bold: true };
+            totalLiqRow.getCell('H').font = { bold: true };
+            totalLiqRow.getCell('H').numFmt = '$ #,##0.00';
+            wsLiq.columns = liqHeaders.map(h => ({ header: h, key: h, width: h === 'Cliente' ? 30 : h === 'Concepto' ? 25 : 18 }));
+            
+            // Hoja de Resumen por Conceptos
+            if (conceptSummary) {
                 const wsSumCon = workbook.addWorksheet('Resumen_Conceptos');
                 wsSumCon.addRow(['Resumen de Conceptos Liquidados']).getCell(1).style = titleStyle;
                 wsSumCon.mergeCells('A1:F1');
                 wsSumCon.addRow([periodText]).getCell(1).style = subtitleStyle;
                 wsSumCon.mergeCells('A2:F2');
                 wsSumCon.addRow([]);
-                
+
                 const conceptHeaderRow = wsSumCon.addRow(['Item', 'Concepto', 'Total Cantidad', 'Unidad Medida', 'Vlr. Unitario', 'Vlr. Total']);
                 conceptHeaderRow.eachCell(cell => cell.style = headerStyle);
                 
@@ -689,11 +686,10 @@ export default function CrewPerformanceReportPage() {
                         item.valorUnitario,
                         item.totalValor
                     ]);
-                    row.getCell(1).numFmt = '0';
                     row.getCell(3).numFmt = '#,##0.00';
                     row.getCell(5).numFmt = '$ #,##0';
                     row.getCell(6).numFmt = '$ #,##0.00';
-                    row.eachCell(cell => cell.style = cellStyle);
+                    row.eachCell(cell => { if (cell.style) cell.style.border = cellStyle.border; });
                 });
 
                 wsSumCon.addRow([]);
@@ -701,9 +697,8 @@ export default function CrewPerformanceReportPage() {
                 totalSumRow.getCell('E').font = { bold: true };
                 totalSumRow.getCell('F').font = { bold: true };
                 totalSumRow.getCell('F').numFmt = '$ #,##0.00';
-
-                wsSumCon.columns = [{ key: 'item', width: 8 }, { key: 'name', width: 30 }, { key: 'totalCantidad', width: 15 }, { key: 'unidadMedida', width: 15 }, { key: 'valorUnitario', width: 15 }, { key: 'totalValor', width: 18 }];
-             }
+                wsSumCon.columns = [{ width: 8 }, { width: 30 }, { width: 15 }, { width: 15 }, { width: 15 }, { width: 18 }];
+            }
         }
         
         // --- Download ---
