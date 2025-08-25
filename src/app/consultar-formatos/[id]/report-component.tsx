@@ -915,6 +915,8 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                             let totalPeso = 0;
                             let totalCantidad = 0;
                             let totalPaletas = 0;
+                            let pallets999Count = 0;
+                            const uniquePallets = new Set<number>();
                             
                             if (isSummaryFormat) {
                                 group.items.forEach((item:any) => {
@@ -923,8 +925,6 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                                     totalPaletas += Number(item.totalPaletas) || 0;
                                 });
                             } else {
-                                const uniquePallets = new Set<number>();
-                                let pallets999Count = 0;
                                 group.items.forEach((item:any) => {
                                     totalPeso += Number(item.pesoNeto) || 0;
                                     totalCantidad += Number(item.cantidadPorPaleta) || 0;

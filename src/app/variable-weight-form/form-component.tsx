@@ -344,13 +344,18 @@ function ItemsPorDestino({ control, remove, handleProductDialogOpening, destinoI
 
     if (!isSummaryFormat) {
         const uniquePallets = new Set();
+        let pallets999Count = 0;
         watchedItems.forEach((item: any) => {
             const paletaNum = Number(item.paleta);
             if (!isNaN(paletaNum) && paletaNum > 0) {
-                uniquePallets.add(paletaNum);
+                 if (paletaNum === 999) {
+                    pallets999Count++;
+                } else {
+                    uniquePallets.add(paletaNum);
+                }
             }
         });
-        subtotals.paletas = uniquePallets.size;
+        subtotals.paletas = uniquePallets.size + pallets999Count;
     }
 
 
@@ -637,7 +642,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
     const calculatedSummaryForDisplay = useMemo(() => {
         const allItemsForSummary = watchedDespachoPorDestino ? (watchedDestinos || []).flatMap(d => d.items.map(i => ({...i, destino: d.nombreDestino}))) : (watchedItems || []);
         
-        const isIndividualPalletMode = allItemsForSummary.every(item => Number(item?.paleta) > 0);
+        const isIndividualPalletMode = allItemsForSummary.every((item: any) => Number(item?.paleta) > 0);
 
         const shouldGroupByDestino = watchedDespachoPorDestino && isIndividualPalletMode;
 
@@ -666,6 +671,8 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                 let totalCantidad = 0;
                 let totalPaletas = 0;
                 const uniquePallets = new Set<number>();
+                let pallets999Count = 0;
+                
                 if (isSummaryMode) {
                     group.items.forEach(item => {
                         totalPeso += Number(item.totalPesoNeto) || 0;
@@ -677,9 +684,15 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                         totalPeso += Number(item.pesoNeto) || 0;
                         totalCantidad += Number(item.cantidadPorPaleta) || 0;
                         const paletaNum = Number(item.paleta);
-                        if (!isNaN(paletaNum) && paletaNum > 0) uniquePallets.add(paletaNum);
+                        if (!isNaN(paletaNum) && paletaNum > 0) {
+                            if (paletaNum === 999) {
+                                pallets999Count++;
+                            } else {
+                                uniquePallets.add(paletaNum);
+                            }
+                        }
                     });
-                    totalPaletas = uniquePallets.size;
+                    totalPaletas = uniquePallets.size + pallets999Count;
                 }
                 return { ...group, totalPeso, totalCantidad, totalPaletas };
             }),
@@ -691,13 +704,18 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                   return allItemsForSummary.reduce((sum, item) => sum + (Number(item.totalPaletas) || 0), 0);
                 }
                 const uniquePallets = new Set<number>();
-                allItemsForSummary.forEach(item => {
-                    const paletaNum = Number(item?.paleta);
-                    if (!isNaN(paletaNum) && paletaNum > 0) {
-                        uniquePallets.add(paletaNum);
+                let count999 = 0;
+                allItemsForSummary.forEach((i: any) => {
+                    const pNum = Number(i.paleta);
+                    if (!isNaN(pNum) && pNum > 0) {
+                        if (pNum === 999) {
+                            count999++;
+                        } else {
+                            uniquePallets.add(pNum);
+                        }
                     }
                 });
-                return uniquePallets.size;
+                return uniquePallets.size + count999;
             })()
         };
     }, [watchedItems, watchedDestinos, watchedDespachoPorDestino, watchedTotalPaletasDespacho, isSummaryMode, form]);
@@ -1982,6 +2000,61 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
   );
 }
 
+function PedidoTypeSelectorDialog({
+    open,
+    onOpenChange,
+    pedidoTypes,
+    onSelect,
+}: {
+    open: boolean;
+    onOpenChange: (open: boolean) => void;
+    pedidoTypes: PedidoType[];
+    onSelect: (pedidoType: PedidoType) => void;
+}) {
+    const [search, setSearch] = useState("");
+
+    const filteredTypes = useMemo(() => {
+        if (!search) return pedidoTypes;
+        return pedidoTypes.filter(pt => pt.name.toLowerCase().includes(search.toLowerCase()));
+    }, [search, pedidoTypes]);
+
+    useEffect(() => {
+        if (!open) setSearch("");
+    }, [open]);
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Seleccionar Tipo de Pedido</DialogTitle>
+                </DialogHeader>
+                <Input
+                    placeholder="Buscar tipo de pedido..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="my-4"
+                />
+                <ScrollArea className="h-72">
+                    <div className="space-y-1">
+                        {filteredTypes.length > 0 ? filteredTypes.map((pt) => (
+                            <Button
+                                key={pt.id}
+                                variant="ghost"
+                                className="w-full justify-start"
+                                onClick={() => onSelect(pt)}
+                            >
+                                {pt.name}
+                            </Button>
+                        )) : (
+                            <p className="text-center text-sm text-muted-foreground">No se encontraron tipos de pedido.</p>
+                        )}
+                    </div>
+                </ScrollArea>
+            </DialogContent>
+        </Dialog>
+    );
+}
+
 function ObservationSelectorDialog({
     open,
     onOpenChange,
@@ -2117,61 +2190,6 @@ function ProductSelectorDialog({
                         </ScrollArea>
                     </>
                 )}
-            </DialogContent>
-        </Dialog>
-    );
-}
-
-function PedidoTypeSelectorDialog({
-    open,
-    onOpenChange,
-    pedidoTypes,
-    onSelect,
-}: {
-    open: boolean;
-    onOpenChange: (open: boolean) => void;
-    pedidoTypes: PedidoType[];
-    onSelect: (pedidoType: PedidoType) => void;
-}) {
-    const [search, setSearch] = useState("");
-
-    const filteredTypes = useMemo(() => {
-        if (!search) return pedidoTypes;
-        return pedidoTypes.filter(pt => pt.name.toLowerCase().includes(search.toLowerCase()));
-    }, [search, pedidoTypes]);
-
-    useEffect(() => {
-        if (!open) setSearch("");
-    }, [open]);
-
-    return (
-        <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent>
-                <DialogHeader>
-                    <DialogTitle>Seleccionar Tipo de Pedido</DialogTitle>
-                </DialogHeader>
-                <Input
-                    placeholder="Buscar tipo de pedido..."
-                    value={search}
-                    onChange={(e) => setSearch(e.target.value)}
-                    className="my-4"
-                />
-                <ScrollArea className="h-72">
-                    <div className="space-y-1">
-                        {filteredTypes.length > 0 ? filteredTypes.map((pt) => (
-                            <Button
-                                key={pt.id}
-                                variant="ghost"
-                                className="w-full justify-start"
-                                onClick={() => onSelect(pt)}
-                            >
-                                {pt.name}
-                            </Button>
-                        )) : (
-                            <p className="text-center text-sm text-muted-foreground">No se encontraron tipos de pedido.</p>
-                        )}
-                    </div>
-                </ScrollArea>
             </DialogContent>
         </Dialog>
     );

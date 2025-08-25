@@ -114,13 +114,18 @@ const calculateTotalPallets = (formType: string, formData: any): number => {
         }
         
         const uniquePallets = new Set<number>();
+        let pallets999Count = 0;
         allItems.forEach((item: any) => {
             const paletaNum = Number(item.paleta);
             if (!isNaN(paletaNum) && paletaNum > 0) {
-                uniquePallets.add(paletaNum);
+                if (paletaNum === 999) {
+                    pallets999Count++;
+                } else {
+                    uniquePallets.add(paletaNum);
+                }
             }
         });
-        return uniquePallets.size;
+        return uniquePallets.size + pallets999Count;
     }
 
     return 0;
@@ -528,5 +533,3 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
         throw new Error('No se pudo generar el reporte de productividad.');
     }
 }
-
-    
