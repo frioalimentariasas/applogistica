@@ -149,6 +149,23 @@ const getPerformanceIndicator = (row: CrewPerformanceReportRow): { text: string,
     return { text: 'Lento', className: badgeVariants({variant: "destructive"}), icon: AlertTriangleIcon };
 };
 
+const getImageAsBase64Client = async (url: string): Promise<string | null> => {
+  try {
+    const response = await fetch(url);
+    if (!response.ok) throw new Error(`Failed to fetch image: ${response.statusText}`);
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (error) {
+    console.error("Error fetching image as base64:", error);
+    return null;
+  }
+};
+
 
 export default function CrewPerformanceReportPage() {
     const router = useRouter();
@@ -202,6 +219,8 @@ export default function CrewPerformanceReportPage() {
     const [isLegalizeDialogOpen, setIsLegalizeDialogOpen] = useState(false);
     const [isLegalizing, setIsLegalizing] = useState(false);
     const [rowToLegalize, setRowToLegalize] = useState<CrewPerformanceReportRow | null>(null);
+    
+    const [logoBase64, setLogoBase64] = useState<string | null>(null);
 
     const noveltyForm = useForm<NoveltyFormValues>({
         resolver: zodResolver(noveltySchema),
@@ -250,14 +269,16 @@ export default function CrewPerformanceReportPage() {
 
     useEffect(() => {
         const fetchInitialData = async () => {
-             const [clientList, noveltyTypes, billingConcepts] = await Promise.all([
+             const [clientList, noveltyTypes, billingConcepts, logoData] = await Promise.all([
                  getClients(),
                  getStandardNoveltyTypes(),
-                 getBillingConcepts()
+                 getBillingConcepts(),
+                 getImageAsBase64Client(new URL('/images/company-logo.png', window.location.origin).href)
              ]);
              setClients(clientList);
              setStandardNoveltyTypes(noveltyTypes);
              setAllBillingConcepts(billingConcepts);
+             setLogoBase64(logoData);
         };
         fetchInitialData();
     }, []);
@@ -516,11 +537,11 @@ export default function CrewPerformanceReportPage() {
         workbook.creator = 'Frio Alimentaria App';
         workbook.created = new Date();
 
-        const titleStyle = { font: { bold: true, size: 14 }, alignment: { horizontal: 'center' as const } };
-        const subtitleStyle = { font: { size: 11 }, alignment: { horizontal: 'center' as const } };
-        const headerStyle = { font: { bold: true, color: { argb: 'FFFFFFFF' } }, fill: { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FF2196F3' } }, border: { top: { style: 'thin' as const }, left: { style: 'thin' as const }, bottom: { style: 'thin' as const }, right: { style: 'thin' as const } } };
-        const cellStyle = { border: { top: { style: 'thin' as const }, left: { style: 'thin' as const }, bottom: { style: 'thin' as const }, right: { style: 'thin' as const } } };
-        const totalRowStyle = { font: { bold: true }, fill: { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFE0E0E0' } }, border: { top: { style: 'thin' as const }, left: { style: 'thin' as const }, bottom: { style: 'thin' as const }, right: { style: 'thin' as const } } };
+        const titleStyle: Partial<ExcelJS.Style> = { font: { bold: true, size: 14 }, alignment: { horizontal: 'center' } };
+        const subtitleStyle: Partial<ExcelJS.Style> = { font: { size: 11 }, alignment: { horizontal: 'center' } };
+        const headerStyle: Partial<ExcelJS.Style> = { font: { bold: true, color: { argb: 'FFFFFFFF' } }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF2196F3' } }, border: { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } } };
+        const cellStyle: Partial<ExcelJS.Style> = { border: { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } } };
+        const totalRowStyle: Partial<ExcelJS.Style> = { font: { bold: true }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE0E0E0' } }, border: { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } } };
         
         const periodText = dateRange?.from && dateRange.to ? `Periodo: ${format(dateRange.from, 'dd/MM/yyyy')} a ${format(dateRange.to, 'dd/MM/yyyy')}` : 'Periodo no especificado';
 
@@ -623,7 +644,7 @@ export default function CrewPerformanceReportPage() {
                     isPending ? 'N/A' : row.valorTotalConcepto
                  ]);
                  
-                newRow.eachCell(cell => cell.style = cellStyle);
+                newRow.eachCell(cell => { cell.style = cellStyle; });
                 if (!isPending) {
                     newRow.getCell(6).numFmt = '#,##0.00';
                     newRow.getCell(7).numFmt = '$ #,##0.00';
@@ -652,7 +673,7 @@ export default function CrewPerformanceReportPage() {
                     r.getCell(3).numFmt = '#,##0.00';
                     r.getCell(4).numFmt = '$ #,##0.00';
                     r.getCell(5).numFmt = '$ #,##0.00';
-                    r.eachCell(c => c.style = cellStyle);
+                    r.eachCell(c => { c.style = cellStyle; });
                 });
                 wsSumCon.addRow([]);
                 const totalSumRow = wsSumCon.addRow(['', '', '', 'TOTAL GENERAL:', totalLiquidacion]);
@@ -678,8 +699,69 @@ export default function CrewPerformanceReportPage() {
 
     const handleExportPDF = (type: 'productivity' | 'settlement') => {
         if (isLoading) return;
-        toast({ variant: 'destructive', title: 'En construcción', description: 'La exportación a PDF está en desarrollo.' });
-        return;
+        const doc = new jsPDF({ orientation: 'landscape' });
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const margin = 14;
+
+        if (logoBase64) {
+            try {
+                const logoAspectRatio = 300 / 86; // Assuming original dimensions are known
+                const logoPdfWidth = 50;
+                const logoPdfHeight = logoPdfWidth / logoAspectRatio;
+                doc.addImage(logoBase64, 'PNG', (pageWidth / 2) - (logoPdfWidth / 2), 10, logoPdfWidth, logoPdfHeight);
+            } catch (e) {
+                console.error("Error adding logo to PDF:", e);
+            }
+        }
+        
+        const periodText = dateRange?.from && dateRange.to ? `Periodo: ${format(dateRange.from, 'dd/MM/yyyy')} a ${format(dateRange.to, 'dd/MM/yyyy')}` : 'Periodo no especificado';
+
+        if (type === 'productivity') {
+            doc.text('Informe de Productividad de Cuadrilla', pageWidth / 2, 35, { align: 'center' });
+            doc.setFontSize(10);
+            doc.text(periodText, pageWidth / 2, 40, { align: 'center' });
+            
+            const head = [['Fecha Op.', 'Operario', 'Cliente', 'Tipo Op.', 'Tipo Prod.', 'Pedido', 'Concepto', 'T. Operativo', 'Productividad']];
+            const body = filteredReportData.map(row => {
+                 const indicator = getPerformanceIndicator(row);
+                 return [
+                    format(new Date(row.fecha), 'dd/MM/yy'),
+                    row.operario,
+                    row.cliente,
+                    row.tipoOperacion,
+                    row.tipoProducto,
+                    row.pedidoSislog,
+                    row.conceptoLiquidado,
+                    formatDuration(row.operationalDurationMinutes),
+                    indicator.text
+                 ]
+            });
+            autoTable(doc, { startY: 45, head, body, theme: 'grid', styles: { fontSize: 8 } });
+        } else if (type === 'settlement') {
+            doc.text('Informe de Liquidación de Cuadrilla', pageWidth / 2, 35, { align: 'center' });
+            doc.setFontSize(10);
+            doc.text(periodText, pageWidth / 2, 40, { align: 'center' });
+            
+            const head = [['Mes', 'Fecha Op.', 'Pedido', 'Cliente', 'Concepto', 'Cantidad', 'Vlr. Unitario', 'Vlr. Total']];
+            const body = liquidationData.map(row => [
+                format(new Date(row.fecha), 'MMMM', { locale: es }),
+                format(new Date(row.fecha), 'dd/MM/yy'),
+                row.pedidoSislog,
+                row.cliente,
+                row.conceptoLiquidado,
+                row.cantidadConcepto === -1 ? 'Pendiente' : row.cantidadConcepto.toFixed(2),
+                row.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }),
+                row.valorTotalConcepto.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
+            ]);
+            const foot = [[{ content: 'TOTAL GENERAL', colSpan: 7, styles: { halign: 'right', fontStyle: 'bold' } }, { content: totalLiquidacion.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } }]];
+
+            autoTable(doc, { startY: 45, head, body, foot, theme: 'grid', styles: { fontSize: 8 } });
+        } else {
+            return;
+        }
+
+        const reportName = type === 'productivity' ? 'Productividad_Cuadrilla' : 'Liquidacion_Cuadrilla';
+        doc.save(`Reporte_${reportName}_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
     }
     
     const handleOpenNoveltyDialog = (row: CrewPerformanceReportRow) => {
