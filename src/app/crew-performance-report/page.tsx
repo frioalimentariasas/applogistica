@@ -672,10 +672,10 @@ export default function CrewPerformanceReportPage() {
 
                 conceptSummary.forEach(row => {
                     const r = wsSumCon.addRow([row.item, row.name, row.totalCantidad, row.valorUnitario, row.totalValor]);
-                    r.getCell(3).numFmt = '#,##0.00'; // Total Cantidad as number
-                    r.getCell(4).numFmt = '$ #,##0'; // Valor Unitario as currency
-                    r.getCell(5).numFmt = '$ #,##0.00'; // Valor Total as currency
-                    r.getCell(2).numFmt = '0'; // Item as number
+                    r.getCell(2).numFmt = '0'; // Item
+                    r.getCell(3).numFmt = '#,##0.00'; // Total Cantidad
+                    r.getCell(4).numFmt = '$ #,##0'; // Valor Unitario
+                    r.getCell(5).numFmt = '$ #,##0.00'; // Valor Total
                     r.eachCell(c => { c.style = cellStyle; });
                 });
                 wsSumCon.addRow([]);
@@ -700,11 +700,11 @@ export default function CrewPerformanceReportPage() {
 
     const handleExportPDF = (type: 'productivity' | 'settlement') => {
         if (isLoading || !logoBase64) return;
-
+    
         const doc = new jsPDF({ orientation: 'landscape' });
         const pageWidth = doc.internal.pageSize.getWidth();
         const margin = 14;
-
+    
         try {
             const logoAspectRatio = 300 / 86; // Assuming original dimensions are known
             const logoPdfWidth = 50;
@@ -715,7 +715,7 @@ export default function CrewPerformanceReportPage() {
         }
         
         const periodText = dateRange?.from && dateRange.to ? `Periodo: ${format(dateRange.from, 'dd/MM/yyyy')} a ${format(dateRange.to, 'dd/MM/yyyy')}` : 'Periodo no especificado';
-
+    
         if (type === 'productivity') {
             if (filteredReportData.length === 0) {
                 toast({ variant: 'destructive', title: 'Sin datos', description: 'No hay datos de productividad para exportar.' });
@@ -738,9 +738,35 @@ export default function CrewPerformanceReportPage() {
                     row.conceptoLiquidado,
                     formatDuration(row.operationalDurationMinutes),
                     indicator.text
-                 ]
+                 ];
             });
             autoTable(doc, { startY: 45, head, body, theme: 'grid', styles: { fontSize: 8 } });
+
+            if (performanceSummary) {
+                const lastTableY = (doc as any).lastAutoTable.finalY;
+                doc.text('Resumen de Productividad', margin, lastTableY + 15);
+                
+                const summaryHead = [['Indicador', 'Operaciones', '%']];
+                const summaryBody = [
+                    ['Óptimo', performanceSummary.summary['Óptimo'].count, performanceSummary.totalEvaluable > 0 ? `${(performanceSummary.summary['Óptimo'].count / performanceSummary.totalEvaluable * 100).toFixed(2)}%` : '0.00%'],
+                    ['Normal', performanceSummary.summary['Normal'].count, performanceSummary.totalEvaluable > 0 ? `${(performanceSummary.summary['Normal'].count / performanceSummary.totalEvaluable * 100).toFixed(2)}%` : '0.00%'],
+                    ['Lento', performanceSummary.summary['Lento'].count, performanceSummary.totalEvaluable > 0 ? `${(performanceSummary.summary['Lento'].count / performanceSummary.totalEvaluable * 100).toFixed(2)}%` : '0.00%'],
+                ];
+                const summaryFoot = [
+                    [{ content: 'TOTAL EVALUABLES', colSpan: 1, styles: { halign: 'right', fontStyle: 'bold' } }, { content: performanceSummary.totalEvaluable }, { content: '100.00%' }],
+                    [{ content: 'CALIFICACIÓN GENERAL', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }, { content: performanceSummary.qualification }]
+                ];
+                
+                autoTable(doc, {
+                    startY: lastTableY + 20,
+                    head: summaryHead,
+                    body: summaryBody,
+                    foot: summaryFoot,
+                    theme: 'grid',
+                    styles: { fontSize: 8 }
+                });
+            }
+
         } else if (type === 'settlement') {
             if (liquidationData.length === 0 || !conceptSummary) {
                 toast({ variant: 'destructive', title: 'Sin datos', description: 'No hay datos de liquidación para exportar.' });
@@ -770,7 +796,6 @@ export default function CrewPerformanceReportPage() {
                 styles: { fontSize: 8 }
             });
             
-            // Add summary table
             const lastTableY = (doc as any).lastAutoTable.finalY;
             doc.text('Resumen de Conceptos Liquidados', margin, lastTableY + 15);
             
@@ -795,12 +820,11 @@ export default function CrewPerformanceReportPage() {
                 theme: 'grid',
                 styles: { fontSize: 8 }
             });
-
         }
-
+    
         const reportName = type === 'productivity' ? 'Productividad_Cuadrilla' : 'Liquidacion_Cuadrilla';
         doc.save(`Reporte_${reportName}_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
-    }
+    };
     
     const handleOpenNoveltyDialog = (row: CrewPerformanceReportRow) => {
         setSelectedRowForNovelty(row);
