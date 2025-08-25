@@ -546,10 +546,15 @@ export default function CrewPerformanceReportPage() {
                 wsProd.addRow([
                     format(new Date(row.fecha), 'dd/MM/yy'), format(parseISO(row.createdAt), 'dd/MM/yy HH:mm'), row.operario, row.cliente,
                     row.tipoOperacion, row.tipoProducto, row.pedidoSislog, row.contenedor, row.placa, row.conceptoLiquidado,
-                    row.horaInicio, row.horaFin, row.cantidadConcepto === -1 ? 'Pendiente' : row.cantidadConcepto.toFixed(2),
+                    row.horaInicio, row.horaFin, row.cantidadConcepto === -1 ? 'Pendiente' : row.cantidadConcepto,
                     formatDuration(row.totalDurationMinutes), formatDuration(row.operationalDurationMinutes),
                     row.novelties.map(n => `${n.type}: ${n.downtimeMinutes} min`).join(', '), indicator.text
-                ]).eachCell(cell => cell.style = cellStyle);
+                ]).eachCell((cell, colNumber) => {
+                    cell.style = cellStyle;
+                    if(colNumber === 13 && typeof cell.value === 'number') {
+                         cell.numFmt = '#,##0.00';
+                    }
+                });
             });
             wsProd.columns.forEach(column => { column.width = 15; });
             
@@ -1301,3 +1306,6 @@ function NoveltySelectorDialog({
 
 
 
+
+
+    
