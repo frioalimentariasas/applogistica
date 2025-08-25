@@ -648,7 +648,7 @@ export default function CrewPerformanceReportPage() {
                 newRow.eachCell((cell, colNumber) => {
                     cell.style = cellStyle;
                     if (!isPending) {
-                        if (colNumber === 6) { cell.numFmt = '#,##0.00'; } // Cantidad
+                        if (colNumber === 6) { cell.numFmt = '#,##0.00'; } // Cantidad (Number)
                         if (colNumber === 7) { cell.numFmt = '$ #,##0'; } // Vlr. Unitario
                         if (colNumber === 8) { cell.numFmt = '$ #,##0.00'; } // Vlr. Total
                     }
@@ -665,27 +665,27 @@ export default function CrewPerformanceReportPage() {
              if(conceptSummary) {
                 const wsSumCon = workbook.addWorksheet('Resumen_Conceptos');
                 wsSumCon.addRow(['Resumen de Conceptos Liquidados']).getCell(1).style = titleStyle;
-                wsSumCon.mergeCells('A1:E1');
+                wsSumCon.mergeCells('A1:F1');
                 wsSumCon.addRow([periodText]).getCell(1).style = subtitleStyle;
-                wsSumCon.mergeCells('A2:E2');
+                wsSumCon.mergeCells('A2:F2');
                 wsSumCon.addRow([]);
                 
-                const conceptHeader = ['Item', 'Concepto', 'Total Cantidad', 'Vlr. Unitario', 'Vlr. Total'];
+                const conceptHeader = ['Item', 'Concepto', 'Total Cantidad', 'Unidad Medida', 'Vlr. Unitario', 'Vlr. Total'];
                 wsSumCon.addRow(conceptHeader).eachCell(c => c.style = headerStyle);
 
                 conceptSummary.forEach(row => {
-                    const r = wsSumCon.addRow([row.item, row.name, row.totalCantidad, row.valorUnitario, row.totalValor]);
+                    const r = wsSumCon.addRow([row.item, row.name, row.totalCantidad, row.unidadMedida, row.valorUnitario, row.totalValor]);
                     r.getCell(3).numFmt = '#,##0.00'; // Total Cantidad
-                    r.getCell(4).numFmt = '$ #,##0'; // Valor Unitario
-                    r.getCell(5).numFmt = '$ #,##0.00'; // Valor Total
+                    r.getCell(5).numFmt = '$ #,##0'; // Valor Unitario
+                    r.getCell(6).numFmt = '$ #,##0.00'; // Valor Total
                     r.eachCell(c => { c.style = cellStyle; });
                 });
                 wsSumCon.addRow([]);
-                const totalSumRow = wsSumCon.addRow(['', '', '', 'TOTAL GENERAL:', totalLiquidacion]);
+                const totalSumRow = wsSumCon.addRow(['', '', '', '', 'TOTAL GENERAL:', totalLiquidacion]);
                 totalSumRow.eachCell(c => c.style = totalRowStyle);
-                totalSumRow.getCell(5).numFmt = '$ #,##0.00';
+                totalSumRow.getCell(6).numFmt = '$ #,##0.00';
 
-                wsSumCon.columns = [{width: 8}, {width: 30}, {width: 15}, {width: 15}, {width: 18}];
+                wsSumCon.columns = [{width: 8}, {width: 30}, {width: 15}, {width: 15}, {width: 15}, {width: 18}];
              }
 
         }
@@ -708,7 +708,7 @@ export default function CrewPerformanceReportPage() {
         const margin = 14;
     
         try {
-            const logoAspectRatio = 300 / 86; // Assuming original dimensions are known
+            const logoAspectRatio = 300 / 86;
             const logoPdfWidth = 50;
             const logoPdfHeight = logoPdfWidth / logoAspectRatio;
             doc.addImage(logoBase64, 'PNG', (pageWidth / 2) - (logoPdfWidth / 2), 10, logoPdfWidth, logoPdfHeight);
@@ -1459,3 +1459,4 @@ function NoveltySelectorDialog({
         </Dialog>
     );
 }
+
