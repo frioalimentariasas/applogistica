@@ -477,8 +477,8 @@ export default function CrewPerformanceReportPage() {
             };
         }
         
-        const optimoNormalPercent = (summary['Óptimo'].count + summary['Normal'].count) / totalEvaluableOperations;
         const optimoPercent = summary['Óptimo'].count / totalEvaluableOperations;
+        const optimoNormalPercent = (summary['Óptimo'].count + summary['Normal'].count) / totalEvaluableOperations;
 
         let qualification = 'Deficiente';
         if (optimoPercent >= 0.95) {
@@ -598,12 +598,14 @@ export default function CrewPerformanceReportPage() {
                 ];
                 summaryRows.forEach(row => {
                     const r = wsSum.addRow(row);
+                    r.getCell(2).numFmt = '#,##0.00';
                     r.getCell(3).numFmt = '0.00%';
                     r.eachCell(cell => cell.style = cellStyle);
                 });
 
                 const totalRow = wsSum.addRow(['TOTAL EVALUABLES', performanceSummary.totalEvaluable, 1]);
                 totalRow.eachCell(cell => cell.style = totalRowStyle);
+                totalRow.getCell(2).numFmt = '#,##0.00';
                 totalRow.getCell(3).numFmt = '0.00%';
                 
                 wsSum.addRow([]);
