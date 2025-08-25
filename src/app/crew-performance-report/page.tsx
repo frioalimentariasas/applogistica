@@ -477,8 +477,8 @@ export default function CrewPerformanceReportPage() {
             };
         }
         
-        const optimoPercent = summary['Óptimo'].count / totalEvaluableOperations;
         const optimoNormalPercent = (summary['Óptimo'].count + summary['Normal'].count) / totalEvaluableOperations;
+        const optimoPercent = summary['Óptimo'].count / totalEvaluableOperations;
 
         let qualification = 'Deficiente';
         if (optimoPercent >= 0.95) {
@@ -588,9 +588,8 @@ export default function CrewPerformanceReportPage() {
                 wsSum.mergeCells('A2:C2');
                 wsSum.addRow([]);
 
-                wsSum.addRow(['Indicador', 'Operaciones', '%']).getCell(1).style = headerStyle;
-                wsSum.getCell(2).style = headerStyle;
-                wsSum.getCell(3).style = headerStyle;
+                const summaryHeaderRow = wsSum.addRow(['Indicador', 'Operaciones', '%']);
+                summaryHeaderRow.eachCell(cell => cell.style = headerStyle);
                 
                 const summaryRows = [
                     ['Óptimo', performanceSummary.summary['Óptimo'].count, performanceSummary.totalEvaluable > 0 ? (performanceSummary.summary['Óptimo'].count / performanceSummary.totalEvaluable) : 0],
@@ -674,7 +673,6 @@ export default function CrewPerformanceReportPage() {
 
                 conceptSummary.forEach(row => {
                     const r = wsSumCon.addRow([row.item, row.name, row.totalCantidad, row.valorUnitario, row.totalValor]);
-                    r.getCell(2).numFmt = '0'; // Item
                     r.getCell(3).numFmt = '#,##0.00'; // Total Cantidad
                     r.getCell(4).numFmt = '$ #,##0'; // Valor Unitario
                     r.getCell(5).numFmt = '$ #,##0.00'; // Valor Total
@@ -746,8 +744,13 @@ export default function CrewPerformanceReportPage() {
 
             if (performanceSummary) {
                 const lastTableY = (doc as any).lastAutoTable.finalY;
-                doc.text('Resumen de Productividad', margin, lastTableY + 15);
-                
+                autoTable(doc, {
+                    startY: lastTableY + 10,
+                    head: [['Resumen de Productividad']],
+                    theme: 'grid',
+                    headStyles: { fontStyle: 'bold', halign: 'center' }
+                });
+
                 const summaryHead = [['Indicador', 'Operaciones', '%']];
                 const summaryBody = [
                     ['Óptimo', performanceSummary.summary['Óptimo'].count, performanceSummary.totalEvaluable > 0 ? `${(performanceSummary.summary['Óptimo'].count / performanceSummary.totalEvaluable * 100).toFixed(2)}%` : '0.00%'],
@@ -760,7 +763,7 @@ export default function CrewPerformanceReportPage() {
                 ];
                 
                 autoTable(doc, {
-                    startY: lastTableY + 20,
+                    startY: (doc as any).lastAutoTable.finalY,
                     head: summaryHead,
                     body: summaryBody,
                     foot: summaryFoot,
@@ -799,7 +802,12 @@ export default function CrewPerformanceReportPage() {
             });
             
             const lastTableY = (doc as any).lastAutoTable.finalY;
-            doc.text('Resumen de Conceptos Liquidados', margin, lastTableY + 15);
+            autoTable(doc, {
+                startY: lastTableY + 10,
+                head: [['Resumen de Conceptos Liquidados']],
+                theme: 'grid',
+                headStyles: { fontStyle: 'bold', halign: 'center' }
+            });
             
             const summaryHead = [['Item', 'Concepto', 'Total Cantidad', 'Vlr. Unitario', 'Vlr. Total']];
             const summaryBody = conceptSummary.map(row => [
@@ -815,7 +823,7 @@ export default function CrewPerformanceReportPage() {
             ]];
             
             autoTable(doc, {
-                startY: lastTableY + 20,
+                startY: (doc as any).lastAutoTable.finalY,
                 head: summaryHead,
                 body: summaryBody,
                 foot: summaryFoot,
