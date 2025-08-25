@@ -13,7 +13,7 @@ import { format, subDays, parseISO, startOfDay, endOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import ExcelJS from 'exceljs';
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 
 import { getCrewPerformanceReport, type CrewPerformanceReportRow } from '@/app/actions/crew-performance-report';
 import { addNoveltyToOperation, deleteNovelty } from '@/app/actions/novelty-actions';
@@ -750,7 +750,7 @@ export default function CrewPerformanceReportPage() {
                 row.cliente,
                 row.conceptoLiquidado,
                 row.cantidadConcepto === -1 ? 'Pendiente' : row.cantidadConcepto.toFixed(2),
-                row.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }),
+                row.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }),
                 row.valorTotalConcepto.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
             ]);
             const foot = [[{ content: 'TOTAL GENERAL', colSpan: 7, styles: { halign: 'right', fontStyle: 'bold' } }, { content: totalLiquidacion.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } }]];
