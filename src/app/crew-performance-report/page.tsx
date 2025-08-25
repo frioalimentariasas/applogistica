@@ -533,7 +533,7 @@ export default function CrewPerformanceReportPage() {
 
     const handleExportExcel = async (type: 'productivity' | 'settlement') => {
         if (isLoading) return;
-        
+
         const workbook = new ExcelJS.Workbook();
         workbook.creator = 'Frio Alimentaria App';
         workbook.created = new Date();
@@ -547,7 +547,7 @@ export default function CrewPerformanceReportPage() {
 
         if (type === 'productivity') {
             if (filteredReportData.length === 0) {
-                 toast({ variant: 'destructive', title: 'Sin datos', description: 'No hay datos de productividad para exportar.' });
+                toast({ variant: 'destructive', title: 'Sin datos', description: 'No hay datos de productividad para exportar.' });
                 return;
             }
             const wsProd = workbook.addWorksheet('Productividad_Detallada');
@@ -556,11 +556,11 @@ export default function CrewPerformanceReportPage() {
             wsProd.addRow([periodText]).getCell(1).style = subtitleStyle;
             wsProd.mergeCells('A2:Q2');
             wsProd.addRow([]);
-            
+
             const prodHeaders = ['Fecha Op.', 'Fecha Creación', 'Operario', 'Cliente', 'Tipo Op.', 'Tipo Prod.', 'Pedido', 'Contenedor', 'Placa', 'Concepto', 'Hora Inicio', 'Hora Fin', 'Cant.', 'Dur. Total', 'T. Operativo', 'Novedades', 'Productividad'];
             const headerRow = wsProd.addRow(prodHeaders);
             headerRow.eachCell(cell => cell.style = headerStyle);
-            
+
             filteredReportData.forEach(row => {
                 const indicator = getPerformanceIndicator(row);
                 const newRow = wsProd.addRow([
@@ -586,7 +586,7 @@ export default function CrewPerformanceReportPage() {
             });
             wsProd.columns = prodHeaders.map(h => ({ header: h, key: h, width: 18 }));
 
-            if(performanceSummary) {
+            if (performanceSummary) {
                 const wsSum = workbook.addWorksheet('Resumen_Productividad');
                 wsSum.addRow(['Resumen de Productividad']).getCell(1).style = titleStyle;
                 wsSum.mergeCells('A1:C1');
@@ -596,7 +596,7 @@ export default function CrewPerformanceReportPage() {
 
                 const summaryHeaderRow = wsSum.addRow(['Indicador', 'Operaciones', '%']);
                 summaryHeaderRow.eachCell(cell => cell.style = headerStyle);
-                
+
                 const summaryRows = [
                     ['Óptimo', performanceSummary.summary['Óptimo'].count, performanceSummary.totalEvaluable > 0 ? (performanceSummary.summary['Óptimo'].count / performanceSummary.totalEvaluable) : 0],
                     ['Normal', performanceSummary.summary['Normal'].count, performanceSummary.totalEvaluable > 0 ? (performanceSummary.summary['Normal'].count / performanceSummary.totalEvaluable) : 0],
@@ -614,12 +614,12 @@ export default function CrewPerformanceReportPage() {
                 });
                 totalRow.getCell(2).numFmt = '#,##0.00';
                 totalRow.getCell(3).numFmt = '0.00%';
-                
+
                 wsSum.addRow([]);
                 const qualificationRow = wsSum.addRow(['CALIFICACIÓN GENERAL', performanceSummary.qualification]);
                 qualificationRow.eachCell(cell => cell.font = { bold: true });
                 wsSum.mergeCells(`B${qualificationRow.number}:C${qualificationRow.number}`);
-                
+
                 wsSum.columns = [{ width: 25 }, { width: 15 }, { width: 15 }];
             }
 
@@ -629,13 +629,12 @@ export default function CrewPerformanceReportPage() {
                 return;
             }
 
-            // Hoja de Liquidación Detallada
             const wsLiq = workbook.addWorksheet('Liquidacion_Cuadrilla');
-            wsLiq.addRow(['Informe de Liquidación de Cuadrilla']).getCell(1).style = titleStyle;
+            wsLiq.addRow(['Detalle Liquidación Cuadrilla']).getCell(1).style = titleStyle;
             wsLiq.mergeCells('A1:H1');
             wsLiq.addRow([periodText]).getCell(1).style = subtitleStyle;
             wsLiq.mergeCells('A2:H2');
-            wsLiq.addRow([]); // Spacer
+            wsLiq.addRow([]);
 
             const liqHeaders = ['Mes', 'Fecha Op.', 'Pedido', 'Cliente', 'Concepto', 'Cantidad', 'Vlr. Unitario', 'Vlr. Total'];
             const liqHeaderRow = wsLiq.addRow(liqHeaders);
@@ -653,19 +652,29 @@ export default function CrewPerformanceReportPage() {
                     isPending ? 'N/A' : row.valorUnitario,
                     isPending ? 'N/A' : row.valorTotalConcepto
                 ]);
-                newRow.getCell(6).numFmt = '$ #,##0.00';
+                newRow.getCell(6).numFmt = '#,##0.00';
                 newRow.getCell(7).numFmt = '$ #,##0';
                 newRow.getCell(8).numFmt = '$ #,##0.00';
-                newRow.eachCell(cell => { if (cell.style) cell.style.border = cellStyle.border; });
             });
+            wsLiq.columns = liqHeaders.map((h, i) => ({
+                header: h,
+                key: h.toLowerCase().replace(/\s/g, ''),
+                width: h === 'Cliente' ? 30 : h === 'Concepto' ? 25 : 18,
+                style: {
+                    ...cellStyle,
+                    numFmt: i === 5 ? '#,##0.00' : (i === 6 ? '$ #,##0' : (i === 7 ? '$ #,##0.00' : undefined))
+                }
+            }));
+            
+            wsLiq.getRow(4).font = headerStyle.font;
+            wsLiq.getRow(4).fill = headerStyle.fill;
+            
             wsLiq.addRow([]);
             const totalLiqRow = wsLiq.addRow(['', '', '', '', '', '', 'TOTAL GENERAL:', totalLiquidacion]);
             totalLiqRow.getCell('G').font = { bold: true };
             totalLiqRow.getCell('H').font = { bold: true };
             totalLiqRow.getCell('H').numFmt = '$ #,##0.00';
-            wsLiq.columns = liqHeaders.map(h => ({ header: h, key: h, width: h === 'Cliente' ? 30 : h === 'Concepto' ? 25 : 18 }));
             
-            // Hoja de Resumen por Conceptos
             if (conceptSummary) {
                 const wsSumCon = workbook.addWorksheet('Resumen_Conceptos');
                 wsSumCon.addRow(['Resumen de Conceptos Liquidados']).getCell(1).style = titleStyle;
@@ -686,22 +695,32 @@ export default function CrewPerformanceReportPage() {
                         item.valorUnitario,
                         item.totalValor
                     ]);
+                    row.getCell(1).numFmt = '0';
                     row.getCell(3).numFmt = '#,##0.00';
                     row.getCell(5).numFmt = '$ #,##0';
                     row.getCell(6).numFmt = '$ #,##0.00';
-                    row.eachCell(cell => { if (cell.style) cell.style.border = cellStyle.border; });
                 });
+                
+                wsSumCon.columns = [
+                    { header: 'Item', key: 'item', width: 8, style: { ...cellStyle, numFmt: '0' } },
+                    { header: 'Concepto', key: 'name', width: 30, style: cellStyle },
+                    { header: 'Total Cantidad', key: 'totalCantidad', width: 15, style: { ...cellStyle, numFmt: '#,##0.00' } },
+                    { header: 'Unidad Medida', key: 'unidadMedida', width: 15, style: cellStyle },
+                    { header: 'Vlr. Unitario', key: 'valorUnitario', width: 15, style: { ...cellStyle, numFmt: '$ #,##0' } },
+                    { header: 'Vlr. Total', key: 'totalValor', width: 18, style: { ...cellStyle, numFmt: '$ #,##0.00' } }
+                ];
+                wsSumCon.getRow(4).font = headerStyle.font;
+                wsSumCon.getRow(4).fill = headerStyle.fill;
+
 
                 wsSumCon.addRow([]);
                 const totalSumRow = wsSumCon.addRow(['', '', '', '', 'TOTAL GENERAL:', totalLiquidacion]);
                 totalSumRow.getCell('E').font = { bold: true };
                 totalSumRow.getCell('F').font = { bold: true };
                 totalSumRow.getCell('F').numFmt = '$ #,##0.00';
-                wsSumCon.columns = [{ width: 8 }, { width: 30 }, { width: 15 }, { width: 15 }, { width: 15 }, { width: 18 }];
             }
         }
-        
-        // --- Download ---
+
         const buffer = await workbook.xlsx.writeBuffer();
         const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
         const link = document.createElement("a");
