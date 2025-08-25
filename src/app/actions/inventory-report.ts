@@ -4,7 +4,7 @@
 
 import admin from 'firebase-admin';
 import { firestore } from '@/lib/firebase-admin';
-import * as xlsx from 'xlsx';
+import * as ExcelJS from 'exceljs';
 import { format, parse } from 'date-fns';
 
 interface InventoryRow {
@@ -28,22 +28,31 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
 
     try {
         const buffer = await file.arrayBuffer();
-        const workbook = xlsx.read(buffer, { type: 'buffer', cellDates: true });
-        const sheetName = workbook.SheetNames[0];
-        const sheet = workbook.Sheets[sheetName];
-        let data = xlsx.utils.sheet_to_json<InventoryRow>(sheet, { raw: false, defval: null });
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(buffer);
+        const worksheet = workbook.worksheets[0];
+        
+        const data: InventoryRow[] = [];
+        const headers: string[] = [];
+        const headerRow = worksheet.getRow(1);
+        headerRow.eachCell((cell) => {
+            headers.push(cell.value as string);
+        });
+
+        worksheet.eachRow((row, rowNumber) => {
+            if (rowNumber > 1) {
+                const rowData: any = {};
+                row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+                    rowData[headers[colNumber - 1]] = cell.value;
+                });
+                data.push(rowData);
+            }
+        });
+
 
         if (data.length === 0) {
             throw new Error(`El archivo está vacío o no tiene el formato correcto.`);
         }
-
-        data = data.map(row => {
-            const newRow: any = {};
-            for (const key in row) {
-                newRow[key.trim()] = (row as any)[key];
-            }
-            return newRow;
-        });
 
         const firstRow = data[0];
         const requiredColumns = [
@@ -104,7 +113,11 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
         const serializableData = data.map(row => {
             const newRow: any = {};
             for (const key in row) {
-                newRow[key] = (row as any)[key] !== undefined ? (row as any)[key] : null;
+                if (row[key as keyof typeof row] instanceof Date) {
+                    newRow[key] = (row[key as keyof typeof row] as Date).toISOString();
+                } else {
+                    newRow[key] = row[key as keyof typeof row] ?? null;
+                }
             }
             return newRow;
         });
