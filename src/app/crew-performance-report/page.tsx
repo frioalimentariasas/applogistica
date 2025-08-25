@@ -598,7 +598,7 @@ export default function CrewPerformanceReportPage() {
                 ];
                 summaryRows.forEach(row => {
                     const r = wsSum.addRow(row);
-                    r.getCell(2).numFmt = '#,##0.00';
+                    r.getCell(2).numFmt = '#,##0';
                     r.getCell(3).numFmt = '0.00%';
                     r.eachCell(cell => cell.style = cellStyle);
                 });
@@ -645,14 +645,22 @@ export default function CrewPerformanceReportPage() {
                     isPending ? 'N/A' : row.valorTotalConcepto
                  ]);
                  
-                newRow.eachCell((cell, colNumber) => {
-                    cell.style = cellStyle;
-                    if (!isPending) {
-                        if (colNumber === 6) { cell.numFmt = '#,##0.00'; } // Cantidad (Number)
-                        if (colNumber === 7) { cell.numFmt = '$ #,##0'; } // Vlr. Unitario
-                        if (colNumber === 8) { cell.numFmt = '$ #,##0.00'; } // Vlr. Total
-                    }
-                });
+                const cantidadCell = newRow.getCell(6);
+                cantidadCell.style = cellStyle;
+                if (!isPending) cantidadCell.numFmt = '#,##0.00';
+
+                const unitarioCell = newRow.getCell(7);
+                unitarioCell.style = cellStyle;
+                if (!isPending) unitarioCell.numFmt = '$ #,##0';
+
+                const totalCell = newRow.getCell(8);
+                totalCell.style = cellStyle;
+                if (!isPending) totalCell.numFmt = '$ #,##0.00';
+
+                // Apply style to other cells
+                for(let i = 1; i <= 5; i++) {
+                    newRow.getCell(i).style = cellStyle;
+                }
              });
              wsLiq.addRow([]);
              const totalLiqRow = wsLiq.addRow(['', '', '', '', '', '', 'TOTAL GENERAL:', totalLiquidacion]);
