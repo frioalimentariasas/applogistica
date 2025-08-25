@@ -12,6 +12,8 @@ import { DateRange } from 'react-day-picker';
 import { format, subDays, parseISO, startOfDay, endOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import ExcelJS from 'exceljs';
+import jsPDF from 'jspdf';
+import 'jspdf-autotable';
 
 import { getCrewPerformanceReport, type CrewPerformanceReportRow } from '@/app/actions/crew-performance-report';
 import { addNoveltyToOperation, deleteNovelty } from '@/app/actions/novelty-actions';
@@ -509,19 +511,167 @@ export default function CrewPerformanceReportPage() {
 
     const handleExportExcel = async (type: 'productivity' | 'settlement') => {
         if (isLoading) return;
-        if (type === 'settlement') {
-            toast({ variant: 'destructive', title: 'En construcción', description: 'La exportación de liquidación está en desarrollo.' });
+        
+        const workbook = new ExcelJS.Workbook();
+        workbook.creator = 'Frio Alimentaria App';
+        workbook.created = new Date();
+
+        const titleStyle = { font: { bold: true, size: 14 }, alignment: { horizontal: 'center' as const } };
+        const subtitleStyle = { font: { size: 11 }, alignment: { horizontal: 'center' as const } };
+        const headerStyle = { font: { bold: true, color: { argb: 'FFFFFFFF' } }, fill: { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FF2196F3' } }, border: { top: { style: 'thin' as const }, left: { style: 'thin' as const }, bottom: { style: 'thin' as const }, right: { style: 'thin' as const } } };
+        const cellStyle = { border: { top: { style: 'thin' as const }, left: { style: 'thin' as const }, bottom: { style: 'thin' as const }, right: { style: 'thin' as const } } };
+        const totalRowStyle = { font: { bold: true }, fill: { type: 'pattern' as const, pattern: 'solid' as const, fgColor: { argb: 'FFE0E0E0' } }, border: { top: { style: 'thin' as const }, left: { style: 'thin' as const }, bottom: { style: 'thin' as const }, right: { style: 'thin' as const } } };
+        
+        const periodText = dateRange?.from && dateRange.to ? `Periodo: ${format(dateRange.from, 'dd/MM/yyyy')} a ${format(dateRange.to, 'dd/MM/yyyy')}` : 'Periodo no especificado';
+
+        if (type === 'productivity') {
+            if (filteredReportData.length === 0) {
+                 toast({ variant: 'destructive', title: 'Sin datos', description: 'No hay datos de productividad para exportar.' });
+                return;
+            }
+            // --- Sheet 1: Productividad Detallada ---
+            const wsProd = workbook.addWorksheet('Productividad_Detallada');
+            wsProd.addRow(['Informe de Productividad de Cuadrilla']).getCell(1).style = titleStyle;
+            wsProd.mergeCells('A1:Q1');
+            wsProd.addRow([periodText]).getCell(1).style = subtitleStyle;
+            wsProd.mergeCells('A2:Q2');
+            wsProd.addRow([]);
+            
+            const prodHeaders = ['Fecha Op.', 'Fecha Creación', 'Operario', 'Cliente', 'Tipo Op.', 'Tipo Prod.', 'Pedido', 'Contenedor', 'Placa', 'Concepto', 'Hora Inicio', 'Hora Fin', 'Cant.', 'Dur. Total', 'T. Operativo', 'Novedades', 'Productividad'];
+            const prodHeaderRow = wsProd.addRow(prodHeaders);
+            prodHeaderRow.eachCell(cell => cell.style = headerStyle);
+            
+            filteredReportData.forEach(row => {
+                const indicator = getPerformanceIndicator(row);
+                wsProd.addRow([
+                    format(new Date(row.fecha), 'dd/MM/yy'), format(parseISO(row.createdAt), 'dd/MM/yy HH:mm'), row.operario, row.cliente,
+                    row.tipoOperacion, row.tipoProducto, row.pedidoSislog, row.contenedor, row.placa, row.conceptoLiquidado,
+                    row.horaInicio, row.horaFin, row.cantidadConcepto === -1 ? 'Pendiente' : row.cantidadConcepto.toFixed(2),
+                    formatDuration(row.totalDurationMinutes), formatDuration(row.operationalDurationMinutes),
+                    row.novelties.map(n => `${n.type}: ${n.downtimeMinutes} min`).join(', '), indicator.text
+                ]).eachCell(cell => cell.style = cellStyle);
+            });
+            wsProd.columns.forEach(column => { column.width = 15; });
+            
+            // --- Sheet 2: Resumen Productividad ---
+            if(performanceSummary) {
+                const wsSum = workbook.addWorksheet('Resumen_Productividad');
+                wsSum.addRow(['Resumen de Productividad']).getCell(1).style = titleStyle;
+                wsSum.mergeCells('A1:C1');
+                wsSum.addRow([periodText]).getCell(1).style = subtitleStyle;
+                wsSum.mergeCells('A2:C2');
+                wsSum.addRow([]);
+
+                wsSum.addRow(['Indicador', 'Operaciones', '%']).getCell(1).style = headerStyle;
+                wsSum.getCell(2).style = headerStyle;
+                wsSum.getCell(3).style = headerStyle;
+                
+                const summaryRows = [
+                    ['Óptimo', performanceSummary.summary['Óptimo'].count, performanceSummary.totalEvaluable > 0 ? (performanceSummary.summary['Óptimo'].count / performanceSummary.totalEvaluable) : 0],
+                    ['Normal', performanceSummary.summary['Normal'].count, performanceSummary.totalEvaluable > 0 ? (performanceSummary.summary['Normal'].count / performanceSummary.totalEvaluable) : 0],
+                    ['Lento', performanceSummary.summary['Lento'].count, performanceSummary.totalEvaluable > 0 ? (performanceSummary.summary['Lento'].count / performanceSummary.totalEvaluable) : 0],
+                ];
+                summaryRows.forEach(row => {
+                    const r = wsSum.addRow(row);
+                    r.getCell(3).numFmt = '0.00%';
+                    r.eachCell(cell => cell.style = cellStyle);
+                });
+
+                const totalRow = wsSum.addRow(['TOTAL EVALUABLES', performanceSummary.totalEvaluable, 1]);
+                totalRow.eachCell(cell => cell.style = totalRowStyle);
+                totalRow.getCell(3).numFmt = '0.00%';
+                
+                wsSum.addRow([]);
+                const qualificationRow = wsSum.addRow(['CALIFICACIÓN GENERAL', performanceSummary.qualification]);
+                qualificationRow.getCell(1).style = totalRowStyle;
+                qualificationRow.getCell(2).style = totalRowStyle;
+                wsSum.mergeCells(`B${qualificationRow.number}:C${qualificationRow.number}`);
+                
+                wsSum.columns = [{ width: 25 }, { width: 15 }, { width: 15 }];
+            }
+
+        } else if (type === 'settlement') {
+            if(liquidationData.length === 0) {
+                 toast({ variant: 'destructive', title: 'Sin datos', description: 'No hay datos de liquidación para exportar.' });
+                 return;
+            }
+             const wsLiq = workbook.addWorksheet('Liquidacion_Cuadrilla');
+             wsLiq.addRow(['Informe de Liquidación de Cuadrilla']).getCell(1).style = titleStyle;
+             wsLiq.mergeCells('A1:G1');
+             wsLiq.addRow([periodText]).getCell(1).style = subtitleStyle;
+             wsLiq.mergeCells('A2:G2');
+             wsLiq.addRow([]);
+
+             const liqHeaders = ['Mes', 'Fecha Op.', 'Pedido', 'Cliente', 'Concepto', 'Cantidad', 'Vlr. Unitario', 'Vlr. Total'];
+             wsLiq.addRow(liqHeaders).eachCell(cell => cell.style = headerStyle);
+             
+             liquidationData.forEach(row => {
+                const isPending = row.cantidadConcepto === -1;
+                 wsLiq.addRow([
+                    format(new Date(row.fecha), 'MMMM', { locale: es }),
+                    format(new Date(row.fecha), 'dd/MM/yy'),
+                    row.pedidoSislog,
+                    row.cliente,
+                    row.conceptoLiquidado,
+                    isPending ? 'Pendiente' : row.cantidadConcepto,
+                    isPending ? 'N/A' : row.valorUnitario,
+                    isPending ? 'N/A' : row.valorTotalConcepto
+                 ]).eachCell((cell, colNumber) => {
+                     cell.style = cellStyle;
+                     if(colNumber >= 6 && !isPending) cell.numFmt = colNumber === 6 ? '#,##0.00' : '$ #,##0.00';
+                 });
+             });
+             wsLiq.addRow([]);
+             const totalLiqRow = wsLiq.addRow(['', '', '', '', '', '', 'TOTAL GENERAL:', totalLiquidacion]);
+             totalLiqRow.eachCell(cell => cell.style = totalRowStyle);
+             totalLiqRow.getCell(8).numFmt = '$ #,##0.00';
+             
+             wsLiq.columns = [ {width: 15}, {width: 12}, {width: 15}, {width: 30}, {width: 25}, {width: 12}, {width: 15}, {width: 18}];
+             
+             // Sheet 2: Concept Summary
+             if(conceptSummary) {
+                const wsSumCon = workbook.addWorksheet('Resumen_Conceptos');
+                wsSumCon.addRow(['Resumen de Conceptos Liquidados']).getCell(1).style = titleStyle;
+                wsSumCon.mergeCells('A1:E1');
+                wsSumCon.addRow([periodText]).getCell(1).style = subtitleStyle;
+                wsSumCon.mergeCells('A2:E2');
+                wsSumCon.addRow([]);
+                
+                wsSumCon.addRow(['Item', 'Concepto', 'Total Cantidad', 'Vlr. Unitario', 'Vlr. Total']).eachCell(c => c.style = headerStyle);
+                conceptSummary.forEach(row => {
+                    const r = wsSumCon.addRow([row.item, row.name, row.totalCantidad, row.valorUnitario, row.totalValor]);
+                    r.eachCell((c, colNum) => {
+                        c.style = cellStyle;
+                        if(colNum === 3) c.numFmt = '#,##0.00';
+                        if(colNum > 3) c.numFmt = '$ #,##0.00';
+                    });
+                });
+                wsSumCon.addRow([]);
+                const totalSumRow = wsSumCon.addRow(['', '', '', 'TOTAL GENERAL:', totalLiquidacion]);
+                totalSumRow.eachCell(c => c.style = totalRowStyle);
+                totalSumRow.getCell(5).numFmt = '$ #,##0.00';
+
+                wsSumCon.columns = [{width: 8}, {width: 30}, {width: 15}, {width: 15}, {width: 18}];
+             }
+
+        } else {
             return;
         }
         
-        if (type === 'productivity' && filteredReportData.length === 0) {
-             toast({ variant: 'destructive', title: 'Sin datos', description: 'No hay datos de productividad para exportar.' });
-            return;
-        }
-
-        toast({ variant: 'destructive', title: 'En construcción', description: 'La exportación de productividad está en desarrollo.' });
-        return;
+        // --- Download ---
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `Reporte_${type}_${format(new Date(), 'yyyy-MM-dd')}.xlsx`;
+        link.click();
     };
+
+    const handleExportPDF = (type: 'productivity' | 'settlement') => {
+        if (isLoading) return;
+        toast({ variant: 'destructive', title: 'En construcción', description: 'La exportación a PDF está en desarrollo.' });
+        return;
+    }
     
     const handleOpenNoveltyDialog = (row: CrewPerformanceReportRow) => {
         setSelectedRowForNovelty(row);
@@ -753,7 +903,9 @@ export default function CrewPerformanceReportPage() {
                                     <Button onClick={() => handleExportExcel('productivity')} disabled={isLoading || filteredReportData.length === 0} variant="outline" size="sm">
                                         <File className="mr-2 h-4 w-4" /> Exportar a Excel
                                     </Button>
-                                    
+                                    <Button onClick={() => handleExportPDF('productivity')} disabled={isLoading || filteredReportData.length === 0} variant="outline" size="sm">
+                                        <FileDown className="mr-2 h-4 w-4" /> Exportar a PDF
+                                    </Button>
                                 </div>
                                  <div className="relative">
                                      <ScrollArea className="w-full whitespace-nowrap rounded-md border">
@@ -878,7 +1030,9 @@ export default function CrewPerformanceReportPage() {
                                     <Button onClick={() => handleExportExcel('settlement')} disabled={isLoading || liquidationData.length === 0} variant="outline" size="sm">
                                         <File className="mr-2 h-4 w-4" /> Exportar a Excel
                                     </Button>
-                                    
+                                    <Button onClick={() => handleExportPDF('settlement')} disabled={isLoading || liquidationData.length === 0} variant="outline" size="sm">
+                                        <FileDown className="mr-2 h-4 w-4" /> Exportar a PDF
+                                    </Button>
                                 </div>
                                  <div className="w-full overflow-x-auto rounded-md border">
                                     <Table>
@@ -1140,6 +1294,4 @@ function NoveltySelectorDialog({
         </Dialog>
     );
 }
-
-
 
