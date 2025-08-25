@@ -476,14 +476,14 @@ export default function CrewPerformanceReportPage() {
                 totalEvaluable: 0,
             };
         }
-
-        const optimoPercent = (summary['Óptimo'].count / totalEvaluableOperations);
-        const optimoNormalSum = summary['Óptimo'].count + summary['Normal'].count;
+        
+        const optimoPercent = summary['Óptimo'].count / totalEvaluableOperations;
+        const optimoNormalPercent = (summary['Óptimo'].count + summary['Normal'].count) / totalEvaluableOperations;
 
         let qualification = 'Deficiente';
         if (optimoPercent >= 0.95) {
             qualification = 'Excelente';
-        } else if ((optimoNormalSum / totalEvaluableOperations) >= 0.85) {
+        } else if (optimoNormalPercent >= 0.85) {
             qualification = 'Sobresaliente';
         }
 
@@ -644,12 +644,14 @@ export default function CrewPerformanceReportPage() {
                     isPending ? 'N/A' : row.valorTotalConcepto
                  ]);
                  
-                newRow.eachCell(cell => { cell.style = cellStyle; });
-                if (!isPending) {
-                    newRow.getCell(6).numFmt = '#,##0.00';
-                    newRow.getCell(7).numFmt = '$ #,##0.00';
-                    newRow.getCell(8).numFmt = '$ #,##0.00';
-                }
+                newRow.eachCell((cell, colNumber) => {
+                    cell.style = cellStyle;
+                    if (!isPending) {
+                        if (colNumber === 6) { cell.numFmt = '#,##0.00'; } // Cantidad
+                        if (colNumber === 7) { cell.numFmt = '$ #,##0'; } // Vlr. Unitario
+                        if (colNumber === 8) { cell.numFmt = '$ #,##0.00'; } // Vlr. Total
+                    }
+                });
              });
              wsLiq.addRow([]);
              const totalLiqRow = wsLiq.addRow(['', '', '', '', '', '', 'TOTAL GENERAL:', totalLiquidacion]);
