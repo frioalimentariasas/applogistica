@@ -12,8 +12,8 @@ import { DateRange } from 'react-day-picker';
 import { format, subDays, parseISO, startOfDay, endOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import ExcelJS from 'exceljs';
-import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
+import jsPDF from 'jspdf';
 
 import { getCrewPerformanceReport, type CrewPerformanceReportRow } from '@/app/actions/crew-performance-report';
 import { addNoveltyToOperation, deleteNovelty } from '@/app/actions/novelty-actions';
@@ -667,12 +667,15 @@ export default function CrewPerformanceReportPage() {
                 wsSumCon.mergeCells('A2:E2');
                 wsSumCon.addRow([]);
                 
-                wsSumCon.addRow(['Item', 'Concepto', 'Total Cantidad', 'Vlr. Unitario', 'Vlr. Total']).eachCell(c => c.style = headerStyle);
+                const conceptHeader = ['Item', 'Concepto', 'Total Cantidad', 'Vlr. Unitario', 'Vlr. Total'];
+                wsSumCon.addRow(conceptHeader).eachCell(c => c.style = headerStyle);
+
                 conceptSummary.forEach(row => {
                     const r = wsSumCon.addRow([row.item, row.name, row.totalCantidad, row.valorUnitario, row.totalValor]);
-                    r.getCell(3).numFmt = '#,##0.00';
-                    r.getCell(4).numFmt = '$ #,##0.00';
-                    r.getCell(5).numFmt = '$ #,##0.00';
+                    r.getCell(3).numFmt = '#,##0.00'; // Total Cantidad as number
+                    r.getCell(4).numFmt = '$ #,##0'; // Valor Unitario as currency
+                    r.getCell(5).numFmt = '$ #,##0.00'; // Valor Total as currency
+                    r.getCell(2).numFmt = '0'; // Item as number
                     r.eachCell(c => { c.style = cellStyle; });
                 });
                 wsSumCon.addRow([]);
@@ -683,8 +686,6 @@ export default function CrewPerformanceReportPage() {
                 wsSumCon.columns = [{width: 8}, {width: 30}, {width: 15}, {width: 15}, {width: 18}];
              }
 
-        } else {
-            return;
         }
         
         // --- Download ---
@@ -698,25 +699,28 @@ export default function CrewPerformanceReportPage() {
     };
 
     const handleExportPDF = (type: 'productivity' | 'settlement') => {
-        if (isLoading) return;
+        if (isLoading || !logoBase64) return;
+
         const doc = new jsPDF({ orientation: 'landscape' });
         const pageWidth = doc.internal.pageSize.getWidth();
         const margin = 14;
 
-        if (logoBase64) {
-            try {
-                const logoAspectRatio = 300 / 86; // Assuming original dimensions are known
-                const logoPdfWidth = 50;
-                const logoPdfHeight = logoPdfWidth / logoAspectRatio;
-                doc.addImage(logoBase64, 'PNG', (pageWidth / 2) - (logoPdfWidth / 2), 10, logoPdfWidth, logoPdfHeight);
-            } catch (e) {
-                console.error("Error adding logo to PDF:", e);
-            }
+        try {
+            const logoAspectRatio = 300 / 86; // Assuming original dimensions are known
+            const logoPdfWidth = 50;
+            const logoPdfHeight = logoPdfWidth / logoAspectRatio;
+            doc.addImage(logoBase64, 'PNG', (pageWidth / 2) - (logoPdfWidth / 2), 10, logoPdfWidth, logoPdfHeight);
+        } catch (e) {
+            console.error("Error adding logo to PDF:", e);
         }
         
         const periodText = dateRange?.from && dateRange.to ? `Periodo: ${format(dateRange.from, 'dd/MM/yyyy')} a ${format(dateRange.to, 'dd/MM/yyyy')}` : 'Periodo no especificado';
 
         if (type === 'productivity') {
+            if (filteredReportData.length === 0) {
+                toast({ variant: 'destructive', title: 'Sin datos', description: 'No hay datos de productividad para exportar.' });
+                return;
+            }
             doc.text('Informe de Productividad de Cuadrilla', pageWidth / 2, 35, { align: 'center' });
             doc.setFontSize(10);
             doc.text(periodText, pageWidth / 2, 40, { align: 'center' });
@@ -738,12 +742,16 @@ export default function CrewPerformanceReportPage() {
             });
             autoTable(doc, { startY: 45, head, body, theme: 'grid', styles: { fontSize: 8 } });
         } else if (type === 'settlement') {
+            if (liquidationData.length === 0 || !conceptSummary) {
+                toast({ variant: 'destructive', title: 'Sin datos', description: 'No hay datos de liquidación para exportar.' });
+                return;
+            }
             doc.text('Informe de Liquidación de Cuadrilla', pageWidth / 2, 35, { align: 'center' });
             doc.setFontSize(10);
             doc.text(periodText, pageWidth / 2, 40, { align: 'center' });
             
-            const head = [['Mes', 'Fecha Op.', 'Pedido', 'Cliente', 'Concepto', 'Cantidad', 'Vlr. Unitario', 'Vlr. Total']];
-            const body = liquidationData.map(row => [
+            const detailHead = [['Mes', 'Fecha Op.', 'Pedido', 'Cliente', 'Concepto', 'Cantidad', 'Vlr. Unitario', 'Vlr. Total']];
+            const detailBody = liquidationData.map(row => [
                 format(new Date(row.fecha), 'MMMM', { locale: es }),
                 format(new Date(row.fecha), 'dd/MM/yy'),
                 row.pedidoSislog,
@@ -753,11 +761,41 @@ export default function CrewPerformanceReportPage() {
                 row.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }),
                 row.valorTotalConcepto.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
             ]);
-            const foot = [[{ content: 'TOTAL GENERAL', colSpan: 7, styles: { halign: 'right', fontStyle: 'bold' } }, { content: totalLiquidacion.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } }]];
+            
+            autoTable(doc, {
+                startY: 45,
+                head: detailHead,
+                body: detailBody,
+                theme: 'grid',
+                styles: { fontSize: 8 }
+            });
+            
+            // Add summary table
+            const lastTableY = (doc as any).lastAutoTable.finalY;
+            doc.text('Resumen de Conceptos Liquidados', margin, lastTableY + 15);
+            
+            const summaryHead = [['Item', 'Concepto', 'Total Cantidad', 'Vlr. Unitario', 'Vlr. Total']];
+            const summaryBody = conceptSummary.map(row => [
+                row.item,
+                row.name,
+                row.totalCantidad.toFixed(2),
+                row.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }),
+                row.totalValor.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
+            ]);
+            const summaryFoot = [[
+                { content: 'TOTAL GENERAL:', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold' } },
+                { content: totalLiquidacion.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } }
+            ]];
+            
+            autoTable(doc, {
+                startY: lastTableY + 20,
+                head: summaryHead,
+                body: summaryBody,
+                foot: summaryFoot,
+                theme: 'grid',
+                styles: { fontSize: 8 }
+            });
 
-            autoTable(doc, { startY: 45, head, body, foot, theme: 'grid', styles: { fontSize: 8 } });
-        } else {
-            return;
         }
 
         const reportName = type === 'productivity' ? 'Productividad_Cuadrilla' : 'Liquidacion_Cuadrilla';
@@ -1385,10 +1423,3 @@ function NoveltySelectorDialog({
         </Dialog>
     );
 }
-
-
-
-
-
-    
-
