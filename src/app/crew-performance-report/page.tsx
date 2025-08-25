@@ -12,8 +12,8 @@ import { DateRange } from 'react-day-picker';
 import { format, subDays, parseISO, startOfDay, endOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 import ExcelJS from 'exceljs';
-import autoTable from 'jspdf-autotable';
 import jsPDF from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 import { getCrewPerformanceReport, type CrewPerformanceReportRow } from '@/app/actions/crew-performance-report';
 import { addNoveltyToOperation, deleteNovelty } from '@/app/actions/novelty-actions';
