@@ -181,6 +181,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     // State for CSV inventory report
     const [isUploading, setIsUploading] = useState(false);
     const [uploadProgress, setUploadProgress] = useState(0);
+    const [currentFileIndex, setCurrentFileIndex] = useState(0);
+    const [totalFiles, setTotalFiles] = useState(0);
     const [isQuerying, setIsQuerying] = useState(false);
     const [inventoryClients, setInventoryClients] = useState<string[]>([]);
     const [inventoryDateRange, setInventoryDateRange] = useState<DateRange | undefined>(undefined);
@@ -638,9 +640,11 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     
         setIsUploading(true);
         setUploadProgress(0);
+        setTotalFiles(files.length);
         
         for (let i = 0; i < files.length; i++) {
             const file = files[i];
+            setCurrentFileIndex(i + 1);
             const singleFileFormData = new FormData();
             singleFileFormData.append('file', file);
     
@@ -1594,7 +1598,9 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                             {isUploading && (
                                                 <div className="mt-4 space-y-2">
                                                     <Progress value={uploadProgress} className="w-full" />
-                                                    <p className="text-sm text-center text-muted-foreground">Procesando... {Math.round(uploadProgress)}%</p>
+                                                    <p className="text-sm text-center text-muted-foreground">
+                                                        Procesando archivo {currentFileIndex} de {totalFiles}... {Math.round(uploadProgress)}%
+                                                    </p>
                                                 </div>
                                             )}
                                         </form>
@@ -2112,3 +2118,5 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         </div>
     );
 }
+
+    

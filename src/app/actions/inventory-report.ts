@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import admin from 'firebase-admin';
@@ -36,14 +35,26 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
         const headers: string[] = [];
         const headerRow = worksheet.getRow(1);
         headerRow.eachCell((cell) => {
-            headers.push(cell.value as string);
+            const cellValue = cell.value;
+            // Ensure we handle various cell types, defaulting to a string representation
+            if (cellValue === null || cellValue === undefined) {
+                headers.push('');
+            } else if (typeof cellValue === 'object' && 'richText' in cellValue) {
+                // Handle rich text by concatenating text parts
+                headers.push(cellValue.richText.map(t => t.text).join(''));
+            } else {
+                headers.push(String(cellValue));
+            }
         });
 
         worksheet.eachRow((row, rowNumber) => {
             if (rowNumber > 1) {
                 const rowData: any = {};
                 row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
-                    rowData[headers[colNumber - 1]] = cell.value;
+                    const headerName = headers[colNumber - 1];
+                    if (headerName) {
+                       rowData[headerName] = cell.value;
+                    }
                 });
                 data.push(rowData);
             }
@@ -115,7 +126,18 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
             for (const key in row) {
                 if (row[key as keyof typeof row] instanceof Date) {
                     newRow[key] = (row[key as keyof typeof row] as Date).toISOString();
-                } else {
+                } else if (typeof row[key as keyof typeof row] === 'object' && row[key as keyof typeof row] !== null) {
+                    // Handle ExcelJS specific objects like rich text or formulas
+                    const cellValue = row[key as keyof typeof row];
+                    if ('result' in cellValue) {
+                        newRow[key] = cellValue.result; // Use formula result
+                    } else if ('richText' in cellValue) {
+                         newRow[key] = cellValue.richText.map((t: any) => t.text).join('');
+                    } else {
+                         newRow[key] = JSON.stringify(cellValue); // Fallback for other objects
+                    }
+                }
+                else {
                     newRow[key] = row[key as keyof typeof row] ?? null;
                 }
             }
@@ -432,7 +454,11 @@ export async function getDetailedInventoryForExport(
                 for (const key in row) {
                     if (row[key] instanceof Date) {
                         newRow[key] = format(row[key], 'dd/MM/yyyy');
-                    } else {
+                    } else if (row[key] && typeof row[key] === 'object' && 'toDate' in row[key]) {
+                        // Handle Firestore Timestamp
+                        newRow[key] = format(row[key].toDate(), 'dd/MM/yyyy');
+                    }
+                    else {
                         newRow[key] = row[key];
                     }
                 }
@@ -449,5 +475,5 @@ export async function getDetailedInventoryForExport(
         throw new Error('No se pudo generar el reporte de inventario detallado.');
     }
 }
-
+    
     
