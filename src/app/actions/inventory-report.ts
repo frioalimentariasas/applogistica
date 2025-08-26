@@ -29,40 +29,32 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
     try {
         const buffer = await file.arrayBuffer();
         const workbook = new ExcelJS.Workbook();
-
         let worksheet: ExcelJS.Worksheet;
 
-        if (file.name.toLowerCase().endsWith('.csv')) {
-            const tempWb = new ExcelJS.Workbook();
-            const ws = await tempWb.csv.read(Buffer.from(buffer));
-            worksheet = workbook.addWorksheet('Sheet1');
-            ws.eachRow((row, rowNumber) => {
-                const newRow = worksheet.getRow(rowNumber);
-                row.values.forEach((value, colNumber) => {
-                    newRow.getCell(colNumber).value = value;
-                });
-            });
-        } else {
+        const fileExtension = file.name.split('.').pop()?.toLowerCase();
+
+        if (fileExtension === 'csv') {
+            worksheet = await workbook.csv.read(Buffer.from(buffer));
+        } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
             await workbook.xlsx.load(buffer);
             worksheet = workbook.worksheets[0];
+        } else {
+            return { success: false, message: `Formato de archivo no soportado: .${fileExtension}`, errors: [] };
         }
         
         const data: InventoryRow[] = [];
         const headers: (string | null)[] = [];
         const headerRow = worksheet.getRow(1);
-        headerRow.eachCell((cell) => {
-            const cellValue = cell.value;
-            if (cellValue === null || cellValue === undefined) {
-                headers.push('');
-            } else if (typeof cellValue === 'object' && cellValue !== null && 'richText' in cellValue) {
-                headers.push((cellValue as ExcelJS.RichText).richText.map(t => t.text).join(''));
+        headerRow.eachCell({ includeEmpty: true }, (cell) => {
+            if (cell.value) {
+                headers.push(cell.value.toString().trim());
             } else {
-                headers.push(String(cellValue));
+                headers.push('');
             }
         });
 
         worksheet.eachRow((row, rowNumber) => {
-            if (rowNumber > 1) {
+            if (rowNumber > 1) { // Skip header row
                 const rowData: any = {};
                 row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
                     const headerName = headers[colNumber - 1];
