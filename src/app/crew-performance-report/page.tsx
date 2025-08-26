@@ -511,51 +511,57 @@ export default function CrewPerformanceReportPage() {
 
     const handleExportExcel = async (type: 'productivity' | 'settlement') => {
         if (isLoading) return;
-    
+
         const workbook = new ExcelJS.Workbook();
         workbook.creator = 'Frio Alimentaria App';
         workbook.created = new Date();
-    
-        const titleStyle: Partial<ExcelJS.Style> = { font: { bold: true, size: 14, color: { argb: 'FFFFFFFF' } }, alignment: { horizontal: 'center' }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A90C8' } }};
-        const subtitleStyle: Partial<ExcelJS.Style> = { font: { size: 11, italic: true }, alignment: { horizontal: 'center' } };
-        const headerStyle: Partial<ExcelJS.Style> = { font: { bold: true, color: { argb: 'FFFFFFFF' } }, fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A90C8' } }, border: { top: { style: 'thin' }, left: { style: 'thin' }, bottom: { style: 'thin' }, right: { style: 'thin' } } };
-    
-        const periodText = dateRange?.from && dateRange.to ? `Periodo: ${format(dateRange.from, 'dd/MM/yyyy')} a ${format(dateRange.to, 'dd/MM/yyyy')}` : 'Periodo no especificado';
-    
-        if (type === 'productivity') {
-            const wsProd = workbook.addWorksheet('Productividad');
-            
-            wsProd.addRow(['Informe de Productividad de Cuadrilla']).getCell(1).style = titleStyle;
-            wsProd.mergeCells('A1:Q1');
-            wsProd.addRow([periodText]).getCell(1).style = subtitleStyle;
-            wsProd.mergeCells('A2:Q2');
-            wsProd.addRow([]);
 
-            wsProd.columns = [
-                { header: 'Fecha Op.', key: 'fechaOp', width: 12 },
+        const titleStyle: Partial<ExcelJS.Style> = { 
+            font: { bold: true, size: 14, color: { argb: 'FFFFFFFF' } }, 
+            alignment: { horizontal: 'center' }, 
+            fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A90C8' } }
+        };
+        const headerStyle: Partial<ExcelJS.Style> = {
+            font: { bold: true, color: { argb: 'FFFFFFFF' } },
+            fill: { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A90C8' } },
+            border: { top: {style:'thin'}, left: {style:'thin'}, bottom: {style:'thin'}, right: {style:'thin'} }
+        };
+        const periodText = dateRange?.from && dateRange.to ? `Periodo: ${format(dateRange.from, 'dd/MM/yyyy')} a ${format(dateRange.to, 'dd/MM/yyyy')}` : 'Periodo no especificado';
+
+        if (type === 'productivity') {
+            const ws = workbook.addWorksheet('Productividad');
+
+            ws.addRow(['Informe de Productividad de Cuadrilla']).getCell(1).style = titleStyle;
+            ws.mergeCells('A1:Q1');
+            ws.addRow([periodText]).getCell(1).style = { font: { size: 11, italic: true }, alignment: { horizontal: 'center' } };
+            ws.mergeCells('A2:Q2');
+            ws.addRow([]);
+
+            ws.columns = [
+                { header: 'Fecha Op.', key: 'fechaOp', width: 15 },
                 { header: 'Fecha Creación', key: 'fechaCreacion', width: 18 },
                 { header: 'Operario', key: 'operario', width: 25 },
-                { header: 'Cliente', key: 'cliente', width: 30 },
-                { header: 'Tipo Op.', key: 'tipoOp', width: 12 },
-                { header: 'Tipo Prod.', key: 'tipoProd', width: 12 },
+                { header: 'Cliente', key: 'cliente', width: 35 },
+                { header: 'Tipo Op.', key: 'tipoOp', width: 15 },
+                { header: 'Tipo Prod.', key: 'tipoProd', width: 15 },
                 { header: 'Pedido', key: 'pedido', width: 15 },
                 { header: 'No. Contenedor', key: 'contenedor', width: 18 },
-                { header: 'Placa', key: 'placa', width: 12 },
-                { header: 'Concepto', key: 'concepto', width: 20 },
-                { header: 'Hora Inicio', key: 'horaInicio', width: 12 },
-                { header: 'Hora Fin', key: 'horaFin', width: 12 },
-                { header: 'Cant.', key: 'cantidad', width: 12, style: { numFmt: '#,##0.00' } },
-                { header: 'Dur. Total', key: 'durTotal', width: 12 },
-                { header: 'T. Operativo', key: 'tOperativo', width: 12 },
-                { header: 'Novedades', key: 'novedades', width: 30 },
-                { header: 'Productividad', key: 'productividad', width: 15 },
+                { header: 'Placa', key: 'placa', width: 15 },
+                { header: 'Concepto', key: 'concepto', width: 25 },
+                { header: 'Hora Inicio', key: 'horaInicio', width: 15 },
+                { header: 'Hora Fin', key: 'horaFin', width: 15 },
+                { header: 'Cant.', key: 'cantidad', width: 15, style: { numFmt: '#,##0.00' } },
+                { header: 'Dur. Total', key: 'durTotal', width: 15 },
+                { header: 'T. Operativo', key: 'tOperativo', width: 15 },
+                { header: 'Novedades', key: 'novedades', width: 40 },
+                { header: 'Productividad', key: 'productividad', width: 20 },
             ];
             
-            wsProd.getRow(4).font = headerStyle.font;
-            wsProd.getRow(4).fill = headerStyle.fill as ExcelJS.Fill;
-            
+            ws.getRow(4).font = headerStyle.font;
+            ws.getRow(4).fill = headerStyle.fill as ExcelJS.Fill;
+
             filteredReportData.forEach(row => {
-                 wsProd.addRow({
+                 ws.addRow({
                     fechaOp: format(new Date(row.fecha), 'dd/MM/yy'),
                     fechaCreacion: format(parseISO(row.createdAt), 'dd/MM/yy HH:mm'),
                     operario: row.operario,
@@ -577,64 +583,63 @@ export default function CrewPerformanceReportPage() {
             });
 
             if (performanceSummary) {
-                wsProd.addRow([]);
-                const summaryTitleRow = wsProd.addRow(['Resumen de Productividad']);
+                ws.addRow([]);
+                const summaryTitleRow = ws.addRow(['Resumen de Productividad']);
                 summaryTitleRow.getCell(1).style = { font: { bold: true, size: 12 }};
-                wsProd.mergeCells(wsProd.rowCount, 1, wsProd.rowCount, 3);
+                ws.mergeCells(ws.rowCount, 1, ws.rowCount, 3);
 
-                const summaryHeader = wsProd.addRow(['Indicador', 'Cantidad', 'Porcentaje']);
+                const summaryHeader = ws.addRow(['Indicador', 'Cantidad', 'Porcentaje']);
                 summaryHeader.font = { bold: true };
                 
                 Object.entries(performanceSummary.summary).forEach(([key, value]) => {
                     const isEvaluable = key === 'Óptimo' || key === 'Normal' || key === 'Lento';
                     if (isEvaluable && value.count > 0) {
                         const percent = performanceSummary.totalEvaluable > 0 ? value.count / performanceSummary.totalEvaluable : 0;
-                        const row = wsProd.addRow([key, value.count, percent]);
+                        const row = ws.addRow([key, value.count, percent]);
                         row.getCell(3).numFmt = '0.00%';
                     }
                 });
 
-                const totalEvaluableRow = wsProd.addRow(['Total Evaluables:', performanceSummary.totalEvaluable]);
+                const totalEvaluableRow = ws.addRow(['Total Evaluables:', performanceSummary.totalEvaluable]);
                 totalEvaluableRow.font = { bold: true };
 
-                wsProd.addRow([]);
-                const qualificationRow = wsProd.addRow(['Calificación General:', performanceSummary.qualification]);
+                ws.addRow([]);
+                const qualificationRow = ws.addRow(['Calificación General:', performanceSummary.qualification]);
                 qualificationRow.font = { bold: true, color: { argb: 'FF1A90C8' }, size: 12 };
             }
-    
         } else if (type === 'settlement') {
             if (liquidationData.length === 0) {
                 toast({ variant: 'destructive', title: 'Sin datos', description: 'No hay datos de liquidación para exportar.' });
                 return;
             }
-    
+
+            // Liquidación Sheet
             const wsLiq = workbook.addWorksheet('Liquidacion_Cuadrilla');
             wsLiq.addRow(['Detalle Liquidación Cuadrilla']).getCell(1).style = titleStyle;
             wsLiq.mergeCells('A1:N1');
-            wsLiq.addRow([periodText]).getCell(1).style = subtitleStyle;
+            wsLiq.addRow([periodText]).getCell(1).style = { font: { size: 11, italic: true }, alignment: { horizontal: 'center' } };
             wsLiq.mergeCells('A2:N2');
             wsLiq.addRow([]);
 
             wsLiq.columns = [
-                { header: 'Mes', key: 'mes', width: 12 },
-                { header: 'Fecha Op.', key: 'fechaOp', width: 12 },
+                { header: 'Mes', key: 'mes', width: 15 },
+                { header: 'Fecha Op.', key: 'fechaOp', width: 15 },
                 { header: 'Pedido', key: 'pedido', width: 15 },
                 { header: 'Contenedor', key: 'contenedor', width: 18 },
-                { header: 'Placa', key: 'placa', width: 12 },
-                { header: 'Cliente', key: 'cliente', width: 30 },
-                { header: 'Concepto', key: 'concepto', width: 20 },
-                { header: 'Cantidad', key: 'cantidad', width: 12, style: { numFmt: '#,##0.00' } },
-                { header: 'Unidad', key: 'unidad', width: 12 },
-                { header: 'H. Inicio', key: 'hInicio', width: 12 },
-                { header: 'H. Fin', key: 'hFin', width: 12 },
-                { header: 'Duración', key: 'duracion', width: 12 },
-                { header: 'Vlr. Unitario', key: 'vlrUnitario', width: 15, style: { numFmt: '$ #,##0.00' } },
-                { header: 'Vlr. Total', key: 'vlrTotal', width: 15, style: { numFmt: '$ #,##0.00' } }
+                { header: 'Placa', key: 'placa', width: 15 },
+                { header: 'Cliente', key: 'cliente', width: 40 },
+                { header: 'Concepto', key: 'concepto', width: 25 },
+                { header: 'Cantidad', key: 'cantidad', width: 15, style: { numFmt: '#,##0.00' } },
+                { header: 'Unidad', key: 'unidad', width: 15 },
+                { header: 'H. Inicio', key: 'hInicio', width: 15 },
+                { header: 'H. Fin', key: 'hFin', width: 15 },
+                { header: 'Duración', key: 'duracion', width: 15 },
+                { header: 'Vlr. Unitario', key: 'vlrUnitario', width: 18, style: { numFmt: '$ #,##0.00' } },
+                { header: 'Vlr. Total', key: 'vlrTotal', width: 18, style: { numFmt: '$ #,##0.00' } }
             ];
-
             wsLiq.getRow(4).font = headerStyle.font;
             wsLiq.getRow(4).fill = headerStyle.fill as ExcelJS.Fill;
-    
+
             liquidationData.forEach(row => {
                 const isPending = row.cantidadConcepto === -1;
                 wsLiq.addRow({
@@ -654,37 +659,36 @@ export default function CrewPerformanceReportPage() {
                     vlrTotal: isPending ? 'N/A' : row.valorTotalConcepto
                 });
             });
-    
+
             wsLiq.addRow([]);
             const totalLiqRow = wsLiq.addRow([]);
-            totalLiqRow.getCell(13).value = 'TOTAL GENERAL:';
-            totalLiqRow.getCell(13).style = { font: { bold: true }, alignment: { horizontal: 'right' } };
-            const totalLiqValueCell = totalLiqRow.getCell(14);
-            totalLiqValueCell.value = totalLiquidacion;
-            totalLiqValueCell.style.font = { bold: true };
-            
+            totalLiqRow.getCell('M').value = 'TOTAL GENERAL:';
+            totalLiqRow.getCell('M').style = { font: { bold: true }, alignment: { horizontal: 'right' } };
+            totalLiqRow.getCell('N').value = totalLiquidacion;
+            totalLiqRow.getCell('N').style = { font: { bold: true }, numFmt: '$ #,##0.00' };
+
+            // Resumen Conceptos Sheet
             if (conceptSummary) {
-                const wsSumCon = workbook.addWorksheet('Resumen_Conceptos');
-                wsSumCon.addRow(['Resumen de Conceptos Liquidados']).getCell(1).style = titleStyle;
-                wsSumCon.mergeCells('A1:F1');
-                wsSumCon.addRow([periodText]).getCell(1).style = subtitleStyle;
-                wsSumCon.mergeCells('A2:F2');
-                wsSumCon.addRow([]);
-    
-                wsSumCon.columns = [
-                    { header: 'Item', key: 'item', width: 8 },
-                    { header: 'Concepto', key: 'concepto', width: 25 },
-                    { header: 'Total Cantidad', key: 'totalCantidad', width: 15, style: { numFmt: '#,##0.00' } },
-                    { header: 'Unidad Medida', key: 'unidad', width: 15 },
-                    { header: 'Vlr. Unitario', key: 'vlrUnitario', width: 18, style: { numFmt: '$ #,##0.00' } },
-                    { header: 'Vlr. Total', key: 'vlrTotal', width: 18, style: { numFmt: '$ #,##0.00' } }
+                const wsSum = workbook.addWorksheet('Resumen_Conceptos');
+                wsSum.addRow(['Resumen de Conceptos Liquidados']).getCell(1).style = titleStyle;
+                wsSum.mergeCells('A1:F1');
+                wsSum.addRow([periodText]).getCell(1).style = { font: { size: 11, italic: true }, alignment: { horizontal: 'center' } };
+                wsSum.mergeCells('A2:F2');
+                wsSum.addRow([]);
+
+                wsSum.columns = [
+                    { header: 'Item', key: 'item', width: 10 },
+                    { header: 'Concepto', key: 'concepto', width: 30 },
+                    { header: 'Total Cantidad', key: 'totalCantidad', width: 18, style: { numFmt: '#,##0.00' } },
+                    { header: 'Unidad Medida', key: 'unidad', width: 18 },
+                    { header: 'Vlr. Unitario', key: 'vlrUnitario', width: 20, style: { numFmt: '$ #,##0.00' } },
+                    { header: 'Vlr. Total', key: 'vlrTotal', width: 20, style: { numFmt: '$ #,##0.00' } }
                 ];
-                
-                wsSumCon.getRow(4).font = headerStyle.font;
-                wsSumCon.getRow(4).fill = headerStyle.fill as ExcelJS.Fill;
+                wsSum.getRow(4).font = headerStyle.font;
+                wsSum.getRow(4).fill = headerStyle.fill as ExcelJS.Fill;
                 
                 conceptSummary.forEach(item => {
-                    wsSumCon.addRow({
+                    wsSum.addRow({
                         item: item.item,
                         concepto: item.name,
                         totalCantidad: item.totalCantidad,
@@ -694,13 +698,12 @@ export default function CrewPerformanceReportPage() {
                     });
                 });
                 
-                wsSumCon.addRow([]);
-                const totalSumRow = wsSumCon.addRow([]);
-                totalSumRow.getCell(5).value = 'TOTAL GENERAL:';
-                totalSumRow.getCell(5).style = { font: { bold: true }, alignment: { horizontal: 'right' } };
-                const totalSumValueCell = totalSumRow.getCell(6);
-                totalSumValueCell.value = totalLiquidacion;
-                totalSumValueCell.style.font = { bold: true };
+                wsSum.addRow([]);
+                const totalSumRow = wsSum.addRow([]);
+                totalSumRow.getCell('E').value = 'TOTAL GENERAL:';
+                totalSumRow.getCell('E').style = { font: { bold: true }, alignment: { horizontal: 'right' } };
+                totalSumRow.getCell('F').value = totalLiquidacion;
+                totalSumRow.getCell('F').style = { font: { bold: true }, numFmt: '$ #,##0.00' };
             }
         }
     
@@ -1478,6 +1481,7 @@ function NoveltySelectorDialog({
 
     
     
+
 
 
 
