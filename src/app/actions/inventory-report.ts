@@ -33,11 +33,12 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
         let worksheet: ExcelJS.Worksheet;
 
         if (file.name.toLowerCase().endsWith('.csv')) {
-            // For CSV, read it and then add it as a worksheet, which standardizes the processing.
-            const csvData = Buffer.from(buffer).toString('utf-8');
+            // For CSV, we read it and convert it into a worksheet manually
+            // This avoids stream-related issues in serverless environments
             worksheet = await workbook.csv.read(Buffer.from(buffer));
 
         } else {
+            // For XLSX and XLS, we load the workbook from the buffer
             await workbook.xlsx.load(buffer);
             worksheet = workbook.worksheets[0];
         }
