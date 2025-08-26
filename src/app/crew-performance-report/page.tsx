@@ -167,6 +167,21 @@ const getImageAsBase64Client = async (url: string): Promise<string | null> => {
   }
 };
 
+const fitColumnsToContent = (worksheet: ExcelJS.Worksheet, maxColumnWidth = 50) => {
+    worksheet.columns.forEach((column) => {
+        let maxLength = 0;
+        column.eachCell!({ includeEmpty: true }, (cell) => {
+            const cellLength = cell.value ? String(cell.value).length : 0;
+            if (cellLength > maxLength) {
+                maxLength = cellLength;
+            }
+        });
+        // Add a little padding, but not too much, and cap the width
+        const finalWidth = Math.min(maxColumnWidth, maxLength + 4);
+        column.width = finalWidth > 10 ? finalWidth : 12; // Ensure a minimum width
+    });
+};
+
 
 export default function CrewPerformanceReportPage() {
     const router = useRouter();
@@ -608,16 +623,7 @@ export default function CrewPerformanceReportPage() {
                 qualificationRow.font = { bold: true, color: { argb: 'FF005A9E' }, size: 12 };
             }
             
-            wsProd.columns.forEach(column => {
-                let maxLength = 0;
-                column.eachCell!({ includeEmpty: true }, (cell) => {
-                    let columnLength = cell.value ? cell.value.toString().length : 10;
-                    if (columnLength > maxLength) {
-                        maxLength = columnLength;
-                    }
-                });
-                column.width = maxLength < 10 ? 10 : maxLength + 2;
-            });
+            fitColumnsToContent(wsProd);
     
         } else if (type === 'settlement') {
             if (liquidationData.length === 0) {
@@ -671,16 +677,7 @@ export default function CrewPerformanceReportPage() {
             totalLiqValueCell.numFmt = '$ #,##0.00';
             totalLiqValueCell.style.font = { bold: true };
             
-            wsLiq.columns.forEach(column => {
-                let maxLength = 0;
-                column.eachCell!({ includeEmpty: true }, (cell) => {
-                    let columnLength = cell.value ? cell.value.toString().length : 10;
-                    if (columnLength > maxLength) {
-                        maxLength = columnLength;
-                    }
-                });
-                column.width = maxLength < 10 ? 10 : maxLength + 2;
-            });
+            fitColumnsToContent(wsLiq);
             
             if (conceptSummary) {
                 const wsSumCon = workbook.addWorksheet('Resumen_Conceptos');
@@ -716,16 +713,7 @@ export default function CrewPerformanceReportPage() {
                 totalSumValueCell.numFmt = '$ #,##0.00';
                 totalSumValueCell.style.font = { bold: true };
                 
-                wsSumCon.columns.forEach(column => {
-                    let maxLength = 0;
-                    column.eachCell!({ includeEmpty: true }, (cell) => {
-                        let columnLength = cell.value ? cell.value.toString().length : 10;
-                        if (columnLength > maxLength) {
-                            maxLength = columnLength;
-                        }
-                    });
-                    column.width = maxLength < 10 ? 10 : maxLength + 2;
-                });
+                fitColumnsToContent(wsSumCon);
             }
         }
     
@@ -1508,6 +1496,7 @@ function NoveltySelectorDialog({
 
     
     
+
 
 
 
