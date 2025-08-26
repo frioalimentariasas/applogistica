@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from 'react';
@@ -641,6 +642,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         setIsUploading(true);
         setUploadProgress(0);
         setTotalFiles(files.length);
+        let filesWithErrors = 0;
         
         for (let i = 0; i < files.length; i++) {
             const file = files[i];
@@ -651,6 +653,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             try {
                 const result = await uploadInventoryCsv(singleFileFormData);
                 if (!result.success) {
+                    filesWithErrors++;
                     toast({
                         variant: 'destructive',
                         title: `Error al procesar "${file.name}"`,
@@ -659,6 +662,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                     });
                 }
             } catch (error) {
+                filesWithErrors++;
                 const errorMessage = error instanceof Error ? error.message : "Error inesperado en el cliente.";
                 toast({
                     variant: 'destructive',
@@ -672,11 +676,20 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             setUploadProgress(newProgress);
         }
     
-        toast({
-            title: 'Proceso de Carga Completado',
-            description: `Se han procesado ${files.length} archivo(s). Revise las notificaciones por si hubo errores.`,
-            duration: 5000,
-        });
+        if (filesWithErrors > 0) {
+             toast({
+                variant: 'destructive',
+                title: 'Proceso de Carga Completado con Errores',
+                description: `${filesWithErrors} de ${files.length} archivo(s) no pudieron ser procesados.`,
+                duration: 7000,
+            });
+        } else {
+            toast({
+                title: 'Proceso de Carga Completado',
+                description: `Se han procesado ${files.length} archivo(s) exitosamente.`,
+                duration: 5000,
+            });
+        }
     
         if (uploadFormRef.current) {
             uploadFormRef.current.reset();

@@ -34,7 +34,9 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
         const fileExtension = file.name.split('.').pop()?.toLowerCase();
 
         if (fileExtension === 'csv') {
-            worksheet = await workbook.csv.read(Buffer.from(buffer));
+            // Use the correct method to read from a buffer for CSV
+            const csvWorksheet = await workbook.csv.read(Buffer.from(buffer));
+            worksheet = csvWorksheet;
         } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
             await workbook.xlsx.load(buffer);
             worksheet = workbook.worksheets[0];
@@ -45,6 +47,9 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
         const data: InventoryRow[] = [];
         const headers: (string | null)[] = [];
         const headerRow = worksheet.getRow(1);
+        if (!headerRow || headerRow.cellCount === 0) {
+            return { success: false, message: 'El archivo parece estar vacío o no tiene encabezados.', errors: [] };
+        }
         headerRow.eachCell({ includeEmpty: true }, (cell) => {
             if (cell.value) {
                 headers.push(cell.value.toString().trim());
@@ -82,7 +87,7 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
         const missingColumns = requiredColumns.filter(col => !actualColumns.includes(col));
 
         if (missingColumns.length > 0) {
-            throw new Error(`Faltan las siguientes columnas: ${missingColumns.join(', ')}.`);
+            throw new Error(`Faltan las siguientes columnas requeridas: ${missingColumns.join(', ')}.`);
         }
         
         const dateValue = firstRow.FECHA;
@@ -134,20 +139,15 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
         const serializableData = data.map(row => {
             const newRow: any = {};
             for (const key in row) {
-                if (row[key as keyof typeof row] instanceof Date) {
-                    newRow[key] = (row[key as keyof typeof row] as Date).toISOString();
-                } else if (typeof row[key as keyof typeof row] === 'object' && row[key as keyof typeof row] !== null) {
-                    const cellValue = row[key as keyof typeof row];
-                    if ('result' in cellValue) {
-                        newRow[key] = cellValue.result;
-                    } else if ('richText' in cellValue) {
-                         newRow[key] = (cellValue as ExcelJS.RichText).richText.map((t: any) => t.text).join('');
-                    } else {
-                         newRow[key] = JSON.stringify(cellValue);
-                    }
-                }
-                else {
-                    newRow[key] = row[key as keyof typeof row] ?? null;
+                const cellValue = row[key as keyof typeof row];
+                if (cellValue instanceof Date) {
+                    newRow[key] = cellValue.toISOString();
+                } else if (typeof cellValue === 'object' && cellValue !== null && 'richText' in cellValue) {
+                     newRow[key] = (cellValue as ExcelJS.RichText).richText.map((t: any) => t.text).join('');
+                } else if (typeof cellValue === 'object' && cellValue !== null && 'result' in cellValue) {
+                     newRow[key] = cellValue.result;
+                } else {
+                    newRow[key] = cellValue ?? null;
                 }
             }
             return newRow;
