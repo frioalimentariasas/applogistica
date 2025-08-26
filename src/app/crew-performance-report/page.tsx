@@ -153,7 +153,7 @@ const getPerformanceIndicator = (row: CrewPerformanceReportRow): { text: string,
 const getImageAsBase64Client = async (url: string): Promise<string | null> => {
   try {
     const response = await fetch(url);
-    if (!response.ok) throw new Error(`Failed to fetch image: ${''}${response.statusText}`);
+    if (!response.ok) throw new Error(`Failed to fetch image: ${response.statusText}`);
     const blob = await response.blob();
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -432,7 +432,7 @@ export default function CrewPerformanceReportPage() {
         if (selectedClients.length === 0) return "Todos los clientes...";
         if (selectedClients.length === clients.length) return "Todos los clientes seleccionados";
         if (selectedClients.length === 1) return selectedClients[0];
-        return `${''}${selectedClients.length} clientes seleccionados`;
+        return `${selectedClients.length} clientes seleccionados`;
     };
 
     const getSelectedConceptsText = () => {
@@ -440,7 +440,7 @@ export default function CrewPerformanceReportPage() {
         if (selectedConcepts.length === 0) return "Todos los conceptos...";
         if (selectedConcepts.length === uniqueConcepts.length) return "Todos los conceptos";
         if (selectedConcepts.length === 1) return selectedConcepts[0];
-        return `${''}${selectedConcepts.length} conceptos seleccionados`;
+        return `${selectedConcepts.length} conceptos seleccionados`;
     }
 
     const performanceSummary = useMemo(() => {
@@ -608,18 +608,15 @@ export default function CrewPerformanceReportPage() {
                 qualificationRow.font = { bold: true, color: { argb: 'FF005A9E' }, size: 12 };
             }
             
-            wsProd.columns.forEach((column, i) => {
+            wsProd.columns.forEach(column => {
                 let maxLength = 0;
-                column.eachCell({ includeEmpty: true }, (cell, rowNumber) => {
-                    if(rowNumber > 3) {
-                         const columnLength = cell.value ? cell.value.toString().length : 10;
-                         if (columnLength > maxLength) {
-                            maxLength = columnLength;
-                         }
+                column.eachCell({ includeEmpty: true }, cell => {
+                    const columnLength = cell.value ? cell.value.toString().length : 10;
+                    if (columnLength > maxLength) {
+                        maxLength = columnLength;
                     }
                 });
-                const headerLength = prodHeaders[i]?.length || 10;
-                column.width = Math.max(headerLength, maxLength) + 4;
+                column.width = maxLength < 10 ? 12 : maxLength + 2;
             });
     
         } else if (type === 'settlement') {
@@ -674,18 +671,9 @@ export default function CrewPerformanceReportPage() {
             totalLiqValueCell.numFmt = '$ #,##0.00';
             totalLiqValueCell.style.font = { bold: true };
             
-            wsLiq.columns.forEach((column, i) => {
-                 let maxLength = 0;
-                column.eachCell({ includeEmpty: true }, cell => {
-                    let cellLength = cell.value ? cell.value.toString().length : 10;
-                     if (typeof cell.value === 'number') {
-                         cellLength = cell.value.toLocaleString('es-CO', {style: 'currency', currency: 'COP'}).length;
-                     }
-                    if (cellLength > maxLength) {
-                        maxLength = cellLength;
-                    }
-                });
-                column.width = Math.max(liqHeaders[i]?.length || 10, maxLength) + 4;
+            wsLiq.columns.forEach(column => {
+                column.width = 15; // A reasonable default
+                column.bestFitWidth = 1;
             });
             
             if (conceptSummary) {
@@ -722,19 +710,9 @@ export default function CrewPerformanceReportPage() {
                 totalSumValueCell.numFmt = '$ #,##0.00';
                 totalSumValueCell.style.font = { bold: true };
                 
-                wsSumCon.columns.forEach((column, i) => {
-                    const headers = ['Item', 'Concepto', 'Total Cantidad', 'Unidad Medida', 'Vlr. Unitario', 'Vlr. Total'];
-                    let maxLength = 0;
-                    column.eachCell({ includeEmpty: true }, cell => {
-                         let cellLength = cell.value ? cell.value.toString().length : 10;
-                         if (typeof cell.value === 'number') {
-                             cellLength = cell.value.toLocaleString('es-CO', {style: 'currency', currency: 'COP'}).length;
-                         }
-                        if (cellLength > maxLength) {
-                            maxLength = cellLength;
-                        }
-                    });
-                    column.width = Math.max(headers[i]?.length || 10, maxLength) + 4;
+                wsSumCon.columns.forEach(column => {
+                    column.width = 20; // A reasonable default
+                    column.bestFitWidth = 1;
                 });
             }
         }
@@ -891,7 +869,7 @@ export default function CrewPerformanceReportPage() {
         }
     
         const reportName = type === 'productivity' ? 'Productividad_Cuadrilla' : 'Liquidacion_Cuadrilla';
-        doc.save(`Reporte_${''}${reportName}_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
+        doc.save(`Reporte_${reportName}_${format(new Date(), 'yyyy-MM-dd')}.pdf`);
     };
     
     const handleOpenNoveltyDialog = (row: CrewPerformanceReportRow) => {
@@ -1519,6 +1497,7 @@ function NoveltySelectorDialog({
 
     
     
+
 
 
 
