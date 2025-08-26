@@ -530,38 +530,43 @@ export default function CrewPerformanceReportPage() {
 
         if (type === 'productivity') {
             const ws = workbook.addWorksheet('Productividad');
-
-            ws.addRow(['Informe de Productividad de Cuadrilla']).getCell(1).style = titleStyle;
-            ws.mergeCells('A1:Q1');
-            ws.addRow([periodText]).getCell(1).style = { font: { size: 11, italic: true }, alignment: { horizontal: 'center' } };
-            ws.mergeCells('A2:Q2');
-            ws.addRow([]);
-
-            ws.columns = [
-                { header: 'Fecha Op.', key: 'fechaOp', width: 15 },
+            
+            const columns = [
+                { header: 'Fecha Op.', key: 'fechaOp', width: 12 },
                 { header: 'Fecha Creación', key: 'fechaCreacion', width: 18 },
                 { header: 'Operario', key: 'operario', width: 25 },
                 { header: 'Cliente', key: 'cliente', width: 35 },
-                { header: 'Tipo Op.', key: 'tipoOp', width: 15 },
-                { header: 'Tipo Prod.', key: 'tipoProd', width: 15 },
+                { header: 'Tipo Op.', key: 'tipoOp', width: 12 },
+                { header: 'Tipo Prod.', key: 'tipoProd', width: 12 },
                 { header: 'Pedido', key: 'pedido', width: 15 },
                 { header: 'No. Contenedor', key: 'contenedor', width: 18 },
-                { header: 'Placa', key: 'placa', width: 15 },
+                { header: 'Placa', key: 'placa', width: 12 },
                 { header: 'Concepto', key: 'concepto', width: 25 },
-                { header: 'Hora Inicio', key: 'horaInicio', width: 15 },
-                { header: 'Hora Fin', key: 'horaFin', width: 15 },
-                { header: 'Cant.', key: 'cantidad', width: 15, style: { numFmt: '#,##0.00' } },
-                { header: 'Dur. Total', key: 'durTotal', width: 15 },
-                { header: 'T. Operativo', key: 'tOperativo', width: 15 },
+                { header: 'Hora Inicio', key: 'horaInicio', width: 12 },
+                { header: 'Hora Fin', key: 'horaFin', width: 12 },
+                { header: 'Cant.', key: 'cantidad', width: 12, style: { numFmt: '#,##0.00' } },
+                { header: 'Dur. Total', key: 'durTotal', width: 12 },
+                { header: 'T. Operativo', key: 'tOperativo', width: 12 },
                 { header: 'Novedades', key: 'novedades', width: 40 },
-                { header: 'Productividad', key: 'productividad', width: 20 },
+                { header: 'Productividad', key: 'productividad', width: 15 },
             ];
+
+            const titleRow = ws.addRow(['Informe de Productividad de Cuadrilla']);
+            titleRow.getCell(1).style = titleStyle;
+            ws.mergeCells(1, 1, 1, columns.length);
             
-            ws.getRow(4).font = headerStyle.font;
-            ws.getRow(4).fill = headerStyle.fill as ExcelJS.Fill;
+            const periodRow = ws.addRow([periodText]);
+            periodRow.getCell(1).style = { font: { size: 11, italic: true }, alignment: { horizontal: 'center' } };
+            ws.mergeCells(2, 1, 2, columns.length);
+            ws.addRow([]);
+
+            const headerRow = ws.addRow(columns.map(c => c.header));
+            headerRow.eachCell(cell => {
+                cell.style = headerStyle;
+            });
 
             filteredReportData.forEach(row => {
-                 ws.addRow({
+                ws.addRow({
                     fechaOp: format(new Date(row.fecha), 'dd/MM/yy'),
                     fechaCreacion: format(parseISO(row.createdAt), 'dd/MM/yy HH:mm'),
                     operario: row.operario,
@@ -581,6 +586,8 @@ export default function CrewPerformanceReportPage() {
                     productividad: getPerformanceIndicator(row).text
                 });
             });
+
+            ws.columns = columns.map(({header, key, width, style}) => ({ key, width, style }));
 
             if (performanceSummary) {
                 ws.addRow([]);
@@ -607,38 +614,43 @@ export default function CrewPerformanceReportPage() {
                 const qualificationRow = ws.addRow(['Calificación General:', performanceSummary.qualification]);
                 qualificationRow.font = { bold: true, color: { argb: 'FF1A90C8' }, size: 12 };
             }
+
         } else if (type === 'settlement') {
             if (liquidationData.length === 0) {
                 toast({ variant: 'destructive', title: 'Sin datos', description: 'No hay datos de liquidación para exportar.' });
                 return;
             }
 
-            // Liquidación Sheet
+            // --- Liquidación Sheet ---
             const wsLiq = workbook.addWorksheet('Liquidacion_Cuadrilla');
-            wsLiq.addRow(['Detalle Liquidación Cuadrilla']).getCell(1).style = titleStyle;
-            wsLiq.mergeCells('A1:N1');
-            wsLiq.addRow([periodText]).getCell(1).style = { font: { size: 11, italic: true }, alignment: { horizontal: 'center' } };
-            wsLiq.mergeCells('A2:N2');
-            wsLiq.addRow([]);
-
-            wsLiq.columns = [
+            const liqColumns = [
                 { header: 'Mes', key: 'mes', width: 15 },
-                { header: 'Fecha Op.', key: 'fechaOp', width: 15 },
+                { header: 'Fecha Op.', key: 'fechaOp', width: 12 },
                 { header: 'Pedido', key: 'pedido', width: 15 },
                 { header: 'Contenedor', key: 'contenedor', width: 18 },
-                { header: 'Placa', key: 'placa', width: 15 },
-                { header: 'Cliente', key: 'cliente', width: 40 },
+                { header: 'Placa', key: 'placa', width: 12 },
+                { header: 'Cliente', key: 'cliente', width: 35 },
                 { header: 'Concepto', key: 'concepto', width: 25 },
                 { header: 'Cantidad', key: 'cantidad', width: 15, style: { numFmt: '#,##0.00' } },
                 { header: 'Unidad', key: 'unidad', width: 15 },
-                { header: 'H. Inicio', key: 'hInicio', width: 15 },
-                { header: 'H. Fin', key: 'hFin', width: 15 },
-                { header: 'Duración', key: 'duracion', width: 15 },
+                { header: 'H. Inicio', key: 'hInicio', width: 12 },
+                { header: 'H. Fin', key: 'hFin', width: 12 },
+                { header: 'Duración', key: 'duracion', width: 12 },
                 { header: 'Vlr. Unitario', key: 'vlrUnitario', width: 18, style: { numFmt: '$ #,##0.00' } },
                 { header: 'Vlr. Total', key: 'vlrTotal', width: 18, style: { numFmt: '$ #,##0.00' } }
             ];
-            wsLiq.getRow(4).font = headerStyle.font;
-            wsLiq.getRow(4).fill = headerStyle.fill as ExcelJS.Fill;
+
+            const liqTitleRow = wsLiq.addRow(['Detalle Liquidación Cuadrilla']);
+            liqTitleRow.getCell(1).style = titleStyle;
+            wsLiq.mergeCells(1, 1, 1, liqColumns.length);
+
+            const liqPeriodRow = wsLiq.addRow([periodText]);
+            liqPeriodRow.getCell(1).style = { font: { size: 11, italic: true }, alignment: { horizontal: 'center' } };
+            wsLiq.mergeCells(2, 1, 2, liqColumns.length);
+            wsLiq.addRow([]);
+
+            const liqHeaderRow = wsLiq.addRow(liqColumns.map(c => c.header));
+            liqHeaderRow.eachCell(cell => { cell.style = headerStyle; });
 
             liquidationData.forEach(row => {
                 const isPending = row.cantidadConcepto === -1;
@@ -659,24 +671,19 @@ export default function CrewPerformanceReportPage() {
                     vlrTotal: isPending ? 'N/A' : row.valorTotalConcepto
                 });
             });
+            wsLiq.columns = liqColumns.map(({header, key, width, style}) => ({ key, width, style }));
 
             wsLiq.addRow([]);
             const totalLiqRow = wsLiq.addRow([]);
-            totalLiqRow.getCell('M').value = 'TOTAL GENERAL:';
-            totalLiqRow.getCell('M').style = { font: { bold: true }, alignment: { horizontal: 'right' } };
-            totalLiqRow.getCell('N').value = totalLiquidacion;
-            totalLiqRow.getCell('N').style = { font: { bold: true }, numFmt: '$ #,##0.00' };
+            totalLiqRow.getCell(liqColumns.length - 1).value = 'TOTAL GENERAL:';
+            totalLiqRow.getCell(liqColumns.length - 1).style = { font: { bold: true }, alignment: { horizontal: 'right' } };
+            totalLiqRow.getCell(liqColumns.length).value = totalLiquidacion;
+            totalLiqRow.getCell(liqColumns.length).style = { font: { bold: true }, numFmt: '$ #,##0.00' };
 
-            // Resumen Conceptos Sheet
+            // --- Resumen Conceptos Sheet ---
             if (conceptSummary) {
                 const wsSum = workbook.addWorksheet('Resumen_Conceptos');
-                wsSum.addRow(['Resumen de Conceptos Liquidados']).getCell(1).style = titleStyle;
-                wsSum.mergeCells('A1:F1');
-                wsSum.addRow([periodText]).getCell(1).style = { font: { size: 11, italic: true }, alignment: { horizontal: 'center' } };
-                wsSum.mergeCells('A2:F2');
-                wsSum.addRow([]);
-
-                wsSum.columns = [
+                const sumColumns = [
                     { header: 'Item', key: 'item', width: 10 },
                     { header: 'Concepto', key: 'concepto', width: 30 },
                     { header: 'Total Cantidad', key: 'totalCantidad', width: 18, style: { numFmt: '#,##0.00' } },
@@ -684,8 +691,18 @@ export default function CrewPerformanceReportPage() {
                     { header: 'Vlr. Unitario', key: 'vlrUnitario', width: 20, style: { numFmt: '$ #,##0.00' } },
                     { header: 'Vlr. Total', key: 'vlrTotal', width: 20, style: { numFmt: '$ #,##0.00' } }
                 ];
-                wsSum.getRow(4).font = headerStyle.font;
-                wsSum.getRow(4).fill = headerStyle.fill as ExcelJS.Fill;
+                
+                const sumTitleRow = wsSum.addRow(['Resumen de Conceptos Liquidados']);
+                sumTitleRow.getCell(1).style = titleStyle;
+                wsSum.mergeCells(1, 1, 1, sumColumns.length);
+
+                const sumPeriodRow = wsSum.addRow([periodText]);
+                sumPeriodRow.getCell(1).style = { font: { size: 11, italic: true }, alignment: { horizontal: 'center' } };
+                wsSum.mergeCells(2, 1, 2, sumColumns.length);
+                wsSum.addRow([]);
+                
+                const sumHeaderRow = wsSum.addRow(sumColumns.map(c => c.header));
+                sumHeaderRow.eachCell(cell => { cell.style = headerStyle; });
                 
                 conceptSummary.forEach(item => {
                     wsSum.addRow({
@@ -697,13 +714,14 @@ export default function CrewPerformanceReportPage() {
                         vlrTotal: item.totalValor
                     });
                 });
+                wsSum.columns = sumColumns.map(({header, key, width, style}) => ({ key, width, style }));
                 
                 wsSum.addRow([]);
                 const totalSumRow = wsSum.addRow([]);
-                totalSumRow.getCell('E').value = 'TOTAL GENERAL:';
-                totalSumRow.getCell('E').style = { font: { bold: true }, alignment: { horizontal: 'right' } };
-                totalSumRow.getCell('F').value = totalLiquidacion;
-                totalSumRow.getCell('F').style = { font: { bold: true }, numFmt: '$ #,##0.00' };
+                totalSumRow.getCell(sumColumns.length - 1).value = 'TOTAL GENERAL:';
+                totalSumRow.getCell(sumColumns.length - 1).style = { font: { bold: true }, alignment: { horizontal: 'right' } };
+                totalSumRow.getCell(sumColumns.length).value = totalLiquidacion;
+                totalSumRow.getCell(sumColumns.length).style = { font: { bold: true }, numFmt: '$ #,##0.00' };
             }
         }
     
@@ -1491,3 +1509,6 @@ function NoveltySelectorDialog({
 
 
 
+
+
+    
