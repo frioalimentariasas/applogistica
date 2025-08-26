@@ -609,8 +609,14 @@ export default function CrewPerformanceReportPage() {
             }
             
             wsProd.columns.forEach(column => {
-                column.width = 15; // Default width
-                column.bestFitWidth = 1;
+                let maxLength = 0;
+                column.eachCell!({ includeEmpty: true }, (cell) => {
+                    let columnLength = cell.value ? cell.value.toString().length : 10;
+                    if (columnLength > maxLength) {
+                        maxLength = columnLength;
+                    }
+                });
+                column.width = maxLength < 10 ? 10 : maxLength + 2;
             });
     
         } else if (type === 'settlement') {
@@ -666,8 +672,14 @@ export default function CrewPerformanceReportPage() {
             totalLiqValueCell.style.font = { bold: true };
             
             wsLiq.columns.forEach(column => {
-                column.width = 15;
-                column.bestFitWidth = 1;
+                let maxLength = 0;
+                column.eachCell!({ includeEmpty: true }, (cell) => {
+                    let columnLength = cell.value ? cell.value.toString().length : 10;
+                    if (columnLength > maxLength) {
+                        maxLength = columnLength;
+                    }
+                });
+                column.width = maxLength < 10 ? 10 : maxLength + 2;
             });
             
             if (conceptSummary) {
@@ -705,8 +717,14 @@ export default function CrewPerformanceReportPage() {
                 totalSumValueCell.style.font = { bold: true };
                 
                 wsSumCon.columns.forEach(column => {
-                    column.width = 20;
-                    column.bestFitWidth = 1;
+                    let maxLength = 0;
+                    column.eachCell!({ includeEmpty: true }, (cell) => {
+                        let columnLength = cell.value ? cell.value.toString().length : 10;
+                        if (columnLength > maxLength) {
+                            maxLength = columnLength;
+                        }
+                    });
+                    column.width = maxLength < 10 ? 10 : maxLength + 2;
                 });
             }
         }
@@ -721,20 +739,13 @@ export default function CrewPerformanceReportPage() {
     };
 
     const handleExportPDF = (type: 'productivity' | 'settlement') => {
-        if (isLoading || !logoBase64) return;
+        if (isLoading) return;
     
         const doc = new jsPDF({ orientation: 'landscape' });
         const pageWidth = doc.internal.pageSize.getWidth();
-        
-        try {
-            const logoAspectRatio = 300 / 86;
-            const logoPdfWidth = 50;
-            const logoPdfHeight = logoPdfWidth / logoAspectRatio;
-            doc.addImage(logoBase64, 'PNG', (pageWidth / 2) - (logoPdfWidth / 2), 10, logoPdfWidth, logoPdfHeight);
-        } catch (e) {
-            console.error("Error adding logo to PDF:", e);
-        }
-        
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const margin = 14;
+
         const periodText = dateRange?.from && dateRange.to ? `Periodo: ${format(dateRange.from, 'dd/MM/yyyy')} a ${format(dateRange.to, 'dd/MM/yyyy')}` : 'Periodo no especificado';
     
         if (type === 'productivity') {
@@ -742,9 +753,12 @@ export default function CrewPerformanceReportPage() {
                 toast({ variant: 'destructive', title: 'Sin datos', description: 'No hay datos de productividad para exportar.' });
                 return;
             }
-            doc.text('Informe de Productividad de Cuadrilla', pageWidth / 2, 35, { align: 'center' });
+            doc.setFontSize(12);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Informe de Productividad de Cuadrilla', pageWidth / 2, margin, { align: 'center' });
             doc.setFontSize(10);
-            doc.text(periodText, pageWidth / 2, 40, { align: 'center' });
+            doc.setFont('helvetica', 'normal');
+            doc.text(periodText, pageWidth / 2, margin + 5, { align: 'center' });
             
             const head = [['Fecha Op.', 'Fecha Creación', 'Operario', 'Cliente', 'Tipo Op.', 'Tipo Prod.', 'Pedido', 'No. Contenedor', 'Placa', 'Concepto', 'Hora Inicio', 'Hora Fin', 'Cant.', 'Dur. Total', 'T. Operativo', 'Novedades', 'Productividad']];
             const body = filteredReportData.map(row => {
@@ -769,7 +783,7 @@ export default function CrewPerformanceReportPage() {
                     indicator.text
                  ];
             });
-            autoTable(doc, { startY: 45, head, body, theme: 'grid', styles: { fontSize: 6, cellPadding: 1 }, headStyles: { fillColor: [33, 150, 243] }, columnStyles: { 3: { cellWidth: 30 }, 15: {cellWidth: 30} } });
+            autoTable(doc, { startY: margin + 15, head, body, theme: 'grid', styles: { fontSize: 6, cellPadding: 1 }, headStyles: { fillColor: [33, 150, 243] }, columnStyles: { 3: { cellWidth: 30 }, 15: {cellWidth: 30} } });
 
             if (performanceSummary) {
                 const summaryBody = Object.entries(performanceSummary.summary)
@@ -799,9 +813,12 @@ export default function CrewPerformanceReportPage() {
                 toast({ variant: 'destructive', title: 'Sin datos', description: 'No hay datos de liquidación para exportar.' });
                 return;
             }
-            doc.text('Informe de Liquidación de Cuadrilla', pageWidth / 2, 35, { align: 'center' });
+             doc.setFontSize(12);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Informe de Liquidación de Cuadrilla', pageWidth / 2, margin, { align: 'center' });
             doc.setFontSize(10);
-            doc.text(periodText, pageWidth / 2, 40, { align: 'center' });
+            doc.setFont('helvetica', 'normal');
+            doc.text(periodText, pageWidth / 2, margin + 5, { align: 'center' });
             
             const detailHead = [['Mes', 'Fecha Op.', 'Pedido', 'Contenedor', 'Placa', 'Cliente', 'Concepto', 'Cantidad', 'Unidad', 'H. Inicio', 'H. Fin', 'Duración', 'Vlr. Unitario', 'Vlr. Total']];
             const detailBody = liquidationData.map(row => [
@@ -822,7 +839,7 @@ export default function CrewPerformanceReportPage() {
             ]);
             
             autoTable(doc, {
-                startY: 45,
+                startY: margin + 15,
                 head: detailHead,
                 body: detailBody,
                 theme: 'grid',
@@ -1491,6 +1508,7 @@ function NoveltySelectorDialog({
 
     
     
+
 
 
 
