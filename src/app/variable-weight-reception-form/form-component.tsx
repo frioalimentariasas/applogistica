@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef, useCallback, ReactNode } from "react";
@@ -434,7 +433,7 @@ const coordinadores = ["Cristian Acuña", "Sergio Padilla"];
 const presentaciones = ["Cajas", "Sacos", "Canastillas"];
 
 // Attachment Constants
-const MAX_ATTACHMENTS = 30;
+const MAX_ATTACHMENTS = 60;
 const MAX_TOTAL_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 
 function getByteSizeFromBase64(base64: string): number {
@@ -988,12 +987,12 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
             try {
                 const optimizedImage = await optimizeImage(dataUrl);
 
-                const newImagesSize = getByteSizeFromBase64(optimizedImage.split(',')[1]);
+                const newImageSize = getByteSizeFromBase64(optimizedImage.split(',')[1]);
                 const existingImagesSize = attachments
                     .filter(a => a.startsWith('data:image'))
                     .reduce((sum, base64) => sum + getByteSizeFromBase64(base64.split(',')[1]), 0);
 
-                if (existingImagesSize + newImagesSize > MAX_TOTAL_SIZE_BYTES) {
+                if (existingImagesSize + newImageSize > MAX_TOTAL_SIZE_BYTES) {
                     toast({
                         variant: "destructive",
                         title: "Límite de tamaño excedido",
@@ -2051,7 +2050,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                           >
                               <UploadCloud className="w-10 h-10 text-gray-400 mb-2"/>
                               <p className="text-sm text-gray-600 font-semibold">Subir archivos o arrastre y suelte</p>
-                              <p className="text-xs text-gray-500">Max. de 30 imágenes / 10MB Total</p>
+                              <p className="text-xs text-gray-500">Max. de 60 imágenes / 10MB Total</p>
                               <Input type="file" ref={fileInputRef} className="hidden" multiple accept="image/*" onChange={handleFileChange} />
                           </div>
                           <div 

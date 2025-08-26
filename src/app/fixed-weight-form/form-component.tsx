@@ -245,7 +245,7 @@ const coordinadores = ["Cristian Acuña", "Sergio Padilla"];
 
 
 // Attachment Constants
-const MAX_ATTACHMENTS = 30;
+const MAX_ATTACHMENTS = 60;
 const MAX_TOTAL_SIZE_BYTES = 10 * 1024 * 1024; // 10 MB
 
 function getByteSizeFromBase64(base64: string): number {
@@ -1514,7 +1514,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                           >
                               <UploadCloud className="w-10 h-10 text-gray-400 mb-2"/>
                               <p className="text-sm text-gray-600 font-semibold">Subir archivos o arrastre y suelte</p>
-                              <p className="text-xs text-gray-500">Max. de 30 imágenes / 10MB Total</p>
+                              <p className="text-xs text-gray-500">Max. de 60 imágenes / 10MB Total</p>
                               <Input type="file" ref={fileInputRef} className="hidden" multiple accept="image/*" onChange={handleFileChange} />
                           </div>
                           <div 
