@@ -511,25 +511,26 @@ export default function CrewPerformanceReportPage() {
 
     const handleExportExcel = async (type: 'productivity' | 'settlement') => {
         if (isLoading) return;
-
+    
         const workbook = new ExcelJS.Workbook();
         workbook.creator = 'Frio Alimentaria App';
         workbook.created = new Date();
-
+    
         const headerFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF005A9E' } };
-        const headerFont: Partial<ExcelJS.Font> = { bold: true, color: { argb: 'FFFFFFFF' } };
-
+        const headerFont: Partial<ExcelJS.Font> = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
+    
         const addMainHeader = (ws: ExcelJS.Worksheet, title: string) => {
             const titleRow = ws.addRow([title]);
             titleRow.font = { bold: true, size: 16 };
-            ws.mergeCells(`A1:${String.fromCharCode(64 + ws.columns.length)}1`);
+            ws.mergeCells(1, 1, 1, ws.columns.length);
             titleRow.getCell(1).alignment = { horizontal: 'center' };
-
+    
             if (dateRange?.from && dateRange.to) {
                 const periodText = `Periodo: ${format(dateRange.from, 'dd/MM/yyyy')} - ${format(dateRange.to, 'dd/MM/yyyy')}`;
                 const periodRow = ws.addRow([periodText]);
-                ws.mergeCells(`A2:${String.fromCharCode(64 + ws.columns.length)}2`);
+                ws.mergeCells(2, 1, 2, ws.columns.length);
                 periodRow.getCell(1).alignment = { horizontal: 'center' };
+                periodRow.font = { bold: true };
             }
             ws.addRow([]); // Spacer
         };
@@ -537,7 +538,7 @@ export default function CrewPerformanceReportPage() {
         if (type === 'productivity') {
             const ws = workbook.addWorksheet('Productividad');
             
-            const columns = [
+            ws.columns = [
                 { header: 'Fecha Op.', key: 'fechaOp', width: 12 },
                 { header: 'Fecha Creación', key: 'fechaCreacion', width: 18 },
                 { header: 'Operario', key: 'operario', width: 25 },
@@ -556,12 +557,11 @@ export default function CrewPerformanceReportPage() {
                 { header: 'Novedades', key: 'novedades', width: 40 },
                 { header: 'Productividad', key: 'productividad', width: 15 },
             ];
-            ws.columns = columns;
 
             addMainHeader(ws, 'Informe de Productividad');
             
             const headerRow = ws.getRow(4);
-            headerRow.values = columns.map(c => c.header);
+            headerRow.values = ws.columns.map(c => c.header);
             headerRow.eachCell(cell => {
                 cell.fill = headerFill;
                 cell.font = headerFont;
@@ -588,18 +588,20 @@ export default function CrewPerformanceReportPage() {
                     novedades: row.novelties.map(n => `${n.type}: ${n.downtimeMinutes} min`).join(', '),
                     productividad: getPerformanceIndicator(row).text,
                 });
+                const addedRow = ws.lastRow!;
+                addedRow.getCell('cantidad').numFmt = '#,##0.00';
             });
-            ws.getCell(`M${ws.rowCount}`).numFmt = '#,##0.00';
             
             if (performanceSummary) {
                 ws.addRow([]); // Spacer
                 const summaryHeader = ws.addRow(['Indicador', 'Cantidad', 'Porcentaje']);
                 summaryHeader.font = { bold: true };
+                summaryHeader.eachCell(cell => cell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD3D3D3' } });
 
                 Object.entries(performanceSummary.summary).forEach(([key, value]) => {
                     if (key !== 'No Aplica' && key !== 'Sin Tiempo') {
-                        const percent = performanceSummary.totalEvaluable > 0 ? (value.count / performanceSummary.totalEvaluable) * 100 : 0;
-                        const row = ws.addRow([key, value.count, percent / 100]);
+                        const percent = performanceSummary.totalEvaluable > 0 ? (value.count / performanceSummary.totalEvaluable) : 0;
+                        const row = ws.addRow([key, value.count, percent]);
                         row.getCell(3).numFmt = '0.00%';
                     }
                 });
@@ -617,9 +619,8 @@ export default function CrewPerformanceReportPage() {
                 return;
             }
 
-            // Liquidación Sheet
             const wsLiq = workbook.addWorksheet('Liquidacion_Cuadrilla');
-            const liqColumns = [
+            wsLiq.columns = [
                 { header: 'Mes', key: 'mes', width: 15 },
                 { header: 'Fecha Op.', key: 'fechaOp', width: 12 },
                 { header: 'Pedido', key: 'pedido', width: 15 },
@@ -635,10 +636,9 @@ export default function CrewPerformanceReportPage() {
                 { header: 'Vlr. Unitario', key: 'vlrUnitario', width: 18 },
                 { header: 'Vlr. Total', key: 'vlrTotal', width: 18 }
             ];
-            wsLiq.columns = liqColumns;
             addMainHeader(wsLiq, 'Informe de Liquidación de Cuadrilla');
             const liqHeaderRow = wsLiq.getRow(4);
-            liqHeaderRow.values = liqColumns.map(c => c.header);
+            liqHeaderRow.values = wsLiq.columns.map(c => c.header);
             liqHeaderRow.eachCell(cell => {
                 cell.fill = headerFill;
                 cell.font = headerFont;
@@ -670,15 +670,19 @@ export default function CrewPerformanceReportPage() {
             });
 
             wsLiq.addRow([]); // Spacer
-            const totalRow = wsLiq.addRow(['', '', '', '', '', '', '', '', '', '', '', '', 'TOTAL GENERAL LIQUIDACIÓN:', totalLiquidacion]);
-            totalRow.font = { bold: true };
-            totalRow.getCell('M').alignment = { horizontal: 'right' };
-            totalRow.getCell('N').numFmt = '$ #,##0.00';
+            const totalRow = wsLiq.addRow([]);
+            const cell = totalRow.getCell('M');
+            cell.value = 'TOTAL GENERAL LIQUIDACIÓN:';
+            cell.font = { bold: true };
+            cell.alignment = { horizontal: 'right' };
+            const valueCell = totalRow.getCell('N');
+            valueCell.value = totalLiquidacion;
+            valueCell.numFmt = '$ #,##0.00';
+            valueCell.font = { bold: true };
 
-            // Resumen Conceptos Sheet
             if (conceptSummary) {
                 const wsSum = workbook.addWorksheet('Resumen_Conceptos');
-                const sumColumns = [
+                wsSum.columns = [
                     { header: 'Item', key: 'item', width: 10 },
                     { header: 'Concepto', key: 'concepto', width: 30 },
                     { header: 'Total Cantidad', key: 'totalCantidad', width: 18 },
@@ -686,10 +690,9 @@ export default function CrewPerformanceReportPage() {
                     { header: 'Vlr. Unitario', key: 'vlrUnitario', width: 20 },
                     { header: 'Vlr. Total', key: 'vlrTotal', width: 20 }
                 ];
-                wsSum.columns = sumColumns;
                 addMainHeader(wsSum, 'Resumen de Conceptos Liquidados');
                 const sumHeaderRow = wsSum.getRow(4);
-                sumHeaderRow.values = sumColumns.map(c => c.header);
+                sumHeaderRow.values = wsSum.columns.map(c => c.header);
                 sumHeaderRow.eachCell(cell => {
                     cell.fill = headerFill;
                     cell.font = headerFont;
@@ -711,10 +714,15 @@ export default function CrewPerformanceReportPage() {
                 });
 
                 wsSum.addRow([]);
-                const totalSumRow = wsSum.addRow(['', '', '', '', 'TOTAL GENERAL:', totalLiquidacion]);
-                totalSumRow.font = { bold: true };
-                totalSumRow.getCell('E').alignment = { horizontal: 'right' };
-                totalSumRow.getCell('F').numFmt = '$ #,##0.00';
+                const totalSumRow = wsSum.addRow([]);
+                const totalLabelCell = totalSumRow.getCell('E');
+                totalLabelCell.value = 'TOTAL GENERAL:';
+                totalLabelCell.font = { bold: true };
+                totalLabelCell.alignment = { horizontal: 'right' };
+                const totalValueCell = totalSumRow.getCell('F');
+                totalValueCell.value = totalLiquidacion;
+                totalValueCell.numFmt = '$ #,##0.00';
+                totalValueCell.font = { bold: true };
             }
         }
     
