@@ -519,27 +519,37 @@ export default function CrewPerformanceReportPage() {
         const headerFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A90C8' } };
         const headerFont: Partial<ExcelJS.Font> = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
     
-        const addMainHeader = (ws: ExcelJS.Worksheet, title: string) => {
+        const addMainHeader = (ws: ExcelJS.Worksheet, title: string, columns: any[]) => {
             ws.addRow([]); // Spacer row
             const titleRow = ws.addRow([title]);
             titleRow.font = { bold: true, size: 16 };
-            ws.mergeCells(2, 1, 2, ws.columns.length);
+            ws.mergeCells(2, 1, 2, columns.length);
             titleRow.getCell(1).alignment = { horizontal: 'center' };
     
             if (dateRange?.from && dateRange.to) {
                 const periodText = `Periodo: ${format(dateRange.from, 'dd/MM/yyyy')} - ${format(dateRange.to, 'dd/MM/yyyy')}`;
                 const periodRow = ws.addRow([periodText]);
-                ws.mergeCells(3, 1, 3, ws.columns.length);
-                periodRow.getCell(1).font = { bold: true };
+                 periodRow.font = { bold: true };
+                ws.mergeCells(3, 1, 3, columns.length);
                 periodRow.getCell(1).alignment = { horizontal: 'center' };
             }
             ws.addRow([]); // Spacer
         };
 
+        const applyHeaderStylesAndWidth = (ws: ExcelJS.Worksheet, columns: any[], headerRowNumber: number) => {
+            ws.columns = columns.map(c => ({ key: c.key, width: c.width }));
+            const headerRow = ws.getRow(headerRowNumber);
+            headerRow.values = columns.map(c => c.header);
+            headerRow.eachCell(cell => {
+                cell.fill = headerFill;
+                cell.font = headerFont;
+                cell.alignment = { horizontal: 'center' };
+            });
+        };
+
         if (type === 'productivity') {
             const ws = workbook.addWorksheet('Productividad');
-            
-            ws.columns = [
+            const columns = [
                 { header: 'Fecha Op.', key: 'fechaOp', width: 12 },
                 { header: 'Fecha Creación', key: 'fechaCreacion', width: 18 },
                 { header: 'Operario', key: 'operario', width: 25 },
@@ -559,16 +569,9 @@ export default function CrewPerformanceReportPage() {
                 { header: 'Productividad', key: 'productividad', width: 15 },
             ];
 
-            addMainHeader(ws, 'Informe de Productividad');
+            addMainHeader(ws, 'Informe de Productividad', columns);
+            applyHeaderStylesAndWidth(ws, columns, 5);
             
-            const headerRow = ws.getRow(5);
-            headerRow.values = ws.columns.map(c => c.header);
-            headerRow.eachCell(cell => {
-                cell.fill = headerFill;
-                cell.font = headerFont;
-                cell.alignment = { horizontal: 'center' };
-            });
-
             filteredReportData.forEach(row => {
                 ws.addRow({
                     fechaOp: format(new Date(row.fecha), 'dd/MM/yy'),
@@ -617,15 +620,13 @@ export default function CrewPerformanceReportPage() {
                 const qualificationRow = ws.addRow(['Calificación General:', performanceSummary.qualification]);
                 qualificationRow.font = { bold: true };
             }
-
         } else if (type === 'settlement') {
             if (liquidationData.length === 0) {
                 toast({ variant: 'destructive', title: 'Sin datos', description: 'No hay datos de liquidación para exportar.' });
                 return;
             }
-
             const wsLiq = workbook.addWorksheet('Liquidacion_Cuadrilla');
-            wsLiq.columns = [
+            const columnsLiq = [
                 { header: 'Mes', key: 'mes', width: 15 },
                 { header: 'Fecha Op.', key: 'fechaOp', width: 12 },
                 { header: 'Pedido', key: 'pedido', width: 15 },
@@ -641,14 +642,9 @@ export default function CrewPerformanceReportPage() {
                 { header: 'Vlr. Unitario', key: 'vlrUnitario', width: 18 },
                 { header: 'Vlr. Total', key: 'vlrTotal', width: 18 }
             ];
-            addMainHeader(wsLiq, 'Informe de Liquidación de Cuadrilla');
-            const liqHeaderRow = wsLiq.getRow(5);
-            liqHeaderRow.values = wsLiq.columns.map(c => c.header);
-            liqHeaderRow.eachCell(cell => {
-                cell.fill = headerFill;
-                cell.font = headerFont;
-                cell.alignment = { horizontal: 'center' };
-            });
+
+            addMainHeader(wsLiq, 'Informe de Liquidación de Cuadrilla', columnsLiq);
+            applyHeaderStylesAndWidth(wsLiq, columnsLiq, 5);
              
             liquidationData.forEach(row => {
                 const isPending = row.cantidadConcepto === -1;
@@ -687,7 +683,7 @@ export default function CrewPerformanceReportPage() {
 
             if (conceptSummary) {
                 const wsSum = workbook.addWorksheet('Resumen_Conceptos');
-                wsSum.columns = [
+                const columnsSum = [
                     { header: 'Item', key: 'item', width: 10 },
                     { header: 'Concepto', key: 'concepto', width: 30 },
                     { header: 'Total Cantidad', key: 'totalCantidad', width: 18 },
@@ -695,14 +691,8 @@ export default function CrewPerformanceReportPage() {
                     { header: 'Vlr. Unitario', key: 'vlrUnitario', width: 20 },
                     { header: 'Vlr. Total', key: 'vlrTotal', width: 20 }
                 ];
-                addMainHeader(wsSum, 'Resumen de Conceptos Liquidados');
-                const sumHeaderRow = wsSum.getRow(5);
-                sumHeaderRow.values = wsSum.columns.map(c => c.header);
-                sumHeaderRow.eachCell(cell => {
-                    cell.fill = headerFill;
-                    cell.font = headerFont;
-                    cell.alignment = { horizontal: 'center' };
-                });
+                addMainHeader(wsSum, 'Resumen de Conceptos Liquidados', columnsSum);
+                applyHeaderStylesAndWidth(wsSum, columnsSum, 5);
 
                 conceptSummary.forEach(item => {
                     const row = wsSum.addRow({
@@ -1505,4 +1495,3 @@ function NoveltySelectorDialog({
     
 
     
-
