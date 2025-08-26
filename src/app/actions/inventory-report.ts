@@ -123,14 +123,14 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
             }
         } else if (typeof dateValue === 'number') {
              // Handle Excel date number. Excel stores dates as days since 1900-01-01.
-             // Javascript's epoch is 1970-01-01. The difference is 25569 days (including the 1900 leap year bug).
-            const jsDate = new Date(Math.round((dateValue - 25569) * 86400 * 1000));
-            // This date is in UTC. We want to treat it as local to avoid timezone shifts.
-            const localDate = new Date(jsDate.getUTCFullYear(), jsDate.getUTCMonth(), jsDate.getUTCDate());
-            reportDate = localDate;
-            if (isNaN(reportDate.getTime())) {
+             // Javascript's epoch is 1970-01-01. The difference is 25569 days.
+            const utc_days = Math.floor(dateValue - 25569);
+            const date = new Date(utc_days * 86400 * 1000); // Convert days to milliseconds
+
+            if (isNaN(date.getTime())) {
                 throw new Error(`El número de fecha de Excel "${dateValue}" no es válido.`);
             }
+            reportDate = date;
         } else {
             throw new Error(`El formato de la columna "FECHA" (${typeof dateValue}) no es reconocido.`);
         }
