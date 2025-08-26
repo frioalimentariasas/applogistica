@@ -150,39 +150,6 @@ const getPerformanceIndicator = (row: CrewPerformanceReportRow): { text: string,
     return { text: 'Lento', className: badgeVariants({variant: "destructive"}), icon: AlertTriangleIcon };
 };
 
-const getImageAsBase64Client = async (url: string): Promise<string | null> => {
-  try {
-    const response = await fetch(url);
-    if (!response.ok) throw new Error(`Failed to fetch image: ${response.statusText}`);
-    const blob = await response.blob();
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(blob);
-    });
-  } catch (error) {
-    console.error("Error fetching image as base64:", error);
-    return null;
-  }
-};
-
-const fitColumnsToContent = (worksheet: ExcelJS.Worksheet, maxColumnWidth = 50) => {
-    worksheet.columns.forEach((column) => {
-        let maxLength = 0;
-        column.eachCell!({ includeEmpty: true }, (cell) => {
-            const cellLength = cell.value ? String(cell.value).length : 0;
-            if (cellLength > maxLength) {
-                maxLength = cellLength;
-            }
-        });
-        // Add a little padding, but not too much, and cap the width
-        const finalWidth = Math.min(maxColumnWidth, maxLength + 4);
-        column.width = finalWidth > 10 ? finalWidth : 12; // Ensure a minimum width
-    });
-};
-
-
 export default function CrewPerformanceReportPage() {
     const router = useRouter();
     const { toast } = useToast();
@@ -236,8 +203,6 @@ export default function CrewPerformanceReportPage() {
     const [isLegalizing, setIsLegalizing] = useState(false);
     const [rowToLegalize, setRowToLegalize] = useState<CrewPerformanceReportRow | null>(null);
     
-    const [logoBase64, setLogoBase64] = useState<string | null>(null);
-
     const noveltyForm = useForm<NoveltyFormValues>({
         resolver: zodResolver(noveltySchema),
         defaultValues: { type: '', downtimeMinutes: 0 }
@@ -285,16 +250,14 @@ export default function CrewPerformanceReportPage() {
 
     useEffect(() => {
         const fetchInitialData = async () => {
-             const [clientList, noveltyTypes, billingConcepts, logoData] = await Promise.all([
+             const [clientList, noveltyTypes, billingConcepts] = await Promise.all([
                  getClients(),
                  getStandardNoveltyTypes(),
                  getBillingConcepts(),
-                 getImageAsBase64Client(new URL('/images/company-logo.png', window.location.origin).href)
              ]);
              setClients(clientList);
              setStandardNoveltyTypes(noveltyTypes);
              setAllBillingConcepts(billingConcepts);
-             setLogoBase64(logoData);
         };
         fetchInitialData();
     }, []);
@@ -568,31 +531,51 @@ export default function CrewPerformanceReportPage() {
             wsProd.mergeCells(2, 1, 2, 17);
             wsProd.addRow([]);
 
-            const prodHeaders = ['Fecha Op.', 'Fecha Creación', 'Operario', 'Cliente', 'Tipo Op.', 'Tipo Prod.', 'Pedido', 'No. Contenedor', 'Placa', 'Concepto', 'Hora Inicio', 'Hora Fin', 'Cant.', 'Dur. Total', 'T. Operativo', 'Novedades', 'Productividad'];
-            const prodHeaderRow = wsProd.addRow(prodHeaders);
+            wsProd.columns = [
+                { header: 'Fecha Op.', key: 'fechaOp', width: 12 },
+                { header: 'Fecha Creación', key: 'fechaCreacion', width: 18 },
+                { header: 'Operario', key: 'operario', width: 25 },
+                { header: 'Cliente', key: 'cliente', width: 30 },
+                { header: 'Tipo Op.', key: 'tipoOp', width: 12 },
+                { header: 'Tipo Prod.', key: 'tipoProd', width: 12 },
+                { header: 'Pedido', key: 'pedido', width: 15 },
+                { header: 'No. Contenedor', key: 'contenedor', width: 18 },
+                { header: 'Placa', key: 'placa', width: 12 },
+                { header: 'Concepto', key: 'concepto', width: 20 },
+                { header: 'Hora Inicio', key: 'horaInicio', width: 12 },
+                { header: 'Hora Fin', key: 'horaFin', width: 12 },
+                { header: 'Cant.', key: 'cantidad', width: 12 },
+                { header: 'Dur. Total', key: 'durTotal', width: 12 },
+                { header: 'T. Operativo', key: 'tOperativo', width: 12 },
+                { header: 'Novedades', key: 'novedades', width: 30 },
+                { header: 'Productividad', key: 'productividad', width: 15 },
+            ];
+
+            const prodHeaderRow = wsProd.getRow(4);
             prodHeaderRow.eachCell(cell => cell.style = headerStyle);
             
             filteredReportData.forEach(row => {
-                 const newRow = wsProd.addRow([
-                    format(new Date(row.fecha), 'dd/MM/yy'),
-                    format(parseISO(row.createdAt), 'dd/MM/yy HH:mm'),
-                    row.operario,
-                    row.cliente,
-                    row.tipoOperacion,
-                    row.tipoProducto,
-                    row.pedidoSislog,
-                    row.contenedor,
-                    row.placa,
-                    row.conceptoLiquidado,
-                    row.horaInicio,
-                    row.horaFin,
-                    row.cantidadConcepto === -1 ? 'Pendiente' : row.cantidadConcepto,
-                    formatDuration(row.totalDurationMinutes),
-                    formatDuration(row.operationalDurationMinutes),
-                    row.novelties.map(n => `${n.type}: ${n.downtimeMinutes} min`).join(', '),
-                    getPerformanceIndicator(row).text
-                ]);
-                const cantCell = newRow.getCell(13);
+                 const newRow = wsProd.addRow({
+                    fechaOp: format(new Date(row.fecha), 'dd/MM/yy'),
+                    fechaCreacion: format(parseISO(row.createdAt), 'dd/MM/yy HH:mm'),
+                    operario: row.operario,
+                    cliente: row.cliente,
+                    tipoOp: row.tipoOperacion,
+                    tipoProd: row.tipoProducto,
+                    pedido: row.pedidoSislog,
+                    contenedor: row.contenedor,
+                    placa: row.placa,
+                    concepto: row.conceptoLiquidado,
+                    horaInicio: row.horaInicio,
+                    horaFin: row.horaFin,
+                    cantidad: row.cantidadConcepto === -1 ? 'Pendiente' : row.cantidadConcepto,
+                    durTotal: formatDuration(row.totalDurationMinutes),
+                    tOperativo: formatDuration(row.operationalDurationMinutes),
+                    novedades: row.novelties.map(n => `${n.type}: ${n.downtimeMinutes} min`).join(', '),
+                    productividad: getPerformanceIndicator(row).text
+                });
+
+                const cantCell = newRow.getCell('cantidad');
                 if (typeof cantCell.value === 'number') {
                     cantCell.numFmt = '#,##0.00';
                 }
@@ -603,6 +586,7 @@ export default function CrewPerformanceReportPage() {
                 const summaryTitleRow = wsProd.addRow(['Resumen de Productividad']);
                 summaryTitleRow.getCell(1).style = { font: { bold: true, size: 12 }};
                 wsProd.mergeCells(wsProd.rowCount, 1, wsProd.rowCount, 3);
+
                 const summaryHeader = wsProd.addRow(['Indicador', 'Cantidad', 'Porcentaje']);
                 summaryHeader.font = { bold: true };
                 
@@ -622,8 +606,6 @@ export default function CrewPerformanceReportPage() {
                 const qualificationRow = wsProd.addRow(['Calificación General:', performanceSummary.qualification]);
                 qualificationRow.font = { bold: true, color: { argb: 'FF005A9E' }, size: 12 };
             }
-            
-            fitColumnsToContent(wsProd);
     
         } else if (type === 'settlement') {
             if (liquidationData.length === 0) {
@@ -638,34 +620,44 @@ export default function CrewPerformanceReportPage() {
             wsLiq.mergeCells(2, 1, 2, 14);
             wsLiq.addRow([]);
 
-            const liqHeaders = ['Mes', 'Fecha Op.', 'Pedido', 'Contenedor', 'Placa', 'Cliente', 'Concepto', 'Cantidad', 'Unidad', 'H. Inicio', 'H. Fin', 'Duración', 'Vlr. Unitario', 'Vlr. Total'];
-            const liqHeaderRow = wsLiq.addRow(liqHeaders);
+            wsLiq.columns = [
+                { header: 'Mes', key: 'mes', width: 12 },
+                { header: 'Fecha Op.', key: 'fechaOp', width: 12 },
+                { header: 'Pedido', key: 'pedido', width: 15 },
+                { header: 'Contenedor', key: 'contenedor', width: 18 },
+                { header: 'Placa', key: 'placa', width: 12 },
+                { header: 'Cliente', key: 'cliente', width: 30 },
+                { header: 'Concepto', key: 'concepto', width: 20 },
+                { header: 'Cantidad', key: 'cantidad', width: 12, style: { numFmt: '#,##0.00' } },
+                { header: 'Unidad', key: 'unidad', width: 12 },
+                { header: 'H. Inicio', key: 'hInicio', width: 12 },
+                { header: 'H. Fin', key: 'hFin', width: 12 },
+                { header: 'Duración', key: 'duracion', width: 12 },
+                { header: 'Vlr. Unitario', key: 'vlrUnitario', width: 15, style: { numFmt: '$ #,##0.00' } },
+                { header: 'Vlr. Total', key: 'vlrTotal', width: 15, style: { numFmt: '$ #,##0.00' } }
+            ];
+
+            const liqHeaderRow = wsLiq.getRow(4);
             liqHeaderRow.eachCell(cell => cell.style = headerStyle);
     
             liquidationData.forEach(row => {
                 const isPending = row.cantidadConcepto === -1;
-                const newRow = wsLiq.addRow([
-                    format(new Date(row.fecha), 'MMMM', { locale: es }),
-                    format(new Date(row.fecha), 'dd/MM/yy'),
-                    row.pedidoSislog,
-                    row.contenedor,
-                    row.placa,
-                    row.cliente,
-                    row.conceptoLiquidado,
-                    isPending ? 'Pendiente' : row.cantidadConcepto,
-                    isPending ? 'N/A' : row.unidadMedidaConcepto,
-                    row.horaInicio,
-                    row.horaFin,
-                    formatDuration(row.totalDurationMinutes),
-                    isPending ? 'N/A' : row.valorUnitario,
-                    isPending ? 'N/A' : row.valorTotalConcepto
-                ]);
-    
-                if (!isPending) {
-                     newRow.getCell(8).numFmt = '#,##0.00';
-                     newRow.getCell(13).numFmt = '$ #,##0.00';
-                     newRow.getCell(14).numFmt = '$ #,##0.00';
-                }
+                wsLiq.addRow({
+                    mes: format(new Date(row.fecha), 'MMMM', { locale: es }),
+                    fechaOp: format(new Date(row.fecha), 'dd/MM/yy'),
+                    pedido: row.pedidoSislog,
+                    contenedor: row.contenedor,
+                    placa: row.placa,
+                    cliente: row.cliente,
+                    concepto: row.conceptoLiquidado,
+                    cantidad: isPending ? 'Pendiente' : row.cantidadConcepto,
+                    unidad: isPending ? 'N/A' : row.unidadMedidaConcepto,
+                    hInicio: row.horaInicio,
+                    hFin: row.horaFin,
+                    duracion: formatDuration(row.totalDurationMinutes),
+                    vlrUnitario: isPending ? 'N/A' : row.valorUnitario,
+                    vlrTotal: isPending ? 'N/A' : row.valorTotalConcepto
+                });
             });
     
             wsLiq.addRow([]);
@@ -677,8 +669,6 @@ export default function CrewPerformanceReportPage() {
             totalLiqValueCell.numFmt = '$ #,##0.00';
             totalLiqValueCell.style.font = { bold: true };
             
-            fitColumnsToContent(wsLiq);
-            
             if (conceptSummary) {
                 const wsSumCon = workbook.addWorksheet('Resumen_Conceptos');
                 wsSumCon.addRow(['Resumen de Conceptos Liquidados']).getCell(1).style = titleStyle;
@@ -687,21 +677,27 @@ export default function CrewPerformanceReportPage() {
                 wsSumCon.mergeCells(2, 1, 2, 6);
                 wsSumCon.addRow([]);
     
-                const conceptHeaderRow = wsSumCon.addRow(['Item', 'Concepto', 'Total Cantidad', 'Unidad Medida', 'Vlr. Unitario', 'Vlr. Total']);
+                wsSumCon.columns = [
+                    { header: 'Item', key: 'item', width: 8 },
+                    { header: 'Concepto', key: 'concepto', width: 25 },
+                    { header: 'Total Cantidad', key: 'totalCantidad', width: 15, style: { numFmt: '#,##0.00' } },
+                    { header: 'Unidad Medida', key: 'unidad', width: 15 },
+                    { header: 'Vlr. Unitario', key: 'vlrUnitario', width: 18, style: { numFmt: '$ #,##0.00' } },
+                    { header: 'Vlr. Total', key: 'vlrTotal', width: 18, style: { numFmt: '$ #,##0.00' } }
+                ];
+                
+                const conceptHeaderRow = wsSumCon.getRow(4);
                 conceptHeaderRow.eachCell(cell => cell.style = headerStyle);
                 
                 conceptSummary.forEach(item => {
-                    const row = wsSumCon.addRow([
-                        item.item,
-                        item.name,
-                        item.totalCantidad,
-                        item.unidadMedida,
-                        item.valorUnitario,
-                        item.totalValor
-                    ]);
-                    row.getCell(3).numFmt = '#,##0.00';
-                    row.getCell(5).numFmt = '$ #,##0.00';
-                    row.getCell(6).numFmt = '$ #,##0.00';
+                    wsSumCon.addRow({
+                        item: item.item,
+                        concepto: item.name,
+                        totalCantidad: item.totalCantidad,
+                        unidad: item.unidadMedida,
+                        vlrUnitario: item.valorUnitario,
+                        vlrTotal: item.totalValor
+                    });
                 });
                 
                 wsSumCon.addRow([]);
@@ -712,8 +708,6 @@ export default function CrewPerformanceReportPage() {
                 totalSumValueCell.value = totalLiquidacion;
                 totalSumValueCell.numFmt = '$ #,##0.00';
                 totalSumValueCell.style.font = { bold: true };
-                
-                fitColumnsToContent(wsSumCon);
             }
         }
     
@@ -748,30 +742,25 @@ export default function CrewPerformanceReportPage() {
             doc.setFont('helvetica', 'normal');
             doc.text(periodText, pageWidth / 2, margin + 5, { align: 'center' });
             
-            const head = [['Fecha Op.', 'Fecha Creación', 'Operario', 'Cliente', 'Tipo Op.', 'Tipo Prod.', 'Pedido', 'No. Contenedor', 'Placa', 'Concepto', 'Hora Inicio', 'Hora Fin', 'Cant.', 'Dur. Total', 'T. Operativo', 'Novedades', 'Productividad']];
+            const head = [['Fecha Op.', 'Operario', 'Cliente', 'Tipo Op.', 'Tipo Prod.', 'Pedido', 'Placa', 'Concepto', 'Cant.', 'Dur. Total', 'T. Operativo', 'Productividad']];
             const body = filteredReportData.map(row => {
                  const indicator = getPerformanceIndicator(row);
                  return [
                     format(new Date(row.fecha), 'dd/MM/yy'),
-                    format(parseISO(row.createdAt), 'dd/MM/yy HH:mm'),
                     row.operario,
                     row.cliente,
                     row.tipoOperacion,
                     row.tipoProducto,
                     row.pedidoSislog,
-                    row.contenedor,
                     row.placa,
                     row.conceptoLiquidado,
-                    row.horaInicio,
-                    row.horaFin,
                     row.cantidadConcepto === -1 ? 'Pendiente' : row.cantidadConcepto.toFixed(2),
                     formatDuration(row.totalDurationMinutes),
                     formatDuration(row.operationalDurationMinutes),
-                    row.novelties.map(n => `${n.type}: ${n.downtimeMinutes} min`).join(', '),
                     indicator.text
                  ];
             });
-            autoTable(doc, { startY: margin + 15, head, body, theme: 'grid', styles: { fontSize: 6, cellPadding: 1 }, headStyles: { fillColor: [33, 150, 243] }, columnStyles: { 3: { cellWidth: 30 }, 15: {cellWidth: 30} } });
+            autoTable(doc, { startY: margin + 15, head, body, theme: 'grid', styles: { fontSize: 6, cellPadding: 1 }, headStyles: { fillColor: [33, 150, 243] }, columnStyles: { 2: { cellWidth: 40 }, 10: {cellWidth: 30} } });
 
             if (performanceSummary) {
                 const summaryBody = Object.entries(performanceSummary.summary)
@@ -1496,6 +1485,7 @@ function NoveltySelectorDialog({
 
     
     
+
 
 
 
