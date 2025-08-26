@@ -545,7 +545,56 @@ export default function CrewPerformanceReportPage() {
         const periodText = dateRange?.from && dateRange.to ? `Periodo: ${format(dateRange.from, 'dd/MM/yyyy')} a ${format(dateRange.to, 'dd/MM/yyyy')}` : 'Periodo no especificado';
     
         if (type === 'productivity') {
-            // ... (Productivity sheet logic remains the same)
+            const wsProd = workbook.addWorksheet('Productividad');
+            wsProd.addRow(['Informe de Productividad de Cuadrilla']).getCell(1).style = titleStyle;
+            wsProd.mergeCells('A1:Q1');
+            wsProd.addRow([periodText]).getCell(1).style = subtitleStyle;
+            wsProd.mergeCells('A2:Q2');
+            wsProd.addRow([]);
+
+            const prodHeaders = ['Fecha Op.', 'Fecha Creación', 'Operario', 'Cliente', 'Tipo Op.', 'Tipo Prod.', 'Pedido', 'No. Contenedor', 'Placa', 'Concepto', 'Hora Inicio', 'Hora Fin', 'Cant.', 'Dur. Total', 'T. Operativo', 'Novedades', 'Productividad'];
+            const prodHeaderRow = wsProd.addRow(prodHeaders);
+            prodHeaderRow.eachCell(cell => cell.style = headerStyle);
+            
+            filteredReportData.forEach(row => {
+                 const newRow = wsProd.addRow([
+                    format(new Date(row.fecha), 'dd/MM/yy'),
+                    format(parseISO(row.createdAt), 'dd/MM/yy HH:mm'),
+                    row.operario,
+                    row.cliente,
+                    row.tipoOperacion,
+                    row.tipoProducto,
+                    row.pedidoSislog,
+                    row.contenedor,
+                    row.placa,
+                    row.conceptoLiquidado,
+                    row.horaInicio,
+                    row.horaFin,
+                    row.cantidadConcepto === -1 ? 'Pendiente' : row.cantidadConcepto,
+                    formatDuration(row.totalDurationMinutes),
+                    formatDuration(row.operationalDurationMinutes),
+                    row.novelties.map(n => `${n.type}: ${n.downtimeMinutes} min`).join(', '),
+                    getPerformanceIndicator(row).text
+                ]);
+                const cantCell = newRow.getCell(13);
+                if (typeof cantCell.value === 'number') {
+                    cantCell.numFmt = '#,##0.00';
+                }
+            });
+            
+             wsProd.columns.forEach(column => {
+                let maxLength = 0;
+                column.eachCell({ includeEmpty: true }, (cell, rowNumber) => {
+                    if(rowNumber > 3) { // Skip title rows
+                         let columnLength = cell.value ? cell.value.toString().length : 10;
+                         if (columnLength > maxLength) {
+                            maxLength = columnLength;
+                         }
+                    }
+                });
+                const headerLength = column.header?.length || 10;
+                column.width = Math.max(headerLength, maxLength) + 2;
+            });
     
         } else if (type === 'settlement') {
             if (liquidationData.length === 0) {
@@ -553,15 +602,14 @@ export default function CrewPerformanceReportPage() {
                 return;
             }
     
-            // --- Hoja: Liquidacion_Cuadrilla ---
             const wsLiq = workbook.addWorksheet('Liquidacion_Cuadrilla');
             wsLiq.addRow(['Detalle Liquidación Cuadrilla']).getCell(1).style = titleStyle;
-            wsLiq.mergeCells('A1:H1');
+            wsLiq.mergeCells('A1:N1');
             wsLiq.addRow([periodText]).getCell(1).style = subtitleStyle;
-            wsLiq.mergeCells('A2:H2');
+            wsLiq.mergeCells('A2:N2');
             wsLiq.addRow([]);
 
-            const liqHeaders = ['Mes', 'Fecha Op.', 'Pedido', 'Cliente', 'Concepto', 'Cantidad', 'Vlr. Unitario', 'Vlr. Total'];
+            const liqHeaders = ['Mes', 'Fecha Op.', 'Pedido', 'Contenedor', 'Placa', 'Cliente', 'Concepto', 'Cantidad', 'Unidad', 'H. Inicio', 'H. Fin', 'Duración', 'Vlr. Unitario', 'Vlr. Total'];
             const liqHeaderRow = wsLiq.addRow(liqHeaders);
             liqHeaderRow.eachCell(cell => cell.style = headerStyle);
     
@@ -571,46 +619,48 @@ export default function CrewPerformanceReportPage() {
                     format(new Date(row.fecha), 'MMMM', { locale: es }),
                     format(new Date(row.fecha), 'dd/MM/yy'),
                     row.pedidoSislog,
+                    row.contenedor,
+                    row.placa,
                     row.cliente,
                     row.conceptoLiquidado,
                     isPending ? 'Pendiente' : row.cantidadConcepto,
+                    isPending ? 'N/A' : row.unidadMedidaConcepto,
+                    row.horaInicio,
+                    row.horaFin,
+                    formatDuration(row.totalDurationMinutes),
                     isPending ? 'N/A' : row.valorUnitario,
                     isPending ? 'N/A' : row.valorTotalConcepto
                 ]);
     
-                newRow.eachCell((cell, colNumber) => {
-                    if (isPending) return;
-                    if (colNumber === 6) { cell.numFmt = '#,##0.00'; }
-                    if (colNumber === 7) { cell.numFmt = '$#,##0;[Red]-$#,##0'; }
-                    if (colNumber === 8) { cell.numFmt = '$#,##0.00;[Red]-$#,##0.00'; }
-                });
+                if (!isPending) {
+                     newRow.getCell(8).numFmt = '#,##0.00'; // Cantidad
+                     newRow.getCell(13).numFmt = '$ #,##0.00'; // Vlr. Unitario
+                     newRow.getCell(14).numFmt = '$ #,##0.00'; // Vlr. Total
+                }
             });
     
             wsLiq.addRow([]);
-            const totalLiqRow = wsLiq.addRow(['', '', '', '', '', '', 'TOTAL GENERAL:']);
-            totalLiqRow.getCell(7).style = { font: { bold: true }, alignment: { horizontal: 'right' } };
-            const totalLiqValueCell = totalLiqRow.getCell(8);
+            const totalLiqRow = wsLiq.addRow(['', '', '', '', '', '', '', '', '', '', '', '', 'TOTAL GENERAL:']);
+            totalLiqRow.getCell(13).style = { font: { bold: true }, alignment: { horizontal: 'right' } };
+            const totalLiqValueCell = totalLiqRow.getCell(14);
             totalLiqValueCell.value = totalLiquidacion;
-            totalLiqValueCell.numFmt = '$#,##0.00;[Red]-$#,##0.00';
+            totalLiqValueCell.numFmt = '$ #,##0.00';
             totalLiqValueCell.style.font = { bold: true };
-
-            // Auto-fit columns
+            
             wsLiq.columns.forEach(column => {
-                let maxLength = 0;
+                 let maxLength = 0;
                 column.eachCell({ includeEmpty: true }, cell => {
                     let cellLength = cell.value ? cell.value.toString().length : 10;
-                    if (cell.numFmt === '$#,##0.00;[Red]-$#,##0.00' && typeof cell.value === 'number') {
+                     if (typeof cell.value === 'number') {
                          cellLength = cell.value.toLocaleString('es-CO', {style: 'currency', currency: 'COP'}).length;
-                    }
+                     }
                     if (cellLength > maxLength) {
                         maxLength = cellLength;
                     }
                 });
-                column.width = maxLength < 10 ? 12 : maxLength + 2;
+                column.width = Math.max(column.header?.length || 10, maxLength) + 2;
             });
-
-
-            // --- Hoja: Resumen_Conceptos ---
+            
             if (conceptSummary) {
                 const wsSumCon = workbook.addWorksheet('Resumen_Conceptos');
                 wsSumCon.addRow(['Resumen de Conceptos Liquidados']).getCell(1).style = titleStyle;
@@ -631,10 +681,9 @@ export default function CrewPerformanceReportPage() {
                         item.valorUnitario,
                         item.totalValor
                     ]);
-                    row.getCell(1).numFmt = '0';
                     row.getCell(3).numFmt = '#,##0.00';
-                    row.getCell(5).numFmt = '$#,##0;[Red]-$#,##0';
-                    row.getCell(6).numFmt = '$#,##0.00;[Red]-$#,##0.00';
+                    row.getCell(5).numFmt = '$ #,##0.00';
+                    row.getCell(6).numFmt = '$ #,##0.00';
                 });
                 
                 wsSumCon.addRow([]);
@@ -642,22 +691,21 @@ export default function CrewPerformanceReportPage() {
                 totalSumRow.getCell(5).style = { font: { bold: true }, alignment: { horizontal: 'right' } };
                 const totalSumValueCell = totalSumRow.getCell(6);
                 totalSumValueCell.value = totalLiquidacion;
-                totalSumValueCell.numFmt = '$#,##0.00;[Red]-$#,##0.00';
+                totalSumValueCell.numFmt = '$ #,##0.00';
                 totalSumValueCell.style.font = { bold: true };
                 
-                // Auto-fit columns
                 wsSumCon.columns.forEach(column => {
                     let maxLength = 0;
                     column.eachCell({ includeEmpty: true }, cell => {
                          let cellLength = cell.value ? cell.value.toString().length : 10;
-                         if (cell.numFmt === '$#,##0.00;[Red]-$#,##0.00' && typeof cell.value === 'number') {
+                         if (typeof cell.value === 'number') {
                              cellLength = cell.value.toLocaleString('es-CO', {style: 'currency', currency: 'COP'}).length;
                          }
                         if (cellLength > maxLength) {
                             maxLength = cellLength;
                         }
                     });
-                    column.width = maxLength < 10 ? 12 : maxLength + 2;
+                    column.width = Math.max(column.header?.length || 10, maxLength) + 2;
                 });
             }
         }
@@ -697,52 +745,30 @@ export default function CrewPerformanceReportPage() {
             doc.setFontSize(10);
             doc.text(periodText, pageWidth / 2, 40, { align: 'center' });
             
-            const head = [['Fecha Op.', 'Operario', 'Cliente', 'Tipo Op.', 'Tipo Prod.', 'Pedido', 'Concepto', 'T. Operativo', 'Productividad']];
+            const head = [['Fecha Op.', 'Fecha Creación', 'Operario', 'Cliente', 'Tipo Op.', 'Tipo Prod.', 'Pedido', 'No. Contenedor', 'Placa', 'Concepto', 'Hora Inicio', 'Hora Fin', 'Cant.', 'Dur. Total', 'T. Operativo', 'Novedades', 'Productividad']];
             const body = filteredReportData.map(row => {
                  const indicator = getPerformanceIndicator(row);
                  return [
                     format(new Date(row.fecha), 'dd/MM/yy'),
+                    format(parseISO(row.createdAt), 'dd/MM/yy HH:mm'),
                     row.operario,
                     row.cliente,
                     row.tipoOperacion,
                     row.tipoProducto,
                     row.pedidoSislog,
+                    row.contenedor,
+                    row.placa,
                     row.conceptoLiquidado,
+                    row.horaInicio,
+                    row.horaFin,
+                    row.cantidadConcepto === -1 ? 'Pendiente' : row.cantidadConcepto.toFixed(2),
+                    formatDuration(row.totalDurationMinutes),
                     formatDuration(row.operationalDurationMinutes),
+                    row.novelties.map(n => `${n.type}: ${n.downtimeMinutes} min`).join(', '),
                     indicator.text
                  ];
             });
-            autoTable(doc, { startY: 45, head, body, theme: 'grid', styles: { fontSize: 8 } });
-
-            if (performanceSummary) {
-                const lastTableY = (doc as any).lastAutoTable.finalY;
-                autoTable(doc, {
-                    startY: lastTableY + 10,
-                    head: [['Resumen de Productividad']],
-                    theme: 'grid',
-                    headStyles: { fontStyle: 'bold', halign: 'center' }
-                });
-
-                const summaryHead = [['Indicador', 'Operaciones', '%']];
-                const summaryBody = [
-                    ['Óptimo', performanceSummary.summary['Óptimo'].count, performanceSummary.totalEvaluable > 0 ? `${''}${(performanceSummary.summary['Óptimo'].count / performanceSummary.totalEvaluable * 100).toFixed(2)}%` : '0.00%'],
-                    ['Normal', performanceSummary.summary['Normal'].count, performanceSummary.totalEvaluable > 0 ? `${''}${(performanceSummary.summary['Normal'].count / performanceSummary.totalEvaluable * 100).toFixed(2)}%` : '0.00%'],
-                    ['Lento', performanceSummary.summary['Lento'].count, performanceSummary.totalEvaluable > 0 ? `${''}${(performanceSummary.summary['Lento'].count / performanceSummary.totalEvaluable * 100).toFixed(2)}%` : '0.00%'],
-                ];
-                const summaryFoot = [
-                    [{ content: 'TOTAL EVALUABLES', colSpan: 1, styles: { halign: 'right', fontStyle: 'bold' } }, { content: performanceSummary.totalEvaluable }, { content: '100.00%' }],
-                    [{ content: 'CALIFICACIÓN GENERAL', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }, { content: performanceSummary.qualification }]
-                ];
-                
-                autoTable(doc, {
-                    startY: (doc as any).lastAutoTable.finalY,
-                    head: summaryHead,
-                    body: summaryBody,
-                    foot: summaryFoot,
-                    theme: 'grid',
-                    styles: { fontSize: 8 }
-                });
-            }
+            autoTable(doc, { startY: 45, head, body, theme: 'grid', styles: { fontSize: 6, cellPadding: 1 }, headStyles: { fillColor: [33, 150, 243] }, columnStyles: { 3: { cellWidth: 30 }, 15: {cellWidth: 30} } });
 
         } else if (type === 'settlement') {
             if (liquidationData.length === 0 || !conceptSummary) {
@@ -753,14 +779,20 @@ export default function CrewPerformanceReportPage() {
             doc.setFontSize(10);
             doc.text(periodText, pageWidth / 2, 40, { align: 'center' });
             
-            const detailHead = [['Mes', 'Fecha Op.', 'Pedido', 'Cliente', 'Concepto', 'Cantidad', 'Vlr. Unitario', 'Vlr. Total']];
+            const detailHead = [['Mes', 'Fecha Op.', 'Pedido', 'Contenedor', 'Placa', 'Cliente', 'Concepto', 'Cantidad', 'Unidad', 'H. Inicio', 'H. Fin', 'Duración', 'Vlr. Unitario', 'Vlr. Total']];
             const detailBody = liquidationData.map(row => [
                 format(new Date(row.fecha), 'MMMM', { locale: es }),
                 format(new Date(row.fecha), 'dd/MM/yy'),
                 row.pedidoSislog,
+                row.contenedor,
+                row.placa,
                 row.cliente,
                 row.conceptoLiquidado,
                 row.cantidadConcepto === -1 ? 'Pendiente' : row.cantidadConcepto.toFixed(2),
+                row.unidadMedidaConcepto,
+                row.horaInicio,
+                row.horaFin,
+                formatDuration(row.totalDurationMinutes),
                 row.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 }),
                 row.valorTotalConcepto.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
             ]);
@@ -770,7 +802,8 @@ export default function CrewPerformanceReportPage() {
                 head: detailHead,
                 body: detailBody,
                 theme: 'grid',
-                styles: { fontSize: 8 }
+                styles: { fontSize: 7, cellPadding: 1 },
+                headStyles: { fillColor: [33, 150, 243] }
             });
             
             const lastTableY = (doc as any).lastAutoTable.finalY;
@@ -778,7 +811,7 @@ export default function CrewPerformanceReportPage() {
                 startY: lastTableY + 10,
                 head: [['Resumen de Conceptos Liquidados']],
                 theme: 'grid',
-                headStyles: { fontStyle: 'bold', halign: 'center' }
+                headStyles: { fontStyle: 'bold', halign: 'center', fillColor: [33, 150, 243] }
             });
             
             const summaryHead = [['Item', 'Concepto', 'Total Cantidad', 'Vlr. Unitario', 'Vlr. Total']];
@@ -800,7 +833,8 @@ export default function CrewPerformanceReportPage() {
                 body: summaryBody,
                 foot: summaryFoot,
                 theme: 'grid',
-                styles: { fontSize: 8 }
+                styles: { fontSize: 8 },
+                headStyles: { fillColor: [33, 150, 243] }
             });
         }
     
@@ -1433,4 +1467,5 @@ function NoveltySelectorDialog({
 
     
     
+
 
