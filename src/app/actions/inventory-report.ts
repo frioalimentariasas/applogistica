@@ -5,7 +5,7 @@
 import admin from 'firebase-admin';
 import { firestore } from '@/lib/firebase-admin';
 import * as ExcelJS from 'exceljs';
-import { format, parse } from 'date-fns';
+import { format, parse, startOfDay } from 'date-fns';
 
 interface InventoryRow {
   PROPIETARIO: string;
@@ -33,12 +33,16 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
         let worksheet: ExcelJS.Worksheet;
 
         if (file.name.toLowerCase().endsWith('.csv')) {
-            // For CSV, we read it and convert it into a worksheet manually
-            // This avoids stream-related issues in serverless environments
-            worksheet = await workbook.csv.read(Buffer.from(buffer));
-
+            const tempWb = new ExcelJS.Workbook();
+            const ws = await tempWb.csv.read(Buffer.from(buffer));
+            worksheet = workbook.addWorksheet('Sheet1');
+            ws.eachRow((row, rowNumber) => {
+                const newRow = worksheet.getRow(rowNumber);
+                row.values.forEach((value, colNumber) => {
+                    newRow.getCell(colNumber).value = value;
+                });
+            });
         } else {
-            // For XLSX and XLS, we load the workbook from the buffer
             await workbook.xlsx.load(buffer);
             worksheet = workbook.worksheets[0];
         }
@@ -48,11 +52,9 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
         const headerRow = worksheet.getRow(1);
         headerRow.eachCell((cell) => {
             const cellValue = cell.value;
-            // Ensure we handle various cell types, defaulting to a string representation
             if (cellValue === null || cellValue === undefined) {
                 headers.push('');
             } else if (typeof cellValue === 'object' && cellValue !== null && 'richText' in cellValue) {
-                // Handle rich text by concatenating text parts
                 headers.push((cellValue as ExcelJS.RichText).richText.map(t => t.text).join(''));
             } else {
                 headers.push(String(cellValue));
@@ -120,10 +122,12 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
                 throw new Error(`No se pudo interpretar el formato de la fecha "${dateValue}".`);
             }
         } else if (typeof dateValue === 'number') {
+             // Handle Excel date number. Excel stores dates as days since 1900-01-01.
+             // Javascript's epoch is 1970-01-01. The difference is 25569 days (including the 1900 leap year bug).
             const jsDate = new Date(Math.round((dateValue - 25569) * 86400 * 1000));
-            jsDate.setMinutes(jsDate.getMinutes() + jsDate.getTimezoneOffset());
-            reportDate = jsDate;
-
+            // This date is in UTC. We want to treat it as local to avoid timezone shifts.
+            const localDate = new Date(jsDate.getUTCFullYear(), jsDate.getUTCMonth(), jsDate.getUTCDate());
+            reportDate = localDate;
             if (isNaN(reportDate.getTime())) {
                 throw new Error(`El número de fecha de Excel "${dateValue}" no es válido.`);
             }
@@ -131,7 +135,9 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
             throw new Error(`El formato de la columna "FECHA" (${typeof dateValue}) no es reconocido.`);
         }
         
-        const reportDateStr = format(reportDate, 'yyyy-MM-dd');
+        // Use startOfDay to remove any time component and avoid timezone issues
+        const finalReportDate = startOfDay(reportDate);
+        const reportDateStr = format(finalReportDate, 'yyyy-MM-dd');
 
         const serializableData = data.map(row => {
             const newRow: any = {};
@@ -139,14 +145,13 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
                 if (row[key as keyof typeof row] instanceof Date) {
                     newRow[key] = (row[key as keyof typeof row] as Date).toISOString();
                 } else if (typeof row[key as keyof typeof row] === 'object' && row[key as keyof typeof row] !== null) {
-                    // Handle ExcelJS specific objects like rich text or formulas
                     const cellValue = row[key as keyof typeof row];
                     if ('result' in cellValue) {
-                        newRow[key] = cellValue.result; // Use formula result
+                        newRow[key] = cellValue.result;
                     } else if ('richText' in cellValue) {
                          newRow[key] = (cellValue as ExcelJS.RichText).richText.map((t: any) => t.text).join('');
                     } else {
-                         newRow[key] = JSON.stringify(cellValue); // Fallback for other objects
+                         newRow[key] = JSON.stringify(cellValue);
                     }
                 }
                 else {
