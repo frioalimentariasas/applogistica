@@ -9,6 +9,7 @@ import { format, parseISO, startOfDay, endOfDay } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 import { searchSubmissions, SubmissionResult, SearchCriteria, deleteSubmission } from '@/app/actions/consultar-formatos';
+import { changeFormType } from '@/app/actions/change-form-type';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import type { ClientInfo } from '@/app/actions/clients';
@@ -24,7 +25,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
-import { ArrowLeft, Search, XCircle, Loader2, FileSearch, Eye, Edit, Trash2, CalendarIcon, FolderSearch, ChevronsUpDown } from 'lucide-react';
+import { ArrowLeft, Search, XCircle, Loader2, FileSearch, Eye, Edit, Trash2, CalendarIcon, FolderSearch, ChevronsUpDown, Replace } from 'lucide-react';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -99,6 +100,9 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
     const [isDeleting, setIsDeleting] = useState(false);
     const [searched, setSearched] = useState(false);
     const [submissionToDelete, setSubmissionToDelete] = useState<SubmissionResult | null>(null);
+    const [submissionToChangeType, setSubmissionToChangeType] = useState<SubmissionResult | null>(null);
+    const [isChangingType, setIsChangingType] = useState(false);
+
     const [isClientDialogOpen, setClientDialogOpen] = useState(false);
     const [clientSearch, setClientSearch] = useState("");
     const [pedidoTypes, setPedidoTypes] = useState<PedidoType[]>([]);
@@ -248,6 +252,35 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
         } finally {
             setIsDeleting(false);
             setSubmissionToDelete(null);
+        }
+    };
+    
+    const handleConfirmChangeType = async () => {
+        if (!submissionToChangeType) return;
+        setIsChangingType(true);
+        try {
+            const result = await changeFormType(submissionToChangeType.id);
+            if (result.success) {
+                toast({ title: 'Éxito', description: result.message });
+                // Optimistically update the UI
+                setResults(prev => prev.map(sub => {
+                    if (sub.id === submissionToChangeType.id) {
+                        const newFormType = sub.formType.includes('recepcion') ? sub.formType.replace('recepcion', 'despacho')
+                                        : sub.formType.includes('reception') ? sub.formType.replace('reception', 'despacho')
+                                        : sub.formType.replace('despacho', 'recepcion');
+                        return { ...sub, formType: newFormType };
+                    }
+                    return sub;
+                }));
+            } else {
+                throw new Error(result.message);
+            }
+        } catch (error) {
+             const errorMessage = error instanceof Error ? error.message : "Ocurrió un error desconocido.";
+            toast({ variant: 'destructive', title: 'Error al cambiar tipo', description: errorMessage });
+        } finally {
+            setIsChangingType(false);
+            setSubmissionToChangeType(null);
         }
     };
     
@@ -553,17 +586,28 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
                                                             </Tooltip>
                                                             
                                                             {permissions.canEditForms && (
-                                                                <Tooltip>
-                                                                    <TooltipTrigger asChild>
-                                                                        <Button asChild variant="ghost" size="icon">
-                                                                            <Link href={getEditUrl(sub)}>
-                                                                                <Edit className="h-4 w-4 text-blue-600" />
-                                                                                <span className="sr-only">Editar</span>
-                                                                            </Link>
-                                                                        </Button>
-                                                                    </TooltipTrigger>
-                                                                    <TooltipContent><p>Editar Formulario</p></TooltipContent>
-                                                                </Tooltip>
+                                                                <>
+                                                                    <Tooltip>
+                                                                        <TooltipTrigger asChild>
+                                                                            <Button asChild variant="ghost" size="icon">
+                                                                                <Link href={getEditUrl(sub)}>
+                                                                                    <Edit className="h-4 w-4 text-blue-600" />
+                                                                                    <span className="sr-only">Editar</span>
+                                                                                </Link>
+                                                                            </Button>
+                                                                        </TooltipTrigger>
+                                                                        <TooltipContent><p>Editar Formulario</p></TooltipContent>
+                                                                    </Tooltip>
+                                                                    <Tooltip>
+                                                                        <TooltipTrigger asChild>
+                                                                            <Button variant="ghost" size="icon" onClick={() => setSubmissionToChangeType(sub)}>
+                                                                                <Replace className="h-4 w-4 text-orange-600" />
+                                                                                <span className="sr-only">Cambiar Tipo</span>
+                                                                            </Button>
+                                                                        </TooltipTrigger>
+                                                                        <TooltipContent><p>Cambiar Tipo Operación</p></TooltipContent>
+                                                                    </Tooltip>
+                                                                </>
                                                             )}
 
                                                             {permissions.canDeleteForms && (
@@ -609,6 +653,32 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
                     >
                         {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                         Eliminar
+                    </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+            
+            <AlertDialog open={!!submissionToChangeType} onOpenChange={(open) => !open && setSubmissionToChangeType(null)}>
+                <AlertDialogContent>
+                    <AlertDialogHeader>
+                    <AlertDialogTitle>¿Confirmar cambio de tipo de operación?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                        El tipo de operación para el pedido <strong>{submissionToChangeType?.formData.pedidoSislog}</strong> se cambiará de 
+                        <span className="font-semibold text-destructive"> {getOperationTypeName(submissionToChangeType?.formType || '')} </span> a 
+                        <span className="font-semibold text-green-600"> {getOperationTypeName(submissionToChangeType?.formType || '').includes('Recepción') ? 'Despacho' : 'Recepción'}</span>.
+                        <br/><br/>
+                        Esta acción no se puede deshacer. ¿Desea continuar?
+                    </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <AlertDialogFooter>
+                    <AlertDialogCancel onClick={() => setSubmissionToChangeType(null)}>Cancelar</AlertDialogCancel>
+                    <AlertDialogAction 
+                        onClick={handleConfirmChangeType} 
+                        disabled={isChangingType}
+                        className="bg-primary hover:bg-primary/90"
+                    >
+                        {isChangingType ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                        Sí, Cambiar Tipo
                     </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>
