@@ -546,10 +546,11 @@ export default function CrewPerformanceReportPage() {
     
         if (type === 'productivity') {
             const wsProd = workbook.addWorksheet('Productividad');
+            
             wsProd.addRow(['Informe de Productividad de Cuadrilla']).getCell(1).style = titleStyle;
-            wsProd.mergeCells('A1:Q1');
+            wsProd.mergeCells(1, 1, 1, 17);
             wsProd.addRow([periodText]).getCell(1).style = subtitleStyle;
-            wsProd.mergeCells('A2:Q2');
+            wsProd.mergeCells(2, 1, 2, 17);
             wsProd.addRow([]);
 
             const prodHeaders = ['Fecha Op.', 'Fecha Creación', 'Operario', 'Cliente', 'Tipo Op.', 'Tipo Prod.', 'Pedido', 'No. Contenedor', 'Placa', 'Concepto', 'Hora Inicio', 'Hora Fin', 'Cant.', 'Dur. Total', 'T. Operativo', 'Novedades', 'Productividad'];
@@ -581,19 +582,44 @@ export default function CrewPerformanceReportPage() {
                     cantCell.numFmt = '#,##0.00';
                 }
             });
+
+            if (performanceSummary) {
+                wsProd.addRow([]);
+                const summaryTitleRow = wsProd.addRow(['Resumen de Productividad']);
+                summaryTitleRow.getCell(1).style = { font: { bold: true, size: 12 }};
+                wsProd.mergeCells(wsProd.rowCount, 1, wsProd.rowCount, 3);
+                const summaryHeader = wsProd.addRow(['Indicador', 'Cantidad', 'Porcentaje']);
+                summaryHeader.font = { bold: true };
+                
+                Object.entries(performanceSummary.summary).forEach(([key, value]) => {
+                    const isEvaluable = key === 'Óptimo' || key === 'Normal' || key === 'Lento';
+                    if (isEvaluable && value.count > 0) {
+                        const percent = performanceSummary.totalEvaluable > 0 ? value.count / performanceSummary.totalEvaluable : 0;
+                        const row = wsProd.addRow([key, value.count, percent]);
+                        row.getCell(3).numFmt = '0.00%';
+                    }
+                });
+
+                const totalEvaluableRow = wsProd.addRow(['Total Evaluables:', performanceSummary.totalEvaluable]);
+                totalEvaluableRow.font = { bold: true };
+
+                wsProd.addRow([]);
+                const qualificationRow = wsProd.addRow(['Calificación General:', performanceSummary.qualification]);
+                qualificationRow.font = { bold: true, color: { argb: 'FF005A9E' }, size: 12 };
+            }
             
-             wsProd.columns.forEach(column => {
+            wsProd.columns.forEach((column, i) => {
                 let maxLength = 0;
                 column.eachCell({ includeEmpty: true }, (cell, rowNumber) => {
-                    if(rowNumber > 3) { // Skip title rows
-                         let columnLength = cell.value ? cell.value.toString().length : 10;
+                    if(rowNumber > 3) {
+                         const columnLength = cell.value ? cell.value.toString().length : 10;
                          if (columnLength > maxLength) {
                             maxLength = columnLength;
                          }
                     }
                 });
-                const headerLength = column.header?.length || 10;
-                column.width = Math.max(headerLength, maxLength) + 2;
+                const headerLength = prodHeaders[i]?.length || 10;
+                column.width = Math.max(headerLength, maxLength) + 4;
             });
     
         } else if (type === 'settlement') {
@@ -604,9 +630,9 @@ export default function CrewPerformanceReportPage() {
     
             const wsLiq = workbook.addWorksheet('Liquidacion_Cuadrilla');
             wsLiq.addRow(['Detalle Liquidación Cuadrilla']).getCell(1).style = titleStyle;
-            wsLiq.mergeCells('A1:N1');
+            wsLiq.mergeCells(1, 1, 1, 14);
             wsLiq.addRow([periodText]).getCell(1).style = subtitleStyle;
-            wsLiq.mergeCells('A2:N2');
+            wsLiq.mergeCells(2, 1, 2, 14);
             wsLiq.addRow([]);
 
             const liqHeaders = ['Mes', 'Fecha Op.', 'Pedido', 'Contenedor', 'Placa', 'Cliente', 'Concepto', 'Cantidad', 'Unidad', 'H. Inicio', 'H. Fin', 'Duración', 'Vlr. Unitario', 'Vlr. Total'];
@@ -633,21 +659,22 @@ export default function CrewPerformanceReportPage() {
                 ]);
     
                 if (!isPending) {
-                     newRow.getCell(8).numFmt = '#,##0.00'; // Cantidad
-                     newRow.getCell(13).numFmt = '$ #,##0.00'; // Vlr. Unitario
-                     newRow.getCell(14).numFmt = '$ #,##0.00'; // Vlr. Total
+                     newRow.getCell(8).numFmt = '#,##0.00';
+                     newRow.getCell(13).numFmt = '$ #,##0.00';
+                     newRow.getCell(14).numFmt = '$ #,##0.00';
                 }
             });
     
             wsLiq.addRow([]);
-            const totalLiqRow = wsLiq.addRow(['', '', '', '', '', '', '', '', '', '', '', '', 'TOTAL GENERAL:']);
+            const totalLiqRow = wsLiq.addRow([]);
+            totalLiqRow.getCell(13).value = 'TOTAL GENERAL:';
             totalLiqRow.getCell(13).style = { font: { bold: true }, alignment: { horizontal: 'right' } };
             const totalLiqValueCell = totalLiqRow.getCell(14);
             totalLiqValueCell.value = totalLiquidacion;
             totalLiqValueCell.numFmt = '$ #,##0.00';
             totalLiqValueCell.style.font = { bold: true };
             
-            wsLiq.columns.forEach(column => {
+            wsLiq.columns.forEach((column, i) => {
                  let maxLength = 0;
                 column.eachCell({ includeEmpty: true }, cell => {
                     let cellLength = cell.value ? cell.value.toString().length : 10;
@@ -658,15 +685,15 @@ export default function CrewPerformanceReportPage() {
                         maxLength = cellLength;
                     }
                 });
-                column.width = Math.max(column.header?.length || 10, maxLength) + 2;
+                column.width = Math.max(liqHeaders[i]?.length || 10, maxLength) + 4;
             });
             
             if (conceptSummary) {
                 const wsSumCon = workbook.addWorksheet('Resumen_Conceptos');
                 wsSumCon.addRow(['Resumen de Conceptos Liquidados']).getCell(1).style = titleStyle;
-                wsSumCon.mergeCells('A1:F1');
+                wsSumCon.mergeCells(1, 1, 1, 6);
                 wsSumCon.addRow([periodText]).getCell(1).style = subtitleStyle;
-                wsSumCon.mergeCells('A2:F2');
+                wsSumCon.mergeCells(2, 1, 2, 6);
                 wsSumCon.addRow([]);
     
                 const conceptHeaderRow = wsSumCon.addRow(['Item', 'Concepto', 'Total Cantidad', 'Unidad Medida', 'Vlr. Unitario', 'Vlr. Total']);
@@ -687,14 +714,16 @@ export default function CrewPerformanceReportPage() {
                 });
                 
                 wsSumCon.addRow([]);
-                const totalSumRow = wsSumCon.addRow(['', '', '', '', 'TOTAL GENERAL:']);
+                const totalSumRow = wsSumCon.addRow([]);
+                totalSumRow.getCell(5).value = 'TOTAL GENERAL:';
                 totalSumRow.getCell(5).style = { font: { bold: true }, alignment: { horizontal: 'right' } };
                 const totalSumValueCell = totalSumRow.getCell(6);
                 totalSumValueCell.value = totalLiquidacion;
                 totalSumValueCell.numFmt = '$ #,##0.00';
                 totalSumValueCell.style.font = { bold: true };
                 
-                wsSumCon.columns.forEach(column => {
+                wsSumCon.columns.forEach((column, i) => {
+                    const headers = ['Item', 'Concepto', 'Total Cantidad', 'Unidad Medida', 'Vlr. Unitario', 'Vlr. Total'];
                     let maxLength = 0;
                     column.eachCell({ includeEmpty: true }, cell => {
                          let cellLength = cell.value ? cell.value.toString().length : 10;
@@ -705,7 +734,7 @@ export default function CrewPerformanceReportPage() {
                             maxLength = cellLength;
                         }
                     });
-                    column.width = Math.max(column.header?.length || 10, maxLength) + 2;
+                    column.width = Math.max(headers[i]?.length || 10, maxLength) + 4;
                 });
             }
         }
@@ -769,6 +798,29 @@ export default function CrewPerformanceReportPage() {
                  ];
             });
             autoTable(doc, { startY: 45, head, body, theme: 'grid', styles: { fontSize: 6, cellPadding: 1 }, headStyles: { fillColor: [33, 150, 243] }, columnStyles: { 3: { cellWidth: 30 }, 15: {cellWidth: 30} } });
+
+            if (performanceSummary) {
+                const summaryBody = Object.entries(performanceSummary.summary)
+                    .filter(([key, value]) => (key === 'Óptimo' || key === 'Normal' || key === 'Lento') && value.count > 0)
+                    .map(([key, value]) => {
+                        const percent = performanceSummary.totalEvaluable > 0 ? (value.count / performanceSummary.totalEvaluable) * 100 : 0;
+                        return [key, value.count, `${percent.toFixed(2)} %`];
+                    });
+                
+                autoTable(doc, {
+                    startY: (doc as any).lastAutoTable.finalY + 10,
+                    head: [['Indicador', 'Cantidad', 'Porcentaje']],
+                    body: summaryBody,
+                    foot: [
+                        ['Total Evaluables:', performanceSummary.totalEvaluable, ''],
+                        ['Calificación General:', performanceSummary.qualification, '']
+                    ],
+                    theme: 'grid',
+                    headStyles: { fillColor: [33, 150, 243] },
+                    footStyles: { fontStyle: 'bold' }
+                });
+            }
+
 
         } else if (type === 'settlement') {
             if (liquidationData.length === 0 || !conceptSummary) {
@@ -1467,5 +1519,6 @@ function NoveltySelectorDialog({
 
     
     
+
 
 
