@@ -609,14 +609,8 @@ export default function CrewPerformanceReportPage() {
             }
             
             wsProd.columns.forEach(column => {
-                let maxLength = 0;
-                column.eachCell({ includeEmpty: true }, cell => {
-                    const columnLength = cell.value ? cell.value.toString().length : 10;
-                    if (columnLength > maxLength) {
-                        maxLength = columnLength;
-                    }
-                });
-                column.width = maxLength < 10 ? 12 : maxLength + 2;
+                column.width = 15; // Default width
+                column.bestFitWidth = 1;
             });
     
         } else if (type === 'settlement') {
@@ -672,7 +666,7 @@ export default function CrewPerformanceReportPage() {
             totalLiqValueCell.style.font = { bold: true };
             
             wsLiq.columns.forEach(column => {
-                column.width = 15; // A reasonable default
+                column.width = 15;
                 column.bestFitWidth = 1;
             });
             
@@ -711,7 +705,7 @@ export default function CrewPerformanceReportPage() {
                 totalSumValueCell.style.font = { bold: true };
                 
                 wsSumCon.columns.forEach(column => {
-                    column.width = 20; // A reasonable default
+                    column.width = 20;
                     column.bestFitWidth = 1;
                 });
             }
@@ -1497,6 +1491,7 @@ function NoveltySelectorDialog({
 
     
     
+
 
 
 
