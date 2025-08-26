@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import admin from 'firebase-admin';
@@ -28,20 +29,27 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
     try {
         const buffer = await file.arrayBuffer();
         const workbook = new ExcelJS.Workbook();
-        await workbook.xlsx.load(buffer);
-        const worksheet = workbook.worksheets[0];
+
+        let worksheet: ExcelJS.Worksheet;
+
+        if (file.name.toLowerCase().endsWith('.csv')) {
+            worksheet = await workbook.csv.read(Buffer.from(buffer));
+        } else {
+            await workbook.xlsx.load(buffer);
+            worksheet = workbook.worksheets[0];
+        }
         
         const data: InventoryRow[] = [];
-        const headers: string[] = [];
+        const headers: (string | null)[] = [];
         const headerRow = worksheet.getRow(1);
         headerRow.eachCell((cell) => {
             const cellValue = cell.value;
             // Ensure we handle various cell types, defaulting to a string representation
             if (cellValue === null || cellValue === undefined) {
                 headers.push('');
-            } else if (typeof cellValue === 'object' && 'richText' in cellValue) {
+            } else if (typeof cellValue === 'object' && cellValue !== null && 'richText' in cellValue) {
                 // Handle rich text by concatenating text parts
-                headers.push(cellValue.richText.map(t => t.text).join(''));
+                headers.push((cellValue as ExcelJS.RichText).richText.map(t => t.text).join(''));
             } else {
                 headers.push(String(cellValue));
             }
@@ -132,7 +140,7 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
                     if ('result' in cellValue) {
                         newRow[key] = cellValue.result; // Use formula result
                     } else if ('richText' in cellValue) {
-                         newRow[key] = cellValue.richText.map((t: any) => t.text).join('');
+                         newRow[key] = (cellValue as ExcelJS.RichText).richText.map((t: any) => t.text).join('');
                     } else {
                          newRow[key] = JSON.stringify(cellValue); // Fallback for other objects
                     }
