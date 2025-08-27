@@ -39,23 +39,21 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
             const worksheet = await workbook.csv.read(stream);
 
             let headers: string[] = [];
-            // For CSV, the first row is read and used as headers
             const headerRow = worksheet.getRow(1);
             if (headerRow) {
                 headerRow.eachCell({ includeEmpty: true }, (cell) => {
+                    // Trim the header to remove any leading/trailing whitespace
                     headers.push(cell.value ? cell.value.toString().trim() : '');
                 });
             }
             
-            // Remove empty string headers that might result from trailing commas
             headers = headers.filter(h => h);
 
             worksheet.eachRow((row, rowNumber) => {
-                if (rowNumber > 1) { // Skip header row
+                if (rowNumber > 1) { 
                     const rowData: any = {};
                     const values = row.values as any[];
                     
-                    // The 'values' array from exceljs for CSVs is sparse and starts at index 1.
                     headers.forEach((header, index) => {
                          rowData[header] = values[index + 1];
                     });
@@ -70,11 +68,12 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
             const headerRow = worksheet.getRow(1);
 
             headerRow.eachCell({ includeEmpty: true }, (cell) => {
+                // Trim the header to remove any leading/trailing whitespace
                 headers.push(cell.value ? cell.value.toString().trim() : '');
             });
 
             worksheet.eachRow((row, rowNumber) => {
-                if (rowNumber > 1) { // Skip header row
+                if (rowNumber > 1) {
                     const rowData: any = {};
                     row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
                         const headerName = headers[colNumber - 1];
