@@ -50,9 +50,10 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
 
             for (let i = 1; i < rows.length; i++) {
                 const rowData: any = {};
-                const rowValues = (rows[i] as any[]).slice(1);
+                const rowValues = rows[i] as any[]; // No slice, read the full row
                 headers.forEach((header, index) => {
-                    rowData[header] = rowValues[index];
+                    // Adjust index because rowValues is not sliced and includes the empty placeholder at the beginning
+                    rowData[header] = rowValues[index + 1];
                 });
                 data.push(rowData);
             }
