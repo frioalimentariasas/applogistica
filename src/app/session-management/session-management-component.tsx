@@ -79,7 +79,7 @@ const permissionLabels: { key: keyof AppPermissions; label: string }[] = [
     { key: 'canViewBillingReports', label: 'Informes para Facturación' },
     { key: 'canViewPerformanceReport', label: 'Informe Productividad Operarios Frio Alimentaria' },
     { key: 'canViewCrewPerformanceReport', label: 'Informe de Productividad y Liquidación Cuadrilla' },
-    { key: 'canManageManualOperations', label: 'Registro de Operaciones Manuales' },
+    { key: 'canManageManualOperations', label: 'Registro de Operaciones Manuales Cuadrilla' },
     { key: 'canViewSpecialReports', label: 'Relación de Formatos por Concepto de Liquidación' },
     { key: 'canManageClients', label: 'Gestión de Clientes' },
     { key: 'canManageArticles', label: 'Gestión de Artículos' },
@@ -639,4 +639,3 @@ export default function SessionManagementComponent() {
         </div>
     )
 }
-

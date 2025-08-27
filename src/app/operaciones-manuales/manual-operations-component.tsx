@@ -240,7 +240,7 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
                         <div>
                             <div className="flex items-center justify-center gap-2">
                                 <Edit className="h-8 w-8 text-primary" />
-                                <h1 className="text-2xl font-bold text-primary">Registro de Operaciones Manuales</h1>
+                                <h1 className="text-2xl font-bold text-primary">Registro de Operaciones Manuales Cuadrilla</h1>
                             </div>
                              <p className="text-sm text-gray-500">Agregue, edite o elimine operaciones manuales.</p>
                         </div>
@@ -411,4 +411,3 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
         </div>
     );
 }
-

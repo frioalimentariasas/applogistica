@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -95,7 +94,7 @@ export default function Home() {
     { label: 'Informes para Facturación', href: '/billing-reports', icon: BookCopy, permission: 'canViewBillingReports' },
     { label: 'Informe Productividad Operarios Frio Alimentaria', href: '/performance-report', icon: Timer, permission: 'canViewPerformanceReport' },
     { label: 'Informe de Productividad y Liquidación Cuadrilla', href: '/crew-performance-report', icon: TrendingUp, permission: 'canViewCrewPerformanceReport' },
-    { label: 'Registro de Operaciones Manuales', href: '/operaciones-manuales', icon: Edit, permission: 'canManageManualOperations' },
+    { label: 'Registro de Operaciones Manuales Cuadrilla', href: '/operaciones-manuales', icon: Edit, permission: 'canManageManualOperations' },
     { label: 'Relación de Formatos por Concepto de Liquidación', href: '/reportes-especiales', icon: FileSpreadsheet, permission: 'canViewSpecialReports' },
     { label: 'Gestión de Novedades', href: '/gestion-novedades', icon: ListPlus, permission: 'canManageNovelties' },
     { label: 'Gestión de Tipos de Pedido', href: '/gestion-tipos-pedido', icon: ListTodo, permission: 'canManageOrderTypes' },
@@ -234,4 +233,3 @@ export default function Home() {
     </div>
   );
 }
-
