@@ -6,6 +6,8 @@ import admin from 'firebase-admin';
 import { firestore } from '@/lib/firebase-admin';
 import * as ExcelJS from 'exceljs';
 import { format, parse, startOfDay } from 'date-fns';
+import { Readable } from 'stream';
+
 
 interface InventoryRow {
   PROPIETARIO: string;
@@ -34,7 +36,9 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
         const fileExtension = file.name.split('.').pop()?.toLowerCase();
 
         if (fileExtension === 'csv') {
-            const worksheet = await workbook.csv.load(buffer);
+            const stream = Readable.from(Buffer.from(buffer));
+            const worksheet = await workbook.csv.read(stream);
+
             const rows: any[] = [];
             worksheet.eachRow((row) => rows.push(row.values));
             
@@ -42,13 +46,10 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
                 return { success: false, message: 'El archivo CSV debe tener al menos una fila de encabezado y una de datos.', errors: [] };
             }
             
-            // The first row is just an array of values, sometimes with an empty value at the start.
-            // We clean it up to get the headers.
             const headers = (rows[0] as any[]).filter(h => h).map(h => h.toString().trim());
 
             for (let i = 1; i < rows.length; i++) {
                 const rowData: any = {};
-                // The values array from eachRow can have an extra undefined/null at the beginning, so we slice it.
                 const rowValues = (rows[i] as any[]).slice(1);
                 headers.forEach((header, index) => {
                     rowData[header] = rowValues[index];
