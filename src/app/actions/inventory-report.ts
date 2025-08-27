@@ -29,49 +29,58 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
     try {
         const buffer = await file.arrayBuffer();
         const workbook = new ExcelJS.Workbook();
-        let worksheet: ExcelJS.Worksheet;
-
+        let data: InventoryRow[] = [];
+        
         const fileExtension = file.name.split('.').pop()?.toLowerCase();
 
         if (fileExtension === 'csv') {
-            // Use the correct method to read from a buffer for CSV
-            const csvWorksheet = await workbook.csv.read(Buffer.from(buffer));
-            worksheet = csvWorksheet;
+            const worksheet = await workbook.csv.read(Buffer.from(buffer));
+            const rows: any[] = [];
+            worksheet.eachRow((row) => rows.push(row.values));
+            
+            if (rows.length < 2) {
+                return { success: false, message: 'El archivo CSV debe tener al menos una fila de encabezado y una de datos.', errors: [] };
+            }
+            
+            // The first row is just an array of values, sometimes with an empty value at the start.
+            // We clean it up to get the headers.
+            const headers = (rows[0] as any[]).filter(h => h).map(h => h.toString().trim());
+
+            for (let i = 1; i < rows.length; i++) {
+                const rowData: any = {};
+                // The values array from eachRow can have an extra undefined/null at the beginning, so we slice it.
+                const rowValues = (rows[i] as any[]).slice(1);
+                headers.forEach((header, index) => {
+                    rowData[header] = rowValues[index];
+                });
+                data.push(rowData);
+            }
         } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
             await workbook.xlsx.load(buffer);
-            worksheet = workbook.worksheets[0];
+            const worksheet = workbook.worksheets[0];
+            const headers: string[] = [];
+            const headerRow = worksheet.getRow(1);
+
+            headerRow.eachCell({ includeEmpty: true }, (cell) => {
+                headers.push(cell.value ? cell.value.toString().trim() : '');
+            });
+
+            worksheet.eachRow((row, rowNumber) => {
+                if (rowNumber > 1) { // Skip header row
+                    const rowData: any = {};
+                    row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+                        const headerName = headers[colNumber - 1];
+                        if (headerName) {
+                           rowData[headerName] = cell.value;
+                        }
+                    });
+                    data.push(rowData);
+                }
+            });
         } else {
             return { success: false, message: `Formato de archivo no soportado: .${fileExtension}`, errors: [] };
         }
         
-        const data: InventoryRow[] = [];
-        const headers: (string | null)[] = [];
-        const headerRow = worksheet.getRow(1);
-        if (!headerRow || headerRow.cellCount === 0) {
-            return { success: false, message: 'El archivo parece estar vacío o no tiene encabezados.', errors: [] };
-        }
-        headerRow.eachCell({ includeEmpty: true }, (cell) => {
-            if (cell.value) {
-                headers.push(cell.value.toString().trim());
-            } else {
-                headers.push('');
-            }
-        });
-
-        worksheet.eachRow((row, rowNumber) => {
-            if (rowNumber > 1) { // Skip header row
-                const rowData: any = {};
-                row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
-                    const headerName = headers[colNumber - 1];
-                    if (headerName) {
-                       rowData[headerName] = cell.value;
-                    }
-                });
-                data.push(rowData);
-            }
-        });
-
-
         if (data.length === 0) {
             throw new Error(`El archivo está vacío o no tiene el formato correcto.`);
         }
@@ -486,3 +495,4 @@ export async function getDetailedInventoryForExport(
 }
     
     
+

@@ -643,6 +643,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         setUploadProgress(0);
         setTotalFiles(files.length);
         let filesWithErrors = 0;
+        let errorMessages: string[] = [];
         
         for (let i = 0; i < files.length; i++) {
             const file = files[i];
@@ -654,22 +655,12 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 const result = await uploadInventoryCsv(singleFileFormData);
                 if (!result.success) {
                     filesWithErrors++;
-                    toast({
-                        variant: 'destructive',
-                        title: `Error al procesar "${file.name}"`,
-                        description: result.message || 'Ocurrió un error inesperado.',
-                        duration: 7000,
-                    });
+                    errorMessages.push(`Error en "${file.name}": ${result.message}`);
                 }
             } catch (error) {
                 filesWithErrors++;
                 const errorMessage = error instanceof Error ? error.message : "Error inesperado en el cliente.";
-                toast({
-                    variant: 'destructive',
-                    title: `Error crítico al procesar "${file.name}"`,
-                    description: errorMessage,
-                    duration: 7000,
-                });
+                errorMessages.push(`Error crítico en "${file.name}": ${errorMessage}`);
             }
             
             const newProgress = ((i + 1) / files.length) * 100
@@ -680,8 +671,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
              toast({
                 variant: 'destructive',
                 title: 'Proceso de Carga Completado con Errores',
-                description: `${filesWithErrors} de ${files.length} archivo(s) no pudieron ser procesados.`,
-                duration: 7000,
+                description: `${filesWithErrors} de ${files.length} archivo(s) no pudieron ser procesados. ${errorMessages.join('. ')}`,
+                duration: 9000,
             });
         } else {
             toast({
@@ -2133,3 +2124,4 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 }
 
     
+
