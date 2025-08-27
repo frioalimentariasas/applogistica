@@ -34,7 +34,7 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
         const fileExtension = file.name.split('.').pop()?.toLowerCase();
 
         if (fileExtension === 'csv') {
-            const worksheet = await workbook.csv.read(Buffer.from(buffer));
+            const worksheet = await workbook.csv.load(buffer);
             const rows: any[] = [];
             worksheet.eachRow((row) => rows.push(row.values));
             
@@ -495,4 +495,3 @@ export async function getDetailedInventoryForExport(
 }
     
     
-
