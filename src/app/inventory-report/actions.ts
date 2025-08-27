@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import admin from 'firebase-admin';
@@ -431,7 +432,11 @@ export async function getDetailedInventoryForExport(
                 for (const key in row) {
                     if (row[key] instanceof Date) {
                         newRow[key] = format(row[key], 'dd/MM/yyyy');
-                    } else {
+                    } else if (row[key] && typeof row[key] === 'object' && 'toDate' in row[key]) {
+                        // Handle Firestore Timestamp
+                        newRow[key] = format(row[key].toDate(), 'dd/MM/yyyy');
+                    }
+                    else {
                         newRow[key] = row[key];
                     }
                 }
@@ -448,3 +453,8 @@ export async function getDetailedInventoryForExport(
         throw new Error('No se pudo generar el reporte de inventario detallado.');
     }
 }
+    
+    
+
+    
+

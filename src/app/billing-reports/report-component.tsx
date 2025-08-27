@@ -643,7 +643,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         setUploadProgress(0);
         setTotalFiles(files.length);
         let filesWithErrors = 0;
-        let errorMessages: string[] = [];
+        const errorMessages: string[] = [];
         
         for (let i = 0; i < files.length; i++) {
             const file = files[i];
@@ -671,7 +671,16 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
              toast({
                 variant: 'destructive',
                 title: 'Proceso de Carga Completado con Errores',
-                description: `${filesWithErrors} de ${files.length} archivo(s) no pudieron ser procesados. ${errorMessages.join('. ')}`,
+                description: (
+                    <div className="flex flex-col gap-2">
+                        <span>{filesWithErrors} de {files.length} archivo(s) no pudieron ser procesados.</span>
+                        <ScrollArea className="max-h-20">
+                            <ul className="list-disc pl-4 text-xs">
+                                {errorMessages.map((msg, idx) => <li key={idx}>{msg}</li>)}
+                            </ul>
+                        </ScrollArea>
+                    </div>
+                ),
                 duration: 9000,
             });
         } else {
@@ -2124,4 +2133,5 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 }
 
     
+
 

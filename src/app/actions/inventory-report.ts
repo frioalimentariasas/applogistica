@@ -5,8 +5,8 @@
 import admin from 'firebase-admin';
 import { firestore } from '@/lib/firebase-admin';
 import * as ExcelJS from 'exceljs';
+import Papa from 'papaparse';
 import { format, parse, startOfDay } from 'date-fns';
-import { Readable } from 'stream';
 
 
 interface InventoryRow {
@@ -30,43 +30,30 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
 
     try {
         const buffer = await file.arrayBuffer();
-        const workbook = new ExcelJS.Workbook();
         let data: InventoryRow[] = [];
-        
         const fileExtension = file.name.split('.').pop()?.toLowerCase();
 
         if (fileExtension === 'csv') {
-            const stream = Readable.from(Buffer.from(buffer));
-            const worksheet = await workbook.csv.read(stream);
-
-            let headers: string[] = [];
-            worksheet.getRow(1).eachCell({ includeEmpty: true }, (cell) => {
-                headers.push(cell.value ? cell.value.toString().trim() : '');
+            const text = new TextDecoder('utf-8').decode(buffer);
+            const result = Papa.parse(text, {
+                header: true,
+                skipEmptyLines: true,
+                transformHeader: header => header.trim(),
             });
             
-            headers = headers.filter(h => h);
-
-            worksheet.eachRow((row, rowNumber) => {
-                if (rowNumber > 1) { 
-                    const rowData: any = {};
-                    const values = row.values as any[];
-                    
-                    headers.forEach((header, index) => {
-                        // The values array from exceljs is 1-based, so we access it with index + 1
-                        rowData[header] = values[index + 1];
-                    });
-                    data.push(rowData);
-                }
-            });
-
+            if (result.errors.length > 0) {
+              console.error('CSV Parsing Errors:', result.errors);
+              throw new Error(`Error al leer el archivo CSV: ${result.errors.map(e => e.message).join(', ')}`);
+            }
+            data = result.data as InventoryRow[];
         } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
+            const workbook = new ExcelJS.Workbook();
             await workbook.xlsx.load(buffer);
             const worksheet = workbook.worksheets[0];
             const headers: string[] = [];
             const headerRow = worksheet.getRow(1);
 
             headerRow.eachCell({ includeEmpty: true }, (cell) => {
-                // Trim the header to remove any leading/trailing whitespace
                 headers.push(cell.value ? cell.value.toString().trim() : '');
             });
 
@@ -502,3 +489,4 @@ export async function getDetailedInventoryForExport(
     
 
     
+
