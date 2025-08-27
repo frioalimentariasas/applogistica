@@ -39,24 +39,23 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
             const stream = Readable.from(Buffer.from(buffer));
             const worksheet = await workbook.csv.read(stream);
 
-            const rows: any[] = [];
-            worksheet.eachRow((row) => rows.push(row.values));
-            
-            if (rows.length < 2) {
-                return { success: false, message: 'El archivo CSV debe tener al menos una fila de encabezado y una de datos.', errors: [] };
-            }
-            
-            const headers = (rows[0] as any[]).filter(h => h).map(h => h.toString().trim());
+            let headers: string[] = [];
+            worksheet.getRow(1).eachCell({ includeEmpty: true }, (cell) => {
+                headers.push(cell.value ? cell.value.toString().trim() : '');
+            });
+            headers = headers.filter(h => h); // Remove empty headers
 
-            for (let i = 1; i < rows.length; i++) {
-                const rowData: any = {};
-                const rowValues = rows[i] as any[]; // No slice, read the full row
-                headers.forEach((header, index) => {
-                    // Adjust index because rowValues is not sliced and includes the empty placeholder at the beginning
-                    rowData[header] = rowValues[index + 1];
-                });
-                data.push(rowData);
-            }
+            worksheet.eachRow((row, rowNumber) => {
+                if (rowNumber > 1) { // Skip header row
+                    const rowData: any = {};
+                    const values = row.values as any[];
+                    headers.forEach((header, index) => {
+                         rowData[header] = values[index + 1];
+                    });
+                    data.push(rowData);
+                }
+            });
+
         } else if (fileExtension === 'xlsx' || fileExtension === 'xls') {
             await workbook.xlsx.load(buffer);
             const worksheet = workbook.worksheets[0];
