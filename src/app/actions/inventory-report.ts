@@ -34,7 +34,7 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
         const fileExtension = file.name.split('.').pop()?.toLowerCase();
 
         if (fileExtension === 'csv') {
-            const text = new TextDecoder('utf-8').decode(buffer);
+            const text = new TextDecoder('latin1').decode(buffer);
             const result = Papa.parse(text, {
                 header: true,
                 skipEmptyLines: true,
@@ -53,8 +53,8 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
             const headers: string[] = [];
             const headerRow = worksheet.getRow(1);
 
-            headerRow.eachCell({ includeEmpty: true }, (cell) => {
-                headers.push(cell.value ? cell.value.toString().trim() : '');
+            headerRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+                 headers.push(cell.value ? cell.value.toString().trim() : '');
             });
 
             worksheet.eachRow((row, rowNumber) => {
@@ -489,4 +489,5 @@ export async function getDetailedInventoryForExport(
     
 
     
+
 
