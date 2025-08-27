@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import admin from 'firebase-admin';
@@ -40,15 +39,23 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
             const worksheet = await workbook.csv.read(stream);
 
             let headers: string[] = [];
-            worksheet.getRow(1).eachCell({ includeEmpty: true }, (cell) => {
-                headers.push(cell.value ? cell.value.toString().trim() : '');
-            });
-            headers = headers.filter(h => h); // Remove empty headers
+            // For CSV, the first row is read and used as headers
+            const headerRow = worksheet.getRow(1);
+            if (headerRow) {
+                headerRow.eachCell({ includeEmpty: true }, (cell) => {
+                    headers.push(cell.value ? cell.value.toString().trim() : '');
+                });
+            }
+            
+            // Remove empty string headers that might result from trailing commas
+            headers = headers.filter(h => h);
 
             worksheet.eachRow((row, rowNumber) => {
                 if (rowNumber > 1) { // Skip header row
                     const rowData: any = {};
                     const values = row.values as any[];
+                    
+                    // The 'values' array from exceljs for CSVs is sparse and starts at index 1.
                     headers.forEach((header, index) => {
                          rowData[header] = values[index + 1];
                     });
@@ -495,4 +502,6 @@ export async function getDetailedInventoryForExport(
     }
 }
     
+    
+
     
