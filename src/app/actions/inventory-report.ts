@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import admin from 'firebase-admin';
@@ -39,13 +40,9 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
             const worksheet = await workbook.csv.read(stream);
 
             let headers: string[] = [];
-            const headerRow = worksheet.getRow(1);
-            if (headerRow) {
-                headerRow.eachCell({ includeEmpty: true }, (cell) => {
-                    // Trim the header to remove any leading/trailing whitespace
-                    headers.push(cell.value ? cell.value.toString().trim() : '');
-                });
-            }
+            worksheet.getRow(1).eachCell({ includeEmpty: true }, (cell) => {
+                headers.push(cell.value ? cell.value.toString().trim() : '');
+            });
             
             headers = headers.filter(h => h);
 
@@ -55,7 +52,8 @@ export async function uploadInventoryCsv(formData: FormData): Promise<{ success:
                     const values = row.values as any[];
                     
                     headers.forEach((header, index) => {
-                         rowData[header] = values[index + 1];
+                        // The values array from exceljs is 1-based, so we access it with index + 1
+                        rowData[header] = values[index + 1];
                     });
                     data.push(rowData);
                 }
