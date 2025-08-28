@@ -59,7 +59,7 @@ export async function getConsolidatedMovementReport(
     criteria.sesion
   );
 
-  // 4. Combine and process the data into a map
+  // 4. Combine and process the data into a map for quick lookups
   const consolidatedMap = new Map<string, Omit<ConsolidatedReportRow, 'date'>>();
   
   billingData.forEach(item => {
@@ -80,7 +80,7 @@ export async function getConsolidatedMovementReport(
   });
 
 
-  // 5. Generate date range for the report to fill in missing days, using the filter dates.
+  // 5. Generate a complete date range for the report to fill in missing days.
   const fullDateRange: string[] = [];
   let currentDate = reportStartDate;
   const reportEndDate = parseISO(criteria.endDate);
