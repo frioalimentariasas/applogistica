@@ -4,7 +4,7 @@
 import { firestore } from '@/lib/firebase-admin';
 import { getBillingReport } from './billing-report';
 import { getInventoryReport, getLatestStockBeforeDate } from './inventory-report';
-import { subDays, format } from 'date-fns';
+import { subDays, format, addDays } from 'date-fns';
 
 
 export interface ConsolidatedReportCriteria {
@@ -49,9 +49,8 @@ export async function getConsolidatedMovementReport(
   });
 
   // 3. Get initial stock from the day before the report starts
-  const firstDayOfReport = new Date(criteria.startDate);
-  // Adjust for timezone when creating the date object
-  const dayBeforeReport = subDays(new Date(firstDayOfReport.valueOf() + firstDayOfReport.getTimezoneOffset() * 60 * 1000), 1);
+  const firstDayOfReport = new Date(criteria.startDate + 'T00:00:00-05:00'); // Ensure timezone consistency
+  const dayBeforeReport = subDays(firstDayOfReport, 1);
   const dayBeforeReportStr = format(dayBeforeReport, 'yyyy-MM-dd');
   
   const saldoInicial = await getLatestStockBeforeDate(
@@ -91,7 +90,7 @@ export async function getConsolidatedMovementReport(
   const endDate = new Date(criteria.endDate + 'T00:00:00-05:00');
   while(currentDate <= endDate) {
       fullDateRange.push(format(currentDate, 'yyyy-MM-dd'));
-      currentDate.setDate(currentDate.getDate() + 1);
+      currentDate = addDays(currentDate, 1);
   }
 
   // 6. Calculate rolling balance for "Posiciones Almacenadas"
