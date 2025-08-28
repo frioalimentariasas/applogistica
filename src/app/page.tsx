@@ -91,7 +91,7 @@ export default function Home() {
 
   const menuItems: { label: string; href: string; icon: React.FC<any>; permission: keyof AppPermissions }[] = [
     { label: 'Consultar Formatos Guardados', href: '/consultar-formatos', icon: ScrollText, permission: 'canConsultForms' },
-    { label: 'Informes para Facturación', href: '/billing-reports', icon: BookCopy, permission: 'canViewBillingReports' },
+    { label: 'Informes para Facturación Clientes', href: '/billing-reports', icon: BookCopy, permission: 'canViewBillingReports' },
     { label: 'Informe Productividad Operarios Frio Alimentaria', href: '/performance-report', icon: Timer, permission: 'canViewPerformanceReport' },
     { label: 'Informe de Productividad y Liquidación Cuadrilla', href: '/crew-performance-report', icon: TrendingUp, permission: 'canViewCrewPerformanceReport' },
     { label: 'Registro de Operaciones Manuales Cuadrilla', href: '/operaciones-manuales', icon: Edit, permission: 'canManageManualOperations' },

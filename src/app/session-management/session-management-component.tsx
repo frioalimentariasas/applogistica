@@ -76,7 +76,7 @@ const UserSkeleton = () => (
 const permissionLabels: { key: keyof AppPermissions; label: string }[] = [
     { key: 'canGenerateForms', label: 'Generar Formatos (Página Principal)' },
     { key: 'canConsultForms', label: 'Consultar Formatos Guardados' },
-    { key: 'canViewBillingReports', label: 'Informes para Facturación' },
+    { key: 'canViewBillingReports', label: 'Informes para Facturación Clientes' },
     { key: 'canViewPerformanceReport', label: 'Informe Productividad Operarios Frio Alimentaria' },
     { key: 'canViewCrewPerformanceReport', label: 'Informe de Productividad y Liquidación Cuadrilla' },
     { key: 'canManageManualOperations', label: 'Registro de Operaciones Manuales Cuadrilla' },
