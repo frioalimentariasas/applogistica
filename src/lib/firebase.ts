@@ -1,6 +1,7 @@
 import { getApp, getApps, initializeApp, type FirebaseApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { getStorage } from 'firebase/storage';
+import { getFirestore } from 'firebase/firestore';
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -14,12 +15,14 @@ const firebaseConfig = {
 let app: FirebaseApp | null = null;
 let auth: ReturnType<typeof getAuth> | null = null;
 let storage: ReturnType<typeof getStorage> | null = null;
+let db: ReturnType<typeof getFirestore> | null = null;
 
 // Initialize Firebase only if the config is present
 if (firebaseConfig.projectId && firebaseConfig.apiKey) {
   app = getApps().length ? getApp() : initializeApp(firebaseConfig);
   auth = getAuth(app);
   storage = getStorage(app);
+  db = getFirestore(app);
 }
 
-export { app, auth, storage };
+export { app, auth, storage, db };
