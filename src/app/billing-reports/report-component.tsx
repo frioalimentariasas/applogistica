@@ -29,13 +29,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, ChevronsUpDown, BookCopy, FileDown, File, Upload, FolderSearch, Trash2, Edit } from 'lucide-react';
+import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, ChevronsUpDown, BookCopy, FileDown, File, Upload, FolderSearch, Trash2, Edit, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
 
 
 const ResultsSkeleton = () => (
@@ -989,8 +990,9 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             { header: 'Cliente', key: 'cliente', width: 30 },
             { header: 'Paletas Recibidas', key: 'recibidas', width: 20 },
             { header: 'Paletas Despachadas', key: 'despachadas', width: 20 },
-            { header: 'Inventario Acumulado', key: 'inventarioAcumulado', width: 20 },
             { header: 'Posiciones Almacenadas', key: 'posicionesAlmacenadas', width: 22 },
+            { header: 'Inventario Acumulado', key: 'inventarioAcumulado', width: 20 },
+            { header: 'Validación', key: 'validacion', width: 15 },
         ];
         
         consolidatedReportData.forEach(row => {
@@ -999,8 +1001,9 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 cliente: consolidatedClient,
                 recibidas: row.paletasRecibidas,
                 despachadas: row.paletasDespachadas,
-                inventarioAcumulado: row.inventarioAcumulado,
                 posicionesAlmacenadas: row.posicionesAlmacenadas,
+                inventarioAcumulado: row.inventarioAcumulado,
+                validacion: row.posicionesAlmacenadas === row.inventarioAcumulado ? 'OK' : 'Error',
             });
         });
 
@@ -1044,15 +1047,27 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
         autoTable(doc, {
             startY: clientY + 10,
-            head: [['Fecha', 'Recibidas', 'Despachadas', 'Inv. Acumulado', 'Pos. Almacenadas']],
+            head: [['Fecha', 'Recibidas', 'Despachadas', 'Pos. Almacenadas', 'Inv. Acumulado', 'Validación']],
             body: consolidatedReportData.map(row => [
                 format(new Date(row.date.replace(/-/g, '/')), 'dd/MM/yyyy'),
                 row.paletasRecibidas,
                 row.paletasDespachadas,
-                row.inventarioAcumulado,
                 row.posicionesAlmacenadas,
+                row.inventarioAcumulado,
+                row.posicionesAlmacenadas === row.inventarioAcumulado ? 'OK' : 'Error',
             ]),
             headStyles: { fillColor: [33, 150, 243] },
+            didParseCell: function (data) {
+                if (data.column.index === 5 && data.cell.section === 'body') {
+                    if (data.cell.text[0] === 'OK') {
+                        data.cell.styles.textColor = '#16a34a';
+                        data.cell.styles.fontStyle = 'bold';
+                    } else {
+                        data.cell.styles.textColor = '#dc2626';
+                        data.cell.styles.fontStyle = 'bold';
+                    }
+                }
+            }
         });
 
         const fileName = `Reporte_Consolidado_${consolidatedClient.replace(/\s/g, '_')}_${format(consolidatedDateRange!.from!, 'yyyy-MM-dd')}_a_${format(consolidatedDateRange!.to!, 'yyyy-MM-dd')}.pdf`;
@@ -2068,21 +2083,38 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                 <TableHead className="text-right">Despachadas</TableHead>
                                                 <TableHead className="text-right">Posiciones Almacenadas</TableHead>
                                                 <TableHead className="text-right">Inventario Acumulado</TableHead>
+                                                <TableHead className="text-center">Validación</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
                                             {isConsolidatedLoading ? (
                                                 <ResultsSkeleton />
                                             ) : consolidatedReportData.length > 0 ? (
-                                                consolidatedReportData.map((row) => (
-                                                    <TableRow key={row.date}>
-                                                        <TableCell className="font-medium">{format(new Date(row.date.replace(/-/g, '/')), 'dd/MM/yyyy')}</TableCell>
-                                                        <TableCell className="text-right">{row.paletasRecibidas}</TableCell>
-                                                        <TableCell className="text-right">{row.paletasDespachadas}</TableCell>
-                                                        <TableCell className="text-right font-semibold">{row.posicionesAlmacenadas}</TableCell>
-                                                        <TableCell className="text-right">{row.inventarioAcumulado}</TableCell>
-                                                    </TableRow>
-                                                ))
+                                                consolidatedReportData.map((row) => {
+                                                    const isValid = row.posicionesAlmacenadas === row.inventarioAcumulado;
+                                                    return (
+                                                        <TableRow key={row.date}>
+                                                            <TableCell className="font-medium">{format(new Date(row.date.replace(/-/g, '/')), 'dd/MM/yyyy')}</TableCell>
+                                                            <TableCell className="text-right">{row.paletasRecibidas}</TableCell>
+                                                            <TableCell className="text-right">{row.paletasDespachadas}</TableCell>
+                                                            <TableCell className="text-right font-semibold">{row.posicionesAlmacenadas}</TableCell>
+                                                            <TableCell className="text-right">{row.inventarioAcumulado}</TableCell>
+                                                            <TableCell className="text-center">
+                                                                {isValid ? (
+                                                                    <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-200 hover:bg-green-200">
+                                                                        <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
+                                                                        OK
+                                                                    </Badge>
+                                                                ) : (
+                                                                    <Badge variant="destructive">
+                                                                        <XCircle className="mr-1 h-3.5 w-3.5" />
+                                                                        Error
+                                                                    </Badge>
+                                                                )}
+                                                            </TableCell>
+                                                        </TableRow>
+                                                    );
+                                                })
                                             ) : (
                                                 <EmptyState
                                                     searched={consolidatedSearched}
@@ -2138,6 +2170,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 }
 
     
+
 
 
 
