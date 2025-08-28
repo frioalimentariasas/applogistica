@@ -50,7 +50,8 @@ export async function getConsolidatedMovementReport(
 
   // 3. Get initial stock from the day before the report starts
   const firstDayOfReport = new Date(criteria.startDate);
-  const dayBeforeReport = subDays(firstDayOfReport, 1);
+  // Adjust for timezone when creating the date object
+  const dayBeforeReport = subDays(new Date(firstDayOfReport.valueOf() + firstDayOfReport.getTimezoneOffset() * 60 * 1000), 1);
   const dayBeforeReportStr = format(dayBeforeReport, 'yyyy-MM-dd');
   
   const saldoInicial = await getLatestStockBeforeDate(
