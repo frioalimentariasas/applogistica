@@ -1,8 +1,11 @@
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
 import { getBillingReport } from './billing-report';
-import { getInventoryReport } from './inventory-report';
+import { getInventoryReport, getLatestStockBeforeDate } from './inventory-report';
+import { subDays, format } from 'date-fns';
+
 
 export interface ConsolidatedReportCriteria {
   clientName: string;
@@ -15,7 +18,8 @@ export interface ConsolidatedReportRow {
   date: string;
   paletasRecibidas: number;
   paletasDespachadas: number;
-  inventarioFinalDia: number;
+  inventarioAcumulado: number;
+  posicionesAlmacenadas: number;
 }
 
 export async function getConsolidatedMovementReport(
@@ -29,7 +33,6 @@ export async function getConsolidatedMovementReport(
   }
 
   // 1. Get daily movements (received and dispatched)
-  // Pass session criteria to billing report
   const billingData = await getBillingReport({
     clientName: criteria.clientName,
     startDate: criteria.startDate,
@@ -45,40 +48,74 @@ export async function getConsolidatedMovementReport(
     sesion: criteria.sesion,
   });
 
-  // 3. Combine the data
-  const consolidatedMap = new Map<string, ConsolidatedReportRow>();
-  const allDates = new Set<string>();
+  // 3. Get initial stock from the day before the report starts
+  const firstDayOfReport = new Date(criteria.startDate);
+  const dayBeforeReport = subDays(firstDayOfReport, 1);
+  const dayBeforeReportStr = format(dayBeforeReport, 'yyyy-MM-dd');
+  
+  const saldoInicial = await getLatestStockBeforeDate(
+    criteria.clientName,
+    dayBeforeReportStr,
+    criteria.sesion
+  );
 
+  // 4. Combine and process the data
+  const consolidatedMap = new Map<string, Omit<ConsolidatedReportRow, 'posicionesAlmacenadas' | 'date'>>();
+  
   billingData.forEach(item => {
-    allDates.add(item.date);
-    consolidatedMap.set(item.date, {
-      date: item.date,
-      paletasRecibidas: item.paletasRecibidas,
-      paletasDespachadas: item.paletasDespachadas,
-      inventarioFinalDia: 0, // Default value
-    });
+      consolidatedMap.set(item.date, {
+          paletasRecibidas: item.paletasRecibidas,
+          paletasDespachadas: item.paletasDespachadas,
+          inventarioAcumulado: 0,
+      });
   });
 
   inventoryData.rows.forEach(item => {
-    allDates.add(item.date);
-    const existingEntry = consolidatedMap.get(item.date);
     const inventoryCount = item.clientData[criteria.clientName] || 0;
+    const existingEntry = consolidatedMap.get(item.date);
     if (existingEntry) {
-      existingEntry.inventarioFinalDia = inventoryCount;
+      existingEntry.inventarioAcumulado = inventoryCount;
     } else {
       consolidatedMap.set(item.date, {
-        date: item.date,
         paletasRecibidas: 0,
         paletasDespachadas: 0,
-        inventarioFinalDia: inventoryCount,
+        inventarioAcumulado: inventoryCount,
       });
     }
   });
 
-  const consolidatedReport = Array.from(consolidatedMap.values());
-  
-  // Sort the final report by date ascending
-  consolidatedReport.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  // 5. Generate date range for the report to fill in missing days
+  const fullDateRange: string[] = [];
+  let currentDate = new Date(criteria.startDate + 'T00:00:00-05:00'); // Use timezone offset
+  const endDate = new Date(criteria.endDate + 'T00:00:00-05:00');
+  while(currentDate <= endDate) {
+      fullDateRange.push(format(currentDate, 'yyyy-MM-dd'));
+      currentDate.setDate(currentDate.getDate() + 1);
+  }
 
+  // 6. Calculate rolling balance for "Posiciones Almacenadas"
+  const consolidatedReport: ConsolidatedReportRow[] = [];
+  let posicionesDiaAnterior = saldoInicial;
+
+  for (const dateStr of fullDateRange) {
+      const dataForDay = consolidatedMap.get(dateStr);
+      const recibidasHoy = dataForDay?.paletasRecibidas || 0;
+      const despachadasHoy = dataForDay?.paletasDespachadas || 0;
+      const inventarioHoy = dataForDay?.inventarioAcumulado || 0;
+
+      const posicionesAlmacenadas = posicionesDiaAnterior + recibidasHoy - despachadasHoy;
+
+      consolidatedReport.push({
+          date: dateStr,
+          paletasRecibidas: recibidasHoy,
+          paletasDespachadas: despachadasHoy,
+          inventarioAcumulado: inventarioHoy,
+          posicionesAlmacenadas: posicionesAlmacenadas,
+      });
+
+      posicionesDiaAnterior = posicionesAlmacenadas;
+  }
+
+  // Sort is already guaranteed by iterating through the date range
   return consolidatedReport;
 }

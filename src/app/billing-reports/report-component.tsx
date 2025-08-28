@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useMemo, useEffect, useRef } from 'react';
@@ -28,7 +29,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, ChevronsUpDown, BookCopy, FileDown, File, Upload, FolderSearch, Trash2 } from 'lucide-react';
+import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, ChevronsUpDown, BookCopy, FileDown, File, Upload, FolderSearch, Trash2, Edit } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
@@ -988,7 +989,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             { header: 'Cliente', key: 'cliente', width: 30 },
             { header: 'Paletas Recibidas', key: 'recibidas', width: 20 },
             { header: 'Paletas Despachadas', key: 'despachadas', width: 20 },
-            { header: 'Inventario Final Día', key: 'inventario', width: 20 },
+            { header: 'Inventario Acumulado', key: 'inventarioAcumulado', width: 20 },
+            { header: 'Posiciones Almacenadas', key: 'posicionesAlmacenadas', width: 22 },
         ];
         
         consolidatedReportData.forEach(row => {
@@ -997,7 +999,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 cliente: consolidatedClient,
                 recibidas: row.paletasRecibidas,
                 despachadas: row.paletasDespachadas,
-                inventario: row.inventarioFinalDia,
+                inventarioAcumulado: row.inventarioAcumulado,
+                posicionesAlmacenadas: row.posicionesAlmacenadas,
             });
         });
 
@@ -1041,12 +1044,13 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
         autoTable(doc, {
             startY: clientY + 10,
-            head: [['Fecha', 'Paletas Recibidas', 'Paletas Despachadas', 'Inventario Final']],
+            head: [['Fecha', 'Recibidas', 'Despachadas', 'Inv. Acumulado', 'Pos. Almacenadas']],
             body: consolidatedReportData.map(row => [
                 format(new Date(row.date.replace(/-/g, '/')), 'dd/MM/yyyy'),
                 row.paletasRecibidas,
                 row.paletasDespachadas,
-                row.inventarioFinalDia
+                row.inventarioAcumulado,
+                row.posicionesAlmacenadas,
             ]),
             headStyles: { fillColor: [33, 150, 243] },
         });
@@ -1142,7 +1146,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                         <div>
                             <div className="flex items-center justify-center gap-2">
                                 <BookCopy className="h-8 w-8 text-primary" />
-                                <h1 className="text-2xl font-bold text-primary">Reportes Facturación Clientes</h1>
+                                <h1 className="text-2xl font-bold text-primary">Informes para Facturación Clientes</h1>
                             </div>
                              <p className="text-sm text-gray-500">Seleccione un tipo de informe y utilice los filtros para generar los datos.</p>
                         </div>
@@ -2060,9 +2064,10 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                         <TableHeader>
                                             <TableRow>
                                                 <TableHead>Fecha</TableHead>
-                                                <TableHead className="text-right">Paletas Recibidas</TableHead>
-                                                <TableHead className="text-right">Paletas Despachadas</TableHead>
-                                                <TableHead className="text-right">Inventario Final</TableHead>
+                                                <TableHead className="text-right">Recibidas</TableHead>
+                                                <TableHead className="text-right">Despachadas</TableHead>
+                                                <TableHead className="text-right">Posiciones Almacenadas</TableHead>
+                                                <TableHead className="text-right">Inventario Acumulado</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
@@ -2074,7 +2079,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                         <TableCell className="font-medium">{format(new Date(row.date.replace(/-/g, '/')), 'dd/MM/yyyy')}</TableCell>
                                                         <TableCell className="text-right">{row.paletasRecibidas}</TableCell>
                                                         <TableCell className="text-right">{row.paletasDespachadas}</TableCell>
-                                                        <TableCell className="text-right">{row.inventarioFinalDia}</TableCell>
+                                                        <TableCell className="text-right font-semibold">{row.posicionesAlmacenadas}</TableCell>
+                                                        <TableCell className="text-right">{row.inventarioAcumulado}</TableCell>
                                                     </TableRow>
                                                 ))
                                             ) : (
@@ -2132,6 +2138,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 }
 
     
+
 
 
 
