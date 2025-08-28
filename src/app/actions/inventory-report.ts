@@ -300,13 +300,13 @@ export async function getLatestStockBeforeDate(clientName: string, date: string,
 
     try {
         const snapshot = await firestore.collection('dailyInventories')
-            .where(admin.firestore.FieldPath.documentId(), '<', date)
+            .where(admin.firestore.FieldPath.documentId(), '<=', date)
             .orderBy(admin.firestore.FieldPath.documentId(), 'desc')
             .limit(1)
             .get();
 
         if (snapshot.empty) {
-            return 0; // No inventory records before the given date
+            return 0; // No inventory records on or before the given date
         }
         
         const latestInventoryDoc = snapshot.docs[0];
@@ -489,5 +489,6 @@ export async function getDetailedInventoryForExport(
     
 
     
+
 
 
