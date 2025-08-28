@@ -9,7 +9,7 @@ import Papa from 'papaparse';
 import { format, parse, startOfDay } from 'date-fns';
 
 
-interface InventoryRow {
+export interface InventoryRow {
   PROPIETARIO: string;
   PALETA: string | number;
   FECHA: string | Date | number;
@@ -288,61 +288,6 @@ export async function getInventoryReport(
     }
 }
 
-
-export async function getLatestStockBeforeDate(clientName: string, date: string, sesion?: string): Promise<number> {
-    if (!firestore) {
-        throw new Error('Error de configuración del servidor.');
-    }
-
-    if (!clientName || !date) {
-        return 0;
-    }
-
-    try {
-        const snapshot = await firestore.collection('dailyInventories')
-            .where(admin.firestore.FieldPath.documentId(), '<=', date)
-            .orderBy(admin.firestore.FieldPath.documentId(), 'desc')
-            .limit(1)
-            .get();
-
-        if (snapshot.empty) {
-            return 0; // No inventory records on or before the given date
-        }
-        
-        const latestInventoryDoc = snapshot.docs[0];
-        const inventoryDay = latestInventoryDoc.data();
-        
-        if (!inventoryDay || !Array.isArray(inventoryDay.data)) {
-            return 0;
-        }
-
-        let relevantRows = (inventoryDay.data as InventoryRow[]).filter(row => 
-            row?.PROPIETARIO?.trim() === clientName
-        );
-
-        // Filter by session if provided
-        if (sesion && sesion.trim()) {
-            relevantRows = relevantRows.filter(row => 
-                row && row.SE !== undefined && row.SE !== null &&
-                String(row.SE).trim().toLowerCase() === sesion.trim().toLowerCase()
-            );
-        }
-
-        const pallets = new Set<string>();
-        relevantRows.forEach((row: any) => {
-            if (row.PALETA !== undefined && row.PALETA !== null) {
-                pallets.add(String(row.PALETA).trim());
-            }
-        });
-
-        return pallets.size;
-    } catch (error) {
-        console.error(`Error fetching latest stock for ${clientName} before ${date} for session ${sesion}:`, error);
-        // Do not throw, just return 0 as a fallback
-        return 0;
-    }
-}
-
 export async function getClientsWithInventory(startDate: string, endDate: string): Promise<string[]> {
     if (!firestore) {
         throw new Error('Error de configuración del servidor.');
@@ -489,6 +434,7 @@ export async function getDetailedInventoryForExport(
     
 
     
+
 
 
 

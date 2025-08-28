@@ -1,10 +1,12 @@
 
 'use server';
 
+import admin from 'firebase-admin';
 import { firestore } from '@/lib/firebase-admin';
 import { getBillingReport } from './billing-report';
-import { getInventoryReport, getLatestStockBeforeDate } from './inventory-report';
+import { getInventoryReport } from './inventory-report';
 import { subDays, format, addDays, parseISO } from 'date-fns';
+import type { InventoryRow } from './inventory-report';
 
 
 export interface ConsolidatedReportCriteria {
@@ -40,7 +42,7 @@ export async function getConsolidatedMovementReport(
     sesion: criteria.sesion as any,
   });
 
-  // 2. Get daily inventory stock
+  // 2. Get daily inventory stock for the period
   const inventoryData = await getInventoryReport({
     clientNames: [criteria.clientName],
     startDate: criteria.startDate,
@@ -48,16 +50,43 @@ export async function getConsolidatedMovementReport(
     sesion: criteria.sesion,
   });
 
-  // 3. Get initial stock from the day before the *report's start date*.
-  const reportStartDate = parseISO(criteria.startDate);
-  const dayBeforeReport = subDays(reportStartDate, 1);
-  const dayBeforeReportStr = format(dayBeforeReport, 'yyyy-MM-dd');
-  
-  const saldoInicial = await getLatestStockBeforeDate(
-    criteria.clientName,
-    dayBeforeReportStr,
-    criteria.sesion
-  );
+  // 3. NEW LOGIC: Directly fetch and calculate initial stock from the day before the report's start date.
+  let saldoInicial = 0;
+  try {
+    const reportStartDate = parseISO(criteria.startDate);
+    const dayBeforeReport = subDays(reportStartDate, 1);
+    const dayBeforeReportStr = format(dayBeforeReport, 'yyyy-MM-dd');
+    
+    const latestInventoryDoc = await firestore.collection('dailyInventories').doc(dayBeforeReportStr).get();
+
+    if (latestInventoryDoc.exists) {
+        const inventoryDay = latestInventoryDoc.data();
+        if (inventoryDay && Array.isArray(inventoryDay.data)) {
+            let relevantRows = (inventoryDay.data as InventoryRow[]).filter(row => 
+                row?.PROPIETARIO?.trim() === criteria.clientName
+            );
+
+            if (criteria.sesion && criteria.sesion.trim() && criteria.sesion !== 'TODAS') {
+                relevantRows = relevantRows.filter(row => 
+                    row && row.SE !== undefined && row.SE !== null &&
+                    String(row.SE).trim().toLowerCase() === criteria.sesion.trim().toLowerCase()
+                );
+            }
+
+            const pallets = new Set<string>();
+            relevantRows.forEach((row: any) => {
+                if (row.PALETA !== undefined && row.PALETA !== null) {
+                    pallets.add(String(row.PALETA).trim());
+                }
+            });
+            saldoInicial = pallets.size;
+        }
+    }
+  } catch (error) {
+      console.error(`Error fetching latest stock for ${criteria.clientName} before ${criteria.startDate}:`, error);
+      // Do not throw, just default to 0 as a fallback
+      saldoInicial = 0;
+  }
 
   // 4. Combine and process the data into a map for quick lookups
   const consolidatedMap = new Map<string, Omit<ConsolidatedReportRow, 'date'>>();
@@ -79,10 +108,9 @@ export async function getConsolidatedMovementReport(
     consolidatedMap.get(item.date)!.inventarioAcumulado = inventoryCount;
   });
 
-
   // 5. Generate a complete date range for the report to fill in missing days.
   const fullDateRange: string[] = [];
-  let currentDate = reportStartDate;
+  let currentDate = parseISO(criteria.startDate);
   const reportEndDate = parseISO(criteria.endDate);
   while(currentDate <= reportEndDate) {
       fullDateRange.push(format(currentDate, 'yyyy-MM-dd'));
@@ -91,7 +119,7 @@ export async function getConsolidatedMovementReport(
 
   // 6. Calculate rolling balance for "Posiciones Almacenadas"
   const consolidatedReport: ConsolidatedReportRow[] = [];
-  let posicionesDiaAnterior = saldoInicial;
+  let posicionesDiaAnterior = saldoInicial; // Use the correctly fetched initial stock
 
   for (const dateStr of fullDateRange) {
       const dataForDay = consolidatedMap.get(dateStr);
