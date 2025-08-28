@@ -4,7 +4,7 @@
 import { firestore } from '@/lib/firebase-admin';
 import { getBillingReport } from './billing-report';
 import { getInventoryReport, getLatestStockBeforeDate } from './inventory-report';
-import { subDays, format, addDays, startOfMonth } from 'date-fns';
+import { subDays, format, addDays, startOfMonth, parseISO, min, max } from 'date-fns';
 
 
 export interface ConsolidatedReportCriteria {
@@ -48,18 +48,29 @@ export async function getConsolidatedMovementReport(
     sesion: criteria.sesion,
   });
 
-  // 3. Get initial stock from the day before the report starts
-  const firstDayOfReport = new Date(criteria.startDate + 'T05:00:00Z'); // Use UTC to avoid timezone shifts
-  const dayBeforeReport = subDays(firstDayOfReport, 1);
-  const dayBeforeReportStr = format(dayBeforeReport, 'yyyy-MM-dd');
+  // 3. Determine the actual start and end dates from the data we have.
+  const movementDates = billingData.map(d => parseISO(d.date));
+  const inventoryDates = inventoryData.rows.map(r => parseISO(r.date));
+  const allDatesInData = [...movementDates, ...inventoryDates];
+
+  if (allDatesInData.length === 0) {
+      return []; // No data to process
+  }
+  
+  const firstDateWithData = min(allDatesInData);
+  const lastDateWithData = max(allDatesInData);
+  
+  // 4. Get initial stock from the day before the *first actual data point*.
+  const dayBeforeData = subDays(firstDateWithData, 1);
+  const dayBeforeDataStr = format(dayBeforeData, 'yyyy-MM-dd');
   
   const saldoInicial = await getLatestStockBeforeDate(
     criteria.clientName,
-    dayBeforeReportStr,
+    dayBeforeDataStr,
     criteria.sesion
   );
 
-  // 4. Combine and process the data
+  // 5. Combine and process the data into a map
   const consolidatedMap = new Map<string, Omit<ConsolidatedReportRow, 'date'>>();
   
   billingData.forEach(item => {
@@ -80,16 +91,15 @@ export async function getConsolidatedMovementReport(
   });
 
 
-  // 5. Generate date range for the report to fill in missing days
+  // 6. Generate date range for the report to fill in missing days, using actual data dates.
   const fullDateRange: string[] = [];
-  let currentDate = new Date(criteria.startDate + 'T05:00:00Z'); 
-  const endDate = new Date(criteria.endDate + 'T05:00:00Z');
-  while(currentDate <= endDate) {
+  let currentDate = firstDateWithData;
+  while(currentDate <= lastDateWithData) {
       fullDateRange.push(format(currentDate, 'yyyy-MM-dd'));
       currentDate = addDays(currentDate, 1);
   }
 
-  // 6. Calculate rolling balance for "Posiciones Almacenadas"
+  // 7. Calculate rolling balance for "Posiciones Almacenadas"
   const consolidatedReport: ConsolidatedReportRow[] = [];
   let posicionesDiaAnterior = saldoInicial;
 
@@ -114,4 +124,3 @@ export async function getConsolidatedMovementReport(
 
   return consolidatedReport;
 }
-
