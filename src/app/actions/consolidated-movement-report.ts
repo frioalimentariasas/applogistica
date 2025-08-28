@@ -4,7 +4,7 @@
 import { firestore } from '@/lib/firebase-admin';
 import { getBillingReport } from './billing-report';
 import { getInventoryReport, getLatestStockBeforeDate } from './inventory-report';
-import { subDays, format, addDays, parseISO, min, max } from 'date-fns';
+import { subDays, format, addDays, parseISO } from 'date-fns';
 
 
 export interface ConsolidatedReportCriteria {
@@ -48,18 +48,8 @@ export async function getConsolidatedMovementReport(
     sesion: criteria.sesion,
   });
 
-  // 3. Determine the actual start and end dates from the data available in the selected range.
-  const movementDates = billingData.map(d => parseISO(d.date));
-  const inventoryDates = inventoryData.rows.map(r => parseISO(r.date));
-  const allDatesInData = [...movementDates, ...inventoryDates];
-
-  if (allDatesInData.length === 0) {
-      return []; // No data to process
-  }
-  
+  // 3. Get initial stock from the day before the *report's start date*.
   const reportStartDate = parseISO(criteria.startDate);
-  
-  // 4. Get initial stock from the day before the *report's start date*.
   const dayBeforeReport = subDays(reportStartDate, 1);
   const dayBeforeReportStr = format(dayBeforeReport, 'yyyy-MM-dd');
   
@@ -69,7 +59,7 @@ export async function getConsolidatedMovementReport(
     criteria.sesion
   );
 
-  // 5. Combine and process the data into a map
+  // 4. Combine and process the data into a map
   const consolidatedMap = new Map<string, Omit<ConsolidatedReportRow, 'date'>>();
   
   billingData.forEach(item => {
@@ -90,7 +80,7 @@ export async function getConsolidatedMovementReport(
   });
 
 
-  // 6. Generate date range for the report to fill in missing days, using the filter dates.
+  // 5. Generate date range for the report to fill in missing days, using the filter dates.
   const fullDateRange: string[] = [];
   let currentDate = reportStartDate;
   const reportEndDate = parseISO(criteria.endDate);
@@ -99,7 +89,7 @@ export async function getConsolidatedMovementReport(
       currentDate = addDays(currentDate, 1);
   }
 
-  // 7. Calculate rolling balance for "Posiciones Almacenadas"
+  // 6. Calculate rolling balance for "Posiciones Almacenadas"
   const consolidatedReport: ConsolidatedReportRow[] = [];
   let posicionesDiaAnterior = saldoInicial;
 
