@@ -4,7 +4,7 @@
 import { firestore } from '@/lib/firebase-admin';
 import { getBillingReport } from './billing-report';
 import { getInventoryReport, getLatestStockBeforeDate } from './inventory-report';
-import { subDays, format, addDays, startOfMonth, parseISO, min, max } from 'date-fns';
+import { subDays, format, addDays, parseISO, min, max } from 'date-fns';
 
 
 export interface ConsolidatedReportCriteria {
@@ -48,7 +48,7 @@ export async function getConsolidatedMovementReport(
     sesion: criteria.sesion,
   });
 
-  // 3. Determine the actual start and end dates from the data we have.
+  // 3. Determine the actual start and end dates from the data available in the selected range.
   const movementDates = billingData.map(d => parseISO(d.date));
   const inventoryDates = inventoryData.rows.map(r => parseISO(r.date));
   const allDatesInData = [...movementDates, ...inventoryDates];
@@ -57,16 +57,15 @@ export async function getConsolidatedMovementReport(
       return []; // No data to process
   }
   
-  const firstDateWithData = min(allDatesInData);
-  const lastDateWithData = max(allDatesInData);
+  const reportStartDate = parseISO(criteria.startDate);
   
-  // 4. Get initial stock from the day before the *first actual data point*.
-  const dayBeforeData = subDays(firstDateWithData, 1);
-  const dayBeforeDataStr = format(dayBeforeData, 'yyyy-MM-dd');
+  // 4. Get initial stock from the day before the *report's start date*.
+  const dayBeforeReport = subDays(reportStartDate, 1);
+  const dayBeforeReportStr = format(dayBeforeReport, 'yyyy-MM-dd');
   
   const saldoInicial = await getLatestStockBeforeDate(
     criteria.clientName,
-    dayBeforeDataStr,
+    dayBeforeReportStr,
     criteria.sesion
   );
 
@@ -91,10 +90,11 @@ export async function getConsolidatedMovementReport(
   });
 
 
-  // 6. Generate date range for the report to fill in missing days, using actual data dates.
+  // 6. Generate date range for the report to fill in missing days, using the filter dates.
   const fullDateRange: string[] = [];
-  let currentDate = firstDateWithData;
-  while(currentDate <= lastDateWithData) {
+  let currentDate = reportStartDate;
+  const reportEndDate = parseISO(criteria.endDate);
+  while(currentDate <= reportEndDate) {
       fullDateRange.push(format(currentDate, 'yyyy-MM-dd'));
       currentDate = addDays(currentDate, 1);
   }
