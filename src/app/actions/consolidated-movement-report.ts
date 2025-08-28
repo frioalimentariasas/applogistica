@@ -4,7 +4,7 @@
 import { firestore } from '@/lib/firebase-admin';
 import { getBillingReport } from './billing-report';
 import { getInventoryReport, getLatestStockBeforeDate } from './inventory-report';
-import { subDays, format, addDays } from 'date-fns';
+import { subDays, format, addDays, startOfMonth } from 'date-fns';
 
 
 export interface ConsolidatedReportCriteria {
@@ -49,7 +49,7 @@ export async function getConsolidatedMovementReport(
   });
 
   // 3. Get initial stock from the day before the report starts
-  const firstDayOfReport = new Date(criteria.startDate + 'T00:00:00-05:00'); // Ensure timezone consistency
+  const firstDayOfReport = new Date(criteria.startDate + 'T05:00:00Z'); // Use UTC to avoid timezone shifts
   const dayBeforeReport = subDays(firstDayOfReport, 1);
   const dayBeforeReportStr = format(dayBeforeReport, 'yyyy-MM-dd');
   
@@ -60,34 +60,30 @@ export async function getConsolidatedMovementReport(
   );
 
   // 4. Combine and process the data
-  const consolidatedMap = new Map<string, Omit<ConsolidatedReportRow, 'posicionesAlmacenadas' | 'date'>>();
+  const consolidatedMap = new Map<string, Omit<ConsolidatedReportRow, 'date'>>();
   
   billingData.forEach(item => {
-      consolidatedMap.set(item.date, {
-          paletasRecibidas: item.paletasRecibidas,
-          paletasDespachadas: item.paletasDespachadas,
-          inventarioAcumulado: 0,
-      });
+    if (!consolidatedMap.has(item.date)) {
+        consolidatedMap.set(item.date, { paletasRecibidas: 0, paletasDespachadas: 0, inventarioAcumulado: 0, posicionesAlmacenadas: 0 });
+    }
+    const entry = consolidatedMap.get(item.date)!;
+    entry.paletasRecibidas = item.paletasRecibidas;
+    entry.paletasDespachadas = item.paletasDespachadas;
   });
 
   inventoryData.rows.forEach(item => {
     const inventoryCount = item.clientData[criteria.clientName] || 0;
-    const existingEntry = consolidatedMap.get(item.date);
-    if (existingEntry) {
-      existingEntry.inventarioAcumulado = inventoryCount;
-    } else {
-      consolidatedMap.set(item.date, {
-        paletasRecibidas: 0,
-        paletasDespachadas: 0,
-        inventarioAcumulado: inventoryCount,
-      });
+    if (!consolidatedMap.has(item.date)) {
+        consolidatedMap.set(item.date, { paletasRecibidas: 0, paletasDespachadas: 0, inventarioAcumulado: 0, posicionesAlmacenadas: 0 });
     }
+    consolidatedMap.get(item.date)!.inventarioAcumulado = inventoryCount;
   });
+
 
   // 5. Generate date range for the report to fill in missing days
   const fullDateRange: string[] = [];
-  let currentDate = new Date(criteria.startDate + 'T00:00:00-05:00'); // Use timezone offset
-  const endDate = new Date(criteria.endDate + 'T00:00:00-05:00');
+  let currentDate = new Date(criteria.startDate + 'T05:00:00Z'); 
+  const endDate = new Date(criteria.endDate + 'T05:00:00Z');
   while(currentDate <= endDate) {
       fullDateRange.push(format(currentDate, 'yyyy-MM-dd'));
       currentDate = addDays(currentDate, 1);
@@ -116,6 +112,6 @@ export async function getConsolidatedMovementReport(
       posicionesDiaAnterior = posicionesAlmacenadas;
   }
 
-  // Sort is already guaranteed by iterating through the date range
   return consolidatedReport;
 }
+
