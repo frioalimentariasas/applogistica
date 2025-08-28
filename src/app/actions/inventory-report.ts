@@ -317,21 +317,23 @@ export async function getLatestStockBeforeDate(clientName: string, date: string,
         }
 
         let inventoryData = inventoryDay.data as InventoryRow[];
+        
+        const clientFilteredData = inventoryData.filter(row => row?.PROPIETARIO?.trim() === clientName);
 
         // Filter by session if provided
         if (sesion && sesion.trim()) {
-            inventoryData = inventoryData.filter(row => 
+            inventoryData = clientFilteredData.filter(row => 
                 row && row.SE !== undefined && row.SE !== null &&
                 String(row.SE).trim().toLowerCase() === sesion.trim().toLowerCase()
             );
+        } else {
+             inventoryData = clientFilteredData;
         }
 
         const pallets = new Set<string>();
         inventoryData.forEach((row: any) => {
-            if (row && row.PROPIETARIO?.trim() === clientName) {
-                if (row.PALETA !== undefined && row.PALETA !== null) {
-                    pallets.add(String(row.PALETA).trim());
-                }
+            if (row.PALETA !== undefined && row.PALETA !== null) {
+                pallets.add(String(row.PALETA).trim());
             }
         });
 
@@ -489,6 +491,7 @@ export async function getDetailedInventoryForExport(
     
 
     
+
 
 
 
