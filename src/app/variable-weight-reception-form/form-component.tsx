@@ -1231,12 +1231,12 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
     const lastItem = items && items.length > 0 ? items[items.length - 1] : null;
 
     if (!lastItem) {
-        append({ ...originalDefaultValues.items![0] });
+        form.control._fields.items?._f.append({ ...originalDefaultValues.items![0] });
         return;
     }
     
     if (lastItem.paleta === 0) {
-        append({
+        form.control._fields.items?._f.append({
             ...originalDefaultValues.items![0],
             codigo: lastItem.codigo,
             paleta: 0,
@@ -1245,7 +1245,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
             presentacion: lastItem.presentacion,
         });
     } else {
-        append({
+        form.control._fields.items?._f.append({
             ...originalDefaultValues.items![0],
             codigo: lastItem.codigo,
             paleta: null,
@@ -1362,49 +1362,27 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                             )}
                         />
                         {watchedTipoPedido === 'MAQUILA' && (
-                            <>
-                                <FormField
-                                    control={form.control}
-                                    name="tipoEmpaqueMaquila"
-                                    render={({ field }) => (
-                                    <FormItem>
-                                        <FormLabel>Tipo de Empaque (Maquila) <span className="text-destructive">*</span></FormLabel>
-                                        <Select onValueChange={field.onChange} value={field.value}>
-                                        <FormControl>
-                                            <SelectTrigger>
-                                            <SelectValue placeholder="Seleccione tipo de empaque" />
-                                            </SelectTrigger>
-                                        </FormControl>
-                                        <SelectContent>
-                                            <SelectItem value="EMPAQUE DE SACOS">EMPAQUE DE SACOS</SelectItem>
-                                            <SelectItem value="EMPAQUE DE CAJAS">EMPAQUE DE CAJAS</SelectItem>
-                                        </SelectContent>
-                                        </Select>
-                                        <FormMessage />
-                                    </FormItem>
-                                    )}
-                                />
-                                <FormField
-                                    control={form.control}
-                                    name="salidaPaletasMaquila"
-                                    render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Salida Paletas Maquila <span className="text-destructive">*</span></FormLabel>
-                                            <FormControl>
-                                                <Input 
-                                                    type="number"
-                                                    min="1"
-                                                    placeholder="Ej: 5" 
-                                                    {...field} 
-                                                    value={field.value ?? ''}
-                                                    onChange={e => field.onChange(parseInt(e.target.value, 10) || undefined)}
-                                                />
-                                            </FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}
-                                />
-                            </>
+                           <FormField
+                                control={form.control}
+                                name="tipoEmpaqueMaquila"
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Tipo de Empaque (Maquila) <span className="text-destructive">*</span></FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value}>
+                                    <FormControl>
+                                        <SelectTrigger>
+                                        <SelectValue placeholder="Seleccione tipo de empaque" />
+                                        </SelectTrigger>
+                                    </FormControl>
+                                    <SelectContent>
+                                        <SelectItem value="EMPAQUE DE SACOS">EMPAQUE DE SACOS</SelectItem>
+                                        <SelectItem value="EMPAQUE DE CAJAS">EMPAQUE DE CAJAS</SelectItem>
+                                    </SelectContent>
+                                    </Select>
+                                    <FormMessage />
+                                </FormItem>
+                                )}
+                            />
                         )}
                         <FormField control={form.control} name="pedidoSislog" render={({ field }) => (
                             <FormItem>
@@ -1589,7 +1567,9 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                 </Card>
               
                 <Card>
-                  <CardHeader><CardTitle>Detalle de la Recepción <span className="text-destructive">*</span></CardTitle></CardHeader>
+                  <CardHeader>
+                      <CardTitle>Detalle de la Recepción <span className="text-destructive">*</span></CardTitle>
+                  </CardHeader>
                   <CardContent className="space-y-4">
                      {isTunelMode ? (
                         <div className="space-y-4">
@@ -1735,6 +1715,33 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                               )}/>
                           </div>
                         </>
+                    )}
+                    {watchedTipoPedido === 'MAQUILA' && (
+                        <div className="mt-6 pt-6 border-t">
+                             <FormField
+                                control={form.control}
+                                name="salidaPaletasMaquila"
+                                render={({ field }) => (
+                                    <FormItem className="max-w-sm">
+                                        <FormLabel>Salida Paletas Maquila <span className="text-destructive">*</span></FormLabel>
+                                        <FormControl>
+                                            <Input 
+                                                type="number"
+                                                min="1"
+                                                placeholder="Ej: 5" 
+                                                {...field} 
+                                                value={field.value ?? ''}
+                                                onChange={e => field.onChange(parseInt(e.target.value, 10) || undefined)}
+                                            />
+                                        </FormControl>
+                                        <FormDescription>
+                                            Cantidad de paletas utilizadas en la maquila que se sumarán a los despachos.
+                                        </FormDescription>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}
+                            />
+                        </div>
                     )}
                   </CardContent>
                 </Card>
