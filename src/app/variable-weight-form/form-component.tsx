@@ -24,6 +24,9 @@ import { optimizeImage } from "@/lib/image-optimizer";
 import { getSubmissionById, type SubmissionResult } from "@/app/actions/consultar-formatos";
 import { getStandardObservations, type StandardObservation } from "@/app/gestion-observaciones/actions";
 import { PedidoType } from "@/app/gestion-tipos-pedido/actions";
+import { Html5QrcodeScanner, Html5Qrcode } from "html5-qrcode";
+import { getPalletInfoByCode } from "@/app/actions/pallet-lookup";
+
 
 import { Button } from "@/components/ui/button";
 import {
@@ -66,6 +69,7 @@ import {
     CalendarIcon,
     Clock,
     MapPin,
+    QrCode,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -581,6 +585,11 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
   const [isObservationDialogOpen, setObservationDialogOpen] = useState(false);
   const [observationDialogIndex, setObservationDialogIndex] = useState<number | null>(null);
   const [isPedidoTypeDialogOpen, setPedidoTypeDialogOpen] = useState(false);
+
+  const [isScannerOpen, setIsScannerOpen] = useState(false);
+  const scannerRef = useRef<Html5Qrcode | null>(null);
+  const [scannedPallet, setScannedPallet] = useState<any | null>(null);
+  const [isDestinationSelectorOpen, setIsDestinationSelectorOpen] = useState(false);
 
 
 
@@ -1242,6 +1251,80 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
     }
   };
 
+  const addScannedItem = useCallback((palletInfo: any, destination?: string) => {
+    const newItem = {
+        ...originalDefaultValues.items[0],
+        ...palletInfo,
+        paleta: parseInt(palletInfo.paleta, 10), // Ensure it's a number
+    };
+
+    if (destination) {
+        const allDestinos = form.getValues('destinos') || [];
+        const destinoIndex = allDestinos.findIndex(d => d.nombreDestino === destination);
+        if (destinoIndex !== -1) {
+            const currentItems = allDestinos[destinoIndex].items;
+            const newItems = [...currentItems, newItem];
+            form.setValue(`destinos.${destinoIndex}.items`, newItems, { shouldValidate: true });
+        }
+    } else {
+        append(newItem);
+    }
+    toast({ title: "Paleta Agregada", description: `La paleta ${palletInfo.paleta} se agregó al despacho.` });
+  }, [form, append, toast]);
+
+  const onScanSuccess = useCallback(async (decodedText: string) => {
+      if (scannerRef.current) {
+        try {
+            await scannerRef.current.stop();
+            setIsScannerOpen(false);
+        } catch (err) {
+            console.error("Failed to stop scanner", err);
+        }
+      }
+
+      const result = await getPalletInfoByCode(decodedText);
+      if (!result.success || !result.palletInfo) {
+          toast({ variant: "destructive", title: "Error de Escaneo", description: result.message });
+          return;
+      }
+      
+      const palletInfoWithCode = { ...result.palletInfo, paleta: decodedText };
+
+      if (form.getValues('despachoPorDestino')) {
+          const destinos = form.getValues('destinos');
+          if (destinos && destinos.length > 0) {
+              setScannedPallet(palletInfoWithCode);
+              setIsDestinationSelectorOpen(true);
+          } else {
+              toast({ variant: "destructive", title: "Sin Destinos", description: "Agregue al menos un destino antes de escanear." });
+          }
+      } else {
+          addScannedItem(palletInfoWithCode);
+      }
+  }, [form, addScannedItem, toast]);
+
+  useEffect(() => {
+    if (isScannerOpen) {
+      const scanner = new Html5Qrcode('qr-reader');
+      scannerRef.current = scanner;
+      scanner.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: { width: 250, height: 250 } },
+        onScanSuccess,
+        (errorMessage) => {}
+      ).catch(err => {
+        toast({variant: 'destructive', title: "Error de Cámara", description: "No se pudo iniciar el escáner. Revise los permisos de la cámara."})
+        setIsScannerOpen(false);
+      });
+
+      return () => {
+        if (scannerRef.current && scannerRef.current.isScanning) {
+            scannerRef.current.stop().catch(err => console.error("Error stopping scanner on cleanup", err));
+        }
+      };
+    }
+  }, [isScannerOpen, onScanSuccess, toast]);
+
 
   if (isLoadingForm) {
       return (
@@ -1512,7 +1595,13 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                 </Card>
                 <Card>
                     <CardHeader>
-                        <CardTitle>Detalle del Despacho <span className="text-destructive">*</span></CardTitle>
+                        <div className="flex flex-wrap justify-between items-center gap-4">
+                            <CardTitle>Detalle del Despacho <span className="text-destructive">*</span></CardTitle>
+                            <Button type="button" onClick={() => setIsScannerOpen(true)} variant="secondary">
+                                <QrCode className="mr-2 h-4 w-4" />
+                                Escanear Paleta
+                            </Button>
+                        </div>
                     </CardHeader>
                     <CardContent>
                     {showDespachoPorDestino && (
@@ -1988,6 +2077,44 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                   </Button>
               </DialogFooter>
           </DialogContent>
+        </Dialog>
+
+        <Dialog open={isScannerOpen} onOpenChange={setIsScannerOpen}>
+             <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Escanear Código de Paleta</DialogTitle>
+                    <DialogDescription>Apunte la cámara al código de barras de la paleta.</DialogDescription>
+                </DialogHeader>
+                <div id="qr-reader" className="w-full"></div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => {
+                        if (scannerRef.current?.isScanning) scannerRef.current.stop();
+                        setIsScannerOpen(false);
+                    }}>
+                        Cancelar
+                    </Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
+
+        <Dialog open={isDestinationSelectorOpen} onOpenChange={setIsDestinationSelectorOpen}>
+             <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Seleccionar Destino</DialogTitle>
+                    <DialogDescription>¿A qué destino desea agregar la paleta escaneada?</DialogDescription>
+                </DialogHeader>
+                <div className="flex flex-col space-y-2 py-4">
+                    {watchedDestinos?.map((destino, index) => (
+                        <Button key={index} variant="outline" onClick={() => {
+                            addScannedItem(scannedPallet, destino.nombreDestino);
+                            setIsDestinationSelectorOpen(false);
+                            setScannedPallet(null);
+                        }}>
+                            {destino.nombreDestino}
+                        </Button>
+                    ))}
+                </div>
+            </DialogContent>
         </Dialog>
         
         <AlertDialog open={isDiscardAlertOpen} onOpenChange={setDiscardAlertOpen}>
