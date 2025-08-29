@@ -49,45 +49,45 @@ export async function getPalletInfoByCode(palletCode: string): Promise<PalletLoo
   }
 
   try {
-    const submissionsSnapshot = await firestore.collection('submissions').get();
-    
-    let receptionItem: any = null;
-    let isDispatched = false;
-
-    for (const doc of submissionsSnapshot.docs) {
+    // 1. Check if the pallet has already been dispatched.
+    const dispatchSnapshot = await firestore.collection('submissions')
+      .where('formType', '==', 'variable-weight-despacho')
+      .get();
+      
+    for (const doc of dispatchSnapshot.docs) {
       const submission = serializeTimestamps(doc.data());
+      if (!submission.formData) continue;
       
-      if (!submission.formData) {
-          continue; 
-      }
-      
-      // Safer way to build allItems, filtering out null/undefined items
-      const itemsFromItems = (submission.formData.items || []).filter(Boolean);
-      const itemsFromPlacas = (submission.formData.placas || [])
-          .flatMap((p: any) => (p && Array.isArray(p.items) ? p.items : []))
-          .filter(Boolean);
-      const itemsFromDestinos = (submission.formData.destinos || [])
-          .flatMap((d: any) => (d && Array.isArray(d.items) ? d.items : []))
-          .filter(Boolean);
+      const allDispatchedItems = (submission.formData.items || [])
+        .concat((submission.formData.destinos || []).flatMap((d: any) => d.items || []));
 
-      const allItems = [...itemsFromItems, ...itemsFromPlacas, ...itemsFromDestinos];
-        
-      for (const item of allItems) {
-        // Explicitly check for item existence before accessing its properties
-        if (item && item.paleta && String(item.paleta) === palletCode) {
-            if (submission.formType.includes('reception') || submission.formType.includes('recepcion')) {
-                receptionItem = item;
-            } else if (submission.formType.includes('despacho')) {
-                isDispatched = true;
-                break;
-            }
-        }
+      if (allDispatchedItems.some((item: any) => item && String(item.paleta) === palletCode)) {
+        return { success: false, message: `La paleta ${palletCode} ya ha sido despachada.`, alreadyDispatched: true };
       }
-      if(isDispatched) break;
     }
 
-    if (isDispatched) {
-        return { success: false, message: `La paleta ${palletCode} ya ha sido despachada.`, alreadyDispatched: true };
+    // 2. Find the reception information for the pallet.
+    const receptionSnapshot = await firestore.collection('submissions')
+      .where('formType', 'in', ['variable-weight-reception', 'variable-weight-reception'])
+      .get();
+
+    let receptionItem: any = null;
+
+    for (const doc of receptionSnapshot.docs) {
+        const submission = serializeTimestamps(doc.data());
+        if (!submission.formData || !submission.formData.tipoPedido) {
+            continue; // Ignore forms without order type
+        }
+
+        const allReceptionItems = (submission.formData.items || [])
+          .concat((submission.formData.placas || []).flatMap((p: any) => p.items || []));
+
+        const foundItem = allReceptionItems.find((item: any) => item && String(item.paleta) === palletCode);
+
+        if (foundItem) {
+            receptionItem = foundItem;
+            break; 
+        }
     }
     
     if (receptionItem) {
