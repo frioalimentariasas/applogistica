@@ -276,6 +276,28 @@ const formSchema = z.object({
             path: ["totalPaletasDespacho"],
         });
     }
+    
+    // START: Pallet duplication validation
+    if (data.despachoPorDestino) {
+        data.destinos.forEach((destino, destinoIndex) => {
+            const seenPallets = new Set<number>();
+            destino.items.forEach((item, itemIndex) => {
+                const paletaNum = Number(item.paleta);
+                // Ignore summary (0) and special (999) pallets
+                if (!isNaN(paletaNum) && paletaNum > 0 && paletaNum !== 999) {
+                    if (seenPallets.has(paletaNum)) {
+                        ctx.addIssue({
+                            code: z.ZodIssueCode.custom,
+                            message: "La paleta ya existe en este destino.",
+                            path: [`destinos`, destinoIndex, 'items', itemIndex, 'paleta'],
+                        });
+                    }
+                    seenPallets.add(paletaNum);
+                }
+            });
+        });
+    }
+    // END: Pallet duplication validation
 });
 
 type FormValues = z.infer<typeof formSchema>;
@@ -685,11 +707,11 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                         totalCantidad += Number(item.cantidadPorPaleta) || 0;
                         const paletaNum = Number(item.paleta);
                         if (!isNaN(paletaNum) && paletaNum > 0) {
-                            if (paletaNum === 999) {
-                                pallets999Count++;
-                            } else {
-                                uniquePallets.add(paletaNum);
-                            }
+                          if (paletaNum === 999) {
+                              pallets999Count++;
+                          } else {
+                              uniquePallets.add(paletaNum);
+                          }
                         }
                     });
                     totalPaletas = uniquePallets.size + pallets999Count;
@@ -1937,13 +1959,13 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                   </CardContent>
                 </Card>
               
-              <footer className="flex flex-col sm:flex-row items-center justify-end gap-4 pt-4">
-                <Button type="button" variant="outline" onClick={() => setDiscardAlertOpen(true)} className="w-full sm:w-auto"><RotateCcw className="mr-2 h-4 w-4"/>Limpiar Formato</Button>
-                <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto">
-                    {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4"/>}
-                    {isSubmitting ? 'Guardando...' : 'Guardar y Enviar'}
-                </Button>
-              </footer>
+                <footer className="flex flex-col sm:flex-row items-center justify-end gap-4 pt-4">
+                    <Button type="button" variant="outline" onClick={() => setDiscardAlertOpen(true)} className="w-full sm:w-auto"><RotateCcw className="mr-2 h-4 w-4"/>Limpiar Formato</Button>
+                    <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto">
+                        {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4"/>}
+                        {isSubmitting ? 'Guardando...' : 'Guardar y Enviar'}
+                    </Button>
+                </footer>
             </form>
           </Form>
         </div>
