@@ -86,12 +86,12 @@ export async function getPalletInfoByCode(palletCode: string): Promise<PalletLoo
                 descripcion: receptionItem.descripcion || '',
                 lote: receptionItem.lote || '',
                 presentacion: receptionItem.presentacion || '',
-                cantidadPorPaleta: receptionItem.cantidadPorPaleta ?? 0,
-                pesoBruto: receptionItem.pesoBruto ?? 0,
-                taraEstiba: receptionItem.taraEstiba ?? 0,
-                taraCaja: receptionItem.taraCaja ?? 0,
-                totalTaraCaja: receptionItem.totalTaraCaja ?? 0,
-                pesoNeto: receptionItem.pesoNeto ?? 0,
+                cantidadPorPaleta: Number(receptionItem.cantidadPorPaleta) || 0,
+                pesoBruto: Number(receptionItem.pesoBruto) || 0,
+                taraEstiba: Number(receptionItem.taraEstiba) || 0,
+                taraCaja: Number(receptionItem.taraCaja) || 0,
+                totalTaraCaja: Number(receptionItem.totalTaraCaja) || 0,
+                pesoNeto: Number(receptionItem.pesoNeto) || 0,
             }
         };
     }
