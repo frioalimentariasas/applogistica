@@ -57,11 +57,11 @@ export async function getPalletInfoByCode(palletCode: string): Promise<PalletLoo
     for (const doc of submissionsSnapshot.docs) {
       const submission = serializeTimestamps(doc.data());
       const allItems = (submission.formData.items || [])
-        .concat((submission.formData.placas || []).flatMap((p: any) => p.items))
-        .concat((submission.formData.destinos || []).flatMap((d: any) => d.items));
+        .concat((submission.formData.placas || []).flatMap((p: any) => p.items || []))
+        .concat((submission.formData.destinos || []).flatMap((d: any) => d.items || []));
         
       for (const item of allItems) {
-        if (String(item.paleta) === palletCode) {
+        if (item && item.paleta && String(item.paleta) === palletCode) {
             if (submission.formType.includes('reception') || submission.formType.includes('recepcion')) {
                 receptionItem = item;
             } else if (submission.formType.includes('despacho')) {
@@ -82,8 +82,8 @@ export async function getPalletInfoByCode(palletCode: string): Promise<PalletLoo
             success: true,
             message: 'Información de la paleta encontrada.',
             palletInfo: {
-                codigo: receptionItem.codigo,
-                descripcion: receptionItem.descripcion,
+                codigo: receptionItem.codigo || '',
+                descripcion: receptionItem.descripcion || '',
                 lote: receptionItem.lote || '',
                 presentacion: receptionItem.presentacion || '',
                 cantidadPorPaleta: receptionItem.cantidadPorPaleta,
