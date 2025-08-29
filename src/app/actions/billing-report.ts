@@ -161,15 +161,29 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                 dailyData.fixedDespachadas += dispatchedFixedPallets;
 
             } else if (formType === 'variable-weight-recepcion' || formType === 'variable-weight-reception') {
-                const uniquePalletsInSession = new Set<number>();
-                items.forEach((item: any) => {
-                    const paletaValue = Number(item.paleta);
-                    if (isInSession(item.descripcion) && !isNaN(paletaValue) && paletaValue > 0) {
-                        uniquePalletsInSession.add(paletaValue);
-                    }
-                });
-                dailyData.fixedRecibidas += uniquePalletsInSession.size; // Using fixedRecibidas for simplicity
+                 // **START of corrected logic**
+                const isIngresoSaldosSummary = submission.formData.tipoPedido === 'INGRESO DE SALDOS' && items.some((item: any) => Number(item.paleta) === 0);
 
+                if (isIngresoSaldosSummary) {
+                    const summaryPallets = items.reduce((sum: number, item: any) => {
+                         if (Number(item.paleta) === 0 && isInSession(item.descripcion)) {
+                            return sum + (Number(item.totalPaletas) || 0);
+                        }
+                        return sum;
+                    }, 0);
+                    dailyData.fixedRecibidas += summaryPallets;
+                } else {
+                    const uniquePalletsInSession = new Set<number>();
+                    items.forEach((item: any) => {
+                        const paletaValue = Number(item.paleta);
+                        if (isInSession(item.descripcion) && !isNaN(paletaValue) && paletaValue > 0) {
+                            uniquePalletsInSession.add(paletaValue);
+                        }
+                    });
+                    dailyData.fixedRecibidas += uniquePalletsInSession.size;
+                }
+                // **END of corrected logic**
+                
                 // NEW LOGIC for Maquila dispatch pallets
                 if (submission.formData.tipoPedido === 'MAQUILA' && submission.formData.salidaPaletasMaquila > 0) {
                     dailyData.fixedDespachadas += Number(submission.formData.salidaPaletasMaquila);
@@ -229,3 +243,5 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
         throw new Error('No se pudo generar el reporte de facturación.');
     }
 }
+
+    
