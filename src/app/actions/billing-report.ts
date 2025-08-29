@@ -202,20 +202,17 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                     // Original logic for other variable weight dispatches
                     const uniquePalletsInSession = new Set<number>();
                     let summaryPallets = 0;
-                    let pallets999 = 0;
                     allItems.forEach((item: any) => {
                         const paletaValue = Number(item.paleta);
                         if(isInSession(item.descripcion)){
                             if (paletaValue === 0) { // Summary row (non-destination format)
                                 summaryPallets += (Number(item.totalPaletas) || 0);
-                            } else if (paletaValue === 999) {
-                                pallets999++;
-                            } else if (!isNaN(paletaValue) && paletaValue > 0) { // Itemized row
+                            } else if (!isNaN(paletaValue) && paletaValue > 0 && paletaValue !== 999) { // Itemized row, excluding 999
                                 uniquePalletsInSession.add(paletaValue);
                             }
                         }
                     });
-                    dailyData.fixedDespachadas += uniquePalletsInSession.size + summaryPallets + pallets999;
+                    dailyData.fixedDespachadas += uniquePalletsInSession.size + summaryPallets;
                 }
             }
         });
@@ -243,5 +240,3 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
         throw new Error('No se pudo generar el reporte de facturación.');
     }
 }
-
-    
