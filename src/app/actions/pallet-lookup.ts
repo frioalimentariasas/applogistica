@@ -60,18 +60,20 @@ export async function getPalletInfoByCode(palletCode: string): Promise<PalletLoo
       if (!submission.formData) {
           continue; 
       }
-
-      const itemsFromItems = Array.isArray(submission.formData.items) ? submission.formData.items : [];
-      const itemsFromPlacas = Array.isArray(submission.formData.placas) 
-          ? submission.formData.placas.flatMap((p: any) => (p && Array.isArray(p.items) ? p.items : []))
-          : [];
-      const itemsFromDestinos = Array.isArray(submission.formData.destinos)
-          ? submission.formData.destinos.flatMap((d: any) => (d && Array.isArray(d.items) ? d.items : []))
-          : [];
+      
+      // Safer way to build allItems, filtering out null/undefined items
+      const itemsFromItems = (submission.formData.items || []).filter(Boolean);
+      const itemsFromPlacas = (submission.formData.placas || [])
+          .flatMap((p: any) => (p && Array.isArray(p.items) ? p.items : []))
+          .filter(Boolean);
+      const itemsFromDestinos = (submission.formData.destinos || [])
+          .flatMap((d: any) => (d && Array.isArray(d.items) ? d.items : []))
+          .filter(Boolean);
 
       const allItems = [...itemsFromItems, ...itemsFromPlacas, ...itemsFromDestinos];
         
       for (const item of allItems) {
+        // Explicitly check for item existence before accessing its properties
         if (item && item.paleta && String(item.paleta) === palletCode) {
             if (submission.formType.includes('reception') || submission.formType.includes('recepcion')) {
                 receptionItem = item;
@@ -107,7 +109,7 @@ export async function getPalletInfoByCode(palletCode: string): Promise<PalletLoo
         };
     }
 
-    return { success: false, message: `No se encontró información para la paleta con código ${palletCode}.` };
+    return { success: false, message: `No se encontró información de recepción para la paleta ${palletCode}.` };
     
   } catch (error) {
     console.error(`Error buscando información de la paleta ${palletCode}:`, error);
