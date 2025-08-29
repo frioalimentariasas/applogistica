@@ -993,12 +993,12 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
             try {
                 const optimizedImage = await optimizeImage(dataUrl);
 
-                const newImagesSize = getByteSizeFromBase64(optimizedImage.split(',')[1]);
+                const newImageSize = getByteSizeFromBase64(optimizedImage.split(',')[1]);
                 const existingImagesSize = attachments
                     .filter(a => a.startsWith('data:image'))
                     .reduce((sum, base64) => sum + getByteSizeFromBase64(base64.split(',')[1]), 0);
 
-                if (existingImagesSize + newImagesSize > MAX_TOTAL_SIZE_BYTES) {
+                if (existingImagesSize + newImageSize > MAX_TOTAL_SIZE_BYTES) {
                     toast({
                         variant: "destructive",
                         title: "Límite de tamaño excedido",
@@ -1231,12 +1231,12 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
     const lastItem = items && items.length > 0 ? items[items.length - 1] : null;
 
     if (!lastItem) {
-        form.control._fields.items?._f.append({ ...originalDefaultValues.items![0] });
+        append({ ...originalDefaultValues.items![0] });
         return;
     }
     
     if (lastItem.paleta === 0) {
-        form.control._fields.items?._f.append({
+        append({
             ...originalDefaultValues.items![0],
             codigo: lastItem.codigo,
             paleta: 0,
@@ -1245,7 +1245,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
             presentacion: lastItem.presentacion,
         });
     } else {
-        form.control._fields.items?._f.append({
+        append({
             ...originalDefaultValues.items![0],
             codigo: lastItem.codigo,
             paleta: null,
@@ -1690,7 +1690,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                             <Button type="button" variant="outline" onClick={handleAddItem}><PlusCircle className="mr-2 h-4 w-4" />Agregar Ítem</Button>
                         </div>
                      )}
-                    {isSummaryMode && (
+                    {isSummaryMode && watchedTipoPedido !== 'MAQUILA' && (
                         <>
                          <Separator className="my-4" />
                           <div className="flex justify-end gap-x-6 gap-y-4 flex-wrap">
@@ -2145,7 +2145,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                       )}
                   </CardContent>
                 </Card>
-
+              
                 <footer className="flex flex-col sm:flex-row items-center justify-end gap-4 pt-4">
                     <Button type="button" variant="outline" onClick={() => setDiscardAlertOpen(true)} className="w-full sm:w-auto"><RotateCcw className="mr-2 h-4 w-4"/>Limpiar Formato</Button>
                     <Button type="submit" disabled={isSubmitting} className="w-full sm:w-auto">
