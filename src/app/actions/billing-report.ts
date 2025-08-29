@@ -170,6 +170,11 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                 });
                 dailyData.fixedRecibidas += uniquePalletsInSession.size; // Using fixedRecibidas for simplicity
 
+                // NEW LOGIC for Maquila dispatch pallets
+                if (submission.formData.tipoPedido === 'MAQUILA' && submission.formData.salidaPaletasMaquila > 0) {
+                    dailyData.fixedDespachadas += Number(submission.formData.salidaPaletasMaquila);
+                }
+
             } else if (formType === 'variable-weight-despacho') {
                 const isByDestination = submission.formData.despachoPorDestino === true;
                 const allItems = isByDestination ? destinos.flatMap((d: any) => d.items) : items;

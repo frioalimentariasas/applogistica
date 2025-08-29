@@ -172,6 +172,7 @@ const formSchema = z.object({
     operarioResponsable: z.string().optional(),
     tipoPedido: z.string({required_error: "El tipo de pedido es obligatorio."}).min(1, "El tipo de pedido es obligatorio."),
     tipoEmpaqueMaquila: z.enum(['EMPAQUE DE SACOS', 'EMPAQUE DE CAJAS']).optional(),
+    salidaPaletasMaquila: z.coerce.number().int().min(1, "Debe ser al menos 1.").optional(),
     numeroOperariosCuadrilla: z.coerce.number().min(0.1, "Debe ser mayor a 0.").optional(),
     unidadDeMedidaPrincipal: z.string().optional(),
 }).superRefine((data, ctx) => {
@@ -198,6 +199,9 @@ const formSchema = z.object({
       if (data.tipoPedido === 'MAQUILA') {
           if (!data.tipoEmpaqueMaquila) {
               ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El tipo de empaque es obligatorio para maquila.", path: ['tipoEmpaqueMaquila'] });
+          }
+          if (data.salidaPaletasMaquila === undefined || data.salidaPaletasMaquila === null) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La salida de paletas de maquila es obligatoria.", path: ['salidaPaletasMaquila'] });
           }
           if (data.aplicaCuadrilla === 'si' && (data.numeroOperariosCuadrilla === undefined || data.numeroOperariosCuadrilla <= 0)) {
               ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El número de operarios es obligatorio.", path: ['numeroOperariosCuadrilla'] });
@@ -423,6 +427,7 @@ const originalDefaultValues: FormValues = {
   operarioResponsable: undefined,
   tipoPedido: undefined,
   tipoEmpaqueMaquila: undefined,
+  salidaPaletasMaquila: undefined,
   numeroOperariosCuadrilla: undefined,
   unidadDeMedidaPrincipal: "PALETA",
 };
@@ -794,6 +799,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
               aplicaCuadrilla: formData.aplicaCuadrilla ?? undefined,
               tipoPedido: formData.tipoPedido ?? undefined,
               tipoEmpaqueMaquila: formData.tipoEmpaqueMaquila ?? undefined,
+              salidaPaletasMaquila: formData.salidaPaletasMaquila ?? undefined,
               numeroOperariosCuadrilla: formData.numeroOperariosCuadrilla ?? undefined,
               facturaRemision: formData.facturaRemision ?? "",
               operarioResponsable: submission.userId,
@@ -987,12 +993,12 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
             try {
                 const optimizedImage = await optimizeImage(dataUrl);
 
-                const newImageSize = getByteSizeFromBase64(optimizedImage.split(',')[1]);
+                const newImagesSize = getByteSizeFromBase64(optimizedImage.split(',')[1]);
                 const existingImagesSize = attachments
                     .filter(a => a.startsWith('data:image'))
                     .reduce((sum, base64) => sum + getByteSizeFromBase64(base64.split(',')[1]), 0);
 
-                if (existingImagesSize + newImageSize > MAX_TOTAL_SIZE_BYTES) {
+                if (existingImagesSize + newImagesSize > MAX_TOTAL_SIZE_BYTES) {
                     toast({
                         variant: "destructive",
                         title: "Límite de tamaño excedido",
@@ -1356,27 +1362,49 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                             )}
                         />
                         {watchedTipoPedido === 'MAQUILA' && (
-                            <FormField
-                                control={form.control}
-                                name="tipoEmpaqueMaquila"
-                                render={({ field }) => (
-                                <FormItem>
-                                    <FormLabel>Tipo de Empaque (Maquila) <span className="text-destructive">*</span></FormLabel>
-                                    <Select onValueChange={field.onChange} value={field.value}>
-                                    <FormControl>
-                                        <SelectTrigger>
-                                        <SelectValue placeholder="Seleccione tipo de empaque" />
-                                        </SelectTrigger>
-                                    </FormControl>
-                                    <SelectContent>
-                                        <SelectItem value="EMPAQUE DE SACOS">EMPAQUE DE SACOS</SelectItem>
-                                        <SelectItem value="EMPAQUE DE CAJAS">EMPAQUE DE CAJAS</SelectItem>
-                                    </SelectContent>
-                                    </Select>
-                                    <FormMessage />
-                                </FormItem>
-                                )}
-                            />
+                            <>
+                                <FormField
+                                    control={form.control}
+                                    name="tipoEmpaqueMaquila"
+                                    render={({ field }) => (
+                                    <FormItem>
+                                        <FormLabel>Tipo de Empaque (Maquila) <span className="text-destructive">*</span></FormLabel>
+                                        <Select onValueChange={field.onChange} value={field.value}>
+                                        <FormControl>
+                                            <SelectTrigger>
+                                            <SelectValue placeholder="Seleccione tipo de empaque" />
+                                            </SelectTrigger>
+                                        </FormControl>
+                                        <SelectContent>
+                                            <SelectItem value="EMPAQUE DE SACOS">EMPAQUE DE SACOS</SelectItem>
+                                            <SelectItem value="EMPAQUE DE CAJAS">EMPAQUE DE CAJAS</SelectItem>
+                                        </SelectContent>
+                                        </Select>
+                                        <FormMessage />
+                                    </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="salidaPaletasMaquila"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Salida Paletas Maquila <span className="text-destructive">*</span></FormLabel>
+                                            <FormControl>
+                                                <Input 
+                                                    type="number"
+                                                    min="1"
+                                                    placeholder="Ej: 5" 
+                                                    {...field} 
+                                                    value={field.value ?? ''}
+                                                    onChange={e => field.onChange(parseInt(e.target.value, 10) || undefined)}
+                                                />
+                                            </FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </>
                         )}
                         <FormField control={form.control} name="pedidoSislog" render={({ field }) => (
                             <FormItem>
