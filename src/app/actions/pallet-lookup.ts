@@ -57,14 +57,19 @@ export async function getPalletInfoByCode(palletCode: string): Promise<PalletLoo
     for (const doc of submissionsSnapshot.docs) {
       const submission = serializeTimestamps(doc.data());
       
-      // CRITICAL FIX: Ensure formData exists before trying to access its properties
       if (!submission.formData) {
-          continue; // Skip this malformed submission record
+          continue; 
       }
 
-      const allItems = (submission.formData.items || [])
-        .concat((submission.formData.placas || []).flatMap((p: any) => p.items || []))
-        .concat((submission.formData.destinos || []).flatMap((d: any) => d.items || []));
+      const itemsFromItems = Array.isArray(submission.formData.items) ? submission.formData.items : [];
+      const itemsFromPlacas = Array.isArray(submission.formData.placas) 
+          ? submission.formData.placas.flatMap((p: any) => (p && Array.isArray(p.items) ? p.items : []))
+          : [];
+      const itemsFromDestinos = Array.isArray(submission.formData.destinos)
+          ? submission.formData.destinos.flatMap((d: any) => (d && Array.isArray(d.items) ? d.items : []))
+          : [];
+
+      const allItems = [...itemsFromItems, ...itemsFromPlacas, ...itemsFromDestinos];
         
       for (const item of allItems) {
         if (item && item.paleta && String(item.paleta) === palletCode) {
