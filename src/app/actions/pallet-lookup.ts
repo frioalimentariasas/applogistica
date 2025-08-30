@@ -59,7 +59,7 @@ export async function getPalletInfoByCode(palletCode: string): Promise<PalletLoo
       if (!submission.formData) continue;
       
       const allDispatchedItems = (submission.formData.items || [])
-        .concat((submission.formData.destinos || []).flatMap((d: any) => d.items || []));
+        .concat((submission.formData.destinos || []).flatMap((d: any) => d?.items || []));
 
       if (allDispatchedItems.some((item: any) => item && String(item.paleta) === palletCode)) {
         return { success: false, message: `La paleta ${palletCode} ya ha sido despachada.`, alreadyDispatched: true };
@@ -80,7 +80,7 @@ export async function getPalletInfoByCode(palletCode: string): Promise<PalletLoo
         }
 
         const allReceptionItems = (submission.formData.items || [])
-          .concat((submission.formData.placas || []).flatMap((p: any) => p.items || []));
+          .concat((submission.formData.placas || []).flatMap((p: any) => p?.items || []));
 
         const foundItem = allReceptionItems.find((item: any) => item && String(item.paleta) === palletCode);
 
