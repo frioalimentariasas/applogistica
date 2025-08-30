@@ -66,17 +66,18 @@ export async function getPalletInfoByCode(palletCode: string): Promise<PalletLoo
       }
     }
 
-    // 2. Find the reception information for the pallet.
+    // 2. Find the reception information for the pallet, only in variable weight receptions with an order type.
     const receptionSnapshot = await firestore.collection('submissions')
-      .where('formType', 'in', ['variable-weight-reception', 'variable-weight-reception'])
+      .where('formType', 'in', ['variable-weight-reception', 'variable-weight-recepcion'])
       .get();
 
     let receptionItem: any = null;
 
     for (const doc of receptionSnapshot.docs) {
         const submission = serializeTimestamps(doc.data());
+        // Ensure the form has a defined order type to be considered valid
         if (!submission.formData || !submission.formData.tipoPedido) {
-            continue; // Ignore forms without order type
+            continue; 
         }
 
         const allReceptionItems = (submission.formData.items || [])
@@ -91,6 +92,12 @@ export async function getPalletInfoByCode(palletCode: string): Promise<PalletLoo
     }
     
     if (receptionItem) {
+        const pesoBruto = Number(receptionItem.pesoBruto) || 0;
+        const taraEstiba = Number(receptionItem.taraEstiba) || 0;
+        const taraCaja = Number(receptionItem.taraCaja) || 0;
+        const cantidadPorPaleta = Number(receptionItem.cantidadPorPaleta) || 0;
+        const totalTaraCaja = taraCaja * cantidadPorPaleta;
+
         return {
             success: true,
             message: 'Información de la paleta encontrada.',
@@ -99,12 +106,12 @@ export async function getPalletInfoByCode(palletCode: string): Promise<PalletLoo
                 descripcion: receptionItem.descripcion || '',
                 lote: receptionItem.lote || '',
                 presentacion: receptionItem.presentacion || '',
-                cantidadPorPaleta: Number(receptionItem.cantidadPorPaleta) || 0,
-                pesoBruto: Number(receptionItem.pesoBruto) || 0,
-                taraEstiba: Number(receptionItem.taraEstiba) || 0,
-                taraCaja: Number(receptionItem.taraCaja) || 0,
-                totalTaraCaja: Number(receptionItem.totalTaraCaja) || 0,
-                pesoNeto: Number(receptionItem.pesoNeto) || 0,
+                cantidadPorPaleta: cantidadPorPaleta,
+                pesoBruto: pesoBruto,
+                taraEstiba: taraEstiba,
+                taraCaja: taraCaja,
+                totalTaraCaja: totalTaraCaja,
+                pesoNeto: pesoBruto - taraEstiba - totalTaraCaja,
             }
         };
     }
