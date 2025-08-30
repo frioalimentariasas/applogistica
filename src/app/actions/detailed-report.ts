@@ -140,6 +140,7 @@ export interface DetailedReportRow {
     contenedor: string;
     cliente: string;
     observaciones: string;
+    totalCantidad: number;
     totalPaletas: number;
     tipoOperacion: string; // Renamed from tipoPedido
     pedidoSislog: string;
@@ -174,6 +175,28 @@ const calculateTotalPallets = (formType: string, formData: any): number => {
             }
         });
         return uniquePallets.size;
+    }
+
+    return 0;
+};
+
+const calculateTotalCantidad = (formType: string, formData: any): number => {
+    if (formType.startsWith('fixed-weight-')) {
+        return (formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.cajas) || 0), 0);
+    }
+    
+    if (formType.startsWith('variable-weight-')) {
+        const allItems = (formData.items || [])
+            .concat((formData.destinos || []).flatMap((d: any) => d?.items || []))
+            .concat((formData.placas || []).flatMap((p: any) => p?.items || []));
+
+        const isSummaryFormat = allItems.some((p: any) => Number(p.paleta) === 0);
+
+        if (isSummaryFormat) {
+            return allItems.reduce((sum: number, p: any) => sum + (Number(p.totalCantidad) || 0), 0);
+        }
+        
+        return allItems.reduce((sum: number, p: any) => sum + (Number(p.cantidadPorPaleta) || 0), 0);
     }
 
     return 0;
@@ -227,6 +250,7 @@ export async function getDetailedReport(criteria: DetailedReportCriteria): Promi
         const { id, formType, formData } = submission;
 
         const totalPaletas = calculateTotalPallets(formType, formData);
+        const totalCantidad = calculateTotalCantidad(formType, formData);
         
         let tipoOperacion = 'N/A';
         if (formType.includes('recepcion') || formType.includes('reception')) {
@@ -262,6 +286,7 @@ export async function getDetailedReport(criteria: DetailedReportCriteria): Promi
             contenedor: formData.contenedor || 'N/A',
             cliente: formData.nombreCliente || formData.cliente || 'N/A',
             observaciones: formData.observaciones || '',
+            totalCantidad,
             totalPaletas,
             tipoOperacion, // Renamed
             pedidoSislog: formData.pedidoSislog || 'N/A',

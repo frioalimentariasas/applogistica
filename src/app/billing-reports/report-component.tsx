@@ -517,6 +517,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             { header: 'No. Pedido (SISLOG)', key: 'pedidoSislog', width: 20 },
             { header: 'Op. Cuadrilla', key: 'opCuadrilla', width: 15 },
             { header: 'No. Operarios', key: 'numOperarios', width: 15 },
+            { header: 'Total Cantidad', key: 'totalCantidad', width: 15 },
             { header: 'Total Paletas', key: 'totalPaletas', width: 15 },
             { header: 'Observaciones', key: 'observaciones', width: 40 },
         ];
@@ -537,6 +538,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 pedidoSislog: row.pedidoSislog,
                 opCuadrilla: row.operacionPorCuadrilla,
                 numOperarios: row.numeroOperariosCuadrilla,
+                totalCantidad: row.totalCantidad,
                 totalPaletas: row.totalPaletas,
                 observaciones: formatObservaciones(row.observaciones),
             });
@@ -583,7 +585,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         doc.text('Frio Alimentaria SAS Nit: 900736914-0', pageWidth / 2, titleY + 8, { align: 'center' });
 
         const head = [[
-            'Fecha', 'Op. Log.', 'Duración', 'Cliente', 'Tipo Op.', 'Tipo Pedido', 'Empaque', 'No. Pedido', 'Op. Cuadrilla', 'No. Ops', 'Total Paletas', 'Observaciones'
+            'Fecha', 'Op. Log.', 'Duración', 'Cliente', 'Tipo Op.', 'Tipo Pedido', 'Empaque', 'No. Pedido', 'Op. Cuadrilla', 'No. Ops', 'Total Cantidad', 'Total Paletas', 'Observaciones'
         ]];
         
         const body = detailedReportData.map(row => [
@@ -597,6 +599,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             row.pedidoSislog,
             row.operacionPorCuadrilla,
             row.numeroOperariosCuadrilla,
+            row.totalCantidad,
             row.totalPaletas,
             formatObservaciones(row.observaciones)
         ]);
@@ -620,7 +623,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                  1: { cellWidth: 20 }, // Op. Log.
                  2: { cellWidth: 20 }, // Duración
                  3: { cellWidth: 'auto' }, // Cliente
-                 11: { cellWidth: 35 }, // Observaciones column
+                 12: { cellWidth: 35 }, // Observaciones column
             }
         });
 
@@ -1322,13 +1325,14 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                 <TableHead className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm">No. Pedido (SISLOG)</TableHead>
                                                 <TableHead className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm">Op. Cuadrilla</TableHead>
                                                 <TableHead className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm">No. Operarios</TableHead>
+                                                <TableHead className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm">Total Cantidad</TableHead>
                                                 <TableHead className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm">Total Paletas</TableHead>
                                                 <TableHead className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm">Observaciones</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
                                             {isDetailedReportLoading ? (
-                                                <TableRow><TableCell colSpan={16}><Skeleton className="h-20 w-full" /></TableCell></TableRow>
+                                                <TableRow><TableCell colSpan={17}><Skeleton className="h-20 w-full" /></TableCell></TableRow>
                                             ) : detailedReportData.length > 0 ? (
                                                 detailedReportData.map((row) => (
                                                     <TableRow key={row.id}>
@@ -1346,6 +1350,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                         <TableCell>{row.pedidoSislog}</TableCell>
                                                         <TableCell>{row.operacionPorCuadrilla}</TableCell>
                                                         <TableCell>{row.numeroOperariosCuadrilla}</TableCell>
+                                                        <TableCell>{row.totalCantidad}</TableCell>
                                                         <TableCell>{row.totalPaletas}</TableCell>
                                                         <TableCell className="max-w-[200px] truncate" title={formatObservaciones(row.observaciones)}>{formatObservaciones(row.observaciones)}</TableCell>
                                                     </TableRow>
