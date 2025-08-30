@@ -449,42 +449,50 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
   }, [watchedCliente, despachoPorDestino, form]);
 
   const calculatedSummary = useMemo(() => {
-      const allItems = despachoPorDestino ? (allDestinos || []).flatMap(d => d.items.map(i => ({...i, destino: d.nombreDestino}))) : (allItems || []);
-      const isIndividualPalletMode = allItems.every(item => Number(item?.paleta) > 0);
+      const itemsToProcess = despachoPorDestino ? (allDestinos || []).flatMap(d => d.items.map(i => ({...i, destino: d.nombreDestino}))) : (allItems || []);
+      const isIndividualPalletMode = itemsToProcess.every(item => Number(item?.paleta) > 0);
       const shouldGroupByDestino = despachoPorDestino && isIndividualPalletMode;
       
-      const grouped = allItems.reduce((acc, item) => {
+      const grouped = itemsToProcess.reduce((acc, item) => {
           if (!item?.descripcion?.trim()) return acc;
           const key = shouldGroupByDestino ? `${item.destino}|${item.descripcion}` : item.descripcion;
 
           if (!acc[key]) {
-              const summaryItem = form.getValues('summary')?.find(s => (s.destino ? `${s.destino}|${s.descripcion}` : s.descripcion) === key);
+              const summaryItem = form.getValues('summary')?.find((s: any) => (s.destino ? `${s.destino}|${s.descripcion}` : s.descripcion) === key);
               acc[key] = {
                   descripcion: item.descripcion,
                   destino: item.destino,
-                  totalPeso: 0,
-                  totalCantidad: 0,
-                  paletas: new Set<number>(),
+                  items: [],
                   temperatura: summaryItem?.temperatura,
               };
           }
-          if (isSummaryMode) {
-            acc[key].totalPeso += Number(item.totalPesoNeto) || 0;
-            acc[key].totalCantidad += Number(item.totalCantidad) || 0;
-            if (item.totalPaletas) acc[key].paletas.add(item.totalPaletas)
-          } else {
-            acc[key].totalPeso += Number(item.pesoNeto) || 0;
-            acc[key].totalCantidad += Number(item.cantidadPorPaleta) || 0;
-            if (item.paleta && Number(item.paleta) > 0) acc[key].paletas.add(item.paleta);
-          }
-          
+          acc[key].items.push(item);
           return acc;
-      }, {} as Record<string, { descripcion: string; destino?: string, totalPeso: number; totalCantidad: number; paletas: Set<number>, temperatura: any }>);
+      }, {} as Record<string, { descripcion: string; destino?: string, items: any[], temperatura: any }>);
       
-      return Object.values(grouped).map(g => ({
-          ...g,
-          totalPaletas: isSummaryMode ? Array.from(g.paletas).reduce((a, b) => a + b, 0) : g.paletas.size
-      }));
+      return Object.values(grouped).map((group:any) => {
+          let totalPeso = 0;
+          let totalCantidad = 0;
+          let totalPaletas = 0;
+          const uniquePallets = new Set<number>();
+          
+          if (isSummaryMode) {
+              group.items.forEach((item:any) => {
+                  totalPeso += Number(item.totalPesoNeto) || 0;
+                  totalCantidad += Number(item.totalCantidad) || 0;
+                  totalPaletas += Number(item.totalPaletas) || 0;
+              });
+          } else {
+              group.items.forEach((item:any) => {
+                  totalPeso += Number(item.pesoNeto) || 0;
+                  totalCantidad += Number(item.cantidadPorPaleta) || 0;
+                  const paletaNum = Number(item.paleta);
+                  if (!isNaN(paletaNum) && paletaNum > 0) uniquePallets.add(paletaNum);
+              });
+              totalPaletas = uniquePallets.size;
+          }
+          return { ...group, totalPeso, totalCantidad, totalPaletas };
+      });
   }, [despachoPorDestino, allDestinos, allItems, isSummaryMode, form]);
 
   const totalGeneralPeso = useMemo(() => calculatedSummary.reduce((acc, p) => acc + p.totalPeso, 0), [calculatedSummary]);
@@ -497,9 +505,9 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
       }
       return calculatedSummary.reduce((sum, item) => sum + (Number(item.totalPaletas) || 0), 0);
     }
-    const allItems = despachoPorDestino ? (allDestinos || []).flatMap(d => d.items) : (allItems || []);
+    const itemsToProcess = despachoPorDestino ? (allDestinos || []).flatMap(d => d.items) : (allItems || []);
     const uniquePallets = new Set<number>();
-    allItems.forEach((i: any) => {
+    itemsToProcess.forEach((i: any) => {
         const pNum = Number(i.paleta);
         if (!isNaN(pNum) && pNum > 0) uniquePallets.add(pNum);
     });
@@ -1599,7 +1607,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                                         <AlertDialogHeader>
                                             <AlertDialogTitle>¿Está seguro de eliminar todos los anexos?</AlertDialogTitle>
                                             <AlertDialogDesc>
-                                                Esta acción no se puede deshacer. Se eliminarán permanentemente todos los archivos adjuntos.
+                                                Esta acción no se puede deshacer. Se eliminará toda la información que ha ingresado en el formato.
                                             </AlertDialogDesc>
                                         </AlertDialogHeader>
                                         <AlertDialogFooter>
