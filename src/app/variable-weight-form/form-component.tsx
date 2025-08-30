@@ -476,6 +476,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
           let totalPeso = 0;
           let totalCantidad = 0;
           let totalPaletas = 0;
+          let pallets999Count = 0;
           const uniquePallets = new Set<number>();
           
           if (isSummaryMode) {
@@ -489,9 +490,15 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                   totalPeso += Number(item.pesoNeto) || 0;
                   totalCantidad += Number(item.cantidadPorPaleta) || 0;
                   const paletaNum = Number(item.paleta);
-                  if (!isNaN(paletaNum) && paletaNum > 0) uniquePallets.add(paletaNum);
+                  if (!isNaN(paletaNum) && paletaNum > 0) {
+                    if (paletaNum === 999) {
+                        pallets999Count++;
+                    } else {
+                        uniquePallets.add(paletaNum);
+                    }
+                  }
               });
-              totalPaletas = uniquePallets.size;
+              totalPaletas = uniquePallets.size + pallets999Count;
           }
           return { ...group, totalPeso, totalCantidad, totalPaletas };
       });
@@ -509,11 +516,18 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
     }
     const itemsToProcess = despachoPorDestino ? (allDestinos || []).flatMap(d => d.items) : (allItems || []);
     const uniquePallets = new Set<number>();
+    let count999 = 0;
     itemsToProcess.forEach((i: any) => {
         const pNum = Number(i.paleta);
-        if (!isNaN(pNum) && pNum > 0) uniquePallets.add(pNum);
+        if (!isNaN(pNum) && pNum > 0) {
+            if (pNum === 999) {
+                count999++;
+            } else {
+                uniquePallets.add(pNum);
+            }
+        }
     });
-    return uniquePallets.size;
+    return uniquePallets.size + count999;
   }, [calculatedSummary, despachoPorDestino, allDestinos, allItems, isSummaryMode, form]);
 
   useEffect(() => {
@@ -2033,7 +2047,7 @@ const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, de
         if (!palletCode || palletCode === "0" || palletCode === "999") return;
         
         if (!clientName) {
-            // Toast is now handled by the disabled state, but this is a fallback.
+            // This is a fallback, UI should disable the input.
             toast({ variant: "destructive", title: "Error", description: "Por favor, seleccione un cliente antes de buscar una paleta." });
             return;
         }
@@ -2122,12 +2136,9 @@ const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, de
                                                 onBlur={(e) => handlePalletLookup(e.target.value)}
                                                 onChange={e => field.onChange(e.target.value === '' ? null : Number(e.target.value))}
                                                 value={field.value ?? ''}
-                                                disabled={!clientName}
+                                                disabled={!clientName || isLoadingPallet}
                                             />
                                         </FormControl>
-                                        <Button type="button" variant="outline" size="icon" disabled={isLoadingPallet || !clientName}>
-                                            {isLoadingPallet ? <Loader2 className="h-4 w-4 animate-spin" /> : <QrCode className="h-4 w-4" />}
-                                        </Button>
                                     </div>
                                 </TooltipTrigger>
                                 {!clientName && (
