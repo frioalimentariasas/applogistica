@@ -77,6 +77,8 @@ import { RestoreDialog } from "@/components/app/restore-dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDialogDesc, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Calendar } from "@/components/ui/calendar";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+
 
 const itemSchema = z.object({
     codigo: z.string().min(1, "El código es requerido."),
@@ -1342,7 +1344,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                                 <Table>
                                     <TableHeader>
                                         <TableRow>
-                                            {despachoPorDestino && <TableHead>Destino</TableHead>}
+                                            {despachoPorDestino && !isSummaryMode && <TableHead>Destino</TableHead>}
                                             <TableHead>Descripción del Producto</TableHead>
                                             <TableHead className="w-[120px]">Temp. (°C) <span className="text-destructive">*</span></TableHead>
                                             <TableHead className="text-right">Total Cantidad</TableHead>
@@ -1355,7 +1357,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                                             const summaryIndex = (form.getValues('summary') || []).findIndex(s => s.descripcion === summaryItem.descripcion && s.destino === summaryItem.destino);
                                             return(
                                             <TableRow key={index}>
-                                                {despachoPorDestino && <TableCell>{summaryItem.destino}</TableCell>}
+                                                {despachoPorDestino && !isSummaryMode && <TableCell>{summaryItem.destino}</TableCell>}
                                                 <TableCell className="font-medium">{summaryItem.descripcion}</TableCell>
                                                 <TableCell>
                                                     <FormField
@@ -1377,7 +1379,8 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                                             </TableRow>
                                         )})}
                                         <TableRow className="font-bold bg-primary/10 text-primary">
-                                            <TableCell colSpan={despachoPorDestino ? 3 : 2} className="text-right text-lg">TOTAL GENERAL:</TableCell>
+                                            <TableCell colSpan={despachoPorDestino && !isSummaryMode ? 2 : 1} className="text-right text-lg">TOTAL GENERAL:</TableCell>
+                                            <TableCell></TableCell>
                                             <TableCell className="text-right text-lg">{totalGeneralCantidad}</TableCell>
                                             <TableCell className="text-right text-lg">{totalGeneralPaletas}</TableCell>
                                             <TableCell className="text-right text-lg">{totalGeneralPeso.toFixed(2)}</TableCell>
@@ -2002,10 +2005,10 @@ const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, de
     const [isConfirmLoadOpen, setConfirmLoadOpen] = useState(false);
     const [foundPalletInfo, setFoundPalletInfo] = useState<PalletInfo | null>(null);
 
-    const { setValue, getValues } = useFormContext();
+    const { setValue, getValues, watch } = useFormContext();
     const basePath = destinoIndex !== undefined ? `destinos.${destinoIndex}.items` : 'items';
-    const watchedItem = useWatch({ control, name: `${basePath}.${itemIndex}` });
-    const isDespachoPorDestino = useWatch({ control, name: 'despachoPorDestino' });
+    const watchedItem = watch(`${basePath}.${itemIndex}`);
+    const clientName = watch('cliente');
 
     useEffect(() => {
         if (watchedItem && watchedItem.paleta !== 0) {
@@ -2029,8 +2032,8 @@ const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, de
     const handlePalletLookup = async (palletCode: string) => {
         if (!palletCode || palletCode === "0" || palletCode === "999") return;
         
-        const clientName = getValues('cliente');
         if (!clientName) {
+            // Toast is now handled by the disabled state, but this is a fallback.
             toast({ variant: "destructive", title: "Error", description: "Por favor, seleccione un cliente antes de buscar una paleta." });
             return;
         }
@@ -2041,10 +2044,8 @@ const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, de
             if (result.success && result.palletInfo) {
                 setFoundPalletInfo(result.palletInfo);
                 setConfirmLoadOpen(true);
-            } else if (!result.success && !result.alreadyDispatched) {
-                // Do nothing, allow manual entry
-            } else {
-                toast({ variant: "destructive", title: "Error de Paleta", description: result.message });
+            } else if (!result.success) {
+                toast({ variant: "destructive", title: "Paleta no encontrada", description: result.message });
             }
         } catch (error) {
             toast({ variant: "destructive", title: "Error de Servidor", description: "No se pudo buscar la información de la paleta." });
@@ -2108,20 +2109,34 @@ const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, de
                 <FormField control={control} name={`${basePath}.${itemIndex}.paleta`} render={({ field }) => (
                     <FormItem>
                         <FormLabel>Paleta <span className="text-destructive">*</span></FormLabel>
-                        <div className="flex items-center gap-2">
-                            <FormControl>
-                                <Input 
-                                    type="text" 
-                                    inputMode="numeric" 
-                                    placeholder="0 para resumen" 
-                                    {...field}
-                                    onBlur={(e) => handlePalletLookup(e.target.value)}
-                                    onChange={e => field.onChange(e.target.value === '' ? null : Number(e.target.value))} value={field.value ?? ''} />
-                            </FormControl>
-                             <Button type="button" variant="outline" size="icon" disabled={isLoadingPallet} onClick={() => console.log('Scanner not implemented yet')}>
-                                {isLoadingPallet ? <Loader2 className="h-4 w-4 animate-spin" /> : <QrCode className="h-4 w-4" />}
-                            </Button>
-                        </div>
+                        <TooltipProvider>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <div className="flex items-center gap-2">
+                                        <FormControl>
+                                            <Input
+                                                type="text"
+                                                inputMode="numeric"
+                                                placeholder="0 para resumen"
+                                                {...field}
+                                                onBlur={(e) => handlePalletLookup(e.target.value)}
+                                                onChange={e => field.onChange(e.target.value === '' ? null : Number(e.target.value))}
+                                                value={field.value ?? ''}
+                                                disabled={!clientName}
+                                            />
+                                        </FormControl>
+                                        <Button type="button" variant="outline" size="icon" disabled={isLoadingPallet || !clientName}>
+                                            {isLoadingPallet ? <Loader2 className="h-4 w-4 animate-spin" /> : <QrCode className="h-4 w-4" />}
+                                        </Button>
+                                    </div>
+                                </TooltipTrigger>
+                                {!clientName && (
+                                    <TooltipContent>
+                                        <p>Por favor, seleccione un cliente primero.</p>
+                                    </TooltipContent>
+                                )}
+                            </Tooltip>
+                        </TooltipProvider>
                         <FormMessage />
                     </FormItem>
                 )} />
@@ -2133,15 +2148,10 @@ const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, de
                 )} />
             </div>
             {isSummaryRow ? (
-                <div className={cn("grid grid-cols-1 gap-4", isDespachoPorDestino ? 'md:grid-cols-2' : 'md:grid-cols-3')}>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <FormField control={control} name={`${basePath}.${itemIndex}.totalCantidad`} render={({ field }) => (
                         <FormItem><FormLabel>Total Cantidad <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                     )} />
-                    {!isDespachoPorDestino && (
-                        <FormField control={control} name={`${basePath}.${itemIndex}.totalPaletas`} render={({ field }) => (
-                            <FormItem><FormLabel>Total Paletas</FormLabel><FormControl><Input type="text" inputMode="numeric" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                        )} />
-                    )}
                     <FormField control={control} name={`${basePath}.${itemIndex}.totalPesoNeto`} render={({ field }) => (
                         <FormItem><FormLabel>Total Peso Neto (kg) <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="decimal" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                     )} />
