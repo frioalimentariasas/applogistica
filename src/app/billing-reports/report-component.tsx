@@ -1171,7 +1171,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 <Tabs defaultValue="detailed-operation" className="w-full">
                     <TabsList className="grid w-full grid-cols-3 mb-6">
                         <TabsTrigger value="detailed-operation">Operaciones Detalladas</TabsTrigger>
-                        <TabsTrigger value="inventory">Inventario por Día</TabsTrigger>
+                        <TabsTrigger value="inventory">Inventario Acumulado</TabsTrigger>
                         <TabsTrigger value="consolidated-report">Consolidado Movimientos/Inventario</TabsTrigger>
                     </TabsList>
 
@@ -1937,9 +1937,3 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 }
 
     
-
-
-
-
-
-
