@@ -2028,9 +2028,16 @@ const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, de
 
     const handlePalletLookup = async (palletCode: string) => {
         if (!palletCode || palletCode === "0" || palletCode === "999") return;
+        
+        const clientName = getValues('cliente');
+        if (!clientName) {
+            toast({ variant: "destructive", title: "Error", description: "Por favor, seleccione un cliente antes de buscar una paleta." });
+            return;
+        }
+
         setIsLoadingPallet(true);
         try {
-            const result = await getPalletInfoByCode(palletCode);
+            const result = await getPalletInfoByCode(palletCode, clientName);
             if (result.success && result.palletInfo) {
                 setFoundPalletInfo(result.palletInfo);
                 setConfirmLoadOpen(true);

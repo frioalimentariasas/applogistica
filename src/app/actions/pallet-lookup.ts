@@ -43,15 +43,19 @@ const serializeTimestamps = (data: any): any => {
     return newObj;
 };
 
-export async function getPalletInfoByCode(palletCode: string): Promise<PalletLookupResult> {
+export async function getPalletInfoByCode(palletCode: string, clientName: string): Promise<PalletLookupResult> {
   if (!firestore) {
     return { success: false, message: 'El servidor no está configurado correctamente.' };
   }
+  if (!clientName) {
+    return { success: false, message: 'Se debe proporcionar un cliente para la búsqueda.' };
+  }
 
   try {
-    // 1. Check if the pallet has already been dispatched.
+    // 1. Check if the pallet has already been dispatched FOR THIS CLIENT.
     const dispatchSnapshot = await firestore.collection('submissions')
       .where('formType', '==', 'variable-weight-despacho')
+      .where('formData.cliente', '==', clientName)
       .get();
       
     for (const doc of dispatchSnapshot.docs) {
@@ -62,20 +66,20 @@ export async function getPalletInfoByCode(palletCode: string): Promise<PalletLoo
         .concat((submission.formData.destinos || []).flatMap((d: any) => d?.items || []));
 
       if (allDispatchedItems.some((item: any) => item && String(item.paleta) === palletCode)) {
-        return { success: false, message: `La paleta ${palletCode} ya ha sido despachada.`, alreadyDispatched: true };
+        return { success: false, message: `La paleta ${palletCode} ya ha sido despachada para este cliente.`, alreadyDispatched: true };
       }
     }
 
-    // 2. Find the reception information for the pallet, only in variable weight receptions with an order type.
+    // 2. Find the reception information for the pallet, only in variable weight receptions with an order type FOR THIS CLIENT.
     const receptionSnapshot = await firestore.collection('submissions')
       .where('formType', 'in', ['variable-weight-reception', 'variable-weight-recepcion'])
+      .where('formData.cliente', '==', clientName)
       .get();
 
     let receptionItem: any = null;
 
     for (const doc of receptionSnapshot.docs) {
         const submission = serializeTimestamps(doc.data());
-        // Ensure the form has a defined order type to be considered valid
         if (!submission.formData || !submission.formData.tipoPedido) {
             continue; 
         }
@@ -116,7 +120,7 @@ export async function getPalletInfoByCode(palletCode: string): Promise<PalletLoo
         };
     }
 
-    return { success: false, message: `No se encontró información de recepción para la paleta ${palletCode}.` };
+    return { success: false, message: `No se encontró información de recepción para la paleta ${palletCode} del cliente ${clientName}.` };
     
   } catch (error) {
     console.error(`Error buscando información de la paleta ${palletCode}:`, error);
