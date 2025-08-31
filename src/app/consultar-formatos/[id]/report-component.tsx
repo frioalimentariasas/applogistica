@@ -1006,7 +1006,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         (formData.destinos || []).forEach((destino: any, index: number) => {
                             autoTable(doc, {
                                 startY: yPos,
-                                head: [[{ content: `Destino: ${destino.nombreDestino}`, colSpan: 10, styles: { fillColor: '#000', fontStyle: 'bold', textColor: '#fff' } }]],
+                                head: [[{ content: `Destino: ${destino.nombreDestino}`, colSpan: 10, styles: { fillColor: '#187bcd', fontStyle: 'bold', textColor: '#fff' } }]],
                                 theme: 'grid',
                                 margin: { horizontal: margin },
                             });

@@ -2,218 +2,235 @@
 
 ## 1. Introducción
 
-Bienvenido a la aplicación de Control de Operaciones Logísticas de Frio Alimentaria. Este manual está diseñado para guiar a los operarios a través de todas las funcionalidades del sistema, desde el registro diario de operaciones hasta la consulta de informes y la gestión de datos maestros.
+Bienvenido a la aplicación de Control de Operaciones Logísticas de Frio Alimentaria. Este manual está diseñado para guiar a los operarios a través de todas las funcionalidades del sistema de manera exhaustiva, desde el registro diario de operaciones hasta la consulta de informes complejos y la gestión de datos maestros.
 
 ## 2. Inicio de Sesión
 
 Para acceder a la aplicación, necesitarás un correo electrónico y una contraseña proporcionados por el administrador del sistema.
 
-1.  **Accede a la aplicación:** Abre la dirección web de la aplicación en tu navegador.
-2.  **Ingresa tus credenciales:** Escribe tu correo electrónico y contraseña en los campos correspondientes.
-3.  **Haz clic en "Ingresar":** Si los datos son correctos, serás dirigido a la pantalla principal.
+1.  **Accede a la aplicación**: Abre la dirección web de la aplicación en tu navegador. Verás el logo de la empresa y los campos de acceso.
+2.  **Ingresa tus credenciales**:
+    *   **Correo Electrónico**: Escribe tu correo electrónico completo (ej. `operario@frioalimentaria.com.co`).
+    *   **Contraseña**: Escribe la contraseña que te fue asignada.
+3.  **Haz clic en "Ingresar"**: Si los datos son correctos, serás dirigido a la pantalla principal.
 
-> [PENDIENTE: Insertar pantallazo de la pantalla de inicio de sesión]
-
-> **Nota:** Si olvidas tu contraseña, contacta al administrador para que te asigne una nueva.
+> **Nota:** Si olvidas tu contraseña o tienes problemas para acceder, contacta al administrador del sistema para que te asigne una nueva.
 
 ## 3. Pantalla Principal
 
-La pantalla principal es tu centro de operaciones. Desde aquí puedes:
+La pantalla principal es tu centro de operaciones. Desde aquí puedes acceder a todas las funciones de la aplicación.
 
-*   **Generar nuevos formatos de operación:** Elige el tipo de operación y producto.
-*   **Acceder a los módulos de consulta y gestión:** Utiliza los botones de la sección "Consultas y Herramientas".
+ *(PENDIENTE: Insertar pantallazo de la pantalla principal)*
 
-> [PENDIENTE: Insertar pantallazo de la pantalla principal, mostrando la sección de "Generar Formato" y "Consultas y Herramientas"]
+Se divide en dos secciones principales:
 
 ### 3.1. Generar un Nuevo Formato
 
-Esta es la tarea más común. Sigue estos pasos:
+Esta es la sección para las tareas diarias de registro de mercancía.
 
-1.  **Selecciona el Tipo de Operación:**
-    *   **Recepción:** Para registrar la entrada de mercancía.
-    *   **Despacho:** Para registrar la salida de mercancía.
+1.  **Selecciona el Tipo de Operación**:
+    *   **Recepción**: Para registrar la **entrada** de mercancía a la bodega.
+    *   **Despacho**: Para registrar la **salida** de mercancía de la bodega.
 
-2.  **Selecciona el Tipo de Producto:**
-    *   **Peso Fijo:** Para productos que se manejan en unidades o cajas con un peso estándar.
-    *   **Peso Variable:** Para productos cuyo peso varía en cada unidad (ej. piezas de carne).
+2.  **Selecciona el Tipo de Producto**:
+    *   **Peso Fijo**: Para productos que se manejan en unidades o cajas con un peso estándar y conocido (ej. cajas de pollo de 20kg).
+    *   **Peso Variable**: Para productos cuyo peso no es estándar y debe ser registrado individualmente (ej. piezas de carne, productos a granel).
 
-3.  **Haz clic en "Generar Formato":** Esto te llevará al formulario correspondiente.
+3.  **Haz clic en "Generar Formato"**: Una vez seleccionadas ambas opciones, este botón se activará y te llevará al formulario correspondiente.
 
-> [PENDIENTE: Insertar pantallazo de la sección "Generar Nuevo Formato" con las opciones seleccionadas]
+### 3.2. Consultas y Herramientas
+
+Esta sección contiene los módulos para ver datos históricos, generar reportes y configurar el sistema. Cada botón te llevará a una página especializada.
 
 ## 4. Formularios de Operación
 
-Existen tres formularios principales que se adaptan a las necesidades de la operación. Todos comparten campos comunes como "Pedido SISLOG", "Cliente", "Fecha", "Hora de Inicio/Fin", "Observaciones", etc.
+Los formularios son el corazón del sistema. Es crucial llenarlos con precisión. Todos comparten campos comunes en la cabecera (Información General) y en el pie (Observaciones, Responsables, Anexos).
 
 ### 4.1. Formulario de Peso Fijo (Recepción y Despacho)
 
-*   **Uso:** Para productos con peso conocido y estandarizado, tanto para entradas (recepción) como para salidas (despacho).
-*   **Campos Clave:**
-    *   **Información General:** Llena los datos del pedido, cliente, fechas y horas. El "Tipo de Pedido" es crucial:
-        *   **Recepción tipo "MAQUILA":** Si seleccionas esta opción, aparecerán campos adicionales para "Tipo de Empaque" y "No. de Operarios" si aplica cuadrilla.
-        *   **Otros Tipos de Pedido:** Se comportan como una recepción/despacho estándar.
-    *   **Características del Producto:**
-        *   Haz clic en **"Agregar Producto"**.
-        *   Selecciona el **Código** y la **Descripción** del producto (se autocompletarán si el producto ya existe para ese cliente).
-        *   Ingresa el **No. de Cajas**, **Total Paletas** y el **Peso Neto (kg)**.
-        *   Registra al menos una **temperatura**.
-    *   **Información del Vehículo:** Completa los datos del conductor, placa, muelle y contenedor. Estos campos son obligatorios, excepto en recepciones tipo "MAQUILA" o "INGRESO DE SALDOS".
-    *   **Anexos:** Puedes subir fotos desde tu galería o tomarlas directamente con la cámara del dispositivo.
-    *   **Responsables:** Asigna al coordinador y define si la operación fue realizada por cuadrilla.
+*   **Uso**: Para registrar productos con peso conocido, tanto en entradas (recepción) como en salidas (despacho).
+*   **Lógica Principal**: Se enfoca en la cantidad de cajas/unidades y el sistema calcula los totales basándose en el peso neto que se ingrese.
 
-> [PENDIENTE: Insertar pantallazo del formulario de Peso Fijo, destacando las secciones principales]
+**Paso a Paso Detallado:**
+
+1.  **Información General (Cabecera)**:
+    *   **Tipo de Pedido**: **¡Campo Crucial!** La selección aquí puede cambiar los campos que aparecen en el resto del formulario.
+        *   **MAQUILA (Solo en Recepción)**: Al seleccionar esta opción, los campos del vehículo se vuelven opcionales y aparecen dos campos nuevos: "Tipo de Empaque (Maquila)" y "No. de Operarios" (si aplica cuadrilla).
+        *   **INGRESO DE SALDOS (Solo en Recepción)**: Los campos de información del vehículo se vuelven opcionales.
+        *   **Otros Tipos**: Se comportan como una operación estándar donde los datos del vehículo son obligatorios.
+    *   **Pedido SISLOG**: Ingresa el número de pedido del sistema SISLOG. Es un campo obligatorio.
+    *   **Nombre del Cliente**: Selecciona el cliente de la lista. Este campo es obligatorio y filtra los productos que puedes agregar.
+    *   **Fecha**: Se llena automáticamente con la fecha actual, pero un administrador puede modificarla si es necesario.
+    *   **Hora de Inicio/Fin**: Usa el reloj para capturar la hora exacta o ingrésala manualmente en formato HH:MM (24 horas). No pueden ser iguales.
+    *   **Precinto/Sello**: Ingresa el número del precinto del vehículo.
+    *   **Documento de Transporte / Factura/Remisión**: Campos opcionales para información adicional.
+
+2.  **Características del Producto**:
+    *   Haz clic en **"Agregar Producto"** para añadir una nueva fila.
+    *   **Código / Descripción**: Haz clic para abrir el selector de productos. Solo aparecerán los artículos previamente asociados al cliente seleccionado. Al elegir uno, ambos campos se autocompletarán.
+    *   **No. de Cajas**: Ingresa la cantidad total de cajas o unidades para ese producto.
+    *   **Total Paletas**: Ingresa el número total de paletas que ocupa este producto.
+    *   **Peso Neto (kg)**: Ingresa el peso total neto de **todas las cajas** de este producto.
+    *   **Temperaturas (°C)**: Ingresa al menos una medición de temperatura del producto. Puedes usar hasta tres campos (T1, T2, T3).
+
+3.  **Total Peso Bruto (kg)**: Este campo es para **legalizar** el peso de la operación y es fundamental para los reportes de productividad. Debes ingresar el peso bruto total registrado en la báscula del vehículo.
+
+4.  **Información del Vehículo**:
+    *   Estos campos (Nombre Conductor, Cédula, Placa, Muelle, Contenedor, Set Point, etc.) son **obligatorios**, excepto en recepciones de tipo "MAQUILA" o "INGRESO DE SALDOS".
+
+5.  **Observaciones, Responsables y Anexos**: Se explican en detalle más adelante, ya que son comunes a todos los formularios.
 
 ### 4.2. Formulario de Peso Variable (Recepción)
 
-*   **Uso:** Para productos que necesitan ser pesados individualmente al momento de la recepción.
-*   **Modos de Operación (según Tipo de Pedido):**
-    *   **Recepción General:** Agrega ítems uno por uno. Cada ítem representa una paleta o un grupo de productos. Debes especificar el peso bruto, las taras (caja y estiba) y la cantidad por paleta. El sistema calculará el peso neto automáticamente.
-    *   **Modo Resumen (Paleta 0):** Si ingresas "0" en el campo "Paleta", puedes registrar totales de un producto sin detallar cada paleta. Deberás ingresar el "Total Cantidad", "Total Paletas" y "Total Peso Neto".
-    *   **Recepción tipo "TUNEL":** Esta opción te permite agrupar ítems por **placa de vehículo**.
-        1.  Selecciona "TUNEL" como tipo de pedido.
-        2.  Marca la casilla **"Recepción por Placa"**.
-        3.  Haz clic en **"Agregar Placa"**.
-        4.  Ingresa el número de la placa, conductor y cédula.
-        5.  Dentro de cada placa, agrega los ítems correspondientes.
-        6.  El sistema llenará automáticamente los campos de información general del vehículo con los datos de todas las placas que hayas agregado.
-    *   **Recepción tipo "MAQUILA" o "INGRESO DE SALDOS":** Los campos de información del vehículo (conductor, placa, etc.) son opcionales.
+*   **Uso**: Para registrar la entrada de productos que deben ser pesados individualmente.
+*   **Lógica Principal**: El sistema permite dos modos de ingreso: detallado (paleta por paleta) o resumido (totales por producto).
 
-> [PENDIENTE: Insertar pantallazo del formulario de Peso Variable (Recepción), mostrando la sección de ítems y la opción "Recepción por Placa"]
+**Paso a Paso Detallado:**
+
+1.  **Información General (Cabecera)**: Similar al formulario de Peso Fijo. Presta especial atención al **"Tipo de Pedido"**.
+
+2.  **Lógica del "Tipo de Pedido"**:
+    *   **TUNEL**: Activa la opción de **"Recepción por Placa"**. Esto es para operaciones donde un solo cliente envía producto en varios vehículos pequeños.
+        *   Marca la casilla "Recepción por Placa".
+        *   Usa el botón **"Agregar Placa"** para crear secciones, cada una con sus propios campos de vehículo (Placa, Conductor, Cédula) y su propia lista de ítems.
+        *   Los datos del vehículo en la cabecera del formulario se llenarán automáticamente con la información de todas las placas que agregues.
+    *   **MAQUILA / INGRESO DE SALDOS**: Los campos de información del vehículo en la cabecera se vuelven opcionales.
+
+3.  **Detalle de la Recepción (Ítems)**:
+    *   **Modo Detallado (Paleta Individual)**:
+        *   **Paleta**: Ingresa el número de la etiqueta o sticker de la paleta física (ej. 1, 2, 3...). Este número debe ser único por operación.
+        *   **Código / Descripción**: Selecciona el producto.
+        *   **Lote / Presentación**: Ingresa los datos correspondientes.
+        *   **Cantidad por Paleta**: Número de cajas/unidades en esa paleta.
+        *   **Peso Bruto (kg)**: Peso total de la paleta en la báscula.
+        *   **Tara Estiba (kg)**: Peso de la estiba vacía.
+        *   **Tara Caja (kg)**: Peso de una caja vacía.
+        *   El sistema calculará automáticamente el **Peso Neto**.
+    *   **Modo Resumen (Paleta 0)**:
+        *   Para registrar totales de un producto sin detallar cada paleta.
+        *   **Paleta**: Ingresa el número **0**.
+        *   Aparecerán tres campos nuevos: **Total Cantidad, Total Paletas, Total Peso Neto**. Debes llenarlos con los totales correspondientes para ese producto. Los campos de peso individual se desactivarán.
+
+4.  **Resumen Agrupado de Productos**:
+    *   Esta tabla se genera automáticamente y muestra los totales por cada tipo de producto, sumando todos los ítems (individuales y resumidos) que hayas ingresado.
+    *   **Importante**: Debes ingresar al menos una **Temperatura (°C)** para cada grupo de producto en esta tabla resumen.
 
 ### 4.3. Formulario de Peso Variable (Despacho)
 
-*   **Uso:** Similar a la recepción de peso variable, pero para la salida de mercancía.
-*   **Modos de Operación (según Cliente):**
-    *   **Despacho General:** Agrega ítems de forma individual o en modo resumen (Paleta 0).
-    *   **Pedido por Destino (Clientes Especiales):** Si seleccionas un cliente como "AVICOLA EL MADROÑO S.A.", "AVICOLA EMBUTIDOS", etc., se activará la opción "Pedido por Destino".
-        1.  Marca la casilla **"Pedido por Destino"**.
-        2.  Haz clic en **"Agregar Destino"**.
-        3.  Ingresa el nombre del destino (ej. una ciudad o sucursal).
-        4.  Dentro de cada destino, agrega los ítems correspondientes, ya sea de forma individual o en modo resumen.
+*   **Uso**: Para registrar la salida de productos de peso variable. Es el más complejo debido a la lógica de búsqueda de paletas y despacho por destinos.
+*   **Lógica Principal**: Permite buscar paletas existentes por su código para autocompletar datos, y agrupar los ítems bajo diferentes destinos de entrega.
 
-> [PENDIENTE: Insertar pantallazo del formulario de Peso Variable (Despacho), mostrando la opción "Pedido por Destino"]
+**Paso a Paso Detallado:**
 
-### 4.4. Funciones Comunes en Formularios
+1.  **Información General (Cabecera)**: Completa los datos como en los otros formularios.
 
-*   **Observaciones Especiales:**
-    *   **CARGUE/DESCARGUE PARCIAL DE PALETAS**: Al seleccionar esta observación, el formulario te pedirá dos datos adicionales:
-        *   **Cantidad de Paletas**: El número de paletas movidas en la operación parcial.
-        *   **Peso por Paleta (KG)**: El peso promedio de una de esas paletas.
-        El sistema usará estos datos para calcular las toneladas a liquidar automáticamente.
+2.  **Lógica del Cliente y "Pedido por Destino"**:
+    *   **Clientes Especiales** (ej. AVICOLA EL MADROÑO S.A.): Si seleccionas uno de estos clientes, se activará la casilla **"Pedido por Destino"**.
+    *   Al marcarla, podrás usar el botón **"Agregar Destino"** para crear secciones. Cada sección representa un punto de entrega (ej. una ciudad) y contendrá su propia lista de ítems.
 
-> [PENDIENTE: Insertar pantallazo mostrando los campos que aparecen al seleccionar la observación "CARGUE/DESCARGUE PARCIAL DE PALETAS"]
+3.  **Detalle del Despacho (Ítems)**:
+    *   **Búsqueda de Paleta (Modo Detallado)**:
+        1.  **Selecciona un Cliente primero**. El campo "Paleta" estará deshabilitado hasta que lo hagas.
+        2.  En el campo **"Paleta"**, ingresa el código de una paleta existente y sal del campo (o presiona Enter).
+        3.  **El sistema buscará** ese código en todos los formularios de **Recepción de Peso Variable** que pertenezcan a ese cliente y que no hayan sido despachados previamente.
+        4.  **Si encuentra la paleta**: Aparecerá un diálogo preguntando: **"¿Desea cargar los datos de esta paleta?"**.
+        5.  Al aceptar, los campos **Código, Descripción, Lote, Presentación y los pesos** se llenarán automáticamente con la información de su recepción original.
+        6.  **Si no la encuentra o ya fue despachada**: Aparecerá un diálogo informando el problema. Puedes corregir el código o continuar ingresando los datos del producto manualmente.
+    *   **Modo Resumen (Paleta 0)**: Funciona igual que en la recepción. Ingresa **0** en el campo "Paleta" para registrar totales de un producto.
+    *   **Paleta Especial (Paleta 999)**: Usa el código **999** para ítems que no corresponden a una paleta física estándar o que son un ajuste. Se comportan como una paleta individual pero se identifican de forma especial en los reportes.
 
-*   **Guardar Borrador:** El formulario se guarda automáticamente en tu dispositivo cada pocos segundos. Si cierras la aplicación, al volver al mismo tipo de formulario se te preguntará si quieres restaurar los datos.
-*   **Limpiar Formato:** El botón **"Limpiar Formato"** borra todos los datos ingresados para que puedas empezar de nuevo.
-*   **Anexos:** Usa los botones **"Subir archivos"** o **"Tomar Foto"** para adjuntar evidencia fotográfica.
+4.  **Resumen Agrupado de Productos**: Al igual que en la recepción, esta tabla se actualiza automáticamente y requiere que ingreses la temperatura para cada grupo de producto.
+
+### 4.4. Funciones Comunes en Todos los Formularios
+
+*   **Observaciones**:
+    *   Puedes agregar múltiples observaciones a un formato.
+    *   **CARGUE/DESCARGUE PARCIAL DE PALETAS**: Si seleccionas esta observación, el sistema te pedirá dos datos adicionales para calcular las toneladas a liquidar automáticamente: `Cantidad de Paletas` y `Peso por Paleta (KG)`.
+    *   **Otras Observaciones**: Algunas, como "REESTIBADO", tienen campos adicionales como "Cantidad" y "Unidad de Medida" que son cruciales para el informe de liquidación de cuadrilla.
+*   **Responsables**:
+    *   **Coordinador**: Selecciona el coordinador a cargo.
+    *   **Operación Realizada por Cuadrilla**: Selecciona "Sí" o "No". Esta elección es **fundamental** para los reportes de productividad y liquidación.
+*   **Anexos**:
+    *   Usa los botones **"Subir archivos"** o **"Tomar Foto"** para adjuntar evidencia fotográfica (máximo 60 imágenes, 10MB en total).
+*   **Guardado Automático (Borrador)**: El formulario se guarda localmente en tu dispositivo cada pocos segundos. Si la aplicación se cierra, al volver a abrir el mismo tipo de formulario (ej. Recepción Peso Fijo), se te preguntará si deseas restaurar los datos.
+*   **Limpiar Formato**: Este botón borra **todos los datos** que has ingresado para que puedas empezar de nuevo.
 
 ## 5. Módulos de Consultas y Herramientas
 
-Desde la pantalla principal, puedes acceder a varios módulos para gestionar y consultar información.
-
 ### 5.1. Consultar Formatos Guardados
 
-*   Busca formularios ya enviados por **Pedido SISLOG, Cliente, Placa, Fecha de Operación, Tipo de Operación o Tipo de Producto**.
-*   Desde los resultados, puedes:
-    *   **Ver (Ojo):** Abre una vista previa del reporte en PDF.
-    *   **Editar (Lápiz):** Abre el formulario con los datos cargados para que puedas modificarlos.
-    *   **Eliminar (Basura):** Borra el formulario permanentemente.
+Permite buscar, visualizar, editar y eliminar formularios ya enviados.
 
-> [PENDIENTE: Insertar pantallazo de la página "Consultar Formatos Guardados" con los filtros y la tabla de resultados]
+*   **Filtros**: Puedes buscar por Pedido SISLOG, Cliente, Placa, Rango de Fechas, Tipo de Operación, Tipo de Producto o Tipo de Pedido.
+*   **Resultados**: La tabla muestra los formatos que coinciden con tu búsqueda.
+*   **Acciones**:
+    *   **Ver (Ojo)**: Abre una vista previa del reporte en formato PDF.
+    *   **Editar (Lápiz)**: Carga el formulario con todos sus datos para que puedas modificarlos y volver a guardarlos.
+    *   **Cambiar Tipo (Flechas)**: Cambia una `Recepción` a `Despacho` o viceversa. Útil para corregir errores.
+    *   **Eliminar (Basura)**: Borra el formulario permanentemente (requiere permiso).
 
 ### 5.2. Informes para Facturación
 
-Este módulo contiene 4 tipos de reportes:
+Módulo clave para la facturación. Se divide en 3 pestañas:
 
-1.  **Movimientos Diarios:** Genera un resumen de paletas recibidas y despachadas por día para un cliente y rango de fechas.
-2.  **Operaciones Detalladas:** Ofrece un desglose completo de cada operación (tiempos, vehículos, productos) en un rango de fechas. Puedes filtrar por cliente, tipo de operación, etc.
-3.  **Inventario por Día:**
-    *   **Cargar Inventario:** Sube un archivo Excel con el stock diario. El formato requerido es estricto y debe contener columnas específicas.
-    *   **Consultar Inventario:** Muestra el total de paletas por cliente para cada día en el rango de fechas seleccionado.
-    *   **Exportar Detallado:** Descarga un Excel con el detalle completo del inventario para los filtros seleccionados.
-4.  **Consolidado Movimientos/Inventario:** Combina los datos de movimientos y de inventario para mostrar entradas, salidas y el stock final de cada día.
+1.  **Operaciones Detalladas**:
+    *   Genera un reporte completo de cada operación en un rango de fechas.
+    *   Incluye columnas como Fecha, Tipo de Operación, Duración, Vehículo, Productos, Cantidades, Paletas y Observaciones.
+    *   Puedes filtrar por Cliente, Tipo de Operación, Tipo de Pedido, etc.
+    *   Se puede exportar a Excel y PDF.
 
-> [PENDIENTE: Insertar pantallazo de una de las pestañas del módulo "Informes para Facturación", por ejemplo, "Movimientos Diarios"]
+2.  **Inventario Acumulado**:
+    *   **Cargar Inventario**: Permite subir un archivo Excel o CSV con el stock diario. El formato del archivo es estricto y debe contener columnas específicas como `FECHA`, `PROPIETARIO`, `PALETA`, `SE`, etc.
+    *   **Consultar Inventario**: Muestra una tabla pivot con el total de paletas por cliente para cada día en el rango de fechas seleccionado.
+    *   **Exportar Detallado**: Descarga un Excel con el detalle completo del inventario (fila por fila) para los filtros seleccionados.
+    *   **Eliminar Registros**: Permite eliminar los registros de inventario cargados para un rango de fechas específico.
 
-### 5.3. Informe de Desempeño y Liquidación de Cuadrilla
+3.  **Consolidado Movimientos/Inventario**:
+    *   Combina los datos de movimientos (entradas/salidas) y de inventario para mostrar un reporte día a día.
+    *   Columnas: `Fecha`, `Recibidas`, `Despachadas`, `Posiciones Almacenadas` (saldo calculado), `Inventario Acumulado` (stock real del archivo) y una `Validación` que compara ambos saldos.
 
-Este módulo es una herramienta poderosa para medir la eficiencia de las operaciones y calcular automáticamente los valores a pagar a las cuadrillas. Se compone de dos pestañas principales.
+### 5.3. Informe de Productividad y Liquidación de Cuadrilla
+
+Herramienta poderosa para medir la eficiencia y calcular pagos. Se divide en 2 pestañas:
 
 #### 5.3.1. Pestaña "Análisis de Productividad"
 
-Esta es la pantalla principal del módulo, donde puedes analizar el rendimiento.
-
-> [PENDIENTE: Insertar pantallazo de la pestaña "Análisis de Productividad" con la tabla de resultados]
-
-*   **Uso:** Generar un reporte detallado del desempeño de las operaciones de cargue y descargue.
-*   **Filtros Disponibles:**
-    *   Rango de Fechas (obligatorio).
-    *   Cliente(s), Operario, Tipo de Operación, Tipo de Producto.
-    *   **Operaciones de Cuadrilla:** Filtra para ver solo operaciones con cuadrilla, solo sin cuadrilla, o todas.
-    *   **Concepto Liquidación:** Permite buscar operaciones que incluyan un concepto específico (ej. todas las que tuvieron REESTIBADO).
-*   **Interpretación de la Tabla de Productividad:**
-    *   **T. Operativo:** Es el tiempo total de la operación menos los minutos justificados en novedades. Este es el tiempo que se compara con el estándar.
-    *   **Productividad:** Una calificación automática que te indica la eficiencia de la operación:
-        *   **Óptimo (Verde):** El tiempo operativo fue menor que el tiempo estándar definido.
-        *   **Normal (Amarillo):** El tiempo operativo estuvo dentro de un margen aceptable (hasta 10 minutos por encima del estándar).
-        *   **Lento (Rojo):** El tiempo operativo excedió significativamente el estándar. **Estas operaciones requieren una justificación**.
-        *   **Pendiente (Naranja):** En formatos de peso fijo, indica que falta legalizar el peso bruto para poder hacer el cálculo.
-        *   **Sin Estándar (Gris):** No se encontró una regla de tiempo (estándar) que coincida con esta operación. Debes crear una en la "Gestión de Estándares".
-*   **Acciones en la Tabla:**
-    *   **Legalizar (Peso Fijo):** Permite ingresar el peso bruto total de una operación de peso fijo que quedó pendiente.
-    *   **Novedad (Justificación):** Para operaciones marcadas como "Lento", puedes agregar una novedad (ej. "DAÑO TRILATERAL") y los minutos de inactividad. **Estos minutos se restarán del tiempo total para recalcular la productividad**.
+*   **Filtros**: Permite buscar por Rango de Fechas, Cliente, Operario, Tipo de Operación/Producto, si fue con cuadrilla o no, y por Concepto de Liquidación.
+*   **Tabla de Productividad**: Muestra un desglose de cada operación.
+    *   **T. Operativo**: Tiempo total de la operación menos los minutos justificados en novedades.
+    *   **Productividad**: Calificación automática basada en la comparación del `T. Operativo` con el tiempo estándar definido.
+        *   **Óptimo (Verde)**: Tiempo operativo fue menor que el estándar.
+        *   **Normal (Amarillo)**: Dentro de un margen aceptable (+10 min).
+        *   **Lento (Rojo)**: Excedió significativamente el estándar. **Requiere una acción**.
+        *   **Pendiente (Naranja)**: En formatos de peso fijo, falta ingresar el peso bruto para poder calcular.
+        *   **Sin Estándar (Gris)**: No hay una regla de tiempo definida para esta operación.
+*   **Acciones en la Tabla**:
+    *   **Legalizar (Peso Fijo)**: Para operaciones "Pendientes", permite ingresar el `Total Peso Bruto (kg)` para completar el cálculo.
+    *   **Novedad (Justificación)**: Para operaciones "Lentas", permite agregar una justificación (ej. "DAÑO TRILATERAL") y los minutos de inactividad. Estos minutos se restan del tiempo total, lo que puede mejorar la calificación de productividad.
 
 #### 5.3.2. Pestaña "Liquidación de Cuadrilla"
 
-Muestra un desglose de todos los conceptos que generan un cobro a la cuadrilla.
-
-> [PENDIENTE: Insertar pantallazo de la pestaña "Liquidación de Cuadrilla"]
-
-*   **Interpretación de la Tabla:**
-    *   Muestra cada concepto (CARGUE, DESCARGUE, REESTIBADO, etc.), con su cantidad, valor unitario y valor total.
-    *   Al final de la tabla, se muestra un **TOTAL GENERAL LIQUIDACIÓN**.
-*   **Exportación:** El informe se puede exportar a Excel.
+*   Muestra un desglose de todos los conceptos que generan un cobro a la cuadrilla (CARGUE, DESCARGUE, REESTIBADO, etc.).
+*   La tabla muestra la cantidad, valor unitario y valor total para cada concepto, con un **TOTAL GENERAL** al final.
+*   Se puede exportar a Excel.
 
 ### 5.4. Módulos de Configuración (Accesibles desde el informe de productividad)
 
-*   **Gestionar Estándares (La Base del Rendimiento)**
-    *   **Uso:** Definir los **tiempos base en minutos** que el sistema usará para medir la productividad. Una operación se considera "Lenta" si su tiempo operativo supera el tiempo definido aquí.
-    *   **¿Cómo Funciona?**
-        1.  **Crear un Nuevo Estándar:** Define una regla combinando criterios. Puedes ser tan general o específico como necesites.
-            *   **Cliente(s):** Selecciona uno, varios, o "TODOS".
-            *   **Tipo de Operación y Producto:** Recepción, Despacho, Fijo, Variable, o "TODAS".
-            *   **Descripción:** Un nombre claro para la regla (ej. "Cargue Pollo Entero").
-            *   **Rangos de Toneladas:** **Lo más importante.** Define uno o más rangos de peso (ej. de 0 a 5 Toneladas) y asigna los **minutos base** para cada uno (ej. 45 minutos).
-        2.  **Edición y Eliminación:** Puedes editar cualquier estándar existente o eliminarlo. También puedes seleccionar varios y aplicar cambios en lote (ej. cambiar el cliente a varios estándares a la vez).
-
-> [PENDIENTE: Insertar pantallazo del módulo "Gestionar Estándares"]
-
-*   **Gestionar Conceptos de Liquidación (La Base del Cobro)**
-    *   **Uso:** Definir los **conceptos facturables** y su valor. El informe de liquidación usará estas reglas para calcular los totales.
-    *   **¿Cómo Funciona?**
-        1.  **Crear un Nuevo Concepto:**
-            *   **Nombre del Concepto:** Debe coincidir con el nombre usado en los formularios (ej. CARGUE, DESCARGUE, REESTIBADO, EMPAQUE DE CAJAS, JORNAL DIURNO).
-            *   **Cliente(s):** **Función clave.** Asigna el concepto a uno, varios o "TODOS" los clientes. Esto te permite tener valores diferentes para un mismo concepto según el cliente.
-            *   **Tipo de Operación y Producto:** Filtra aún más cuándo se debe aplicar la regla.
-            *   **Unidad de Medida y Valor:** Define cómo se cobra el concepto (por TONELADA, por PALETA, por UNIDAD, etc.) y cuál es su valor.
-
-> [PENDIENTE: Insertar pantallazo del módulo "Gestionar Conceptos de Liquidación"]
-
-> **Ejemplo Práctico:**
-> 1.  Creas un concepto **"EMPAQUE DE CAJAS"** de $500 por CAJA y lo asignas a **TODOS** los clientes.
-> 2.  Creas otro concepto **"JORNAL DIURNO"** de $80.000 por UNIDAD y lo asignas **únicamente** a "AVICOLA EL MADROÑO S.A.".
-> 3.  **Resultado:** Cuando se haga una operación de maquila para cualquier cliente, se liquidará el empaque. Pero cuando sea para AVICOLA EL MADROÑO S.A., se liquidará el jornal, no el empaque (siempre que el formulario se llene correctamente).
+*   **Gestionar Estándares**:
+    *   **Uso**: Definir los **tiempos base en minutos** para medir la productividad.
+    *   **Crear Estándar**: Combina criterios (Cliente, Tipo de Operación/Producto) y define uno o más **rangos de toneladas** con sus respectivos **minutos base**.
+*   **Gestionar Conceptos de Liquidación**:
+    *   **Uso**: Definir los **conceptos facturables** (ej. CARGUE, JORNAL DIURNO) y su valor.
+    *   **Crear Concepto**: Asigna un nombre, un valor, una unidad de medida y, lo más importante, a qué **cliente(s)** aplica. Esto permite tener diferentes tarifas para un mismo servicio según el cliente.
 
 ### 5.5. Módulos de Gestión (Acceso Restringido)
 
-*   **Gestión de Artículos:** Crea, edita o elimina productos y asócialos a un cliente y una sesión (Congelado, Refrigerado, Seco). También permite la carga masiva desde un archivo Excel.
-*   **Gestión de Clientes:** Añade, edita o elimina clientes.
-*   **Gestión de Observaciones:** Administra las observaciones estándar que aparecen en los formularios.
-*   **Gestión de Tipos de Pedido:** Define los diferentes tipos de pedido (TUNEL, MAQUILA, etc.) y a qué formularios se aplican.
-*   **Gestión de Usuarios:** (Solo Super Admin) Permite crear usuarios, asignar permisos, cambiar contraseñas y cerrar sesiones activas.
-
-> [PENDIENTE: Insertar un pantallazo de uno de los módulos de gestión, por ejemplo, "Gestión de Artículos"]
+*   **Gestión de Artículos**: Crea, edita, elimina y carga masivamente productos, asociándolos a un cliente y una sesión.
+*   **Gestión de Clientes**: Añade o edita clientes.
+*   **Gestión de Observaciones**: Administra las observaciones estándar disponibles en los formularios.
+*   **Gestión de Tipos de Pedido**: Define los tipos de pedido y a qué formularios aplican.
+*   **Gestión de Usuarios**: (Solo Super Admin) Permite crear usuarios, asignar permisos, cambiar contraseñas y cerrar sesiones activas.
 
 ---
 
-Este manual cubre las funcionalidades principales de la aplicación. Para cualquier duda o problema no resuelto aquí, por favor, contacta al administrador del sistema.
+Este manual cubre todas las funcionalidades de la aplicación. Para cualquier duda, por favor, contacta al administrador del sistema.
