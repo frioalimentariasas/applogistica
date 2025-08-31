@@ -48,25 +48,34 @@ Esta sección contiene los módulos para ver datos históricos, generar reportes
 
 Los formularios son el corazón del sistema. Es crucial llenarlos con precisión. Todos comparten campos comunes en la cabecera (Información General) y en el pie (Observaciones, Responsables, Anexos).
 
-4.1. Formulario de Peso Fijo (Recepción y Despacho)
+4.1. Formulario de Peso Fijo (Recepción)
 
-*   Uso: Para registrar productos con peso conocido, tanto en entradas (recepción) como en salidas (despacho).
-*   Lógica Principal: Se enfoca en la cantidad de cajas/unidades y el sistema calcula los totales basándose en el peso neto que se ingrese.
+Uso: Para registrar la entrada de productos con peso conocido.
+Lógica Principal: Se enfoca en la cantidad de cajas/unidades y el sistema calcula los totales basándose en el peso neto que se ingrese.
 
-(PENDIENTE: Insertar pantallazo general del formulario de Peso Fijo)
+(PENDIENTE: Insertar pantallazo general del formulario de Peso Fijo - Recepción)
+
+Tipos de Pedido Disponibles para Recepción de Peso Fijo:
+
+La selección en "Tipo de Pedido" es crucial, ya que puede cambiar los campos que aparecen en el resto del formulario.
+
+*   INGRESO DE SALDOS: Al seleccionar esta opción, los campos de información del vehículo se vuelven opcionales y no son obligatorios para guardar el formato.
+*   MAQUILA: Los campos del vehículo también se vuelven opcionales. Aparecen dos campos nuevos:
+    *   Tipo de Empaque (Maquila): Debes seleccionar si el producto viene en sacos o cajas.
+    *   No. de Operarios: Si la operación es realizada por cuadrilla, este campo numérico es obligatorio.
+*   DEVOLUCION: Operación estándar, los datos del vehículo son obligatorios.
+*   COMPRA: Operación estándar, los datos del vehículo son obligatorios.
+*   TRASLADO: Operación estándar, los datos del vehículo son obligatorios.
 
 Paso a Paso Detallado:
 
 1.  Información General (Cabecera):
-    *   Tipo de Pedido: ¡Campo Crucial! La selección aquí puede cambiar los campos que aparecen en el resto del formulario.
-        *   MAQUILA (Solo en Recepción): Al seleccionar esta opción, los campos del vehículo se vuelven opcionales y aparecen dos campos nuevos: "Tipo de Empaque (Maquila)" y "No. de Operarios" (si aplica cuadrilla).
-        *   INGRESO DE SALDOS (Solo en Recepción): Los campos de información del vehículo se vuelven opcionales.
-        *   Otros Tipos: Se comportan como una operación estándar donde los datos del vehículo son obligatorios.
+    *   Tipo de Pedido: Selecciona una de las opciones listadas arriba. ¡Presta atención a los cambios que genera en el formulario!
     *   Pedido SISLOG: Ingresa el número de pedido del sistema SISLOG. Es un campo obligatorio.
     *   Nombre del Cliente: Selecciona el cliente de la lista. Este campo es obligatorio y filtra los productos que puedes agregar.
     *   Fecha: Se llena automáticamente con la fecha actual, pero un administrador puede modificarla si es necesario.
     *   Hora de Inicio/Fin: Usa el reloj para capturar la hora exacta o ingrésala manualmente en formato HH:MM (24 horas). No pueden ser iguales.
-    *   Precinto/Sello: Ingresa el número del precinto del vehículo.
+    *   Precinto/Sello: Ingresa el número del precinto del vehículo. Es obligatorio a menos que sea un tipo de pedido especial (Maquila, Ingreso de Saldos).
     *   Documento de Transporte / Factura/Remisión: Campos opcionales para información adicional.
 
 2.  Características del Producto:
@@ -84,26 +93,45 @@ Paso a Paso Detallado:
 
 5.  Observaciones, Responsables y Anexos: Se explican en detalle más adelante, ya que son comunes a todos los formularios.
 
-4.2. Formulario de Peso Variable (Recepción)
+4.2. Formulario de Peso Fijo (Despacho)
 
-*   Uso: Para registrar la entrada de productos que deben ser pesados individualmente.
-*   Lógica Principal: El sistema permite dos modos de ingreso: detallado (paleta por paleta) o resumido (totales por producto).
+Uso: Para registrar la salida de productos con peso conocido.
+Lógica Principal: Similar a la recepción, se enfoca en cantidades. Todos los campos de información del vehículo son siempre obligatorios.
+
+(PENDIENTE: Insertar pantallazo general del formulario de Peso Fijo - Despacho)
+
+Tipos de Pedido Disponibles para Despacho de Peso Fijo:
+
+*   DESPACHO GENERICO: Para una salida estándar de mercancía.
+*   VENTA NACIONAL: Para ventas dentro del país.
+*   EXPORTACION: Para ventas fuera del país.
+*   TRASLADO: Para mover mercancía entre bodegas.
+
+Paso a Paso Detallado: Sigue los mismos pasos que en la recepción de peso fijo, pero ten en cuenta que los datos del vehículo siempre serán obligatorios.
+
+4.3. Formulario de Peso Variable (Recepción)
+
+Uso: Para registrar la entrada de productos que deben ser pesados individualmente.
+Lógica Principal: El sistema permite dos modos de ingreso: detallado (paleta por paleta) o resumido (totales por producto).
 
 (PENDIENTE: Insertar pantallazo general del formulario de Peso Variable - Recepción)
+
+Tipos de Pedido Disponibles para Recepción de Peso Variable:
+
+*   TUNEL / TUNEL DE CONGELACIÓN: Activa la opción "Recepción por Placa". Esto es para operaciones donde un solo cliente (ej. AVICOLA EL MADROÑO) envía producto en varios vehículos pequeños.
+    *   Marca la casilla "Recepción por Placa".
+    *   Usa el botón "Agregar Placa" para crear secciones, cada una con sus propios campos de vehículo (Placa, Conductor, Cédula) y su propia lista de ítems.
+    *   Los datos del vehículo en la cabecera del formulario se llenarán automáticamente con la información de todas las placas que agregues.
+    (PENDIENTE: Insertar pantallazo de la opción "Recepción por Placa")
+*   MAQUILA / INGRESO DE SALDOS: Los campos de información del vehículo en la cabecera se vuelven opcionales.
+*   COMPRA: Operación estándar, datos del vehículo obligatorios.
+*   TUNEL A CÁMARA CONGELADOS: Operación especial, datos del vehículo obligatorios.
 
 Paso a Paso Detallado:
 
 1.  Información General (Cabecera): Similar al formulario de Peso Fijo. Presta especial atención al "Tipo de Pedido".
 
-2.  Lógica del "Tipo de Pedido":
-    *   TUNEL: Activa la opción de "Recepción por Placa". Esto es para operaciones donde un solo cliente envía producto en varios vehículos pequeños.
-        *   Marca la casilla "Recepción por Placa".
-        *   Usa el botón "Agregar Placa" para crear secciones, cada una con sus propios campos de vehículo (Placa, Conductor, Cédula) y su propia lista de ítems.
-        *   Los datos del vehículo en la cabecera del formulario se llenarán automáticamente con la información de todas las placas que agregues.
-        (PENDIENTE: Insertar pantallazo de la opción "Recepción por Placa")
-    *   MAQUILA / INGRESO DE SALDOS: Los campos de información del vehículo en la cabecera se vuelven opcionales.
-
-3.  Detalle de la Recepción (Ítems):
+2.  Detalle de la Recepción (Ítems):
     *   Modo Detallado (Paleta Individual):
         *   Paleta: Ingresa el número de la etiqueta o sticker de la paleta física (ej. 1, 2, 3...). Este número debe ser único por operación.
         *   Código / Descripción: Selecciona el producto.
@@ -119,28 +147,35 @@ Paso a Paso Detallado:
         *   Aparecerán tres campos nuevos: Total Cantidad, Total Paletas, Total Peso Neto. Debes llenarlos con los totales correspondientes para ese producto. Los campos de peso individual se desactivarán.
         (PENDIENTE: Insertar pantallazo comparando el modo detallado y el modo resumen)
 
-4.  Resumen Agrupado de Productos:
+3.  Resumen Agrupado de Productos:
     *   Esta tabla se genera automáticamente y muestra los totales por cada tipo de producto, sumando todos los ítems (individuales y resumidos) que hayas ingresado.
     *   Importante: Debes ingresar al menos una Temperatura (°C) para cada grupo de producto en esta tabla resumen.
-    (PENDIENTE: Insertar pantallazo de la tabla de resumen agrupado)
+    (PENDiente: Insertar pantallazo de la tabla de resumen agrupado)
 
-4.3. Formulario de Peso Variable (Despacho)
+4.4. Formulario de Peso Variable (Despacho)
 
-*   Uso: Para registrar la salida de productos de peso variable. Es el más complejo debido a la lógica de búsqueda de paletas y despacho por destinos.
-*   Lógica Principal: Permite buscar paletas existentes por su código para autocompletar datos, y agrupar los ítems bajo diferentes destinos de entrega.
+Uso: Para registrar la salida de productos de peso variable. Es el más complejo debido a la lógica de búsqueda de paletas y despacho por destinos.
+Lógica Principal: Permite buscar paletas existentes por su código para autocompletar datos, y agrupar los ítems bajo diferentes destinos de entrega.
 
 (PENDIENTE: Insertar pantallazo general del formulario de Peso Variable - Despacho)
+
+Tipos de Pedido Disponibles para Despacho de Peso Variable:
+
+*   DESPACHO GENERICO: Para una salida estándar.
+*   VENTA NACIONAL: Para ventas dentro del país.
+*   EXPORTACION: Para ventas fuera del país.
+
+Lógica Especial de Clientes:
+
+*   Clientes Especiales (ej. AVICOLA EL MADROÑO S.A.): Si seleccionas uno de estos clientes, se activará una casilla llamada "Pedido por Destino".
+*   Al marcarla, podrás usar el botón "Agregar Destino" para crear secciones. Cada sección representa un punto de entrega (ej. una ciudad) y contendrá su propia lista de ítems.
+(PENDIENTE: Insertar pantallazo mostrando la opción "Pedido por Destino")
 
 Paso a Paso Detallado:
 
 1.  Información General (Cabecera): Completa los datos como en los otros formularios. Es obligatorio seleccionar un Cliente primero para poder agregar ítems.
 
-2.  Lógica del Cliente y "Pedido por Destino":
-    *   Clientes Especiales (ej. AVICOLA EL MADROÑO S.A.): Si seleccionas uno de estos clientes, se activará la casilla "Pedido por Destino".
-    *   Al marcarla, podrás usar el botón "Agregar Destino" para crear secciones. Cada sección representa un punto de entrega (ej. una ciudad) y contendrá su propia lista de ítems.
-    (PENDIENTE: Insertar pantallazo mostrando la opción "Pedido por Destino")
-
-3.  Detalle del Despacho (Ítems):
+2.  Detalle del Despacho (Ítems):
     *   Búsqueda de Paleta (Modo Detallado):
         1.  Selecciona un Cliente primero. El campo "Paleta" estará deshabilitado hasta que lo hagas.
         2.  En el campo "Paleta", ingresa el código de una paleta existente y sal del campo (o presiona Enter).
@@ -150,12 +185,12 @@ Paso a Paso Detallado:
         5.  Al aceptar, los campos Código, Descripción, Lote, Presentación y los pesos se llenarán automáticamente con la información de su recepción original.
         6.  Si no la encuentra o ya fue despachada: Aparecerá un diálogo informando el problema. Puedes corregir el código o continuar ingresando los datos del producto manualmente.
         (PENDIENTE: Insertar pantallazo del diálogo de paleta no encontrada)
-    *   Modo Resumen (Paleta 0): Funciona igual que en la recepción. Ingresa 0 en el campo "Paleta" para registrar totales de un producto.
+    *   Modo Resumen (Paleta 0): Funciona igual que en la recepción. Ingresa 0 en el campo "Paleta" para registrar totales de un producto. El campo "Total Paletas" aparecerá para que lo diligencies.
     *   Paleta Especial (Paleta 999): Usa el código 999 para ítems que no corresponden a una paleta física estándar o que son un ajuste. Se comportan como una paleta individual pero se identifican de forma especial en los reportes.
 
-4.  Resumen Agrupado de Productos: Al igual que en la recepción, esta tabla se actualiza automáticamente y requiere que ingreses la temperatura para cada grupo de producto.
+3.  Resumen Agrupado de Productos: Al igual que en la recepción, esta tabla se actualiza automáticamente y requiere que ingreses la temperatura para cada grupo de producto.
 
-4.4. Funciones Comunes en Todos los Formularios
+4.5. Funciones Comunes en Todos los Formularios
 
 *   Observaciones:
     *   Puedes agregar múltiples observaciones a un formato.
