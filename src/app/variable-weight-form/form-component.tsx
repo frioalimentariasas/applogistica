@@ -136,6 +136,9 @@ const itemSchema = z.object({
       if (data.totalCantidad === undefined || data.totalCantidad === null) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El Total Cantidad es requerido.", path: ["totalCantidad"] });
       }
+      if (data.totalPaletas === undefined || data.totalPaletas === null) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El Total Paletas es requerido.", path: ["totalPaletas"] });
+      }
       if (data.totalPesoNeto === undefined || data.totalPesoNeto === null) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El Total Peso Neto es requerido.", path: ["totalPesoNeto"] });
       }
@@ -432,8 +435,8 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
 
   const isClientChangeDisabled = useMemo(() => {
     if (isAuthorizedEditor) return false;
-    const itemsToCheck = despachoPorDestino ? (allDestinos || []).flatMap(d => d.items) : (allItems || []);
-    return itemsToCheck.length > 1 || (itemsToCheck.length === 1 && !!itemsToCheck[0]?.descripcion);
+    const itemsToProcess = despachoPorDestino ? (allDestinos || []).flatMap(d => d.items) : (allItems || []);
+    return itemsToProcess.length > 1 || (itemsToProcess.length === 1 && !!itemsToProcess[0]?.descripcion);
   }, [despachoPorDestino, allDestinos, allItems, isAuthorizedEditor]);
   
   const handleDiscard = () => {
@@ -995,6 +998,14 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
             presentacion: lastItem.presentacion,
             cantidadPorPaleta: lastItem.cantidadPorPaleta,
             taraCaja: lastItem.taraCaja,
+            paleta: null,
+            pesoBruto: null,
+            taraEstiba: null,
+            totalTaraCaja: null,
+            pesoNeto: null,
+            totalCantidad: null,
+            totalPaletas: null,
+            totalPesoNeto: null,
         });
     }
   };
@@ -2017,6 +2028,8 @@ const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, de
     const { toast } = useToast();
     const [isLoadingPallet, setIsLoadingPallet] = useState(false);
     const [isConfirmLoadOpen, setConfirmLoadOpen] = useState(false);
+    const [isNotFoundDialogOpen, setIsNotFoundDialogOpen] = useState(false);
+    const [notFoundMessage, setNotFoundMessage] = useState("");
     const [foundPalletInfo, setFoundPalletInfo] = useState<PalletInfo | null>(null);
 
     const { setValue, getValues, watch } = useFormContext();
@@ -2047,8 +2060,8 @@ const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, de
         if (!palletCode || palletCode === "0" || palletCode === "999") return;
         
         if (!clientName) {
-            // This is a fallback, UI should disable the input.
-            toast({ variant: "destructive", title: "Error", description: "Por favor, seleccione un cliente antes de buscar una paleta." });
+            setNotFoundMessage("Por favor, seleccione un cliente antes de buscar una paleta.");
+            setIsNotFoundDialogOpen(true);
             return;
         }
 
@@ -2058,11 +2071,13 @@ const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, de
             if (result.success && result.palletInfo) {
                 setFoundPalletInfo(result.palletInfo);
                 setConfirmLoadOpen(true);
-            } else if (!result.success) {
-                toast({ variant: "destructive", title: "Paleta no encontrada", description: result.message });
+            } else {
+                setNotFoundMessage(result.message);
+                setIsNotFoundDialogOpen(true);
             }
         } catch (error) {
-            toast({ variant: "destructive", title: "Error de Servidor", description: "No se pudo buscar la información de la paleta." });
+            setNotFoundMessage("Error del servidor: No se pudo buscar la información de la paleta.");
+            setIsNotFoundDialogOpen(true);
         } finally {
             setIsLoadingPallet(false);
         }
@@ -2159,9 +2174,12 @@ const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, de
                 )} />
             </div>
             {isSummaryRow ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <FormField control={control} name={`${basePath}.${itemIndex}.totalCantidad`} render={({ field }) => (
                         <FormItem><FormLabel>Total Cantidad <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                     <FormField control={control} name={`${basePath}.${itemIndex}.totalPaletas`} render={({ field }) => (
+                        <FormItem><FormLabel>Total Paletas <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={control} name={`${basePath}.${itemIndex}.totalPesoNeto`} render={({ field }) => (
                         <FormItem><FormLabel>Total Peso Neto (kg) <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="decimal" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
@@ -2196,6 +2214,21 @@ const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, de
                 <AlertDialogFooter>
                     <AlertDialogCancel onClick={() => setConfirmLoadOpen(false)}>No, Ingresar Manualmente</AlertDialogCancel>
                     <AlertDialogAction onClick={confirmLoadPalletData}>Sí, Cargar Datos</AlertDialogAction>
+                </AlertDialogFooter>
+            </AlertDialogContent>
+        </AlertDialog>
+         <AlertDialog open={isNotFoundDialogOpen} onOpenChange={setIsNotFoundDialogOpen}>
+            <AlertDialogContent>
+                <AlertDialogHeader>
+                    <AlertDialogTitle>Paleta no Encontrada</AlertDialogTitle>
+                    <AlertDialogDesc>
+                        {notFoundMessage}
+                        <br /><br />
+                        Puede corregir el código o continuar para ingresar los datos del producto manualmente.
+                    </AlertDialogDesc>
+                </AlertDialogHeader>
+                <AlertDialogFooter>
+                    <AlertDialogAction onClick={() => setIsNotFoundDialogOpen(false)}>Aceptar</AlertDialogAction>
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
