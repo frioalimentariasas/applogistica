@@ -14,13 +14,15 @@ Para acceder a la aplicación, necesitarás un correo electrónico y una contras
     *   **Contraseña**: Escribe la contraseña que te fue asignada.
 3.  **Haz clic en "Ingresar"**: Si los datos son correctos, serás dirigido a la pantalla principal.
 
+*(PENDIENTE: Insertar pantallazo de la pantalla de inicio de sesión)*
+
 > **Nota:** Si olvidas tu contraseña o tienes problemas para acceder, contacta al administrador del sistema para que te asigne una nueva.
 
 ## 3. Pantalla Principal
 
 La pantalla principal es tu centro de operaciones. Desde aquí puedes acceder a todas las funciones de la aplicación.
 
- *(PENDIENTE: Insertar pantallazo de la pantalla principal)*
+*(PENDIENTE: Insertar pantallazo de la pantalla principal, destacando las dos secciones)*
 
 Se divide en dos secciones principales:
 
@@ -50,6 +52,8 @@ Los formularios son el corazón del sistema. Es crucial llenarlos con precisión
 
 *   **Uso**: Para registrar productos con peso conocido, tanto en entradas (recepción) como en salidas (despacho).
 *   **Lógica Principal**: Se enfoca en la cantidad de cajas/unidades y el sistema calcula los totales basándose en el peso neto que se ingrese.
+
+*(PENDIENTE: Insertar pantallazo general del formulario de Peso Fijo)*
 
 **Paso a Paso Detallado:**
 
@@ -85,6 +89,8 @@ Los formularios son el corazón del sistema. Es crucial llenarlos con precisión
 *   **Uso**: Para registrar la entrada de productos que deben ser pesados individualmente.
 *   **Lógica Principal**: El sistema permite dos modos de ingreso: detallado (paleta por paleta) o resumido (totales por producto).
 
+*(PENDIENTE: Insertar pantallazo general del formulario de Peso Variable - Recepción)*
+
 **Paso a Paso Detallado:**
 
 1.  **Información General (Cabecera)**: Similar al formulario de Peso Fijo. Presta especial atención al **"Tipo de Pedido"**.
@@ -94,6 +100,7 @@ Los formularios son el corazón del sistema. Es crucial llenarlos con precisión
         *   Marca la casilla "Recepción por Placa".
         *   Usa el botón **"Agregar Placa"** para crear secciones, cada una con sus propios campos de vehículo (Placa, Conductor, Cédula) y su propia lista de ítems.
         *   Los datos del vehículo en la cabecera del formulario se llenarán automáticamente con la información de todas las placas que agregues.
+        *(PENDIENTE: Insertar pantallazo de la opción "Recepción por Placa")*
     *   **MAQUILA / INGRESO DE SALDOS**: Los campos de información del vehículo en la cabecera se vuelven opcionales.
 
 3.  **Detalle de la Recepción (Ítems)**:
@@ -110,23 +117,28 @@ Los formularios son el corazón del sistema. Es crucial llenarlos con precisión
         *   Para registrar totales de un producto sin detallar cada paleta.
         *   **Paleta**: Ingresa el número **0**.
         *   Aparecerán tres campos nuevos: **Total Cantidad, Total Paletas, Total Peso Neto**. Debes llenarlos con los totales correspondientes para ese producto. Los campos de peso individual se desactivarán.
+        *(PENDIENTE: Insertar pantallazo comparando el modo detallado y el modo resumen)*
 
 4.  **Resumen Agrupado de Productos**:
     *   Esta tabla se genera automáticamente y muestra los totales por cada tipo de producto, sumando todos los ítems (individuales y resumidos) que hayas ingresado.
     *   **Importante**: Debes ingresar al menos una **Temperatura (°C)** para cada grupo de producto en esta tabla resumen.
+    *(PENDIENTE: Insertar pantallazo de la tabla de resumen agrupado)*
 
 ### 4.3. Formulario de Peso Variable (Despacho)
 
 *   **Uso**: Para registrar la salida de productos de peso variable. Es el más complejo debido a la lógica de búsqueda de paletas y despacho por destinos.
 *   **Lógica Principal**: Permite buscar paletas existentes por su código para autocompletar datos, y agrupar los ítems bajo diferentes destinos de entrega.
 
+*(PENDIENTE: Insertar pantallazo general del formulario de Peso Variable - Despacho)*
+
 **Paso a Paso Detallado:**
 
-1.  **Información General (Cabecera)**: Completa los datos como en los otros formularios.
+1.  **Información General (Cabecera)**: Completa los datos como en los otros formularios. **Es obligatorio seleccionar un Cliente primero** para poder agregar ítems.
 
 2.  **Lógica del Cliente y "Pedido por Destino"**:
     *   **Clientes Especiales** (ej. AVICOLA EL MADROÑO S.A.): Si seleccionas uno de estos clientes, se activará la casilla **"Pedido por Destino"**.
     *   Al marcarla, podrás usar el botón **"Agregar Destino"** para crear secciones. Cada sección representa un punto de entrega (ej. una ciudad) y contendrá su propia lista de ítems.
+    *(PENDIENTE: Insertar pantallazo mostrando la opción "Pedido por Destino")*
 
 3.  **Detalle del Despacho (Ítems)**:
     *   **Búsqueda de Paleta (Modo Detallado)**:
@@ -134,8 +146,10 @@ Los formularios son el corazón del sistema. Es crucial llenarlos con precisión
         2.  En el campo **"Paleta"**, ingresa el código de una paleta existente y sal del campo (o presiona Enter).
         3.  **El sistema buscará** ese código en todos los formularios de **Recepción de Peso Variable** que pertenezcan a ese cliente y que no hayan sido despachados previamente.
         4.  **Si encuentra la paleta**: Aparecerá un diálogo preguntando: **"¿Desea cargar los datos de esta paleta?"**.
+        *(PENDIENTE: Insertar pantallazo del diálogo de paleta encontrada)*
         5.  Al aceptar, los campos **Código, Descripción, Lote, Presentación y los pesos** se llenarán automáticamente con la información de su recepción original.
         6.  **Si no la encuentra o ya fue despachada**: Aparecerá un diálogo informando el problema. Puedes corregir el código o continuar ingresando los datos del producto manualmente.
+        *(PENDIENTE: Insertar pantallazo del diálogo de paleta no encontrada)*
     *   **Modo Resumen (Paleta 0)**: Funciona igual que en la recepción. Ingresa **0** en el campo "Paleta" para registrar totales de un producto.
     *   **Paleta Especial (Paleta 999)**: Usa el código **999** para ítems que no corresponden a una paleta física estándar o que son un ajuste. Se comportan como una paleta individual pero se identifican de forma especial en los reportes.
 
@@ -161,6 +175,8 @@ Los formularios son el corazón del sistema. Es crucial llenarlos con precisión
 
 Permite buscar, visualizar, editar y eliminar formularios ya enviados.
 
+*(PENDIENTE: Insertar pantallazo de la página de consulta de formatos)*
+
 *   **Filtros**: Puedes buscar por Pedido SISLOG, Cliente, Placa, Rango de Fechas, Tipo de Operación, Tipo de Producto o Tipo de Pedido.
 *   **Resultados**: La tabla muestra los formatos que coinciden con tu búsqueda.
 *   **Acciones**:
@@ -181,6 +197,7 @@ Módulo clave para la facturación. Se divide en 3 pestañas:
 
 2.  **Inventario Acumulado**:
     *   **Cargar Inventario**: Permite subir un archivo Excel o CSV con el stock diario. El formato del archivo es estricto y debe contener columnas específicas como `FECHA`, `PROPIETARIO`, `PALETA`, `SE`, etc.
+    *(PENDIENTE: Insertar pantallazo de la sección de carga de inventario)*
     *   **Consultar Inventario**: Muestra una tabla pivot con el total de paletas por cliente para cada día en el rango de fechas seleccionado.
     *   **Exportar Detallado**: Descarga un Excel con el detalle completo del inventario (fila por fila) para los filtros seleccionados.
     *   **Eliminar Registros**: Permite eliminar los registros de inventario cargados para un rango de fechas específico.
@@ -188,12 +205,15 @@ Módulo clave para la facturación. Se divide en 3 pestañas:
 3.  **Consolidado Movimientos/Inventario**:
     *   Combina los datos de movimientos (entradas/salidas) y de inventario para mostrar un reporte día a día.
     *   Columnas: `Fecha`, `Recibidas`, `Despachadas`, `Posiciones Almacenadas` (saldo calculado), `Inventario Acumulado` (stock real del archivo) y una `Validación` que compara ambos saldos.
+    *(PENDIENTE: Insertar pantallazo del reporte consolidado con la columna de validación)*
 
 ### 5.3. Informe de Productividad y Liquidación de Cuadrilla
 
 Herramienta poderosa para medir la eficiencia y calcular pagos. Se divide en 2 pestañas:
 
 #### 5.3.1. Pestaña "Análisis de Productividad"
+
+*(PENDIENTE: Insertar pantallazo de la tabla de productividad con los indicadores de colores)*
 
 *   **Filtros**: Permite buscar por Rango de Fechas, Cliente, Operario, Tipo de Operación/Producto, si fue con cuadrilla o no, y por Concepto de Liquidación.
 *   **Tabla de Productividad**: Muestra un desglose de cada operación.
@@ -206,7 +226,9 @@ Herramienta poderosa para medir la eficiencia y calcular pagos. Se divide en 2 p
         *   **Sin Estándar (Gris)**: No hay una regla de tiempo definida para esta operación.
 *   **Acciones en la Tabla**:
     *   **Legalizar (Peso Fijo)**: Para operaciones "Pendientes", permite ingresar el `Total Peso Bruto (kg)` para completar el cálculo.
+    *(PENDIENTE: Insertar pantallazo del diálogo de legalización)*
     *   **Novedad (Justificación)**: Para operaciones "Lentas", permite agregar una justificación (ej. "DAÑO TRILATERAL") y los minutos de inactividad. Estos minutos se restan del tiempo total, lo que puede mejorar la calificación de productividad.
+    *(PENDIENTE: Insertar pantallazo del diálogo para agregar novedad)*
 
 #### 5.3.2. Pestaña "Liquidación de Cuadrilla"
 
