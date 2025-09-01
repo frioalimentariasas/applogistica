@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useEffect, useMemo, useRef, useCallback, ReactNode } from "react";
@@ -122,7 +123,7 @@ const itemSchema = z.object({
     ),
     totalPaletas: z.preprocess(
         (val) => (val === "" || val === null ? null : val),
-        z.coerce.number().int("El Total Paletas debe ser un número entero.").min(0, "Debe ser un número no negativo.").nullable().optional()
+        z.coerce.number().int("El Total Paletas debe ser un número entero.").min(0, "Debe ser un número no negativo.").nullable()
     ),
     totalPesoNeto: z.preprocess(
         (val) => (val === "" || val === null ? null : val),
@@ -137,6 +138,9 @@ const itemSchema = z.object({
       }
       if (data.totalPesoNeto === undefined || data.totalPesoNeto === null) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El Total Peso Neto es requerido.", path: ["totalPesoNeto"] });
+      }
+       if (data.totalPaletas === undefined || data.totalPaletas === null) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El Total Paletas es requerido.", path: ["totalPaletas"] });
       }
     } 
     // Otherwise, it's an individual pallet row
@@ -2175,7 +2179,7 @@ const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, de
                         <FormItem><FormLabel>Total Cantidad <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                     )} />
                      <FormField control={control} name={`${basePath}.${itemIndex}.totalPaletas`} render={({ field }) => (
-                        <FormItem><FormLabel>Total Paletas</FormLabel><FormControl><Input type="text" inputMode="numeric" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Total Paletas <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="numeric" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={control} name={`${basePath}.${itemIndex}.totalPesoNeto`} render={({ field }) => (
                         <FormItem><FormLabel>Total Peso Neto (kg) <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="decimal" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
