@@ -18,7 +18,7 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { ReportLayout } from '@/components/app/reports/ReportLayout';
 import { FixedWeightReport } from '@/components/app/reports/FixedWeightReport';
 import { VariableWeightDispatchReport } from '@/components/app/reports/VariableWeightDispatchReport';
-import { VariableWeightReceptionReport } from '@/components/app/reports/VariableWeightReceptionReport';
+import { VariableWeightReceptionReport, processDefaultData, processTunelACamaraData, processTunelCongelacionData } from '@/components/app/reports/VariableWeightReceptionReport';
 import { optimizeImage } from '@/lib/image-optimizer';
 
 // --- HELPER FUNCTIONS ---
@@ -65,153 +65,6 @@ const formatTipoPedido = (tipo: string | undefined): string => {
     if (tipo === 'DESPACHO GENERICO') return 'GENERICO';
     return tipo || 'N/A';
 };
-
-
-// --- DATA PROCESSING LOGIC ---
-
-const processDefaultData = (formData: any) => {
-    const allItems = formData.items || [];
-    const isSummaryMode = allItems.some((p: any) => Number(p.paleta) === 0);
-    
-    const summaryData = (formData.summary || []).map((s: any) => {
-        const totalPaletas = isSummaryMode
-            ? allItems.filter((i: any) => i.descripcion === s.descripcion && Number(i.paleta) === 0).reduce((sum: number, i: any) => sum + (Number(i.totalPaletas) || 0), 0)
-            : new Set(allItems.filter((i: any) => i.descripcion === s.descripcion).map((i: any) => i.paleta)).size;
-        
-        return { ...s, totalPaletas };
-    });
-
-    const totalGeneralPaletas = summaryData.reduce((acc: number, p: any) => acc + p.totalPaletas, 0);
-    const totalGeneralCantidad = summaryData.reduce((acc: number, p: any) => acc + p.totalCantidad, 0);
-    const totalGeneralPeso = summaryData.reduce((acc: number, p: any) => acc + p.totalPeso, 0);
-
-    return { summaryData, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso, isSummaryMode };
-};
-
-const processTunelCongelacionData = (formData: any) => {
-    const placaGroups = (formData.placas || []).map((placa: any) => {
-        const itemsByPresentation = (placa.items || []).reduce((acc: any, item: any) => {
-            const presentation = item.presentacion || 'SIN PRESENTACIÓN';
-            if (!acc[presentation]) {
-                acc[presentation] = {
-                    presentation: presentation,
-                    products: [],
-                };
-            }
-            acc[presentation].products.push(item);
-            return acc;
-        }, {});
-
-        const presentationGroups = Object.values(itemsByPresentation).map((group: any) => {
-             const productsWithSummary = group.products.reduce((acc: any, item: any) => {
-                const desc = item.descripcion;
-                if (!acc[desc]) {
-                     const summaryItem = formData.summary?.find((s: any) => s.descripcion === desc && s.presentacion === group.presentation && s.placa === placa.numeroPlaca);
-                     acc[desc] = {
-                        descripcion: desc,
-                        temperatura1: summaryItem?.temperatura1,
-                        temperatura2: summaryItem?.temperatura2,
-                        temperatura3: summaryItem?.temperatura3,
-                        totalPaletas: 0,
-                        totalCantidad: 0,
-                        totalPeso: 0,
-                    };
-                }
-                acc[desc].totalPaletas += 1;
-                acc[desc].totalCantidad += Number(item.cantidadPorPaleta) || 0;
-                acc[desc].totalPeso += Number(item.pesoNeto) || 0;
-                return acc;
-             }, {});
-
-             const subTotalPaletas = Object.values(productsWithSummary).reduce((sum: number, p: any) => sum + p.totalPaletas, 0);
-             const subTotalCantidad = Object.values(productsWithSummary).reduce((sum: number, p: any) => sum + p.totalCantidad, 0);
-             const subTotalPeso = Object.values(productsWithSummary).reduce((sum: number, p: any) => sum + p.totalPeso, 0);
-
-            return {
-                presentation: group.presentation,
-                products: Object.values(productsWithSummary),
-                subTotalPaletas,
-                subTotalCantidad,
-                subTotalPeso,
-            };
-        });
-
-        const totalPaletasPlaca = presentationGroups.reduce((acc: number, group: any) => acc + group.subTotalPaletas, 0);
-        const totalCantidadPlaca = presentationGroups.reduce((acc: number, group: any) => acc + group.subTotalCantidad, 0);
-        const totalPesoPlaca = presentationGroups.reduce((acc: number, group: any) => acc + group.subTotalPeso, 0);
-
-        return {
-            placa: placa.numeroPlaca,
-            conductor: placa.conductor,
-            cedulaConductor: placa.cedulaConductor,
-            presentationGroups: presentationGroups,
-            totalPaletasPlaca,
-            totalCantidadPlaca,
-            totalPesoPlaca,
-        };
-    });
-
-    const totalGeneralPaletas = placaGroups.reduce((acc, placa) => acc + placa.totalPaletasPlaca, 0);
-    const totalGeneralCantidad = placaGroups.reduce((acc, placa) => acc + placa.totalCantidadPlaca, 0);
-    const totalGeneralPeso = placaGroups.reduce((acc, placa) => acc + placa.totalPesoPlaca, 0);
-
-    return { placaGroups, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso };
-};
-
-const processTunelACamaraData = (formData: any) => {
-    const allItems = formData.items || [];
-    
-    // 1. Group items by presentation
-    const groupedByPresentation = allItems.reduce((acc: any, item: any) => {
-        const presentation = item.presentacion || 'SIN PRESENTACIÓN';
-        if (!acc[presentation]) {
-            acc[presentation] = { products: {} };
-        }
-        
-        const desc = item.descripcion || 'SIN DESCRIPCIÓN';
-        if (!acc[presentation].products[desc]) {
-            // Find corresponding summary item to get temperatures
-            const summaryItem = formData.summary?.find((s: any) => s.descripcion === desc && s.presentacion === presentation);
-            acc[presentation].products[desc] = {
-                descripcion: desc,
-                cantidad: 0,
-                paletas: new Set(),
-                pesoNeto: 0,
-                temperatura1: summaryItem?.temperatura1,
-                temperatura2: summaryItem?.temperatura2,
-                temperatura3: summaryItem?.temperatura3,
-            };
-        }
-        
-        const productGroup = acc[presentation].products[desc];
-        productGroup.cantidad += Number(item.cantidadPorPaleta) || 0;
-        productGroup.pesoNeto += Number(item.pesoNeto) || 0;
-        if (item.paleta !== undefined && !isNaN(Number(item.paleta)) && Number(item.paleta) > 0) {
-            productGroup.paletas.add(item.paleta);
-        }
-
-        return acc;
-    }, {});
-    
-    // 2. Calculate totals for each presentation group
-    Object.values(groupedByPresentation).forEach((group: any) => {
-        group.products = Object.values(group.products).map((prod: any) => ({
-            ...prod,
-            totalPaletas: prod.paletas.size,
-        }));
-        group.subTotalCantidad = group.products.reduce((sum: number, p: any) => sum + p.cantidad, 0);
-        group.subTotalPeso = group.products.reduce((sum: number, p: any) => sum + p.pesoNeto, 0);
-        group.subTotalPaletas = group.products.reduce((sum: number, p: any) => sum + p.totalPaletas, 0);
-    });
-
-    // 3. Calculate grand totals
-    const totalGeneralCantidad = Object.values(groupedByPresentation).reduce((sum: number, group: any) => sum + group.subTotalCantidad, 0);
-    const totalGeneralPeso = Object.values(groupedByPresentation).reduce((sum: number, group: any) => sum + group.subTotalPeso, 0);
-    const totalGeneralPaletas = Object.values(groupedByPresentation).reduce((sum: number, group: any) => sum + group.subTotalPaletas, 0);
-    
-    return { groupedByPresentation, totalGeneralCantidad, totalGeneralPeso, totalGeneralPaletas };
-};
-
 
 // --- REACT COMPONENT ---
 
@@ -856,7 +709,18 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                                 { content: totalGeneralPaletas, styles: { fontStyle: 'bold', fillColor: '#1A90C8', textColor: '#FFFFFF', halign: 'right' } },
                                 { content: totalGeneralPeso.toFixed(2), styles: { fontStyle: 'bold', fillColor: '#1A90C8', textColor: '#FFFFFF', halign: 'right' } }
                             ]],
-                            theme: 'grid', margin: { horizontal: margin }, styles: { fontSize: 8, cellPadding: 3 }, headStyles: { fillColor: '#fff', textColor: '#333' }, footStyles: { fillColor: '#1A90C8', fontStyle: 'bold', textColor: '#fff' }
+                            theme: 'grid', 
+                            margin: { horizontal: margin }, 
+                            styles: { fontSize: 8, cellPadding: 3 }, 
+                            headStyles: { fillColor: '#fff', textColor: '#333' }, 
+                            footStyles: { fillColor: '#1A90C8', fontStyle: 'bold', textColor: '#fff' },
+                            columnStyles: {
+                                0: { halign: 'left' },
+                                1: { halign: 'right' },
+                                2: { halign: 'right' },
+                                3: { halign: 'right' },
+                                4: { halign: 'right' },
+                            }
                         };
 
                         addTableWithPageBreak({ startY: yPos, head: [[{ content: 'Resumen Agrupado de Productos', styles: { halign: 'center', fillColor: '#e2e8f0', textColor: '#1a202c', fontStyle: 'bold' } }]], body: [], theme: 'grid', margin: { horizontal: margin } });
