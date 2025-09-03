@@ -4,6 +4,7 @@
 import admin from 'firebase-admin';
 import { firestore } from '@/lib/firebase-admin';
 import { parse, differenceInMinutes, addDays } from 'date-fns';
+import type { ArticuloData } from './articulos';
 
 // Helper function to determine the logistic operation type
 const getOperationLogisticsType = (isoDateString: string, horaInicio: string, horaFin: string): string => {
@@ -142,16 +143,16 @@ export interface DetailedReportRow {
     observaciones: string;
     totalCantidad: number;
     totalPaletas: number;
-    totalPesoKg: number; // New field
-    tipoOperacion: string; // Renamed from tipoPedido
+    totalPesoKg: number;
+    tipoOperacion: string;
     pedidoSislog: string;
     operacionLogistica: string;
     sesion: string;
-    tipoPedido: string; // New field
-    tipoEmpaqueMaquila: string; // New field
-    numeroOperariosCuadrilla: string; // New field
-    operacionPorCuadrilla: string; // New field
-    duracionMinutos: number | null; // New field
+    tipoPedido: string;
+    tipoEmpaqueMaquila: string;
+    numeroOperariosCuadrilla: string;
+    operacionPorCuadrilla: string;
+    duracionMinutos: number | null;
 }
 
 const calculateTotalPallets = (formType: string, formData: any): number => {
@@ -160,16 +161,19 @@ const calculateTotalPallets = (formType: string, formData: any): number => {
     } 
     
     if (formType.startsWith('variable-weight-')) {
-        const items = formData.items || [];
+        const allItems = (formData.items || [])
+            .concat((formData.destinos || []).flatMap((d: any) => d?.items || []))
+            .concat((formData.placas || []).flatMap((p: any) => p?.items || []));
         
-        // Despacho con filas de resumen (paleta === 0)
-        if (formType.includes('despacho') && items.some((p: any) => Number(p.paleta) === 0)) {
-            return items.reduce((sum: number, p: any) => sum + (Number(p.totalPaletas) || 0), 0);
+        const isSummaryFormat = allItems.some((p: any) => Number(p.paleta) === 0);
+        
+        if (isSummaryFormat) {
+            return allItems.reduce((sum: number, p: any) => sum + (Number(p.totalPaletas) || 0), 0);
         }
         
-        // Para recepción y despacho detallado (por paleta), contamos las paletas únicas.
+        // For detailed reception and dispatch (by pallet), count unique pallets.
         const uniquePallets = new Set<number>();
-        items.forEach((item: any) => {
+        allItems.forEach((item: any) => {
             const paletaNum = Number(item.paleta);
             if (!isNaN(paletaNum) && paletaNum > 0) {
                 uniquePallets.add(paletaNum);
@@ -220,7 +224,10 @@ const calculateTotalPesoKg = (formType: string, formData: any): number => {
             if (isSummaryFormat) {
                 return allItems.reduce((sum: number, p: any) => sum + (Number(p.totalPesoNeto) || 0), 0);
             } else {
-                return allItems.reduce((sum: number, p: any) => sum + (Number(p.pesoBruto) || 0), 0);
+                // For itemized (non-summary) variable weight reception, calculate net from gross
+                const totalPesoBruto = allItems.reduce((sum: number, p: any) => sum + (Number(p.pesoBruto) || 0), 0);
+                const totalTaraEstiba = allItems.reduce((sum: number, p: any) => sum + (Number(p.taraEstiba) || 0), 0);
+                return totalPesoBruto - totalTaraEstiba;
             }
         } else if (formType.includes('despacho')) {
             // Despacho Peso Variable
@@ -245,7 +252,6 @@ export async function getDetailedReport(criteria: DetailedReportCriteria): Promi
 
     // To avoid full collection scans, we require a date range.
     if (criteria.startDate && criteria.endDate) {
-        // Widen the server query by a day on each side to account for timezone differences.
         const serverQueryStartDate = new Date(criteria.startDate);
         serverQueryStartDate.setDate(serverQueryStartDate.getDate() - 1);
         
@@ -257,18 +263,27 @@ export async function getDetailedReport(criteria: DetailedReportCriteria): Promi
     } else {
         throw new Error('Se requiere un rango de fechas para generar este informe.');
     }
-
-    const snapshot = await query.get();
     
-    // First, serialize all documents from Firestore
-    const allSubmissions = snapshot.docs.map(doc => {
+    const [submissionsSnapshot, articlesSnapshot] = await Promise.all([
+        query.get(),
+        firestore.collection('articulos').get()
+    ]);
+    
+    // Create a lookup map for article sessions for efficiency
+    const articleSessionMap = new Map<string, string>(); // Key: 'clientName|codigoProducto', Value: 'sesion'
+    articlesSnapshot.forEach(doc => {
+        const article = doc.data() as ArticuloData;
+        const key = `${article.razonSocial}|${article.codigoProducto}`;
+        articleSessionMap.set(key, article.sesion);
+    });
+
+    const allSubmissions = submissionsSnapshot.docs.map(doc => {
         return {
             id: doc.id,
             ...serializeTimestamps(doc.data())
         };
     });
 
-    // Then, filter the serialized documents by the correct local date
     const dateFilteredSubmissions = allSubmissions.filter(submission => {
         const formIsoDate = submission.formData?.fecha;
         if (!formIsoDate || typeof formIsoDate !== 'string') {
@@ -278,7 +293,6 @@ export async function getDetailedReport(criteria: DetailedReportCriteria): Promi
         return formDatePart >= criteria.startDate! && formDatePart <= criteria.endDate!;
     });
 
-    // Now, map the correctly filtered documents to the report row structure
     let results = dateFilteredSubmissions.map(submission => {
         const { id, formType, formData } = submission;
 
@@ -310,6 +324,23 @@ export async function getDetailedReport(criteria: DetailedReportCriteria): Promi
         if (formData.aplicaCuadrilla === 'si' && formData.tipoPedido === 'MAQUILA' && formData.numeroOperariosCuadrilla) {
             numeroOperarios = String(formData.numeroOperariosCuadrilla);
         }
+
+        // Logic to get the session from the first product
+        const allItems = (formData.productos || [])
+            .concat((formData.items || []))
+            .concat((formData.destinos || []).flatMap((d: any) => d?.items || []))
+            .concat((formData.placas || []).flatMap((p: any) => p?.items || []));
+        
+        let sesion = 'N/A';
+        if(allItems.length > 0) {
+            const firstItem = allItems[0];
+            const clientName = formData.nombreCliente || formData.cliente;
+            const productCode = firstItem.codigo;
+            if (clientName && productCode) {
+                 const key = `${clientName}|${productCode}`;
+                 sesion = articleSessionMap.get(key) || 'N/A';
+            }
+        }
         
         return {
             id,
@@ -323,11 +354,10 @@ export async function getDetailedReport(criteria: DetailedReportCriteria): Promi
             totalCantidad,
             totalPaletas,
             totalPesoKg,
-            tipoOperacion, // Renamed
+            tipoOperacion,
             pedidoSislog: formData.pedidoSislog || 'N/A',
             operacionLogistica,
-            sesion: formData.sesion || 'N/A',
-            // New fields
+            sesion: sesion, // Use the determined session
             tipoPedido: tipoPedido,
             tipoEmpaqueMaquila: formData.tipoEmpaqueMaquila || 'N/A',
             numeroOperariosCuadrilla: numeroOperarios,
@@ -336,12 +366,10 @@ export async function getDetailedReport(criteria: DetailedReportCriteria): Promi
         };
     });
 
-    // Apply remaining filters in memory
     if (criteria.clientName) {
         results = results.filter(row => row.cliente.toLowerCase().trim() === criteria.clientName!.toLowerCase().trim());
     }
     if (criteria.operationType) {
-        // Use localeCompare for case-insensitive and accent-insensitive comparison
         results = results.filter(row => 
             row.tipoOperacion.localeCompare(criteria.operationType!, 'es', { sensitivity: 'base' }) === 0
         );
@@ -361,5 +389,3 @@ export async function getDetailedReport(criteria: DetailedReportCriteria): Promi
 
     return results;
 }
-
-    

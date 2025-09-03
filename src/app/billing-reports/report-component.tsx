@@ -1969,5 +1969,3 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         </div>
     );
 }
-
-    
