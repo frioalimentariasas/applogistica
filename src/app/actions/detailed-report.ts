@@ -142,6 +142,7 @@ export interface DetailedReportRow {
     observaciones: string;
     totalCantidad: number;
     totalPaletas: number;
+    totalPesoKg: number; // New field
     tipoOperacion: string; // Renamed from tipoPedido
     pedidoSislog: string;
     operacionLogistica: string;
@@ -202,6 +203,38 @@ const calculateTotalCantidad = (formType: string, formData: any): number => {
     return 0;
 };
 
+const calculateTotalPesoKg = (formType: string, formData: any): number => {
+    if (formType.startsWith('fixed-weight-')) {
+        return Number(formData.totalPesoBrutoKg) || 0;
+    }
+
+    if (formType.startsWith('variable-weight-')) {
+        const allItems = (formData.items || [])
+            .concat((formData.destinos || []).flatMap((d: any) => d?.items || []))
+            .concat((formData.placas || []).flatMap((p: any) => p?.items || []));
+
+        const isSummaryFormat = allItems.some((p: any) => Number(p.paleta) === 0);
+
+        if (formType.includes('recepcion') || formType.includes('reception')) {
+            // Recepción Peso Variable
+            if (isSummaryFormat) {
+                return allItems.reduce((sum: number, p: any) => sum + (Number(p.totalPesoNeto) || 0), 0);
+            } else {
+                return allItems.reduce((sum: number, p: any) => sum + (Number(p.pesoBruto) || 0), 0);
+            }
+        } else if (formType.includes('despacho')) {
+            // Despacho Peso Variable
+            if (isSummaryFormat) {
+                return allItems.reduce((sum: number, p: any) => sum + (Number(p.totalPesoNeto) || 0), 0);
+            } else {
+                return allItems.reduce((sum: number, p: any) => sum + (Number(p.pesoNeto) || 0), 0);
+            }
+        }
+    }
+    
+    return 0;
+}
+
 
 export async function getDetailedReport(criteria: DetailedReportCriteria): Promise<DetailedReportRow[]> {
     if (!firestore) {
@@ -251,6 +284,7 @@ export async function getDetailedReport(criteria: DetailedReportCriteria): Promi
 
         const totalPaletas = calculateTotalPallets(formType, formData);
         const totalCantidad = calculateTotalCantidad(formType, formData);
+        const totalPesoKg = calculateTotalPesoKg(formType, formData);
         
         let tipoOperacion = 'N/A';
         if (formType.includes('recepcion') || formType.includes('reception')) {
@@ -288,6 +322,7 @@ export async function getDetailedReport(criteria: DetailedReportCriteria): Promi
             observaciones: formData.observaciones || '',
             totalCantidad,
             totalPaletas,
+            totalPesoKg,
             tipoOperacion, // Renamed
             pedidoSislog: formData.pedidoSislog || 'N/A',
             operacionLogistica,

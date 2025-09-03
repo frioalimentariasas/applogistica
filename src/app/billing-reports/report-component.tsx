@@ -501,6 +501,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const worksheet = workbook.addWorksheet('Reporte Detallado');
 
         const totalDuration = detailedReportData.reduce((acc, row) => acc + (row.duracionMinutos || 0), 0);
+        const totalGeneralPesoKg = detailedReportData.reduce((acc, row) => acc + (row.totalPesoKg || 0), 0);
+
 
         worksheet.columns = [
             { header: 'Fecha', key: 'fecha', width: 12 },
@@ -519,6 +521,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             { header: 'No. Operarios', key: 'numOperarios', width: 15 },
             { header: 'Total Cantidad', key: 'totalCantidad', width: 15 },
             { header: 'Total Paletas', key: 'totalPaletas', width: 15 },
+            { header: 'Total Peso (kg)', key: 'totalPesoKg', width: 18 },
             { header: 'Observaciones', key: 'observaciones', width: 40 },
         ];
 
@@ -540,14 +543,16 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 numOperarios: row.numeroOperariosCuadrilla,
                 totalCantidad: row.totalCantidad,
                 totalPaletas: row.totalPaletas,
+                totalPesoKg: row.totalPesoKg,
                 observaciones: formatObservaciones(row.observaciones),
             });
         });
         
         worksheet.addRow({}); // Empty row as spacer
         const totalRow = worksheet.addRow({
-            opLogistica: 'TOTAL:',
-            duracion: formatDuration(totalDuration)
+            opLogistica: 'TOTALES:',
+            duracion: formatDuration(totalDuration),
+            totalPesoKg: totalGeneralPesoKg.toFixed(2),
         });
         totalRow.font = { bold: true };
 
@@ -567,6 +572,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const doc = new jsPDF({ orientation: 'landscape' });
         const pageWidth = doc.internal.pageSize.getWidth();
         const totalDuration = detailedReportData.reduce((acc, row) => acc + (row.duracionMinutos || 0), 0);
+        const totalGeneralPesoKg = detailedReportData.reduce((acc, row) => acc + (row.totalPesoKg || 0), 0);
 
         const logoWidth = 70;
         const aspectRatio = logoDimensions.width / logoDimensions.height;
@@ -585,7 +591,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         doc.text('Frio Alimentaria SAS Nit: 900736914-0', pageWidth / 2, titleY + 8, { align: 'center' });
 
         const head = [[
-            'Fecha', 'Op. Log.', 'Duración', 'Cliente', 'Tipo Op.', 'Tipo Pedido', 'Empaque', 'No. Pedido', 'Op. Cuadrilla', 'No. Ops', 'Total Cantidad', 'Total Paletas', 'Observaciones'
+            'Fecha', 'Op. Log.', 'Duración', 'Cliente', 'Tipo Op.', 'Tipo Pedido', 'Empaque', 'No. Pedido', 'Op. Cuadrilla', 'No. Ops', 'Total Cantidad', 'Total Paletas', 'Total Peso (kg)', 'Observaciones'
         ]];
         
         const body = detailedReportData.map(row => [
@@ -601,11 +607,18 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             row.numeroOperariosCuadrilla,
             row.totalCantidad,
             row.totalPaletas,
+            row.totalPesoKg.toFixed(2),
             formatObservaciones(row.observaciones)
         ]);
 
         const foot = [
-            [{ content: 'Duración Total:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }, { content: formatDuration(totalDuration) }, '', '', '', '', '', '', '', '', '']
+            [
+                { content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }, 
+                { content: formatDuration(totalDuration) }, 
+                { content: '', colSpan: 8},
+                { content: totalGeneralPesoKg.toFixed(2), styles: {fontStyle: 'bold'} },
+                { content: ''}
+            ]
         ];
 
 
@@ -623,7 +636,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                  1: { cellWidth: 20 }, // Op. Log.
                  2: { cellWidth: 20 }, // Duración
                  3: { cellWidth: 'auto' }, // Cliente
-                 12: { cellWidth: 35 }, // Observaciones column
+                 13: { cellWidth: 35 }, // Observaciones column
             }
         });
 
@@ -1326,13 +1339,14 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                 <TableHead className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm">Op. Cuadrilla</TableHead>
                                                 <TableHead className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm">No. Operarios</TableHead>
                                                 <TableHead className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm">Total Cantidad</TableHead>
+                                                <TableHead className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm">Total Peso (kg)</TableHead>
                                                 <TableHead className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm">Total Paletas</TableHead>
                                                 <TableHead className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm">Observaciones</TableHead>
                                             </TableRow>
                                         </TableHeader>
                                         <TableBody>
                                             {isDetailedReportLoading ? (
-                                                <TableRow><TableCell colSpan={17}><Skeleton className="h-20 w-full" /></TableCell></TableRow>
+                                                <TableRow><TableCell colSpan={18}><Skeleton className="h-20 w-full" /></TableCell></TableRow>
                                             ) : detailedReportData.length > 0 ? (
                                                 detailedReportData.map((row) => (
                                                     <TableRow key={row.id}>
@@ -1351,6 +1365,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                         <TableCell>{row.operacionPorCuadrilla}</TableCell>
                                                         <TableCell>{row.numeroOperariosCuadrilla}</TableCell>
                                                         <TableCell>{row.totalCantidad}</TableCell>
+                                                        <TableCell>{row.totalPesoKg.toFixed(2)}</TableCell>
                                                         <TableCell>{row.totalPaletas}</TableCell>
                                                         <TableCell className="max-w-[200px] truncate" title={formatObservaciones(row.observaciones)}>{formatObservaciones(row.observaciones)}</TableCell>
                                                     </TableRow>
