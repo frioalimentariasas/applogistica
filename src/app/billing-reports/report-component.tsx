@@ -54,7 +54,7 @@ const ResultsSkeleton = () => (
 
 const EmptyState = ({ searched, title, description, emptyDescription }: { searched: boolean; title: string; description: string; emptyDescription: string; }) => (
     <TableRow>
-        <TableCell colSpan={16} className="py-20 text-center">
+        <TableCell colSpan={17} className="py-20 text-center">
             <div className="flex flex-col items-center gap-4">
                 <div className="rounded-full bg-primary/10 p-4">
                     <FolderSearch className="h-12 w-12 text-primary" />
@@ -249,39 +249,40 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         };
         fetchLogo();
     }, []);
+    
+    const handleFetchInventoryClients = useCallback(async () => {
+        if (inventoryDateRange?.from && inventoryDateRange?.to) {
+            setIsLoadingInventoryClients(true);
+            try {
+                const startDate = format(inventoryDateRange.from, 'yyyy-MM-dd');
+                const endDate = format(inventoryDateRange.to, 'yyyy-MM-dd');
+                const clientsWithInv = await getClientsWithInventory(startDate, endDate);
+                setAvailableInventoryClients(clientsWithInv);
+
+                // Clear selected clients that are not in the new list
+                setInventoryClients(prev => prev.filter(c => clientsWithInv.includes(c)));
+
+                if (clientsWithInv.length === 0) {
+                    toast({
+                        title: "No se encontraron clientes",
+                        description: "No hay datos de inventario para ningún cliente en el rango de fechas seleccionado.",
+                    });
+                }
+            } catch (error) {
+                toast({ variant: 'destructive', title: 'Error', description: 'No se pudo cargar la lista de clientes para el inventario.' });
+            } finally {
+                setIsLoadingInventoryClients(false);
+            }
+        } else {
+            // Clear the list if the date range is incomplete
+            setAvailableInventoryClients([]);
+            setInventoryClients([]);
+        }
+    }, [inventoryDateRange, toast]);
 
     useEffect(() => {
-        const fetchInventoryClients = async () => {
-            if (inventoryDateRange?.from && inventoryDateRange?.to) {
-                setIsLoadingInventoryClients(true);
-                try {
-                    const startDate = format(inventoryDateRange.from, 'yyyy-MM-dd');
-                    const endDate = format(inventoryDateRange.to, 'yyyy-MM-dd');
-                    const clientsWithInv = await getClientsWithInventory(startDate, endDate);
-                    setAvailableInventoryClients(clientsWithInv);
-
-                    // Clear selected clients that are not in the new list
-                    setInventoryClients(prev => prev.filter(c => clientsWithInv.includes(c)));
-
-                    if (clientsWithInv.length === 0) {
-                        toast({
-                            title: "No se encontraron clientes",
-                            description: "No hay datos de inventario para ningún cliente en el rango de fechas seleccionado.",
-                        });
-                    }
-                } catch (error) {
-                    toast({ variant: 'destructive', title: 'Error', description: 'No se pudo cargar la lista de clientes para el inventario.' });
-                } finally {
-                    setIsLoadingInventoryClients(false);
-                }
-            } else {
-                // Clear the list if the date range is incomplete
-                setAvailableInventoryClients([]);
-                setInventoryClients([]);
-            }
-        };
-        fetchInventoryClients();
-    }, [inventoryDateRange, toast]);
+        handleFetchInventoryClients();
+    }, [handleFetchInventoryClients]);
 
     const filteredClients = useMemo(() => {
         if (!clientSearch) return clients;
@@ -503,7 +504,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const totalDuration = detailedReportData.reduce((acc, row) => acc + (row.duracionMinutos || 0), 0);
         const totalGeneralPesoKg = detailedReportData.reduce((acc, row) => acc + (row.totalPesoKg || 0), 0);
 
-
         worksheet.columns = [
             { header: 'Fecha', key: 'fecha', width: 12 },
             { header: 'Op. Logística', key: 'opLogistica', width: 15 },
@@ -515,13 +515,14 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             { header: 'Cliente', key: 'cliente', width: 30 },
             { header: 'Tipo Operación', key: 'tipoOperacion', width: 15 },
             { header: 'Tipo Pedido', key: 'tipoPedido', width: 15 },
+            { header: 'Cámara Almacenamiento', key: 'camara', width: 20 },
             { header: 'Tipo Empaque', key: 'tipoEmpaque', width: 15 },
             { header: 'No. Pedido (SISLOG)', key: 'pedidoSislog', width: 20 },
             { header: 'Op. Cuadrilla', key: 'opCuadrilla', width: 15 },
             { header: 'No. Operarios', key: 'numOperarios', width: 15 },
             { header: 'Total Cantidad', key: 'totalCantidad', width: 15 },
-            { header: 'Total Paletas', key: 'totalPaletas', width: 15 },
             { header: 'Total Peso (kg)', key: 'totalPesoKg', width: 18 },
+            { header: 'Total Paletas', key: 'totalPaletas', width: 15 },
             { header: 'Observaciones', key: 'observaciones', width: 40 },
         ];
 
@@ -537,13 +538,14 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 cliente: row.cliente,
                 tipoOperacion: row.tipoOperacion,
                 tipoPedido: row.tipoPedido,
+                camara: row.sesion === 'CO' ? 'CONGELADO' : row.sesion === 'RE' ? 'REFRIGERADO' : row.sesion === 'SE' ? 'SECO' : 'N/A',
                 tipoEmpaque: row.tipoEmpaqueMaquila,
                 pedidoSislog: row.pedidoSislog,
                 opCuadrilla: row.operacionPorCuadrilla,
                 numOperarios: row.numeroOperariosCuadrilla,
                 totalCantidad: row.totalCantidad,
-                totalPaletas: row.totalPaletas,
                 totalPesoKg: row.totalPesoKg,
+                totalPaletas: row.totalPaletas,
                 observaciones: formatObservaciones(row.observaciones),
             });
         });
@@ -591,7 +593,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         doc.text('Frio Alimentaria SAS Nit: 900736914-0', pageWidth / 2, titleY + 8, { align: 'center' });
 
         const head = [[
-            'Fecha', 'Op. Log.', 'Duración', 'Cliente', 'Tipo Op.', 'Tipo Pedido', 'Empaque', 'No. Pedido', 'Op. Cuadrilla', 'No. Ops', 'Total Cantidad', 'Total Paletas', 'Total Peso (kg)', 'Observaciones'
+            'Fecha', 'Op. Log.', 'Duración', 'Cliente', 'Tipo Op.', 'Tipo Pedido', 'Cámara', 'Empaque', 'No. Pedido', 'Op. Cuadrilla', 'No. Ops', 'Total Cant.', 'Total Paletas', 'Total Peso (kg)', 'Observaciones'
         ]];
         
         const body = detailedReportData.map(row => [
@@ -601,6 +603,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             row.cliente,
             row.tipoOperacion,
             row.tipoPedido,
+            row.sesion === 'CO' ? 'CONGELADO' : row.sesion === 'RE' ? 'REFRIGERADO' : row.sesion === 'SE' ? 'SECO' : 'N/A',
             row.tipoEmpaqueMaquila,
             row.pedidoSislog,
             row.operacionPorCuadrilla,
@@ -615,7 +618,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             [
                 { content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }, 
                 { content: formatDuration(totalDuration) }, 
-                { content: '', colSpan: 8},
+                { content: '', colSpan: 10},
                 { content: totalGeneralPesoKg.toFixed(2), styles: {fontStyle: 'bold'} },
                 { content: ''}
             ]
@@ -636,7 +639,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                  1: { cellWidth: 20 }, // Op. Log.
                  2: { cellWidth: 20 }, // Duración
                  3: { cellWidth: 'auto' }, // Cliente
-                 13: { cellWidth: 35 }, // Observaciones column
+                 14: { cellWidth: 35 }, // Observaciones column
             }
         });
 
@@ -1160,6 +1163,16 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         return `${exportClients.length} clientes seleccionados`;
     };
 
+    const sessionMapping: { [key: string]: string } = {
+        CO: 'CONGELADO',
+        RE: 'REFRIGERADO',
+        SE: 'SECO',
+    };
+
+    const getSessionName = (sesionCode: string) => {
+        return sessionMapping[sesionCode] || 'N/A';
+    }
+
     return (
         <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
             <div className="max-w-screen-2xl mx-auto">
@@ -1172,7 +1185,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                             onClick={() => router.push('/')}
                             aria-label="Volver a la página principal"
                         >
-                            <ArrowLeft className="h-6 w-6" />
+                            <ArrowLeft className="mr-2 h-4 w-4" />
                         </Button>
                         <div>
                             <div className="flex items-center justify-center gap-2">
@@ -1334,6 +1347,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                 <TableHead className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm">Cliente</TableHead>
                                                 <TableHead className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm">Tipo Operación</TableHead>
                                                 <TableHead className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm">Tipo Pedido</TableHead>
+                                                <TableHead className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm">Cámara Almacenamiento</TableHead>
                                                 <TableHead className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm">Tipo Empaque</TableHead>
                                                 <TableHead className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm">No. Pedido (SISLOG)</TableHead>
                                                 <TableHead className="sticky top-0 z-10 bg-background/95 backdrop-blur-sm">Op. Cuadrilla</TableHead>
@@ -1346,7 +1360,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                         </TableHeader>
                                         <TableBody>
                                             {isDetailedReportLoading ? (
-                                                <TableRow><TableCell colSpan={18}><Skeleton className="h-20 w-full" /></TableCell></TableRow>
+                                                <TableRow><TableCell colSpan={19}><Skeleton className="h-20 w-full" /></TableCell></TableRow>
                                             ) : detailedReportData.length > 0 ? (
                                                 detailedReportData.map((row) => (
                                                     <TableRow key={row.id}>
@@ -1360,6 +1374,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                         <TableCell>{row.cliente}</TableCell>
                                                         <TableCell>{row.tipoOperacion}</TableCell>
                                                         <TableCell>{row.tipoPedido}</TableCell>
+                                                        <TableCell>{getSessionName(row.sesion)}</TableCell>
                                                         <TableCell>{row.tipoEmpaqueMaquila}</TableCell>
                                                         <TableCell>{row.pedidoSislog}</TableCell>
                                                         <TableCell>{row.operacionPorCuadrilla}</TableCell>
