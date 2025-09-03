@@ -1,8 +1,7 @@
 
-
 "use client";
 
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { DateRange } from 'react-day-picker';
 import { format, addDays, differenceInDays, subDays } from 'date-fns';
@@ -538,7 +537,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 cliente: row.cliente,
                 tipoOperacion: row.tipoOperacion,
                 tipoPedido: row.tipoPedido,
-                camara: row.sesion === 'CO' ? 'CONGELADO' : row.sesion === 'RE' ? 'REFRIGERADO' : row.sesion === 'SE' ? 'SECO' : 'N/A',
+                camara: getSessionName(row.sesion),
                 tipoEmpaque: row.tipoEmpaqueMaquila,
                 pedidoSislog: row.pedidoSislog,
                 opCuadrilla: row.operacionPorCuadrilla,
@@ -603,7 +602,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             row.cliente,
             row.tipoOperacion,
             row.tipoPedido,
-            row.sesion === 'CO' ? 'CONGELADO' : row.sesion === 'RE' ? 'REFRIGERADO' : row.sesion === 'SE' ? 'SECO' : 'N/A',
+            getSessionName(row.sesion),
             row.tipoEmpaqueMaquila,
             row.pedidoSislog,
             row.operacionPorCuadrilla,
