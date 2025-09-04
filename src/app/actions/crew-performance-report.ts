@@ -6,7 +6,7 @@ import admin from 'firebase-admin';
 import { firestore } from '@/lib/firebase-admin';
 import { parse, differenceInMinutes, parseISO, format, startOfDay, endOfDay, addDays, subDays } from 'date-fns';
 import { findBestMatchingStandard, type PerformanceStandard } from '@/app/actions/standard-actions';
-import { getBillingConcepts, type BillingConcept } from '@/app/gestion-conceptos-liquidacion-cuadrilla/actions';
+import { getBillingConcepts, type BillingConcept } from '../gestion-conceptos-liquidacion-cuadrilla/actions';
 import { getNoveltiesForOperation, type NoveltyData } from './novelty-actions';
 
 
