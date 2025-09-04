@@ -253,10 +253,10 @@ export async function getDetailedReport(criteria: DetailedReportCriteria): Promi
     // To avoid full collection scans, we require a date range.
     if (criteria.startDate && criteria.endDate) {
         const serverQueryStartDate = new Date(criteria.startDate);
-        serverQueryStartDate.setDate(serverQueryStartDate.getDate() - 1);
+        serverQueryStartDate.setDate(serverQueryStartDate.getDate());
         
         const serverQueryEndDate = new Date(criteria.endDate);
-        serverQueryEndDate.setDate(serverQueryEndDate.getDate() + 2);
+        serverQueryEndDate.setDate(serverQueryEndDate.getDate() + 1);
         
         query = query.where('createdAt', '>=', serverQueryStartDate.toISOString().split('T')[0])
                      .where('createdAt', '<', serverQueryEndDate.toISOString().split('T')[0]);
@@ -391,6 +391,7 @@ export async function getDetailedReport(criteria: DetailedReportCriteria): Promi
         return results;
 
     } catch (error) {
+        console.error('Error generating detailed report:', error);
         if (error instanceof Error && (error.message.includes('requires an index') || error.message.includes('needs an index'))) {
             // Log the full error to the server console so it's captured in logs
             console.error("Firestore composite index required. Full error from Firestore:", error.message);
@@ -398,7 +399,6 @@ export async function getDetailedReport(criteria: DetailedReportCriteria): Promi
             throw new Error(error.message);
         }
         // Handle other types of errors
-        console.error('Error generating detailed report:', error);
         throw new Error('No se pudo generar el informe detallado.');
     }
 }
