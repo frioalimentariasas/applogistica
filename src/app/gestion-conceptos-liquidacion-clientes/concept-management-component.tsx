@@ -3,7 +3,7 @@
 
 import * as React from 'react';
 import { useState, useMemo } from 'react';
-import { useForm, SubmitHandler } from 'react-hook-form';
+import { useForm, SubmitHandler, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { useRouter } from 'next/navigation';
@@ -14,7 +14,7 @@ import { addClientBillingConcept, updateClientBillingConcept, deleteMultipleClie
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Loader2, PlusCircle, Edit, Trash2, ShieldAlert, DollarSign, ChevronsUpDown } from 'lucide-react';
+import { ArrowLeft, Loader2, PlusCircle, Edit, Trash2, ShieldAlert, DollarSign, ChevronsUpDown, Check, Info } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
@@ -34,24 +34,26 @@ import { Checkbox } from '@/components/ui/checkbox';
 import type { ClientInfo } from '@/app/actions/clients';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
 
+const tariffRangeSchema = z.object({
+  minTons: z.coerce.number({ invalid_type_error: "Debe ser un número" }).min(0, "Debe ser >= 0"),
+  maxTons: z.coerce.number({ invalid_type_error: "Debe ser un número" }).min(0, "Debe ser >= 0"),
+  vehicleType: z.string().min(1, "El tipo de vehículo es requerido."),
+  dayTariff: z.coerce.number({ invalid_type_error: "Debe ser un número" }).min(0, "Debe ser >= 0"),
+  nightTariff: z.coerce.number({ invalid_type_error: "Debe ser un número" }).min(0, "Debe ser >= 0"),
+}).refine(data => data.maxTons > data.minTons, {
+    message: "Max. debe ser mayor que Min.",
+    path: ['maxTons'],
+});
 
 const conceptSchema = z.object({
   conceptName: z.string().min(3, { message: "El nombre del concepto es requerido (mín. 3 caracteres)."}),
   clientNames: z.array(z.string()).min(1, { message: 'Debe seleccionar al menos un cliente.' }),
   unitOfMeasure: z.enum(['TONELADA', 'PALETA', 'UNIDAD', 'CAJA', 'SACO', 'CANASTILLA', 'HORA', 'DIA'], { required_error: 'Debe seleccionar una unidad de medida.'}),
-  value: z.coerce.number({invalid_type_error: "Debe ser un número"}).min(0, "Debe ser 0 o mayor."),
-  shiftType: z.enum(['Diurno', 'Nocturno', 'No Aplica'], { required_error: 'Debe seleccionar un tipo de turno.' }),
-  dayShiftStart: z.string().optional(),
-  dayShiftEnd: z.string().optional(),
-}).refine(data => {
-  if (data.shiftType !== 'No Aplica') {
-    return data.dayShiftStart && data.dayShiftEnd && /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(data.dayShiftStart) && /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(data.dayShiftEnd);
-  }
-  return true;
-}, {
-  message: 'Para turnos Diurno/Nocturno, las horas de inicio y fin son obligatorias (formato HH:MM).',
-  path: ['dayShiftStart'], 
+  dayShiftStart: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM requerido.'),
+  dayShiftEnd: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM requerido.'),
+  tariffRanges: z.array(tariffRangeSchema).min(1, 'Debe agregar al menos un rango de tarifa.'),
 });
 
 
@@ -86,21 +88,21 @@ export default function ConceptManagementClientComponent({ initialClients, initi
     resolver: zodResolver(conceptSchema),
     defaultValues: {
       conceptName: '',
-      clientNames: ['TODOS (Cualquier Cliente)'],
+      clientNames: [],
       unitOfMeasure: 'TONELADA',
-      value: 0,
-      shiftType: 'No Aplica',
       dayShiftStart: '07:00',
       dayShiftEnd: '19:00',
+      tariffRanges: [{ minTons: 0, maxTons: 999, vehicleType: 'GENERAL', dayTariff: 0, nightTariff: 0 }]
     },
   });
 
-  const editForm = useForm<ConceptFormValues>({
-    resolver: zodResolver(conceptSchema),
+  const { fields, append, remove } = useFieldArray({
+    control: addForm.control,
+    name: "tariffRanges",
   });
-
-  const watchedShiftType = addForm.watch('shiftType');
-  const watchedEditShiftType = editForm.watch('shiftType');
+  
+  const editForm = useForm<ConceptFormValues>({ resolver: zodResolver(conceptSchema) });
+  const { fields: editFields, append: editAppend, remove: editRemove } = useFieldArray({ control: editForm.control, name: "tariffRanges" });
 
   const clientOptions: ClientInfo[] = useMemo(() => [
     { id: 'TODOS', razonSocial: 'TODOS (Cualquier Cliente)' }, 
@@ -159,11 +161,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
 
   const openEditDialog = (concept: ClientBillingConcept) => {
     setConceptToEdit(concept);
-    editForm.reset({
-      ...concept,
-      dayShiftStart: concept.dayShiftStart || '07:00',
-      dayShiftEnd: concept.dayShiftEnd || '19:00',
-    });
+    editForm.reset(concept);
   };
 
   const handleRowSelect = (id: string, checked: boolean) => {
@@ -246,26 +244,35 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                                   )}
                                 />
                                 <FormField control={addForm.control} name="unitOfMeasure" render={({ field }) => (<FormItem><FormLabel>Unidad de Medida</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TONELADA">TONELADA</SelectItem><SelectItem value="PALETA">PALETA</SelectItem><SelectItem value="UNIDAD">UNIDAD</SelectItem><SelectItem value="CAJA">CAJA</SelectItem><SelectItem value="SACO">SACO</SelectItem><SelectItem value="CANASTILLA">CANASTILLA</SelectItem><SelectItem value="HORA">HORA</SelectItem><SelectItem value="DIA">DÍA</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
-                                <FormField control={addForm.control} name="value" render={({ field }) => (<FormItem><FormLabel>Tarifa (COP)</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
                                 
-                                <FormField control={addForm.control} name="shiftType" render={({ field }) => (
-                                  <FormItem>
-                                    <FormLabel>Tipo de Turno</FormLabel>
-                                    <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="No Aplica">No Aplica</SelectItem><SelectItem value="Diurno">Diurno</SelectItem><SelectItem value="Nocturno">Nocturno</SelectItem></SelectContent></Select>
-                                    <FormMessage />
-                                  </FormItem>
-                                )}/>
-                                
-                                {watchedShiftType !== 'No Aplica' && (
-                                  <div className="grid grid-cols-2 gap-4">
-                                      <FormField control={addForm.control} name="dayShiftStart" render={({ field }) => (
-                                        <FormItem><FormLabel>Inicio Turno Diurno</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>
-                                      )}/>
-                                      <FormField control={addForm.control} name="dayShiftEnd" render={({ field }) => (
-                                        <FormItem><FormLabel>Fin Turno Diurno</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>
-                                      )}/>
-                                  </div>
-                                )}
+                                <Separator />
+                                <FormLabel>Rangos de Tarifas</FormLabel>
+                                <div className="space-y-4">
+                                    <div className="grid grid-cols-2 gap-4">
+                                      <FormField control={addForm.control} name="dayShiftStart" render={({ field }) => (<FormItem><FormLabel>Inicio Turno Diurno</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                      <FormField control={addForm.control} name="dayShiftEnd" render={({ field }) => (<FormItem><FormLabel>Fin Turno Diurno</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                                    </div>
+                                    {fields.map((field, index) => (
+                                        <div key={field.id} className="grid grid-cols-1 gap-3 border p-3 rounded-md relative">
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <FormField control={addForm.control} name={`tariffRanges.${index}.minTons`} render={({ field }) => (<FormItem><FormLabel>Min. Ton.</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                                                <FormField control={addForm.control} name={`tariffRanges.${index}.maxTons`} render={({ field }) => (<FormItem><FormLabel>Max. Ton.</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                                            </div>
+                                            <FormField control={addForm.control} name={`tariffRanges.${index}.vehicleType`} render={({ field }) => (<FormItem><FormLabel>Tipo Vehículo</FormLabel><FormControl><Input placeholder="EJ: TURBO" {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)}/>
+                                            <div className="grid grid-cols-2 gap-2">
+                                                <FormField control={addForm.control} name={`tariffRanges.${index}.dayTariff`} render={({ field }) => (<FormItem><FormLabel>Tarifa Diurna</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                                                <FormField control={addForm.control} name={`tariffRanges.${index}.nightTariff`} render={({ field }) => (<FormItem><FormLabel>Tarifa Nocturna</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                                            </div>
+                                            <Button type="button" variant="ghost" size="icon" className="absolute top-1 right-1 text-destructive h-6 w-6" onClick={() => remove(index)}>
+                                                <Trash2 className="h-4 w-4" />
+                                            </Button>
+                                        </div>
+                                    ))}
+                                    <Button type="button" variant="outline" size="sm" onClick={() => append({ minTons: 0, maxTons: 999, vehicleType: '', dayTariff: 0, nightTariff: 0 })}>
+                                        <PlusCircle className="mr-2 h-4 w-4" /> Agregar Rango
+                                    </Button>
+                                </div>
+                                <Separator />
                                 
                                 <Button type="submit" disabled={isSubmitting} className="w-full">
                                     {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
@@ -291,15 +298,13 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                 </CardHeader>
                 <CardContent>
                     <div className="rounded-md border">
-                        <ScrollArea className="h-[500px]">
+                        <ScrollArea className="h-[700px]">
                             <Table>
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead className="w-12"><Checkbox checked={isAllSelected} onCheckedChange={(checked) => handleSelectAll(checked === true)} /></TableHead>
                                         <TableHead>Concepto</TableHead>
-                                        <TableHead>U. Medida</TableHead>
-                                        <TableHead>Turno</TableHead>
-                                        <TableHead>Tarifa</TableHead>
+                                        <TableHead>Tarifas</TableHead>
                                         <TableHead className="text-right">Acciones</TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -313,17 +318,27 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                                                 <div className="text-xs text-muted-foreground max-w-[250px] truncate" title={(c.clientNames || []).join(', ')}>
                                                     Aplica a: {(c.clientNames || []).join(', ')}
                                                 </div>
+                                                <Badge variant="outline" className="mt-1">{c.unitOfMeasure}</Badge>
                                             </TableCell>
-                                            <TableCell><Badge variant="outline">{c.unitOfMeasure}</Badge></TableCell>
-                                            <TableCell><Badge variant={c.shiftType === 'No Aplica' ? 'secondary' : 'default'}>{c.shiftType}</Badge></TableCell>
-                                            <TableCell>{c.value.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
+                                            <TableCell>
+                                                <div className="flex flex-col gap-1">
+                                                    {c.tariffRanges.slice(0, 2).map((r, i) => (
+                                                        <div key={i} className="text-xs">
+                                                            <span className="font-semibold">{r.vehicleType}:</span>
+                                                            <span className="text-green-700"> D:</span> {r.dayTariff.toLocaleString('es-CO', {style:'currency', currency: 'COP', minimumFractionDigits: 0})} /
+                                                            <span className="text-blue-700"> N:</span> {r.nightTariff.toLocaleString('es-CO', {style:'currency', currency: 'COP', minimumFractionDigits: 0})}
+                                                        </div>
+                                                    ))}
+                                                    {c.tariffRanges.length > 2 && <div className="text-xs text-muted-foreground">...y {c.tariffRanges.length - 2} más</div>}
+                                                </div>
+                                            </TableCell>
                                             <TableCell className="text-right">
                                                 <Button variant="ghost" size="icon" onClick={() => openEditDialog(c)}><Edit className="h-4 w-4 text-blue-600" /></Button>
                                             </TableCell>
                                         </TableRow>
                                         ))
                                     ) : (
-                                        <TableRow><TableCell colSpan={6} className="h-24 text-center">No hay conceptos de cliente definidos.</TableCell></TableRow>
+                                        <TableRow><TableCell colSpan={5} className="h-24 text-center">No hay conceptos de cliente definidos.</TableCell></TableRow>
                                     )}
                                 </TableBody>
                             </Table>
@@ -337,46 +352,62 @@ export default function ConceptManagementClientComponent({ initialClients, initi
       
       {/* Edit Dialog */}
       <Dialog open={!!conceptToEdit} onOpenChange={(isOpen) => { if (!isOpen) setConceptToEdit(null) }}>
-        <DialogContent>
+        <DialogContent className="max-w-2xl">
           <DialogHeader><DialogTitle>Editar Concepto de Liquidación de Cliente</DialogTitle></DialogHeader>
           <Form {...editForm}>
             <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4 pt-4">
-                <FormField control={editForm.control} name="conceptName" render={({ field }) => (<FormItem><FormLabel>Nombre del Concepto</FormLabel><FormControl><Input {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)}/>
-                <FormField
-                  control={editForm.control}
-                  name="clientNames"
-                  render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Aplicar a Cliente(s)</FormLabel>
-                        <ClientMultiSelectDialog
-                            options={clientOptions.map(c => ({value: c.razonSocial, label: c.razonSocial}))}
-                            selected={field.value}
-                            onChange={field.onChange}
-                            placeholder="Seleccione clientes..."
-                        />
-                        <FormMessage />
-                    </FormItem>
-                  )}
-                />
-                <FormField control={editForm.control} name="unitOfMeasure" render={({ field }) => (<FormItem><FormLabel>Unidad de Medida</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TONELADA">TONELADA</SelectItem><SelectItem value="PALETA">PALETA</SelectItem><SelectItem value="UNIDAD">UNIDAD</SelectItem><SelectItem value="CAJA">CAJA</SelectItem><SelectItem value="SACO">SACO</SelectItem><SelectItem value="CANASTILLA">CANASTILLA</SelectItem><SelectItem value="HORA">HORA</SelectItem><SelectItem value="DIA">DÍA</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
-                <FormField control={editForm.control} name="value" render={({ field }) => (<FormItem><FormLabel>Tarifa (COP)</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
-                 <FormField control={editForm.control} name="shiftType" render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Tipo de Turno</FormLabel>
-                        <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="No Aplica">No Aplica</SelectItem><SelectItem value="Diurno">Diurno</SelectItem><SelectItem value="Nocturno">Nocturno</SelectItem></SelectContent></Select>
-                        <FormMessage />
-                    </FormItem>
-                )}/>
-                {watchedEditShiftType !== 'No Aplica' && (
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField control={editForm.control} name="conceptName" render={({ field }) => (<FormItem><FormLabel>Nombre del Concepto</FormLabel><FormControl><Input {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)}/>
+                    <FormField
+                    control={editForm.control}
+                    name="clientNames"
+                    render={({ field }) => (
+                        <FormItem>
+                            <FormLabel>Aplicar a Cliente(s)</FormLabel>
+                            <ClientMultiSelectDialog
+                                options={clientOptions.map(c => ({value: c.razonSocial, label: c.razonSocial}))}
+                                selected={field.value}
+                                onChange={field.onChange}
+                                placeholder="Seleccione clientes..."
+                            />
+                            <FormMessage />
+                        </FormItem>
+                    )}
+                    />
+                    <FormField control={editForm.control} name="unitOfMeasure" render={({ field }) => (<FormItem><FormLabel>Unidad de Medida</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TONELADA">TONELADA</SelectItem><SelectItem value="PALETA">PALETA</SelectItem><SelectItem value="UNIDAD">UNIDAD</SelectItem><SelectItem value="CAJA">CAJA</SelectItem><SelectItem value="SACO">SACO</SelectItem><SelectItem value="CANASTILLA">CANASTILLA</SelectItem><SelectItem value="HORA">HORA</SelectItem><SelectItem value="DIA">DÍA</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
+                </div>
+                 <Separator />
+                <FormLabel>Rangos de Tarifas</FormLabel>
+                <div className="space-y-4">
                     <div className="grid grid-cols-2 gap-4">
-                        <FormField control={editForm.control} name="dayShiftStart" render={({ field }) => (
-                            <FormItem><FormLabel>Inicio Turno Diurno</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>
-                        )}/>
-                        <FormField control={editForm.control} name="dayShiftEnd" render={({ field }) => (
-                            <FormItem><FormLabel>Fin Turno Diurno</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>
-                        )}/>
+                      <FormField control={editForm.control} name="dayShiftStart" render={({ field }) => (<FormItem><FormLabel>Inicio Turno Diurno</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>)} />
+                      <FormField control={editForm.control} name="dayShiftEnd" render={({ field }) => (<FormItem><FormLabel>Fin Turno Diurno</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>)} />
                     </div>
-                )}
+                    <ScrollArea className="h-48 pr-4">
+                        <div className="space-y-2">
+                        {editFields.map((field, index) => (
+                            <div key={field.id} className="grid grid-cols-1 gap-3 border p-3 rounded-md relative">
+                                <div className="grid grid-cols-2 gap-2">
+                                    <FormField control={editForm.control} name={`tariffRanges.${index}.minTons`} render={({ field }) => (<FormItem><FormLabel>Min. Ton.</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                                    <FormField control={editForm.control} name={`tariffRanges.${index}.maxTons`} render={({ field }) => (<FormItem><FormLabel>Max. Ton.</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                                </div>
+                                <FormField control={editForm.control} name={`tariffRanges.${index}.vehicleType`} render={({ field }) => (<FormItem><FormLabel>Tipo Vehículo</FormLabel><FormControl><Input placeholder="EJ: TURBO" {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)}/>
+                                <div className="grid grid-cols-2 gap-2">
+                                    <FormField control={editForm.control} name={`tariffRanges.${index}.dayTariff`} render={({ field }) => (<FormItem><FormLabel>Tarifa Diurna</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                                    <FormField control={editForm.control} name={`tariffRanges.${index}.nightTariff`} render={({ field }) => (<FormItem><FormLabel>Tarifa Nocturna</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                                </div>
+                                <Button type="button" variant="ghost" size="icon" className="absolute top-1 right-1 text-destructive h-6 w-6" onClick={() => editRemove(index)}>
+                                    <Trash2 className="h-4 w-4" />
+                                </Button>
+                            </div>
+                        ))}
+                        </div>
+                    </ScrollArea>
+                    <Button type="button" variant="outline" size="sm" onClick={() => editAppend({ minTons: 0, maxTons: 999, vehicleType: '', dayTariff: 0, nightTariff: 0 })}>
+                        <PlusCircle className="mr-2 h-4 w-4" /> Agregar Rango
+                    </Button>
+                </div>
+
                 <DialogFooter>
                     <Button type="button" variant="outline" onClick={() => setConceptToEdit(null)}>Cancelar</Button>
                     <Button type="submit" disabled={isEditing}>{isEditing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Guardar Cambios</Button>

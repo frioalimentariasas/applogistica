@@ -4,15 +4,22 @@
 import { firestore } from '@/lib/firebase-admin';
 import { revalidatePath } from 'next/cache';
 
+export interface TariffRange {
+  minTons: number;
+  maxTons: number;
+  vehicleType: string;
+  dayTariff: number;
+  nightTariff: number;
+}
+
 export interface ClientBillingConcept {
   id: string;
   conceptName: string;
-  clientNames: string[]; // "TODOS (Cualquier Cliente)" or specific client names
+  clientNames: string[];
   unitOfMeasure: 'TONELADA' | 'PALETA' | 'UNIDAD' | 'CAJA' | 'SACO' | 'CANASTILLA' | 'HORA' | 'DIA';
-  value: number;
-  shiftType: 'Diurno' | 'Nocturno' | 'No Aplica';
-  dayShiftStart?: string; // HH:mm
-  dayShiftEnd?: string; // HH:mm
+  dayShiftStart: string; 
+  dayShiftEnd: string;
+  tariffRanges: TariffRange[];
 }
 
 // Fetches all concepts
@@ -28,10 +35,9 @@ export async function getClientBillingConcepts(): Promise<ClientBillingConcept[]
         conceptName: data.conceptName,
         clientNames: Array.isArray(data.clientNames) ? data.clientNames : [data.clientName],
         unitOfMeasure: data.unitOfMeasure,
-        value: Number(data.value),
-        shiftType: data.shiftType || 'No Aplica',
-        dayShiftStart: data.dayShiftStart,
-        dayShiftEnd: data.dayShiftEnd,
+        dayShiftStart: data.dayShiftStart || '07:00',
+        dayShiftEnd: data.dayShiftEnd || '19:00',
+        tariffRanges: Array.isArray(data.tariffRanges) ? data.tariffRanges : [],
       } as ClientBillingConcept;
     });
   } catch (error) {
@@ -46,10 +52,14 @@ export async function addClientBillingConcept(data: Omit<ClientBillingConcept, '
   
   try {
     const dataToSave = {
-        ...data,
-        value: Number(data.value),
-        dayShiftStart: data.shiftType === 'No Aplica' ? undefined : data.dayShiftStart,
-        dayShiftEnd: data.shiftType === 'No Aplica' ? undefined : data.dayShiftEnd,
+      ...data,
+      tariffRanges: data.tariffRanges.map(range => ({
+          ...range,
+          minTons: Number(range.minTons),
+          maxTons: Number(range.maxTons),
+          dayTariff: Number(range.dayTariff),
+          nightTariff: Number(range.nightTariff),
+      }))
     };
 
     const docRef = await firestore.collection('client_billing_concepts').add(dataToSave);
@@ -67,9 +77,13 @@ export async function updateClientBillingConcept(id: string, data: Omit<ClientBi
   
   const dataToUpdate = {
     ...data,
-    value: Number(data.value),
-    dayShiftStart: data.shiftType === 'No Aplica' ? undefined : data.dayShiftStart,
-    dayShiftEnd: data.shiftType === 'No Aplica' ? undefined : data.dayShiftEnd,
+    tariffRanges: data.tariffRanges.map(range => ({
+        ...range,
+        minTons: Number(range.minTons),
+        maxTons: Number(range.maxTons),
+        dayTariff: Number(range.dayTariff),
+        nightTariff: Number(range.nightTariff),
+    }))
   };
   
   try {
