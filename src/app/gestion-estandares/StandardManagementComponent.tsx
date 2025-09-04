@@ -289,7 +289,7 @@ export default function StandardManagementComponent({ initialClients, initialSta
           <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8 flex items-center justify-center">
               <div className="max-w-xl mx-auto text-center">
                   <AccessDenied />
-                  <Button onClick={() => router.push('/')} className="mt-6"><ArrowLeft className="mr-2 h-4 w-4" />Volver al Inicio</Button>
+                  <Button onClick={() => router.push('/crew-performance-report')} className="mt-6"><ArrowLeft className="mr-2 h-4 w-4" />Volver al Inicio</Button>
               </div>
           </div>
       );
@@ -306,7 +306,7 @@ export default function StandardManagementComponent({ initialClients, initialSta
             <div>
               <div className="flex items-center justify-center gap-2">
                 <Settings className="h-8 w-8 text-primary" />
-                <h1 className="text-2xl font-bold text-primary">Gestión de Estándares de Productividad</h1>
+                <h1 className="text-2xl font-bold text-primary">Gestión de Estándares de Productividad Cuadrilla</h1>
               </div>
               <p className="text-sm text-gray-500">Defina los tiempos estándar para las operaciones de la cuadrilla.</p>
             </div>
@@ -542,7 +542,7 @@ export default function StandardManagementComponent({ initialClients, initialSta
                     control={editForm.control}
                     name="productType"
                     render={({ field }) => (
-                        <FormItem><FormLabel>Tipo de Producto</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODOS">TODOS</SelectItem><SelectItem value="fijo">Peso Fijo</SelectItem><SelectItem value="variable">Peso Variable</SelectItem></SelectContent></Select><FormMessage /></FormItem>
+                        <FormItem><FormLabel>Tipo de Producto</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TODAS">TODOS</SelectItem><SelectItem value="fijo">Peso Fijo</SelectItem><SelectItem value="variable">Peso Variable</SelectItem></SelectContent></Select><FormMessage /></FormItem>
                     )}
                 />
                 <div className="grid grid-cols-2 gap-4">

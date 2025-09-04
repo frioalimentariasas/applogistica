@@ -25,7 +25,7 @@ import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import type { PerformanceStandard } from '@/app/actions/standard-actions';
 import { getStandardNoveltyTypes, type StandardNoveltyType } from '@/app/gestion-novedades/actions';
-import { getBillingConcepts, type BillingConcept } from '@/app/gestion-conceptos-liquidacion/actions';
+import { getBillingConcepts, type BillingConcept } from '@/app/gestion-conceptos-liquidacion-cuadrilla/actions';
 import { addManualOperation, updateManualOperation } from '../operaciones-manuales-cuadrilla/actions';
 
 
@@ -1016,7 +1016,7 @@ export default function CrewPerformanceReportPage() {
                                     </Link>
                                 </Button>
                                 <Button asChild variant="outline">
-                                    <Link href="/gestion-estandares">
+                                    <Link href="/gestion-estandares-cuadrilla">
                                         <Settings className="mr-2 h-4 w-4" />
                                         Gestionar Estándares
                                     </Link>
@@ -1491,7 +1491,3 @@ function NoveltySelectorDialog({
         </Dialog>
     );
 }
-
-    
-
-    

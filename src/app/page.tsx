@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -98,8 +99,8 @@ export default function Home() {
     { label: 'Relación de Formatos por Concepto de Liquidación', href: '/reportes-especiales', icon: FileSpreadsheet, permission: 'canViewSpecialReports' },
     { label: 'Gestión de Novedades', href: '/gestion-novedades', icon: ListPlus, permission: 'canManageNovelties' },
     { label: 'Gestión de Tipos de Pedido', href: '/gestion-tipos-pedido', icon: ListTodo, permission: 'canManageOrderTypes' },
-    { label: 'Gestión de Estándares de Productividad', href: '/gestion-estandares', icon: Settings, permission: 'canManageStandards' },
-    { label: 'Gestión de Conceptos de Liquidación', href: '/gestion-conceptos-liquidacion', icon: DollarSign, permission: 'canManageLiquidationConcepts' },
+    { label: 'Gestión de Estándares de Productividad Cuadrilla', href: '/gestion-estandares-cuadrilla', icon: Settings, permission: 'canManageStandards' },
+    { label: 'Gestión de Conceptos de Liquidación Cuadrilla', href: '/gestion-conceptos-liquidacion-cuadrilla', icon: DollarSign, permission: 'canManageLiquidationConcepts' },
     { label: 'Gestión de Artículos', href: '/gestion-articulos', icon: Box, permission: 'canManageArticles' },
     { label: 'Gestión de Clientes', href: '/gestion-clientes', icon: Users2, permission: 'canManageClients' },
     { label: 'Gestión de Observaciones', href: '/gestion-observaciones', icon: ClipboardList, permission: 'canManageObservations' },

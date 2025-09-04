@@ -1,10 +1,11 @@
 
+
 import { Suspense } from 'react';
 import StandardManagementComponent from './StandardManagementComponent';
 import { getClients } from '@/app/actions/clients';
 import { getPerformanceStandards } from './actions';
 
-export default async function GestionEstandaresPage() {
+export default async function GestionEstandaresCuadrillaPage() {
     const [clients, standards] = await Promise.all([
         getClients(),
         getPerformanceStandards()

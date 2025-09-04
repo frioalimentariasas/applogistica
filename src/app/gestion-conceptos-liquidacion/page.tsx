@@ -1,10 +1,11 @@
 
+
 import { Suspense } from 'react';
 import ConceptManagementComponent from './concept-management-component';
 import { getClients } from '@/app/actions/clients';
 import { getBillingConcepts } from './actions';
 
-export default async function GestionConceptosPage() {
+export default async function GestionConceptosCuadrillaPage() {
     const [clients, concepts] = await Promise.all([
         getClients(),
         getBillingConcepts()

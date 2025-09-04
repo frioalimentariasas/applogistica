@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import * as React from 'react';
@@ -109,7 +110,7 @@ export default function ConceptManagementComponent({ initialClients, initialConc
         conceptName: '',
         clientNames: ['TODOS (Cualquier Cliente)'],
         operationType: 'TODAS',
-        productType: 'TODOS',
+        productType: 'TODAS',
         unitOfMeasure: 'TONELADA',
         value: 0,
         excludeIfOtherApplies: false,
@@ -203,7 +204,7 @@ export default function ConceptManagementComponent({ initialClients, initialConc
             <div>
               <div className="flex items-center justify-center gap-2">
                 <DollarSign className="h-8 w-8 text-primary" />
-                <h1 className="text-2xl font-bold text-primary">Gestión de Conceptos de Liquidación</h1>
+                <h1 className="text-2xl font-bold text-primary">Gestión de Conceptos de Liquidación Cuadrilla</h1>
               </div>
               <p className="text-sm text-gray-500">Defina los conceptos y valores para la liquidación de las operaciones de cuadrilla.</p>
             </div>
