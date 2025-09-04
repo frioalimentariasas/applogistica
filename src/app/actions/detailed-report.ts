@@ -264,128 +264,141 @@ export async function getDetailedReport(criteria: DetailedReportCriteria): Promi
         throw new Error('Se requiere un rango de fechas para generar este informe.');
     }
     
-    const [submissionsSnapshot, articlesSnapshot] = await Promise.all([
-        query.get(),
-        firestore.collection('articulos').get()
-    ]);
-    
-    // Create a lookup map for article sessions for efficiency
-    const articleSessionMap = new Map<string, string>(); // Key: 'clientName|codigoProducto', Value: 'sesion'
-    articlesSnapshot.forEach(doc => {
-        const article = doc.data() as ArticuloData;
-        const key = `${article.razonSocial}|${article.codigoProducto}`;
-        articleSessionMap.set(key, article.sesion);
-    });
-
-    const allSubmissions = submissionsSnapshot.docs.map(doc => {
-        return {
-            id: doc.id,
-            ...serializeTimestamps(doc.data())
-        };
-    });
-
-    const dateFilteredSubmissions = allSubmissions.filter(submission => {
-        const formIsoDate = submission.formData?.fecha;
-        if (!formIsoDate || typeof formIsoDate !== 'string') {
-            return false;
-        }
-        const formDatePart = getLocalGroupingDate(formIsoDate);
-        return formDatePart >= criteria.startDate! && formDatePart <= criteria.endDate!;
-    });
-
-    let results = dateFilteredSubmissions.map(submission => {
-        const { id, formType, formData } = submission;
-
-        const totalPaletas = calculateTotalPallets(formType, formData);
-        const totalCantidad = calculateTotalCantidad(formType, formData);
-        const totalPesoKg = calculateTotalPesoKg(formType, formData);
+    try {
+        const [submissionsSnapshot, articlesSnapshot] = await Promise.all([
+            query.get(),
+            firestore.collection('articulos').get()
+        ]);
         
-        let tipoOperacion = 'N/A';
-        if (formType.includes('recepcion') || formType.includes('reception')) {
-            tipoOperacion = 'Recepción';
-        } else if (formType.includes('despacho')) {
-            tipoOperacion = 'Despacho';
-        }
+        // Create a lookup map for article sessions for efficiency
+        const articleSessionMap = new Map<string, string>(); // Key: 'clientName|codigoProducto', Value: 'sesion'
+        articlesSnapshot.forEach(doc => {
+            const article = doc.data() as ArticuloData;
+            const key = `${article.razonSocial}|${article.codigoProducto}`;
+            articleSessionMap.set(key, article.sesion);
+        });
 
-        const operacionLogistica = getOperationLogisticsType(formData.fecha, formData.horaInicio, formData.horaFin);
-        const duracionMinutos = calculateDuration(formData.horaInicio, formData.horaFin);
-        
-        let operacionPorCuadrilla = 'N/A';
-        if (formData.aplicaCuadrilla) {
-            operacionPorCuadrilla = formData.aplicaCuadrilla.charAt(0).toUpperCase() + formData.aplicaCuadrilla.slice(1);
-        }
+        const allSubmissions = submissionsSnapshot.docs.map(doc => {
+            return {
+                id: doc.id,
+                ...serializeTimestamps(doc.data())
+            };
+        });
 
-        let tipoPedido = formData.tipoPedido || 'N/A';
-        if (tipoPedido === 'DESPACHO GENERICO') {
-            tipoPedido = 'GENERICO';
-        }
-
-        let numeroOperarios = 'N/A';
-        if (formData.aplicaCuadrilla === 'si' && formData.tipoPedido === 'MAQUILA' && formData.numeroOperariosCuadrilla) {
-            numeroOperarios = String(formData.numeroOperariosCuadrilla);
-        }
-
-        // Logic to get the session from the first product
-        const allItems = (formData.productos || [])
-            .concat((formData.items || []))
-            .concat((formData.destinos || []).flatMap((d: any) => d?.items || []))
-            .concat((formData.placas || []).flatMap((p: any) => p?.items || []));
-        
-        let sesion = 'N/A';
-        if(allItems.length > 0) {
-            const firstItem = allItems[0];
-            const clientName = formData.nombreCliente || formData.cliente;
-            const productCode = firstItem.codigo;
-            if (clientName && productCode) {
-                 const key = `${clientName}|${productCode}`;
-                 sesion = articleSessionMap.get(key) || 'N/A';
+        const dateFilteredSubmissions = allSubmissions.filter(submission => {
+            const formIsoDate = submission.formData?.fecha;
+            if (!formIsoDate || typeof formIsoDate !== 'string') {
+                return false;
             }
+            const formDatePart = getLocalGroupingDate(formIsoDate);
+            return formDatePart >= criteria.startDate! && formDatePart <= criteria.endDate!;
+        });
+
+        let results = dateFilteredSubmissions.map(submission => {
+            const { id, formType, formData } = submission;
+
+            const totalPaletas = calculateTotalPallets(formType, formData);
+            const totalCantidad = calculateTotalCantidad(formType, formData);
+            const totalPesoKg = calculateTotalPesoKg(formType, formData);
+            
+            let tipoOperacion = 'N/A';
+            if (formType.includes('recepcion') || formType.includes('reception')) {
+                tipoOperacion = 'Recepción';
+            } else if (formType.includes('despacho')) {
+                tipoOperacion = 'Despacho';
+            }
+
+            const operacionLogistica = getOperationLogisticsType(formData.fecha, formData.horaInicio, formData.horaFin);
+            const duracionMinutos = calculateDuration(formData.horaInicio, formData.horaFin);
+            
+            let operacionPorCuadrilla = 'N/A';
+            if (formData.aplicaCuadrilla) {
+                operacionPorCuadrilla = formData.aplicaCuadrilla.charAt(0).toUpperCase() + formData.aplicaCuadrilla.slice(1);
+            }
+
+            let tipoPedido = formData.tipoPedido || 'N/A';
+            if (tipoPedido === 'DESPACHO GENERICO') {
+                tipoPedido = 'GENERICO';
+            }
+
+            let numeroOperarios = 'N/A';
+            if (formData.aplicaCuadrilla === 'si' && formData.tipoPedido === 'MAQUILA' && formData.numeroOperariosCuadrilla) {
+                numeroOperarios = String(formData.numeroOperariosCuadrilla);
+            }
+
+            // Logic to get the session from the first product
+            const allItems = (formData.productos || [])
+                .concat((formData.items || []))
+                .concat((formData.destinos || []).flatMap((d: any) => d?.items || []))
+                .concat((formData.placas || []).flatMap((p: any) => p?.items || []));
+            
+            let sesion = 'N/A';
+            if(allItems.length > 0) {
+                const firstItem = allItems[0];
+                const clientName = formData.nombreCliente || formData.cliente;
+                const productCode = firstItem.codigo;
+                if (clientName && productCode) {
+                    const key = `${clientName}|${productCode}`;
+                    sesion = articleSessionMap.get(key) || 'N/A';
+                }
+            }
+            
+            return {
+                id,
+                fecha: formData.fecha,
+                horaInicio: formData.horaInicio || 'N/A',
+                horaFin: formData.horaFin || 'N/A',
+                placa: formData.placa || 'N/A',
+                contenedor: formData.contenedor || 'N/A',
+                cliente: formData.nombreCliente || formData.cliente || 'N/A',
+                observaciones: formData.observaciones || '',
+                totalCantidad,
+                totalPaletas,
+                totalPesoKg,
+                tipoOperacion,
+                pedidoSislog: formData.pedidoSislog || 'N/A',
+                operacionLogistica,
+                sesion: sesion, // Use the determined session
+                tipoPedido: tipoPedido,
+                tipoEmpaqueMaquila: formData.tipoEmpaqueMaquila || 'N/A',
+                numeroOperariosCuadrilla: numeroOperarios,
+                operacionPorCuadrilla: operacionPorCuadrilla,
+                duracionMinutos: duracionMinutos,
+            };
+        });
+
+        if (criteria.clientName) {
+            results = results.filter(row => row.cliente.toLowerCase().trim() === criteria.clientName!.toLowerCase().trim());
         }
-        
-        return {
-            id,
-            fecha: formData.fecha,
-            horaInicio: formData.horaInicio || 'N/A',
-            horaFin: formData.horaFin || 'N/A',
-            placa: formData.placa || 'N/A',
-            contenedor: formData.contenedor || 'N/A',
-            cliente: formData.nombreCliente || formData.cliente || 'N/A',
-            observaciones: formData.observaciones || '',
-            totalCantidad,
-            totalPaletas,
-            totalPesoKg,
-            tipoOperacion,
-            pedidoSislog: formData.pedidoSislog || 'N/A',
-            operacionLogistica,
-            sesion: sesion, // Use the determined session
-            tipoPedido: tipoPedido,
-            tipoEmpaqueMaquila: formData.tipoEmpaqueMaquila || 'N/A',
-            numeroOperariosCuadrilla: numeroOperarios,
-            operacionPorCuadrilla: operacionPorCuadrilla,
-            duracionMinutos: duracionMinutos,
-        };
-    });
-
-    if (criteria.clientName) {
-        results = results.filter(row => row.cliente.toLowerCase().trim() === criteria.clientName!.toLowerCase().trim());
-    }
-    if (criteria.operationType) {
-        results = results.filter(row => 
-            row.tipoOperacion.localeCompare(criteria.operationType!, 'es', { sensitivity: 'base' }) === 0
-        );
-    }
-    if (criteria.containerNumber && criteria.containerNumber.trim()) {
-        results = results.filter(row => row.contenedor.toLowerCase().includes(criteria.containerNumber!.trim().toLowerCase()));
-    }
-    if (criteria.sesion) {
-        results = results.filter(row => row.sesion === criteria.sesion);
-    }
-    if (criteria.tipoPedido && criteria.tipoPedido.length > 0) {
-        results = results.filter(row => criteria.tipoPedido!.includes(row.tipoPedido));
-    }
+        if (criteria.operationType) {
+            results = results.filter(row => 
+                row.tipoOperacion.localeCompare(criteria.operationType!, 'es', { sensitivity: 'base' }) === 0
+            );
+        }
+        if (criteria.containerNumber && criteria.containerNumber.trim()) {
+            results = results.filter(row => row.contenedor.toLowerCase().includes(criteria.containerNumber!.trim().toLowerCase()));
+        }
+        if (criteria.sesion) {
+            results = results.filter(row => row.sesion === criteria.sesion);
+        }
+        if (criteria.tipoPedido && criteria.tipoPedido.length > 0) {
+            results = results.filter(row => criteria.tipoPedido!.includes(row.tipoPedido));
+        }
 
 
-    results.sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
+        results.sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
 
-    return results;
+        return results;
+
+    } catch (error) {
+        if (error instanceof Error && (error.message.includes('requires an index') || error.message.includes('needs an index'))) {
+            // Log the full error to the server console so it's captured in logs
+            console.error("Firestore composite index required. Full error from Firestore:", error.message);
+            // Re-throw the error so the client can catch it and display it
+            throw new Error(error.message);
+        }
+        // Handle other types of errors
+        console.error('Error generating detailed report:', error);
+        throw new Error('No se pudo generar el informe detallado.');
+    }
 }
