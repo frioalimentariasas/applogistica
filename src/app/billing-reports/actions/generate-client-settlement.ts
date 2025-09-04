@@ -154,7 +154,7 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
   } catch (error) {
     console.error('Error generating client settlement:', error);
     if (error instanceof Error && (error.message.includes('requires an index') || error.message.includes('needs an index'))) {
-        throw error; // Re-throw the original error to propagate the full message.
+        throw error;
     }
     throw new Error('No se pudo generar la liquidación del cliente.');
   }
