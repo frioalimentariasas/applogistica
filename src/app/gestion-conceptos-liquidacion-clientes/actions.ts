@@ -16,10 +16,12 @@ export interface ClientBillingConcept {
   id: string;
   conceptName: string;
   clientNames: string[];
-  unitOfMeasure: 'TONELADA' | 'PALETA' | 'UNIDAD' | 'CAJA' | 'SACO' | 'CANASTILLA' | 'HORA' | 'DIA';
-  dayShiftStart: string; 
-  dayShiftEnd: string;
-  tariffRanges: TariffRange[];
+  unitOfMeasure: 'TONELADA' | 'PALETA' | 'UNIDAD' | 'CAJA' | 'SACO' | 'CANASTILLA' | 'HORA' | 'DIA' | 'VIAJE' | 'MES';
+  tariffType: 'RANGOS' | 'UNICA';
+  value?: number; // For 'UNICA' tariffType
+  dayShiftStart?: string; 
+  dayShiftEnd?: string;
+  tariffRanges?: TariffRange[];
 }
 
 // Fetches all concepts
@@ -35,8 +37,10 @@ export async function getClientBillingConcepts(): Promise<ClientBillingConcept[]
         conceptName: data.conceptName,
         clientNames: Array.isArray(data.clientNames) ? data.clientNames : [data.clientName],
         unitOfMeasure: data.unitOfMeasure,
-        dayShiftStart: data.dayShiftStart || '07:00',
-        dayShiftEnd: data.dayShiftEnd || '19:00',
+        tariffType: data.tariffType || 'UNICA', // Default to UNICA for older data
+        value: data.value,
+        dayShiftStart: data.dayShiftStart,
+        dayShiftEnd: data.dayShiftEnd,
         tariffRanges: Array.isArray(data.tariffRanges) ? data.tariffRanges : [],
       } as ClientBillingConcept;
     });
@@ -51,16 +55,26 @@ export async function addClientBillingConcept(data: Omit<ClientBillingConcept, '
   if (!firestore) return { success: false, message: 'Error de configuración del servidor.' };
   
   try {
-    const dataToSave = {
-      ...data,
-      tariffRanges: data.tariffRanges.map(range => ({
-          ...range,
-          minTons: Number(range.minTons),
-          maxTons: Number(range.maxTons),
-          dayTariff: Number(range.dayTariff),
-          nightTariff: Number(range.nightTariff),
-      }))
+    let dataToSave: any = {
+      conceptName: data.conceptName,
+      clientNames: data.clientNames,
+      unitOfMeasure: data.unitOfMeasure,
+      tariffType: data.tariffType,
     };
+
+    if (data.tariffType === 'UNICA') {
+        dataToSave.value = Number(data.value);
+    } else { // RANGOS
+        dataToSave.dayShiftStart = data.dayShiftStart;
+        dataToSave.dayShiftEnd = data.dayShiftEnd;
+        dataToSave.tariffRanges = (data.tariffRanges || []).map(range => ({
+            ...range,
+            minTons: Number(range.minTons),
+            maxTons: Number(range.maxTons),
+            dayTariff: Number(range.dayTariff),
+            nightTariff: Number(range.nightTariff),
+        }));
+    }
 
     const docRef = await firestore.collection('client_billing_concepts').add(dataToSave);
     revalidatePath('/gestion-conceptos-liquidacion-clientes');
@@ -75,16 +89,30 @@ export async function addClientBillingConcept(data: Omit<ClientBillingConcept, '
 export async function updateClientBillingConcept(id: string, data: Omit<ClientBillingConcept, 'id'>): Promise<{ success: boolean; message: string }> {
   if (!firestore) return { success: false, message: 'Error de configuración del servidor.' };
   
-  const dataToUpdate = {
-    ...data,
-    tariffRanges: data.tariffRanges.map(range => ({
-        ...range,
-        minTons: Number(range.minTons),
-        maxTons: Number(range.maxTons),
-        dayTariff: Number(range.dayTariff),
-        nightTariff: Number(range.nightTariff),
-    }))
+  let dataToUpdate: any = {
+      conceptName: data.conceptName,
+      clientNames: data.clientNames,
+      unitOfMeasure: data.unitOfMeasure,
+      tariffType: data.tariffType,
+      value: null,
+      dayShiftStart: null,
+      dayShiftEnd: null,
+      tariffRanges: []
   };
+
+  if (data.tariffType === 'UNICA') {
+      dataToUpdate.value = Number(data.value);
+  } else { // RANGOS
+      dataToUpdate.dayShiftStart = data.dayShiftStart;
+      dataToUpdate.dayShiftEnd = data.dayShiftEnd;
+      dataToUpdate.tariffRanges = (data.tariffRanges || []).map(range => ({
+          ...range,
+          minTons: Number(range.minTons),
+          maxTons: Number(range.maxTons),
+          dayTariff: Number(range.dayTariff),
+          nightTariff: Number(range.nightTariff),
+      }));
+  }
   
   try {
     await firestore.collection('client_billing_concepts').doc(id).update(dataToUpdate);
