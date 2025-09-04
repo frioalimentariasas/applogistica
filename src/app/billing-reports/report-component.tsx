@@ -1874,7 +1874,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end mb-6">
                                      <div className="space-y-2">
                                         <Label>Cliente</Label>
-                                        <Select value={settlementClient} onValueChange={setSettlementClient}><SelectTrigger><SelectValue placeholder="Seleccione un cliente"/></SelectTrigger><SelectContent>{clients.map(c => <SelectItem key={c.id} value={c.razonSocial}>{c.razonSocial}</SelectItem>)}</SelectContent></Select>
+                                        <Select value={settlementClient} onValueChange={setSettlementClient}><SelectTrigger><SelectValue placeholder="Seleccione un cliente"/></SelectTrigger><SelectContent position="popper">{clients.map(c => <SelectItem key={c.id} value={c.razonSocial}>{c.razonSocial}</SelectItem>)}</SelectContent></Select>
                                     </div>
                                     <div className="space-y-2">
                                         <Label>Rango de Fechas</Label>
