@@ -155,7 +155,7 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
     console.error('Error generating client settlement:', error);
     if (error instanceof Error && (error.message.includes('requires an index') || error.message.includes('needs an index'))) {
         console.error("Firestore composite index required. See the full error log for the creation link.", error);
-        throw new Error(error.message);
+        throw error;
     }
     throw new Error('No se pudo generar la liquidación del cliente.');
   }
