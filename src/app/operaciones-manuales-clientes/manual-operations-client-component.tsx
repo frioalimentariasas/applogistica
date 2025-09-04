@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -9,7 +10,8 @@ import * as z from 'zod';
 import { format, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 
-import { addManualClientOperation, updateManualClientOperation, deleteManualClientOperation, getAllManualClientOperations } from './actions';
+import { addManualClientOperation, updateManualClientOperation, deleteManualClientOperation } from './actions';
+import { getAllManualClientOperations } from '@/app/billing-reports/actions/generate-client-settlement';
 import type { ManualClientOperationData } from './actions';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
@@ -407,7 +409,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                            <AlertDialogAction onClick={handleDeleteConfirm} disabled={isDeleting} className={"bg-destructive hover:bg-destructive/90"}>
+                            <AlertDialogAction onClick={handleDeleteConfirm} disabled={isDeleting} className={cn(buttonVariants({ variant: 'destructive' }))}>
                                 {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                                 Sí, Eliminar
                             </AlertDialogAction>

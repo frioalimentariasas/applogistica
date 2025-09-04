@@ -26,31 +26,6 @@ export interface ManualClientOperationData {
     }
 }
 
-export async function getAllManualClientOperations(): Promise<any[]> {
-    if (!firestore) {
-        return [];
-    }
-    try {
-        const snapshot = await firestore.collection('manual_client_operations')
-            .orderBy('operationDate', 'desc')
-            .get();
-        
-        return snapshot.docs.map(doc => {
-            const data = doc.data();
-            return {
-                ...data,
-                id: doc.id,
-                operationDate: (data.operationDate as admin.firestore.Timestamp).toDate().toISOString(),
-                createdAt: data.createdAt,
-            }
-        });
-    } catch (error) {
-        console.error("Error fetching all manual client operations:", error);
-        return [];
-    }
-}
-
-
 export async function addManualClientOperation(data: ManualClientOperationData): Promise<{ success: boolean; message: string }> {
     if (!firestore) {
         return { success: false, message: 'El servidor no está configurado correctamente.' };
@@ -117,4 +92,3 @@ export async function deleteManualClientOperation(id: string): Promise<{ success
         return { success: false, message: `Error del servidor: ${errorMessage}` };
     }
 }
-

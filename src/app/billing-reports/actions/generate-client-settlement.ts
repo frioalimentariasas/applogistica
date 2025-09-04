@@ -1,9 +1,11 @@
 
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
 import type { ClientBillingConcept } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 import { DetailedReportRow, getDetailedReport } from '@/app/actions/detailed-report';
+import admin from 'firebase-admin';
 
 export interface ClientSettlementCriteria {
   clientName: string;
@@ -19,6 +21,31 @@ export interface ClientSettlementRow {
   unitValue: number;
   totalValue: number;
 }
+
+export async function getAllManualClientOperations(): Promise<any[]> {
+    if (!firestore) {
+        return [];
+    }
+    try {
+        const snapshot = await firestore.collection('manual_client_operations')
+            .orderBy('operationDate', 'desc')
+            .get();
+        
+        return snapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+                ...data,
+                id: doc.id,
+                operationDate: (data.operationDate as admin.firestore.Timestamp).toDate().toISOString(),
+                createdAt: data.createdAt,
+            }
+        });
+    } catch (error) {
+        console.error("Error fetching all manual client operations:", error);
+        return [];
+    }
+}
+
 
 export async function generateClientSettlement(criteria: ClientSettlementCriteria): Promise<ClientSettlementRow[]> {
   if (!firestore) {
