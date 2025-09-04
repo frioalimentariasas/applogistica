@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
@@ -30,7 +31,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, ChevronsUpDown, BookCopy, FileDown, File, Upload, FolderSearch, Trash2, Edit, CheckCircle2, DollarSign } from 'lucide-react';
+import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, ChevronsUpDown, BookCopy, FileDown, File, Upload, FolderSearch, Trash2, Edit, CheckCircle2, DollarSign, ExternalLink } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
@@ -38,6 +39,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
+import { Alert, AlertTitle } from '@/components/ui/alert';
+import { Textarea } from '@/components/ui/textarea';
 
 
 const ResultsSkeleton = () => (
@@ -219,6 +222,9 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const [settlementReportData, setSettlementReportData] = useState<ClientSettlementRow[]>([]);
     const [isSettlementClientDialogOpen, setIsSettlementClientDialogOpen] = useState(false);
     const [isSettlementConceptDialogOpen, setIsSettlementConceptDialogOpen] = useState(false);
+    
+    const [isIndexErrorOpen, setIsIndexErrorOpen] = useState(false);
+    const [indexErrorMessage, setIndexErrorMessage] = useState('');
 
     // State for PDF logo
     const [logoBase64, setLogoBase64] = useState<string | null>(null);
@@ -349,8 +355,14 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                  toast({ title: "Sin resultados", description: "No se encontraron operaciones para los filtros seleccionados." });
             }
         } catch (error) {
+            console.error("Error al generar el reporte:", error);
             const errorMessage = error instanceof Error ? error.message : "Ocurrió un error desconocido.";
-            toast({ variant: 'destructive', title: 'Error al generar el reporte', description: errorMessage });
+            if (typeof errorMessage === 'string' && errorMessage.includes('firestore.googleapis.com/v1/projects/')) {
+                 setIndexErrorMessage(errorMessage);
+                 setIsIndexErrorOpen(true);
+            } else {
+                toast({ variant: 'destructive', title: 'Error al generar el reporte', description: errorMessage });
+            }
         } finally {
             setIsDetailedReportLoading(false);
         }
@@ -854,8 +866,14 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 toast({ title: 'Sin resultados', description: 'No se encontraron movimientos o inventario para los filtros seleccionados.' });
             }
         } catch (error) {
+            console.error("Error al generar el reporte consolidado:", error);
             const errorMessage = error instanceof Error ? error.message : "Ocurrió un error desconocido.";
-            toast({ variant: 'destructive', title: 'Error al generar el reporte consolidado', description: errorMessage });
+             if (typeof errorMessage === 'string' && errorMessage.includes('firestore.googleapis.com/v1/projects/')) {
+                 setIndexErrorMessage(errorMessage);
+                 setIsIndexErrorOpen(true);
+            } else {
+                toast({ variant: 'destructive', title: 'Error al generar el reporte consolidado', description: errorMessage });
+            }
         } finally {
             setIsConsolidatedLoading(false);
         }
@@ -1021,15 +1039,24 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         setIsSettlementLoading(true);
         setSettlementSearched(true);
         try {
-            const results = await generateClientSettlement({
+            const result = await generateClientSettlement({
                 clientName: settlementClient,
                 startDate: format(settlementDateRange.from, 'yyyy-MM-dd'),
                 endDate: format(settlementDateRange.to, 'yyyy-MM-dd'),
                 conceptIds: selectedConcepts
             });
-            setSettlementReportData(results);
-            if(results.length === 0) {
-                 toast({ title: "Sin resultados", description: "No se encontraron operaciones para liquidar con los filtros seleccionados." });
+            
+            if (result.success && result.data) {
+                setSettlementReportData(result.data);
+                if(result.data.length === 0) {
+                    toast({ title: "Sin resultados", description: "No se encontraron operaciones para liquidar con los filtros seleccionados." });
+                }
+            } else if (result.needsIndex) {
+                setIndexErrorMessage(result.error || 'Se requiere un índice compuesto.');
+                setIsIndexErrorOpen(true);
+            }
+            else {
+                throw new Error(result.error || "Error inesperado del servidor.");
             }
         } catch (error) {
             const msg = error instanceof Error ? error.message : "Error inesperado.";
@@ -1958,6 +1985,34 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                     <p className="text-xs text-center text-muted-foreground mt-1">{Math.round(deleteProgress)}%</p>
                                 </div>
                             ) : "Sí, eliminar registros"}
+                        </AlertDialogAction>
+                    </AlertDialogFooter>
+                </AlertDialogContent>
+            </AlertDialog>
+            <AlertDialog open={isIndexErrorOpen} onOpenChange={setIsIndexErrorOpen}>
+                <AlertDialogContent className="sm:max-w-2xl">
+                    <AlertDialogHeader>
+                        <AlertDialogTitle>Índice Compuesto Requerido en Firestore</AlertDialogTitle>
+                        <AlertDialogDescription>
+                            Para realizar esta consulta, Firestore necesita un índice compuesto que no existe. Por favor, copie el siguiente enlace, ábralo en una nueva pestaña del navegador y haga clic en "Crear Índice" en la consola de Firebase. La creación puede tardar unos minutos.
+                        </AlertDialogDescription>
+                    </AlertDialogHeader>
+                    <div className="p-4 bg-muted rounded-md">
+                        <Label htmlFor="index-link" className="text-sm font-medium">Enlace para Crear Índice</Label>
+                        <Textarea
+                            id="index-link"
+                            readOnly
+                            value={indexErrorMessage}
+                            className="mt-2 font-mono text-xs h-32"
+                        />
+                    </div>
+                    <AlertDialogFooter>
+                        <AlertDialogCancel onClick={() => setIsIndexErrorOpen(false)}>Cerrar</AlertDialogCancel>
+                        <AlertDialogAction asChild>
+                            <a href={indexErrorMessage.match(/(https?:\/\/[^\s]+)/)?.[0] || '#'} target="_blank" rel="noopener noreferrer">
+                                <ExternalLink className="mr-2 h-4 w-4"/>
+                                Abrir Enlace
+                            </a>
                         </AlertDialogAction>
                     </AlertDialogFooter>
                 </AlertDialogContent>

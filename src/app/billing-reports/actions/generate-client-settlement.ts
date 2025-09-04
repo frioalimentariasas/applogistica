@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -7,20 +6,6 @@ import type { ClientBillingConcept } from '@/app/gestion-conceptos-liquidacion-c
 import { DetailedReportRow, getDetailedReport } from '@/app/actions/detailed-report';
 import admin from 'firebase-admin';
 
-export interface ClientSettlementCriteria {
-  clientName: string;
-  startDate: string;
-  endDate: string;
-  conceptIds: string[];
-}
-
-export interface ClientSettlementRow {
-  conceptName: string;
-  quantity: number;
-  unitOfMeasure: string;
-  unitValue: number;
-  totalValue: number;
-}
 
 export async function getAllManualClientOperations(): Promise<any[]> {
     if (!firestore) {
@@ -47,28 +32,46 @@ export async function getAllManualClientOperations(): Promise<any[]> {
 }
 
 
-export async function generateClientSettlement(criteria: ClientSettlementCriteria): Promise<ClientSettlementRow[]> {
+export interface ClientSettlementCriteria {
+  clientName: string;
+  startDate: string;
+  endDate: string;
+  conceptIds: string[];
+}
+
+export interface ClientSettlementRow {
+  conceptName: string;
+  quantity: number;
+  unitOfMeasure: string;
+  unitValue: number;
+  totalValue: number;
+}
+
+export interface ClientSettlementResult {
+    success: boolean;
+    data?: ClientSettlementRow[];
+    error?: string;
+    needsIndex?: boolean;
+    indexCreationLink?: string;
+}
+
+
+export async function generateClientSettlement(criteria: ClientSettlementCriteria): Promise<ClientSettlementResult> {
   if (!firestore) {
-    throw new Error('El servidor no está configurado correctamente.');
+    return { success: false, error: 'El servidor no está configurado correctamente.' };
   }
 
   const { clientName, startDate, endDate, conceptIds } = criteria;
   if (!clientName || !startDate || !endDate || conceptIds.length === 0) {
-    throw new Error('Faltan criterios para la liquidación.');
+    return { success: false, error: 'Faltan criterios para la liquidación.' };
   }
 
   try {
-    // 1. Fetch all concept definitions needed for the settlement
     const conceptsSnapshot = await firestore.collection('client_billing_concepts').get();
     const allConcepts = conceptsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as (ClientBillingConcept & {id: string})[];
     const selectedConcepts = allConcepts.filter(c => conceptIds.includes(c.id));
 
-    // 2. Fetch all operations for the client in the date range
-    const allOperations = await getDetailedReport({
-      clientName,
-      startDate,
-      endDate
-    });
+    const allOperations = await getDetailedReport({ clientName, startDate, endDate });
 
     const manualOpsSnapshot = await firestore.collection('manual_client_operations')
         .where('clientName', '==', clientName)
@@ -81,21 +84,17 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
     for (const concept of selectedConcepts) {
       let quantity = 0;
       
-      // --- Step 3a: Filter operations from standard forms ---
       const applicableOperations = allOperations.filter(op => {
         let opTypeMatch = false;
         if (concept.filterOperationType === 'ambos') opTypeMatch = true;
         else if (concept.filterOperationType === 'recepcion' && op.tipoOperacion === 'Recepción') opTypeMatch = true;
         else if (concept.filterOperationType === 'despacho' && op.tipoOperacion === 'Despacho') opTypeMatch = true;
         
-        // For now, product type is not a field in the detailed report, so we assume 'ambos' matches everything.
-        // This can be enhanced if productType is added to DetailedReportRow.
         const prodTypeMatch = concept.filterProductType === 'ambos';
 
         return opTypeMatch && prodTypeMatch;
       });
 
-      // --- Step 3b: Calculate the base quantity from standard forms ---
       switch (concept.calculationBase) {
         case 'TONELADAS':
           quantity = applicableOperations.reduce((sum, op) => sum + (op.totalPesoKg || 0), 0) / 1000;
@@ -120,7 +119,6 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
           quantity = 0;
       }
 
-      // --- Step 3c: Add quantities from manual operations ---
       manualOpsSnapshot.docs.forEach(doc => {
         const manualOp = doc.data();
         if (manualOp.concept === concept.conceptName) {
@@ -129,13 +127,10 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
       });
 
       if (quantity > 0) {
-        // Step 4: Apply tariff (Simplified for now, will add range/turn logic next)
         let unitValue = 0;
         if (concept.tariffType === 'UNICA') {
           unitValue = concept.value || 0;
         } else {
-          // TODO: Implement complex tariff logic for ranges and turns
-          // For now, we'll use the first day tariff as a placeholder
           unitValue = concept.tariffRanges?.[0]?.dayTariff || 0;
         }
         
@@ -148,12 +143,23 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
         });
       }
     }
+    
+    results.sort((a, b) => a.conceptName.localeCompare(b.conceptName));
+    return { success: true, data: results };
 
-    return results.sort((a, b) => a.conceptName.localeCompare(b.conceptName));
+  } catch (error: any) {
+    console.error('Error in generateClientSettlement:', error);
 
-  } catch (error) {
-    console.error('Error generating client settlement:', error);
-    // Directly re-throw the caught error to propagate the full Firestore message.
-    throw error;
+    if (error.message && typeof error.message === 'string' && error.message.includes('firestore.googleapis.com/v1/projects/')) {
+        const linkMatch = error.message.match(/(https?:\/\/[^\s]+)/);
+        return {
+            success: false,
+            needsIndex: true,
+            error: error.message,
+            indexCreationLink: linkMatch ? linkMatch[0] : undefined
+        };
+    }
+    
+    return { success: false, error: error.message || 'Ocurrió un error desconocido en el servidor.' };
   }
 }
