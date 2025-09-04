@@ -57,96 +57,106 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
     throw new Error('Faltan criterios para la liquidación.');
   }
 
-  // 1. Fetch all concept definitions needed for the settlement
-  const conceptsSnapshot = await firestore.collection('client_billing_concepts').get();
-  const allConcepts = conceptsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as (ClientBillingConcept & {id: string})[];
-  const selectedConcepts = allConcepts.filter(c => conceptIds.includes(c.id));
+  try {
+    // 1. Fetch all concept definitions needed for the settlement
+    const conceptsSnapshot = await firestore.collection('client_billing_concepts').get();
+    const allConcepts = conceptsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as (ClientBillingConcept & {id: string})[];
+    const selectedConcepts = allConcepts.filter(c => conceptIds.includes(c.id));
 
-  // 2. Fetch all operations for the client in the date range
-  const allOperations = await getDetailedReport({
-    clientName,
-    startDate,
-    endDate
-  });
+    // 2. Fetch all operations for the client in the date range
+    const allOperations = await getDetailedReport({
+      clientName,
+      startDate,
+      endDate
+    });
 
-  const manualOpsSnapshot = await firestore.collection('manual_client_operations')
-      .where('clientName', '==', clientName)
-      .where('operationDate', '>=', new Date(startDate))
-      .where('operationDate', '<=', new Date(endDate))
-      .get();
-  
-  const results: ClientSettlementRow[] = [];
-
-  for (const concept of selectedConcepts) {
-    let quantity = 0;
+    const manualOpsSnapshot = await firestore.collection('manual_client_operations')
+        .where('clientName', '==', clientName)
+        .where('operationDate', '>=', new Date(startDate))
+        .where('operationDate', '<=', new Date(endDate))
+        .get();
     
-    // --- Step 3a: Filter operations from standard forms ---
-    const applicableOperations = allOperations.filter(op => {
-      let opTypeMatch = false;
-      if (concept.filterOperationType === 'ambos') opTypeMatch = true;
-      else if (concept.filterOperationType === 'recepcion' && op.tipoOperacion === 'Recepción') opTypeMatch = true;
-      else if (concept.filterOperationType === 'despacho' && op.tipoOperacion === 'Despacho') opTypeMatch = true;
+    const results: ClientSettlementRow[] = [];
+
+    for (const concept of selectedConcepts) {
+      let quantity = 0;
       
-      // For now, product type is not a field in the detailed report, so we assume 'ambos' matches everything.
-      // This can be enhanced if productType is added to DetailedReportRow.
-      const prodTypeMatch = concept.filterProductType === 'ambos';
+      // --- Step 3a: Filter operations from standard forms ---
+      const applicableOperations = allOperations.filter(op => {
+        let opTypeMatch = false;
+        if (concept.filterOperationType === 'ambos') opTypeMatch = true;
+        else if (concept.filterOperationType === 'recepcion' && op.tipoOperacion === 'Recepción') opTypeMatch = true;
+        else if (concept.filterOperationType === 'despacho' && op.tipoOperacion === 'Despacho') opTypeMatch = true;
+        
+        // For now, product type is not a field in the detailed report, so we assume 'ambos' matches everything.
+        // This can be enhanced if productType is added to DetailedReportRow.
+        const prodTypeMatch = concept.filterProductType === 'ambos';
 
-      return opTypeMatch && prodTypeMatch;
-    });
-
-    // --- Step 3b: Calculate the base quantity from standard forms ---
-    switch (concept.calculationBase) {
-      case 'TONELADAS':
-        quantity = applicableOperations.reduce((sum, op) => sum + (op.totalPesoKg || 0), 0) / 1000;
-        break;
-      case 'KILOGRAMOS':
-        quantity = applicableOperations.reduce((sum, op) => sum + (op.totalPesoKg || 0), 0);
-        break;
-      case 'CANTIDAD_PALETAS':
-        quantity = applicableOperations.reduce((sum, op) => sum + (op.totalPaletas || 0), 0);
-        break;
-      case 'CANTIDAD_CAJAS':
-        quantity = applicableOperations.reduce((sum, op) => sum + (op.totalCantidad || 0), 0);
-        break;
-      case 'NUMERO_OPERACIONES':
-        quantity = applicableOperations.length;
-        break;
-      case 'NUMERO_CONTENEDORES':
-        const uniqueContainers = new Set(applicableOperations.map(op => op.contenedor).filter(Boolean));
-        quantity = uniqueContainers.size;
-        break;
-      default:
-        quantity = 0;
-    }
-
-    // --- Step 3c: Add quantities from manual operations ---
-    manualOpsSnapshot.docs.forEach(doc => {
-      const manualOp = doc.data();
-      if (manualOp.concept === concept.conceptName) {
-        quantity += Number(manualOp.quantity) || 0;
-      }
-    });
-
-    if (quantity > 0) {
-      // Step 4: Apply tariff (Simplified for now, will add range/turn logic next)
-      let unitValue = 0;
-      if (concept.tariffType === 'UNICA') {
-        unitValue = concept.value || 0;
-      } else {
-        // TODO: Implement complex tariff logic for ranges and turns
-        // For now, we'll use the first day tariff as a placeholder
-        unitValue = concept.tariffRanges?.[0]?.dayTariff || 0;
-      }
-      
-      results.push({
-        conceptName: concept.conceptName,
-        quantity,
-        unitOfMeasure: concept.unitOfMeasure,
-        unitValue: unitValue,
-        totalValue: quantity * unitValue,
+        return opTypeMatch && prodTypeMatch;
       });
-    }
-  }
 
-  return results.sort((a, b) => a.conceptName.localeCompare(b.conceptName));
+      // --- Step 3b: Calculate the base quantity from standard forms ---
+      switch (concept.calculationBase) {
+        case 'TONELADAS':
+          quantity = applicableOperations.reduce((sum, op) => sum + (op.totalPesoKg || 0), 0) / 1000;
+          break;
+        case 'KILOGRAMOS':
+          quantity = applicableOperations.reduce((sum, op) => sum + (op.totalPesoKg || 0), 0);
+          break;
+        case 'CANTIDAD_PALETAS':
+          quantity = applicableOperations.reduce((sum, op) => sum + (op.totalPaletas || 0), 0);
+          break;
+        case 'CANTIDAD_CAJAS':
+          quantity = applicableOperations.reduce((sum, op) => sum + (op.totalCantidad || 0), 0);
+          break;
+        case 'NUMERO_OPERACIONES':
+          quantity = applicableOperations.length;
+          break;
+        case 'NUMERO_CONTENEDORES':
+          const uniqueContainers = new Set(applicableOperations.map(op => op.contenedor).filter(Boolean));
+          quantity = uniqueContainers.size;
+          break;
+        default:
+          quantity = 0;
+      }
+
+      // --- Step 3c: Add quantities from manual operations ---
+      manualOpsSnapshot.docs.forEach(doc => {
+        const manualOp = doc.data();
+        if (manualOp.concept === concept.conceptName) {
+          quantity += Number(manualOp.quantity) || 0;
+        }
+      });
+
+      if (quantity > 0) {
+        // Step 4: Apply tariff (Simplified for now, will add range/turn logic next)
+        let unitValue = 0;
+        if (concept.tariffType === 'UNICA') {
+          unitValue = concept.value || 0;
+        } else {
+          // TODO: Implement complex tariff logic for ranges and turns
+          // For now, we'll use the first day tariff as a placeholder
+          unitValue = concept.tariffRanges?.[0]?.dayTariff || 0;
+        }
+        
+        results.push({
+          conceptName: concept.conceptName,
+          quantity,
+          unitOfMeasure: concept.unitOfMeasure,
+          unitValue: unitValue,
+          totalValue: quantity * unitValue,
+        });
+      }
+    }
+
+    return results.sort((a, b) => a.conceptName.localeCompare(b.conceptName));
+
+  } catch (error) {
+    console.error('Error generating client settlement:', error);
+    if (error instanceof Error && (error.message.includes('requires an index') || error.message.includes('needs an index'))) {
+        console.error("Firestore composite index required. See the full error log for the creation link.", error);
+        throw new Error(error.message);
+    }
+    throw new Error('No se pudo generar la liquidación del cliente.');
+  }
 }
