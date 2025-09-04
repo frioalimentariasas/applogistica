@@ -10,6 +10,9 @@ export interface ClientBillingConcept {
   clientNames: string[]; // "TODOS (Cualquier Cliente)" or specific client names
   unitOfMeasure: 'TONELADA' | 'PALETA' | 'UNIDAD' | 'CAJA' | 'SACO' | 'CANASTILLA' | 'HORA' | 'DIA';
   value: number;
+  shiftType: 'Diurno' | 'Nocturno' | 'No Aplica';
+  dayShiftStart?: string; // HH:mm
+  dayShiftEnd?: string; // HH:mm
 }
 
 // Fetches all concepts
@@ -26,6 +29,9 @@ export async function getClientBillingConcepts(): Promise<ClientBillingConcept[]
         clientNames: Array.isArray(data.clientNames) ? data.clientNames : [data.clientName],
         unitOfMeasure: data.unitOfMeasure,
         value: Number(data.value),
+        shiftType: data.shiftType || 'No Aplica',
+        dayShiftStart: data.dayShiftStart,
+        dayShiftEnd: data.dayShiftEnd,
       } as ClientBillingConcept;
     });
   } catch (error) {
@@ -39,12 +45,16 @@ export async function addClientBillingConcept(data: Omit<ClientBillingConcept, '
   if (!firestore) return { success: false, message: 'Error de configuración del servidor.' };
   
   try {
-    const docRef = await firestore.collection('client_billing_concepts').add({
-      ...data,
-      value: Number(data.value)
-    });
+    const dataToSave = {
+        ...data,
+        value: Number(data.value),
+        dayShiftStart: data.shiftType === 'No Aplica' ? undefined : data.dayShiftStart,
+        dayShiftEnd: data.shiftType === 'No Aplica' ? undefined : data.dayShiftEnd,
+    };
+
+    const docRef = await firestore.collection('client_billing_concepts').add(dataToSave);
     revalidatePath('/gestion-conceptos-liquidacion-clientes');
-    return { success: true, message: 'Concepto de cliente agregado con éxito.', newConcept: { id: docRef.id, ...data } };
+    return { success: true, message: 'Concepto de cliente agregado con éxito.', newConcept: { id: docRef.id, ...dataToSave } };
   } catch (error) {
     console.error('Error al agregar concepto de liquidación de cliente:', error);
     return { success: false, message: 'Ocurrió un error en el servidor.' };
@@ -58,6 +68,8 @@ export async function updateClientBillingConcept(id: string, data: Omit<ClientBi
   const dataToUpdate = {
     ...data,
     value: Number(data.value),
+    dayShiftStart: data.shiftType === 'No Aplica' ? undefined : data.dayShiftStart,
+    dayShiftEnd: data.shiftType === 'No Aplica' ? undefined : data.dayShiftEnd,
   };
   
   try {

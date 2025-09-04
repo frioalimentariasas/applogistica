@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import * as React from 'react';
@@ -34,6 +33,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Checkbox } from '@/components/ui/checkbox';
 import type { ClientInfo } from '@/app/actions/clients';
 import { Label } from '@/components/ui/label';
+import { Badge } from '@/components/ui/badge';
 
 
 const conceptSchema = z.object({
@@ -41,7 +41,19 @@ const conceptSchema = z.object({
   clientNames: z.array(z.string()).min(1, { message: 'Debe seleccionar al menos un cliente.' }),
   unitOfMeasure: z.enum(['TONELADA', 'PALETA', 'UNIDAD', 'CAJA', 'SACO', 'CANASTILLA', 'HORA', 'DIA'], { required_error: 'Debe seleccionar una unidad de medida.'}),
   value: z.coerce.number({invalid_type_error: "Debe ser un número"}).min(0, "Debe ser 0 o mayor."),
+  shiftType: z.enum(['Diurno', 'Nocturno', 'No Aplica'], { required_error: 'Debe seleccionar un tipo de turno.' }),
+  dayShiftStart: z.string().optional(),
+  dayShiftEnd: z.string().optional(),
+}).refine(data => {
+  if (data.shiftType !== 'No Aplica') {
+    return data.dayShiftStart && data.dayShiftEnd && /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(data.dayShiftStart) && /^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/.test(data.dayShiftEnd);
+  }
+  return true;
+}, {
+  message: 'Para turnos Diurno/Nocturno, las horas de inicio y fin son obligatorias (formato HH:MM).',
+  path: ['dayShiftStart'], 
 });
+
 
 type ConceptFormValues = z.infer<typeof conceptSchema>;
 
@@ -77,12 +89,18 @@ export default function ConceptManagementClientComponent({ initialClients, initi
       clientNames: ['TODOS (Cualquier Cliente)'],
       unitOfMeasure: 'TONELADA',
       value: 0,
+      shiftType: 'No Aplica',
+      dayShiftStart: '07:00',
+      dayShiftEnd: '19:00',
     },
   });
 
   const editForm = useForm<ConceptFormValues>({
     resolver: zodResolver(conceptSchema),
   });
+
+  const watchedShiftType = addForm.watch('shiftType');
+  const watchedEditShiftType = editForm.watch('shiftType');
 
   const clientOptions: ClientInfo[] = useMemo(() => [
     { id: 'TODOS', razonSocial: 'TODOS (Cualquier Cliente)' }, 
@@ -98,12 +116,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
     if (result.success && result.newConcept) {
       toast({ title: 'Éxito', description: result.message });
       setConcepts(prev => [...prev, result.newConcept!].sort((a,b) => a.conceptName.localeCompare(b.conceptName)));
-      addForm.reset({
-        conceptName: '',
-        clientNames: ['TODOS (Cualquier Cliente)'],
-        unitOfMeasure: 'TONELADA',
-        value: 0,
-      });
+      addForm.reset();
     } else {
       toast({ variant: 'destructive', title: 'Error', description: result.message });
     }
@@ -115,6 +128,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
     setIsEditing(true);
     const result = await updateClientBillingConcept(conceptToEdit.id, {
         ...data,
+        id: conceptToEdit.id,
         conceptName: data.conceptName.toUpperCase().trim(),
     });
     if (result.success) {
@@ -145,7 +159,11 @@ export default function ConceptManagementClientComponent({ initialClients, initi
 
   const openEditDialog = (concept: ClientBillingConcept) => {
     setConceptToEdit(concept);
-    editForm.reset(concept);
+    editForm.reset({
+      ...concept,
+      dayShiftStart: concept.dayShiftStart || '07:00',
+      dayShiftEnd: concept.dayShiftEnd || '19:00',
+    });
   };
 
   const handleRowSelect = (id: string, checked: boolean) => {
@@ -229,6 +247,26 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                                 />
                                 <FormField control={addForm.control} name="unitOfMeasure" render={({ field }) => (<FormItem><FormLabel>Unidad de Medida</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TONELADA">TONELADA</SelectItem><SelectItem value="PALETA">PALETA</SelectItem><SelectItem value="UNIDAD">UNIDAD</SelectItem><SelectItem value="CAJA">CAJA</SelectItem><SelectItem value="SACO">SACO</SelectItem><SelectItem value="CANASTILLA">CANASTILLA</SelectItem><SelectItem value="HORA">HORA</SelectItem><SelectItem value="DIA">DÍA</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
                                 <FormField control={addForm.control} name="value" render={({ field }) => (<FormItem><FormLabel>Tarifa (COP)</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                                
+                                <FormField control={addForm.control} name="shiftType" render={({ field }) => (
+                                  <FormItem>
+                                    <FormLabel>Tipo de Turno</FormLabel>
+                                    <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="No Aplica">No Aplica</SelectItem><SelectItem value="Diurno">Diurno</SelectItem><SelectItem value="Nocturno">Nocturno</SelectItem></SelectContent></Select>
+                                    <FormMessage />
+                                  </FormItem>
+                                )}/>
+                                
+                                {watchedShiftType !== 'No Aplica' && (
+                                  <div className="grid grid-cols-2 gap-4">
+                                      <FormField control={addForm.control} name="dayShiftStart" render={({ field }) => (
+                                        <FormItem><FormLabel>Inicio Turno Diurno</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>
+                                      )}/>
+                                      <FormField control={addForm.control} name="dayShiftEnd" render={({ field }) => (
+                                        <FormItem><FormLabel>Fin Turno Diurno</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>
+                                      )}/>
+                                  </div>
+                                )}
+                                
                                 <Button type="submit" disabled={isSubmitting} className="w-full">
                                     {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
                                     Guardar Concepto
@@ -260,6 +298,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                                         <TableHead className="w-12"><Checkbox checked={isAllSelected} onCheckedChange={(checked) => handleSelectAll(checked === true)} /></TableHead>
                                         <TableHead>Concepto</TableHead>
                                         <TableHead>U. Medida</TableHead>
+                                        <TableHead>Turno</TableHead>
                                         <TableHead>Tarifa</TableHead>
                                         <TableHead className="text-right">Acciones</TableHead>
                                     </TableRow>
@@ -275,7 +314,8 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                                                     Aplica a: {(c.clientNames || []).join(', ')}
                                                 </div>
                                             </TableCell>
-                                            <TableCell>{c.unitOfMeasure}</TableCell>
+                                            <TableCell><Badge variant="outline">{c.unitOfMeasure}</Badge></TableCell>
+                                            <TableCell><Badge variant={c.shiftType === 'No Aplica' ? 'secondary' : 'default'}>{c.shiftType}</Badge></TableCell>
                                             <TableCell>{c.value.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
                                             <TableCell className="text-right">
                                                 <Button variant="ghost" size="icon" onClick={() => openEditDialog(c)}><Edit className="h-4 w-4 text-blue-600" /></Button>
@@ -283,7 +323,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                                         </TableRow>
                                         ))
                                     ) : (
-                                        <TableRow><TableCell colSpan={5} className="h-24 text-center">No hay conceptos de cliente definidos.</TableCell></TableRow>
+                                        <TableRow><TableCell colSpan={6} className="h-24 text-center">No hay conceptos de cliente definidos.</TableCell></TableRow>
                                     )}
                                 </TableBody>
                             </Table>
@@ -320,6 +360,23 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                 />
                 <FormField control={editForm.control} name="unitOfMeasure" render={({ field }) => (<FormItem><FormLabel>Unidad de Medida</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TONELADA">TONELADA</SelectItem><SelectItem value="PALETA">PALETA</SelectItem><SelectItem value="UNIDAD">UNIDAD</SelectItem><SelectItem value="CAJA">CAJA</SelectItem><SelectItem value="SACO">SACO</SelectItem><SelectItem value="CANASTILLA">CANASTILLA</SelectItem><SelectItem value="HORA">HORA</SelectItem><SelectItem value="DIA">DÍA</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
                 <FormField control={editForm.control} name="value" render={({ field }) => (<FormItem><FormLabel>Tarifa (COP)</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                 <FormField control={editForm.control} name="shiftType" render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Tipo de Turno</FormLabel>
+                        <Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="No Aplica">No Aplica</SelectItem><SelectItem value="Diurno">Diurno</SelectItem><SelectItem value="Nocturno">Nocturno</SelectItem></SelectContent></Select>
+                        <FormMessage />
+                    </FormItem>
+                )}/>
+                {watchedEditShiftType !== 'No Aplica' && (
+                    <div className="grid grid-cols-2 gap-4">
+                        <FormField control={editForm.control} name="dayShiftStart" render={({ field }) => (
+                            <FormItem><FormLabel>Inicio Turno Diurno</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>
+                        )}/>
+                        <FormField control={editForm.control} name="dayShiftEnd" render={({ field }) => (
+                            <FormItem><FormLabel>Fin Turno Diurno</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>
+                        )}/>
+                    </div>
+                )}
                 <DialogFooter>
                     <Button type="button" variant="outline" onClick={() => setConceptToEdit(null)}>Cancelar</Button>
                     <Button type="submit" disabled={isEditing}>{isEditing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Guardar Cambios</Button>
