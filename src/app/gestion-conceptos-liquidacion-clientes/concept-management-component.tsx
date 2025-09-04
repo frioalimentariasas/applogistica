@@ -53,7 +53,7 @@ const conceptSchema = z.object({
   unitOfMeasure: z.enum(['TONELADA', 'PALETA', 'UNIDAD', 'CAJA', 'SACO', 'CANASTILLA', 'HORA', 'DIA'], { required_error: 'Debe seleccionar una unidad de medida.'}),
   dayShiftStart: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM requerido.'),
   dayShiftEnd: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM requerido.'),
-  tariffRanges: z.array(tariffRangeSchema).min(1, 'Debe agregar al menos un rango de tarifa.'),
+  tariffRanges: z.array(tariffRangeSchema).optional(), // This is now optional
 });
 
 
@@ -92,7 +92,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
       unitOfMeasure: 'TONELADA',
       dayShiftStart: '07:00',
       dayShiftEnd: '19:00',
-      tariffRanges: [{ minTons: 0, maxTons: 999, vehicleType: 'GENERAL', dayTariff: 0, nightTariff: 0 }]
+      tariffRanges: []
     },
   });
 
@@ -246,12 +246,21 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                                 <FormField control={addForm.control} name="unitOfMeasure" render={({ field }) => (<FormItem><FormLabel>Unidad de Medida</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TONELADA">TONELADA</SelectItem><SelectItem value="PALETA">PALETA</SelectItem><SelectItem value="UNIDAD">UNIDAD</SelectItem><SelectItem value="CAJA">CAJA</SelectItem><SelectItem value="SACO">SACO</SelectItem><SelectItem value="CANASTILLA">CANASTILLA</SelectItem><SelectItem value="HORA">HORA</SelectItem><SelectItem value="DIA">DÍA</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
                                 
                                 <Separator />
-                                <FormLabel>Rangos de Tarifas</FormLabel>
-                                <div className="space-y-4">
+                                <div className="space-y-2">
+                                    <FormLabel>Definición de Turno</FormLabel>
                                     <div className="grid grid-cols-2 gap-4">
                                       <FormField control={addForm.control} name="dayShiftStart" render={({ field }) => (<FormItem><FormLabel>Inicio Turno Diurno</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>)} />
                                       <FormField control={addForm.control} name="dayShiftEnd" render={({ field }) => (<FormItem><FormLabel>Fin Turno Diurno</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>)} />
                                     </div>
+                                </div>
+                                <Separator />
+
+                                <div className="space-y-2">
+                                    <FormLabel>Rangos de Tarifas (Opcional)</FormLabel>
+                                    <FormDescription>Añada rangos si la tarifa varía por peso. Déjelo vacío para conceptos con tarifa única.</FormDescription>
+                                </div>
+                                
+                                <div className="space-y-4">
                                     {fields.map((field, index) => (
                                         <div key={field.id} className="grid grid-cols-1 gap-3 border p-3 rounded-md relative">
                                             <div className="grid grid-cols-2 gap-2">
@@ -269,7 +278,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                                         </div>
                                     ))}
                                     <Button type="button" variant="outline" size="sm" onClick={() => append({ minTons: 0, maxTons: 999, vehicleType: '', dayTariff: 0, nightTariff: 0 })}>
-                                        <PlusCircle className="mr-2 h-4 w-4" /> Agregar Rango
+                                        <PlusCircle className="mr-2 h-4 w-4" /> Agregar Rango de Tarifa
                                     </Button>
                                 </div>
                                 <Separator />
@@ -330,6 +339,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                                                         </div>
                                                     ))}
                                                     {c.tariffRanges.length > 2 && <div className="text-xs text-muted-foreground">...y {c.tariffRanges.length - 2} más</div>}
+                                                    {c.tariffRanges.length === 0 && <div className="text-xs text-muted-foreground">Tarifa manual.</div>}
                                                 </div>
                                             </TableCell>
                                             <TableCell className="text-right">
@@ -377,37 +387,41 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                     <FormField control={editForm.control} name="unitOfMeasure" render={({ field }) => (<FormItem><FormLabel>Unidad de Medida</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TONELADA">TONELADA</SelectItem><SelectItem value="PALETA">PALETA</SelectItem><SelectItem value="UNIDAD">UNIDAD</SelectItem><SelectItem value="CAJA">CAJA</SelectItem><SelectItem value="SACO">SACO</SelectItem><SelectItem value="CANASTILLA">CANASTILLA</SelectItem><SelectItem value="HORA">HORA</SelectItem><SelectItem value="DIA">DÍA</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
                 </div>
                  <Separator />
-                <FormLabel>Rangos de Tarifas</FormLabel>
-                <div className="space-y-4">
+                <div className="space-y-2">
+                    <FormLabel>Definición de Turno</FormLabel>
                     <div className="grid grid-cols-2 gap-4">
                       <FormField control={editForm.control} name="dayShiftStart" render={({ field }) => (<FormItem><FormLabel>Inicio Turno Diurno</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>)} />
                       <FormField control={editForm.control} name="dayShiftEnd" render={({ field }) => (<FormItem><FormLabel>Fin Turno Diurno</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>)} />
                     </div>
-                    <ScrollArea className="h-48 pr-4">
-                        <div className="space-y-2">
-                        {editFields.map((field, index) => (
-                            <div key={field.id} className="grid grid-cols-1 gap-3 border p-3 rounded-md relative">
-                                <div className="grid grid-cols-2 gap-2">
-                                    <FormField control={editForm.control} name={`tariffRanges.${index}.minTons`} render={({ field }) => (<FormItem><FormLabel>Min. Ton.</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
-                                    <FormField control={editForm.control} name={`tariffRanges.${index}.maxTons`} render={({ field }) => (<FormItem><FormLabel>Max. Ton.</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
-                                </div>
-                                <FormField control={editForm.control} name={`tariffRanges.${index}.vehicleType`} render={({ field }) => (<FormItem><FormLabel>Tipo Vehículo</FormLabel><FormControl><Input placeholder="EJ: TURBO" {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)}/>
-                                <div className="grid grid-cols-2 gap-2">
-                                    <FormField control={editForm.control} name={`tariffRanges.${index}.dayTariff`} render={({ field }) => (<FormItem><FormLabel>Tarifa Diurna</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
-                                    <FormField control={editForm.control} name={`tariffRanges.${index}.nightTariff`} render={({ field }) => (<FormItem><FormLabel>Tarifa Nocturna</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
-                                </div>
-                                <Button type="button" variant="ghost" size="icon" className="absolute top-1 right-1 text-destructive h-6 w-6" onClick={() => editRemove(index)}>
-                                    <Trash2 className="h-4 w-4" />
-                                </Button>
-                            </div>
-                        ))}
-                        </div>
-                    </ScrollArea>
-                    <Button type="button" variant="outline" size="sm" onClick={() => editAppend({ minTons: 0, maxTons: 999, vehicleType: '', dayTariff: 0, nightTariff: 0 })}>
-                        <PlusCircle className="mr-2 h-4 w-4" /> Agregar Rango
-                    </Button>
                 </div>
-
+                <Separator />
+                 <div className="space-y-2">
+                    <FormLabel>Rangos de Tarifas (Opcional)</FormLabel>
+                    <FormDescription>Añada rangos si la tarifa varía por peso. Déjelo vacío para conceptos con tarifa única.</FormDescription>
+                </div>
+                <ScrollArea className="h-48 pr-4">
+                    <div className="space-y-2">
+                    {editFields.map((field, index) => (
+                        <div key={field.id} className="grid grid-cols-1 gap-3 border p-3 rounded-md relative">
+                            <div className="grid grid-cols-2 gap-2">
+                                <FormField control={editForm.control} name={`tariffRanges.${index}.minTons`} render={({ field }) => (<FormItem><FormLabel>Min. Ton.</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                                <FormField control={editForm.control} name={`tariffRanges.${index}.maxTons`} render={({ field }) => (<FormItem><FormLabel>Max. Ton.</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                            </div>
+                            <FormField control={editForm.control} name={`tariffRanges.${index}.vehicleType`} render={({ field }) => (<FormItem><FormLabel>Tipo Vehículo</FormLabel><FormControl><Input placeholder="EJ: TURBO" {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)}/>
+                            <div className="grid grid-cols-2 gap-2">
+                                <FormField control={editForm.control} name={`tariffRanges.${index}.dayTariff`} render={({ field }) => (<FormItem><FormLabel>Tarifa Diurna</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                                <FormField control={editForm.control} name={`tariffRanges.${index}.nightTariff`} render={({ field }) => (<FormItem><FormLabel>Tarifa Nocturna</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                            </div>
+                            <Button type="button" variant="ghost" size="icon" className="absolute top-1 right-1 text-destructive h-6 w-6" onClick={() => editRemove(index)}>
+                                <Trash2 className="h-4 w-4" />
+                            </Button>
+                        </div>
+                    ))}
+                    </div>
+                </ScrollArea>
+                <Button type="button" variant="outline" size="sm" onClick={() => editAppend({ minTons: 0, maxTons: 999, vehicleType: '', dayTariff: 0, nightTariff: 0 })}>
+                    <PlusCircle className="mr-2 h-4 w-4" /> Agregar Rango
+                </Button>
                 <DialogFooter>
                     <Button type="button" variant="outline" onClick={() => setConceptToEdit(null)}>Cancelar</Button>
                     <Button type="submit" disabled={isEditing}>{isEditing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Guardar Cambios</Button>
@@ -531,3 +545,5 @@ function ClientMultiSelectDialog({
     </Dialog>
   );
 }
+
+    
