@@ -21,11 +21,13 @@ export interface AppPermissions {
   canManageOrderTypes: boolean;
   canManageStandards: boolean;
   canManageLiquidationConcepts: boolean;
+  canManageClientLiquidationConcepts: boolean;
   canManageNovelties: boolean;
   canManageSessions: boolean;
   canEditForms: boolean;
   canDeleteForms: boolean;
   canManageManualOperations: boolean;
+  canManageClientManualOperations: boolean;
 }
 
 export const defaultPermissions: AppPermissions = {
@@ -41,11 +43,13 @@ export const defaultPermissions: AppPermissions = {
   canManageOrderTypes: false,
   canManageStandards: false,
   canManageLiquidationConcepts: false,
+  canManageClientLiquidationConcepts: false,
   canManageNovelties: false,
   canManageSessions: false,
   canEditForms: false,
   canDeleteForms: false,
   canManageManualOperations: false,
+  canManageClientManualOperations: false,
 };
 
 
@@ -87,25 +91,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setEmail(user.email);
         // Super admin override
         if (user.email === 'sistemas@frioalimentaria.com.co') {
-            setPermissions({
-                canGenerateForms: true,
-                canConsultForms: true,
-                canEditForms: true,
-                canDeleteForms: true,
-                canViewBillingReports: true,
-                canViewPerformanceReport: true,
-                canViewCrewPerformanceReport: true,
-                canViewSpecialReports: true,
-                canManageClients: true,
-                canManageArticles: true,
-                canManageObservations: true,
-                canManageOrderTypes: true,
-                canManageStandards: true,
-                canManageLiquidationConcepts: true,
-                canManageNovelties: true,
-                canManageSessions: true,
-                canManageManualOperations: true,
+            const allPermissionsTrue: any = {};
+            Object.keys(defaultPermissions).forEach(key => {
+                allPermissionsTrue[key] = true;
             });
+            setPermissions(allPermissionsTrue as AppPermissions);
         } else {
             try {
               const userPerms = await getUserPermissions(user.email);
@@ -145,4 +135,3 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 };
 
 export const useAuth = () => useContext(AuthContext);
-

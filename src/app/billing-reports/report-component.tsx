@@ -1197,10 +1197,11 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 </header>
 
                 <Tabs defaultValue="detailed-operation" className="w-full">
-                    <TabsList className="grid w-full grid-cols-3 mb-6">
+                    <TabsList className="grid w-full grid-cols-4 mb-6">
                         <TabsTrigger value="detailed-operation">Operaciones Detalladas</TabsTrigger>
                         <TabsTrigger value="inventory">Inventario Acumulado</TabsTrigger>
                         <TabsTrigger value="consolidated-report">Consolidado Movimientos/Inventario</TabsTrigger>
+                        <TabsTrigger value="client-settlement">Liquidación de Clientes</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="detailed-operation">
@@ -1927,6 +1928,18 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                         </TableBody>
                                     </Table>
                                 </div>
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+
+                    <TabsContent value="client-settlement">
+                        <Card>
+                             <CardHeader>
+                                <CardTitle>Liquidación de Clientes</CardTitle>
+                                <CardDescription>Genere un reporte de liquidación para los servicios prestados a un cliente.</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <p className="text-center text-muted-foreground py-10">Este módulo está en construcción.</p>
                             </CardContent>
                         </Card>
                     </TabsContent>
