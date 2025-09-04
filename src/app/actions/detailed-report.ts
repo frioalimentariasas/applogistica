@@ -392,14 +392,11 @@ export async function getDetailedReport(criteria: DetailedReportCriteria): Promi
         return results;
 
     } catch (error) {
-        console.error('Error generating detailed report:', error);
+        console.error("Error in getDetailedReport:", error);
         if (error instanceof Error && (error.message.includes('requires an index') || error.message.includes('needs an index'))) {
-            // Log the full error to the server console so it's captured in logs
-            console.error("Firestore composite index required. Full error from Firestore:", error.message);
-            // Re-throw the original error to pass the link to the client for debugging
+             // Re-throw the original error to pass the link to the client for debugging
             throw error;
         }
-        // Handle other types of errors
         throw new Error('No se pudo generar el informe detallado.');
     }
 }
