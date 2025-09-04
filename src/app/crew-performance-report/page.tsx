@@ -26,7 +26,7 @@ import { useAuth } from '@/hooks/use-auth';
 import type { PerformanceStandard } from '@/app/actions/standard-actions';
 import { getStandardNoveltyTypes, type StandardNoveltyType } from '@/app/gestion-novedades/actions';
 import { getBillingConcepts, type BillingConcept } from '@/app/gestion-conceptos-liquidacion/actions';
-import { addManualOperation, updateManualOperation } from '../operaciones-manuales/actions';
+import { addManualOperation, updateManualOperation } from '../operaciones-manuales-cuadrilla/actions';
 
 
 import { Button, buttonVariants } from '@/components/ui/button';
@@ -1010,7 +1010,7 @@ export default function CrewPerformanceReportPage() {
                             </div>
                             <div className="flex gap-2">
                                 <Button asChild variant="secondary">
-                                    <Link href="/operaciones-manuales">
+                                    <Link href="/operaciones-manuales-cuadrilla">
                                         <Edit className="mr-2 h-4 w-4" />
                                         Gestionar Operaciones Manuales
                                     </Link>
