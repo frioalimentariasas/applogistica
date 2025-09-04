@@ -14,6 +14,8 @@ import { getBillingReport, DailyReportData } from '@/app/actions/billing-report'
 import { getDetailedReport, type DetailedReportRow } from '@/app/actions/detailed-report';
 import { getInventoryReport, uploadInventoryCsv, type InventoryPivotReport, getClientsWithInventory, getInventoryIdsByDateRange, deleteSingleInventoryDoc, getDetailedInventoryForExport } from '@/app/actions/inventory-report';
 import { getConsolidatedMovementReport, type ConsolidatedReportRow } from '@/app/actions/consolidated-movement-report';
+import { getClientBillingConcepts, type ClientBillingConcept } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
+import { generateClientSettlement, type ClientSettlementRow } from './actions/generate-client-settlement';
 import type { ClientInfo } from '@/app/actions/clients';
 import { getPedidoTypes, type PedidoType } from '@/app/gestion-tipos-pedido/actions';
 import { useToast } from '@/hooks/use-toast';
@@ -28,7 +30,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, ChevronsUpDown, BookCopy, FileDown, File, Upload, FolderSearch, Trash2, Edit, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, ChevronsUpDown, BookCopy, FileDown, File, Upload, FolderSearch, Trash2, Edit, CheckCircle2, DollarSign } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
@@ -150,21 +152,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const today = new Date();
     const sixtyTwoDaysAgo = subDays(today, 62);
     
-    // State for billing report
-    const [selectedClient, setSelectedClient] = useState<string | undefined>(undefined);
-    const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
-    const [billingSesion, setBillingSesion] = useState<string>('');
-    const [billingTipoOperacion, setBillingTipoOperacion] = useState<string>('');
-    const [billingTiposPedido, setBillingTiposPedido] = useState<string[]>([]);
-    const [billingPedidoSislog, setBillingPedidoSislog] = useState<string>('');
-    const [reportData, setReportData] = useState<DailyReportData[]>([]);
-    const [isLoading, setIsLoading] = useState(false);
-    const [searched, setSearched] = useState(false);
-    const [isClientDialogOpen, setClientDialogOpen] = useState(false);
-    const [isBillingTipoPedidoOpen, setIsBillingTipoPedidoOpen] = useState(false);
-    const [clientSearch, setClientSearch] = useState("");
-    const [allPedidoTypes, setAllPedidoTypes] = useState<PedidoType[]>([]);
-
     // State for detailed operation report
     const [detailedReportDateRange, setDetailedReportDateRange] = useState<DateRange | undefined>(undefined);
     const [detailedReportClient, setDetailedReportClient] = useState<string | undefined>(undefined);
@@ -178,6 +165,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const [isDetailedTipoPedidoDialogOpen, setIsDetailedTipoPedidoDialogOpen] = useState(false);
     const [detailedClientSearch, setDetailedClientSearch] = useState("");
     const [detailedTipoPedidoSearch, setDetailedTipoPedidoSearch] = useState('');
+    const [allPedidoTypes, setAllPedidoTypes] = useState<PedidoType[]>([]);
 
     // State for CSV inventory report
     const [isUploading, setIsUploading] = useState(false);
@@ -220,6 +208,18 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const [isDeleting, setIsDeleting] = useState(false);
     const [deleteProgress, setDeleteProgress] = useState(0);
 
+    // State for client settlement
+    const [settlementClient, setSettlementClient] = useState<string | undefined>(undefined);
+    const [settlementDateRange, setSettlementDateRange] = useState<DateRange | undefined>();
+    const [allClientConcepts, setAllClientConcepts] = useState<ClientBillingConcept[]>([]);
+    const [availableConcepts, setAvailableConcepts] = useState<ClientBillingConcept[]>([]);
+    const [selectedConcepts, setSelectedConcepts] = useState<string[]>([]);
+    const [isSettlementLoading, setIsSettlementLoading] = useState(false);
+    const [settlementSearched, setSettlementSearched] = useState(false);
+    const [settlementReportData, setSettlementReportData] = useState<ClientSettlementRow[]>([]);
+    const [isSettlementClientDialogOpen, setIsSettlementClientDialogOpen] = useState(false);
+    const [isSettlementConceptDialogOpen, setIsSettlementConceptDialogOpen] = useState(false);
+
     // State for PDF logo
     const [logoBase64, setLogoBase64] = useState<string | null>(null);
     const [logoDimensions, setLogoDimensions] = useState<{ width: number, height: number } | null>(null);
@@ -227,7 +227,21 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
     useEffect(() => {
         getPedidoTypes().then(setAllPedidoTypes);
+        getClientBillingConcepts().then(setAllClientConcepts);
     }, []);
+    
+    useEffect(() => {
+        if (settlementClient) {
+            const applicable = allClientConcepts.filter(c => c.clientNames.includes(settlementClient) || c.clientNames.includes('TODOS (Cualquier Cliente)'));
+            setAvailableConcepts(applicable);
+            // Deselect concepts that are no longer available for the new client
+            setSelectedConcepts(prev => prev.filter(sc => applicable.some(ac => ac.id === sc)));
+        } else {
+            setAvailableConcepts([]);
+            setSelectedConcepts([]);
+        }
+    }, [settlementClient, allClientConcepts]);
+
 
     useEffect(() => {
         const fetchLogo = async () => {
@@ -282,11 +296,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     useEffect(() => {
         handleFetchInventoryClients();
     }, [handleFetchInventoryClients]);
-
-    const filteredClients = useMemo(() => {
-        if (!clientSearch) return clients;
-        return clients.filter(c => c.razonSocial.toLowerCase().includes(clientSearch.toLowerCase()));
-    }, [clientSearch, clients]);
     
     const filteredDetailedClients = useMemo(() => {
         if (!detailedClientSearch) return clients;
@@ -312,143 +321,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         if (!detailedTipoPedidoSearch) return allPedidoTypes;
         return allPedidoTypes.filter(pt => pt.name.toLowerCase().includes(detailedTipoPedidoSearch.toLowerCase()));
     }, [detailedTipoPedidoSearch, allPedidoTypes]);
-
-
-    const handleSearch = async () => {
-        if (!selectedClient || !dateRange || !dateRange.from || !dateRange.to) {
-            toast({
-                variant: 'destructive',
-                title: 'Filtros incompletos',
-                description: 'Por favor, seleccione un cliente y un rango de fechas para generar el reporte.',
-            });
-            return;
-        }
-
-        setIsLoading(true);
-        setSearched(true);
-        setReportData([]);
-
-        try {
-            const criteria = {
-                clientName: selectedClient,
-                startDate: format(dateRange.from, 'yyyy-MM-dd'),
-                endDate: format(dateRange.to, 'yyyy-MM-dd'),
-                sesion: billingSesion === 'all' ? undefined : (billingSesion as 'CO' | 'RE' | 'SE'),
-                tipoOperacion: billingTipoOperacion === 'all' ? undefined : (billingTipoOperacion as 'recepcion' | 'despacho'),
-                tiposPedido: billingTiposPedido.length > 0 ? billingTiposPedido : undefined,
-                pedidoSislog: billingPedidoSislog.trim() || undefined,
-            };
-
-            const results = await getBillingReport(criteria);
-            results.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-            setReportData(results);
-            
-            if (results.length === 0) {
-                 toast({
-                    title: "Sin resultados",
-                    description: "No se encontraron movimientos para los filtros seleccionados.",
-                });
-            }
-        } catch (error) {
-            const errorMessage = error instanceof Error ? error.message : "Ocurrió un error desconocido.";
-            toast({
-                variant: 'destructive',
-                title: 'Error al generar el reporte',
-                description: errorMessage,
-            });
-        } finally {
-            setIsLoading(false);
-        }
-    };
-
-    const handleExportExcel = async () => {
-        if (!selectedClient || reportData.length === 0) return;
-
-        const workbook = new ExcelJS.Workbook();
-        const worksheet = workbook.addWorksheet('Reporte Facturación');
-
-        worksheet.columns = [
-            { header: 'Fecha', key: 'fecha', width: 15 },
-            { header: 'Cliente', key: 'cliente', width: 30 },
-            { header: 'Paletas Recibidas', key: 'recibidas', width: 20 },
-            { header: 'Paletas Despachadas', key: 'despachadas', width: 20 },
-        ];
-        
-        reportData.forEach(row => {
-            worksheet.addRow({
-                fecha: format(new Date(row.date.replace(/-/g, '/')), 'dd/MM/yyyy'),
-                cliente: selectedClient,
-                recibidas: row.paletasRecibidas,
-                despachadas: row.paletasDespachadas,
-            });
-        });
-
-        const buffer = await workbook.xlsx.writeBuffer();
-        const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
-        const link = document.createElement("a");
-        link.href = URL.createObjectURL(blob);
-        const fileName = `Reporte_Facturacion_${selectedClient.replace(/\s/g, '_')}_${format(dateRange!.from!, 'yyyy-MM-dd')}_a_${format(dateRange!.to!, 'yyyy-MM-dd')}.xlsx`;
-        link.download = fileName;
-        link.click();
-    };
-
-    const handleExportPDF = () => {
-        if (!selectedClient || reportData.length === 0 || !logoBase64 || !logoDimensions) return;
-        
-        const doc = new jsPDF();
-        const pageWidth = doc.internal.pageSize.getWidth();
-        
-        const logoWidth = 70;
-        const aspectRatio = logoDimensions.width / logoDimensions.height;
-        const logoHeight = logoWidth / aspectRatio;
-        
-        const logoX = (pageWidth - logoWidth) / 2;
-        const logoY = 15;
-        doc.addImage(logoBase64, 'PNG', logoX, logoY, logoWidth, logoHeight);
-
-        const titleY = logoY + logoHeight + 16;
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'bold');
-        doc.text(`Informe de Facturación`, pageWidth / 2, titleY, { align: 'center' });
-        
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'bold');
-        doc.text('Frio Alimentaria SAS Nit: 900736914-0', pageWidth / 2, titleY + 8, { align: 'center' });
-
-        const clientY = titleY + 22;
-        
-        doc.setFontSize(10);
-        doc.setFont('helvetica', 'normal');
-        doc.text(`Cliente: ${selectedClient}`, 14, clientY);
-        doc.text(`Periodo: ${format(dateRange!.from!, 'dd/MM/yyyy')} - ${format(dateRange!.to!, 'dd/MM/yyyy')}`, pageWidth - 14, clientY, { align: 'right' });
-
-
-        autoTable(doc, {
-            startY: clientY + 10,
-            head: [['Fecha', 'Cliente', 'Paletas Recibidas', 'Paletas Despachadas']],
-            body: reportData.map(row => [
-                format(new Date(row.date.replace(/-/g, '/')), 'dd/MM/yyyy'),
-                selectedClient,
-                row.paletasRecibidas,
-                row.paletasDespachadas
-            ]),
-            headStyles: { fillColor: [33, 150, 243] },
-        });
-
-        const fileName = `Reporte_Facturacion_${selectedClient.replace(/\s/g, '_')}_${format(dateRange!.from!, 'yyyy-MM-dd')}_a_${format(dateRange!.to!, 'yyyy-MM-dd')}.pdf`;
-        doc.save(fileName);
-    };
-
-    const handleClear = () => {
-        setSelectedClient(undefined);
-        setDateRange(undefined);
-        setBillingSesion('');
-        setBillingTipoOperacion('');
-        setBillingTiposPedido([]);
-        setBillingPedidoSislog('');
-        setReportData([]);
-        setSearched(false);
-    };
 
     const handleDetailedReportSearch = async () => {
         if (!detailedReportDateRange?.from || !detailedReportDateRange?.to) {
@@ -1141,18 +1013,78 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         }
     };
     
+    const handleSettlementSearch = async () => {
+        if (!settlementClient || !settlementDateRange?.from || !settlementDateRange?.to || selectedConcepts.length === 0) {
+            toast({ variant: 'destructive', title: 'Filtros incompletos', description: 'Seleccione cliente, rango de fechas y al menos un concepto.' });
+            return;
+        }
+        setIsSettlementLoading(true);
+        setSettlementSearched(true);
+        try {
+            const results = await generateClientSettlement({
+                clientName: settlementClient,
+                startDate: format(settlementDateRange.from, 'yyyy-MM-dd'),
+                endDate: format(settlementDateRange.to, 'yyyy-MM-dd'),
+                conceptIds: selectedConcepts
+            });
+            setSettlementReportData(results);
+            if(results.length === 0) {
+                 toast({ title: "Sin resultados", description: "No se encontraron operaciones para liquidar con los filtros seleccionados." });
+            }
+        } catch (error) {
+            const msg = error instanceof Error ? error.message : "Error inesperado.";
+            toast({ variant: 'destructive', title: 'Error al Liquidar', description: msg });
+        } finally {
+            setIsSettlementLoading(false);
+        }
+    };
+    
+    const handleSettlementExportExcel = async () => {
+        if(settlementReportData.length === 0 || !settlementClient) return;
+        const workbook = new ExcelJS.Workbook();
+        const worksheet = workbook.addWorksheet('Liquidación Cliente');
+        
+        worksheet.columns = [
+            { header: 'Concepto', key: 'conceptName', width: 40 },
+            { header: 'Cantidad', key: 'quantity', width: 15 },
+            { header: 'Unidad', key: 'unitOfMeasure', width: 15 },
+            { header: 'Valor Unitario', key: 'unitValue', width: 20 },
+            { header: 'Valor Total', key: 'totalValue', width: 20 },
+        ];
+        
+        const totalGeneral = settlementReportData.reduce((sum, row) => sum + row.totalValue, 0);
+
+        settlementReportData.forEach(row => {
+            worksheet.addRow({
+                ...row,
+                unitValue: { formula: `D${worksheet.rowCount + 1}`, result: row.unitValue },
+                totalValue: { formula: `E${worksheet.rowCount + 1}`, result: row.totalValue }
+            });
+            worksheet.getCell(`D${worksheet.rowCount}`).numFmt = '$ #,##0.00';
+            worksheet.getCell(`E${worksheet.rowCount}`).numFmt = '$ #,##0.00';
+            worksheet.getCell(`B${worksheet.rowCount}`).numFmt = '#,##0.00';
+        });
+
+        worksheet.addRow([]);
+        const totalRow = worksheet.addRow({ conceptName: 'TOTAL GENERAL', totalValue: totalGeneral });
+        totalRow.getCell('A').font = { bold: true };
+        totalRow.getCell('E').font = { bold: true };
+        totalRow.getCell('E').numFmt = '$ #,##0.00';
+
+        const buffer = await workbook.xlsx.writeBuffer();
+        const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        const fileName = `Liquidacion_${settlementClient.replace(/\s/g, '_')}_${format(settlementDateRange!.from!, 'yyyy-MM-dd')}_a_${format(settlementDateRange!.to!, 'yyyy-MM-dd')}.xlsx`;
+        link.download = fileName;
+        link.click();
+    };
+
     const getTipoPedidoButtonText = () => {
         if (detailedReportTipoPedido.length === 0) return "Todos";
         if (detailedReportTipoPedido.length === 1) return detailedReportTipoPedido[0];
         if (detailedReportTipoPedido.length === allPedidoTypes.length) return "Todos";
         return `${detailedReportTipoPedido.length} tipos seleccionados`;
-    };
-
-    const getBillingTiposPedidoText = () => {
-        if (billingTiposPedido.length === 0) return "Todos";
-        if (billingTiposPedido.length === 1) return billingTiposPedido[0];
-        if (billingTiposPedido.length === allPedidoTypes.length) return "Todos";
-        return `${billingTiposPedido.length} tipos seleccionados`;
     };
     
     const getExportClientsText = () => {
@@ -1933,13 +1865,64 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                     </TabsContent>
 
                     <TabsContent value="client-settlement">
-                        <Card>
+                         <Card>
                              <CardHeader>
                                 <CardTitle>Liquidación de Clientes</CardTitle>
                                 <CardDescription>Genere un reporte de liquidación para los servicios prestados a un cliente.</CardDescription>
                             </CardHeader>
                             <CardContent>
-                                <p className="text-center text-muted-foreground py-10">Este módulo está en construcción.</p>
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end mb-6">
+                                     <div className="space-y-2">
+                                        <Label>Cliente</Label>
+                                        <Select value={settlementClient} onValueChange={setSettlementClient}><SelectTrigger><SelectValue placeholder="Seleccione un cliente"/></SelectTrigger><SelectContent>{clients.map(c => <SelectItem key={c.id} value={c.razonSocial}>{c.razonSocial}</SelectItem>)}</SelectContent></Select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Rango de Fechas</Label>
+                                        <Popover>
+                                            <PopoverTrigger asChild><Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !settlementDateRange && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{settlementDateRange?.from ? (settlementDateRange.to ? (<>{format(settlementDateRange.from, "LLL dd, y", { locale: es })} - {format(settlementDateRange.to, "LLL dd, y", { locale: es })}</>) : (format(settlementDateRange.from, "LLL dd, y", { locale: es }))) : (<span>Seleccione un rango</span>)}</Button></PopoverTrigger>
+                                            <PopoverContent className="w-auto p-0" align="start"><Calendar initialFocus mode="range" defaultMonth={settlementDateRange?.from} selected={settlementDateRange} onSelect={setSettlementDateRange} numberOfMonths={2} locale={es} disabled={{ after: today, before: sixtyTwoDaysAgo }} /></PopoverContent>
+                                        </Popover>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>Conceptos a Liquidar</Label>
+                                        <Dialog open={isSettlementConceptDialogOpen} onOpenChange={setIsSettlementConceptDialogOpen}>
+                                            <DialogTrigger asChild><Button variant="outline" className="w-full justify-between" disabled={!settlementClient}><span className="truncate">{selectedConcepts.length === 0 ? "Seleccionar conceptos..." : `${selectedConcepts.length} seleccionados`}</span><ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50"/></Button></DialogTrigger>
+                                            <DialogContent><DialogHeader><DialogTitle>Seleccionar Conceptos</DialogTitle><DialogDescription>Marque los conceptos que desea incluir en la liquidación.</DialogDescription></DialogHeader>
+                                                <ScrollArea className="h-72 mt-4"><div className="space-y-2 pr-4">
+                                                    {availableConcepts.map(c => (<div key={c.id} className="flex items-center space-x-3"><Checkbox id={`concept-${c.id}`} checked={selectedConcepts.includes(c.id)} onCheckedChange={checked => setSelectedConcepts(prev => checked ? [...prev, c.id] : prev.filter(id => id !== c.id))} /><label htmlFor={`concept-${c.id}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">{c.conceptName}</label></div>))}
+                                                    {availableConcepts.length === 0 && <p className="text-sm text-muted-foreground text-center py-10">No hay conceptos de liquidación definidos para este cliente.</p>}
+                                                </div></ScrollArea>
+                                            <DialogFooter><Button onClick={() => setIsSettlementConceptDialogOpen(false)}>Cerrar</Button></DialogFooter>
+                                            </DialogContent>
+                                        </Dialog>
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <Button onClick={handleSettlementSearch} className="w-full" disabled={isSettlementLoading}><Search className="mr-2 h-4 w-4" />Liquidar</Button>
+                                        <Button onClick={() => { setSettlementClient(undefined); setSettlementDateRange(undefined); setSelectedConcepts([]); setSettlementReportData([]); setSettlementSearched(false); }} variant="outline" className="w-full"><XCircle className="mr-2 h-4 w-4" />Limpiar</Button>
+                                    </div>
+                                </div>
+
+                                {settlementSearched && (
+                                    <>
+                                    <div className="flex justify-end gap-2 my-4">
+                                        <Button onClick={handleSettlementExportExcel} disabled={isSettlementLoading || settlementReportData.length === 0} variant="outline"><File className="mr-2 h-4 w-4" />Exportar a Excel</Button>
+                                    </div>
+                                    <div className="rounded-md border">
+                                        <Table><TableHeader><TableRow>
+                                            <TableHead>Concepto</TableHead><TableHead className="text-right">Cantidad</TableHead><TableHead>Unidad</TableHead><TableHead className="text-right">Valor Unitario</TableHead><TableHead className="text-right">Valor Total</TableHead>
+                                        </TableRow></TableHeader>
+                                        <TableBody>
+                                            {isSettlementLoading ? (
+                                                Array.from({length: 3}).map((_, i) => <TableRow key={i}><TableCell colSpan={5}><Skeleton className="h-8 w-full"/></TableCell></TableRow>)
+                                            ) : settlementReportData.length > 0 ? (
+                                                settlementReportData.map((row, i) => <TableRow key={i}><TableCell className="font-semibold">{row.conceptName}</TableCell><TableCell className="text-right">{row.quantity.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell><TableCell>{row.unitOfMeasure}</TableCell><TableCell className="text-right">{row.unitValue.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell><TableCell className="text-right font-bold">{row.totalValue.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell></TableRow>)
+                                            ) : (
+                                                <TableRow><TableCell colSpan={5} className="h-24 text-center">No se encontraron datos para liquidar.</TableCell></TableRow>
+                                            )}
+                                        </TableBody></Table>
+                                    </div>
+                                    </>
+                                )}
                             </CardContent>
                         </Card>
                     </TabsContent>
