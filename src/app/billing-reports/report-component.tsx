@@ -1053,9 +1053,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                     toast({ title: "Sin resultados", description: "No se encontraron operaciones para liquidar con los filtros seleccionados." });
                 }
             } else {
-                // Now we expect a raw error message from the server action
                 const errorMessage = result.error || "Ocurrió un error inesperado en el servidor.";
-                if (errorMessage.includes('requires an index')) {
+                 if (errorMessage.includes('requires an index')) {
                     setIndexErrorMessage(errorMessage);
                     setIsIndexErrorOpen(true);
                 } else {
@@ -1064,7 +1063,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             }
         } catch (error) {
             const msg = error instanceof Error ? error.message : "Error inesperado.";
-            if (msg.includes('requires an index')) {
+            if (typeof msg === 'string' && msg.includes('requires an index')) {
                 setIndexErrorMessage(msg);
                 setIsIndexErrorOpen(true);
             } else {
@@ -1771,7 +1770,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end mb-6">
                                     <div className="space-y-2">
                                         <Label>Cliente</Label>
-                                         <Dialog open={isConsolidatedClientDialogOpen} onOpenChange={setConsolidatedClientDialogOpen}>
+                                         <Dialog open={isConsolidatedClientDialogOpen} onOpenChange={setIsConsolidatedClientDialogOpen}>
                                             <DialogTrigger asChild>
                                                 <Button variant="outline" className="w-full justify-between text-left font-normal">
                                                     {consolidatedClient || "Seleccione un cliente"}
@@ -1784,7 +1783,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                     <Input placeholder="Buscar cliente..." value={consolidatedClientSearch} onChange={(e) => setConsolidatedClientSearch(e.target.value)} className="mb-4" />
                                                     <ScrollArea className="h-72"><div className="space-y-1">
                                                         {filteredConsolidatedClients.map((client) => (
-                                                            <Button key={client.id} variant="ghost" className="w-full justify-start" onClick={() => { setConsolidatedClient(client.razonSocial); setConsolidatedClientDialogOpen(false); setConsolidatedClientSearch(''); }}>{client.razonSocial}</Button>
+                                                            <Button key={client.id} variant="ghost" className="w-full justify-start" onClick={() => { setConsolidatedClient(client.razonSocial); setIsConsolidatedClientDialogOpen(false); setConsolidatedClientSearch(''); }}>{client.razonSocial}</Button>
                                                         ))}
                                                     </div></ScrollArea>
                                                 </div>
@@ -2029,3 +2028,4 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         </div>
     );
 }
+
