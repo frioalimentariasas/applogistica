@@ -150,14 +150,11 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
   } catch (error: any) {
     console.error('Error in generateClientSettlement:', error);
 
-    if (error.message && typeof error.message === 'string' && error.message.includes('firestore.googleapis.com/v1/projects/')) {
-        const linkMatch = error.message.match(/(https?:\/\/[^\s]+)/);
-        return {
-            success: false,
-            needsIndex: true,
-            error: error.message,
-            indexCreationLink: linkMatch ? linkMatch[0] : undefined
-        };
+    if (error instanceof Error && error.message.includes('requires an index')) {
+      return {
+        success: false,
+        error: error.message,
+      };
     }
     
     return { success: false, error: error.message || 'Ocurrió un error desconocido en el servidor.' };

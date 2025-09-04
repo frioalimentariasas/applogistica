@@ -193,7 +193,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const [consolidatedClient, setConsolidatedClient] = useState<string | undefined>(undefined);
     const [consolidatedDateRange, setConsolidatedDateRange] = useState<DateRange | undefined>(undefined);
     const [consolidatedSesion, setConsolidatedSesion] = useState<string>('');
-    const [isConsolidatedClientDialogOpen, setConsolidatedClientDialogOpen] = useState(false);
+    const [isConsolidatedClientDialogOpen, setIsConsolidatedClientDialogOpen] = useState(false);
     const [consolidatedClientSearch, setConsolidatedClientSearch] = useState("");
 
     // State for detailed inventory export
@@ -357,7 +357,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         } catch (error) {
             console.error("Error al generar el reporte:", error);
             const errorMessage = error instanceof Error ? error.message : "Ocurrió un error desconocido.";
-            if (typeof errorMessage === 'string' && errorMessage.includes('firestore.googleapis.com/v1/projects/')) {
+            if (typeof errorMessage === 'string' && errorMessage.includes('requires an index')) {
                  setIndexErrorMessage(errorMessage);
                  setIsIndexErrorOpen(true);
             } else {
@@ -1038,6 +1038,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         }
         setIsSettlementLoading(true);
         setSettlementSearched(true);
+        setSettlementReportData([]);
         try {
             const result = await generateClientSettlement({
                 clientName: settlementClient,
@@ -1051,16 +1052,24 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 if(result.data.length === 0) {
                     toast({ title: "Sin resultados", description: "No se encontraron operaciones para liquidar con los filtros seleccionados." });
                 }
-            } else if (result.needsIndex) {
-                setIndexErrorMessage(result.error || 'Se requiere un índice compuesto.');
-                setIsIndexErrorOpen(true);
-            }
-            else {
-                throw new Error(result.error || "Error inesperado del servidor.");
+            } else {
+                // Now we expect a raw error message from the server action
+                const errorMessage = result.error || "Ocurrió un error inesperado en el servidor.";
+                if (errorMessage.includes('requires an index')) {
+                    setIndexErrorMessage(errorMessage);
+                    setIsIndexErrorOpen(true);
+                } else {
+                    toast({ variant: 'destructive', title: 'Error al Liquidar', description: errorMessage });
+                }
             }
         } catch (error) {
             const msg = error instanceof Error ? error.message : "Error inesperado.";
-            toast({ variant: 'destructive', title: 'Error al Liquidar', description: msg });
+            if (msg.includes('requires an index')) {
+                setIndexErrorMessage(msg);
+                setIsIndexErrorOpen(true);
+            } else {
+                toast({ variant: 'destructive', title: 'Error al Liquidar', description: msg });
+            }
         } finally {
             setIsSettlementLoading(false);
         }
@@ -2009,7 +2018,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                     <AlertDialogFooter>
                         <AlertDialogCancel onClick={() => setIsIndexErrorOpen(false)}>Cerrar</AlertDialogCancel>
                         <AlertDialogAction asChild>
-                            <a href={indexErrorMessage.match(/(https?:\/\/[^\s]+)/)?.[0] || '#'} target="_blank" rel="noopener noreferrer">
+                            <a href={(indexErrorMessage.match(/(https?:\/\/[^\s]+)/) || ['#'])[0]} target="_blank" rel="noopener noreferrer">
                                 <ExternalLink className="mr-2 h-4 w-4"/>
                                 Abrir Enlace
                             </a>

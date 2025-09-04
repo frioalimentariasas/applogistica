@@ -392,10 +392,11 @@ export async function getDetailedReport(criteria: DetailedReportCriteria): Promi
         return results;
 
     } catch (error) {
-        // Log the full error to the server console. This is the most reliable way to get the index link.
-        console.error("Error in getDetailedReport, potentially missing a Firestore composite index:", error);
-        
-        // Re-throw the original error so it propagates to the client and can be displayed.
-        throw error;
+        if (error instanceof Error && error.message.includes('requires an index')) {
+            console.error("Firestore composite index required. See the full error log for the creation link.", error);
+            throw error; // Re-throw the original error
+        }
+        console.error('Error in getDetailedReport:', error);
+        throw new Error('No se pudo generar el reporte detallado.');
     }
 }
