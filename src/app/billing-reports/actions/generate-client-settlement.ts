@@ -3,8 +3,7 @@
 
 import { firestore } from '@/lib/firebase-admin';
 import type { ClientBillingConcept } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
-import { getBillingReport } from '@/app/actions/billing-report';
-import { getInventoryReport } from '@/app/actions/inventory-report';
+import { DetailedReportRow, getDetailedReport } from '@/app/actions/detailed-report';
 
 export interface ClientSettlementCriteria {
   clientName: string;
@@ -36,53 +35,88 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
   const allConcepts = conceptsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as (ClientBillingConcept & {id: string})[];
   const selectedConcepts = allConcepts.filter(c => conceptIds.includes(c.id));
 
+  // 2. Fetch all operations for the client in the date range
+  const allOperations = await getDetailedReport({
+    clientName,
+    startDate,
+    endDate
+  });
+
+  const manualOpsSnapshot = await firestore.collection('manual_client_operations')
+      .where('clientName', '==', clientName)
+      .where('operationDate', '>=', new Date(startDate))
+      .where('operationDate', '<=', new Date(endDate))
+      .get();
+  
   const results: ClientSettlementRow[] = [];
 
   for (const concept of selectedConcepts) {
     let quantity = 0;
     
-    // LOGIC PER CONCEPT
-    switch (concept.conceptName) {
-      case 'POSICION ESTIBA DIA':
-        // This requires inventory data
-        const inventoryReport = await getInventoryReport({
-          clientNames: [clientName],
-          startDate,
-          endDate,
-        });
-        quantity = inventoryReport.rows.reduce((total, day) => total + (day.clientData[clientName] || 0), 0);
-        break;
+    // --- Step 3a: Filter operations from standard forms ---
+    const applicableOperations = allOperations.filter(op => {
+      let opTypeMatch = false;
+      if (concept.filterOperationType === 'ambos') opTypeMatch = true;
+      else if (concept.filterOperationType === 'recepcion' && op.tipoOperacion === 'Recepción') opTypeMatch = true;
+      else if (concept.filterOperationType === 'despacho' && op.tipoOperacion === 'Despacho') opTypeMatch = true;
       
-      case 'CARGUE PALETAS':
-        const dispatchReport = await getBillingReport({ clientName, startDate, endDate, tipoOperacion: 'despacho' });
-        quantity = dispatchReport.reduce((total, day) => total + day.paletasDespachadas, 0);
+      // For now, product type is not a field in the detailed report, so we assume 'ambos' matches everything.
+      // This can be enhanced if productType is added to DetailedReportRow.
+      const prodTypeMatch = concept.filterProductType === 'ambos';
+
+      return opTypeMatch && prodTypeMatch;
+    });
+
+    // --- Step 3b: Calculate the base quantity from standard forms ---
+    switch (concept.calculationBase) {
+      case 'TONELADAS':
+        quantity = applicableOperations.reduce((sum, op) => sum + (op.totalPesoKg || 0), 0) / 1000;
         break;
-        
-      case 'DESCARGUE PALETAS':
-        const receptionReport = await getBillingReport({ clientName, startDate, endDate, tipoOperacion: 'recepcion' });
-        quantity = receptionReport.reduce((total, day) => total + day.paletasRecibidas, 0);
+      case 'KILOGRAMOS':
+        quantity = applicableOperations.reduce((sum, op) => sum + (op.totalPesoKg || 0), 0);
         break;
-      
-      // Handle manual operations
+      case 'CANTIDAD_PALETAS':
+        quantity = applicableOperations.reduce((sum, op) => sum + (op.totalPaletas || 0), 0);
+        break;
+      case 'CANTIDAD_CAJAS':
+        quantity = applicableOperations.reduce((sum, op) => sum + (op.totalCantidad || 0), 0);
+        break;
+      case 'NUMERO_OPERACIONES':
+        quantity = applicableOperations.length;
+        break;
+      case 'NUMERO_CONTENEDORES':
+        const uniqueContainers = new Set(applicableOperations.map(op => op.contenedor).filter(Boolean));
+        quantity = uniqueContainers.size;
+        break;
       default:
-        const manualOpsSnapshot = await firestore.collection('manual_client_operations')
-            .where('clientName', '==', clientName)
-            .where('concept', '==', concept.conceptName)
-            .where('operationDate', '>=', new Date(startDate))
-            .where('operationDate', '<=', new Date(endDate))
-            .get();
-        
-        quantity = manualOpsSnapshot.docs.reduce((total, doc) => total + (Number(doc.data().quantity) || 0), 0);
-        break;
+        quantity = 0;
     }
 
+    // --- Step 3c: Add quantities from manual operations ---
+    manualOpsSnapshot.docs.forEach(doc => {
+      const manualOp = doc.data();
+      if (manualOp.concept === concept.conceptName) {
+        quantity += Number(manualOp.quantity) || 0;
+      }
+    });
+
     if (quantity > 0) {
+      // Step 4: Apply tariff (Simplified for now, will add range/turn logic next)
+      let unitValue = 0;
+      if (concept.tariffType === 'UNICA') {
+        unitValue = concept.value || 0;
+      } else {
+        // TODO: Implement complex tariff logic for ranges and turns
+        // For now, we'll use the first day tariff as a placeholder
+        unitValue = concept.tariffRanges?.[0]?.dayTariff || 0;
+      }
+      
       results.push({
         conceptName: concept.conceptName,
         quantity,
         unitOfMeasure: concept.unitOfMeasure,
-        unitValue: concept.value,
-        totalValue: quantity * concept.value,
+        unitValue: unitValue,
+        totalValue: quantity * unitValue,
       });
     }
   }

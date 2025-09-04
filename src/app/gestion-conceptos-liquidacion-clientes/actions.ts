@@ -16,7 +16,14 @@ export interface ClientBillingConcept {
   id: string;
   conceptName: string;
   clientNames: string[];
-  unitOfMeasure: 'TONELADA' | 'PALETA' | 'UNIDAD' | 'CAJA' | 'SACO' | 'CANASTILLA' | 'HORA' | 'DIA' | 'VIAJE' | 'MES';
+  unitOfMeasure: 'TONELADA' | 'PALETA' | 'UNIDAD' | 'CAJA' | 'SACO' | 'CANASTILLA' | 'HORA' | 'DIA' | 'VIAJE' | 'MES' | 'CONTENEDOR';
+  
+  // Calculation Rules
+  calculationBase: 'TONELADAS' | 'KILOGRAMOS' | 'CANTIDAD_PALETAS' | 'CANTIDAD_CAJAS' | 'NUMERO_OPERACIONES' | 'NUMERO_CONTENEDORES';
+  filterOperationType: 'recepcion' | 'despacho' | 'ambos';
+  filterProductType: 'fijo' | 'variable' | 'ambos';
+
+  // Tariff Rules
   tariffType: 'RANGOS' | 'UNICA';
   value?: number; // For 'UNICA' tariffType
   dayShiftStart?: string; 
@@ -37,7 +44,13 @@ export async function getClientBillingConcepts(): Promise<ClientBillingConcept[]
         conceptName: data.conceptName,
         clientNames: Array.isArray(data.clientNames) ? data.clientNames : [data.clientName],
         unitOfMeasure: data.unitOfMeasure,
-        tariffType: data.tariffType || 'UNICA', // Default to UNICA for older data
+        
+        // Defaulting for old data
+        calculationBase: data.calculationBase || 'CANTIDAD_PALETAS',
+        filterOperationType: data.filterOperationType || 'ambos',
+        filterProductType: data.filterProductType || 'ambos',
+
+        tariffType: data.tariffType || 'UNICA',
         value: data.value,
         dayShiftStart: data.dayShiftStart,
         dayShiftEnd: data.dayShiftEnd,
@@ -59,6 +72,9 @@ export async function addClientBillingConcept(data: Omit<ClientBillingConcept, '
       conceptName: data.conceptName,
       clientNames: data.clientNames,
       unitOfMeasure: data.unitOfMeasure,
+      calculationBase: data.calculationBase,
+      filterOperationType: data.filterOperationType,
+      filterProductType: data.filterProductType,
       tariffType: data.tariffType,
     };
 
@@ -93,6 +109,9 @@ export async function updateClientBillingConcept(id: string, data: Omit<ClientBi
       conceptName: data.conceptName,
       clientNames: data.clientNames,
       unitOfMeasure: data.unitOfMeasure,
+      calculationBase: data.calculationBase,
+      filterOperationType: data.filterOperationType,
+      filterProductType: data.filterProductType,
       tariffType: data.tariffType,
       value: null,
       dayShiftStart: null,
@@ -144,5 +163,3 @@ export async function deleteMultipleClientBillingConcepts(ids: string[]): Promis
     return { success: false, message: 'Ocurrió un error en el servidor.' };
   }
 }
-
-    
