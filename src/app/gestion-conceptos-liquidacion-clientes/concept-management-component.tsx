@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import * as React from 'react';
@@ -18,7 +19,7 @@ import { ArrowLeft, Loader2, PlusCircle, Edit, Trash2, ShieldAlert, DollarSign, 
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/components/ui/form';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -93,9 +94,6 @@ export default function ConceptManagementClientComponent({ initialClients, initi
     const result = await addClientBillingConcept({
         ...data,
         conceptName: data.conceptName.toUpperCase().trim(),
-        // These are not part of the client schema, so we hardcode them to satisfy the type temporarily
-        operationType: 'TODAS',
-        productType: 'TODOS',
     });
     if (result.success && result.newConcept) {
       toast({ title: 'Éxito', description: result.message });
@@ -118,12 +116,10 @@ export default function ConceptManagementClientComponent({ initialClients, initi
     const result = await updateClientBillingConcept(conceptToEdit.id, {
         ...data,
         conceptName: data.conceptName.toUpperCase().trim(),
-        operationType: 'TODAS',
-        productType: 'TODOS',
     });
     if (result.success) {
       toast({ title: 'Éxito', description: result.message });
-      setConcepts(prev => prev.map(s => s.id === conceptToEdit.id ? { ...data, id: s.id, operationType: 'TODAS', productType: 'TODAS' } : s));
+      setConcepts(prev => prev.map(s => s.id === conceptToEdit.id ? { ...data, id: s.id } : s));
       setConceptToEdit(null);
     } else {
       toast({ variant: 'destructive', title: 'Error', description: result.message });
