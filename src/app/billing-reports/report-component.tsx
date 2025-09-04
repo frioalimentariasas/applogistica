@@ -5,7 +5,7 @@
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { DateRange } from 'react-day-picker';
-import { format, addDays, differenceInDays, subDays } from 'date-fns';
+import { format, addDays, differenceInDays, subDays, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -181,7 +181,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const [inventorySesion, setInventorySesion] = useState<string>('');
     const [inventoryReportData, setInventoryReportData] = useState<InventoryPivotReport | null>(null);
     const [inventorySearched, setInventorySearched] = useState(false);
-    const [isInventoryClientDialogOpen, setInventoryClientDialogOpen] = useState(false);
+    const [isInventoryClientDialogOpen, setIsInventoryClientDialogOpen] = useState(false);
     const [inventoryClientSearch, setInventoryClientSearch] = useState('');
     const [availableInventoryClients, setAvailableInventoryClients] = useState<string[]>([]);
     const [isLoadingInventoryClients, setIsLoadingInventoryClients] = useState(false);
@@ -358,8 +358,9 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             console.error("Error al generar el reporte:", error);
             const errorMessage = error instanceof Error ? error.message : "Ocurrió un error desconocido.";
             if (typeof errorMessage === 'string' && errorMessage.includes('requires an index')) {
-                 setIndexErrorMessage(errorMessage);
-                 setIsIndexErrorOpen(true);
+                console.error("Firestore Error:", errorMessage);
+                setIndexErrorMessage(errorMessage);
+                setIsIndexErrorOpen(true);
             } else {
                 toast({ variant: 'destructive', title: 'Error al generar el reporte', description: errorMessage });
             }
@@ -1055,6 +1056,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             } else {
                 const errorMessage = result.error || "Ocurrió un error inesperado en el servidor.";
                  if (errorMessage.includes('requires an index')) {
+                    console.error("Firestore Error:", errorMessage);
                     setIndexErrorMessage(errorMessage);
                     setIsIndexErrorOpen(true);
                 } else {
@@ -1064,6 +1066,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         } catch (error) {
             const msg = error instanceof Error ? error.message : "Error inesperado.";
             if (typeof msg === 'string' && msg.includes('requires an index')) {
+                console.error("Firestore Error:", msg);
                 setIndexErrorMessage(msg);
                 setIsIndexErrorOpen(true);
             } else {
@@ -1080,6 +1083,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const worksheet = workbook.addWorksheet('Liquidación Cliente');
         
         worksheet.columns = [
+            { header: 'Fecha', key: 'date', width: 15 },
             { header: 'Concepto', key: 'conceptName', width: 40 },
             { header: 'Cantidad', key: 'quantity', width: 15 },
             { header: 'Unidad', key: 'unitOfMeasure', width: 15 },
@@ -1087,24 +1091,46 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             { header: 'Valor Total', key: 'totalValue', width: 20 },
         ];
         
+        // Group by concept for subtotals
+        const groupedData = settlementReportData.reduce((acc, row) => {
+            if (!acc[row.conceptName]) {
+                acc[row.conceptName] = { rows: [], subtotal: 0 };
+            }
+            acc[row.conceptName].rows.push(row);
+            acc[row.conceptName].subtotal += row.totalValue;
+            return acc;
+        }, {} as Record<string, { rows: ClientSettlementRow[], subtotal: number }>);
+        
         const totalGeneral = settlementReportData.reduce((sum, row) => sum + row.totalValue, 0);
 
-        settlementReportData.forEach(row => {
-            worksheet.addRow({
-                ...row,
-                unitValue: { formula: `D${worksheet.rowCount + 1}`, result: row.unitValue },
-                totalValue: { formula: `E${worksheet.rowCount + 1}`, result: row.totalValue }
+        Object.keys(groupedData).sort().forEach(conceptName => {
+            groupedData[conceptName].rows.forEach(row => {
+                worksheet.addRow({
+                    ...row,
+                    date: format(parseISO(row.date), 'dd/MM/yyyy'),
+                    unitValue: { formula: `E${worksheet.rowCount + 1}`, result: row.unitValue },
+                    totalValue: { formula: `F${worksheet.rowCount + 1}`, result: row.totalValue }
+                });
+                worksheet.getCell(`E${worksheet.rowCount}`).numFmt = '$ #,##0.00';
+                worksheet.getCell(`F${worksheet.rowCount}`).numFmt = '$ #,##0.00';
+                worksheet.getCell(`C${worksheet.rowCount}`).numFmt = '#,##0.00';
             });
-            worksheet.getCell(`D${worksheet.rowCount}`).numFmt = '$ #,##0.00';
-            worksheet.getCell(`E${worksheet.rowCount}`).numFmt = '$ #,##0.00';
-            worksheet.getCell(`B${worksheet.rowCount}`).numFmt = '#,##0.00';
+            const subtotalRow = worksheet.addRow({ conceptName: `SUBTOTAL ${conceptName}`, totalValue: groupedData[conceptName].subtotal });
+            subtotalRow.font = { bold: true };
+            subtotalRow.getCell('A').alignment = { horizontal: 'right' };
+            subtotalRow.getCell('F').numFmt = '$ #,##0.00';
+            worksheet.mergeCells(`A${subtotalRow.number}:E${subtotalRow.number}`);
         });
 
         worksheet.addRow([]);
         const totalRow = worksheet.addRow({ conceptName: 'TOTAL GENERAL', totalValue: totalGeneral });
-        totalRow.getCell('A').font = { bold: true };
-        totalRow.getCell('E').font = { bold: true };
-        totalRow.getCell('E').numFmt = '$ #,##0.00';
+        totalRow.font = { bold: true };
+        totalRow.getCell('A').font = { size: 12, bold: true };
+        totalRow.getCell('A').alignment = { horizontal: 'right' };
+        totalRow.getCell('F').font = { size: 12, bold: true };
+        totalRow.getCell('F').numFmt = '$ #,##0.00';
+        worksheet.mergeCells(`A${totalRow.number}:E${totalRow.number}`);
+
 
         const buffer = await workbook.xlsx.writeBuffer();
         const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
@@ -1944,15 +1970,29 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                     </div>
                                     <div className="rounded-md border">
                                         <Table><TableHeader><TableRow>
-                                            <TableHead>Concepto</TableHead><TableHead className="text-right">Cantidad</TableHead><TableHead>Unidad</TableHead><TableHead className="text-right">Valor Unitario</TableHead><TableHead className="text-right">Valor Total</TableHead>
+                                            <TableHead>Fecha</TableHead>
+                                            <TableHead>Concepto</TableHead>
+                                            <TableHead className="text-right">Cantidad</TableHead>
+                                            <TableHead>Unidad</TableHead>
+                                            <TableHead className="text-right">Valor Unitario</TableHead>
+                                            <TableHead className="text-right">Valor Total</TableHead>
                                         </TableRow></TableHeader>
                                         <TableBody>
                                             {isSettlementLoading ? (
-                                                Array.from({length: 3}).map((_, i) => <TableRow key={i}><TableCell colSpan={5}><Skeleton className="h-8 w-full"/></TableCell></TableRow>)
+                                                Array.from({length: 3}).map((_, i) => <TableRow key={i}><TableCell colSpan={6}><Skeleton className="h-8 w-full"/></TableCell></TableRow>)
                                             ) : settlementReportData.length > 0 ? (
-                                                settlementReportData.map((row, i) => <TableRow key={i}><TableCell className="font-semibold">{row.conceptName}</TableCell><TableCell className="text-right">{row.quantity.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell><TableCell>{row.unitOfMeasure}</TableCell><TableCell className="text-right">{row.unitValue.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell><TableCell className="text-right font-bold">{row.totalValue.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell></TableRow>)
+                                                settlementReportData.map((row, i) => (
+                                                  <TableRow key={`${row.date}-${row.conceptName}-${i}`}>
+                                                    <TableCell>{format(parseISO(row.date), 'dd/MM/yyyy', { locale: es })}</TableCell>
+                                                    <TableCell className="font-semibold">{row.conceptName}</TableCell>
+                                                    <TableCell className="text-right">{row.quantity.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
+                                                    <TableCell>{row.unitOfMeasure}</TableCell>
+                                                    <TableCell className="text-right">{row.unitValue.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
+                                                    <TableCell className="text-right font-bold">{row.totalValue.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
+                                                  </TableRow>
+                                                ))
                                             ) : (
-                                                <TableRow><TableCell colSpan={5} className="h-24 text-center">No se encontraron datos para liquidar.</TableCell></TableRow>
+                                                <TableRow><TableCell colSpan={6} className="h-24 text-center">No se encontraron datos para liquidar.</TableCell></TableRow>
                                             )}
                                         </TableBody></Table>
                                     </div>
