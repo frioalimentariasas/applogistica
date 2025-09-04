@@ -35,6 +35,7 @@ import type { ClientInfo } from '@/app/actions/clients';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Badge } from '@/components/ui/badge';
 
 
 const tariffRangeSchema = z.object({
