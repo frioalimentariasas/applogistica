@@ -1,8 +1,9 @@
 
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
-import type { ClientBillingConcept } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
+import type { ClientBillingConcept, TariffRange } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 import { DetailedReportRow, getDetailedReport } from '@/app/actions/detailed-report';
 import admin from 'firebase-admin';
 
@@ -53,6 +54,18 @@ export interface ClientSettlementResult {
     data?: ClientSettlementRow[];
     error?: string;
 }
+
+const findMatchingTariff = (tons: number, vehicleType: 'CONTENEDOR' | 'TURBO', concept: ClientBillingConcept): TariffRange | undefined => {
+    if (!concept.tariffRanges || concept.tariffRanges.length === 0) {
+        return undefined;
+    }
+    
+    return concept.tariffRanges.find(range => 
+        tons >= range.minTons && 
+        tons <= range.maxTons &&
+        range.vehicleType.toUpperCase() === vehicleType
+    );
+};
 
 
 export async function generateClientSettlement(criteria: ClientSettlementCriteria): Promise<ClientSettlementResult> {
@@ -129,6 +142,8 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
           const prodTypeMatch = concept.filterProductType === 'ambos'; // Simplified, needs more logic if we add fijo/variable filters
           return opTypeMatch && prodTypeMatch;
         });
+        
+        if (applicableOperations.length === 0) continue;
 
         switch (concept.calculationBase) {
             case 'TONELADAS':
@@ -158,9 +173,19 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
             let unitValue = 0;
             if (concept.tariffType === 'UNICA') {
               unitValue = concept.value || 0;
-            } else {
-              // This is a simplified tariff logic. More complex logic can be added here.
-              unitValue = concept.tariffRanges?.[0]?.dayTariff || 0;
+            } else if (concept.tariffType === 'RANGOS') {
+                const totalTons = applicableOperations.reduce((sum, op) => sum + (op.totalPesoKg || 0), 0) / 1000;
+                const vehicleType = applicableOperations[0]?.contenedor?.toUpperCase() !== 'N/A' ? 'CONTENEDOR' : 'TURBO';
+                
+                const matchingTariff = findMatchingTariff(totalTons, vehicleType, concept);
+                
+                if (matchingTariff) {
+                    // Placeholder for day/night logic. Defaulting to day tariff for now.
+                    unitValue = matchingTariff.dayTariff;
+                } else {
+                    // Fallback if no range matches - could be 0 or a default value
+                    unitValue = concept.value || 0;
+                }
             }
 
             dailyResults.push({
@@ -220,3 +245,5 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
     return { success: false, error: error.message || 'Ocurrió un error desconocido en el servidor.' };
   }
 }
+
+    
