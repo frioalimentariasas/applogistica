@@ -43,6 +43,7 @@ export interface ClientSettlementCriteria {
 
 export interface ClientSettlementRow {
   date: string;
+  totalPaletas: number;
   container: string;
   conceptName: string;
   quantity: number;
@@ -105,7 +106,7 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
     // Group automatic operations by day AND container
     const operationsByDayAndContainer = allOperations.reduce((acc, op) => {
         const date = getLocalGroupingDate(op.fecha);
-        const container = op.contenedor || 'N/A';
+        const container = op.contenedor || 'No aplica';
         const key = `${date}|${container}`;
         if (!acc[key]) {
             acc[key] = [];
@@ -138,6 +139,7 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
 
       for (const concept of selectedConcepts) {
         let quantity = 0;
+        let totalPallets = 0;
         
         const applicableOperations = dailyOperations.filter(op => {
           let opTypeMatch = false;
@@ -145,7 +147,7 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
           else if (concept.filterOperationType === 'recepcion' && op.tipoOperacion === 'Recepción') opTypeMatch = true;
           else if (concept.filterOperationType === 'despacho' && op.tipoOperacion === 'Despacho') opTypeMatch = true;
           
-          const prodTypeMatch = concept.filterProductType === 'ambos'; // Simplified, needs more logic if we add fijo/variable filters
+          const prodTypeMatch = concept.filterProductType === 'ambos' || op.tipoProducto.toLowerCase().includes(concept.filterProductType);
           return opTypeMatch && prodTypeMatch;
         });
         
@@ -168,12 +170,14 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
                 quantity = applicableOperations.length;
                 break;
             case 'NUMERO_CONTENEDORES':
-                const uniqueContainers = new Set(applicableOperations.map(op => op.contenedor).filter(Boolean));
-                quantity = uniqueContainers.size;
+                // This logic is now per-container, so it will always be 1 if applicable
+                quantity = 1;
                 break;
             default:
                 quantity = 0;
         }
+
+        totalPallets = applicableOperations.reduce((sum, op) => sum + (op.totalPaletas || 0), 0);
 
         if (quantity > 0) {
             let unitValue = 0;
@@ -181,7 +185,7 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
               unitValue = concept.value || 0;
             } else if (concept.tariffType === 'RANGOS') {
                 const totalTons = applicableOperations.reduce((sum, op) => sum + (op.totalPesoKg || 0), 0) / 1000;
-                const vehicleType = applicableOperations[0]?.contenedor?.toUpperCase() !== 'N/A' ? 'CONTENEDOR' : 'TURBO';
+                const vehicleType = container !== 'No aplica' ? 'CONTENEDOR' : 'TURBO';
                 
                 const matchingTariff = findMatchingTariff(totalTons, vehicleType, concept);
                 
@@ -197,6 +201,7 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
             dailyResults.push({
               date,
               container,
+              totalPaletas,
               conceptName: concept.conceptName,
               quantity,
               unitOfMeasure: concept.unitOfMeasure,
@@ -208,7 +213,7 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
     }
     
     // Add manual operations
-    for (const date in manualOpsByDay) {
+     for (const date in manualOpsByDay) {
         if (!resultsByDay.has(date)) {
             resultsByDay.set(date, []);
         }
@@ -228,6 +233,7 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
                 dailyResults.push({
                   date,
                   container: manualOp.details?.plate || 'Manual',
+                  totalPaletas: 0, // Manual operations don't have pallets
                   conceptName: concept.conceptName,
                   quantity,
                   unitOfMeasure: concept.unitOfMeasure,
@@ -254,4 +260,3 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
   }
 }
 
-    

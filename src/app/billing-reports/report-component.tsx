@@ -1062,12 +1062,11 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                     toast({ title: "Sin resultados", description: "No se encontraron operaciones para liquidar con los filtros seleccionados." });
                 }
             } else {
-                const errorMessage = result.error || "Ocurrió un error inesperado en el servidor.";
-                 if (errorMessage.includes('requires an index')) {
-                    setIndexErrorMessage(errorMessage);
+                 if (result.error && result.error.includes('requires an index')) {
+                    setIndexErrorMessage(result.error);
                     setIsIndexErrorOpen(true);
                 } else {
-                    toast({ variant: 'destructive', title: 'Error al Liquidar', description: errorMessage });
+                    toast({ variant: 'destructive', title: 'Error al Liquidar', description: result.error || "Ocurrió un error inesperado en el servidor." });
                 }
             }
         } catch (error) {
@@ -1090,6 +1089,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         
         worksheet.columns = [
             { header: 'Fecha', key: 'date', width: 15 },
+            { header: 'Total Paletas', key: 'totalPaletas', width: 15 },
             { header: 'Contenedor', key: 'container', width: 20 },
             { header: 'Concepto', key: 'conceptName', width: 40 },
             { header: 'Cantidad', key: 'quantity', width: 15 },
@@ -1115,18 +1115,18 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 worksheet.addRow({
                     ...row,
                     date: format(parseISO(row.date), 'dd/MM/yyyy'),
-                    unitValue: { formula: `F${worksheet.rowCount + 1}`, result: row.unitValue },
-                    totalValue: { formula: `G${worksheet.rowCount + 1}`, result: row.totalValue }
+                    unitValue: { formula: `G${worksheet.rowCount + 1}`, result: row.unitValue },
+                    totalValue: { formula: `H${worksheet.rowCount + 1}`, result: row.totalValue }
                 });
-                worksheet.getCell(`F${worksheet.rowCount}`).numFmt = '$ #,##0.00';
                 worksheet.getCell(`G${worksheet.rowCount}`).numFmt = '$ #,##0.00';
-                worksheet.getCell(`D${worksheet.rowCount}`).numFmt = '#,##0.00';
+                worksheet.getCell(`H${worksheet.rowCount}`).numFmt = '$ #,##0.00';
+                worksheet.getCell(`E${worksheet.rowCount}`).numFmt = '#,##0.00';
             });
             const subtotalRow = worksheet.addRow({ conceptName: `SUBTOTAL ${conceptName}`, totalValue: groupedData[conceptName].subtotal });
             subtotalRow.font = { bold: true };
             subtotalRow.getCell('A').alignment = { horizontal: 'right' };
-            subtotalRow.getCell('G').numFmt = '$ #,##0.00';
-            worksheet.mergeCells(`A${subtotalRow.number}:F${subtotalRow.number}`);
+            subtotalRow.getCell('H').numFmt = '$ #,##0.00';
+            worksheet.mergeCells(`A${subtotalRow.number}:G${subtotalRow.number}`);
         });
 
         worksheet.addRow([]);
@@ -1134,9 +1134,9 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         totalRow.font = { bold: true };
         totalRow.getCell('A').font = { size: 12, bold: true };
         totalRow.getCell('A').alignment = { horizontal: 'right' };
-        totalRow.getCell('G').font = { size: 12, bold: true };
-        totalRow.getCell('G').numFmt = '$ #,##0.00';
-        worksheet.mergeCells(`A${totalRow.number}:F${totalRow.number}`);
+        totalRow.getCell('H').font = { size: 12, bold: true };
+        totalRow.getCell('H').numFmt = '$ #,##0.00';
+        worksheet.mergeCells(`A${totalRow.number}:G${totalRow.number}`);
 
 
         const buffer = await workbook.xlsx.writeBuffer();
@@ -2000,6 +2000,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                     <div className="rounded-md border">
                                         <Table><TableHeader><TableRow>
                                             <TableHead>Fecha</TableHead>
+                                            <TableHead>Total Paletas</TableHead>
                                             <TableHead>Contenedor</TableHead>
                                             <TableHead>Concepto</TableHead>
                                             <TableHead className="text-right">Cantidad</TableHead>
@@ -2009,11 +2010,12 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                         </TableRow></TableHeader>
                                         <TableBody>
                                             {isSettlementLoading ? (
-                                                Array.from({length: 3}).map((_, i) => <TableRow key={i}><TableCell colSpan={7}><Skeleton className="h-8 w-full"/></TableCell></TableRow>)
+                                                Array.from({length: 3}).map((_, i) => <TableRow key={i}><TableCell colSpan={8}><Skeleton className="h-8 w-full"/></TableCell></TableRow>)
                                             ) : settlementReportData.length > 0 ? (
                                                 settlementReportData.map((row, i) => (
                                                   <TableRow key={`${row.date}-${row.conceptName}-${i}`}>
                                                     <TableCell>{format(parseISO(row.date), 'dd/MM/yyyy', { locale: es })}</TableCell>
+                                                    <TableCell>{row.totalPaletas}</TableCell>
                                                     <TableCell>{row.container}</TableCell>
                                                     <TableCell className="font-semibold">{row.conceptName}</TableCell>
                                                     <TableCell className="text-right">{row.quantity.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
@@ -2023,7 +2025,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                   </TableRow>
                                                 ))
                                             ) : (
-                                                <TableRow><TableCell colSpan={7} className="h-24 text-center">No se encontraron datos para liquidar.</TableCell></TableRow>
+                                                <TableRow><TableCell colSpan={8} className="h-24 text-center">No se encontraron datos para liquidar.</TableCell></TableRow>
                                             )}
                                         </TableBody></Table>
                                     </div>
@@ -2100,5 +2102,3 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         </div>
     );
 }
-
-    
