@@ -1518,7 +1518,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                         </div>
                                         <div className="space-y-2">
                                             <Label>Cliente(s)</Label>
-                                            <Dialog open={isInventoryClientDialogOpen} onOpenChange={setInventoryClientDialogOpen}>
+                                            <Dialog open={isInventoryClientDialogOpen} onOpenChange={setIsInventoryClientDialogOpen}>
                                                 <DialogTrigger asChild>
                                                     <Button
                                                         variant="outline"
@@ -1594,7 +1594,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                         </ScrollArea>
                                                     </div>
                                                     <DialogFooter>
-                                                        <Button onClick={() => setInventoryClientDialogOpen(false)}>Cerrar</Button>
+                                                        <Button onClick={() => setIsInventoryClientDialogOpen(false)}>Cerrar</Button>
                                                     </DialogFooter>
                                                 </DialogContent>
                                             </Dialog>
@@ -2068,4 +2068,3 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         </div>
     );
 }
-
