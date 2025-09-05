@@ -16,7 +16,7 @@ import { getDetailedReport, type DetailedReportRow } from '@/app/actions/detaile
 import { getInventoryReport, uploadInventoryCsv, type InventoryPivotReport, getClientsWithInventory, getInventoryIdsByDateRange, deleteSingleInventoryDoc, getDetailedInventoryForExport } from '@/app/actions/inventory-report';
 import { getConsolidatedMovementReport, type ConsolidatedReportRow } from '@/app/actions/consolidated-movement-report';
 import { getClientBillingConcepts, type ClientBillingConcept } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
-import { generateClientSettlement, type ClientSettlementRow } from './actions/generate-client-settlement';
+import { generateClientSettlement, type ClientSettlementRow, getAllManualClientOperations } from './actions/generate-client-settlement';
 import type { ClientInfo } from '@/app/actions/clients';
 import { getPedidoTypes, type PedidoType } from '@/app/gestion-tipos-pedido/actions';
 import { useToast } from '@/hooks/use-toast';
@@ -221,6 +221,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const [settlementSearched, setSettlementSearched] = useState(false);
     const [settlementReportData, setSettlementReportData] = useState<ClientSettlementRow[]>([]);
     const [isSettlementClientDialogOpen, setIsSettlementClientDialogOpen] = useState(false);
+    const [settlementClientSearch, setSettlementClientSearch] = useState("");
     const [isSettlementConceptDialogOpen, setIsSettlementConceptDialogOpen] = useState(false);
     
     const [isIndexErrorOpen, setIsIndexErrorOpen] = useState(false);
@@ -312,6 +313,11 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         if (!consolidatedClientSearch) return clients;
         return clients.filter(c => c.razonSocial.toLowerCase().includes(consolidatedClientSearch.toLowerCase()));
     }, [consolidatedClientSearch, clients]);
+    
+    const filteredSettlementClients = useMemo(() => {
+        if (!settlementClientSearch) return clients;
+        return clients.filter(c => c.razonSocial.toLowerCase().includes(settlementClientSearch.toLowerCase()));
+    }, [settlementClientSearch, clients]);
 
      const filteredExportClients = useMemo(() => {
         if (!exportClientSearch) return clients;
@@ -1056,7 +1062,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             } else {
                 const errorMessage = result.error || "Ocurrió un error inesperado en el servidor.";
                  if (errorMessage.includes('requires an index')) {
-                    console.error("Firestore Error:", errorMessage);
                     setIndexErrorMessage(errorMessage);
                     setIsIndexErrorOpen(true);
                 } else {
@@ -1066,7 +1071,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         } catch (error) {
             const msg = error instanceof Error ? error.message : "Error inesperado.";
             if (typeof msg === 'string' && msg.includes('requires an index')) {
-                console.error("Firestore Error:", msg);
                 setIndexErrorMessage(msg);
                 setIsIndexErrorOpen(true);
             } else {
@@ -1935,7 +1939,25 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end mb-6">
                                      <div className="space-y-2">
                                         <Label>Cliente</Label>
-                                        <Select value={settlementClient} onValueChange={setSettlementClient}><SelectTrigger><SelectValue placeholder="Seleccione un cliente"/></SelectTrigger><SelectContent position="popper">{clients.map(c => <SelectItem key={c.id} value={c.razonSocial}>{c.razonSocial}</SelectItem>)}</SelectContent></Select>
+                                         <Dialog open={isSettlementClientDialogOpen} onOpenChange={setIsSettlementClientDialogOpen}>
+                                            <DialogTrigger asChild>
+                                                <Button variant="outline" className="w-full justify-between text-left font-normal">
+                                                    {settlementClient || "Seleccione un cliente"}
+                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                </Button>
+                                            </DialogTrigger>
+                                            <DialogContent className="sm:max-w-[425px]">
+                                                <DialogHeader><DialogTitle>Seleccionar Cliente</DialogTitle></DialogHeader>
+                                                <div className="p-4">
+                                                    <Input placeholder="Buscar cliente..." value={settlementClientSearch} onChange={(e) => setSettlementClientSearch(e.target.value)} className="mb-4" />
+                                                    <ScrollArea className="h-72"><div className="space-y-1">
+                                                        {filteredSettlementClients.map((client) => (
+                                                            <Button key={client.id} variant="ghost" className="w-full justify-start" onClick={() => { setSettlementClient(client.razonSocial); setIsSettlementClientDialogOpen(false); setSettlementClientSearch(''); }}>{client.razonSocial}</Button>
+                                                        ))}
+                                                    </div></ScrollArea>
+                                                </div>
+                                            </DialogContent>
+                                        </Dialog>
                                     </div>
                                     <div className="space-y-2">
                                         <Label>Rango de Fechas</Label>
@@ -2052,6 +2074,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                             readOnly
                             value={indexErrorMessage}
                             className="mt-2 font-mono text-xs h-32"
+                            onClick={(e) => (e.target as HTMLTextAreaElement).select()}
                         />
                     </div>
                     <AlertDialogFooter>
@@ -2068,3 +2091,5 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         </div>
     );
 }
+
+    
