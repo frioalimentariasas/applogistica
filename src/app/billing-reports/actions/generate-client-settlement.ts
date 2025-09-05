@@ -38,10 +38,12 @@ export interface ClientSettlementCriteria {
   startDate: string;
   endDate: string;
   conceptIds: string[];
+  containerNumber?: string;
 }
 
 export interface ClientSettlementRow {
   date: string;
+  container: string;
   conceptName: string;
   quantity: number;
   unitOfMeasure: string;
@@ -73,7 +75,7 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
     return { success: false, error: 'El servidor no está configurado correctamente.' };
   }
 
-  const { clientName, startDate, endDate, conceptIds } = criteria;
+  const { clientName, startDate, endDate, conceptIds, containerNumber } = criteria;
   if (!clientName || !startDate || !endDate || conceptIds.length === 0) {
     return { success: false, error: 'Faltan criterios para la liquidación.' };
   }
@@ -83,7 +85,7 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
     const allConcepts = conceptsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as (ClientBillingConcept & {id: string})[];
     const selectedConcepts = allConcepts.filter(c => conceptIds.includes(c.id));
 
-    const allOperations = await getDetailedReport({ clientName, startDate, endDate });
+    const allOperations = await getDetailedReport({ clientName, startDate, endDate, containerNumber });
 
     const manualOpsSnapshot = await firestore.collection('manual_client_operations')
         .where('clientName', '==', clientName)
@@ -100,13 +102,15 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
         return date.toISOString().split('T')[0];
     };
     
-    // Group automatic operations by day
-    const operationsByDay = allOperations.reduce((acc, op) => {
+    // Group automatic operations by day AND container
+    const operationsByDayAndContainer = allOperations.reduce((acc, op) => {
         const date = getLocalGroupingDate(op.fecha);
-        if (!acc[date]) {
-            acc[date] = [];
+        const container = op.contenedor || 'N/A';
+        const key = `${date}|${container}`;
+        if (!acc[key]) {
+            acc[key] = [];
         }
-        acc[date].push(op);
+        acc[key].push(op);
         return acc;
     }, {} as Record<string, DetailedReportRow[]>);
 
@@ -122,13 +126,15 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
     }, {} as Record<string, any[]>);
 
 
-    // Iterate over each day in the grouped operations
-    for (const date in operationsByDay) {
+    // Iterate over each day/container group in the grouped operations
+    for (const key in operationsByDayAndContainer) {
+      const [date, container] = key.split('|');
+      
       if (!resultsByDay.has(date)) {
         resultsByDay.set(date, []);
       }
       const dailyResults = resultsByDay.get(date)!;
-      const dailyOperations = operationsByDay[date];
+      const dailyOperations = operationsByDayAndContainer[key];
 
       for (const concept of selectedConcepts) {
         let quantity = 0;
@@ -190,6 +196,7 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
 
             dailyResults.push({
               date,
+              container,
               conceptName: concept.conceptName,
               quantity,
               unitOfMeasure: concept.unitOfMeasure,
@@ -220,6 +227,7 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
                 }
                 dailyResults.push({
                   date,
+                  container: manualOp.details?.plate || 'Manual',
                   conceptName: concept.conceptName,
                   quantity,
                   unitOfMeasure: concept.unitOfMeasure,

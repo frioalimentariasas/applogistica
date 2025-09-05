@@ -16,7 +16,7 @@ import { getDetailedReport, type DetailedReportRow } from '@/app/actions/detaile
 import { getInventoryReport, uploadInventoryCsv, type InventoryPivotReport, getClientsWithInventory, getInventoryIdsByDateRange, deleteSingleInventoryDoc, getDetailedInventoryForExport } from '@/app/actions/inventory-report';
 import { getConsolidatedMovementReport, type ConsolidatedReportRow } from '@/app/actions/consolidated-movement-report';
 import { getClientBillingConcepts, type ClientBillingConcept } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
-import { generateClientSettlement, type ClientSettlementRow, getAllManualClientOperations } from './actions/generate-client-settlement';
+import { generateClientSettlement, type ClientSettlementRow } from './actions/generate-client-settlement';
 import type { ClientInfo } from '@/app/actions/clients';
 import { getPedidoTypes, type PedidoType } from '@/app/gestion-tipos-pedido/actions';
 import { useToast } from '@/hooks/use-toast';
@@ -214,6 +214,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     // State for client settlement
     const [settlementClient, setSettlementClient] = useState<string | undefined>(undefined);
     const [settlementDateRange, setSettlementDateRange] = useState<DateRange | undefined>();
+    const [settlementContainer, setSettlementContainer] = useState<string>('');
     const [allClientConcepts, setAllClientConcepts] = useState<ClientBillingConcept[]>([]);
     const [availableConcepts, setAvailableConcepts] = useState<ClientBillingConcept[]>([]);
     const [selectedConcepts, setSelectedConcepts] = useState<string[]>([]);
@@ -1051,7 +1052,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 clientName: settlementClient,
                 startDate: format(settlementDateRange.from, 'yyyy-MM-dd'),
                 endDate: format(settlementDateRange.to, 'yyyy-MM-dd'),
-                conceptIds: selectedConcepts
+                conceptIds: selectedConcepts,
+                containerNumber: settlementContainer,
             });
             
             if (result.success && result.data) {
@@ -1088,6 +1090,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         
         worksheet.columns = [
             { header: 'Fecha', key: 'date', width: 15 },
+            { header: 'Contenedor', key: 'container', width: 20 },
             { header: 'Concepto', key: 'conceptName', width: 40 },
             { header: 'Cantidad', key: 'quantity', width: 15 },
             { header: 'Unidad', key: 'unitOfMeasure', width: 15 },
@@ -1112,18 +1115,18 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 worksheet.addRow({
                     ...row,
                     date: format(parseISO(row.date), 'dd/MM/yyyy'),
-                    unitValue: { formula: `E${worksheet.rowCount + 1}`, result: row.unitValue },
-                    totalValue: { formula: `F${worksheet.rowCount + 1}`, result: row.totalValue }
+                    unitValue: { formula: `F${worksheet.rowCount + 1}`, result: row.unitValue },
+                    totalValue: { formula: `G${worksheet.rowCount + 1}`, result: row.totalValue }
                 });
-                worksheet.getCell(`E${worksheet.rowCount}`).numFmt = '$ #,##0.00';
                 worksheet.getCell(`F${worksheet.rowCount}`).numFmt = '$ #,##0.00';
-                worksheet.getCell(`C${worksheet.rowCount}`).numFmt = '#,##0.00';
+                worksheet.getCell(`G${worksheet.rowCount}`).numFmt = '$ #,##0.00';
+                worksheet.getCell(`D${worksheet.rowCount}`).numFmt = '#,##0.00';
             });
             const subtotalRow = worksheet.addRow({ conceptName: `SUBTOTAL ${conceptName}`, totalValue: groupedData[conceptName].subtotal });
             subtotalRow.font = { bold: true };
             subtotalRow.getCell('A').alignment = { horizontal: 'right' };
-            subtotalRow.getCell('F').numFmt = '$ #,##0.00';
-            worksheet.mergeCells(`A${subtotalRow.number}:E${subtotalRow.number}`);
+            subtotalRow.getCell('G').numFmt = '$ #,##0.00';
+            worksheet.mergeCells(`A${subtotalRow.number}:F${subtotalRow.number}`);
         });
 
         worksheet.addRow([]);
@@ -1131,9 +1134,9 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         totalRow.font = { bold: true };
         totalRow.getCell('A').font = { size: 12, bold: true };
         totalRow.getCell('A').alignment = { horizontal: 'right' };
-        totalRow.getCell('F').font = { size: 12, bold: true };
-        totalRow.getCell('F').numFmt = '$ #,##0.00';
-        worksheet.mergeCells(`A${totalRow.number}:E${totalRow.number}`);
+        totalRow.getCell('G').font = { size: 12, bold: true };
+        totalRow.getCell('G').numFmt = '$ #,##0.00';
+        worksheet.mergeCells(`A${totalRow.number}:F${totalRow.number}`);
 
 
         const buffer = await workbook.xlsx.writeBuffer();
@@ -1936,7 +1939,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                 <CardDescription>Genere un reporte de liquidación para los servicios prestados a un cliente.</CardDescription>
                             </CardHeader>
                             <CardContent>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end mb-6">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end mb-6">
                                      <div className="space-y-2">
                                         <Label>Cliente</Label>
                                          <Dialog open={isSettlementClientDialogOpen} onOpenChange={setIsSettlementClientDialogOpen}>
@@ -1960,6 +1963,10 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                         </Dialog>
                                     </div>
                                     <div className="space-y-2">
+                                        <Label>No. Contenedor (Opcional)</Label>
+                                        <Input placeholder="Buscar por contenedor" value={settlementContainer} onChange={(e) => setSettlementContainer(e.target.value)} />
+                                    </div>
+                                    <div className="space-y-2">
                                         <Label>Rango de Fechas</Label>
                                         <Popover>
                                             <PopoverTrigger asChild><Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !settlementDateRange && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{settlementDateRange?.from ? (settlementDateRange.to ? (<>{format(settlementDateRange.from, "LLL dd, y", { locale: es })} - {format(settlementDateRange.to, "LLL dd, y", { locale: es })}</>) : (format(settlementDateRange.from, "LLL dd, y", { locale: es }))) : (<span>Seleccione un rango</span>)}</Button></PopoverTrigger>
@@ -1981,7 +1988,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                     </div>
                                     <div className="flex gap-2">
                                         <Button onClick={handleSettlementSearch} className="w-full" disabled={isSettlementLoading}><Search className="mr-2 h-4 w-4" />Liquidar</Button>
-                                        <Button onClick={() => { setSettlementClient(undefined); setSettlementDateRange(undefined); setSelectedConcepts([]); setSettlementReportData([]); setSettlementSearched(false); }} variant="outline" className="w-full"><XCircle className="mr-2 h-4 w-4" />Limpiar</Button>
+                                        <Button onClick={() => { setSettlementClient(undefined); setSettlementDateRange(undefined); setSelectedConcepts([]); setSettlementReportData([]); setSettlementSearched(false); setSettlementContainer(''); }} variant="outline" className="w-full"><XCircle className="mr-2 h-4 w-4" />Limpiar</Button>
                                     </div>
                                 </div>
 
@@ -1993,6 +2000,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                     <div className="rounded-md border">
                                         <Table><TableHeader><TableRow>
                                             <TableHead>Fecha</TableHead>
+                                            <TableHead>Contenedor</TableHead>
                                             <TableHead>Concepto</TableHead>
                                             <TableHead className="text-right">Cantidad</TableHead>
                                             <TableHead>Unidad</TableHead>
@@ -2001,11 +2009,12 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                         </TableRow></TableHeader>
                                         <TableBody>
                                             {isSettlementLoading ? (
-                                                Array.from({length: 3}).map((_, i) => <TableRow key={i}><TableCell colSpan={6}><Skeleton className="h-8 w-full"/></TableCell></TableRow>)
+                                                Array.from({length: 3}).map((_, i) => <TableRow key={i}><TableCell colSpan={7}><Skeleton className="h-8 w-full"/></TableCell></TableRow>)
                                             ) : settlementReportData.length > 0 ? (
                                                 settlementReportData.map((row, i) => (
                                                   <TableRow key={`${row.date}-${row.conceptName}-${i}`}>
                                                     <TableCell>{format(parseISO(row.date), 'dd/MM/yyyy', { locale: es })}</TableCell>
+                                                    <TableCell>{row.container}</TableCell>
                                                     <TableCell className="font-semibold">{row.conceptName}</TableCell>
                                                     <TableCell className="text-right">{row.quantity.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
                                                     <TableCell>{row.unitOfMeasure}</TableCell>
@@ -2014,7 +2023,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                   </TableRow>
                                                 ))
                                             ) : (
-                                                <TableRow><TableCell colSpan={6} className="h-24 text-center">No se encontraron datos para liquidar.</TableCell></TableRow>
+                                                <TableRow><TableCell colSpan={7} className="h-24 text-center">No se encontraron datos para liquidar.</TableCell></TableRow>
                                             )}
                                         </TableBody></Table>
                                     </div>
