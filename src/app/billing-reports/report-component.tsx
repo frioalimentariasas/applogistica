@@ -2,6 +2,7 @@
 
 "use client";
 
+import * as React from 'react';
 import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { DateRange } from 'react-day-picker';
@@ -181,7 +182,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const [inventorySesion, setInventorySesion] = useState<string>('');
     const [inventoryReportData, setInventoryReportData] = useState<InventoryPivotReport | null>(null);
     const [inventorySearched, setInventorySearched] = useState(false);
-    const [isInventoryClientDialogOpen, setisInventoryClientDialogOpen] = useState(false);
+    const [isInventoryClientDialogOpen, setIsInventoryClientDialogOpen] = useState(false);
     const [inventoryClientSearch, setInventoryClientSearch] = useState('');
     const [availableInventoryClients, setAvailableInventoryClients] = useState<string[]>([]);
     const [isLoadingInventoryClients, setIsLoadingInventoryClients] = useState(false);
@@ -1069,8 +1070,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                     toast({ variant: 'destructive', title: 'Error al Liquidar', description: result.error || "Ocurrió un error inesperado en el servidor." });
                 }
             }
-        } catch (error) {
-            const msg = error instanceof Error ? error.message : "Error inesperado.";
+        } catch (error: any) {
+            const msg = error.message ? error.message : "Error inesperado.";
             if (typeof msg === 'string' && msg.includes('requires an index')) {
                 setIndexErrorMessage(msg);
                 setIsIndexErrorOpen(true);
@@ -1557,7 +1558,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                         </div>
                                         <div className="space-y-2">
                                             <Label>Cliente(s)</Label>
-                                            <Dialog open={isInventoryClientDialogOpen} onOpenChange={setisInventoryClientDialogOpen}>
+                                            <Dialog open={isInventoryClientDialogOpen} onOpenChange={setIsInventoryClientDialogOpen}>
                                                 <DialogTrigger asChild>
                                                     <Button
                                                         variant="outline"
@@ -1633,7 +1634,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                         </ScrollArea>
                                                     </div>
                                                     <DialogFooter>
-                                                        <Button onClick={() => setisInventoryClientDialogOpen(false)}>Cerrar</Button>
+                                                        <Button onClick={() => setIsInventoryClientDialogOpen(false)}>Cerrar</Button>
                                                     </DialogFooter>
                                                 </DialogContent>
                                             </Dialog>
