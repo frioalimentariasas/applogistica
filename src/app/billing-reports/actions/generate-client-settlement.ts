@@ -56,6 +56,7 @@ export interface ClientSettlementResult {
     success: boolean;
     data?: ClientSettlementRow[];
     error?: string;
+    errorLink?: string;
 }
 
 const findMatchingTariff = (tons: number, vehicleType: 'CONTENEDOR' | 'TURBO', concept: ClientBillingConcept): TariffRange | undefined => {
@@ -139,7 +140,6 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
 
       for (const concept of selectedConcepts) {
         let quantity = 0;
-        let totalPallets = 0;
         
         const applicableOperations = dailyOperations.filter(op => {
           let opTypeMatch = false;
@@ -177,7 +177,7 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
                 quantity = 0;
         }
 
-        totalPallets = applicableOperations.reduce((sum, op) => sum + (op.totalPaletas || 0), 0);
+        const totalPaletas = applicableOperations.reduce((sum, op) => sum + (op.totalPaletas || 0), 0);
 
         if (quantity > 0) {
             let unitValue = 0;
@@ -252,8 +252,14 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
   } catch (error: any) {
     console.error('Error in generateClientSettlement:', error);
 
-     if (error instanceof Error && error.message.includes('requires an index')) {
-      throw error;
+     if (error.message && typeof error.message === 'string' && error.message.includes('requires an index')) {
+      const linkMatch = error.message.match(/(https?:\/\/[^\s]+)/);
+      const link = linkMatch ? linkMatch[0] : 'No se pudo extraer el enlace.';
+      return {
+          success: false,
+          error: 'Se requiere un índice compuesto en Firestore.',
+          errorLink: link
+      };
     }
     
     return { success: false, error: error.message || 'Ocurrió un error desconocido en el servidor.' };

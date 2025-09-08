@@ -1062,8 +1062,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                     toast({ title: "Sin resultados", description: "No se encontraron operaciones para liquidar con los filtros seleccionados." });
                 }
             } else {
-                 if (result.error && result.error.includes('requires an index')) {
-                    setIndexErrorMessage(result.error);
+                 if (result.error && result.errorLink) {
+                    setIndexErrorMessage(result.errorLink);
                     setIsIndexErrorOpen(true);
                 } else {
                     toast({ variant: 'destructive', title: 'Error al Liquidar', description: result.error || "Ocurrió un error inesperado en el servidor." });
@@ -1114,6 +1114,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             groupedData[conceptName].rows.forEach(row => {
                 worksheet.addRow({
                     ...row,
+                    totalPaletas: row.totalPaletas || 0,
                     date: format(parseISO(row.date), 'dd/MM/yyyy'),
                     unitValue: { formula: `G${worksheet.rowCount + 1}`, result: row.unitValue },
                     totalValue: { formula: `H${worksheet.rowCount + 1}`, result: row.totalValue }
@@ -1942,7 +1943,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-end mb-6">
                                      <div className="space-y-2">
                                         <Label>Cliente</Label>
-                                         <Dialog open={isSettlementClientDialogOpen} onOpenChange={setIsSettlementClientDialogOpen}>
+                                        <Dialog open={isSettlementClientDialogOpen} onOpenChange={setIsSettlementClientDialogOpen}>
                                             <DialogTrigger asChild>
                                                 <Button variant="outline" className="w-full justify-between text-left font-normal">
                                                     {settlementClient || "Seleccione un cliente"}
@@ -2015,7 +2016,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                 settlementReportData.map((row, i) => (
                                                   <TableRow key={`${row.date}-${row.conceptName}-${i}`}>
                                                     <TableCell>{format(parseISO(row.date), 'dd/MM/yyyy', { locale: es })}</TableCell>
-                                                    <TableCell>{row.totalPaletas}</TableCell>
+                                                    <TableCell>{row.totalPaletas || 0}</TableCell>
                                                     <TableCell>{row.container}</TableCell>
                                                     <TableCell className="font-semibold">{row.conceptName}</TableCell>
                                                     <TableCell className="text-right">{row.quantity.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
@@ -2102,3 +2103,4 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         </div>
     );
 }
+
