@@ -46,7 +46,8 @@ export interface ClientSettlementRow {
   totalPaletas: number;
   container: string;
   camara: string;
-  operacionLogistica: string; // <-- Nueva propiedad
+  operacionLogistica: string;
+  pedidoSislog: string; // <-- Nueva propiedad
   conceptName: string;
   quantity: number;
   unitOfMeasure: string;
@@ -189,6 +190,8 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
       const dailyResults = resultsByDay.get(date)!;
       const dailyOperations = operationsByDayAndContainer[key];
       const camara = dailyOperations[0]?.sesion || 'N/A';
+      const pedidoSislog = [...new Set(dailyOperations.map(op => op.pedidoSislog))].join(', ');
+
 
       for (const concept of selectedConcepts) {
         let quantity = 0;
@@ -261,6 +264,7 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
               camara,
               totalPaletas,
               operacionLogistica,
+              pedidoSislog,
               conceptName: concept.conceptName,
               quantity,
               unitOfMeasure: concept.unitOfMeasure,
@@ -304,6 +308,7 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
                   totalPaletas: 0,
                   camara: 'N/A',
                   operacionLogistica,
+                  pedidoSislog: 'Manual',
                   conceptName: concept.conceptName,
                   quantity,
                   unitOfMeasure: concept.unitOfMeasure,
@@ -335,4 +340,3 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
     return { success: false, error: error.message || 'Ocurrió un error desconocido en el servidor.' };
   }
 }
-
