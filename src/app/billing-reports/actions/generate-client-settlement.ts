@@ -233,7 +233,7 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
                 dailyResults.push({
                   date,
                   container: manualOp.details?.plate || 'Manual',
-                  totalPaletas: 0, // Manual operations don't have pallets
+                  totalPaletas: 0,
                   conceptName: concept.conceptName,
                   quantity,
                   unitOfMeasure: concept.unitOfMeasure,
