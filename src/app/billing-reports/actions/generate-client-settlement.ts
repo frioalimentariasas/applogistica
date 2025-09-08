@@ -45,7 +45,8 @@ export interface ClientSettlementRow {
   date: string;
   totalPaletas: number;
   container: string;
-  camara: string; // <-- Nueva propiedad
+  camara: string;
+  operacionLogistica: string; // <-- Nueva propiedad
   conceptName: string;
   quantity: number;
   unitOfMeasure: string;
@@ -70,6 +71,55 @@ const findMatchingTariff = (tons: number, vehicleType: 'CONTENEDOR' | 'TURBO', c
         tons <= range.maxTons &&
         range.vehicleType.toUpperCase() === vehicleType
     );
+};
+
+const getOperationLogisticsType = (isoDateString: string, horaInicio: string, horaFin: string, concept: ClientBillingConcept): "Diurno" | "Nocturno" | "Extra" => {
+    if (!isoDateString || !horaInicio || !horaFin || concept.tariffType !== 'RANGOS' || !concept.dayShiftStart || !concept.dayShiftEnd) {
+      return "Diurno"; // Default
+    }
+
+    try {
+        const date = new Date(isoDateString);
+        date.setUTCHours(date.getUTCHours() - 5);
+
+        const dayOfWeek = date.getUTCDay();
+
+        const [startHours, startMinutes] = horaInicio.split(':').map(Number);
+        const startTime = new Date(date);
+        startTime.setUTCHours(startHours, startMinutes, 0, 0);
+
+        const [endHours, endMinutes] = horaFin.split(':').map(Number);
+        const endTime = new Date(date);
+        endTime.setUTCHours(endHours, endMinutes, 0, 0);
+
+        if (endTime <= startTime) {
+            endTime.setUTCDate(endTime.getUTCDate() + 1);
+        }
+
+        const [diurnoStartHours, diurnoStartMinutes] = concept.dayShiftStart.split(':').map(Number);
+        const diurnoStart = new Date(date);
+        diurnoStart.setUTCHours(diurnoStartHours, diurnoStartMinutes, 0, 0);
+
+        const [diurnoEndHours, diurnoEndMinutes] = concept.dayShiftEnd.split(':').map(Number);
+        const diurnoEnd = new Date(date);
+        diurnoEnd.setUTCHours(diurnoEndHours, diurnoEndMinutes, 0, 0);
+
+        // Check if the entire operation falls within the diurno window
+        if (startTime >= diurnoStart && endTime <= diurnoEnd) {
+            return 'Diurno';
+        } else {
+            // For Saturdays, outside diurno is 'Extra'
+            if (dayOfWeek === 6 && (startTime < diurnoStart || endTime > diurnoEnd)) {
+                return 'Extra';
+            }
+            // For other days, it's 'Nocturno'
+            return 'Nocturno';
+        }
+
+    } catch (e) {
+        console.error(`Error calculating logistics type:`, e);
+        return 'Diurno'; // Default on error
+    }
 };
 
 
@@ -183,8 +233,11 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
 
         if (quantity > 0) {
             let unitValue = 0;
+            let operacionLogistica: string = 'N/A';
+
             if (concept.tariffType === 'UNICA') {
               unitValue = concept.value || 0;
+              operacionLogistica = 'Diurno'; // Default for single tariff
             } else if (concept.tariffType === 'RANGOS') {
                 const totalTons = applicableOperations.reduce((sum, op) => sum + (op.totalPesoKg || 0), 0) / 1000;
                 const vehicleType = container !== 'No aplica' ? 'CONTENEDOR' : 'TURBO';
@@ -192,19 +245,22 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
                 const matchingTariff = findMatchingTariff(totalTons, vehicleType, concept);
                 
                 if (matchingTariff) {
-                    // Placeholder for day/night logic. Defaulting to day tariff for now.
-                    unitValue = matchingTariff.dayTariff;
+                    const firstOp = applicableOperations[0];
+                    const opLogisticType = getOperationLogisticsType(firstOp.fecha, firstOp.horaInicio, firstOp.horaFin, concept);
+                    unitValue = opLogisticType === 'Diurno' ? matchingTariff.dayTariff : matchingTariff.nightTariff;
+                    operacionLogistica = opLogisticType;
                 } else {
-                    // Fallback if no range matches - could be 0 or a default value
                     unitValue = concept.value || 0;
+                    operacionLogistica = 'Diurno'; // Fallback
                 }
             }
 
             dailyResults.push({
               date,
               container,
-              camara, // <-- Añadido aquí
+              camara,
               totalPaletas,
+              operacionLogistica,
               conceptName: concept.conceptName,
               quantity,
               unitOfMeasure: concept.unitOfMeasure,
@@ -228,16 +284,26 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
              if (concept) {
                 const quantity = Number(manualOp.quantity) || 0;
                 let unitValue = 0;
+                let operacionLogistica: string = 'N/A';
+                
                 if (concept.tariffType === 'UNICA') {
                   unitValue = concept.value || 0;
-                } else {
-                  unitValue = concept.tariffRanges?.[0]?.dayTariff || 0;
+                  operacionLogistica = 'Diurno';
+                } else if (concept.tariffType === 'RANGOS' && manualOp.details?.startTime && manualOp.details?.endTime) {
+                    const opLogisticType = getOperationLogisticsType(manualOp.operationDate.toISOString(), manualOp.details.startTime, manualOp.details.endTime, concept);
+                    const matchingTariff = concept.tariffRanges?.[0]; // Assuming one generic range for manual ops
+                    if (matchingTariff) {
+                        unitValue = opLogisticType === 'Diurno' ? matchingTariff.dayTariff : matchingTariff.nightTariff;
+                    }
+                    operacionLogistica = opLogisticType;
                 }
+
                 dailyResults.push({
                   date,
                   container: manualOp.details?.plate || 'Manual',
                   totalPaletas: 0,
-                  camara: 'N/A', // <-- Añadido aquí
+                  camara: 'N/A',
+                  operacionLogistica,
                   conceptName: concept.conceptName,
                   quantity,
                   unitOfMeasure: concept.unitOfMeasure,
@@ -269,3 +335,4 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
     return { success: false, error: error.message || 'Ocurrió un error desconocido en el servidor.' };
   }
 }
+

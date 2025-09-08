@@ -1095,6 +1095,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             { header: 'Concepto', key: 'conceptName', width: 40 },
             { header: 'Cantidad', key: 'quantity', width: 15 },
             { header: 'Unidad', key: 'unitOfMeasure', width: 15 },
+            { header: 'Op. Logística', key: 'operacionLogistica', width: 15 },
             { header: 'Valor Unitario', key: 'unitValue', width: 20 },
             { header: 'Valor Total', key: 'totalValue', width: 20 },
         ];
@@ -1118,18 +1119,19 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                     totalPaletas: row.totalPaletas || 0,
                     camara: getSessionName(row.camara),
                     date: format(parseISO(row.date), 'dd/MM/yyyy'),
-                    unitValue: { formula: `H${worksheet.rowCount + 1}`, result: row.unitValue },
-                    totalValue: { formula: `I${worksheet.rowCount + 1}`, result: row.totalValue }
+                    operacionLogistica: row.operacionLogistica,
+                    unitValue: { formula: `I${worksheet.rowCount + 1}`, result: row.unitValue },
+                    totalValue: { formula: `J${worksheet.rowCount + 1}`, result: row.totalValue }
                 });
-                worksheet.getCell(`H${worksheet.rowCount}`).numFmt = '$ #,##0.00';
                 worksheet.getCell(`I${worksheet.rowCount}`).numFmt = '$ #,##0.00';
+                worksheet.getCell(`J${worksheet.rowCount}`).numFmt = '$ #,##0.00';
                 worksheet.getCell(`F${worksheet.rowCount}`).numFmt = '#,##0.00';
             });
             const subtotalRow = worksheet.addRow({ conceptName: `SUBTOTAL ${conceptName}`, totalValue: groupedData[conceptName].subtotal });
             subtotalRow.font = { bold: true };
             subtotalRow.getCell('A').alignment = { horizontal: 'right' };
-            subtotalRow.getCell('I').numFmt = '$ #,##0.00';
-            worksheet.mergeCells(`A${subtotalRow.number}:H${subtotalRow.number}`);
+            subtotalRow.getCell('J').numFmt = '$ #,##0.00';
+            worksheet.mergeCells(`A${subtotalRow.number}:I${subtotalRow.number}`);
         });
 
         worksheet.addRow([]);
@@ -1137,9 +1139,9 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         totalRow.font = { bold: true };
         totalRow.getCell('A').font = { size: 12, bold: true };
         totalRow.getCell('A').alignment = { horizontal: 'right' };
-        totalRow.getCell('I').font = { size: 12, bold: true };
-        totalRow.getCell('I').numFmt = '$ #,##0.00';
-        worksheet.mergeCells(`A${totalRow.number}:H${totalRow.number}`);
+        totalRow.getCell('J').font = { size: 12, bold: true };
+        totalRow.getCell('J').numFmt = '$ #,##0.00';
+        worksheet.mergeCells(`A${totalRow.number}:I${totalRow.number}`);
 
 
         const buffer = await workbook.xlsx.writeBuffer();
@@ -2008,14 +2010,15 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                             <TableHead>Contenedor</TableHead>
                                             <TableHead>Cámara</TableHead>
                                             <TableHead>Concepto</TableHead>
-                                            <TableHead className="text-right">Cantidad</TableHead>
+                                            <TableHead>Cantidad</TableHead>
                                             <TableHead>Unidad</TableHead>
+                                            <TableHead>Op. Logística</TableHead>
                                             <TableHead className="text-right">Valor Unitario</TableHead>
                                             <TableHead className="text-right">Valor Total</TableHead>
                                         </TableRow></TableHeader>
                                         <TableBody>
                                             {isSettlementLoading ? (
-                                                Array.from({length: 3}).map((_, i) => <TableRow key={i}><TableCell colSpan={9}><Skeleton className="h-8 w-full"/></TableCell></TableRow>)
+                                                Array.from({length: 3}).map((_, i) => <TableRow key={i}><TableCell colSpan={10}><Skeleton className="h-8 w-full"/></TableCell></TableRow>)
                                             ) : settlementReportData.length > 0 ? (
                                                 settlementReportData.map((row, i) => (
                                                   <TableRow key={`${row.date}-${row.conceptName}-${i}`}>
@@ -2024,14 +2027,15 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                     <TableCell>{row.container}</TableCell>
                                                     <TableCell>{getSessionName(row.camara)}</TableCell>
                                                     <TableCell className="font-semibold">{row.conceptName}</TableCell>
-                                                    <TableCell className="text-right">{row.quantity.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
+                                                    <TableCell>{row.quantity.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
                                                     <TableCell>{row.unitOfMeasure}</TableCell>
+                                                    <TableCell>{row.operacionLogistica}</TableCell>
                                                     <TableCell className="text-right">{row.unitValue.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
                                                     <TableCell className="text-right font-bold">{row.totalValue.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
                                                   </TableRow>
                                                 ))
                                             ) : (
-                                                <TableRow><TableCell colSpan={9} className="h-24 text-center">No se encontraron datos para liquidar.</TableCell></TableRow>
+                                                <TableRow><TableCell colSpan={10} className="h-24 text-center">No se encontraron datos para liquidar.</TableCell></TableRow>
                                             )}
                                         </TableBody></Table>
                                     </div>
@@ -2076,12 +2080,12 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
-            <AlertDialog open={isIndexErrorOpen} onOpenChange={setIsIndexErrorOpen}>
+             <AlertDialog open={isIndexErrorOpen} onOpenChange={setIsIndexErrorOpen}>
                 <AlertDialogContent className="sm:max-w-2xl">
                     <AlertDialogHeader>
                         <AlertDialogTitle>Índice Compuesto Requerido en Firestore</AlertDialogTitle>
                         <AlertDialogDescription>
-                            Para realizar esta consulta, Firestore necesita un índice compuesto que no existe. Por favor, copie el siguiente enlace, ábralo en una nueva pestaña del navegador y haga clic en "Crear Índice" en la consola de Firebase. La creación puede tardar unos minutos.
+                           Para realizar esta consulta, Firestore necesita un índice compuesto que no existe. Por favor, copie el siguiente enlace, ábralo en una nueva pestaña del navegador y haga clic en "Crear Índice" en la consola de Firebase. La creación puede tardar unos minutos.
                         </AlertDialogDescription>
                     </AlertDialogHeader>
                     <div className="p-4 bg-muted rounded-md">
@@ -2108,3 +2112,4 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         </div>
     );
 }
+
