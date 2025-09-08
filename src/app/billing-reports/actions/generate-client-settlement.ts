@@ -47,7 +47,7 @@ export interface ClientSettlementRow {
   container: string;
   camara: string;
   operacionLogistica: string;
-  pedidoSislog: string; // <-- Nueva propiedad
+  pedidoSislog: string; 
   conceptName: string;
   quantity: number;
   unitOfMeasure: string;
@@ -148,6 +148,7 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
         .get();
     
     const resultsByDay = new Map<string, ClientSettlementRow[]>();
+    const specialConcepts = ["FMM DE INGRESO", "ARIN DE INGRESO", "FMM DE SALIDA", "ARIN DE SALIDA"];
 
     const getLocalGroupingDate = (isoString: string): string => {
         if (!isoString) return '';
@@ -190,74 +191,82 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
       const dailyResults = resultsByDay.get(date)!;
       const dailyOperations = operationsByDayAndContainer[key];
       const camara = dailyOperations[0]?.sesion || 'N/A';
+      const totalPaletas = dailyOperations.reduce((sum, op) => sum + (op.totalPaletas || 0), 0);
       const pedidoSislog = [...new Set(dailyOperations.map(op => op.pedidoSislog))].join(', ');
 
+      const hasReceptions = dailyOperations.some(op => op.tipoOperacion === 'Recepción');
+      const hasDispatches = dailyOperations.some(op => op.tipoOperacion === 'Despacho');
 
       for (const concept of selectedConcepts) {
+        
         let quantity = 0;
-        
-        const applicableOperations = dailyOperations.filter(op => {
-          let opTypeMatch = false;
-          if (concept.filterOperationType === 'ambos') opTypeMatch = true;
-          else if (concept.filterOperationType === 'recepcion' && op.tipoOperacion === 'Recepción') opTypeMatch = true;
-          else if (concept.filterOperationType === 'despacho' && op.tipoOperacion === 'Despacho') opTypeMatch = true;
-          
-          const prodTypeMatch = concept.filterProductType === 'ambos' || op.tipoProducto.toLowerCase().includes(concept.filterProductType);
-          return opTypeMatch && prodTypeMatch;
-        });
-        
-        if (applicableOperations.length === 0) continue;
+        let operacionLogistica: string = 'N/A';
+        let unitValue = 0;
 
-        switch (concept.calculationBase) {
-            case 'TONELADAS':
-                quantity = applicableOperations.reduce((sum, op) => sum + (op.totalPesoKg || 0), 0) / 1000;
-                break;
-            case 'KILOGRAMOS':
-                quantity = applicableOperations.reduce((sum, op) => sum + (op.totalPesoKg || 0), 0);
-                break;
-            case 'CANTIDAD_PALETAS':
-                quantity = applicableOperations.reduce((sum, op) => sum + (op.totalPaletas || 0), 0);
-                break;
-            case 'CANTIDAD_CAJAS':
-                quantity = applicableOperations.reduce((sum, op) => sum + (op.totalCantidad || 0), 0);
-                break;
-            case 'NUMERO_OPERACIONES':
-                quantity = applicableOperations.length;
-                break;
-            case 'NUMERO_CONTENEDORES':
-                // This logic is now per-container, so it will always be 1 if applicable
+        // ** START: New logic for special concepts **
+        let isSpecialConceptHandled = false;
+        if (specialConcepts.includes(concept.conceptName.toUpperCase())) {
+            if ((concept.conceptName.toUpperCase() === "FMM DE INGRESO" || concept.conceptName.toUpperCase() === "ARIN DE INGRESO") && hasReceptions) {
                 quantity = 1;
-                break;
-            default:
-                quantity = 0;
+            } else if ((concept.conceptName.toUpperCase() === "FMM DE SALIDA" || concept.conceptName.toUpperCase() === "ARIN DE SALIDA") && hasDispatches) {
+                quantity = 1;
+            }
+            if (quantity > 0) {
+              unitValue = concept.value || 0; // Special concepts always use single tariff
+              operacionLogistica = 'Diurno'; // Default for these concepts
+              isSpecialConceptHandled = true;
+            }
         }
+        // ** END: New logic for special concepts **
 
-        const totalPaletas = applicableOperations.reduce((sum, op) => sum + (op.totalPaletas || 0), 0);
+        // Keep existing logic for other concepts
+        if (!isSpecialConceptHandled) {
+            const applicableOperations = dailyOperations.filter(op => {
+              let opTypeMatch = false;
+              if (concept.filterOperationType === 'ambos') opTypeMatch = true;
+              else if (concept.filterOperationType === 'recepcion' && op.tipoOperacion === 'Recepción') opTypeMatch = true;
+              else if (concept.filterOperationType === 'despacho' && op.tipoOperacion === 'Despacho') opTypeMatch = true;
+              
+              const prodTypeMatch = concept.filterProductType === 'ambos' || op.tipoProducto.toLowerCase().includes(concept.filterProductType);
+              return opTypeMatch && prodTypeMatch;
+            });
+            
+            if (applicableOperations.length === 0) continue;
 
-        if (quantity > 0) {
-            let unitValue = 0;
-            let operacionLogistica: string = 'N/A';
-
-            if (concept.tariffType === 'UNICA') {
-              unitValue = concept.value || 0;
-              operacionLogistica = 'Diurno'; // Default for single tariff
-            } else if (concept.tariffType === 'RANGOS') {
-                const totalTons = applicableOperations.reduce((sum, op) => sum + (op.totalPesoKg || 0), 0) / 1000;
-                const vehicleType = container !== 'No aplica' ? 'CONTENEDOR' : 'TURBO';
-                
-                const matchingTariff = findMatchingTariff(totalTons, vehicleType, concept);
-                
-                if (matchingTariff) {
-                    const firstOp = applicableOperations[0];
-                    const opLogisticType = getOperationLogisticsType(firstOp.fecha, firstOp.horaInicio, firstOp.horaFin, concept);
-                    unitValue = opLogisticType === 'Diurno' ? matchingTariff.dayTariff : matchingTariff.nightTariff;
-                    operacionLogistica = opLogisticType;
-                } else {
-                    unitValue = concept.value || 0;
-                    operacionLogistica = 'Diurno'; // Fallback
-                }
+            switch (concept.calculationBase) {
+                case 'TONELADAS': quantity = applicableOperations.reduce((sum, op) => sum + (op.totalPesoKg || 0), 0) / 1000; break;
+                case 'KILOGRAMOS': quantity = applicableOperations.reduce((sum, op) => sum + (op.totalPesoKg || 0), 0); break;
+                case 'CANTIDAD_PALETAS': quantity = applicableOperations.reduce((sum, op) => sum + (op.totalPaletas || 0), 0); break;
+                case 'CANTIDAD_CAJAS': quantity = applicableOperations.reduce((sum, op) => sum + (op.totalCantidad || 0), 0); break;
+                case 'NUMERO_OPERACIONES': quantity = applicableOperations.length; break;
+                case 'NUMERO_CONTENEDORES': quantity = 1; break;
+                default: quantity = 0;
             }
 
+            if (quantity > 0) {
+                if (concept.tariffType === 'UNICA') {
+                  unitValue = concept.value || 0;
+                  operacionLogistica = 'Diurno'; // Default for single tariff
+                } else if (concept.tariffType === 'RANGOS') {
+                    const totalTons = applicableOperations.reduce((sum, op) => sum + (op.totalPesoKg || 0), 0) / 1000;
+                    const vehicleType = container !== 'No aplica' ? 'CONTENEDOR' : 'TURBO';
+                    
+                    const matchingTariff = findMatchingTariff(totalTons, vehicleType, concept);
+                    
+                    if (matchingTariff) {
+                        const firstOp = applicableOperations[0];
+                        const opLogisticType = getOperationLogisticsType(firstOp.fecha, firstOp.horaInicio, firstOp.horaFin, concept);
+                        unitValue = opLogisticType === 'Diurno' ? matchingTariff.dayTariff : matchingTariff.nightTariff;
+                        operacionLogistica = opLogisticType;
+                    } else {
+                        unitValue = concept.value || 0;
+                        operacionLogistica = 'Diurno'; // Fallback
+                    }
+                }
+            }
+        }
+        
+        if (quantity > 0) {
             dailyResults.push({
               date,
               container,
