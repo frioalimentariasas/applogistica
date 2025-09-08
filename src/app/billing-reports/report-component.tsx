@@ -181,7 +181,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const [inventorySesion, setInventorySesion] = useState<string>('');
     const [inventoryReportData, setInventoryReportData] = useState<InventoryPivotReport | null>(null);
     const [inventorySearched, setInventorySearched] = useState(false);
-    const [isInventoryClientDialogOpen, setIsInventoryClientDialogOpen] = useState(false);
+    const [isInventoryClientDialogOpen, setisInventoryClientDialogOpen] = useState(false);
     const [inventoryClientSearch, setInventoryClientSearch] = useState('');
     const [availableInventoryClients, setAvailableInventoryClients] = useState<string[]>([]);
     const [isLoadingInventoryClients, setIsLoadingInventoryClients] = useState(false);
@@ -1103,12 +1103,13 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         // Group by concept for subtotals
         const groupedData = settlementReportData.reduce((acc, row) => {
             if (!acc[row.conceptName]) {
-                acc[row.conceptName] = { rows: [], subtotal: 0 };
+                acc[row.conceptName] = { rows: [], subtotalCantidad: 0, subtotalValor: 0 };
             }
             acc[row.conceptName].rows.push(row);
-            acc[row.conceptName].subtotal += row.totalValue;
+            acc[row.conceptName].subtotalCantidad += row.quantity;
+            acc[row.conceptName].subtotalValor += row.totalValue;
             return acc;
-        }, {} as Record<string, { rows: ClientSettlementRow[], subtotal: number }>);
+        }, {} as Record<string, { rows: ClientSettlementRow[], subtotalCantidad: number, subtotalValor: number }>);
         
         const totalGeneral = settlementReportData.reduce((sum, row) => sum + row.totalValue, 0);
 
@@ -1127,19 +1128,24 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 worksheet.getCell(`J${worksheet.rowCount}`).numFmt = '$ #,##0.00';
                 worksheet.getCell(`F${worksheet.rowCount}`).numFmt = '#,##0.00';
             });
-            const subtotalRow = worksheet.addRow({ conceptName: `SUBTOTAL ${conceptName}`, totalValue: groupedData[conceptName].subtotal });
+            const subtotalRow = worksheet.addRow({ 
+                conceptName: `SUBTOTAL ${conceptName}`,
+                quantity: groupedData[conceptName].subtotalCantidad,
+                totalValue: groupedData[conceptName].subtotalValor
+            });
             subtotalRow.font = { bold: true };
             subtotalRow.getCell('A').alignment = { horizontal: 'right' };
+            subtotalRow.getCell('F').numFmt = '#,##0.00';
             subtotalRow.getCell('J').numFmt = '$ #,##0.00';
-            worksheet.mergeCells(`A${subtotalRow.number}:I${subtotalRow.number}`);
+            worksheet.mergeCells(`A${subtotalRow.number}:E${subtotalRow.number}`);
+            worksheet.mergeCells(`G${subtotalRow.number}:I${subtotalRow.number}`);
         });
 
         worksheet.addRow([]);
         const totalRow = worksheet.addRow({ conceptName: 'TOTAL GENERAL', totalValue: totalGeneral });
-        totalRow.font = { bold: true };
-        totalRow.getCell('A').font = { size: 12, bold: true };
+        totalRow.font = { bold: true, size: 12 };
         totalRow.getCell('A').alignment = { horizontal: 'right' };
-        totalRow.getCell('J').font = { size: 12, bold: true };
+        totalRow.getCell('J').font = { bold: true, size: 12 };
         totalRow.getCell('J').numFmt = '$ #,##0.00';
         worksheet.mergeCells(`A${totalRow.number}:I${totalRow.number}`);
 
@@ -1177,6 +1183,22 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const getSessionName = (sesionCode: string) => {
         return sessionMapping[sesionCode] || 'N/A';
     }
+    
+    const settlementGroupedData = useMemo(() => {
+        return settlementReportData.reduce((acc, row) => {
+            if (!acc[row.conceptName]) {
+                acc[row.conceptName] = { rows: [], subtotalCantidad: 0, subtotalValor: 0 };
+            }
+            acc[row.conceptName].rows.push(row);
+            acc[row.conceptName].subtotalCantidad += row.quantity || 0;
+            acc[row.conceptName].subtotalValor += row.totalValue || 0;
+            return acc;
+        }, {} as Record<string, { rows: ClientSettlementRow[], subtotalCantidad: number, subtotalValor: number }>);
+    }, [settlementReportData]);
+    
+    const settlementTotalGeneral = useMemo(() => {
+        return settlementReportData.reduce((sum, row) => sum + (row.totalValue || 0), 0);
+    }, [settlementReportData]);
 
     return (
         <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
@@ -1199,6 +1221,10 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                             </div>
                              <p className="text-sm text-gray-500">Seleccione un tipo de informe y utilice los filtros para generar los datos.</p>
                         </div>
+                         <Button onClick={() => router.push('/operaciones-manuales-clientes')} className="absolute right-0 top-1/2 -translate-y-1/2">
+                            <Edit className="mr-2 h-4 w-4" />
+                            Ops. Manuales
+                        </Button>
                     </div>
                 </header>
 
@@ -1531,7 +1557,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                         </div>
                                         <div className="space-y-2">
                                             <Label>Cliente(s)</Label>
-                                            <Dialog open={isInventoryClientDialogOpen} onOpenChange={setIsInventoryClientDialogOpen}>
+                                            <Dialog open={isInventoryClientDialogOpen} onOpenChange={setisInventoryClientDialogOpen}>
                                                 <DialogTrigger asChild>
                                                     <Button
                                                         variant="outline"
@@ -1607,7 +1633,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                         </ScrollArea>
                                                     </div>
                                                     <DialogFooter>
-                                                        <Button onClick={() => setIsInventoryClientDialogOpen(false)}>Cerrar</Button>
+                                                        <Button onClick={() => setisInventoryClientDialogOpen(false)}>Cerrar</Button>
                                                     </DialogFooter>
                                                 </DialogContent>
                                             </Dialog>
@@ -2004,40 +2030,63 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                         <Button onClick={handleSettlementExportExcel} disabled={isSettlementLoading || settlementReportData.length === 0} variant="outline"><File className="mr-2 h-4 w-4" />Exportar a Excel</Button>
                                     </div>
                                     <div className="rounded-md border">
-                                        <Table><TableHeader><TableRow>
-                                            <TableHead>Fecha</TableHead>
-                                            <TableHead>Total Paletas</TableHead>
-                                            <TableHead>Contenedor</TableHead>
-                                            <TableHead>Cámara</TableHead>
-                                            <TableHead>Concepto</TableHead>
-                                            <TableHead>Cantidad</TableHead>
-                                            <TableHead>Unidad</TableHead>
-                                            <TableHead>Op. Logística</TableHead>
-                                            <TableHead className="text-right">Valor Unitario</TableHead>
-                                            <TableHead className="text-right">Valor Total</TableHead>
-                                        </TableRow></TableHeader>
-                                        <TableBody>
-                                            {isSettlementLoading ? (
-                                                Array.from({length: 3}).map((_, i) => <TableRow key={i}><TableCell colSpan={10}><Skeleton className="h-8 w-full"/></TableCell></TableRow>)
-                                            ) : settlementReportData.length > 0 ? (
-                                                settlementReportData.map((row, i) => (
-                                                  <TableRow key={`${row.date}-${row.conceptName}-${i}`}>
-                                                    <TableCell>{format(parseISO(row.date), 'dd/MM/yyyy', { locale: es })}</TableCell>
-                                                    <TableCell>{row.totalPaletas || 0}</TableCell>
-                                                    <TableCell>{row.container}</TableCell>
-                                                    <TableCell>{getSessionName(row.camara)}</TableCell>
-                                                    <TableCell className="font-semibold">{row.conceptName}</TableCell>
-                                                    <TableCell>{row.quantity.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
-                                                    <TableCell>{row.unitOfMeasure}</TableCell>
-                                                    <TableCell>{row.operacionLogistica}</TableCell>
-                                                    <TableCell className="text-right">{row.unitValue.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
-                                                    <TableCell className="text-right font-bold">{row.totalValue.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
-                                                  </TableRow>
-                                                ))
-                                            ) : (
-                                                <TableRow><TableCell colSpan={10} className="h-24 text-center">No se encontraron datos para liquidar.</TableCell></TableRow>
-                                            )}
-                                        </TableBody></Table>
+                                        <Table>
+                                            <TableHeader>
+                                                <TableRow>
+                                                    <TableHead>Fecha</TableHead>
+                                                    <TableHead>Total Paletas</TableHead>
+                                                    <TableHead>Contenedor</TableHead>
+                                                    <TableHead>Cámara</TableHead>
+                                                    <TableHead>Concepto</TableHead>
+                                                    <TableHead>Cantidad</TableHead>
+                                                    <TableHead>Unidad</TableHead>
+                                                    <TableHead>Op. Logística</TableHead>
+                                                    <TableHead className="text-right">Valor Unitario</TableHead>
+                                                    <TableHead className="text-right">Valor Total</TableHead>
+                                                </TableRow>
+                                            </TableHeader>
+                                            <TableBody>
+                                                {isSettlementLoading ? (
+                                                    Array.from({length: 3}).map((_, i) => <TableRow key={i}><TableCell colSpan={10}><Skeleton className="h-8 w-full"/></TableCell></TableRow>)
+                                                ) : settlementGroupedData && Object.keys(settlementGroupedData).length > 0 ? (
+                                                    <>
+                                                        {Object.keys(settlementGroupedData).sort().map(conceptName => (
+                                                            <React.Fragment key={conceptName}>
+                                                                <TableRow className="bg-muted hover:bg-muted">
+                                                                    <TableCell colSpan={10} className="font-bold text-primary">{conceptName}</TableCell>
+                                                                </TableRow>
+                                                                {settlementGroupedData[conceptName].rows.map((row, i) => (
+                                                                    <TableRow key={`${row.date}-${row.conceptName}-${i}`}>
+                                                                        <TableCell>{format(parseISO(row.date), 'dd/MM/yyyy', { locale: es })}</TableCell>
+                                                                        <TableCell>{row.totalPaletas ?? 0}</TableCell>
+                                                                        <TableCell>{row.container}</TableCell>
+                                                                        <TableCell>{getSessionName(row.camara)}</TableCell>
+                                                                        <TableCell>{row.conceptName}</TableCell>
+                                                                        <TableCell>{row.quantity.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
+                                                                        <TableCell>{row.unitOfMeasure}</TableCell>
+                                                                        <TableCell>{row.operacionLogistica}</TableCell>
+                                                                        <TableCell className="text-right">{row.unitValue.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
+                                                                        <TableCell className="text-right font-bold">{row.totalValue.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
+                                                                    </TableRow>
+                                                                ))}
+                                                                <TableRow className="bg-secondary hover:bg-secondary/80 font-bold">
+                                                                    <TableCell colSpan={5} className="text-right">SUBTOTAL {conceptName}:</TableCell>
+                                                                    <TableCell>{settlementGroupedData[conceptName].subtotalCantidad.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
+                                                                    <TableCell colSpan={3}></TableCell>
+                                                                    <TableCell className="text-right">{settlementGroupedData[conceptName].subtotalValor.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
+                                                                </TableRow>
+                                                            </React.Fragment>
+                                                        ))}
+                                                        <TableRow className="bg-primary hover:bg-primary text-primary-foreground font-bold text-base">
+                                                            <TableCell colSpan={9} className="text-right">TOTAL GENERAL:</TableCell>
+                                                            <TableCell className="text-right">{settlementTotalGeneral.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
+                                                        </TableRow>
+                                                    </>
+                                                ) : (
+                                                    <TableRow><TableCell colSpan={10} className="h-24 text-center">No se encontraron datos para liquidar.</TableCell></TableRow>
+                                                )}
+                                            </TableBody>
+                                        </Table>
                                     </div>
                                     </>
                                 )}
@@ -2112,4 +2161,3 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         </div>
     );
 }
-
