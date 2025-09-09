@@ -151,6 +151,7 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
     
     const resultsByDay = new Map<string, ClientSettlementRow[]>();
     const specialConcepts = ["FMM DE INGRESO", "ARIN DE INGRESO", "FMM DE SALIDA", "ARIN DE SALIDA"];
+    const OBSERVATION_BASED_CONCEPTS = ["REESTIBADO"];
 
     const getLocalGroupingDate = (isoString: string): string => {
         if (!isoString) return '';
@@ -204,6 +205,8 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
         let conceptHandled = false;
 
         const isSpecialConcept = specialConcepts.includes(concept.conceptName.toUpperCase());
+        const isObservationConcept = OBSERVATION_BASED_CONCEPTS.includes(concept.conceptName.toUpperCase());
+
         if (isSpecialConcept) {
             if ((concept.conceptName.toUpperCase() === "FMM DE INGRESO" || concept.conceptName.toUpperCase() === "ARIN DE INGRESO") && hasReceptions) {
                 quantity = 1;
@@ -215,19 +218,16 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
               operacionLogistica = 'N/A';
               conceptHandled = true;
             }
-        }
-        
-        if (!conceptHandled) {
-            const opsWithObservation = dailyOperations.filter(op =>
-                (Array.isArray(op.observaciones) ? op.observaciones : []).some((obs: any) => typeof obs === 'object' && obs.type && obs.type.toUpperCase() === concept.conceptName.toUpperCase())
+        } else if (isObservationConcept) {
+             const opsWithObservation = dailyOperations.filter(op =>
+                Array.isArray(op.observaciones) && op.observaciones.some((obs: any) => obs.type?.toUpperCase() === concept.conceptName.toUpperCase())
             );
 
             if (opsWithObservation.length > 0) {
-                const relevantObservations = opsWithObservation.flatMap(op => 
-                    (Array.isArray(op.observaciones) ? op.observaciones : []).filter((obs: any) => typeof obs === 'object' && obs.type && obs.type.toUpperCase() === concept.conceptName.toUpperCase())
-                );
-                
-                quantity = relevantObservations.reduce((sum, obs) => sum + (Number(obs.quantity) || 0), 0);
+                quantity = opsWithObservation.reduce((sum, op) => {
+                    const relevantObs = (op.observaciones as any[]).find(obs => obs.type?.toUpperCase() === concept.conceptName.toUpperCase());
+                    return sum + (Number(relevantObs?.quantity) || 0);
+                }, 0);
                 
                 if (quantity > 0) {
                     unitValue = concept.value || 0;
@@ -236,7 +236,7 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
                 }
             }
         }
-
+        
         if (!conceptHandled) {
             const applicableOperations = dailyOperations.filter(op => {
               let opTypeMatch = false;
@@ -366,4 +366,3 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
     return { success: false, error: error.message || 'Ocurrió un error desconocido en el servidor.' };
   }
 }
-
