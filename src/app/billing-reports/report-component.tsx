@@ -2039,8 +2039,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                     <TableHead>Total Paletas</TableHead>
                                                     <TableHead>Contenedor</TableHead>
                                                     <TableHead>Cámara</TableHead>
-                                                    <TableHead>Op. Logística</TableHead>
                                                     <TableHead>Pedido SISLOG</TableHead>
+                                                    <TableHead>Op. Logística</TableHead>
                                                     <TableHead>Concepto</TableHead>
                                                     <TableHead>Cantidad</TableHead>
                                                     <TableHead>Unidad</TableHead>
@@ -2064,8 +2064,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                         <TableCell>{row.totalPaletas ?? 0}</TableCell>
                                                                         <TableCell>{row.container}</TableCell>
                                                                         <TableCell>{getSessionName(row.camara)}</TableCell>
-                                                                        <TableCell>{row.operacionLogistica}</TableCell>
                                                                         <TableCell>{row.pedidoSislog}</TableCell>
+                                                                        <TableCell>{row.operacionLogistica}</TableCell>
                                                                         <TableCell>{row.conceptName}</TableCell>
                                                                         <TableCell>{row.quantity.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
                                                                         <TableCell>{row.unitOfMeasure}</TableCell>

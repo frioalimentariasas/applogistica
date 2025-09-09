@@ -213,7 +213,7 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
             }
             if (quantity > 0) {
               unitValue = concept.value || 0; // Special concepts always use single tariff
-              operacionLogistica = 'Diurno'; // Default for these concepts
+              operacionLogistica = 'N/A'; // Default for these concepts
               isSpecialConceptHandled = true;
             }
         }
@@ -246,7 +246,7 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
             if (quantity > 0) {
                 if (concept.tariffType === 'UNICA') {
                   unitValue = concept.value || 0;
-                  operacionLogistica = 'Diurno'; // Default for single tariff
+                  operacionLogistica = 'N/A'; // Default for single tariff
                 } else if (concept.tariffType === 'RANGOS') {
                     const totalTons = applicableOperations.reduce((sum, op) => sum + (op.totalPesoKg || 0), 0) / 1000;
                     const vehicleType = container !== 'No aplica' ? 'CONTENEDOR' : 'TURBO';
@@ -260,7 +260,7 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
                         operacionLogistica = opLogisticType;
                     } else {
                         unitValue = concept.value || 0;
-                        operacionLogistica = 'Diurno'; // Fallback
+                        operacionLogistica = 'N/A'; // Fallback
                     }
                 }
             }
@@ -301,7 +301,7 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
                 
                 if (concept.tariffType === 'UNICA') {
                   unitValue = concept.value || 0;
-                  operacionLogistica = 'Diurno';
+                  operacionLogistica = 'N/A';
                 } else if (concept.tariffType === 'RANGOS' && manualOp.details?.startTime && manualOp.details?.endTime) {
                     const opLogisticType = getOperationLogisticsType(manualOp.operationDate.toISOString(), manualOp.details.startTime, manualOp.details.endTime, concept);
                     const matchingTariff = concept.tariffRanges?.[0]; // Assuming one generic range for manual ops
