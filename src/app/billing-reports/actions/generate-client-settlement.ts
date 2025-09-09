@@ -225,20 +225,12 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
         }
         
         if (!conceptHandled) {
-             const observationOperations = dailyOperations.filter(op => {
-                const observations = op.observaciones;
-                if (Array.isArray(observations)) {
-                    return observations.some(obs => typeof obs === 'object' && obs.type && obs.type.toUpperCase() === concept.conceptName.toUpperCase());
-                }
-                return false;
-            });
+            const relevantObservations = dailyOperations.flatMap(op => 
+                (Array.isArray(op.observaciones) ? op.observaciones : [])
+                    .filter((obs: any) => typeof obs === 'object' && obs.type && obs.type.toUpperCase() === concept.conceptName.toUpperCase())
+            );
 
-            if (observationOperations.length > 0) {
-                const relevantObservations = observationOperations.flatMap(op => 
-                    (Array.isArray(op.observaciones) ? op.observaciones : [])
-                        .filter(obs => typeof obs === 'object' && obs.type && obs.type.toUpperCase() === concept.conceptName.toUpperCase())
-                );
-                
+            if (relevantObservations.length > 0) {
                 quantity = relevantObservations.reduce((sum, obs) => sum + (Number(obs.quantity) || 0), 0);
                 
                 if (quantity > 0) {
@@ -379,4 +371,3 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
     return { success: false, error: error.message || 'Ocurrió un error desconocido en el servidor.' };
   }
 }
-
