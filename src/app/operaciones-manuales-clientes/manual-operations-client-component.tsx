@@ -32,6 +32,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDialogDesc, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
+import { Separator } from '@/components/ui/separator';
 
 const manualOperationSchema = z.object({
   clientName: z.string().min(1, 'El cliente es obligatorio.'),
@@ -87,6 +88,19 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
 
     const form = useForm<ManualOperationValues>({
         resolver: zodResolver(manualOperationSchema),
+        defaultValues: {
+            clientName: "",
+            concept: "",
+            operationDate: new Date(),
+            quantity: 1,
+            details: {
+                startTime: '',
+                endTime: '',
+                plate: '',
+                container: '',
+                totalPallets: null,
+            }
+        }
     });
     
     const watchedConcept = form.watch('concept');
@@ -168,7 +182,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 }
             });
         } else {
-            form.reset({
+             form.reset({
                 operationDate: new Date(),
                 quantity: 1,
                 clientName: "",
@@ -192,7 +206,6 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         const payload: ManualClientOperationData = {
             ...data,
             operationDate: data.operationDate.toISOString(),
-            clientName: data.clientName,
             createdBy: {
                 uid: user.uid,
                 displayName: displayName || user.email!,
