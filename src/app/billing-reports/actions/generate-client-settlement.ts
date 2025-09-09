@@ -197,32 +197,32 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
       const hasDispatches = dailyOperations.some(op => op.tipoOperacion === 'Despacho');
 
       for (const concept of selectedConcepts) {
-        
         let quantity = 0;
         let operacionLogistica: string = 'N/A';
         let unitValue = 0;
         let conceptHandled = false;
 
-        const allOpsHaveObservation = dailyOperations.some(op => Array.isArray(op.observaciones) && op.observaciones.some(obs => obs.type?.toUpperCase() === concept.conceptName.toUpperCase()));
-        
-        if (allOpsHaveObservation) {
-            const opsWithMatchingObservation = dailyOperations.filter(op =>
-                Array.isArray(op.observaciones) && op.observaciones.some((obs: any) => obs.type?.toUpperCase() === concept.conceptName.toUpperCase())
-            );
+        // --- EXCLUSIVE LOGIC FOR OBSERVATION-BASED CONCEPTS ---
+        const opsWithMatchingObservation = dailyOperations.filter(op =>
+            Array.isArray(op.observaciones) && op.observaciones.some((obs: any) => obs.type?.toUpperCase() === concept.conceptName.toUpperCase())
+        );
 
-            if (opsWithMatchingObservation.length > 0) {
-                 quantity = opsWithMatchingObservation.reduce((sum, op) => {
-                    const relevantObs = (op.observaciones as any[]).find(obs => obs.type?.toUpperCase() === concept.conceptName.toUpperCase());
-                    return sum + (Number(relevantObs?.quantity) || 0);
-                }, 0);
-                
-                if (quantity > 0) {
-                    unitValue = concept.value || 0;
-                    operacionLogistica = "N/A"; // Observation concepts don't depend on shift
-                    conceptHandled = true;
-                }
+        if (opsWithMatchingObservation.length > 0) {
+            quantity = opsWithMatchingObservation.reduce((sum, op) => {
+                const relevantObs = (op.observaciones as any[]).find(obs => obs.type?.toUpperCase() === concept.conceptName.toUpperCase());
+                return sum + (Number(relevantObs?.quantity) || 0);
+            }, 0);
+            
+            if (quantity > 0) {
+                unitValue = concept.value || 0;
+                operacionLogistica = "N/A";
+                conceptHandled = true;
             }
-        } else if (SPECIAL_CONCEPTS_BY_OP_TYPE.includes(concept.conceptName.toUpperCase())) {
+        }
+        // --- END OF EXCLUSIVE OBSERVATION LOGIC ---
+
+        // --- STANDARD CALCULATION LOGIC (Only if not handled by observation) ---
+        else if (!conceptHandled && SPECIAL_CONCEPTS_BY_OP_TYPE.includes(concept.conceptName.toUpperCase())) {
             if ((concept.conceptName.toUpperCase() === "FMM DE INGRESO" || concept.conceptName.toUpperCase() === "ARIN DE INGRESO") && hasReceptions) {
                 quantity = 1;
             } else if ((concept.conceptName.toUpperCase() === "FMM DE SALIDA" || concept.conceptName.toUpperCase() === "ARIN DE SALIDA") && hasDispatches) {
@@ -233,7 +233,8 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
               operacionLogistica = 'N/A';
               conceptHandled = true;
             }
-        } else { // Standard calculation if no observation matches
+        }
+        else if (!conceptHandled) { 
             const applicableOperations = dailyOperations.filter(op => {
               let opTypeMatch = false;
               if (concept.filterOperationType === 'ambos') opTypeMatch = true;
@@ -279,6 +280,7 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
                 }
             }
         }
+        // --- END OF STANDARD CALCULATION LOGIC ---
         
         if (conceptHandled && quantity > 0) {
             dailyResults.push({
