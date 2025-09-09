@@ -6,6 +6,7 @@ import { firestore } from '@/lib/firebase-admin';
 import type { ClientBillingConcept, TariffRange } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 import { DetailedReportRow, getDetailedReport } from '@/app/actions/detailed-report';
 import admin from 'firebase-admin';
+import { endOfDay } from 'date-fns';
 
 
 export async function getAllManualClientOperations(): Promise<any[]> {
@@ -280,10 +281,12 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
     // Process manual operations separately
     const manualConcepts = selectedConcepts.filter(c => c.calculationType === 'MANUAL');
     if (manualConcepts.length > 0) {
+        const finalEndDate = endOfDay(new Date(endDate)); // Ensure we get the full end day
+
         const manualOpsSnapshot = await firestore.collection('manual_client_operations')
             .where('clientName', '==', clientName)
             .where('operationDate', '>=', new Date(startDate))
-            .where('operationDate', '<=', new Date(endDate))
+            .where('operationDate', '<=', finalEndDate) // Use end of day
             .get();
 
         manualOpsSnapshot.forEach(doc => {
