@@ -1093,8 +1093,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             { header: 'Total Paletas', key: 'totalPaletas', width: 15 },
             { header: 'Contenedor', key: 'container', width: 20 },
             { header: 'Cámara', key: 'camara', width: 20 },
-            { header: 'Op. Logística', key: 'operacionLogistica', width: 15 },
             { header: 'Pedido SISLOG', key: 'pedidoSislog', width: 20 },
+            { header: 'Op. Logística', key: 'operacionLogistica', width: 15 },
             { header: 'Concepto', key: 'conceptName', width: 40 },
             { header: 'Cantidad', key: 'quantity', width: 15 },
             { header: 'Unidad', key: 'unitOfMeasure', width: 15 },
@@ -1119,7 +1119,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             groupedData[conceptName].rows.forEach(row => {
                 worksheet.addRow({
                     ...row,
-                    totalPaletas: row.totalPaletas || 0,
+                    totalPaletas: row.totalPaletas,
                     camara: getSessionName(row.camara),
                     date: format(parseISO(row.date), 'dd/MM/yyyy'),
                     operacionLogistica: row.operacionLogistica,
@@ -2061,7 +2061,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                 {settlementGroupedData[conceptName].rows.map((row, i) => (
                                                                     <TableRow key={`${row.date}-${row.conceptName}-${i}`}>
                                                                         <TableCell>{format(parseISO(row.date), 'dd/MM/yyyy', { locale: es })}</TableCell>
-                                                                        <TableCell>{row.totalPaletas ?? 0}</TableCell>
+                                                                        <TableCell>{row.totalPaletas}</TableCell>
                                                                         <TableCell>{row.container}</TableCell>
                                                                         <TableCell>{getSessionName(row.camara)}</TableCell>
                                                                         <TableCell>{row.pedidoSislog}</TableCell>

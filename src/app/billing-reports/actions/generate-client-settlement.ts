@@ -202,10 +202,10 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
         let quantity = 0;
         let operacionLogistica: string = 'N/A';
         let unitValue = 0;
+        let conceptHandled = false;
 
-        // ** START: New logic for special concepts **
-        let isSpecialConceptHandled = false;
-        if (specialConcepts.includes(concept.conceptName.toUpperCase())) {
+        const isSpecialConcept = specialConcepts.includes(concept.conceptName.toUpperCase());
+        if (isSpecialConcept) {
             if ((concept.conceptName.toUpperCase() === "FMM DE INGRESO" || concept.conceptName.toUpperCase() === "ARIN DE INGRESO") && hasReceptions) {
                 quantity = 1;
             } else if ((concept.conceptName.toUpperCase() === "FMM DE SALIDA" || concept.conceptName.toUpperCase() === "ARIN DE SALIDA") && hasDispatches) {
@@ -214,13 +214,34 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
             if (quantity > 0) {
               unitValue = concept.value || 0; // Special concepts always use single tariff
               operacionLogistica = 'N/A'; // Default for these concepts
-              isSpecialConceptHandled = true;
+              conceptHandled = true;
             }
         }
-        // ** END: New logic for special concepts **
+        
+        const observationOperations = dailyOperations.filter(op => {
+            const observations = op.observaciones;
+            if (Array.isArray(observations)) {
+                return observations.some(obs => typeof obs === 'object' && obs.type && obs.type.toUpperCase() === concept.conceptName.toUpperCase());
+            }
+            return false;
+        });
 
-        // Keep existing logic for other concepts
-        if (!isSpecialConceptHandled) {
+        if (!conceptHandled && observationOperations.length > 0) {
+            const relevantObservations = observationOperations.flatMap(op => 
+                (Array.isArray(op.observaciones) ? op.observaciones : [])
+                    .filter(obs => typeof obs === 'object' && obs.type && obs.type.toUpperCase() === concept.conceptName.toUpperCase())
+            );
+
+            quantity = relevantObservations.reduce((sum, obs) => sum + (Number(obs.quantity) || 0), 0);
+            
+            if (quantity > 0) {
+                unitValue = concept.value || 0;
+                operacionLogistica = "N/A"; // Observation-based concepts use single tariff
+                conceptHandled = true;
+            }
+        }
+
+        if (!conceptHandled) {
             const applicableOperations = dailyOperations.filter(op => {
               let opTypeMatch = false;
               if (concept.filterOperationType === 'ambos') opTypeMatch = true;
