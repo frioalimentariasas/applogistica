@@ -75,7 +75,7 @@ const findMatchingTariff = (tons: number, vehicleType: 'CONTENEDOR' | 'TURBO', c
 };
 
 const getOperationLogisticsType = (isoDateString: string, horaInicio: string, horaFin: string, concept: ClientBillingConcept): "Diurno" | "Nocturno" | "Extra" | "N/A" => {
-    const specialConcepts = ["FMM DE INGRESO", "ARIN DE INGRESO", "FMM DE SALIDA", "ARIN DE SALIDA"];
+    const specialConcepts = ["FMM DE INGRESO", "ARIN DE INGRESO", "FMM DE SALIDA", "ARIN DE SALIDA", "REESTIBADO"];
     if (specialConcepts.includes(concept.conceptName.toUpperCase())) {
       return "N/A";
     }
@@ -150,7 +150,7 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
         .get();
     
     const resultsByDay = new Map<string, ClientSettlementRow[]>();
-    const specialConcepts = ["FMM DE INGRESO", "ARIN DE INGRESO", "FMM DE SALIDA", "ARIN DE SALIDA"];
+    const SPECIAL_CONCEPTS = ["FMM DE INGRESO", "ARIN DE INGRESO", "FMM DE SALIDA", "ARIN DE SALIDA"];
     const OBSERVATION_BASED_CONCEPTS = ["REESTIBADO"];
 
     const getLocalGroupingDate = (isoString: string): string => {
@@ -204,7 +204,7 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
         let unitValue = 0;
         let conceptHandled = false;
 
-        const isSpecialConcept = specialConcepts.includes(concept.conceptName.toUpperCase());
+        const isSpecialConcept = SPECIAL_CONCEPTS.includes(concept.conceptName.toUpperCase());
         const isObservationConcept = OBSERVATION_BASED_CONCEPTS.includes(concept.conceptName.toUpperCase());
 
         if (isSpecialConcept) {
