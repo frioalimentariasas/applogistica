@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -41,6 +42,7 @@ const manualOperationSchema = z.object({
       startTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM requerido.').optional(),
       endTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM requerido.').optional(),
       plate: z.string().optional(),
+      container: z.string().optional(),
   }).optional(),
 }).refine(data => {
     if(data.details?.startTime && data.details?.endTime && data.details.startTime === data.details.endTime) {
@@ -160,6 +162,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                     startTime: op.details?.startTime || '',
                     endTime: op.details?.endTime || '',
                     plate: op.details?.plate || '',
+                    container: op.details?.container || '',
                 }
             });
         } else {
@@ -172,6 +175,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                     startTime: '',
                     endTime: '',
                     plate: '',
+                    container: '',
                 }
             });
         }
@@ -393,9 +397,10 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                             </div>
                                         )}
                                         
-                                        {(watchedConcept === 'TRANSBORDO' || opToManage?.details?.plate) && (
+                                        <div className="grid grid-cols-2 gap-4">
                                             <FormField control={form.control} name="details.plate" render={({ field }) => (<FormItem><FormLabel>Placa (Opcional)</FormLabel><FormControl><Input placeholder="ABC123" {...field} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
-                                        )}
+                                            <FormField control={form.control} name="details.container" render={({ field }) => (<FormItem><FormLabel>Contenedor (Opcional)</FormLabel><FormControl><Input placeholder="Contenedor" {...field} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
+                                        </div>
 
                                         <FormField control={form.control} name="quantity" render={({ field }) => (<FormItem><FormLabel>Cantidad</FormLabel><FormControl><Input type="number" step="0.001" placeholder="Ej: 1.5" {...field} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)}/>
                                         
