@@ -74,9 +74,15 @@ const findMatchingTariff = (tons: number, vehicleType: 'CONTENEDOR' | 'TURBO', c
     );
 };
 
-const getOperationLogisticsType = (isoDateString: string, horaInicio: string, horaFin: string, concept: ClientBillingConcept): "Diurno" | "Nocturno" | "Extra" => {
+const getOperationLogisticsType = (isoDateString: string, horaInicio: string, horaFin: string, concept: ClientBillingConcept): "Diurno" | "Nocturno" | "Extra" | "N/A" => {
+    // Special concepts like FMM should not have a logistic operation type.
+    const specialConcepts = ["FMM DE INGRESO", "ARIN DE INGRESO", "FMM DE SALIDA", "ARIN DE SALIDA"];
+    if (specialConcepts.includes(concept.conceptName.toUpperCase())) {
+      return "N/A";
+    }
+    
     if (!isoDateString || !horaInicio || !horaFin || concept.tariffType !== 'RANGOS' || !concept.dayShiftStart || !concept.dayShiftEnd) {
-      return "Diurno"; // Default
+      return "N/A"; // Default
     }
 
     try {
@@ -119,7 +125,7 @@ const getOperationLogisticsType = (isoDateString: string, horaInicio: string, ho
 
     } catch (e) {
         console.error(`Error calculating logistics type:`, e);
-        return 'Diurno'; // Default on error
+        return 'N/A'; // Default on error
     }
 };
 
@@ -218,28 +224,31 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
             }
         }
         
-        const observationOperations = dailyOperations.filter(op => {
-            const observations = op.observaciones;
-            if (Array.isArray(observations)) {
-                return observations.some(obs => typeof obs === 'object' && obs.type && obs.type.toUpperCase() === concept.conceptName.toUpperCase());
-            }
-            return false;
-        });
+        if (!conceptHandled) {
+             const observationOperations = dailyOperations.filter(op => {
+                const observations = op.observaciones;
+                if (Array.isArray(observations)) {
+                    return observations.some(obs => typeof obs === 'object' && obs.type && obs.type.toUpperCase() === concept.conceptName.toUpperCase());
+                }
+                return false;
+            });
 
-        if (!conceptHandled && observationOperations.length > 0) {
-            const relevantObservations = observationOperations.flatMap(op => 
-                (Array.isArray(op.observaciones) ? op.observaciones : [])
-                    .filter(obs => typeof obs === 'object' && obs.type && obs.type.toUpperCase() === concept.conceptName.toUpperCase())
-            );
-
-            quantity = relevantObservations.reduce((sum, obs) => sum + (Number(obs.quantity) || 0), 0);
-            
-            if (quantity > 0) {
-                unitValue = concept.value || 0;
-                operacionLogistica = "N/A"; // Observation-based concepts use single tariff
-                conceptHandled = true;
+            if (observationOperations.length > 0) {
+                const relevantObservations = observationOperations.flatMap(op => 
+                    (Array.isArray(op.observaciones) ? op.observaciones : [])
+                        .filter(obs => typeof obs === 'object' && obs.type && obs.type.toUpperCase() === concept.conceptName.toUpperCase())
+                );
+                
+                quantity = relevantObservations.reduce((sum, obs) => sum + (Number(obs.quantity) || 0), 0);
+                
+                if (quantity > 0) {
+                    unitValue = concept.value || 0;
+                    operacionLogistica = "N/A";
+                    conceptHandled = true;
+                }
             }
         }
+
 
         if (!conceptHandled) {
             const applicableOperations = dailyOperations.filter(op => {
@@ -324,7 +333,7 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
                   unitValue = concept.value || 0;
                   operacionLogistica = 'N/A';
                 } else if (concept.tariffType === 'RANGOS' && manualOp.details?.startTime && manualOp.details?.endTime) {
-                    const opLogisticType = getOperationLogisticsType(manualOp.operationDate.toISOString(), manualOp.details.startTime, manualOp.details.endTime, concept);
+                    const opLogisticType = getOperationLogisticsType((manualOp.operationDate as admin.firestore.Timestamp).toDate().toISOString(), manualOp.details.startTime, manualOp.details.endTime, concept);
                     const matchingTariff = concept.tariffRanges?.[0]; // Assuming one generic range for manual ops
                     if (matchingTariff) {
                         unitValue = opLogisticType === 'Diurno' ? matchingTariff.dayTariff : matchingTariff.nightTariff;
@@ -370,3 +379,4 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
     return { success: false, error: error.message || 'Ocurrió un error desconocido en el servidor.' };
   }
 }
+
