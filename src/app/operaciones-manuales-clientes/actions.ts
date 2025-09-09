@@ -34,8 +34,11 @@ export async function addManualClientOperation(data: ManualClientOperationData):
     }
 
     try {
+        const { details, ...restOfData } = data;
+        
         const operationWithTimestamp = {
-            ...data,
+            ...restOfData,
+            details: details || {}, // Ensure details is at least an empty object
             operationDate: admin.firestore.Timestamp.fromDate(new Date(data.operationDate)),
             createdAt: new Date().toISOString(),
         };
@@ -60,9 +63,11 @@ export async function updateManualClientOperation(id: string, data: Omit<ManualC
     }
 
     try {
+        const { details, ...restOfData } = data;
         const docRef = firestore.collection('manual_client_operations').doc(id);
         const operationWithTimestamp = {
-            ...data,
+            ...restOfData,
+            details: details || {}, // Ensure details is at least an empty object
             operationDate: admin.firestore.Timestamp.fromDate(new Date(data.operationDate)),
         };
         await docRef.update(operationWithTimestamp);
