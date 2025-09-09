@@ -18,6 +18,7 @@ export interface ManualClientOperationData {
         endTime?: string; // HH:mm
         plate?: string;
         container?: string;
+        totalPallets?: number;
         // Add other potential fields as needed
     },
     createdAt?: string; // ISO string for timestamping

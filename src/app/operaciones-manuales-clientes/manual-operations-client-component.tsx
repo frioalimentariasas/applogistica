@@ -43,6 +43,7 @@ const manualOperationSchema = z.object({
       endTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM requerido.').optional(),
       plate: z.string().optional(),
       container: z.string().optional(),
+      totalPallets: z.coerce.number().int().min(0, 'Debe ser un número positivo.').optional(),
   }).optional(),
 }).refine(data => {
     if(data.details?.startTime && data.details?.endTime && data.details.startTime === data.details.endTime) {
@@ -163,6 +164,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                     endTime: op.details?.endTime || '',
                     plate: op.details?.plate || '',
                     container: op.details?.container || '',
+                    totalPallets: op.details?.totalPallets,
                 }
             });
         } else {
@@ -176,6 +178,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                     endTime: '',
                     plate: '',
                     container: '',
+                    totalPallets: undefined,
                 }
             });
         }
@@ -397,10 +400,14 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                             </div>
                                         )}
                                         
-                                        <div className="grid grid-cols-2 gap-4">
-                                            <FormField control={form.control} name="details.plate" render={({ field }) => (<FormItem><FormLabel>Placa (Opcional)</FormLabel><FormControl><Input placeholder="ABC123" {...field} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
-                                            <FormField control={form.control} name="details.container" render={({ field }) => (<FormItem><FormLabel>Contenedor (Opcional)</FormLabel><FormControl><Input placeholder="Contenedor" {...field} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
-                                        </div>
+                                        <FormField control={form.control} name="details.plate" render={({ field }) => (<FormItem><FormLabel>Placa (Opcional)</FormLabel><FormControl><Input placeholder="ABC123" {...field} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
+                                        
+                                        {watchedConcept === 'TOMA DE PESOS POR ETIQUETA HRS' && (
+                                            <>
+                                                <FormField control={form.control} name="details.container" render={({ field }) => (<FormItem><FormLabel>Contenedor (Opcional)</FormLabel><FormControl><Input placeholder="Contenedor" {...field} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
+                                                <FormField control={form.control} name="details.totalPallets" render={({ field }) => (<FormItem><FormLabel>Total Paletas</FormLabel><FormControl><Input type="number" step="1" placeholder="Ej: 10" {...field} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)}/>
+                                            </>
+                                        )}
 
                                         <FormField control={form.control} name="quantity" render={({ field }) => (<FormItem><FormLabel>Cantidad</FormLabel><FormControl><Input type="number" step="0.001" placeholder="Ej: 1.5" {...field} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)}/>
                                         
@@ -439,3 +446,4 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         </div>
     );
 }
+
