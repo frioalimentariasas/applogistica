@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import * as React from 'react';
@@ -15,7 +14,7 @@ import { addClientBillingConcept, updateClientBillingConcept, deleteMultipleClie
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Loader2, PlusCircle, Edit, Trash2, ShieldAlert, DollarSign, ChevronsUpDown, Check, Info, Calculator } from 'lucide-react';
+import { ArrowLeft, Loader2, PlusCircle, Edit, Trash2, ShieldAlert, DollarSign, ChevronsUpDown, Check, Info, Calculator, ListChecks } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
@@ -37,6 +36,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Badge } from '@/components/ui/badge';
+import type { StandardObservation } from '@/app/gestion-observaciones/actions';
 
 
 const tariffRangeSchema = z.object({
@@ -55,10 +55,15 @@ const conceptSchema = z.object({
   clientNames: z.array(z.string()).min(1, { message: 'Debe seleccionar al menos un cliente.' }),
   unitOfMeasure: z.enum(['TONELADA', 'PALETA', 'UNIDAD', 'CAJA', 'SACO', 'CANASTILLA', 'HORA', 'DIA', 'VIAJE', 'MES', 'CONTENEDOR'], { required_error: 'Debe seleccionar una unidad de medida.'}),
   
-  // Calculation Rules
-  calculationBase: z.enum(['TONELADAS', 'KILOGRAMOS', 'CANTIDAD_PALETAS', 'CANTIDAD_CAJAS', 'NUMERO_OPERACIONES', 'NUMERO_CONTENEDORES'], { required_error: 'La base de cálculo es requerida.'}),
-  filterOperationType: z.enum(['recepcion', 'despacho', 'ambos'], { required_error: 'El tipo de operación es requerido.'}),
-  filterProductType: z.enum(['fijo', 'variable', 'ambos'], { required_error: 'El tipo de producto es requerido.'}),
+  calculationType: z.enum(['REGLAS', 'OBSERVACION'], { required_error: 'Debe seleccionar un tipo de cálculo.' }),
+  
+  // Calculation Rules (for REGLAS)
+  calculationBase: z.enum(['TONELADAS', 'KILOGRAMOS', 'CANTIDAD_PALETAS', 'CANTIDAD_CAJAS', 'NUMERO_OPERACIONES', 'NUMERO_CONTENEDORES']).optional(),
+  filterOperationType: z.enum(['recepcion', 'despacho', 'ambos']).optional(),
+  filterProductType: z.enum(['fijo', 'variable', 'ambos']).optional(),
+  
+  // Observation Rule (for OBSERVACION)
+  associatedObservation: z.string().optional(),
 
   // Tariff Rules
   tariffType: z.enum(['UNICA', 'RANGOS'], { required_error: "Debe seleccionar un tipo de tarifa."}),
@@ -67,6 +72,15 @@ const conceptSchema = z.object({
   dayShiftEnd: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM requerido.').optional(),
   tariffRanges: z.array(tariffRangeSchema).optional(),
 }).superRefine((data, ctx) => {
+    if (data.calculationType === 'REGLAS') {
+        if (!data.calculationBase) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La base de cálculo es requerida.", path: ["calculationBase"] });
+        if (!data.filterOperationType) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El tipo de operación es requerido.", path: ["filterOperationType"] });
+        if (!data.filterProductType) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El tipo de producto es requerido.", path: ["filterProductType"] });
+    }
+    if (data.calculationType === 'OBSERVACION' && !data.associatedObservation) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Debe seleccionar una observación asociada.", path: ["associatedObservation"] });
+    }
+
     if (data.tariffType === 'UNICA' && (data.value === undefined || data.value === null)) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La tarifa es obligatoria.", path: ["value"] });
     }
@@ -91,7 +105,7 @@ const AccessDenied = () => (
     </div>
 );
 
-export default function ConceptManagementClientComponent({ initialClients, initialConcepts }: { initialClients: ClientInfo[], initialConcepts: ClientBillingConcept[] }) {
+export default function ConceptManagementClientComponent({ initialClients, initialConcepts, standardObservations }: { initialClients: ClientInfo[], initialConcepts: ClientBillingConcept[], standardObservations: StandardObservation[] }) {
   const router = useRouter();
   const { toast } = useToast();
   const { permissions, loading: authLoading } = useAuth();
@@ -110,9 +124,11 @@ export default function ConceptManagementClientComponent({ initialClients, initi
       conceptName: '',
       clientNames: [],
       unitOfMeasure: undefined,
+      calculationType: 'REGLAS',
       calculationBase: undefined,
       filterOperationType: 'ambos',
       filterProductType: 'ambos',
+      associatedObservation: undefined,
       tariffType: 'UNICA',
       value: 0,
       dayShiftStart: '07:00',
@@ -123,10 +139,13 @@ export default function ConceptManagementClientComponent({ initialClients, initi
 
   const { fields: addFields, append: addAppend, remove: addRemove } = useFieldArray({ control: addForm.control, name: "tariffRanges" });
   const watchedAddTariffType = useWatch({ control: addForm.control, name: "tariffType" });
+  const watchedAddCalculationType = useWatch({ control: addForm.control, name: "calculationType" });
   
   const editForm = useForm<ConceptFormValues>({ resolver: zodResolver(conceptSchema) });
   const { fields: editFields, append: editAppend, remove: editRemove } = useFieldArray({ control: editForm.control, name: "tariffRanges" });
   const watchedEditTariffType = useWatch({ control: editForm.control, name: "tariffType" });
+  const watchedEditCalculationType = useWatch({ control: editForm.control, name: "calculationType" });
+
 
   const clientOptions: ClientInfo[] = useMemo(() => [
     { id: 'TODOS', razonSocial: 'TODOS (Cualquier Cliente)' }, 
@@ -183,7 +202,8 @@ export default function ConceptManagementClientComponent({ initialClients, initi
         value: concept.value ?? 0,
         dayShiftStart: concept.dayShiftStart || '07:00',
         dayShiftEnd: concept.dayShiftEnd || '19:00',
-        tariffRanges: concept.tariffRanges || []
+        tariffRanges: concept.tariffRanges || [],
+        calculationType: concept.calculationType || 'REGLAS',
     });
   };
 
@@ -266,15 +286,37 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                                     </FormItem>
                                   )}
                                 />
-                                <Separator />
-                                <div className="space-y-2">
-                                  <h4 className="text-sm font-semibold flex items-center gap-2"><Calculator className="h-4 w-4"/>Reglas de Cálculo</h4>
-                                </div>
-                                <FormField control={addForm.control} name="calculationBase" render={({ field }) => (<FormItem><FormLabel>Calcular Usando</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione una base..." /></SelectTrigger></FormControl><SelectContent><SelectItem value="TONELADAS">TONELADAS</SelectItem><SelectItem value="KILOGRAMOS">KILOGRAMOS</SelectItem><SelectItem value="CANTIDAD_PALETAS">CANTIDAD DE PALETAS</SelectItem><SelectItem value="CANTIDAD_CAJAS">CANTIDAD DE CAJAS/UNIDADES</SelectItem><SelectItem value="NUMERO_OPERACIONES">NÚMERO DE OPERACIONES</SelectItem><SelectItem value="NUMERO_CONTENEDORES">NÚMERO DE CONTENEDORES</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
-                                <FormField control={addForm.control} name="filterOperationType" render={({ field }) => (<FormItem><FormLabel>Filtrar por Tipo de Operación</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="ambos">Ambos (Recepción y Despacho)</SelectItem><SelectItem value="recepcion">Recepción</SelectItem><SelectItem value="despacho">Despacho</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
-                                <FormField control={addForm.control} name="filterProductType" render={({ field }) => (<FormItem><FormLabel>Filtrar por Tipo de Producto</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="ambos">Ambos (Peso Fijo y Variable)</SelectItem><SelectItem value="fijo">Peso Fijo</SelectItem><SelectItem value="variable">Peso Variable</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
-                                <Separator />
                                 <FormField control={addForm.control} name="unitOfMeasure" render={({ field }) => (<FormItem><FormLabel>Unidad de Medida (Para Reporte)</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione una unidad" /></SelectTrigger></FormControl><SelectContent><SelectItem value="TONELADA">TONELADA</SelectItem><SelectItem value="PALETA">PALETA</SelectItem><SelectItem value="UNIDAD">UNIDAD</SelectItem><SelectItem value="CAJA">CAJA</SelectItem><SelectItem value="SACO">SACO</SelectItem><SelectItem value="CANASTILLA">CANASTILLA</SelectItem><SelectItem value="HORA">HORA</SelectItem><SelectItem value="DIA">DÍA</SelectItem><SelectItem value="VIAJE">VIAJE</SelectItem><SelectItem value="MES">MES</SelectItem><SelectItem value="CONTENEDOR">CONTENEDOR</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
+                                
+                                <Separator />
+                                <FormField control={addForm.control} name="calculationType" render={({ field }) => (
+                                    <FormItem className="space-y-3">
+                                        <FormLabel>Tipo de Cálculo</FormLabel>
+                                        <FormControl>
+                                            <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4">
+                                                <FormItem className="flex items-center space-x-2"><RadioGroupItem value="REGLAS" id="add-reglas" /><Label htmlFor="add-reglas">Por Reglas</Label></FormItem>
+                                                <FormItem className="flex items-center space-x-2"><RadioGroupItem value="OBSERVACION" id="add-obs" /><Label htmlFor="add-obs">Por Observación</Label></FormItem>
+                                            </RadioGroup>
+                                        </FormControl>
+                                        <FormMessage />
+                                    </FormItem>
+                                )}/>
+                                
+                                {watchedAddCalculationType === 'REGLAS' && (
+                                    <div className='space-y-4 p-4 border rounded-md bg-muted/20'>
+                                        <FormField control={addForm.control} name="calculationBase" render={({ field }) => (<FormItem><FormLabel>Calcular Usando</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione una base..." /></SelectTrigger></FormControl><SelectContent><SelectItem value="TONELADAS">TONELADAS</SelectItem><SelectItem value="KILOGRAMOS">KILOGRAMOS</SelectItem><SelectItem value="CANTIDAD_PALETAS">CANTIDAD DE PALETAS</SelectItem><SelectItem value="CANTIDAD_CAJAS">CANTIDAD DE CAJAS/UNIDADES</SelectItem><SelectItem value="NUMERO_OPERACIONES">NÚMERO DE OPERACIONES</SelectItem><SelectItem value="NUMERO_CONTENEDORES">NÚMERO DE CONTENEDORES</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
+                                        <FormField control={addForm.control} name="filterOperationType" render={({ field }) => (<FormItem><FormLabel>Filtrar por Tipo de Operación</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="ambos">Ambos (Recepción y Despacho)</SelectItem><SelectItem value="recepcion">Recepción</SelectItem><SelectItem value="despacho">Despacho</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
+                                        <FormField control={addForm.control} name="filterProductType" render={({ field }) => (<FormItem><FormLabel>Filtrar por Tipo de Producto</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="ambos">Ambos (Peso Fijo y Variable)</SelectItem><SelectItem value="fijo">Peso Fijo</SelectItem><SelectItem value="variable">Peso Variable</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
+                                    </div>
+                                )}
+                                {watchedAddCalculationType === 'OBSERVACION' && (
+                                     <div className='space-y-4 p-4 border rounded-md bg-muted/20'>
+                                        <FormField control={addForm.control} name="associatedObservation" render={({ field }) => (<FormItem><FormLabel>Observación Asociada</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione una observación..." /></SelectTrigger></FormControl><SelectContent>{standardObservations.map(obs => <SelectItem key={obs.id} value={obs.name}>{obs.name}</SelectItem>)}</SelectContent></Select><FormDescription>El sistema buscará esta observación en los formularios.</FormDescription><FormMessage /></FormItem>)}/>
+                                    </div>
+                                )}
+
+                                <Separator />
+
                                 <FormField
                                     control={addForm.control}
                                     name="tariffType"
@@ -282,7 +324,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                                         <FormItem className="space-y-3">
                                         <FormLabel>Tipo de Tarifa</FormLabel>
                                         <FormControl>
-                                            <RadioGroup onValueChange={field.onChange} defaultValue={field.value} className="flex gap-4">
+                                            <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4">
                                                 <FormItem className="flex items-center space-x-2"><RadioGroupItem value="UNICA" id="add-unica" /><Label htmlFor="add-unica">Tarifa Única</Label></FormItem>
                                                 <FormItem className="flex items-center space-x-2"><RadioGroupItem value="RANGOS" id="add-rangos" /><Label htmlFor="add-rangos">Tarifa por Rangos</Label></FormItem>
                                             </RadioGroup>
@@ -297,7 +339,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                                 )}
                                 
                                 {watchedAddTariffType === 'RANGOS' && (
-                                    <div className='space-y-4 p-4 border rounded-md'>
+                                    <div className='space-y-4 p-4 border rounded-md bg-muted/20'>
                                         <div className="space-y-2">
                                             <FormLabel>Definición de Turno</FormLabel>
                                             <div className="grid grid-cols-2 gap-4">
@@ -366,7 +408,8 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                                     <TableRow>
                                         <TableHead className="w-12"><Checkbox checked={isAllSelected} onCheckedChange={(checked) => handleSelectAll(checked === true)} /></TableHead>
                                         <TableHead>Concepto</TableHead>
-                                        <TableHead>Tarifas</TableHead>
+                                        <TableHead>Tipo Cálculo</TableHead>
+                                        <TableHead>Tarifa</TableHead>
                                         <TableHead className="text-right">Acciones</TableHead>
                                     </TableRow>
                                 </TableHeader>
@@ -380,22 +423,17 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                                                 <div className="text-xs text-muted-foreground max-w-[250px] truncate" title={(c.clientNames || []).join(', ')}>
                                                     Aplica a: {(c.clientNames || []).join(', ')}
                                                 </div>
-                                                <Badge variant="outline" className="mt-1">{c.unitOfMeasure}</Badge>
+                                            </TableCell>
+                                            <TableCell>
+                                                <Badge variant={c.calculationType === 'OBSERVACION' ? "default" : "secondary"}>
+                                                    {c.calculationType === 'OBSERVACION' ? `OBS: ${c.associatedObservation}` : 'REGLAS'}
+                                                </Badge>
                                             </TableCell>
                                             <TableCell>
                                                 {c.tariffType === 'UNICA' ? (
                                                     <span className="font-semibold text-green-700">{c.value?.toLocaleString('es-CO', {style:'currency', currency: 'COP', minimumFractionDigits: 0})}</span>
                                                 ) : (
-                                                    <div className="flex flex-col gap-1">
-                                                        {c.tariffRanges?.slice(0, 2).map((r, i) => (
-                                                            <div key={i} className="text-xs">
-                                                                <span className="font-semibold">{r.vehicleType}:</span>
-                                                                <span className="text-green-700"> D:</span> {r.dayTariff.toLocaleString('es-CO', {style:'currency', currency: 'COP', minimumFractionDigits: 0})} /
-                                                                <span className="text-blue-700"> N:</span> {r.nightTariff.toLocaleString('es-CO', {style:'currency', currency: 'COP', minimumFractionDigits: 0})}
-                                                            </div>
-                                                        ))}
-                                                        {c.tariffRanges && c.tariffRanges.length > 2 && <div className="text-xs text-muted-foreground">...y {c.tariffRanges.length - 2} más</div>}
-                                                    </div>
+                                                    <Badge variant="outline">Por Rangos</Badge>
                                                 )}
                                             </TableCell>
                                             <TableCell className="text-right">
@@ -441,15 +479,34 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                         </FormItem>
                         )}
                     />
-                    <Separator />
-                    <div className="space-y-2">
-                    <h4 className="text-sm font-semibold flex items-center gap-2"><Calculator className="h-4 w-4"/>Reglas de Cálculo</h4>
-                    </div>
-                    <FormField control={editForm.control} name="calculationBase" render={({ field }) => (<FormItem><FormLabel>Calcular Usando</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione una base..." /></SelectTrigger></FormControl><SelectContent><SelectItem value="TONELADAS">TONELADAS</SelectItem><SelectItem value="KILOGRAMOS">KILOGRAMOS</SelectItem><SelectItem value="CANTIDAD_PALETAS">CANTIDAD DE PALETAS</SelectItem><SelectItem value="CANTIDAD_CAJAS">CANTIDAD DE CAJAS/UNIDADES</SelectItem><SelectItem value="NUMERO_OPERACIONES">NÚMERO DE OPERACIONES</SelectItem><SelectItem value="NUMERO_CONTENEDORES">NÚMERO DE CONTENEDORES</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
-                    <FormField control={editForm.control} name="filterOperationType" render={({ field }) => (<FormItem><FormLabel>Filtrar por Tipo de Operación</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="ambos">Ambos (Recepción y Despacho)</SelectItem><SelectItem value="recepcion">Recepción</SelectItem><SelectItem value="despacho">Despacho</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
-                    <FormField control={editForm.control} name="filterProductType" render={({ field }) => (<FormItem><FormLabel>Filtrar por Tipo de Producto</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="ambos">Ambos (Peso Fijo y Variable)</SelectItem><SelectItem value="fijo">Peso Fijo</SelectItem><SelectItem value="variable">Peso Variable</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
-                    <Separator />
                     <FormField control={editForm.control} name="unitOfMeasure" render={({ field }) => (<FormItem><FormLabel>Unidad de Medida (Para Reporte)</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TONELADA">TONELADA</SelectItem><SelectItem value="PALETA">PALETA</SelectItem><SelectItem value="UNIDAD">UNIDAD</SelectItem><SelectItem value="CAJA">CAJA</SelectItem><SelectItem value="SACO">SACO</SelectItem><SelectItem value="CANASTILLA">CANASTILLA</SelectItem><SelectItem value="HORA">HORA</SelectItem><SelectItem value="DIA">DÍA</SelectItem><SelectItem value="VIAJE">VIAJE</SelectItem><SelectItem value="MES">MES</SelectItem><SelectItem value="CONTENEDOR">CONTENEDOR</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
+                    <Separator />
+                     <FormField control={editForm.control} name="calculationType" render={({ field }) => (
+                        <FormItem className="space-y-3">
+                            <FormLabel>Tipo de Cálculo</FormLabel>
+                            <FormControl>
+                                <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4">
+                                    <FormItem className="flex items-center space-x-2"><RadioGroupItem value="REGLAS" id="edit-reglas" /><Label htmlFor="edit-reglas">Por Reglas</Label></FormItem>
+                                    <FormItem className="flex items-center space-x-2"><RadioGroupItem value="OBSERVACION" id="edit-obs" /><Label htmlFor="edit-obs">Por Observación</Label></FormItem>
+                                </RadioGroup>
+                            </FormControl>
+                            <FormMessage />
+                        </FormItem>
+                    )}/>
+                    
+                    {watchedEditCalculationType === 'REGLAS' && (
+                        <div className='space-y-4 p-4 border rounded-md bg-muted/20'>
+                            <FormField control={editForm.control} name="calculationBase" render={({ field }) => (<FormItem><FormLabel>Calcular Usando</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione una base..." /></SelectTrigger></FormControl><SelectContent><SelectItem value="TONELADAS">TONELADAS</SelectItem><SelectItem value="KILOGRAMOS">KILOGRAMOS</SelectItem><SelectItem value="CANTIDAD_PALETAS">CANTIDAD DE PALETAS</SelectItem><SelectItem value="CANTIDAD_CAJAS">CANTIDAD DE CAJAS/UNIDADES</SelectItem><SelectItem value="NUMERO_OPERACIONES">NÚMERO DE OPERACIONES</SelectItem><SelectItem value="NUMERO_CONTENEDORES">NÚMERO DE CONTENEDORES</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
+                            <FormField control={editForm.control} name="filterOperationType" render={({ field }) => (<FormItem><FormLabel>Filtrar por Tipo de Operación</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="ambos">Ambos (Recepción y Despacho)</SelectItem><SelectItem value="recepcion">Recepción</SelectItem><SelectItem value="despacho">Despacho</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
+                            <FormField control={editForm.control} name="filterProductType" render={({ field }) => (<FormItem><FormLabel>Filtrar por Tipo de Producto</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="ambos">Ambos (Peso Fijo y Variable)</SelectItem><SelectItem value="fijo">Peso Fijo</SelectItem><SelectItem value="variable">Peso Variable</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
+                        </div>
+                    )}
+                    {watchedEditCalculationType === 'OBSERVACION' && (
+                            <div className='space-y-4 p-4 border rounded-md bg-muted/20'>
+                            <FormField control={editForm.control} name="associatedObservation" render={({ field }) => (<FormItem><FormLabel>Observación Asociada</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione una observación..." /></SelectTrigger></FormControl><SelectContent>{standardObservations.map(obs => <SelectItem key={obs.id} value={obs.name}>{obs.name}</SelectItem>)}</SelectContent></Select><FormDescription>El sistema buscará esta observación en los formularios.</FormDescription><FormMessage /></FormItem>)}/>
+                        </div>
+                    )}
+                    <Separator />
                     <FormField
                         control={editForm.control}
                         name="tariffType"
@@ -471,7 +528,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                     )}
                     
                     {watchedEditTariffType === 'RANGOS' && (
-                        <div className='space-y-4 p-4 border rounded-md'>
+                        <div className='space-y-4 p-4 border rounded-md bg-muted/20'>
                             <div className="space-y-2">
                                 <FormLabel>Definición de Turno</FormLabel>
                                 <div className="grid grid-cols-2 gap-4">
@@ -482,7 +539,6 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                             <Separator />
                             <div className="space-y-2">
                                 <FormLabel>Rangos de Tarifas (Opcional)</FormLabel>
-                                <FormDescription>Añada rangos si la tarifa varía por peso. Déjelo vacío para usar la misma tarifa sin importar el peso.</FormDescription>
                             </div>
                             <ScrollArea className="h-40 pr-4">
                                 <div className="space-y-4">
@@ -634,4 +690,3 @@ function ClientMultiSelectDialog({
     </Dialog>
   );
 }
-
