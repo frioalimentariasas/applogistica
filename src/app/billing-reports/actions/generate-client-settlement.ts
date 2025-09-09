@@ -150,9 +150,8 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
         .get();
     
     const resultsByDay = new Map<string, ClientSettlementRow[]>();
-    const SPECIAL_CONCEPTS = ["FMM DE INGRESO", "ARIN DE INGRESO", "FMM DE SALIDA", "ARIN DE SALIDA"];
-    const OBSERVATION_BASED_CONCEPTS = ["REESTIBADO"];
-
+    const SPECIAL_CONCEPTS_BY_OP_TYPE = ["FMM DE INGRESO", "ARIN DE INGRESO", "FMM DE SALIDA", "ARIN DE SALIDA"];
+    
     const getLocalGroupingDate = (isoString: string): string => {
         if (!isoString) return '';
         const date = new Date(isoString);
@@ -204,10 +203,30 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
         let unitValue = 0;
         let conceptHandled = false;
 
-        const isSpecialConcept = SPECIAL_CONCEPTS.includes(concept.conceptName.toUpperCase());
-        const isObservationConcept = OBSERVATION_BASED_CONCEPTS.includes(concept.conceptName.toUpperCase());
+        const isSpecialConcept = SPECIAL_CONCEPTS_BY_OP_TYPE.includes(concept.conceptName.toUpperCase());
+        
+        // --- START OF CORRECTED LOGIC ---
+        // Prioritize observation-based concepts.
+        // Check if any operation in the current group has an observation matching the concept name.
+        const opsWithMatchingObservation = dailyOperations.filter(op =>
+            Array.isArray(op.observaciones) && op.observaciones.some((obs: any) => obs.type?.toUpperCase() === concept.conceptName.toUpperCase())
+        );
 
-        if (isSpecialConcept) {
+        if (opsWithMatchingObservation.length > 0) {
+            quantity = opsWithMatchingObservation.reduce((sum, op) => {
+                const relevantObs = (op.observaciones as any[]).find(obs => obs.type?.toUpperCase() === concept.conceptName.toUpperCase());
+                return sum + (Number(relevantObs?.quantity) || 0);
+            }, 0);
+            
+            if (quantity > 0) {
+                unitValue = concept.value || 0;
+                operacionLogistica = "N/A"; // Observation concepts don't depend on shift
+                conceptHandled = true;
+            }
+        }
+        // --- END OF CORRECTED LOGIC ---
+
+        if (!conceptHandled && isSpecialConcept) {
             if ((concept.conceptName.toUpperCase() === "FMM DE INGRESO" || concept.conceptName.toUpperCase() === "ARIN DE INGRESO") && hasReceptions) {
                 quantity = 1;
             } else if ((concept.conceptName.toUpperCase() === "FMM DE SALIDA" || concept.conceptName.toUpperCase() === "ARIN DE SALIDA") && hasDispatches) {
@@ -217,23 +236,6 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
               unitValue = concept.value || 0;
               operacionLogistica = 'N/A';
               conceptHandled = true;
-            }
-        } else if (isObservationConcept) {
-             const opsWithObservation = dailyOperations.filter(op =>
-                Array.isArray(op.observaciones) && op.observaciones.some((obs: any) => obs.type?.toUpperCase() === concept.conceptName.toUpperCase())
-            );
-
-            if (opsWithObservation.length > 0) {
-                quantity = opsWithObservation.reduce((sum, op) => {
-                    const relevantObs = (op.observaciones as any[]).find(obs => obs.type?.toUpperCase() === concept.conceptName.toUpperCase());
-                    return sum + (Number(relevantObs?.quantity) || 0);
-                }, 0);
-                
-                if (quantity > 0) {
-                    unitValue = concept.value || 0;
-                    operacionLogistica = "N/A";
-                    conceptHandled = true;
-                }
             }
         }
         
