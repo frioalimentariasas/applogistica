@@ -309,7 +309,7 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
                 settlementRows.push({
                     date,
                     container: op.details?.container || 'Manual',
-                    totalPaletas: op.details?.totalPaletas || 0,
+                    totalPaletas: op.details?.totalPallets || 0,
                     camara: 'N/A',
                     operacionLogistica,
                     pedidoSislog: 'Manual',
