@@ -202,26 +202,29 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
         let unitValue = 0;
         let conceptHandled = false;
 
-        // --- EXCLUSIVE LOGIC FOR OBSERVATION-BASED CONCEPTS ---
-        const opsWithMatchingObservation = dailyOperations.filter(op =>
+        const isObservationBased = allOperations.some(op =>
             Array.isArray(op.observaciones) && op.observaciones.some((obs: any) => obs.type?.toUpperCase() === concept.conceptName.toUpperCase())
         );
 
-        if (opsWithMatchingObservation.length > 0) {
-            quantity = opsWithMatchingObservation.reduce((sum, op) => {
-                const relevantObs = (op.observaciones as any[]).find(obs => obs.type?.toUpperCase() === concept.conceptName.toUpperCase());
-                return sum + (Number(relevantObs?.quantity) || 0);
-            }, 0);
-            
-            if (quantity > 0) {
-                unitValue = concept.value || 0;
-                operacionLogistica = "N/A";
-                conceptHandled = true;
+        if (isObservationBased) {
+            const opsWithMatchingObservation = dailyOperations.filter(op =>
+                Array.isArray(op.observaciones) && op.observaciones.some((obs: any) => obs.type?.toUpperCase() === concept.conceptName.toUpperCase())
+            );
+
+            if (opsWithMatchingObservation.length > 0) {
+                quantity = opsWithMatchingObservation.reduce((sum, op) => {
+                    const relevantObs = (op.observaciones as any[]).find(obs => obs.type?.toUpperCase() === concept.conceptName.toUpperCase());
+                    return sum + (Number(relevantObs?.quantity) || 0);
+                }, 0);
+                
+                if (quantity > 0) {
+                    unitValue = concept.value || 0;
+                    operacionLogistica = "N/A";
+                    conceptHandled = true;
+                }
             }
         }
-        // --- END OF EXCLUSIVE OBSERVATION LOGIC ---
-
-        // --- STANDARD CALCULATION LOGIC (Only if not handled by observation) ---
+        
         else if (!conceptHandled && SPECIAL_CONCEPTS_BY_OP_TYPE.includes(concept.conceptName.toUpperCase())) {
             if ((concept.conceptName.toUpperCase() === "FMM DE INGRESO" || concept.conceptName.toUpperCase() === "ARIN DE INGRESO") && hasReceptions) {
                 quantity = 1;
@@ -280,7 +283,6 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
                 }
             }
         }
-        // --- END OF STANDARD CALCULATION LOGIC ---
         
         if (conceptHandled && quantity > 0) {
             dailyResults.push({
