@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import * as React from 'react';
@@ -55,7 +56,7 @@ const conceptSchema = z.object({
   clientNames: z.array(z.string()).min(1, { message: 'Debe seleccionar al menos un cliente.' }),
   unitOfMeasure: z.enum(['TONELADA', 'PALETA', 'UNIDAD', 'CAJA', 'SACO', 'CANASTILLA', 'HORA', 'DIA', 'VIAJE', 'MES', 'CONTENEDOR'], { required_error: 'Debe seleccionar una unidad de medida.'}),
   
-  calculationType: z.enum(['REGLAS', 'OBSERVACION'], { required_error: 'Debe seleccionar un tipo de cálculo.' }),
+  calculationType: z.enum(['REGLAS', 'OBSERVACION', 'MANUAL'], { required_error: 'Debe seleccionar un tipo de cálculo.' }),
   
   // Calculation Rules (for REGLAS)
   calculationBase: z.enum(['TONELADAS', 'KILOGRAMOS', 'CANTIDAD_PALETAS', 'CANTIDAD_CAJAS', 'NUMERO_OPERACIONES', 'NUMERO_CONTENEDORES']).optional(),
@@ -293,9 +294,10 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                                     <FormItem className="space-y-3">
                                         <FormLabel>Tipo de Cálculo</FormLabel>
                                         <FormControl>
-                                            <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4">
+                                            <RadioGroup onValueChange={field.onChange} value={field.value} className="flex flex-wrap gap-4">
                                                 <FormItem className="flex items-center space-x-2"><RadioGroupItem value="REGLAS" id="add-reglas" /><Label htmlFor="add-reglas">Por Reglas</Label></FormItem>
                                                 <FormItem className="flex items-center space-x-2"><RadioGroupItem value="OBSERVACION" id="add-obs" /><Label htmlFor="add-obs">Por Observación</Label></FormItem>
+                                                <FormItem className="flex items-center space-x-2"><RadioGroupItem value="MANUAL" id="add-manual" /><Label htmlFor="add-manual">Op. Manual</Label></FormItem>
                                             </RadioGroup>
                                         </FormControl>
                                         <FormMessage />
@@ -425,8 +427,8 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                                                 </div>
                                             </TableCell>
                                             <TableCell>
-                                                <Badge variant={c.calculationType === 'OBSERVACION' ? "default" : "secondary"}>
-                                                    {c.calculationType === 'OBSERVACION' ? `OBS: ${c.associatedObservation}` : 'REGLAS'}
+                                                <Badge variant={c.calculationType === 'OBSERVACION' ? "default" : c.calculationType === 'MANUAL' ? 'destructive' : "secondary"}>
+                                                    {c.calculationType === 'OBSERVACION' ? `OBS: ${c.associatedObservation}` : c.calculationType || 'REGLAS'}
                                                 </Badge>
                                             </TableCell>
                                             <TableCell>
@@ -485,9 +487,10 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                         <FormItem className="space-y-3">
                             <FormLabel>Tipo de Cálculo</FormLabel>
                             <FormControl>
-                                <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4">
+                                <RadioGroup onValueChange={field.onChange} value={field.value} className="flex flex-wrap gap-4">
                                     <FormItem className="flex items-center space-x-2"><RadioGroupItem value="REGLAS" id="edit-reglas" /><Label htmlFor="edit-reglas">Por Reglas</Label></FormItem>
                                     <FormItem className="flex items-center space-x-2"><RadioGroupItem value="OBSERVACION" id="edit-obs" /><Label htmlFor="edit-obs">Por Observación</Label></FormItem>
+                                    <FormItem className="flex items-center space-x-2"><RadioGroupItem value="MANUAL" id="edit-manual" /><Label htmlFor="edit-manual">Op. Manual</Label></FormItem>
                                 </RadioGroup>
                             </FormControl>
                             <FormMessage />

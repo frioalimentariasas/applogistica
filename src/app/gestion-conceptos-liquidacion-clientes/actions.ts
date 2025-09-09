@@ -19,7 +19,7 @@ export interface ClientBillingConcept {
   clientNames: string[];
   unitOfMeasure: 'TONELADA' | 'PALETA' | 'UNIDAD' | 'CAJA' | 'SACO' | 'CANASTILLA' | 'HORA' | 'DIA' | 'VIAJE' | 'MES' | 'CONTENEDOR';
   
-  calculationType: 'REGLAS' | 'OBSERVACION';
+  calculationType: 'REGLAS' | 'OBSERVACION' | 'MANUAL';
 
   // For 'REGLAS'
   calculationBase?: 'TONELADAS' | 'KILOGRAMOS' | 'CANTIDAD_PALETAS' | 'CANTIDAD_CAJAS' | 'NUMERO_OPERACIONES' | 'NUMERO_CONTENEDORES';
