@@ -93,8 +93,10 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         try {
             const data = await getAllManualClientOperations();
             setAllOperations(data);
+            return data;
         } catch (error) {
             toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar las operaciones.' });
+            return [];
         } finally {
             setIsLoading(false);
         }
@@ -104,7 +106,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         fetchAllOperations();
     }, [fetchAllOperations]);
     
-    const handleSearch = () => {
+    const handleSearch = useCallback(() => {
         if (!selectedDate) {
             toast({
                 variant: 'destructive',
@@ -134,7 +136,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 description: "No se encontraron operaciones con los filtros seleccionados."
             });
         }
-    };
+    }, [allOperations, selectedClient, selectedConcept, selectedDate, toast]);
     
     const handleClearFilters = () => {
         setSelectedDate(undefined);
@@ -193,7 +195,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         let result;
         try {
             if (dialogMode === 'edit' && opToManage) {
-                result = await updateManualClientOperation(opToManage.id, payload);
+                result = await updateManualClientOperation(opToManage.id, payload as Omit<ManualClientOperationData, 'createdAt' | 'createdBy'>);
             } else {
                 result = await addManualClientOperation(payload);
             }
@@ -202,8 +204,11 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 toast({ title: 'Éxito', description: result.message });
                 setIsDialogOpen(false);
                 form.reset();
-                await fetchAllOperations();
-                if(searched) handleSearch();
+                const updatedOps = await fetchAllOperations();
+                 if (searched) {
+                    setAllOperations(updatedOps); // Ensure local state is fresh
+                    handleSearch(); // Re-run search with current filters
+                }
             } else {
                 toast({ variant: "destructive", title: "Error", description: result.message });
             }
@@ -221,8 +226,11 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         const result = await deleteManualClientOperation(opToDelete.id);
         if (result.success) {
             toast({ title: 'Éxito', description: result.message });
-            await fetchAllOperations();
-            if(searched) handleSearch();
+            const updatedOps = await fetchAllOperations();
+            if (searched) {
+                setAllOperations(updatedOps);
+                handleSearch();
+            }
         } else {
             toast({ variant: 'destructive', title: 'Error', description: result.message });
         }

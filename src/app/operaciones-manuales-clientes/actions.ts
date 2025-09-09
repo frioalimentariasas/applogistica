@@ -52,7 +52,7 @@ export async function addManualClientOperation(data: ManualClientOperationData):
 }
 
 
-export async function updateManualClientOperation(id: string, data: Omit<ManualClientOperationData, 'createdAt'>): Promise<{ success: boolean; message: string }> {
+export async function updateManualClientOperation(id: string, data: Omit<ManualClientOperationData, 'createdAt' | 'createdBy'>): Promise<{ success: boolean; message: string }> {
     if (!firestore) {
         return { success: false, message: 'El servidor no está configurado correctamente.' };
     }
