@@ -206,6 +206,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         const payload: ManualClientOperationData = {
             ...data,
             operationDate: data.operationDate.toISOString(),
+            details: data.details || {},
             createdBy: {
                 uid: user.uid,
                 displayName: displayName || user.email!,
@@ -264,6 +265,8 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         const minutes = String(now.getMinutes()).padStart(2, '0');
         form.setValue(fieldName, `${hours}:${minutes}`, { shouldValidate: true });
     };
+
+    const showAdvancedFields = ['TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET', 'MOVIMIENTO SALIDA PRODUCTOS PALLET'].includes(watchedConcept);
 
     return (
         <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
@@ -397,7 +400,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                 {dialogMode === 'edit' && 'Editar Operación Manual'}
                                 {dialogMode === 'view' && 'Detalles de la Operación Manual'}
                             </DialogTitle>
-                            <DialogDescription>
+                             <DialogDescription>
                                 {dialogMode === 'add' ? 'Complete los datos para registrar una operación.' : 'Viendo detalles de una operación registrada.'}
                             </DialogDescription>
                         </DialogHeader>
@@ -410,7 +413,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                         <FormField control={form.control} name="operationDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha de Operación</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={dialogMode === 'view'} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4 opacity-50" />{field.value ? format(field.value, "PPP", { locale: es }) : <span>Seleccione una fecha</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={dialogMode === 'view'} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
                                         <FormField control={form.control} name="quantity" render={({ field }) => (<FormItem><FormLabel>Cantidad</FormLabel><FormControl><Input type="number" step="0.001" placeholder="Ej: 1.5" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)}/>
                                         
-                                        {watchedConcept === 'TOMA DE PESOS POR ETIQUETA HRS' && (
+                                        {showAdvancedFields && (
                                             <>
                                                 <Separator />
                                                 <div className="grid grid-cols-2 gap-4">
