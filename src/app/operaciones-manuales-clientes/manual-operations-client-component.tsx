@@ -191,22 +191,28 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         };
 
         let result;
-        if (dialogMode === 'edit' && opToManage) {
-            result = await updateManualClientOperation(opToManage.id, payload);
-        } else {
-            result = await addManualClientOperation(payload);
+        try {
+            if (dialogMode === 'edit' && opToManage) {
+                result = await updateManualClientOperation(opToManage.id, payload);
+            } else {
+                result = await addManualClientOperation(payload);
+            }
+            
+            if (result.success) {
+                toast({ title: 'Éxito', description: result.message });
+                setIsDialogOpen(false);
+                form.reset();
+                await fetchAllOperations();
+                if(searched) handleSearch();
+            } else {
+                toast({ variant: "destructive", title: "Error", description: result.message });
+            }
+        } catch(error) {
+            const errorMessage = error instanceof Error ? error.message : "Error desconocido al guardar.";
+            toast({ variant: "destructive", title: "Error", description: errorMessage });
+        } finally {
+             setIsSubmitting(false);
         }
-        
-        if (result.success) {
-            toast({ title: 'Éxito', description: result.message });
-            setIsDialogOpen(false);
-            form.reset();
-            await fetchAllOperations();
-            if(searched) handleSearch();
-        } else {
-            toast({ variant: "destructive", title: "Error", description: result.message });
-        }
-        setIsSubmitting(false);
     };
 
     const handleDeleteConfirm = async () => {
