@@ -146,24 +146,12 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
     const selectedConcepts = allConcepts.filter(c => conceptIds.includes(c.id));
 
     const allOperations = await getDetailedReport({ clientName, startDate, endDate, containerNumber });
+    
+    const settlementRows: ClientSettlementRow[] = [];
 
-    const manualOpsSnapshot = await firestore.collection('manual_client_operations')
-        .where('clientName', '==', clientName)
-        .where('operationDate', '>=', new Date(startDate))
-        .where('operationDate', '<=', new Date(endDate))
-        .get();
-    
-    const resultsByDay = new Map<string, ClientSettlementRow[]>();
-    
-    const getLocalGroupingDate = (isoString: string): string => {
-        if (!isoString) return '';
-        const date = new Date(isoString);
-        date.setUTCHours(date.getUTCHours() - 5);
-        return date.toISOString().split('T')[0];
-    };
-    
+    // Group form operations by day and container
     const operationsByDayAndContainer = allOperations.reduce((acc, op) => {
-        const date = getLocalGroupingDate(op.fecha);
+        const date = new Date(op.fecha).toISOString().split('T')[0];
         const container = op.contenedor || 'No aplica';
         const key = `${date}|${container}`;
         if (!acc[key]) {
@@ -173,24 +161,9 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
         return acc;
     }, {} as Record<string, DetailedReportRow[]>);
 
-     const manualOpsByDay = manualOpsSnapshot.docs.reduce((acc, doc) => {
-        const op = doc.data();
-        const date = getLocalGroupingDate((op.operationDate as admin.firestore.Timestamp).toDate().toISOString());
-        if (!acc[date]) {
-            acc[date] = [];
-        }
-        acc[date].push(op);
-        return acc;
-    }, {} as Record<string, any[]>);
-
-
+    // Process regular form operations
     for (const key in operationsByDayAndContainer) {
         const [date, container] = key.split('|');
-        
-        if (!resultsByDay.has(date)) {
-            resultsByDay.set(date, []);
-        }
-        const dailyResults = resultsByDay.get(date)!;
         const dailyOperations = operationsByDayAndContainer[key];
         const camara = dailyOperations[0]?.sesion || 'N/A';
         const totalPaletas = dailyOperations.reduce((sum, op) => sum + (op.totalPaletas || 0), 0);
@@ -267,7 +240,7 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
             }
 
             if (conceptHandled && quantity > 0) {
-                dailyResults.push({
+                settlementRows.push({
                     date,
                     container,
                     camara,
@@ -283,54 +256,53 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
             }
         }
     }
-    
-     for (const date in manualOpsByDay) {
-        if (!resultsByDay.has(date)) {
-            resultsByDay.set(date, []);
-        }
-        const dailyResults = resultsByDay.get(date)!;
-        const dailyManualOps = manualOpsByDay[date];
 
-        for (const manualOp of dailyManualOps) {
-             const concept = selectedConcepts.find(c => c.conceptName === manualOp.concept);
-             if (concept) {
-                const quantity = Number(manualOp.quantity) || 0;
-                let unitValue = 0;
-                let operacionLogistica: string = 'N/A';
-                
-                if (concept.tariffType === 'UNICA') {
-                  unitValue = concept.value || 0;
-                  operacionLogistica = 'N/A';
-                } else if (concept.tariffType === 'RANGOS' && manualOp.details?.startTime && manualOp.details?.endTime) {
-                    const opLogisticType = getOperationLogisticsType((manualOp.operationDate as admin.firestore.Timestamp).toDate().toISOString(), manualOp.details.startTime, manualOp.details.endTime, concept);
-                    const matchingTariff = concept.tariffRanges?.[0]; // Assuming one generic range for manual ops
-                    if (matchingTariff) {
-                        unitValue = opLogisticType === 'Diurno' ? matchingTariff.dayTariff : matchingTariff.nightTariff;
-                    }
-                    operacionLogistica = opLogisticType;
+    // Fetch and process manual operations separately
+    const manualOpsSnapshot = await firestore.collection('manual_client_operations')
+        .where('clientName', '==', clientName)
+        .where('operationDate', '>=', new Date(startDate))
+        .where('operationDate', '<=', new Date(endDate))
+        .get();
+
+    manualOpsSnapshot.forEach(doc => {
+        const op = doc.data() as any;
+        const concept = selectedConcepts.find(c => c.conceptName === op.concept);
+        if (concept) {
+            const date = new Date(op.operationDate.toDate()).toISOString().split('T')[0];
+            const quantity = Number(op.quantity) || 0;
+            let unitValue = 0;
+            let operacionLogistica: string = 'N/A';
+            
+            if (concept.tariffType === 'UNICA') {
+              unitValue = concept.value || 0;
+            } else if (concept.tariffType === 'RANGOS' && op.details?.startTime && op.details?.endTime) {
+                const opLogisticType = getOperationLogisticsType(op.operationDate.toDate().toISOString(), op.details.startTime, op.details.endTime, concept);
+                const matchingTariff = concept.tariffRanges?.[0]; // Assuming one generic range for manual ops
+                if (matchingTariff) {
+                    unitValue = opLogisticType === 'Diurno' ? matchingTariff.dayTariff : matchingTariff.nightTariff;
                 }
+                operacionLogistica = opLogisticType;
+            }
 
-                dailyResults.push({
-                  date,
-                  container: manualOp.details?.plate || 'Manual',
-                  totalPaletas: 0,
-                  camara: 'N/A',
-                  operacionLogistica,
-                  pedidoSislog: 'Manual',
-                  conceptName: concept.conceptName,
-                  quantity,
-                  unitOfMeasure: concept.unitOfMeasure,
-                  unitValue: unitValue,
-                  totalValue: quantity * unitValue,
-                });
-             }
+            settlementRows.push({
+              date,
+              container: op.details?.container || 'Manual',
+              totalPaletas: op.details?.totalPaletas || 0,
+              camara: 'N/A',
+              operacionLogistica,
+              pedidoSislog: 'Manual',
+              conceptName: concept.conceptName,
+              quantity,
+              unitOfMeasure: concept.unitOfMeasure,
+              unitValue: unitValue,
+              totalValue: quantity * unitValue,
+            });
         }
-    }
+    });
 
-    const finalReport = Array.from(resultsByDay.values()).flat();
-    finalReport.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime() || a.conceptName.localeCompare(b.conceptName));
+    settlementRows.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime() || a.conceptName.localeCompare(b.conceptName));
     
-    return { success: true, data: finalReport };
+    return { success: true, data: settlementRows };
 
   } catch (error: any) {
     console.error('Error in generateClientSettlement:', error);
