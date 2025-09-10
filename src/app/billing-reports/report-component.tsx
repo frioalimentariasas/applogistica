@@ -1111,6 +1111,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             { header: 'Pedido SISLOG', key: 'pedidoSislog', width: 20 },
             { header: 'Op. Logística', key: 'operacionLogistica', width: 15 },
             { header: 'Concepto', key: 'conceptName', width: 40 },
+            { header: 'Tipo Vehículo', key: 'tipoVehiculo', width: 15 },
             { header: 'Cantidad', key: 'quantity', width: 15 },
             { header: 'Unidad', key: 'unitOfMeasure', width: 15 },
             { header: 'Valor Unitario', key: 'unitValue', width: 20 },
@@ -1138,12 +1139,12 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                     camara: getSessionName(row.camara),
                     date: format(parseISO(row.date), 'dd/MM/yyyy'),
                     operacionLogistica: row.operacionLogistica,
-                    unitValue: { formula: `J${worksheet.rowCount + 1}`, result: row.unitValue },
-                    totalValue: { formula: `K${worksheet.rowCount + 1}`, result: row.totalValue }
+                    unitValue: { formula: `K${worksheet.rowCount + 1}`, result: row.unitValue },
+                    totalValue: { formula: `L${worksheet.rowCount + 1}`, result: row.totalValue }
                 });
-                worksheet.getCell(`J${worksheet.rowCount}`).numFmt = '$ #,##0.00';
                 worksheet.getCell(`K${worksheet.rowCount}`).numFmt = '$ #,##0.00';
-                worksheet.getCell(`H${worksheet.rowCount}`).numFmt = '#,##0.00';
+                worksheet.getCell(`L${worksheet.rowCount}`).numFmt = '$ #,##0.00';
+                worksheet.getCell(`I${worksheet.rowCount}`).numFmt = '#,##0.00';
             });
             const subtotalRow = worksheet.addRow({ 
                 conceptName: `SUBTOTAL ${conceptName}`,
@@ -1152,19 +1153,19 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             });
             subtotalRow.font = { bold: true };
             subtotalRow.getCell('A').alignment = { horizontal: 'right' };
-            subtotalRow.getCell('H').numFmt = '#,##0.00';
-            subtotalRow.getCell('K').numFmt = '$ #,##0.00';
-            worksheet.mergeCells(`A${subtotalRow.number}:G${subtotalRow.number}`);
-            worksheet.mergeCells(`I${subtotalRow.number}:J${subtotalRow.number}`);
+            subtotalRow.getCell('I').numFmt = '#,##0.00';
+            subtotalRow.getCell('L').numFmt = '$ #,##0.00';
+            worksheet.mergeCells(`A${subtotalRow.number}:H${subtotalRow.number}`);
+            worksheet.mergeCells(`J${subtotalRow.number}:K${subtotalRow.number}`);
         });
 
         worksheet.addRow([]);
         const totalRow = worksheet.addRow({ conceptName: 'TOTAL GENERAL', totalValue: totalGeneral });
         totalRow.font = { bold: true, size: 12 };
         totalRow.getCell('A').alignment = { horizontal: 'right' };
-        totalRow.getCell('K').font = { bold: true, size: 12 };
-        totalRow.getCell('K').numFmt = '$ #,##0.00';
-        worksheet.mergeCells(`A${totalRow.number}:J${totalRow.number}`);
+        totalRow.getCell('L').font = { bold: true, size: 12 };
+        totalRow.getCell('L').numFmt = '$ #,##0.00';
+        worksheet.mergeCells(`A${totalRow.number}:K${totalRow.number}`);
 
 
         const buffer = await workbook.xlsx.writeBuffer();
@@ -1261,8 +1262,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                             </CardHeader>
                             <CardContent>
                                 <div className="space-y-4 mb-6">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                                        <div className="space-y-2">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                                        <div className="space-y-2 lg:col-span-2">
                                             <Label>Rango de Fechas</Label>
                                             <Popover>
                                                 <PopoverTrigger asChild>
@@ -1276,19 +1277,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                 </PopoverContent>
                                             </Popover>
                                         </div>
-                                         <div className="flex flex-col gap-2 justify-end">
-                                            <div className="flex gap-2 items-center">
-                                                <Button onClick={handleDetailedReportSearch} className="w-full" disabled={isDetailedReportLoading}>
-                                                    {isDetailedReportLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
-                                                    Buscar
-                                                </Button>
-                                                <Button onClick={handleDetailedReportClear} variant="outline" className="w-full">
-                                                    <XCircle className="mr-2 h-4 w-4" />
-                                                    Limpiar
-                                                </Button>
-                                            </div>
-                                        </div>
-                                        <div className="space-y-2">
+                                        <div className="space-y-2 lg:col-span-2">
                                             <Label>Cliente (Opcional)</Label>
                                             <Dialog open={isDetailedClientDialogOpen} onOpenChange={setDetailedClientDialogOpen}>
                                                 <DialogTrigger asChild>
@@ -1311,68 +1300,82 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                 </DialogContent>
                                             </Dialog>
                                         </div>
-                                        <div className="space-y-2">
-                                            <Label>Tipo de Operación</Label>
-                                            <Select value={detailedReportOperationType} onValueChange={setDetailedReportOperationType}>
-                                                <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="todos">Todos</SelectItem>
-                                                    <SelectItem value="recepcion">Recepción</SelectItem>
-                                                    <SelectItem value="despacho">Despacho</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                        <div className="space-y-2">
-                                            <Label>Tipo de Pedido</Label>
-                                            <Dialog open={isDetailedTipoPedidoDialogOpen} onOpenChange={setIsDetailedTipoPedidoDialogOpen}>
-                                                <DialogTrigger asChild>
-                                                    <Button variant="outline" className="w-full justify-between text-left font-normal">
-                                                        <span className="truncate">{getTipoPedidoButtonText()}</span>
-                                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                                    </Button>
-                                                </DialogTrigger>
-                                                <DialogContent>
-                                                    <DialogHeader>
-                                                        <DialogTitle>Seleccionar Tipo(s) de Pedido</DialogTitle>
-                                                    </DialogHeader>
-                                                    <Input
-                                                        placeholder="Buscar tipo..."
-                                                        value={detailedTipoPedidoSearch}
-                                                        onChange={(e) => setDetailedTipoPedidoSearch(e.target.value)}
-                                                        className="my-4"
-                                                    />
-                                                    <ScrollArea className="h-72">
-                                                        <div className="space-y-2 py-4">
-                                                        {filteredDetailedPedidoTypes.map((option) => (
-                                                            <div key={option.id} className="flex items-center space-x-2">
-                                                            <Checkbox
-                                                                id={`tipo-pedido-${option.id}`}
-                                                                checked={detailedReportTipoPedido.includes(option.name)}
-                                                                onCheckedChange={(checked) => {
-                                                                setDetailedReportTipoPedido((prev) =>
-                                                                    checked
-                                                                    ? [...prev, option.name]
-                                                                    : prev.filter((value) => value !== option.name)
-                                                                );
-                                                                }}
+                                         <div className="space-y-4 lg:col-span-4">
+                                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
+                                                <div className="space-y-2">
+                                                    <Label>Tipo de Operación</Label>
+                                                    <Select value={detailedReportOperationType} onValueChange={setDetailedReportOperationType}>
+                                                        <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+                                                        <SelectContent>
+                                                            <SelectItem value="todos">Todos</SelectItem>
+                                                            <SelectItem value="recepcion">Recepción</SelectItem>
+                                                            <SelectItem value="despacho">Despacho</SelectItem>
+                                                        </SelectContent>
+                                                    </Select>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label>Tipo de Pedido</Label>
+                                                    <Dialog open={isDetailedTipoPedidoDialogOpen} onOpenChange={setIsDetailedTipoPedidoDialogOpen}>
+                                                        <DialogTrigger asChild>
+                                                            <Button variant="outline" className="w-full justify-between text-left font-normal">
+                                                                <span className="truncate">{getTipoPedidoButtonText()}</span>
+                                                                <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                            </Button>
+                                                        </DialogTrigger>
+                                                        <DialogContent>
+                                                            <DialogHeader>
+                                                                <DialogTitle>Seleccionar Tipo(s) de Pedido</DialogTitle>
+                                                            </DialogHeader>
+                                                            <Input
+                                                                placeholder="Buscar tipo..."
+                                                                value={detailedTipoPedidoSearch}
+                                                                onChange={(e) => setDetailedTipoPedidoSearch(e.target.value)}
+                                                                className="my-4"
                                                             />
-                                                            <Label htmlFor={`tipo-pedido-${option.id}`} className="font-normal cursor-pointer">
-                                                                {option.name}
-                                                            </Label>
-                                                            </div>
-                                                        ))}
-                                                        </div>
-                                                    </ScrollArea>
-                                                    <DialogFooter>
-                                                        <Button onClick={() => setIsDetailedTipoPedidoDialogOpen(false)}>Cerrar</Button>
-                                                    </DialogFooter>
-                                                </DialogContent>
-                                            </Dialog>
+                                                            <ScrollArea className="h-72">
+                                                                <div className="space-y-2 py-4">
+                                                                {filteredDetailedPedidoTypes.map((option) => (
+                                                                    <div key={option.id} className="flex items-center space-x-2">
+                                                                    <Checkbox
+                                                                        id={`tipo-pedido-${option.id}`}
+                                                                        checked={detailedReportTipoPedido.includes(option.name)}
+                                                                        onCheckedChange={(checked) => {
+                                                                        setDetailedReportTipoPedido((prev) =>
+                                                                            checked
+                                                                            ? [...prev, option.name]
+                                                                            : prev.filter((value) => value !== option.name)
+                                                                        );
+                                                                        }}
+                                                                    />
+                                                                    <Label htmlFor={`tipo-pedido-${option.id}`} className="font-normal cursor-pointer">
+                                                                        {option.name}
+                                                                    </Label>
+                                                                    </div>
+                                                                ))}
+                                                                </div>
+                                                            </ScrollArea>
+                                                            <DialogFooter>
+                                                                <Button onClick={() => setIsDetailedTipoPedidoDialogOpen(false)}>Cerrar</Button>
+                                                            </DialogFooter>
+                                                        </DialogContent>
+                                                    </Dialog>
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <Label>No. Contenedor (Opcional)</Label>
+                                                    <Input placeholder="Buscar por contenedor" value={detailedReportContainer} onChange={(e) => setDetailedReportContainer(e.target.value)} />
+                                                </div>
+                                            </div>
                                         </div>
-                                        <div className="space-y-2">
-                                            <Label>No. Contenedor (Opcional)</Label>
-                                            <Input placeholder="Buscar por contenedor" value={detailedReportContainer} onChange={(e) => setDetailedReportContainer(e.target.value)} />
-                                        </div>
+                                    </div>
+                                    <div className="flex gap-2 items-center lg:col-span-4 mt-4">
+                                        <Button onClick={handleDetailedReportSearch} className="w-full" disabled={isDetailedReportLoading}>
+                                            {isDetailedReportLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+                                            Buscar
+                                        </Button>
+                                        <Button onClick={handleDetailedReportClear} variant="outline" className="w-full">
+                                            <XCircle className="mr-2 h-4 w-4" />
+                                            Limpiar
+                                        </Button>
                                     </div>
                                 </div>
                                 
@@ -2048,9 +2051,9 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                         }
                                                                     }}
                                                                 />
-                                                                <label htmlFor="select-all-concepts" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                                                <Label htmlFor="select-all-concepts" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                                                                     Seleccionar Todos
-                                                                </label>
+                                                                </Label>
                                                             </div>
                                                             {availableConcepts.map(c => (<div key={c.id} className="flex items-center space-x-3"><Checkbox id={`concept-${c.id}`} checked={selectedConcepts.includes(c.id)} onCheckedChange={checked => setSelectedConcepts(prev => checked ? [...prev, c.id] : prev.filter(id => id !== c.id))} /><label htmlFor={`concept-${c.id}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">{c.conceptName}</label></div>))}
                                                         </>
@@ -2084,6 +2087,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                     <TableHead className="text-xs p-2">Pedido SISLOG</TableHead>
                                                     <TableHead className="text-xs p-2">Op. Logística</TableHead>
                                                     <TableHead className="text-xs p-2">Concepto</TableHead>
+                                                    <TableHead className="text-xs p-2">Tipo Vehículo</TableHead>
                                                     <TableHead className="text-xs p-2">Cantidad</TableHead>
                                                     <TableHead className="text-xs p-2">Unidad</TableHead>
                                                     <TableHead className="text-right text-xs p-2">Valor Unitario</TableHead>
@@ -2092,13 +2096,13 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                             </TableHeader>
                                             <TableBody>
                                                 {isSettlementLoading ? (
-                                                    Array.from({length: 3}).map((_, i) => <TableRow key={i}><TableCell colSpan={11}><Skeleton className="h-8 w-full"/></TableCell></TableRow>)
+                                                    Array.from({length: 3}).map((_, i) => <TableRow key={i}><TableCell colSpan={12}><Skeleton className="h-8 w-full"/></TableCell></TableRow>)
                                                 ) : settlementGroupedData && Object.keys(settlementGroupedData).length > 0 ? (
                                                     <>
                                                         {Object.keys(settlementGroupedData).sort().map(conceptName => (
                                                             <React.Fragment key={conceptName}>
                                                                 <TableRow className="bg-muted hover:bg-muted">
-                                                                    <TableCell colSpan={11} className="font-bold text-primary text-sm p-2">{conceptName}</TableCell>
+                                                                    <TableCell colSpan={12} className="font-bold text-primary text-sm p-2">{conceptName}</TableCell>
                                                                 </TableRow>
                                                                 {settlementGroupedData[conceptName].rows.map((row, i) => (
                                                                     <TableRow key={`${row.date}-${row.conceptName}-${i}`}>
@@ -2109,6 +2113,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                         <TableCell className="text-xs p-2">{row.pedidoSislog}</TableCell>
                                                                         <TableCell className="text-xs p-2">{row.operacionLogistica}</TableCell>
                                                                         <TableCell className="text-xs p-2">{row.conceptName}</TableCell>
+                                                                        <TableCell className="text-xs p-2">{row.tipoVehiculo}</TableCell>
                                                                         <TableCell className="text-xs p-2">{row.quantity.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
                                                                         <TableCell className="text-xs p-2">{row.unitOfMeasure}</TableCell>
                                                                         <TableCell className="text-right text-xs p-2">{row.unitValue.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
@@ -2116,7 +2121,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                     </TableRow>
                                                                 ))}
                                                                 <TableRow className="bg-secondary hover:bg-secondary/80 font-bold">
-                                                                    <TableCell colSpan={7} className="text-right text-xs p-2">SUBTOTAL {conceptName}:</TableCell>
+                                                                    <TableCell colSpan={8} className="text-right text-xs p-2">SUBTOTAL {conceptName}:</TableCell>
                                                                     <TableCell className="text-xs p-2">{settlementGroupedData[conceptName].subtotalCantidad.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
                                                                     <TableCell colSpan={2} className="text-xs p-2"></TableCell>
                                                                     <TableCell className="text-right text-xs p-2">{settlementGroupedData[conceptName].subtotalValor.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
@@ -2124,12 +2129,12 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                             </React.Fragment>
                                                         ))}
                                                         <TableRow className="bg-primary hover:bg-primary text-primary-foreground font-bold text-base">
-                                                            <TableCell colSpan={10} className="text-right p-2">TOTAL GENERAL:</TableCell>
+                                                            <TableCell colSpan={11} className="text-right p-2">TOTAL GENERAL:</TableCell>
                                                             <TableCell className="text-right p-2">{settlementTotalGeneral.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
                                                         </TableRow>
                                                     </>
                                                 ) : (
-                                                    <TableRow><TableCell colSpan={11} className="h-24 text-center">No se encontraron datos para liquidar.</TableCell></TableRow>
+                                                    <TableRow><TableCell colSpan={12} className="h-24 text-center">No se encontraron datos para liquidar.</TableCell></TableRow>
                                                 )}
                                             </TableBody>
                                         </Table>

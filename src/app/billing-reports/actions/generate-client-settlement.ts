@@ -51,6 +51,7 @@ export interface ClientSettlementRow {
   operacionLogistica: string;
   pedidoSislog: string; 
   conceptName: string;
+  tipoVehiculo: string;
   quantity: number;
   unitOfMeasure: string;
   unitValue: number;
@@ -330,6 +331,7 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
             let quantity = 0;
             let unitValue = 0;
             let operacionLogistica: string = 'N/A';
+            let vehicleTypeForReport = 'N/A';
             let conceptHandled = false;
             
             const applicableOperations = dailyOperations.filter(op => {
@@ -361,6 +363,7 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
                     } else if (concept.tariffType === 'RANGOS') {
                         const totalTons = applicableOperations.reduce((sum, op) => sum + ((op.formData.totalPesoKg ?? op.formData.totalPesoBrutoKg) || 0), 0) / 1000;
                         const vehicleType = container !== 'No aplica' ? 'CONTENEDOR' : 'TURBO';
+                        vehicleTypeForReport = vehicleType;
                         
                         const matchingTariff = findMatchingTariff(totalTons, vehicleType, concept);
                         
@@ -386,6 +389,7 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
                     operacionLogistica,
                     pedidoSislog,
                     conceptName: concept.conceptName,
+                    tipoVehiculo: (concept.conceptName === 'OPERACIÓN CARGUE' || concept.conceptName === 'OPERACIÓN DESCARGUE') ? vehicleTypeForReport : 'N/A',
                     quantity,
                     unitOfMeasure: concept.unitOfMeasure,
                     unitValue: unitValue,
@@ -419,6 +423,7 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
                         operacionLogistica: 'N/A',
                         pedidoSislog: 'Por Observación',
                         conceptName: concept.conceptName,
+                        tipoVehiculo: 'N/A',
                         quantity: totalQuantity,
                         unitOfMeasure: concept.unitOfMeasure,
                         unitValue: concept.value || 0,
@@ -461,6 +466,7 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
                         operacionLogistica,
                         pedidoSislog: 'Manual',
                         conceptName: concept.conceptName,
+                        tipoVehiculo: 'N/A',
                         quantity,
                         unitOfMeasure: concept.unitOfMeasure,
                         unitValue: unitValue,
