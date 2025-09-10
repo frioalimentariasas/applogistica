@@ -7,6 +7,8 @@ import type { ClientBillingConcept, TariffRange } from '@/app/gestion-conceptos-
 import { getClientBillingConcepts } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 import admin from 'firebase-admin';
 import { startOfDay, endOfDay, parseISO } from 'date-fns';
+import type { ArticuloData } from '@/app/actions/articulos';
+
 
 export async function getAllManualClientOperations(): Promise<any[]> {
     if (!firestore) {
@@ -160,10 +162,10 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
     const allConcepts = await getClientBillingConcepts();
     const applicableConcepts = new Map<string, ClientBillingConcept>();
 
-    const serverQueryStartDate = new Date(startDate + 'T00:00:00-05:00');
-    const serverQueryEndDate = new Date(endDate + 'T23:59:59.999-05:00');
+    const serverQueryStartDate = startOfDay(parseISO(startDate));
+    const serverQueryEndDate = endOfDay(parseISO(endDate));
     
-    // Fetch all submissions in the date range, then filter by client in memory
+    // Fetch all submissions in the date range
     const submissionsSnapshot = await firestore.collection('submissions')
         .where('formData.fecha', '>=', serverQueryStartDate)
         .where('formData.fecha', '<=', serverQueryEndDate)
@@ -239,15 +241,22 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
   }
 
   try {
-    const serverQueryStartDate = new Date(startDate + 'T00:00:00-05:00');
-    const serverQueryEndDate = new Date(endDate + 'T23:59:59.999-05:00');
+    const serverQueryStartDate = startOfDay(parseISO(startDate));
+    const serverQueryEndDate = endOfDay(parseISO(endDate));
 
-    const [allConcepts, submissionsSnapshot, manualOpsSnapshot] = await Promise.all([
+    const [allConcepts, articlesSnapshot, submissionsSnapshot, manualOpsSnapshot] = await Promise.all([
         getClientBillingConcepts(),
+        firestore.collection('articulos').where('razonSocial', '==', clientName).get(),
         firestore.collection('submissions').where('formData.fecha', '>=', serverQueryStartDate).where('formData.fecha', '<=', serverQueryEndDate).get(),
         firestore.collection('manual_client_operations').where('operationDate', '>=', serverQueryStartDate).where('operationDate', '<=', serverQueryEndDate).get()
     ]);
     
+    const articleSessionMap = new Map<string, string>();
+    articlesSnapshot.forEach(doc => {
+        const article = doc.data() as ArticuloData;
+        articleSessionMap.set(article.codigoProducto, article.sesion);
+    });
+
     const selectedConcepts = allConcepts.filter(c => conceptIds.includes(c.id));
     const allOperations: BasicOperation[] = [];
 
@@ -291,21 +300,28 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
         const [date, container] = key.split('|');
         const dailyOperations = operationsByDayAndContainer[key];
         
-        const allItems = dailyOperations.flatMap(op => op.formType.startsWith('fixed') ? op.formData.productos : op.formData.items);
+        const allFormItems = dailyOperations.flatMap(op => {
+          if(op.formType.startsWith('fixed')) return op.formData.productos || [];
+          if(op.formData.placas?.length > 0) return op.formData.placas.flatMap((p: any) => p.items || []);
+          if(op.formData.destinos?.length > 0) return op.formData.destinos.flatMap((d: any) => d.items || []);
+          return op.formData.items || [];
+        });
         
         let totalPaletas = 0;
-        if (dailyOperations.some(op => op.formType.startsWith('fixed'))) {
-            totalPaletas = dailyOperations.reduce((sum, op) => sum + (op.formData.productos?.reduce((pSum: number, p: any) => pSum + (Number(p.totalPaletas) || 0), 0) || 0), 0);
-        } else {
-             const uniquePallets = new Set<number>();
-             dailyOperations.flatMap(op => op.formData.items || []).forEach((item: any) => {
-                 const paletaNum = Number(item.paleta);
-                 if (!isNaN(paletaNum) && paletaNum > 0) uniquePallets.add(paletaNum);
-             });
-             totalPaletas = uniquePallets.size;
-        }
+        const uniquePallets = new Set<number>();
+        allFormItems.forEach((item: any) => {
+            if (Number(item.paleta) > 0) {
+                uniquePallets.add(Number(item.paleta));
+            } else if (Number(item.totalPaletas) > 0) {
+                 totalPaletas += Number(item.totalPaletas);
+            } else if (Number(item.paletas) > 0) { // Fallback for older fixed weight forms
+                totalPaletas += Number(item.paletas);
+            }
+        });
+        totalPaletas += uniquePallets.size;
 
-        const camara = allItems[0]?.sesion || 'N/A';
+        const firstProductCode = allFormItems[0]?.codigo;
+        const camara = firstProductCode ? articleSessionMap.get(firstProductCode) || 'N/A' : 'N/A';
         const pedidoSislog = [...new Set(dailyOperations.map(op => op.formData.pedidoSislog))].join(', ');
 
         for (const concept of selectedConcepts) {
