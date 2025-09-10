@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import * as React from 'react';
@@ -1275,6 +1276,18 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                 </PopoverContent>
                                             </Popover>
                                         </div>
+                                         <div className="flex flex-col gap-2 justify-end">
+                                            <div className="flex gap-2 items-center">
+                                                <Button onClick={handleDetailedReportSearch} className="w-full" disabled={isDetailedReportLoading}>
+                                                    {isDetailedReportLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
+                                                    Buscar
+                                                </Button>
+                                                <Button onClick={handleDetailedReportClear} variant="outline" className="w-full">
+                                                    <XCircle className="mr-2 h-4 w-4" />
+                                                    Limpiar
+                                                </Button>
+                                            </div>
+                                        </div>
                                         <div className="space-y-2">
                                             <Label>Cliente (Opcional)</Label>
                                             <Dialog open={isDetailedClientDialogOpen} onOpenChange={setDetailedClientDialogOpen}>
@@ -1360,16 +1373,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                             <Label>No. Contenedor (Opcional)</Label>
                                             <Input placeholder="Buscar por contenedor" value={detailedReportContainer} onChange={(e) => setDetailedReportContainer(e.target.value)} />
                                         </div>
-                                    </div>
-                                    <div className="flex gap-2 items-center mt-4">
-                                        <Button onClick={handleDetailedReportSearch} className="w-auto" disabled={isDetailedReportLoading}>
-                                            {isDetailedReportLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
-                                            Buscar
-                                        </Button>
-                                        <Button onClick={handleDetailedReportClear} variant="outline" className="w-auto">
-                                            <XCircle className="mr-2 h-4 w-4" />
-                                            Limpiar
-                                        </Button>
                                     </div>
                                 </div>
                                 
@@ -2074,17 +2077,17 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                         <Table>
                                             <TableHeader>
                                                 <TableRow>
-                                                    <TableHead>Fecha</TableHead>
-                                                    <TableHead>Total Paletas</TableHead>
-                                                    <TableHead>Contenedor</TableHead>
-                                                    <TableHead>Cámara</TableHead>
-                                                    <TableHead>Pedido SISLOG</TableHead>
-                                                    <TableHead>Op. Logística</TableHead>
-                                                    <TableHead>Concepto</TableHead>
-                                                    <TableHead>Cantidad</TableHead>
-                                                    <TableHead>Unidad</TableHead>
-                                                    <TableHead className="text-right">Valor Unitario</TableHead>
-                                                    <TableHead className="text-right">Valor Total</TableHead>
+                                                    <TableHead className="text-xs p-2">Fecha</TableHead>
+                                                    <TableHead className="text-xs p-2">Total Paletas</TableHead>
+                                                    <TableHead className="text-xs p-2">Contenedor</TableHead>
+                                                    <TableHead className="text-xs p-2">Cámara</TableHead>
+                                                    <TableHead className="text-xs p-2">Pedido SISLOG</TableHead>
+                                                    <TableHead className="text-xs p-2">Op. Logística</TableHead>
+                                                    <TableHead className="text-xs p-2">Concepto</TableHead>
+                                                    <TableHead className="text-xs p-2">Cantidad</TableHead>
+                                                    <TableHead className="text-xs p-2">Unidad</TableHead>
+                                                    <TableHead className="text-right text-xs p-2">Valor Unitario</TableHead>
+                                                    <TableHead className="text-right text-xs p-2">Valor Total</TableHead>
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
@@ -2095,34 +2098,34 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                         {Object.keys(settlementGroupedData).sort().map(conceptName => (
                                                             <React.Fragment key={conceptName}>
                                                                 <TableRow className="bg-muted hover:bg-muted">
-                                                                    <TableCell colSpan={11} className="font-bold text-primary">{conceptName}</TableCell>
+                                                                    <TableCell colSpan={11} className="font-bold text-primary text-sm p-2">{conceptName}</TableCell>
                                                                 </TableRow>
                                                                 {settlementGroupedData[conceptName].rows.map((row, i) => (
                                                                     <TableRow key={`${row.date}-${row.conceptName}-${i}`}>
-                                                                        <TableCell>{format(parseISO(row.date), 'dd/MM/yyyy', { locale: es })}</TableCell>
-                                                                        <TableCell>{row.totalPaletas}</TableCell>
-                                                                        <TableCell>{row.container}</TableCell>
-                                                                        <TableCell>{getSessionName(row.camara)}</TableCell>
-                                                                        <TableCell>{row.pedidoSislog}</TableCell>
-                                                                        <TableCell>{row.operacionLogistica}</TableCell>
-                                                                        <TableCell>{row.conceptName}</TableCell>
-                                                                        <TableCell>{row.quantity.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
-                                                                        <TableCell>{row.unitOfMeasure}</TableCell>
-                                                                        <TableCell className="text-right">{row.unitValue.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
-                                                                        <TableCell className="text-right font-bold">{row.totalValue.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
+                                                                        <TableCell className="text-xs p-2">{format(parseISO(row.date), 'dd/MM/yyyy', { locale: es })}</TableCell>
+                                                                        <TableCell className="text-xs p-2">{row.totalPaletas}</TableCell>
+                                                                        <TableCell className="text-xs p-2">{row.container}</TableCell>
+                                                                        <TableCell className="text-xs p-2">{getSessionName(row.camara)}</TableCell>
+                                                                        <TableCell className="text-xs p-2">{row.pedidoSislog}</TableCell>
+                                                                        <TableCell className="text-xs p-2">{row.operacionLogistica}</TableCell>
+                                                                        <TableCell className="text-xs p-2">{row.conceptName}</TableCell>
+                                                                        <TableCell className="text-xs p-2">{row.quantity.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
+                                                                        <TableCell className="text-xs p-2">{row.unitOfMeasure}</TableCell>
+                                                                        <TableCell className="text-right text-xs p-2">{row.unitValue.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
+                                                                        <TableCell className="text-right font-bold text-xs p-2">{row.totalValue.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
                                                                     </TableRow>
                                                                 ))}
                                                                 <TableRow className="bg-secondary hover:bg-secondary/80 font-bold">
-                                                                    <TableCell colSpan={7} className="text-right">SUBTOTAL {conceptName}:</TableCell>
-                                                                    <TableCell>{settlementGroupedData[conceptName].subtotalCantidad.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
-                                                                    <TableCell colSpan={2}></TableCell>
-                                                                    <TableCell className="text-right">{settlementGroupedData[conceptName].subtotalValor.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
+                                                                    <TableCell colSpan={7} className="text-right text-xs p-2">SUBTOTAL {conceptName}:</TableCell>
+                                                                    <TableCell className="text-xs p-2">{settlementGroupedData[conceptName].subtotalCantidad.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
+                                                                    <TableCell colSpan={2} className="text-xs p-2"></TableCell>
+                                                                    <TableCell className="text-right text-xs p-2">{settlementGroupedData[conceptName].subtotalValor.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
                                                                 </TableRow>
                                                             </React.Fragment>
                                                         ))}
                                                         <TableRow className="bg-primary hover:bg-primary text-primary-foreground font-bold text-base">
-                                                            <TableCell colSpan={10} className="text-right">TOTAL GENERAL:</TableCell>
-                                                            <TableCell className="text-right">{settlementTotalGeneral.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
+                                                            <TableCell colSpan={10} className="text-right p-2">TOTAL GENERAL:</TableCell>
+                                                            <TableCell className="text-right p-2">{settlementTotalGeneral.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
                                                         </TableRow>
                                                     </>
                                                 ) : (
@@ -2180,5 +2183,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         </div>
     );
 }
+
+    
 
     
