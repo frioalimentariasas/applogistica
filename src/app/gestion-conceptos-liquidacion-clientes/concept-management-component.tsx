@@ -158,7 +158,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
     const result = await addClientBillingConcept(data as Omit<ClientBillingConcept, 'id'>);
     if (result.success && result.newConcept) {
       toast({ title: 'Éxito', description: result.message });
-      setConcepts(prev => [...prev, result.newConcept!].sort((a,b) => a.conceptName.localeCompare(b.conceptName)));
+      setConcepts(prev => [...prev, result.newConcept!]);
       addForm.reset();
     } else {
       toast({ variant: 'destructive', title: 'Error', description: result.message });
@@ -213,15 +213,33 @@ export default function ConceptManagementClientComponent({ initialClients, initi
     if (checked) newSet.add(id); else newSet.delete(id);
     setSelectedIds(newSet);
   };
+  
+  const sortedConcepts = useMemo(() => {
+    const order: Record<string, number> = {
+        'REGLAS': 1,
+        'OBSERVACION': 2,
+        'MANUAL': 3,
+    };
+
+    return [...concepts].sort((a, b) => {
+        const orderA = order[a.calculationType] ?? 99;
+        const orderB = order[b.calculationType] ?? 99;
+
+        if (orderA !== orderB) {
+            return orderA - orderB;
+        }
+        return a.conceptName.localeCompare(b.conceptName);
+    });
+  }, [concepts]);
 
   const isAllSelected = useMemo(() => {
-    if (concepts.length === 0) return false;
-    return concepts.every(s => selectedIds.has(s.id));
-  }, [selectedIds, concepts]);
+    if (sortedConcepts.length === 0) return false;
+    return sortedConcepts.every(s => selectedIds.has(s.id));
+  }, [selectedIds, sortedConcepts]);
   
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedIds(new Set(concepts.map(s => s.id)));
+      setSelectedIds(new Set(sortedConcepts.map(s => s.id)));
     } else {
       setSelectedIds(new Set());
     }
@@ -416,8 +434,8 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {concepts.length > 0 ? (
-                                        concepts.map((c) => (
+                                    {sortedConcepts.length > 0 ? (
+                                        sortedConcepts.map((c) => (
                                         <TableRow key={c.id} data-state={selectedIds.has(c.id) && "selected"}>
                                             <TableCell><Checkbox checked={selectedIds.has(c.id)} onCheckedChange={(checked) => handleRowSelect(c.id, checked === true)} /></TableCell>
                                             <TableCell>
