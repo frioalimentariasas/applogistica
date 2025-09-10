@@ -15,7 +15,7 @@ import type { ManualClientOperationData } from './actions';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import type { ClientInfo } from '@/app/actions/clients';
-import type { ClientBillingConcept } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
+import type { ClientBillingConcept, SpecificTariff } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -32,13 +32,16 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
+import { Checkbox } from '@/components/ui/checkbox';
+
 
 const manualOperationSchema = z.object({
   clientName: z.string().min(1, 'El cliente es obligatorio.'),
   operationDate: z.date({ required_error: 'La fecha es obligatoria.' }),
   concept: z.string().min(1, 'El concepto es obligatorio.'),
-  specificTariffId: z.string().optional(),
+  specificTariffIds: z.array(z.string()).optional(),
   quantity: z.coerce.number().min(0, 'La cantidad debe ser 0 o mayor.'),
+  numeroPersonas: z.coerce.number().int().min(1, "Debe ser al menos 1.").optional(),
   details: z.object({
       startTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM requerido.').optional().or(z.literal('')),
       endTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM requerido.').optional().or(z.literal('')),
@@ -129,7 +132,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
 
     useEffect(() => {
         if (selectedConceptInfo?.tariffType !== 'ESPECIFICA') {
-            form.setValue('specificTariffId', undefined);
+            form.setValue('specificTariffIds', undefined);
         }
     }, [selectedConceptInfo, form]);
     
@@ -234,7 +237,8 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 operationDate: parseISO(op.operationDate),
                 concept: op.concept,
                 quantity: op.quantity,
-                specificTariffId: op.specificTariffId,
+                specificTariffIds: op.specificTariffIds || [],
+                numeroPersonas: op.numeroPersonas || undefined,
                 details: {
                     startTime: op.details?.startTime || '',
                     endTime: op.details?.endTime || '',
@@ -250,6 +254,8 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 quantity: 1,
                 clientName: "",
                 concept: "",
+                specificTariffIds: [],
+                numeroPersonas: 1,
                 details: {
                     startTime: '',
                     endTime: '',
@@ -330,7 +336,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         form.setValue(fieldName, `${hours}:${minutes}`, { shouldValidate: true });
     };
 
-    const showAdvancedFields = ['TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET', 'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA ZFPC'].includes(watchedConcept);
+    const showAdvancedFields = ['INSPECCIÓN ZFPC', 'TIEMPO EXTRA ZFPC'].includes(watchedConcept);
     const showInspectionFields = watchedConcept === 'INSPECCIÓN ZFPC';
 
     return (
@@ -484,20 +490,60 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                         <FormField control={form.control} name="concept" render={({ field }) => ( <FormItem><FormLabel>Concepto de Liquidación</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={dialogMode === 'view'}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un concepto" /></SelectTrigger></FormControl><SelectContent><ScrollArea className="h-60">{billingConcepts.filter(c => c.calculationType === 'MANUAL').map(c => <SelectItem key={c.id} value={c.conceptName}>{c.conceptName}</SelectItem>)}</ScrollArea></SelectContent></Select><FormMessage /></FormItem> )}/>
 
                                         {selectedConceptInfo?.tariffType === 'ESPECIFICA' && (
-                                            <FormField control={form.control} name="specificTariffId" render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel>Tarifa Específica</FormLabel>
-                                                    <Select onValueChange={field.onChange} value={field.value} disabled={dialogMode === 'view'}>
-                                                        <FormControl><SelectTrigger><SelectValue placeholder="Seleccione una tarifa..." /></SelectTrigger></FormControl>
-                                                        <SelectContent>
-                                                            {(selectedConceptInfo.specificTariffs || []).map(t => (
-                                                                <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
-                                                            ))}
-                                                        </SelectContent>
-                                                    </Select>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )} />
+                                            <>
+                                                <FormField
+                                                    control={form.control}
+                                                    name="numeroPersonas"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel>No. Personas</FormLabel>
+                                                            <FormControl>
+                                                                <Input type="number" min="1" step="1" placeholder="1" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10))} disabled={dialogMode === 'view'} />
+                                                            </FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                                <FormField
+                                                    control={form.control}
+                                                    name="specificTariffIds"
+                                                    render={() => (
+                                                        <FormItem>
+                                                            <div className="mb-4">
+                                                                <FormLabel className="text-base">Tarifas Específicas</FormLabel>
+                                                            </div>
+                                                            <div className="space-y-2">
+                                                                {(selectedConceptInfo.specificTariffs || []).map((tariff: SpecificTariff) => (
+                                                                    <FormField
+                                                                        key={tariff.id}
+                                                                        control={form.control}
+                                                                        name="specificTariffIds"
+                                                                        render={({ field }) => {
+                                                                            return (
+                                                                                <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                                                                                    <FormControl>
+                                                                                        <Checkbox
+                                                                                            checked={field.value?.includes(tariff.id)}
+                                                                                            onCheckedChange={(checked) => {
+                                                                                                return checked
+                                                                                                    ? field.onChange([...(field.value || []), tariff.id])
+                                                                                                    : field.onChange(field.value?.filter((value) => value !== tariff.id));
+                                                                                            }}
+                                                                                            disabled={dialogMode === 'view'}
+                                                                                        />
+                                                                                    </FormControl>
+                                                                                    <FormLabel className="font-normal">{tariff.name} ({tariff.value.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })} / {tariff.unit})</FormLabel>
+                                                                                </FormItem>
+                                                                            );
+                                                                        }}
+                                                                    />
+                                                                ))}
+                                                            </div>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            </>
                                         )}
 
                                         <FormField control={form.control} name="quantity" render={({ field }) => (<FormItem><FormLabel>Cantidad</FormLabel><FormControl><Input type="number" step="0.001" placeholder="Ej: 1.5" {...field} value={field.value ?? ''} disabled={dialogMode === 'view' || watchedConcept === 'INSPECCIÓN ZFPC'} /></FormControl><FormMessage /></FormItem>)}/>

@@ -9,10 +9,11 @@ export interface ManualClientOperationData {
     clientName: string;
     operationDate: string; // ISO string like '2024-07-23T15:49:01.859Z'
     concept: string;
-    specificTariffId?: string; // ID of the specific rate within a concept
+    specificTariffIds?: string[]; // Can now be multiple
     quantity: number;
-    unitValue?: number; // Optional, can be looked up from concepts
-    totalValue?: number; // Optional, can be calculated
+    numeroPersonas?: number; // New field for number of people
+    unitValue?: number;
+    totalValue?: number;
     details?: {
         startTime?: string; // HH:mm
         endTime?: string; // HH:mm
@@ -20,7 +21,6 @@ export interface ManualClientOperationData {
         container?: string;
         totalPallets?: number;
         arin?: string;
-        // Add other potential fields as needed
     },
     createdAt?: string; // ISO string for timestamping
     createdBy?: {
