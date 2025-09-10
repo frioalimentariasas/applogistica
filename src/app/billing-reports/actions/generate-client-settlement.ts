@@ -160,9 +160,9 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
     const allConcepts = await getClientBillingConcepts();
     const applicableConcepts = new Map<string, ClientBillingConcept>();
 
-    const serverQueryStartDate = startOfDay(parseISO(startDate));
-    const serverQueryEndDate = endOfDay(parseISO(endDate));
-
+    const serverQueryStartDate = new Date(startDate + 'T00:00:00-05:00');
+    const serverQueryEndDate = new Date(endDate + 'T23:59:59.999-05:00');
+    
     // Fetch all submissions in the date range, then filter by client in memory
     const submissionsSnapshot = await firestore.collection('submissions')
         .where('formData.fecha', '>=', serverQueryStartDate)
@@ -239,8 +239,8 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
   }
 
   try {
-    const serverQueryStartDate = startOfDay(parseISO(startDate));
-    const serverQueryEndDate = endOfDay(parseISO(endDate));
+    const serverQueryStartDate = new Date(startDate + 'T00:00:00-05:00');
+    const serverQueryEndDate = new Date(endDate + 'T23:59:59.999-05:00');
 
     const [allConcepts, submissionsSnapshot, manualOpsSnapshot] = await Promise.all([
         getClientBillingConcepts(),
@@ -274,7 +274,6 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
     
     const settlementRows: ClientSettlementRow[] = [];
     
-    // Group form operations by day and container
     const operationsByDayAndContainer = allOperations
         .filter(op => op.type === 'form')
         .reduce((acc, op) => {
@@ -288,16 +287,28 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
             return acc;
         }, {} as Record<string, any[]>);
 
-    // Process regular form operations
     for (const key in operationsByDayAndContainer) {
         const [date, container] = key.split('|');
         const dailyOperations = operationsByDayAndContainer[key];
-        const camara = dailyOperations[0]?.formData.sesion || 'N/A';
-        const totalPaletas = dailyOperations.reduce((sum, op) => sum + (op.formData.totalPaletas || 0), 0);
+        
+        const allItems = dailyOperations.flatMap(op => op.formType.startsWith('fixed') ? op.formData.productos : op.formData.items);
+        
+        let totalPaletas = 0;
+        if (dailyOperations.some(op => op.formType.startsWith('fixed'))) {
+            totalPaletas = dailyOperations.reduce((sum, op) => sum + (op.formData.productos?.reduce((pSum: number, p: any) => pSum + (Number(p.totalPaletas) || 0), 0) || 0), 0);
+        } else {
+             const uniquePallets = new Set<number>();
+             dailyOperations.flatMap(op => op.formData.items || []).forEach((item: any) => {
+                 const paletaNum = Number(item.paleta);
+                 if (!isNaN(paletaNum) && paletaNum > 0) uniquePallets.add(paletaNum);
+             });
+             totalPaletas = uniquePallets.size;
+        }
+
+        const camara = allItems[0]?.sesion || 'N/A';
         const pedidoSislog = [...new Set(dailyOperations.map(op => op.formData.pedidoSislog))].join(', ');
 
         for (const concept of selectedConcepts) {
-            // Skip manual and observation concepts for now, they are handled separately
             if (concept.calculationType !== 'REGLAS') continue;
             
             let quantity = 0;
@@ -319,8 +330,8 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
                  switch (concept.calculationBase) {
                     case 'TONELADAS': quantity = applicableOperations.reduce((sum, op) => sum + ((op.formData.totalPesoKg ?? op.formData.totalPesoBrutoKg) || 0), 0) / 1000; break;
                     case 'KILOGRAMOS': quantity = applicableOperations.reduce((sum, op) => sum + ((op.formData.totalPesoKg ?? op.formData.totalPesoBrutoKg) || 0), 0); break;
-                    case 'CANTIDAD_PALETAS': quantity = applicableOperations.reduce((sum, op) => sum + (op.formData.totalPaletas || 0), 0); break;
-                    case 'CANTIDAD_CAJAS': quantity = applicableOperations.reduce((sum, op) => sum + (op.formData.totalCantidad || 0), 0); break;
+                    case 'CANTIDAD_PALETAS': quantity = totalPaletas; break;
+                    case 'CANTIDAD_CAJAS': quantity = applicableOperations.reduce((sum, op) => sum + (op.formData.productos?.reduce((pSum: number, p: any) => pSum + (Number(p.cajas) || 0), 0) || 0), 0); break;
                     case 'NUMERO_OPERACIONES': quantity = applicableOperations.length; break;
                     case 'NUMERO_CONTENEDORES': quantity = 1; break;
                     default: quantity = 0;
@@ -368,7 +379,6 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
         }
     }
     
-    // Process concepts based on Observations
     const observationConcepts = selectedConcepts.filter(c => c.calculationType === 'OBSERVACION');
     if (observationConcepts.length > 0) {
         const opsWithObservations = allOperations.filter(op => op.type === 'form' && Array.isArray(op.data.formData.observaciones) && op.data.formData.observaciones.length > 0);
@@ -403,7 +413,6 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
         }
     }
 
-    // Process manual operations separately
     const manualOpsFiltered = allOperations.filter(op => op.type === 'manual');
     if (manualOpsFiltered.length > 0) {
         const manualConcepts = selectedConcepts.filter(c => c.calculationType === 'MANUAL');
