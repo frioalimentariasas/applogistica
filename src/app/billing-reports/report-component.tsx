@@ -1246,112 +1246,114 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                 <CardDescription>Filtre para ver un listado detallado de las operaciones registradas.</CardDescription>
                             </CardHeader>
                             <CardContent>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 items-end mb-6">
-                                    <div className="space-y-2">
-                                        <Label>Rango de Fechas</Label>
-                                        <Popover>
-                                            <PopoverTrigger asChild>
-                                                <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !detailedReportDateRange && "text-muted-foreground")}>
-                                                    <CalendarIcon className="mr-2 h-4 w-4" />
-                                                    {detailedReportDateRange?.from ? (detailedReportDateRange.to ? (<>{format(detailedReportDateRange.from, "LLL dd, y", { locale: es })} - {format(detailedReportDateRange.to, "LLL dd, y", { locale: es })}</>) : (format(detailedReportDateRange.from, "LLL dd, y", { locale: es }))) : (<span>Seleccione un rango</span>)}
-                                                </Button>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0" align="start">
-                                                <Calendar initialFocus mode="range" defaultMonth={detailedReportDateRange?.from} selected={detailedReportDateRange} onSelect={setDetailedReportDateRange} numberOfMonths={2} locale={es} disabled={{ after: today, before: sixtyTwoDaysAgo }} />
-                                            </PopoverContent>
-                                        </Popover>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>Cliente (Opcional)</Label>
-                                        <Dialog open={isDetailedClientDialogOpen} onOpenChange={setDetailedClientDialogOpen}>
-                                            <DialogTrigger asChild>
-                                                <Button variant="outline" className="w-full justify-between text-left font-normal">
-                                                    {detailedReportClient || "Seleccione un cliente"}
-                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                                </Button>
-                                            </DialogTrigger>
-                                            <DialogContent className="sm:max-w-[425px]">
-                                                <DialogHeader><DialogTitle>Seleccionar Cliente</DialogTitle></DialogHeader>
-                                                <div className="p-4">
-                                                    <Input placeholder="Buscar cliente..." value={detailedClientSearch} onChange={(e) => setDetailedClientSearch(e.target.value)} className="mb-4" />
-                                                    <ScrollArea className="h-72"><div className="space-y-1">
-                                                        <Button variant="ghost" className="w-full justify-start" onClick={() => { setDetailedReportClient(undefined); setDetailedClientDialogOpen(false); setDetailedClientSearch(''); }}>-- Todos los clientes --</Button>
-                                                        {filteredDetailedClients.map((client) => (
-                                                            <Button key={client.id} variant="ghost" className="w-full justify-start" onClick={() => { setDetailedReportClient(client.razonSocial); setDetailedClientDialogOpen(false); setDetailedClientSearch(''); }}>{client.razonSocial}</Button>
-                                                        ))}
-                                                    </div></ScrollArea>
-                                                </div>
-                                            </DialogContent>
-                                        </Dialog>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>Tipo de Operación</Label>
-                                        <Select value={detailedReportOperationType} onValueChange={setDetailedReportOperationType}>
-                                            <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
-                                            <SelectContent>
-                                                <SelectItem value="todos">Todos</SelectItem>
-                                                <SelectItem value="recepcion">Recepción</SelectItem>
-                                                <SelectItem value="despacho">Despacho</SelectItem>
-                                            </SelectContent>
-                                        </Select>
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>Tipo de Pedido</Label>
-                                        <Dialog open={isDetailedTipoPedidoDialogOpen} onOpenChange={setIsDetailedTipoPedidoDialogOpen}>
-                                            <DialogTrigger asChild>
-                                                <Button variant="outline" className="w-full justify-between text-left font-normal">
-                                                    <span className="truncate">{getTipoPedidoButtonText()}</span>
-                                                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                                </Button>
-                                            </DialogTrigger>
-                                            <DialogContent>
-                                                <DialogHeader>
-                                                    <DialogTitle>Seleccionar Tipo(s) de Pedido</DialogTitle>
-                                                </DialogHeader>
-                                                <Input
-                                                    placeholder="Buscar tipo..."
-                                                    value={detailedTipoPedidoSearch}
-                                                    onChange={(e) => setDetailedTipoPedidoSearch(e.target.value)}
-                                                    className="my-4"
-                                                />
-                                                <ScrollArea className="h-72">
-                                                    <div className="space-y-2 py-4">
-                                                    {filteredDetailedPedidoTypes.map((option) => (
-                                                        <div key={option.id} className="flex items-center space-x-2">
-                                                        <Checkbox
-                                                            id={`tipo-pedido-${option.id}`}
-                                                            checked={detailedReportTipoPedido.includes(option.name)}
-                                                            onCheckedChange={(checked) => {
-                                                            setDetailedReportTipoPedido((prev) =>
-                                                                checked
-                                                                ? [...prev, option.name]
-                                                                : prev.filter((value) => value !== option.name)
-                                                            );
-                                                            }}
-                                                        />
-                                                        <Label htmlFor={`tipo-pedido-${option.id}`} className="font-normal cursor-pointer">
-                                                            {option.name}
-                                                        </Label>
-                                                        </div>
-                                                    ))}
+                                <div className="space-y-4 mb-6">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+                                        <div className="space-y-2">
+                                            <Label>Rango de Fechas</Label>
+                                            <Popover>
+                                                <PopoverTrigger asChild>
+                                                    <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !detailedReportDateRange && "text-muted-foreground")}>
+                                                        <CalendarIcon className="mr-2 h-4 w-4" />
+                                                        {detailedReportDateRange?.from ? (detailedReportDateRange.to ? (<>{format(detailedReportDateRange.from, "LLL dd, y", { locale: es })} - {format(detailedReportDateRange.to, "LLL dd, y", { locale: es })}</>) : (format(detailedReportDateRange.from, "LLL dd, y", { locale: es }))) : (<span>Seleccione un rango</span>)}
+                                                    </Button>
+                                                </PopoverTrigger>
+                                                <PopoverContent className="w-auto p-0" align="start">
+                                                    <Calendar initialFocus mode="range" defaultMonth={detailedReportDateRange?.from} selected={detailedReportDateRange} onSelect={setDetailedReportDateRange} numberOfMonths={2} locale={es} disabled={{ after: today, before: sixtyTwoDaysAgo }} />
+                                                </PopoverContent>
+                                            </Popover>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>Cliente (Opcional)</Label>
+                                            <Dialog open={isDetailedClientDialogOpen} onOpenChange={setDetailedClientDialogOpen}>
+                                                <DialogTrigger asChild>
+                                                    <Button variant="outline" className="w-full justify-between text-left font-normal">
+                                                        {detailedReportClient || "Seleccione un cliente"}
+                                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                    </Button>
+                                                </DialogTrigger>
+                                                <DialogContent className="sm:max-w-[425px]">
+                                                    <DialogHeader><DialogTitle>Seleccionar Cliente</DialogTitle></DialogHeader>
+                                                    <div className="p-4">
+                                                        <Input placeholder="Buscar cliente..." value={detailedClientSearch} onChange={(e) => setDetailedClientSearch(e.target.value)} className="mb-4" />
+                                                        <ScrollArea className="h-72"><div className="space-y-1">
+                                                            <Button variant="ghost" className="w-full justify-start" onClick={() => { setDetailedReportClient(undefined); setDetailedClientDialogOpen(false); setDetailedClientSearch(''); }}>-- Todos los clientes --</Button>
+                                                            {filteredDetailedClients.map((client) => (
+                                                                <Button key={client.id} variant="ghost" className="w-full justify-start" onClick={() => { setDetailedReportClient(client.razonSocial); setDetailedClientDialogOpen(false); setDetailedClientSearch(''); }}>{client.razonSocial}</Button>
+                                                            ))}
+                                                        </div></ScrollArea>
                                                     </div>
-                                                </ScrollArea>
-                                                <DialogFooter>
-                                                    <Button onClick={() => setIsDetailedTipoPedidoDialogOpen(false)}>Cerrar</Button>
-                                                </DialogFooter>
-                                            </DialogContent>
-                                        </Dialog>
+                                                </DialogContent>
+                                            </Dialog>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>Tipo de Operación</Label>
+                                            <Select value={detailedReportOperationType} onValueChange={setDetailedReportOperationType}>
+                                                <SelectTrigger><SelectValue placeholder="Todos" /></SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="todos">Todos</SelectItem>
+                                                    <SelectItem value="recepcion">Recepción</SelectItem>
+                                                    <SelectItem value="despacho">Despacho</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>Tipo de Pedido</Label>
+                                            <Dialog open={isDetailedTipoPedidoDialogOpen} onOpenChange={setIsDetailedTipoPedidoDialogOpen}>
+                                                <DialogTrigger asChild>
+                                                    <Button variant="outline" className="w-full justify-between text-left font-normal">
+                                                        <span className="truncate">{getTipoPedidoButtonText()}</span>
+                                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                    </Button>
+                                                </DialogTrigger>
+                                                <DialogContent>
+                                                    <DialogHeader>
+                                                        <DialogTitle>Seleccionar Tipo(s) de Pedido</DialogTitle>
+                                                    </DialogHeader>
+                                                    <Input
+                                                        placeholder="Buscar tipo..."
+                                                        value={detailedTipoPedidoSearch}
+                                                        onChange={(e) => setDetailedTipoPedidoSearch(e.target.value)}
+                                                        className="my-4"
+                                                    />
+                                                    <ScrollArea className="h-72">
+                                                        <div className="space-y-2 py-4">
+                                                        {filteredDetailedPedidoTypes.map((option) => (
+                                                            <div key={option.id} className="flex items-center space-x-2">
+                                                            <Checkbox
+                                                                id={`tipo-pedido-${option.id}`}
+                                                                checked={detailedReportTipoPedido.includes(option.name)}
+                                                                onCheckedChange={(checked) => {
+                                                                setDetailedReportTipoPedido((prev) =>
+                                                                    checked
+                                                                    ? [...prev, option.name]
+                                                                    : prev.filter((value) => value !== option.name)
+                                                                );
+                                                                }}
+                                                            />
+                                                            <Label htmlFor={`tipo-pedido-${option.id}`} className="font-normal cursor-pointer">
+                                                                {option.name}
+                                                            </Label>
+                                                            </div>
+                                                        ))}
+                                                        </div>
+                                                    </ScrollArea>
+                                                    <DialogFooter>
+                                                        <Button onClick={() => setIsDetailedTipoPedidoDialogOpen(false)}>Cerrar</Button>
+                                                    </DialogFooter>
+                                                </DialogContent>
+                                            </Dialog>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>No. Contenedor (Opcional)</Label>
+                                            <Input placeholder="Buscar por contenedor" value={detailedReportContainer} onChange={(e) => setDetailedReportContainer(e.target.value)} />
+                                        </div>
                                     </div>
-                                    <div className="space-y-2">
-                                        <Label>No. Contenedor (Opcional)</Label>
-                                        <Input placeholder="Buscar por contenedor" value={detailedReportContainer} onChange={(e) => setDetailedReportContainer(e.target.value)} />
-                                    </div>
-                                    <div className="flex gap-2 items-end">
-                                        <Button onClick={handleDetailedReportSearch} className="w-full" disabled={isDetailedReportLoading}>
+                                    <div className="flex gap-2 items-center mt-4">
+                                        <Button onClick={handleDetailedReportSearch} className="w-auto" disabled={isDetailedReportLoading}>
                                             {isDetailedReportLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
                                             Buscar
                                         </Button>
-                                        <Button onClick={handleDetailedReportClear} variant="outline" className="w-full">
+                                        <Button onClick={handleDetailedReportClear} variant="outline" className="w-auto">
                                             <XCircle className="mr-2 h-4 w-4" />
                                             Limpiar
                                         </Button>
