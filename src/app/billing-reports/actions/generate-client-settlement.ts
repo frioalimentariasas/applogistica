@@ -445,15 +445,18 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
                     const date = new Date(opData.operationDate).toISOString().split('T')[0];
                     const numPersonas = Number(opData.numeroPersonas) || 1;
 
-                    if (concept.tariffType === 'ESPECIFICA' && opData.specificTariffIds?.length > 0) {
-                        opData.specificTariffIds.forEach((tariffId: string) => {
-                            const specificTariff = concept.specificTariffs?.find(t => t.id === tariffId);
+                    if (concept.tariffType === 'ESPECIFICA' && Array.isArray(opData.specificTariffs) && opData.specificTariffs.length > 0) {
+                        opData.specificTariffs.forEach((appliedTariff: { tariffId: string, quantity: number }) => {
+                            const specificTariff = concept.specificTariffs?.find(t => t.id === appliedTariff.tariffId);
                             if (specificTariff) {
                                 let totalValue = 0;
+                                let quantityForReport = appliedTariff.quantity;
+
                                 if (specificTariff.unit === 'HORA') {
-                                    totalValue = (opData.quantity || 0) * (specificTariff.value || 0) * numPersonas;
+                                    totalValue = (appliedTariff.quantity || 0) * (specificTariff.value || 0) * numPersonas;
                                 } else {
                                     totalValue = (specificTariff.value || 0) * numPersonas;
+                                    quantityForReport = numPersonas; // For per-unit tariffs, quantity is the number of people
                                 }
 
                                 settlementRows.push({
@@ -465,7 +468,7 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
                                     pedidoSislog: `Manual (${specificTariff.name})`,
                                     conceptName: concept.conceptName,
                                     tipoVehiculo: 'N/A',
-                                    quantity: opData.quantity || 0,
+                                    quantity: quantityForReport,
                                     unitOfMeasure: specificTariff.unit,
                                     unitValue: specificTariff.value || 0,
                                     totalValue: totalValue,
