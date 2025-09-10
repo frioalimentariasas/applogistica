@@ -45,16 +45,27 @@ const manualOperationSchema = z.object({
       plate: z.string().optional(),
       container: z.string().optional(),
       totalPallets: z.coerce.number().int().min(0, 'Debe ser un número positivo.').optional().nullable(),
+      arin: z.string().optional(),
   }).optional(),
-}).refine(data => {
+}).superRefine((data, ctx) => {
     if(data.details?.startTime && data.details?.endTime && data.details.startTime === data.details.endTime) {
-        return false;
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "La hora de inicio no puede ser igual a la de fin.",
+            path: ["details", "endTime"],
+        });
     }
-    return true;
-}, {
-    message: "La hora de inicio no puede ser igual a la de fin.",
-    path: ["details", "endTime"],
+
+    if (data.concept === 'INSPECCIÓN ZFPC') {
+        if (!data.details?.container?.trim()) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El contenedor es obligatorio para este concepto.", path: ["details", "container"] });
+        }
+        if (!data.details?.arin?.trim()) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El ARIN es obligatorio para este concepto.", path: ["details", "arin"] });
+        }
+    }
 });
+
 
 type ManualOperationValues = z.infer<typeof manualOperationSchema>;
 
@@ -99,6 +110,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 plate: '',
                 container: '',
                 totalPallets: null,
+                arin: '',
             }
         }
     });
@@ -179,6 +191,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                     plate: op.details?.plate || '',
                     container: op.details?.container || '',
                     totalPallets: op.details?.totalPallets ?? null,
+                    arin: op.details?.arin || '',
                 }
             });
         } else {
@@ -193,6 +206,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                     plate: '',
                     container: '',
                     totalPallets: null,
+                    arin: '',
                 }
             });
         }
@@ -266,7 +280,8 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         form.setValue(fieldName, `${hours}:${minutes}`, { shouldValidate: true });
     };
 
-    const showAdvancedFields = ['TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET', 'MOVIMIENTO SALIDA PRODUCTOS PALLET'].includes(watchedConcept);
+    const showAdvancedFields = ['TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET', 'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'INSPECCIÓN ZFPC'].includes(watchedConcept);
+    const showInspectionFields = watchedConcept === 'INSPECCIÓN ZFPC';
 
     return (
         <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
@@ -416,12 +431,18 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                         {showAdvancedFields && (
                                             <>
                                                 <Separator />
+                                                <p className="text-sm font-medium text-muted-foreground">Detalles Adicionales</p>
+                                                {showInspectionFields && (
+                                                    <>
+                                                        <FormField control={form.control} name="details.container" render={({ field }) => (<FormItem><FormLabel>Contenedor <span className="text-destructive">*</span></FormLabel><FormControl><Input placeholder="Contenedor" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
+                                                        <FormField control={form.control} name="details.arin" render={({ field }) => (<FormItem><FormLabel>ARIN <span className="text-destructive">*</span></FormLabel><FormControl><Input placeholder="Número de ARIN" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
+                                                    </>
+                                                )}
                                                 <div className="grid grid-cols-2 gap-4">
                                                     <FormField control={form.control} name="details.startTime" render={({ field }) => (<FormItem><FormLabel>Hora Inicio</FormLabel><div className="flex items-center gap-2"><FormControl><Input type="time" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} className="flex-grow" /></FormControl>{dialogMode !== 'view' && (<Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('details.startTime')}><Clock className="h-4 w-4" /></Button>)}</div><FormMessage /></FormItem>)} />
                                                     <FormField control={form.control} name="details.endTime" render={({ field }) => (<FormItem><FormLabel>Hora Fin</FormLabel><div className="flex items-center gap-2"><FormControl><Input type="time" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} className="flex-grow" /></FormControl>{dialogMode !== 'view' && (<Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('details.endTime')}><Clock className="h-4 w-4" /></Button>)}</div><FormMessage /></FormItem>)} />
                                                 </div>
                                                 <FormField control={form.control} name="details.plate" render={({ field }) => (<FormItem><FormLabel>Placa (Opcional)</FormLabel><FormControl><Input placeholder="ABC123" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
-                                                <FormField control={form.control} name="details.container" render={({ field }) => (<FormItem><FormLabel>Contenedor (Opcional)</FormLabel><FormControl><Input placeholder="Contenedor" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
                                                 <FormField control={form.control} name="details.totalPallets" render={({ field }) => (<FormItem><FormLabel>Total Paletas</FormLabel><FormControl><Input type="number" step="1" placeholder="Ej: 10" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value === '' ? null : parseInt(e.target.value, 10))}/></FormControl><FormMessage /></FormItem>)}/>
                                             </>
                                         )}
