@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -38,6 +37,7 @@ const manualOperationSchema = z.object({
   clientName: z.string().min(1, 'El cliente es obligatorio.'),
   operationDate: z.date({ required_error: 'La fecha es obligatoria.' }),
   concept: z.string().min(1, 'El concepto es obligatorio.'),
+  specificTariffId: z.string().optional(),
   quantity: z.coerce.number().min(0, 'La cantidad debe ser 0 o mayor.'),
   details: z.object({
       startTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM requerido.').optional().or(z.literal('')),
@@ -56,12 +56,10 @@ const manualOperationSchema = z.object({
         });
     }
 
-    if (data.concept === 'INSPECCIÓN ZFPC') {
+    const specialConcepts = ['INSPECCIÓN ZFPC', 'TIEMPO EXTRA ZFPC'];
+    if (specialConcepts.includes(data.concept)) {
         if (!data.details?.container?.trim()) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El contenedor es obligatorio para este concepto.", path: ["details", "container"] });
-        }
-        if (!data.details?.arin?.trim()) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El ARIN es obligatorio para este concepto.", path: ["details", "arin"] });
         }
         if (!data.details?.startTime?.trim()) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La hora de inicio es obligatoria.", path: ["details", "startTime"] });
@@ -70,8 +68,11 @@ const manualOperationSchema = z.object({
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La hora de fin es obligatoria.", path: ["details", "endTime"] });
         }
     }
-});
 
+    if (data.concept === 'INSPECCIÓN ZFPC' && !data.details?.arin?.trim()) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El ARIN es obligatorio para este concepto.", path: ["details", "arin"] });
+    }
+});
 
 type ManualOperationValues = z.infer<typeof manualOperationSchema>;
 
@@ -124,7 +125,14 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     const watchedConcept = form.watch('concept');
     const watchedStartTime = form.watch('details.startTime');
     const watchedEndTime = form.watch('details.endTime');
+    const selectedConceptInfo = useMemo(() => billingConcepts.find(c => c.conceptName === watchedConcept), [watchedConcept, billingConcepts]);
 
+    useEffect(() => {
+        if (selectedConceptInfo?.tariffType !== 'ESPECIFICA') {
+            form.setValue('specificTariffId', undefined);
+        }
+    }, [selectedConceptInfo, form]);
+    
     useEffect(() => {
         if (watchedConcept === 'INSPECCIÓN ZFPC' && watchedStartTime && watchedEndTime) {
             try {
@@ -147,14 +155,12 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 if (remainingMinutes > 9) {
                     calculatedQuantity += 1;
                 } else if (hours === 0 && remainingMinutes > 0) {
-                    // If less than an hour but more than 0, it's at least 1 hour
                     calculatedQuantity = 1;
                 }
 
                 form.setValue('quantity', calculatedQuantity, { shouldValidate: true });
 
             } catch (e) {
-                // Invalid time format, do nothing
                 form.setValue('quantity', 0);
             }
         }
@@ -228,6 +234,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 operationDate: parseISO(op.operationDate),
                 concept: op.concept,
                 quantity: op.quantity,
+                specificTariffId: op.specificTariffId,
                 details: {
                     startTime: op.details?.startTime || '',
                     endTime: op.details?.endTime || '',
@@ -323,7 +330,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         form.setValue(fieldName, `${hours}:${minutes}`, { shouldValidate: true });
     };
 
-    const showAdvancedFields = ['TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET', 'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'INSPECCIÓN ZFPC'].includes(watchedConcept);
+    const showAdvancedFields = ['TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET', 'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA ZFPC'].includes(watchedConcept);
     const showInspectionFields = watchedConcept === 'INSPECCIÓN ZFPC';
 
     return (
@@ -466,15 +473,31 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                             <div className="p-4">
                                 <Form {...form}>
                                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                                        <FormField control={form.control} name="concept" render={({ field }) => ( <FormItem><FormLabel>Concepto de Liquidación</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={dialogMode === 'view'}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un concepto" /></SelectTrigger></FormControl><SelectContent><ScrollArea className="h-60">{billingConcepts.filter(c => c.calculationType === 'MANUAL').map(c => <SelectItem key={c.id} value={c.conceptName}>{c.conceptName}</SelectItem>)}</ScrollArea></SelectContent></Select><FormMessage /></FormItem> )}/>
                                         <FormField control={form.control} name="clientName" render={({ field }) => ( <FormItem><FormLabel>Cliente</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={dialogMode === 'view'}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un cliente" /></SelectTrigger></FormControl><SelectContent><ScrollArea className="h-60">{clients.map(c => <SelectItem key={c.id} value={c.razonSocial}>{c.razonSocial}</SelectItem>)}</ScrollArea></SelectContent></Select><FormMessage /></FormItem> )}/>
                                         <FormField control={form.control} name="operationDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha de Operación</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={dialogMode === 'view'} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4 opacity-50" />{field.value ? format(field.value, "PPP", { locale: es }) : <span>Seleccione una fecha</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={dialogMode === 'view'} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
-                                        
-                                        {watchedConcept === 'INSPECCIÓN ZFPC' && (
+                                        {showAdvancedFields && (
                                             <div className="grid grid-cols-2 gap-4">
                                                 <FormField control={form.control} name="details.startTime" render={({ field }) => (<FormItem><FormLabel>Hora Inicio <span className="text-destructive">*</span></FormLabel><div className="flex items-center gap-2"><FormControl><Input type="time" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} className="flex-grow" /></FormControl>{dialogMode !== 'view' && (<Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('details.startTime')}><Clock className="h-4 w-4" /></Button>)}</div><FormMessage /></FormItem>)} />
                                                 <FormField control={form.control} name="details.endTime" render={({ field }) => (<FormItem><FormLabel>Hora Fin <span className="text-destructive">*</span></FormLabel><div className="flex items-center gap-2"><FormControl><Input type="time" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} className="flex-grow" /></FormControl>{dialogMode !== 'view' && (<Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('details.endTime')}><Clock className="h-4 w-4" /></Button>)}</div><FormMessage /></FormItem>)} />
                                             </div>
+                                        )}
+                                        <FormField control={form.control} name="concept" render={({ field }) => ( <FormItem><FormLabel>Concepto de Liquidación</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={dialogMode === 'view'}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un concepto" /></SelectTrigger></FormControl><SelectContent><ScrollArea className="h-60">{billingConcepts.filter(c => c.calculationType === 'MANUAL').map(c => <SelectItem key={c.id} value={c.conceptName}>{c.conceptName}</SelectItem>)}</ScrollArea></SelectContent></Select><FormMessage /></FormItem> )}/>
+
+                                        {selectedConceptInfo?.tariffType === 'ESPECIFICA' && (
+                                            <FormField control={form.control} name="specificTariffId" render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Tarifa Específica</FormLabel>
+                                                    <Select onValueChange={field.onChange} value={field.value} disabled={dialogMode === 'view'}>
+                                                        <FormControl><SelectTrigger><SelectValue placeholder="Seleccione una tarifa..." /></SelectTrigger></FormControl>
+                                                        <SelectContent>
+                                                            {(selectedConceptInfo.specificTariffs || []).map(t => (
+                                                                <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>
+                                                            ))}
+                                                        </SelectContent>
+                                                    </Select>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )} />
                                         )}
 
                                         <FormField control={form.control} name="quantity" render={({ field }) => (<FormItem><FormLabel>Cantidad</FormLabel><FormControl><Input type="number" step="0.001" placeholder="Ej: 1.5" {...field} value={field.value ?? ''} disabled={dialogMode === 'view' || watchedConcept === 'INSPECCIÓN ZFPC'} /></FormControl><FormMessage /></FormItem>)}/>
@@ -483,16 +506,9 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                             <>
                                                 <Separator />
                                                 <p className="text-sm font-medium text-muted-foreground">Detalles Adicionales</p>
-                                                {showInspectionFields ? (
-                                                    <>
-                                                        <FormField control={form.control} name="details.container" render={({ field }) => (<FormItem><FormLabel>Contenedor <span className="text-destructive">*</span></FormLabel><FormControl><Input placeholder="Contenedor" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
-                                                        <FormField control={form.control} name="details.arin" render={({ field }) => (<FormItem><FormLabel>ARIN <span className="text-destructive">*</span></FormLabel><FormControl><Input placeholder="Número de ARIN" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
-                                                    </>
-                                                ) : (
-                                                    <div className="grid grid-cols-2 gap-4">
-                                                        <FormField control={form.control} name="details.startTime" render={({ field }) => (<FormItem><FormLabel>Hora Inicio</FormLabel><div className="flex items-center gap-2"><FormControl><Input type="time" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} className="flex-grow" /></FormControl>{dialogMode !== 'view' && (<Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('details.startTime')}><Clock className="h-4 w-4" /></Button>)}</div><FormMessage /></FormItem>)} />
-                                                        <FormField control={form.control} name="details.endTime" render={({ field }) => (<FormItem><FormLabel>Hora Fin</FormLabel><div className="flex items-center gap-2"><FormControl><Input type="time" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} className="flex-grow" /></FormControl>{dialogMode !== 'view' && (<Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('details.endTime')}><Clock className="h-4 w-4" /></Button>)}</div><FormMessage /></FormItem>)} />
-                                                    </div>
+                                                <FormField control={form.control} name="details.container" render={({ field }) => (<FormItem><FormLabel>Contenedor {showInspectionFields && <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Contenedor" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
+                                                {showInspectionFields && (
+                                                    <FormField control={form.control} name="details.arin" render={({ field }) => (<FormItem><FormLabel>ARIN <span className="text-destructive">*</span></FormLabel><FormControl><Input placeholder="Número de ARIN" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
                                                 )}
                                                 <FormField control={form.control} name="details.plate" render={({ field }) => (<FormItem><FormLabel>Placa (Opcional)</FormLabel><FormControl><Input placeholder="ABC123" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
                                                 <FormField control={form.control} name="details.totalPallets" render={({ field }) => (<FormItem><FormLabel>Total Paletas</FormLabel><FormControl><Input type="number" step="1" placeholder="Ej: 10" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value === '' ? null : parseInt(e.target.value, 10))}/></FormControl><FormMessage /></FormItem>)}/>
@@ -534,4 +550,3 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         </div>
     );
 }
-
