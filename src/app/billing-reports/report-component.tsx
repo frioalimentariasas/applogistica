@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import * as React from 'react';
@@ -2033,7 +2032,25 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                     {isLoadingAvailableConcepts ? (
                                                         <div className="flex justify-center items-center h-full"><Loader2 className="h-6 w-6 animate-spin" /></div>
                                                     ) : availableConcepts.length > 0 ? (
-                                                        availableConcepts.map(c => (<div key={c.id} className="flex items-center space-x-3"><Checkbox id={`concept-${c.id}`} checked={selectedConcepts.includes(c.id)} onCheckedChange={checked => setSelectedConcepts(prev => checked ? [...prev, c.id] : prev.filter(id => id !== c.id))} /><label htmlFor={`concept-${c.id}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">{c.conceptName}</label></div>))
+                                                        <>
+                                                            <div className="flex items-center space-x-3 p-2 border-b">
+                                                                <Checkbox
+                                                                    id="select-all-concepts"
+                                                                    checked={availableConcepts.length > 0 && selectedConcepts.length === availableConcepts.length}
+                                                                    onCheckedChange={(checked) => {
+                                                                        if (checked) {
+                                                                            setSelectedConcepts(availableConcepts.map(c => c.id));
+                                                                        } else {
+                                                                            setSelectedConcepts([]);
+                                                                        }
+                                                                    }}
+                                                                />
+                                                                <label htmlFor="select-all-concepts" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                                                                    Seleccionar Todos
+                                                                </label>
+                                                            </div>
+                                                            {availableConcepts.map(c => (<div key={c.id} className="flex items-center space-x-3"><Checkbox id={`concept-${c.id}`} checked={selectedConcepts.includes(c.id)} onCheckedChange={checked => setSelectedConcepts(prev => checked ? [...prev, c.id] : prev.filter(id => id !== c.id))} /><label htmlFor={`concept-${c.id}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">{c.conceptName}</label></div>))}
+                                                        </>
                                                     ) : (
                                                         <p className="text-sm text-muted-foreground text-center py-10">No hay conceptos de liquidación aplicables para el cliente y fechas seleccionados.</p>
                                                     )}
@@ -2164,3 +2181,4 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     );
 }
 
+    
