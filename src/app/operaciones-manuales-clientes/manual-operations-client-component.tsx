@@ -35,12 +35,17 @@ import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 
 
+const specificTariffEntrySchema = z.object({
+    tariffId: z.string(),
+    quantity: z.coerce.number().min(0, "Debe ser >= 0"),
+});
+
 const manualOperationSchema = z.object({
   clientName: z.string().min(1, 'El cliente es obligatorio.'),
   operationDate: z.date({ required_error: 'La fecha es obligatoria.' }),
   concept: z.string().min(1, 'El concepto es obligatorio.'),
-  specificTariffIds: z.array(z.string()).optional(),
-  quantity: z.coerce.number().min(0, 'La cantidad debe ser 0 o mayor.'),
+  specificTariffs: z.array(specificTariffEntrySchema).optional(),
+  quantity: z.coerce.number().min(0, 'La cantidad debe ser 0 o mayor.').optional(),
   numeroPersonas: z.coerce.number().int().min(1, "Debe ser al menos 1.").optional(),
   details: z.object({
       startTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM requerido.').optional().or(z.literal('')),
@@ -63,12 +68,6 @@ const manualOperationSchema = z.object({
     if (specialConcepts.includes(data.concept)) {
         if (!data.details?.container?.trim()) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El contenedor es obligatorio para este concepto.", path: ["details", "container"] });
-        }
-        if (!data.details?.startTime?.trim()) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La hora de inicio es obligatoria.", path: ["details", "startTime"] });
-        }
-        if (!data.details?.endTime?.trim()) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La hora de fin es obligatoria.", path: ["details", "endTime"] });
         }
     }
 
@@ -114,6 +113,8 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
             concept: "",
             operationDate: new Date(),
             quantity: 1,
+            specificTariffs: [],
+            numeroPersonas: 1,
             details: {
                 startTime: '',
                 endTime: '',
@@ -130,48 +131,11 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
 
     useEffect(() => {
         if (selectedConceptInfo?.tariffType !== 'ESPECIFICA') {
-            form.setValue('specificTariffIds', undefined);
+            form.setValue('specificTariffs', []);
             form.setValue('numeroPersonas', undefined);
+        } else {
+             form.setValue('quantity', undefined);
         }
-        
-        const isTimeBasedConcept = ['INSPECCIÓN ZFPC', 'TIEMPO EXTRA ZFPC'].includes(watchedConcept || '');
-        if (isTimeBasedConcept) {
-             const startTime = form.getValues('details.startTime');
-             const endTime = form.getValues('details.endTime');
-             if (startTime && endTime) {
-                try {
-                    const start = parse(startTime, 'HH:mm', new Date());
-                    const end = parse(endTime, 'HH:mm', new Date());
-                    if (end < start) end.setDate(end.getDate() + 1);
-                    
-                    const diffMinutes = differenceInMinutes(end, start);
-                    if (diffMinutes < 0) {
-                        form.setValue('quantity', 0);
-                        return;
-                    }
-                    
-                    const hours = Math.floor(diffMinutes / 60);
-                    const remainingMinutes = diffMinutes % 60;
-                    
-                    let calculatedQuantity = hours;
-                    if (remainingMinutes > 9) {
-                        calculatedQuantity += 1;
-                    } else if (hours === 0 && remainingMinutes > 0) {
-                        calculatedQuantity = 1;
-                    }
-
-                    if (watchedConcept === 'INSPECCIÓN ZFPC') {
-                         form.setValue('quantity', calculatedQuantity, { shouldValidate: true });
-                    }
-
-                } catch (e) {
-                    if (watchedConcept === 'INSPECCIÓN ZFPC') {
-                        form.setValue('quantity', 0);
-                    }
-                }
-             }
-        }
-
     }, [watchedConcept, selectedConceptInfo, form]);
 
     const fetchAllOperations = useCallback(async () => {
@@ -242,7 +206,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 operationDate: parseISO(op.operationDate),
                 concept: op.concept,
                 quantity: op.quantity,
-                specificTariffIds: op.specificTariffIds || [],
+                specificTariffs: op.specificTariffs || [],
                 numeroPersonas: op.numeroPersonas || undefined,
                 details: {
                     startTime: op.details?.startTime || '',
@@ -259,7 +223,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 quantity: 1,
                 clientName: "",
                 concept: "",
-                specificTariffIds: [],
+                specificTariffs: [],
                 numeroPersonas: 1,
                 details: {
                     startTime: '',
@@ -332,13 +296,6 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         }
         setOpToDelete(null);
         setIsDeleting(false);
-    };
-
-    const handleCaptureTime = (fieldName: 'details.startTime' | 'details.endTime') => {
-        const now = new Date();
-        const hours = String(now.getHours()).padStart(2, '0');
-        const minutes = String(now.getMinutes()).padStart(2, '0');
-        form.setValue(fieldName, `${hours}:${minutes}`, { shouldValidate: true });
     };
 
     const showAdvancedFields = ['INSPECCIÓN ZFPC', 'TIEMPO EXTRA ZFPC'].includes(watchedConcept);
@@ -489,14 +446,14 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                         
                                         {showAdvancedFields && (
                                             <div className="grid grid-cols-2 gap-4">
-                                                <FormField control={form.control} name="details.startTime" render={({ field }) => (<FormItem><FormLabel>Hora Inicio <span className="text-destructive">*</span></FormLabel><div className="flex items-center gap-2"><FormControl><Input type="time" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} className="flex-grow" /></FormControl>{dialogMode !== 'view' && (<Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('details.startTime')}><Clock className="h-4 w-4" /></Button>)}</div><FormMessage /></FormItem>)} />
-                                                <FormField control={form.control} name="details.endTime" render={({ field }) => (<FormItem><FormLabel>Hora Fin <span className="text-destructive">*</span></FormLabel><div className="flex items-center gap-2"><FormControl><Input type="time" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} className="flex-grow" /></FormControl>{dialogMode !== 'view' && (<Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('details.endTime')}><Clock className="h-4 w-4" /></Button>)}</div><FormMessage /></FormItem>)} />
+                                                <FormField control={form.control} name="details.startTime" render={({ field }) => (<FormItem><FormLabel>Hora Inicio <span className="text-destructive">*</span></FormLabel><div className="flex items-center gap-2"><FormControl><Input type="time" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} className="flex-grow" /></FormControl>{dialogMode !== 'view' && (<Button type="button" variant="outline" size="icon"><Clock className="h-4 w-4" /></Button>)}</div><FormMessage /></FormItem>)} />
+                                                <FormField control={form.control} name="details.endTime" render={({ field }) => (<FormItem><FormLabel>Hora Fin <span className="text-destructive">*</span></FormLabel><div className="flex items-center gap-2"><FormControl><Input type="time" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} className="flex-grow" /></FormControl>{dialogMode !== 'view' && (<Button type="button" variant="outline" size="icon"><Clock className="h-4 w-4" /></Button>)}</div><FormMessage /></FormItem>)} />
                                             </div>
                                         )}
                                         
                                         <FormField control={form.control} name="concept" render={({ field }) => ( <FormItem><FormLabel>Concepto de Liquidación</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={dialogMode === 'view'}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un concepto" /></SelectTrigger></FormControl><SelectContent><ScrollArea className="h-60">{billingConcepts.filter(c => c.calculationType === 'MANUAL').map(c => <SelectItem key={c.id} value={c.conceptName}>{c.conceptName}</SelectItem>)}</ScrollArea></SelectContent></Select><FormMessage /></FormItem> )}/>
 
-                                        {selectedConceptInfo?.tariffType === 'ESPECIFICA' && (
+                                        {selectedConceptInfo?.tariffType === 'ESPECIFICA' ? (
                                             <>
                                                 <FormField
                                                     control={form.control}
@@ -513,67 +470,89 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                 />
                                                 <FormField
                                                     control={form.control}
-                                                    name="specificTariffIds"
+                                                    name="specificTariffs"
                                                     render={() => (
                                                         <FormItem>
                                                             <div className="mb-4"><FormLabel className="text-base">Tarifas a Aplicar</FormLabel></div>
-                                                            <div className="space-y-2">
-                                                                {(selectedConceptInfo.specificTariffs || []).map((tariff: SpecificTariff) => (
-                                                                    <FormField
-                                                                        key={tariff.id}
-                                                                        control={form.control}
-                                                                        name="specificTariffIds"
-                                                                        render={({ field }) => {
-                                                                            return (
-                                                                                <FormItem className="flex flex-row items-start space-x-3 space-y-0">
-                                                                                    <FormControl>
-                                                                                        <Checkbox
-                                                                                            checked={field.value?.includes(tariff.id)}
-                                                                                            onCheckedChange={(checked) => {
-                                                                                                return checked
-                                                                                                    ? field.onChange([...(field.value || []), tariff.id])
-                                                                                                    : field.onChange(field.value?.filter((value) => value !== tariff.id));
-                                                                                            }}
-                                                                                            disabled={dialogMode === 'view'}
-                                                                                        />
-                                                                                    </FormControl>
-                                                                                    <FormLabel className="font-normal">{tariff.name} ({tariff.value.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })} / {tariff.unit})</FormLabel>
-                                                                                </FormItem>
-                                                                            );
-                                                                        }}
-                                                                    />
-                                                                ))}
-                                                            </div>
+                                                            <ScrollArea className="h-40 border rounded-md p-2">
+                                                                <div className="space-y-3">
+                                                                    {(selectedConceptInfo.specificTariffs || []).map((tariff: SpecificTariff, index) => {
+                                                                        const isHourUnit = tariff.unit === 'HORA';
+                                                                        return (
+                                                                            <FormField
+                                                                                key={tariff.id}
+                                                                                control={form.control}
+                                                                                name={`specificTariffs`}
+                                                                                render={({ field }) => {
+                                                                                    const currentSelection = field.value?.find(v => v.tariffId === tariff.id);
+                                                                                    const isSelected = !!currentSelection;
+                                                                                    return (
+                                                                                        <div className="flex flex-row items-start space-x-3 space-y-0">
+                                                                                            <FormControl>
+                                                                                                <Checkbox
+                                                                                                    checked={isSelected}
+                                                                                                    onCheckedChange={(checked) => {
+                                                                                                        const newValue = checked
+                                                                                                            ? [...(field.value || []), { tariffId: tariff.id, quantity: isHourUnit ? 1 : 1 }]
+                                                                                                            : field.value?.filter((value) => value.tariffId !== tariff.id);
+                                                                                                        field.onChange(newValue);
+                                                                                                    }}
+                                                                                                    disabled={dialogMode === 'view'}
+                                                                                                />
+                                                                                            </FormControl>
+                                                                                            <div className="flex flex-col sm:flex-row justify-between w-full">
+                                                                                                <FormLabel className="font-normal">{tariff.name}</FormLabel>
+                                                                                                {isSelected && isHourUnit && (
+                                                                                                     <FormField
+                                                                                                        control={form.control}
+                                                                                                        name={`specificTariffs.${field.value?.findIndex(v => v.tariffId === tariff.id)}.quantity`}
+                                                                                                        render={({ field: qtyField }) => (
+                                                                                                            <FormItem>
+                                                                                                                <FormControl>
+                                                                                                                    <Input type="number" step="0.1" className="h-7 w-24" {...qtyField} disabled={dialogMode === 'view'} />
+                                                                                                                </FormControl>
+                                                                                                                <FormMessage className="text-xs" />
+                                                                                                            </FormItem>
+                                                                                                        )}
+                                                                                                    />
+                                                                                                )}
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    );
+                                                                                }}
+                                                                            />
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </ScrollArea>
                                                             <FormMessage />
                                                         </FormItem>
                                                     )}
                                                 />
                                             </>
+                                        ) : (
+                                             <FormField
+                                                control={form.control}
+                                                name="quantity"
+                                                render={({ field }) => (
+                                                    <FormItem>
+                                                        <FormLabel>Cantidad</FormLabel>
+                                                        <FormControl>
+                                                            <Input
+                                                                type="number"
+                                                                step="0.01"
+                                                                placeholder="Ej: 1.5"
+                                                                {...field}
+                                                                value={field.value ?? ''}
+                                                                disabled={dialogMode === 'view' || watchedConcept === 'INSPECCIÓN ZFPC'}
+                                                            />
+                                                        </FormControl>
+                                                        <FormMessage />
+                                                    </FormItem>
+                                                )}
+                                            />
                                         )}
-                                        
-                                        <FormField
-                                            control={form.control}
-                                            name="quantity"
-                                            render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel>
-                                                        {watchedConcept === 'TIEMPO EXTRA ZFPC' ? 'Cantidad de Horas (Manual)' : 'Cantidad'}
-                                                    </FormLabel>
-                                                    <FormControl>
-                                                        <Input
-                                                            type="number"
-                                                            step="0.01"
-                                                            placeholder="Ej: 1.5"
-                                                            {...field}
-                                                            value={field.value ?? ''}
-                                                            disabled={dialogMode === 'view' || watchedConcept === 'INSPECCIÓN ZFPC'}
-                                                        />
-                                                    </FormControl>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-
+                                       
                                         
                                         {showAdvancedFields && (
                                             <>

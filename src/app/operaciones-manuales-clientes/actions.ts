@@ -9,11 +9,9 @@ export interface ManualClientOperationData {
     clientName: string;
     operationDate: string; // ISO string like '2024-07-23T15:49:01.859Z'
     concept: string;
-    specificTariffIds?: string[]; // Can now be multiple
-    quantity: number;
-    numeroPersonas?: number; // New field for number of people
-    unitValue?: number;
-    totalValue?: number;
+    specificTariffs?: { tariffId: string; quantity: number }[]; // <-- Changed from specificTariffIds
+    quantity?: number; // Kept for simple manual concepts
+    numeroPersonas?: number;
     details?: {
         startTime?: string; // HH:mm
         endTime?: string; // HH:mm
