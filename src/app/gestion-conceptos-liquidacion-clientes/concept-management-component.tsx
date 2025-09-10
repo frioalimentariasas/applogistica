@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import * as React from 'react';
@@ -51,6 +50,13 @@ const tariffRangeSchema = z.object({
     path: ['maxTons'],
 });
 
+const specificTariffSchema = z.object({
+  id: z.string().min(1),
+  name: z.string().min(1, "El nombre es requerido."),
+  value: z.coerce.number({ invalid_type_error: "Debe ser un número."}).min(0, "Debe ser >= 0"),
+  unit: z.enum(['HORA', 'UNIDAD', 'DIA', 'VIAJE', 'ALIMENTACION', 'TRANSPORTE'], { required_error: 'Debe seleccionar una unidad.' }),
+});
+
 const conceptSchema = z.object({
   conceptName: z.string().min(3, { message: "El nombre del concepto es requerido (mín. 3 caracteres)."}),
   clientNames: z.array(z.string()).min(1, { message: 'Debe seleccionar al menos un cliente.' }),
@@ -67,11 +73,12 @@ const conceptSchema = z.object({
   associatedObservation: z.string().optional(),
 
   // Tariff Rules
-  tariffType: z.enum(['UNICA', 'RANGOS'], { required_error: "Debe seleccionar un tipo de tarifa."}),
+  tariffType: z.enum(['UNICA', 'RANGOS', 'ESPECIFICA'], { required_error: "Debe seleccionar un tipo de tarifa."}),
   value: z.coerce.number({invalid_type_error: "Debe ser un número"}).min(0, "Debe ser >= 0").optional(),
   dayShiftStart: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM requerido.').optional(),
   dayShiftEnd: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM requerido.').optional(),
   tariffRanges: z.array(tariffRangeSchema).optional(),
+  specificTariffs: z.array(specificTariffSchema).optional(),
 }).superRefine((data, ctx) => {
     if (data.calculationType === 'REGLAS') {
         if (!data.calculationBase) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La base de cálculo es requerida.", path: ["calculationBase"] });
@@ -88,6 +95,9 @@ const conceptSchema = z.object({
     if (data.tariffType === 'RANGOS') {
         if (!data.dayShiftStart) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La hora de inicio es obligatoria.", path: ["dayShiftStart"] });
         if (!data.dayShiftEnd) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La hora de fin es obligatoria.", path: ["dayShiftEnd"] });
+    }
+    if (data.tariffType === 'ESPECIFICA' && (!data.specificTariffs || data.specificTariffs.length === 0)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Debe definir al menos una tarifa específica.", path: ["specificTariffs"] });
     }
 });
 
@@ -134,16 +144,19 @@ export default function ConceptManagementClientComponent({ initialClients, initi
       value: 0,
       dayShiftStart: '07:00',
       dayShiftEnd: '19:00',
-      tariffRanges: []
+      tariffRanges: [],
+      specificTariffs: []
     },
   });
 
   const { fields: addFields, append: addAppend, remove: addRemove } = useFieldArray({ control: addForm.control, name: "tariffRanges" });
+  const { fields: addSpecificFields, append: addSpecificAppend, remove: addSpecificRemove } = useFieldArray({ control: addForm.control, name: "specificTariffs" });
   const watchedAddTariffType = useWatch({ control: addForm.control, name: "tariffType" });
   const watchedAddCalculationType = useWatch({ control: addForm.control, name: "calculationType" });
   
   const editForm = useForm<ConceptFormValues>({ resolver: zodResolver(conceptSchema) });
   const { fields: editFields, append: editAppend, remove: editRemove } = useFieldArray({ control: editForm.control, name: "tariffRanges" });
+  const { fields: editSpecificFields, append: editSpecificAppend, remove: editSpecificRemove } = useFieldArray({ control: editForm.control, name: "specificTariffs" });
   const watchedEditTariffType = useWatch({ control: editForm.control, name: "tariffType" });
   const watchedEditCalculationType = useWatch({ control: editForm.control, name: "calculationType" });
 
@@ -204,6 +217,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
         dayShiftStart: concept.dayShiftStart || '07:00',
         dayShiftEnd: concept.dayShiftEnd || '19:00',
         tariffRanges: concept.tariffRanges || [],
+        specificTariffs: concept.specificTariffs || [],
         calculationType: concept.calculationType || 'REGLAS',
     });
   };
@@ -344,9 +358,10 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                                         <FormItem className="space-y-3">
                                         <FormLabel>Tipo de Tarifa</FormLabel>
                                         <FormControl>
-                                            <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4">
-                                                <FormItem className="flex items-center space-x-2"><RadioGroupItem value="UNICA" id="add-unica" /><Label htmlFor="add-unica">Tarifa Única</Label></FormItem>
-                                                <FormItem className="flex items-center space-x-2"><RadioGroupItem value="RANGOS" id="add-rangos" /><Label htmlFor="add-rangos">Tarifa por Rangos</Label></FormItem>
+                                            <RadioGroup onValueChange={field.onChange} value={field.value} className="flex flex-wrap gap-4">
+                                                <FormItem className="flex items-center space-x-2"><RadioGroupItem value="UNICA" id="add-unica" /><Label htmlFor="add-unica">Única</Label></FormItem>
+                                                <FormItem className="flex items-center space-x-2"><RadioGroupItem value="RANGOS" id="add-rangos" /><Label htmlFor="add-rangos">Rangos</Label></FormItem>
+                                                <FormItem className="flex items-center space-x-2"><RadioGroupItem value="ESPECIFICA" id="add-especifica" /><Label htmlFor="add-especifica">Específica</Label></FormItem>
                                             </RadioGroup>
                                         </FormControl>
                                         <FormMessage />
@@ -393,6 +408,25 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                                             ))}
                                             <Button type="button" variant="outline" size="sm" onClick={() => addAppend({ minTons: 0, maxTons: 999, vehicleType: '', dayTariff: 0, nightTariff: 0 })}>
                                                 <PlusCircle className="mr-2 h-4 w-4" /> Agregar Rango
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
+                                
+                                {watchedAddTariffType === 'ESPECIFICA' && (
+                                    <div className='space-y-4 p-4 border rounded-md bg-muted/20'>
+                                        <FormLabel>Tarifas Específicas</FormLabel>
+                                        <div className="space-y-4">
+                                            {addSpecificFields.map((field, index) => (
+                                                <div key={field.id} className="grid grid-cols-1 sm:grid-cols-2 gap-3 border p-3 rounded-md relative">
+                                                    <FormField control={addForm.control} name={`specificTariffs.${index}.name`} render={({ field }) => (<FormItem><FormLabel>Nombre Tarifa</FormLabel><FormControl><Input placeholder="Ej: HORA EXTRA DIURNA" {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
+                                                    <FormField control={addForm.control} name={`specificTariffs.${index}.unit`} render={({ field }) => (<FormItem><FormLabel>Unidad</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="HORA">HORA</SelectItem><SelectItem value="UNIDAD">UNIDAD</SelectItem><SelectItem value="DIA">DIA</SelectItem><SelectItem value="VIAJE">VIAJE</SelectItem><SelectItem value="ALIMENTACION">ALIMENTACION</SelectItem><SelectItem value="TRANSPORTE">TRANSPORTE</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
+                                                    <FormField control={addForm.control} name={`specificTariffs.${index}.value`} render={({ field }) => (<FormItem className="sm:col-span-2"><FormLabel>Valor (COP)</FormLabel><FormControl><Input type="number" step="0.01" {...field}/></FormControl><FormMessage /></FormItem>)}/>
+                                                    <Button type="button" variant="ghost" size="icon" className="absolute top-1 right-1 text-destructive h-6 w-6" onClick={() => addSpecificRemove(index)}><Trash2 className="h-4 w-4" /></Button>
+                                                </div>
+                                            ))}
+                                            <Button type="button" variant="outline" size="sm" onClick={() => addSpecificAppend({ id: `new_${Date.now()}`, name: '', value: 0, unit: 'UNIDAD' })}>
+                                                <PlusCircle className="mr-2 h-4 w-4" /> Agregar Tarifa Específica
                                             </Button>
                                         </div>
                                     </div>
@@ -453,7 +487,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                                                 {c.tariffType === 'UNICA' ? (
                                                     <span className="font-semibold text-green-700">{c.value?.toLocaleString('es-CO', {style:'currency', currency: 'COP', minimumFractionDigits: 0})}</span>
                                                 ) : (
-                                                    <Badge variant="outline">Por Rangos</Badge>
+                                                    <Badge variant="outline">{c.tariffType === 'RANGOS' ? 'Por Rangos' : 'Específica'}</Badge>
                                                 )}
                                             </TableCell>
                                             <TableCell className="text-right">
@@ -535,9 +569,10 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                             <FormItem className="space-y-3">
                             <FormLabel>Tipo de Tarifa</FormLabel>
                             <FormControl>
-                                <RadioGroup onValueChange={field.onChange} value={field.value} className="flex gap-4">
-                                    <FormItem className="flex items-center space-x-2"><RadioGroupItem value="UNICA" id="edit-unica" /><Label htmlFor="edit-unica">Tarifa Única</Label></FormItem>
-                                    <FormItem className="flex items-center space-x-2"><RadioGroupItem value="RANGOS" id="edit-rangos" /><Label htmlFor="edit-rangos">Tarifa por Rangos</Label></FormItem>
+                                <RadioGroup onValueChange={field.onChange} value={field.value} className="flex flex-wrap gap-4">
+                                    <FormItem className="flex items-center space-x-2"><RadioGroupItem value="UNICA" id="edit-unica" /><Label htmlFor="edit-unica">Única</Label></FormItem>
+                                    <FormItem className="flex items-center space-x-2"><RadioGroupItem value="RANGOS" id="edit-rangos" /><Label htmlFor="edit-rangos">Rangos</Label></FormItem>
+                                    <FormItem className="flex items-center space-x-2"><RadioGroupItem value="ESPECIFICA" id="edit-especifica" /><Label htmlFor="edit-especifica">Específica</Label></FormItem>
                                 </RadioGroup>
                             </FormControl>
                             <FormMessage />
@@ -583,6 +618,26 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                             </ScrollArea>
                             <Button type="button" variant="outline" size="sm" onClick={() => editAppend({ minTons: 0, maxTons: 999, vehicleType: '', dayTariff: 0, nightTariff: 0 })}>
                                 <PlusCircle className="mr-2 h-4 w-4" /> Agregar Rango
+                            </Button>
+                        </div>
+                    )}
+                    {watchedEditTariffType === 'ESPECIFICA' && (
+                         <div className='space-y-4 p-4 border rounded-md bg-muted/20'>
+                            <FormLabel>Tarifas Específicas</FormLabel>
+                            <ScrollArea className="h-40 pr-4">
+                                <div className="space-y-4">
+                                    {editSpecificFields.map((field, index) => (
+                                        <div key={field.id} className="grid grid-cols-1 sm:grid-cols-2 gap-3 border p-3 rounded-md relative">
+                                            <FormField control={editForm.control} name={`specificTariffs.${index}.name`} render={({ field }) => (<FormItem><FormLabel>Nombre Tarifa</FormLabel><FormControl><Input placeholder="Ej: HORA EXTRA DIURNA" {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
+                                            <FormField control={editForm.control} name={`specificTariffs.${index}.unit`} render={({ field }) => (<FormItem><FormLabel>Unidad</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="HORA">HORA</SelectItem><SelectItem value="UNIDAD">UNIDAD</SelectItem><SelectItem value="DIA">DIA</SelectItem><SelectItem value="VIAJE">VIAJE</SelectItem><SelectItem value="ALIMENTACION">ALIMENTACION</SelectItem><SelectItem value="TRANSPORTE">TRANSPORTE</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
+                                            <FormField control={editForm.control} name={`specificTariffs.${index}.value`} render={({ field }) => (<FormItem className="sm:col-span-2"><FormLabel>Valor (COP)</FormLabel><FormControl><Input type="number" step="0.01" {...field}/></FormControl><FormMessage /></FormItem>)}/>
+                                            <Button type="button" variant="ghost" size="icon" className="absolute top-1 right-1 text-destructive h-6 w-6" onClick={() => editSpecificRemove(index)}><Trash2 className="h-4 w-4" /></Button>
+                                        </div>
+                                    ))}
+                                </div>
+                            </ScrollArea>
+                            <Button type="button" variant="outline" size="sm" onClick={() => editSpecificAppend({ id: `new_${Date.now()}`, name: '', value: 0, unit: 'UNIDAD' })}>
+                                <PlusCircle className="mr-2 h-4 w-4" /> Agregar Tarifa
                             </Button>
                         </div>
                     )}
