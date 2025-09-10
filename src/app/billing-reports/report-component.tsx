@@ -42,6 +42,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertTitle } from '@/components/ui/alert';
 import { Textarea } from '@/components/ui/textarea';
+import { IndexCreationDialog } from '@/components/app/index-creation-dialog';
 
 
 const ResultsSkeleton = () => (
@@ -1345,7 +1346,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                         <Label>No. Contenedor (Opcional)</Label>
                                         <Input placeholder="Buscar por contenedor" value={detailedReportContainer} onChange={(e) => setDetailedReportContainer(e.target.value)} />
                                     </div>
-                                    <div className="flex gap-2">
+                                    <div className="flex gap-2 items-end">
                                         <Button onClick={handleDetailedReportSearch} className="w-full" disabled={isDetailedReportLoading}>
                                             {isDetailedReportLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Search className="mr-2 h-4 w-4" />}
                                             Buscar
@@ -2133,35 +2134,11 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
-             <AlertDialog open={isIndexErrorOpen} onOpenChange={setIsIndexErrorOpen}>
-                <AlertDialogContent className="sm:max-w-2xl">
-                    <AlertDialogHeader>
-                        <AlertDialogTitle>Índice Compuesto Requerido en Firestore</AlertDialogTitle>
-                        <AlertDialogDescription>
-                           Para realizar esta consulta, Firestore necesita un índice compuesto que no existe. Por favor, copie el siguiente enlace, ábralo en una nueva pestaña del navegador y haga clic en "Crear Índice" en la consola de Firebase. La creación puede tardar unos minutos.
-                        </AlertDialogDescription>
-                    </AlertDialogHeader>
-                    <div className="p-4 bg-muted rounded-md">
-                        <Label htmlFor="index-link" className="text-sm font-medium">Enlace para Crear Índice</Label>
-                        <Textarea
-                            id="index-link"
-                            readOnly
-                            value={indexErrorMessage}
-                            className="mt-2 font-mono text-xs h-32"
-                            onClick={(e) => (e.target as HTMLTextAreaElement).select()}
-                        />
-                    </div>
-                    <AlertDialogFooter>
-                        <AlertDialogCancel onClick={() => setIsIndexErrorOpen(false)}>Cerrar</AlertDialogCancel>
-                        <AlertDialogAction asChild>
-                            <a href={(indexErrorMessage.match(/(https?:\/\/[^\s]+)/) || ['#'])[0]} target="_blank" rel="noopener noreferrer">
-                                <ExternalLink className="mr-2 h-4 w-4"/>
-                                Abrir Enlace
-                            </a>
-                        </AlertDialogAction>
-                    </AlertDialogFooter>
-                </AlertDialogContent>
-            </AlertDialog>
+            <IndexCreationDialog 
+                isOpen={isIndexErrorOpen}
+                onOpenChange={setIsIndexErrorOpen}
+                errorMessage={indexErrorMessage}
+            />
         </div>
     );
 }
