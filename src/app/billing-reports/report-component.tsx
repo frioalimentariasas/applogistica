@@ -17,7 +17,7 @@ import { getDetailedReport, type DetailedReportRow } from '@/app/actions/detaile
 import { getInventoryReport, uploadInventoryCsv, type InventoryPivotReport, getClientsWithInventory, getInventoryIdsByDateRange, deleteSingleInventoryDoc, getDetailedInventoryForExport } from '@/app/actions/inventory-report';
 import { getConsolidatedMovementReport, type ConsolidatedReportRow } from '@/app/actions/consolidated-movement-report';
 import { getClientBillingConcepts, type ClientBillingConcept } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
-import { generateClientSettlement, type ClientSettlementRow } from './actions/generate-client-settlement';
+import { generateClientSettlement, type ClientSettlementRow, findApplicableConcepts } from './actions/generate-client-settlement';
 import type { ClientInfo } from '@/app/actions/clients';
 import { getPedidoTypes, type PedidoType } from '@/app/gestion-tipos-pedido/actions';
 import { useToast } from '@/hooks/use-toast';
@@ -217,8 +217,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const [settlementClient, setSettlementClient] = useState<string | undefined>(undefined);
     const [settlementDateRange, setSettlementDateRange] = useState<DateRange | undefined>();
     const [settlementContainer, setSettlementContainer] = useState<string>('');
-    const [allClientConcepts, setAllClientConcepts] = useState<ClientBillingConcept[]>([]);
     const [availableConcepts, setAvailableConcepts] = useState<ClientBillingConcept[]>([]);
+    const [isLoadingAvailableConcepts, setIsLoadingAvailableConcepts] = useState(false);
     const [selectedConcepts, setSelectedConcepts] = useState<string[]>([]);
     const [isSettlementLoading, setIsSettlementLoading] = useState(false);
     const [settlementSearched, setSettlementSearched] = useState(false);
@@ -237,20 +237,34 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
     useEffect(() => {
         getPedidoTypes().then(setAllPedidoTypes);
-        getClientBillingConcepts().then(setAllClientConcepts);
     }, []);
-    
+
     useEffect(() => {
-        if (settlementClient) {
-            const applicable = allClientConcepts.filter(c => c.clientNames.includes(settlementClient) || c.clientNames.includes('TODOS (Cualquier Cliente)'));
-            setAvailableConcepts(applicable);
-            // Deselect concepts that are no longer available for the new client
-            setSelectedConcepts(prev => prev.filter(sc => applicable.some(ac => ac.id === sc)));
-        } else {
-            setAvailableConcepts([]);
-            setSelectedConcepts([]);
-        }
-    }, [settlementClient, allClientConcepts]);
+        const fetchApplicableConcepts = async () => {
+            if (settlementClient && settlementDateRange?.from && settlementDateRange?.to) {
+                setIsLoadingAvailableConcepts(true);
+                try {
+                    const result = await findApplicableConcepts(
+                        settlementClient,
+                        format(settlementDateRange.from, 'yyyy-MM-dd'),
+                        format(settlementDateRange.to, 'yyyy-MM-dd')
+                    );
+                    setAvailableConcepts(result);
+                    // Clear selected concepts that are no longer available for the new criteria
+                    setSelectedConcepts(prev => prev.filter(sc => result.some(ac => ac.id === sc)));
+                } catch (error) {
+                    toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar los conceptos aplicables.' });
+                    setAvailableConcepts([]);
+                } finally {
+                    setIsLoadingAvailableConcepts(false);
+                }
+            } else {
+                setAvailableConcepts([]);
+                setSelectedConcepts([]);
+            }
+        };
+        fetchApplicableConcepts();
+    }, [settlementClient, settlementDateRange, toast]);
 
 
     useEffect(() => {
@@ -1247,7 +1261,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                             </CardHeader>
                             <CardContent>
                                 <div className="space-y-4 mb-6">
-                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+                                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                                         <div className="space-y-2">
                                             <Label>Rango de Fechas</Label>
                                             <Popover>
@@ -2013,11 +2027,16 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                     <div className="space-y-2">
                                         <Label>Conceptos a Liquidar</Label>
                                         <Dialog open={isSettlementConceptDialogOpen} onOpenChange={setIsSettlementConceptDialogOpen}>
-                                            <DialogTrigger asChild><Button variant="outline" className="w-full justify-between" disabled={!settlementClient}><span className="truncate">{selectedConcepts.length === 0 ? "Seleccionar conceptos..." : `${selectedConcepts.length} seleccionados`}</span><ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50"/></Button></DialogTrigger>
+                                            <DialogTrigger asChild><Button variant="outline" className="w-full justify-between" disabled={!settlementClient || !settlementDateRange}><span className="truncate">{selectedConcepts.length === 0 ? "Seleccionar conceptos..." : `${selectedConcepts.length} seleccionados`}</span>{isLoadingAvailableConcepts ? <Loader2 className="ml-2 h-4 w-4 shrink-0 animate-spin" /> : <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50"/>}</Button></DialogTrigger>
                                             <DialogContent><DialogHeader><DialogTitle>Seleccionar Conceptos</DialogTitle><DialogDescription>Marque los conceptos que desea incluir en la liquidación.</DialogDescription></DialogHeader>
                                                 <ScrollArea className="h-72 mt-4"><div className="space-y-2 pr-4">
-                                                    {availableConcepts.map(c => (<div key={c.id} className="flex items-center space-x-3"><Checkbox id={`concept-${c.id}`} checked={selectedConcepts.includes(c.id)} onCheckedChange={checked => setSelectedConcepts(prev => checked ? [...prev, c.id] : prev.filter(id => id !== c.id))} /><label htmlFor={`concept-${c.id}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">{c.conceptName}</label></div>))}
-                                                    {availableConcepts.length === 0 && <p className="text-sm text-muted-foreground text-center py-10">No hay conceptos de liquidación definidos para este cliente.</p>}
+                                                    {isLoadingAvailableConcepts ? (
+                                                        <div className="flex justify-center items-center h-full"><Loader2 className="h-6 w-6 animate-spin" /></div>
+                                                    ) : availableConcepts.length > 0 ? (
+                                                        availableConcepts.map(c => (<div key={c.id} className="flex items-center space-x-3"><Checkbox id={`concept-${c.id}`} checked={selectedConcepts.includes(c.id)} onCheckedChange={checked => setSelectedConcepts(prev => checked ? [...prev, c.id] : prev.filter(id => id !== c.id))} /><label htmlFor={`concept-${c.id}`} className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">{c.conceptName}</label></div>))
+                                                    ) : (
+                                                        <p className="text-sm text-muted-foreground text-center py-10">No hay conceptos de liquidación aplicables para el cliente y fechas seleccionados.</p>
+                                                    )}
                                                 </div></ScrollArea>
                                             <DialogFooter><Button onClick={() => setIsSettlementConceptDialogOpen(false)}>Cerrar</Button></DialogFooter>
                                             </DialogContent>
@@ -2144,3 +2163,4 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         </div>
     );
 }
+

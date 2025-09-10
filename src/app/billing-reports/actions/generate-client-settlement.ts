@@ -4,10 +4,9 @@
 
 import { firestore } from '@/lib/firebase-admin';
 import type { ClientBillingConcept, TariffRange } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
-import { DetailedReportRow, getDetailedReport } from '@/app/actions/detailed-report';
+import { getClientBillingConcepts } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 import admin from 'firebase-admin';
-import { endOfDay } from 'date-fns';
-
+import { startOfDay, endOfDay, parseISO } from 'date-fns';
 
 export async function getAllManualClientOperations(): Promise<any[]> {
     if (!firestore) {
@@ -130,6 +129,99 @@ const getOperationLogisticsType = (isoDateString: string, horaInicio: string, ho
     }
 };
 
+const serializeTimestamps = (data: any): any => {
+    if (data === null || data === undefined || typeof data !== 'object') {
+        return data;
+    }
+    if (data instanceof admin.firestore.Timestamp) {
+        return data.toDate().toISOString();
+    }
+    if (Array.isArray(data)) {
+        return data.map(item => serializeTimestamps(item));
+    }
+    const newObj: { [key: string]: any } = {};
+    for (const key in data) {
+        if (Object.prototype.hasOwnProperty.call(data, key)) {
+            newObj[key] = serializeTimestamps(data[key]);
+        }
+    }
+    return newObj;
+};
+
+// Simplified operation structure for processing
+interface BasicOperation {
+    type: 'form' | 'manual';
+    data: any; // formData for forms, document data for manual
+}
+
+export async function findApplicableConcepts(clientName: string, startDate: string, endDate: string): Promise<ClientBillingConcept[]> {
+    if (!firestore) return [];
+
+    const allConcepts = await getClientBillingConcepts();
+    const applicableConcepts = new Map<string, ClientBillingConcept>();
+
+    const serverQueryStartDate = startOfDay(parseISO(startDate));
+    const serverQueryEndDate = endOfDay(parseISO(endDate));
+
+    // Fetch all operations for the client in the date range
+    const submissionsSnapshot = await firestore.collection('submissions')
+        .where('formData.cliente', '==', clientName)
+        .where('formData.fecha', '>=', serverQueryStartDate)
+        .where('formData.fecha', '<=', serverQueryEndDate)
+        .get();
+
+    const manualOpsSnapshot = await firestore.collection('manual_client_operations')
+        .where('clientName', '==', clientName)
+        .where('operationDate', '>=', serverQueryStartDate)
+        .where('operationDate', '<=', serverQueryEndDate)
+        .get();
+    
+    // Process form-based concepts
+    submissionsSnapshot.docs.forEach(doc => {
+        const formData = serializeTimestamps(doc.data()).formData;
+        const conceptsForClient = allConcepts.filter(c => c.clientNames.includes(clientName) || c.clientNames.includes('TODOS (Cualquier Cliente)'));
+
+        conceptsForClient.forEach(concept => {
+            if (concept.calculationType === 'REGLAS') {
+                let opTypeMatch = false;
+                if (concept.filterOperationType === 'ambos') opTypeMatch = true;
+                else if (concept.filterOperationType === 'recepcion' && (doc.data().formType.includes('recepcion') || doc.data().formType.includes('reception'))) opTypeMatch = true;
+                else if (concept.filterOperationType === 'despacho' && doc.data().formType.includes('despacho')) opTypeMatch = true;
+                
+                const prodTypeMatch = concept.filterProductType === 'ambos' || doc.data().formType.includes(concept.filterProductType);
+                if (opTypeMatch && prodTypeMatch) {
+                    if (!applicableConcepts.has(concept.id)) {
+                        applicableConcepts.set(concept.id, concept);
+                    }
+                }
+            } else if (concept.calculationType === 'OBSERVACION') {
+                 if (Array.isArray(formData.observaciones) && formData.observaciones.some((obs: any) => obs.type === concept.associatedObservation)) {
+                     if (!applicableConcepts.has(concept.id)) {
+                        applicableConcepts.set(concept.id, concept);
+                    }
+                 }
+            }
+        });
+    });
+
+    // Process manual-based concepts
+    manualOpsSnapshot.docs.forEach(doc => {
+        const opData = doc.data();
+        const conceptsForClient = allConcepts.filter(c => c.clientNames.includes(clientName) || c.clientNames.includes('TODOS (Cualquier Cliente)'));
+        conceptsForClient.forEach(concept => {
+            if (concept.calculationType === 'MANUAL' && concept.conceptName === opData.concept) {
+                if (!applicableConcepts.has(concept.id)) {
+                    applicableConcepts.set(concept.id, concept);
+                }
+            }
+        });
+    });
+    
+    const sortedConcepts = Array.from(applicableConcepts.values());
+    sortedConcepts.sort((a, b) => a.conceptName.localeCompare(b.conceptName));
+    return sortedConcepts;
+}
+
 
 export async function generateClientSettlement(criteria: ClientSettlementCriteria): Promise<ClientSettlementResult> {
   if (!firestore) {
@@ -142,33 +234,62 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
   }
 
   try {
-    const conceptsSnapshot = await firestore.collection('client_billing_concepts').get();
-    const allConcepts = conceptsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as (ClientBillingConcept & {id: string})[];
-    const selectedConcepts = allConcepts.filter(c => conceptIds.includes(c.id));
+    const serverQueryStartDate = startOfDay(parseISO(startDate));
+    const serverQueryEndDate = endOfDay(parseISO(endDate));
 
-    const allOperations = await getDetailedReport({ clientName, startDate, endDate, containerNumber });
+    const [allConcepts, submissionsSnapshot, manualOpsSnapshot] = await Promise.all([
+        getClientBillingConcepts(),
+        firestore.collection('submissions').where('formData.fecha', '>=', serverQueryStartDate).where('formData.fecha', '<=', serverQueryEndDate).get(),
+        firestore.collection('manual_client_operations').where('operationDate', '>=', serverQueryStartDate).where('operationDate', '<=', serverQueryEndDate).get()
+    ]);
+    
+    const selectedConcepts = allConcepts.filter(c => conceptIds.includes(c.id));
+    const allOperations: BasicOperation[] = [];
+
+    submissionsSnapshot.docs.forEach(doc => {
+        const data = serializeTimestamps(doc.data());
+        const docClientName = data.formData?.cliente || data.formData?.nombreCliente;
+        if (docClientName === clientName) {
+            if (containerNumber && data.formData.contenedor !== containerNumber) {
+                return;
+            }
+            allOperations.push({ type: 'form', data });
+        }
+    });
+    
+    manualOpsSnapshot.docs.forEach(doc => {
+        const data = serializeTimestamps(doc.data());
+        if (data.clientName === clientName) {
+             if (containerNumber && data.details?.container !== containerNumber) {
+                return;
+            }
+            allOperations.push({ type: 'manual', data });
+        }
+    });
     
     const settlementRows: ClientSettlementRow[] = [];
-
+    
     // Group form operations by day and container
-    const operationsByDayAndContainer = allOperations.reduce((acc, op) => {
-        const date = new Date(op.fecha).toISOString().split('T')[0];
-        const container = op.contenedor || 'No aplica';
-        const key = `${date}|${container}`;
-        if (!acc[key]) {
-            acc[key] = [];
-        }
-        acc[key].push(op);
-        return acc;
-    }, {} as Record<string, DetailedReportRow[]>);
+    const operationsByDayAndContainer = allOperations
+        .filter(op => op.type === 'form')
+        .reduce((acc, op) => {
+            const date = new Date(op.data.formData.fecha).toISOString().split('T')[0];
+            const container = op.data.formData.contenedor || 'No aplica';
+            const key = `${date}|${container}`;
+            if (!acc[key]) {
+                acc[key] = [];
+            }
+            acc[key].push(op.data);
+            return acc;
+        }, {} as Record<string, any[]>);
 
     // Process regular form operations
     for (const key in operationsByDayAndContainer) {
         const [date, container] = key.split('|');
         const dailyOperations = operationsByDayAndContainer[key];
-        const camara = dailyOperations[0]?.sesion || 'N/A';
-        const totalPaletas = dailyOperations.reduce((sum, op) => sum + (op.totalPaletas || 0), 0);
-        const pedidoSislog = [...new Set(dailyOperations.map(op => op.pedidoSislog))].join(', ');
+        const camara = dailyOperations[0]?.formData.sesion || 'N/A';
+        const totalPaletas = dailyOperations.reduce((sum, op) => sum + (op.formData.totalPaletas || 0), 0);
+        const pedidoSislog = [...new Set(dailyOperations.map(op => op.formData.pedidoSislog))].join(', ');
 
         for (const concept of selectedConcepts) {
             // Skip manual and observation concepts for now, they are handled separately
@@ -182,19 +303,19 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
             const applicableOperations = dailyOperations.filter(op => {
                 let opTypeMatch = false;
                 if (concept.filterOperationType === 'ambos') opTypeMatch = true;
-                else if (concept.filterOperationType === 'recepcion' && op.tipoOperacion === 'Recepción') opTypeMatch = true;
-                else if (concept.filterOperationType === 'despacho' && op.tipoOperacion === 'Despacho') opTypeMatch = true;
+                else if (concept.filterOperationType === 'recepcion' && (op.formType.includes('recepcion') || op.formType.includes('reception'))) opTypeMatch = true;
+                else if (concept.filterOperationType === 'despacho' && op.formType.includes('despacho')) opTypeMatch = true;
                 
-                const prodTypeMatch = concept.filterProductType === 'ambos' || op.tipoProducto.toLowerCase().includes(concept.filterProductType);
+                const prodTypeMatch = concept.filterProductType === 'ambos' || op.formType.includes(concept.filterProductType);
                 return opTypeMatch && prodTypeMatch;
             });
 
             if (applicableOperations.length > 0) {
-                switch (concept.calculationBase) {
-                    case 'TONELADAS': quantity = applicableOperations.reduce((sum, op) => sum + (op.totalPesoKg || 0), 0) / 1000; break;
-                    case 'KILOGRAMOS': quantity = applicableOperations.reduce((sum, op) => sum + (op.totalPesoKg || 0), 0); break;
-                    case 'CANTIDAD_PALETAS': quantity = applicableOperations.reduce((sum, op) => sum + (op.totalPaletas || 0), 0); break;
-                    case 'CANTIDAD_CAJAS': quantity = applicableOperations.reduce((sum, op) => sum + (op.totalCantidad || 0), 0); break;
+                 switch (concept.calculationBase) {
+                    case 'TONELADAS': quantity = applicableOperations.reduce((sum, op) => sum + ((op.formData.totalPesoKg ?? op.formData.totalPesoBrutoKg) || 0), 0) / 1000; break;
+                    case 'KILOGRAMOS': quantity = applicableOperations.reduce((sum, op) => sum + ((op.formData.totalPesoKg ?? op.formData.totalPesoBrutoKg) || 0), 0); break;
+                    case 'CANTIDAD_PALETAS': quantity = applicableOperations.reduce((sum, op) => sum + (op.formData.totalPaletas || 0), 0); break;
+                    case 'CANTIDAD_CAJAS': quantity = applicableOperations.reduce((sum, op) => sum + (op.formData.totalCantidad || 0), 0); break;
                     case 'NUMERO_OPERACIONES': quantity = applicableOperations.length; break;
                     case 'NUMERO_CONTENEDORES': quantity = 1; break;
                     default: quantity = 0;
@@ -206,14 +327,14 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
                         unitValue = concept.value || 0;
                         operacionLogistica = 'N/A';
                     } else if (concept.tariffType === 'RANGOS') {
-                        const totalTons = applicableOperations.reduce((sum, op) => sum + (op.totalPesoKg || 0), 0) / 1000;
+                        const totalTons = applicableOperations.reduce((sum, op) => sum + ((op.formData.totalPesoKg ?? op.formData.totalPesoBrutoKg) || 0), 0) / 1000;
                         const vehicleType = container !== 'No aplica' ? 'CONTENEDOR' : 'TURBO';
                         
                         const matchingTariff = findMatchingTariff(totalTons, vehicleType, concept);
                         
                         if (matchingTariff) {
                             const firstOp = applicableOperations[0];
-                            const opLogisticType = getOperationLogisticsType(firstOp.fecha, firstOp.horaInicio, firstOp.horaFin, concept);
+                            const opLogisticType = getOperationLogisticsType(firstOp.formData.fecha, firstOp.formData.horaInicio, firstOp.formData.horaFin, concept);
                             unitValue = opLogisticType === 'Diurno' ? matchingTariff.dayTariff : matchingTariff.nightTariff;
                             operacionLogistica = opLogisticType;
                         } else {
@@ -245,16 +366,16 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
     // Process concepts based on Observations
     const observationConcepts = selectedConcepts.filter(c => c.calculationType === 'OBSERVACION');
     if (observationConcepts.length > 0) {
-        const opsWithObservations = allOperations.filter(op => Array.isArray(op.observaciones) && op.observaciones.length > 0);
+        const opsWithObservations = allOperations.filter(op => op.type === 'form' && Array.isArray(op.data.formData.observaciones) && op.data.formData.observaciones.length > 0);
         
         for (const concept of observationConcepts) {
             const relevantOps = opsWithObservations.filter(op =>
-                (op.observaciones as any[]).some(obs => obs.type === concept.associatedObservation)
+                (op.data.formData.observaciones as any[]).some(obs => obs.type === concept.associatedObservation)
             );
             
             if (relevantOps.length > 0) {
                 const totalQuantity = relevantOps.reduce((sum, op) => {
-                    const obs = (op.observaciones as any[]).find(o => o.type === concept.associatedObservation);
+                    const obs = (op.data.formData.observaciones as any[]).find(o => o.type === concept.associatedObservation);
                     return sum + (Number(obs?.quantity) || 0);
                 }, 0);
                 
@@ -277,53 +398,47 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
         }
     }
 
-
     // Process manual operations separately
-    const manualConcepts = selectedConcepts.filter(c => c.calculationType === 'MANUAL');
-    if (manualConcepts.length > 0) {
-        const finalEndDate = endOfDay(new Date(endDate)); // Ensure we get the full end day
-
-        const manualOpsSnapshot = await firestore.collection('manual_client_operations')
-            .where('clientName', '==', clientName)
-            .where('operationDate', '>=', new Date(startDate))
-            .where('operationDate', '<=', finalEndDate) // Use end of day
-            .get();
-
-        manualOpsSnapshot.forEach(doc => {
-            const op = doc.data() as any;
-            const concept = manualConcepts.find(c => c.conceptName === op.concept);
-            if (concept) {
-                const date = new Date(op.operationDate.toDate()).toISOString().split('T')[0];
-                const quantity = Number(op.quantity) || 0;
-                let unitValue = 0;
-                let operacionLogistica: string = 'N/A';
-                
-                if (concept.tariffType === 'UNICA') {
-                    unitValue = concept.value || 0;
-                } else if (concept.tariffType === 'RANGOS' && op.details?.startTime && op.details?.endTime) {
-                    const opLogisticType = getOperationLogisticsType(op.operationDate.toDate().toISOString(), op.details.startTime, op.details.endTime, concept);
-                    const matchingTariff = concept.tariffRanges?.[0]; // Assuming one generic range for manual ops
-                    if (matchingTariff) {
-                        unitValue = opLogisticType === 'Diurno' ? matchingTariff.dayTariff : matchingTariff.nightTariff;
+    const manualOpsFiltered = allOperations.filter(op => op.type === 'manual');
+    if (manualOpsFiltered.length > 0) {
+        const manualConcepts = selectedConcepts.filter(c => c.calculationType === 'MANUAL');
+        if (manualConcepts.length > 0) {
+            manualOpsFiltered.forEach(op => {
+                const opData = op.data;
+                const concept = manualConcepts.find(c => c.conceptName === opData.concept);
+                if (concept) {
+                    const date = new Date(opData.operationDate).toISOString().split('T')[0];
+                    const quantity = Number(opData.quantity) || 0;
+                    let unitValue = 0;
+                    let operacionLogistica: string = 'N/A';
+                    
+                    if (concept.tariffType === 'UNICA') {
+                        unitValue = concept.value || 0;
+                    } else if (concept.tariffType === 'RANGOS' && opData.details?.startTime && opData.details?.endTime) {
+                        const opLogisticType = getOperationLogisticsType(opData.operationDate, opData.details.startTime, opData.details.endTime, concept);
+                        const matchingTariff = concept.tariffRanges?.[0]; // Assuming one generic range for manual ops
+                        if (matchingTariff) {
+                            unitValue = opLogisticType === 'Diurno' ? matchingTariff.dayTariff : matchingTariff.nightTariff;
+                        }
+                        operacionLogistica = opLogisticType;
                     }
-                    operacionLogistica = opLogisticType;
-                }
 
-                settlementRows.push({
-                    date,
-                    container: op.details?.container || 'Manual',
-                    totalPaletas: op.details?.totalPallets || 0,
-                    camara: 'N/A',
-                    operacionLogistica,
-                    pedidoSislog: 'Manual',
-                    conceptName: concept.conceptName,
-                    quantity,
-                    unitOfMeasure: concept.unitOfMeasure,
-                    unitValue: unitValue,
-                    totalValue: quantity * unitValue,
-                });
-            }
-        });
+                    settlementRows.push({
+                        date,
+                        container: opData.details?.container || 'Manual',
+                        totalPaletas: opData.details?.totalPallets || 0,
+                        camara: 'N/A',
+                        operacionLogistica,
+                        pedidoSislog: 'Manual',
+                        conceptName: concept.conceptName,
+                        quantity,
+                        unitOfMeasure: concept.unitOfMeasure,
+                        unitValue: unitValue,
+                        totalValue: quantity * unitValue,
+                    });
+                }
+            });
+        }
     }
 
     settlementRows.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime() || a.conceptName.localeCompare(b.conceptName));
@@ -346,3 +461,4 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
     return { success: false, error: error.message || 'Ocurrió un error desconocido en el servidor.' };
   }
 }
+
