@@ -54,7 +54,7 @@ const tariffRangeSchema = z.object({
 const conceptSchema = z.object({
   conceptName: z.string().min(3, { message: "El nombre del concepto es requerido (mín. 3 caracteres)."}),
   clientNames: z.array(z.string()).min(1, { message: 'Debe seleccionar al menos un cliente.' }),
-  unitOfMeasure: z.enum(['TONELADA', 'PALETA', 'UNIDAD', 'CAJA', 'SACO', 'CANASTILLA', 'HORA', 'DIA', 'VIAJE', 'MES', 'CONTENEDOR'], { required_error: 'Debe seleccionar una unidad de medida.'}),
+  unitOfMeasure: z.enum(['TONELADA', 'PALETA', 'ESTIBA', 'UNIDAD', 'CAJA', 'SACO', 'CANASTILLA', 'HORA', 'DIA', 'VIAJE', 'MES', 'CONTENEDOR'], { required_error: 'Debe seleccionar una unidad de medida.'}),
   
   calculationType: z.enum(['REGLAS', 'OBSERVACION', 'MANUAL'], { required_error: 'Debe seleccionar un tipo de cálculo.' }),
   
@@ -305,7 +305,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                                     </FormItem>
                                   )}
                                 />
-                                <FormField control={addForm.control} name="unitOfMeasure" render={({ field }) => (<FormItem><FormLabel>Unidad de Medida (Para Reporte)</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione una unidad" /></SelectTrigger></FormControl><SelectContent><SelectItem value="TONELADA">TONELADA</SelectItem><SelectItem value="PALETA">PALETA</SelectItem><SelectItem value="UNIDAD">UNIDAD</SelectItem><SelectItem value="CAJA">CAJA</SelectItem><SelectItem value="SACO">SACO</SelectItem><SelectItem value="CANASTILLA">CANASTILLA</SelectItem><SelectItem value="HORA">HORA</SelectItem><SelectItem value="DIA">DÍA</SelectItem><SelectItem value="VIAJE">VIAJE</SelectItem><SelectItem value="MES">MES</SelectItem><SelectItem value="CONTENEDOR">CONTENEDOR</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
+                                <FormField control={addForm.control} name="unitOfMeasure" render={({ field }) => (<FormItem><FormLabel>Unidad de Medida (Para Reporte)</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione una unidad" /></SelectTrigger></FormControl><SelectContent><SelectItem value="TONELADA">TONELADA</SelectItem><SelectItem value="PALETA">PALETA</SelectItem><SelectItem value="ESTIBA">ESTIBA</SelectItem><SelectItem value="UNIDAD">UNIDAD</SelectItem><SelectItem value="CAJA">CAJA</SelectItem><SelectItem value="SACO">SACO</SelectItem><SelectItem value="CANASTILLA">CANASTILLA</SelectItem><SelectItem value="HORA">HORA</SelectItem><SelectItem value="DIA">DÍA</SelectItem><SelectItem value="VIAJE">VIAJE</SelectItem><SelectItem value="MES">MES</SelectItem><SelectItem value="CONTENEDOR">CONTENEDOR</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
                                 
                                 <Separator />
                                 <FormField control={addForm.control} name="calculationType" render={({ field }) => (
@@ -499,7 +499,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                         </FormItem>
                         )}
                     />
-                    <FormField control={editForm.control} name="unitOfMeasure" render={({ field }) => (<FormItem><FormLabel>Unidad de Medida (Para Reporte)</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TONELADA">TONELADA</SelectItem><SelectItem value="PALETA">PALETA</SelectItem><SelectItem value="UNIDAD">UNIDAD</SelectItem><SelectItem value="CAJA">CAJA</SelectItem><SelectItem value="SACO">SACO</SelectItem><SelectItem value="CANASTILLA">CANASTILLA</SelectItem><SelectItem value="HORA">HORA</SelectItem><SelectItem value="DIA">DÍA</SelectItem><SelectItem value="VIAJE">VIAJE</SelectItem><SelectItem value="MES">MES</SelectItem><SelectItem value="CONTENEDOR">CONTENEDOR</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
+                    <FormField control={editForm.control} name="unitOfMeasure" render={({ field }) => (<FormItem><FormLabel>Unidad de Medida (Para Reporte)</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="TONELADA">TONELADA</SelectItem><SelectItem value="PALETA">PALETA</SelectItem><SelectItem value="ESTIBA">ESTIBA</SelectItem><SelectItem value="UNIDAD">UNIDAD</SelectItem><SelectItem value="CAJA">CAJA</SelectItem><SelectItem value="SACO">SACO</SelectItem><SelectItem value="CANASTILLA">CANASTILLA</SelectItem><SelectItem value="HORA">HORA</SelectItem><SelectItem value="DIA">DÍA</SelectItem><SelectItem value="VIAJE">VIAJE</SelectItem><SelectItem value="MES">MES</SelectItem><SelectItem value="CONTENEDOR">CONTENEDOR</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
                     <Separator />
                      <FormField control={editForm.control} name="calculationType" render={({ field }) => (
                         <FormItem className="space-y-3">

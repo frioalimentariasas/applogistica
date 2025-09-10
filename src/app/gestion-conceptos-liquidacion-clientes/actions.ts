@@ -17,7 +17,7 @@ export interface ClientBillingConcept {
   id: string;
   conceptName: string;
   clientNames: string[];
-  unitOfMeasure: 'TONELADA' | 'PALETA' | 'UNIDAD' | 'CAJA' | 'SACO' | 'CANASTILLA' | 'HORA' | 'DIA' | 'VIAJE' | 'MES' | 'CONTENEDOR';
+  unitOfMeasure: 'TONELADA' | 'PALETA' | 'UNIDAD' | 'CAJA' | 'SACO' | 'CANASTILLA' | 'HORA' | 'DIA' | 'VIAJE' | 'MES' | 'CONTENEDOR' | 'ESTIBA';
   
   calculationType: 'REGLAS' | 'OBSERVACION' | 'MANUAL';
 
