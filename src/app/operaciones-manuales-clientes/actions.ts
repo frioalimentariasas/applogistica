@@ -10,6 +10,7 @@ export interface ManualClientOperationData {
     clientName: string;
     operationDate: string; // ISO string like '2024-07-23T15:49:01.859Z'
     concept: string;
+    specificTariffId?: string; // ID of the specific rate within a concept
     quantity: number;
     unitValue?: number; // Optional, can be looked up from concepts
     totalValue?: number; // Optional, can be calculated

@@ -13,6 +13,13 @@ export interface TariffRange {
   nightTariff: number;
 }
 
+export interface SpecificTariff {
+  id: string; // e.g., 'hora-extra-diurna'
+  name: string; // e.g., 'HORA EXTRA DIURNA'
+  value: number;
+  unit: 'HORA' | 'UNIDAD' | 'DIA' | 'VIAJE' | 'ALIMENTACION' | 'TRANSPORTE';
+}
+
 export interface ClientBillingConcept {
   id: string;
   conceptName: string;
@@ -30,11 +37,12 @@ export interface ClientBillingConcept {
   associatedObservation?: string;
 
   // Tariff Rules
-  tariffType: 'RANGOS' | 'UNICA';
+  tariffType: 'UNICA' | 'RANGOS' | 'ESPECIFICA';
   value?: number; // For 'UNICA' tariffType
   dayShiftStart?: string; 
   dayShiftEnd?: string;
   tariffRanges?: TariffRange[];
+  specificTariffs?: SpecificTariff[];
 }
 
 // Fetches all concepts
@@ -62,6 +70,7 @@ export async function getClientBillingConcepts(): Promise<ClientBillingConcept[]
         dayShiftStart: data.dayShiftStart,
         dayShiftEnd: data.dayShiftEnd,
         tariffRanges: Array.isArray(data.tariffRanges) ? data.tariffRanges : [],
+        specificTariffs: Array.isArray(data.specificTariffs) ? data.specificTariffs : [],
       } as ClientBillingConcept;
     });
   } catch (error) {
