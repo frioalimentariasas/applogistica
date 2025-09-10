@@ -126,48 +126,53 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     });
     
     const watchedConcept = form.watch('concept');
-    const watchedStartTime = form.watch('details.startTime');
-    const watchedEndTime = form.watch('details.endTime');
     const selectedConceptInfo = useMemo(() => billingConcepts.find(c => c.conceptName === watchedConcept), [watchedConcept, billingConcepts]);
 
     useEffect(() => {
         if (selectedConceptInfo?.tariffType !== 'ESPECIFICA') {
             form.setValue('specificTariffIds', undefined);
+            form.setValue('numeroPersonas', undefined);
         }
-    }, [selectedConceptInfo, form]);
-    
-    useEffect(() => {
-        if (watchedConcept === 'INSPECCIÓN ZFPC' && watchedStartTime && watchedEndTime) {
-            try {
-                const start = parse(watchedStartTime, 'HH:mm', new Date());
-                const end = parse(watchedEndTime, 'HH:mm', new Date());
-                if (end < start) {
-                    end.setDate(end.getDate() + 1); // Handle overnight
-                }
-                
-                const diffMinutes = differenceInMinutes(end, start);
-                if (diffMinutes < 0) {
-                    form.setValue('quantity', 0);
-                    return;
-                }
-                
-                const hours = Math.floor(diffMinutes / 60);
-                const remainingMinutes = diffMinutes % 60;
-                
-                let calculatedQuantity = hours;
-                if (remainingMinutes > 9) {
-                    calculatedQuantity += 1;
-                } else if (hours === 0 && remainingMinutes > 0) {
-                    calculatedQuantity = 1;
-                }
+        
+        const isTimeBasedConcept = ['INSPECCIÓN ZFPC', 'TIEMPO EXTRA ZFPC'].includes(watchedConcept || '');
+        if (isTimeBasedConcept) {
+             const startTime = form.getValues('details.startTime');
+             const endTime = form.getValues('details.endTime');
+             if (startTime && endTime) {
+                try {
+                    const start = parse(startTime, 'HH:mm', new Date());
+                    const end = parse(endTime, 'HH:mm', new Date());
+                    if (end < start) end.setDate(end.getDate() + 1);
+                    
+                    const diffMinutes = differenceInMinutes(end, start);
+                    if (diffMinutes < 0) {
+                        form.setValue('quantity', 0);
+                        return;
+                    }
+                    
+                    const hours = Math.floor(diffMinutes / 60);
+                    const remainingMinutes = diffMinutes % 60;
+                    
+                    let calculatedQuantity = hours;
+                    if (remainingMinutes > 9) {
+                        calculatedQuantity += 1;
+                    } else if (hours === 0 && remainingMinutes > 0) {
+                        calculatedQuantity = 1;
+                    }
 
-                form.setValue('quantity', calculatedQuantity, { shouldValidate: true });
+                    if (watchedConcept === 'INSPECCIÓN ZFPC') {
+                         form.setValue('quantity', calculatedQuantity, { shouldValidate: true });
+                    }
 
-            } catch (e) {
-                form.setValue('quantity', 0);
-            }
+                } catch (e) {
+                    if (watchedConcept === 'INSPECCIÓN ZFPC') {
+                        form.setValue('quantity', 0);
+                    }
+                }
+             }
         }
-    }, [watchedConcept, watchedStartTime, watchedEndTime, form]);
+
+    }, [watchedConcept, selectedConceptInfo, form]);
 
     const fetchAllOperations = useCallback(async () => {
         setIsLoading(true);
@@ -552,7 +557,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                             render={({ field }) => (
                                                 <FormItem>
                                                     <FormLabel>
-                                                        {watchedConcept === 'INSPECCIÓN ZFPC' || watchedConcept === 'TIEMPO EXTRA ZFPC' ? 'Cantidad de Horas' : 'Cantidad'}
+                                                        {watchedConcept === 'TIEMPO EXTRA ZFPC' ? 'Cantidad de Horas (Manual)' : 'Cantidad'}
                                                     </FormLabel>
                                                     <FormControl>
                                                         <Input

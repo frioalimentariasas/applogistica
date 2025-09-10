@@ -3,10 +3,10 @@
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
-import type { ClientBillingConcept, TariffRange } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
+import type { ClientBillingConcept, TariffRange, SpecificTariff } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 import { getClientBillingConcepts } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 import admin from 'firebase-admin';
-import { startOfDay, endOfDay, parseISO } from 'date-fns';
+import { startOfDay, endOfDay, parseISO, differenceInHours } from 'date-fns';
 import type { ArticuloData } from '@/app/actions/articulos';
 
 
@@ -443,35 +443,51 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
                 const concept = manualConcepts.find(c => c.conceptName === opData.concept);
                 if (concept) {
                     const date = new Date(opData.operationDate).toISOString().split('T')[0];
-                    const quantity = Number(opData.quantity) || 0;
-                    let unitValue = 0;
-                    let operacionLogistica: string = 'N/A';
-                    
-                    if (concept.tariffType === 'UNICA') {
-                        unitValue = concept.value || 0;
-                    } else if (concept.tariffType === 'RANGOS' && opData.details?.startTime && opData.details?.endTime) {
-                        const opLogisticType = getOperationLogisticsType(opData.operationDate, opData.details.startTime, opData.details.endTime, concept);
-                        const matchingTariff = concept.tariffRanges?.[0]; // Assuming one generic range for manual ops
-                        if (matchingTariff) {
-                            unitValue = opLogisticType === 'Diurno' ? matchingTariff.dayTariff : matchingTariff.nightTariff;
-                        }
-                        operacionLogistica = opLogisticType;
-                    }
+                    const numPersonas = Number(opData.numeroPersonas) || 1;
 
-                    settlementRows.push({
-                        date,
-                        container: opData.details?.container || 'Manual',
-                        totalPaletas: opData.details?.totalPallets || 0,
-                        camara: 'N/A',
-                        operacionLogistica,
-                        pedidoSislog: 'Manual',
-                        conceptName: concept.conceptName,
-                        tipoVehiculo: 'N/A',
-                        quantity,
-                        unitOfMeasure: concept.unitOfMeasure,
-                        unitValue: unitValue,
-                        totalValue: quantity * unitValue,
-                    });
+                    if (concept.tariffType === 'ESPECIFICA' && opData.specificTariffIds?.length > 0) {
+                        opData.specificTariffIds.forEach((tariffId: string) => {
+                            const specificTariff = concept.specificTariffs?.find(t => t.id === tariffId);
+                            if (specificTariff) {
+                                let totalValue = 0;
+                                if (specificTariff.unit === 'HORA') {
+                                    totalValue = (opData.quantity || 0) * (specificTariff.value || 0) * numPersonas;
+                                } else {
+                                    totalValue = (specificTariff.value || 0) * numPersonas;
+                                }
+
+                                settlementRows.push({
+                                    date,
+                                    container: opData.details?.container || 'Manual',
+                                    totalPaletas: opData.details?.totalPallets || 0,
+                                    camara: 'N/A',
+                                    operacionLogistica: 'N/A',
+                                    pedidoSislog: `Manual (${specificTariff.name})`,
+                                    conceptName: concept.conceptName,
+                                    tipoVehiculo: 'N/A',
+                                    quantity: opData.quantity || 0,
+                                    unitOfMeasure: specificTariff.unit,
+                                    unitValue: specificTariff.value || 0,
+                                    totalValue: totalValue,
+                                });
+                            }
+                        });
+                    } else if (concept.tariffType === 'UNICA') {
+                         settlementRows.push({
+                            date,
+                            container: opData.details?.container || 'Manual',
+                            totalPaletas: opData.details?.totalPallets || 0,
+                            camara: 'N/A',
+                            operacionLogistica: 'N/A',
+                            pedidoSislog: 'Manual',
+                            conceptName: concept.conceptName,
+                            tipoVehiculo: 'N/A',
+                            quantity: opData.quantity || 0,
+                            unitOfMeasure: concept.unitOfMeasure,
+                            unitValue: concept.value || 0,
+                            totalValue: (opData.quantity || 0) * (concept.value || 0),
+                        });
+                    }
                 }
             });
         }
