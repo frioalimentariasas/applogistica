@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -24,7 +23,7 @@ export interface ClientBillingConcept {
   id: string;
   conceptName: string;
   clientNames: string[];
-  unitOfMeasure: 'TONELADA' | 'PALETA' | 'UNIDAD' | 'CAJA' | 'SACO' | 'CANASTILLA' | 'HORA' | 'DIA' | 'VIAJE' | 'MES' | 'CONTENEDOR' | 'ESTIBA';
+  unitOfMeasure: 'TONELADA' | 'PALETA' | 'ESTIBA' | 'UNIDAD' | 'CAJA' | 'SACO' | 'CANASTILLA' | 'HORA' | 'DIA' | 'VIAJE' | 'MES' | 'CONTENEDOR';
   
   calculationType: 'REGLAS' | 'OBSERVACION' | 'MANUAL';
 
