@@ -163,9 +163,8 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
     const serverQueryStartDate = startOfDay(parseISO(startDate));
     const serverQueryEndDate = endOfDay(parseISO(endDate));
 
-    // Fetch all operations for the client in the date range
+    // Fetch all submissions in the date range, then filter by client in memory
     const submissionsSnapshot = await firestore.collection('submissions')
-        .where('formData.cliente', '==', clientName)
         .where('formData.fecha', '>=', serverQueryStartDate)
         .where('formData.fecha', '<=', serverQueryEndDate)
         .get();
@@ -175,20 +174,26 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
         .where('operationDate', '>=', serverQueryStartDate)
         .where('operationDate', '<=', serverQueryEndDate)
         .get();
+
+    const clientSubmissions = submissionsSnapshot.docs.filter(doc => {
+        const docClientName = doc.data().formData?.cliente || doc.data().formData?.nombreCliente;
+        return docClientName === clientName;
+    });
     
     // Process form-based concepts
-    submissionsSnapshot.docs.forEach(doc => {
-        const formData = serializeTimestamps(doc.data()).formData;
+    clientSubmissions.forEach(doc => {
+        const submission = serializeTimestamps(doc.data());
+        const formData = submission.formData;
         const conceptsForClient = allConcepts.filter(c => c.clientNames.includes(clientName) || c.clientNames.includes('TODOS (Cualquier Cliente)'));
 
         conceptsForClient.forEach(concept => {
             if (concept.calculationType === 'REGLAS') {
                 let opTypeMatch = false;
                 if (concept.filterOperationType === 'ambos') opTypeMatch = true;
-                else if (concept.filterOperationType === 'recepcion' && (doc.data().formType.includes('recepcion') || doc.data().formType.includes('reception'))) opTypeMatch = true;
-                else if (concept.filterOperationType === 'despacho' && doc.data().formType.includes('despacho')) opTypeMatch = true;
+                else if (concept.filterOperationType === 'recepcion' && (submission.formType.includes('recepcion') || submission.formType.includes('reception'))) opTypeMatch = true;
+                else if (concept.filterOperationType === 'despacho' && submission.formType.includes('despacho')) opTypeMatch = true;
                 
-                const prodTypeMatch = concept.filterProductType === 'ambos' || doc.data().formType.includes(concept.filterProductType);
+                const prodTypeMatch = concept.filterProductType === 'ambos' || submission.formType.includes(concept.filterProductType);
                 if (opTypeMatch && prodTypeMatch) {
                     if (!applicableConcepts.has(concept.id)) {
                         applicableConcepts.set(concept.id, concept);
@@ -461,4 +466,3 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
     return { success: false, error: error.message || 'Ocurrió un error desconocido en el servidor.' };
   }
 }
-
