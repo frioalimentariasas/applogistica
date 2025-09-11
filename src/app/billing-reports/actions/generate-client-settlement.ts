@@ -447,38 +447,45 @@ export async function generateClientSettlement(criteria: {
                 const concept = manualConcepts.find(c => c.conceptName === opData.concept);
                 if (concept) {
                     const date = new Date(opData.operationDate).toISOString().split('T')[0];
-                    const numPersonas = Number(opData.numeroPersonas) || 1;
 
                     if (concept.tariffType === 'ESPECIFICA' && Array.isArray(opData.specificTariffs) && opData.specificTariffs.length > 0) {
                         opData.specificTariffs.forEach((appliedTariff: { tariffId: string, quantity: number }) => {
                             const specificTariff = concept.specificTariffs?.find(t => t.id === appliedTariff.tariffId);
                             if (specificTariff) {
-                                let totalValue = 0;
-                                let quantityForReport = appliedTariff.quantity;
+                                let totalValue: number;
+                                const quantityForReport = appliedTariff.quantity;
 
-                                if (specificTariff.unit.includes('HORA')) {
-                                    totalValue = (appliedTariff.quantity || 0) * (specificTariff.value || 0) * numPersonas;
+                                // New logic for "TIEMPO EXTRA FRIOAL (FIJO)"
+                                if (concept.conceptName === 'TIEMPO EXTRA FRIOAL (FIJO)') {
+                                    totalValue = (specificTariff.value || 0) * (appliedTariff.quantity || 0);
                                 } else {
-                                    totalValue = (specificTariff.value || 0) * numPersonas;
-                                    quantityForReport = numPersonas; // For per-unit tariffs, quantity is the number of people
+                                    // Original logic for other specific tariffs
+                                    const numPersonas = Number(opData.numeroPersonas) || 1;
+                                    if (specificTariff.unit.includes('HORA')) {
+                                        totalValue = (appliedTariff.quantity || 0) * (specificTariff.value || 0) * numPersonas;
+                                    } else {
+                                        totalValue = (specificTariff.value || 0) * numPersonas;
+                                    }
                                 }
-
-                                settlementRows.push({
-                                    date,
-                                    container: opData.details?.container || 'No Aplica',
-                                    totalPaletas: opData.details?.totalPallets || 0,
-                                    camara: 'No Aplica',
-                                    operacionLogistica: 'No Aplica',
-                                    pedidoSislog: 'No Aplica',
-                                    conceptName: `${concept.conceptName} - ${specificTariff.name}`,
-                                    tipoVehiculo: 'No Aplica',
-                                    quantity: quantityForReport,
-                                    unitOfMeasure: specificTariff.unit,
-                                    unitValue: specificTariff.value || 0,
-                                    totalValue: totalValue,
-                                    horaInicio: opData.details?.startTime || 'No Aplica',
-                                    horaFin: opData.details?.endTime || 'No Aplica',
-                                });
+                                
+                                if (totalValue > 0) {
+                                    settlementRows.push({
+                                        date,
+                                        container: opData.details?.container || 'No Aplica',
+                                        totalPaletas: opData.details?.totalPallets || 0,
+                                        camara: 'No Aplica',
+                                        operacionLogistica: 'No Aplica',
+                                        pedidoSislog: 'No Aplica',
+                                        conceptName: specificTariff.name, // Use the specific tariff name
+                                        tipoVehiculo: 'No Aplica',
+                                        quantity: quantityForReport,
+                                        unitOfMeasure: specificTariff.unit,
+                                        unitValue: specificTariff.value || 0,
+                                        totalValue: totalValue,
+                                        horaInicio: opData.details?.startTime || 'No Aplica',
+                                        horaFin: opData.details?.endTime || 'No Aplica',
+                                    });
+                                }
                             }
                         });
                     } else if (concept.tariffType === 'UNICA') {
@@ -526,3 +533,6 @@ export async function generateClientSettlement(criteria: {
 }
 
 
+
+
+    
