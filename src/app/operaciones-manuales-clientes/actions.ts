@@ -29,13 +29,15 @@ export interface ManualClientOperationData {
     }
 }
 
-// Helper to get a UTC-5 adjusted date from an ISO string, which comes in as UTC from the client.
+// Helper to get a date object that correctly represents the local date in UTC.
+// E.g., '2024-09-10T00:00:00.000Z' from the client (which is Sep 9, 7pm Colombia time)
+// becomes a Date object representing Sep 10, 00:00 Colombia time.
 function getColombiaDateFromISO(isoString: string): Date {
-    const date = new Date(isoString);
-    // The date from client is UTC. We want to treat it as if it were entered in Colombia (UTC-5).
-    // So we subtract 5 hours from the UTC date to get the intended Colombia date.
-    date.setUTCHours(date.getUTCHours() - 5);
-    return date;
+    const d = new Date(isoString);
+    // The client sends the date as midnight in its local timezone, which gets converted to UTC.
+    // We need to adjust it back to what the user intended in their local timezone.
+    // A more robust way is to create a new date using UTC methods to avoid local timezone interference.
+    return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 5, 0, 0)); // Set to midnight Colombia Time (UTC-5)
 }
 
 export async function addManualClientOperation(data: ManualClientOperationData): Promise<{ success: boolean; message: string }> {
