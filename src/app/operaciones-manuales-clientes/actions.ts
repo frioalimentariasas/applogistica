@@ -5,7 +5,7 @@
 import { firestore } from '@/lib/firebase-admin';
 import { revalidatePath } from 'next/cache';
 import admin from 'firebase-admin';
-import { eachDayOfInterval, startOfDay, parseISO } from 'date-fns';
+import { eachDayOfInterval, parseISO } from 'date-fns';
 
 export interface ManualClientOperationData {
     clientName: string;
@@ -29,12 +29,14 @@ export interface ManualClientOperationData {
     }
 }
 
-// Helper to parse ISO string as local date without timezone shift
-function parseISOLocal(isoString: string): Date {
-  const [date] = isoString.split('T');
-  return new Date(`${date}T00:00:00`);
+// Helper to get a UTC-5 adjusted date from an ISO string, which comes in as UTC from the client.
+function getColombiaDateFromISO(isoString: string): Date {
+    const date = new Date(isoString);
+    // The date from client is UTC. We want to treat it as if it were entered in Colombia (UTC-5).
+    // So we subtract 5 hours from the UTC date to get the intended Colombia date.
+    date.setUTCHours(date.getUTCHours() - 5);
+    return date;
 }
-
 
 export async function addManualClientOperation(data: ManualClientOperationData): Promise<{ success: boolean; message: string }> {
     if (!firestore) {
@@ -47,8 +49,7 @@ export async function addManualClientOperation(data: ManualClientOperationData):
         const operationWithTimestamp = {
             ...restOfData,
             details: details || {}, // Ensure details is at least an empty object
-            // Use the local parsing helper to avoid timezone shifts
-            operationDate: admin.firestore.Timestamp.fromDate(parseISOLocal(data.operationDate)),
+            operationDate: admin.firestore.Timestamp.fromDate(getColombiaDateFromISO(data.operationDate)),
             createdAt: new Date().toISOString(),
         };
 
@@ -89,12 +90,10 @@ export async function addBulkManualClientOperation(data: BulkOperationData): Pro
     try {
         const { startDate, endDate, clientName, concept, roles, createdBy } = data;
         
-        // Use the local parsing helper to ensure the interval is correct
         const interval = eachDayOfInterval({ 
-            start: parseISOLocal(startDate), 
-            end: parseISOLocal(endDate) 
+            start: getColombiaDateFromISO(startDate), 
+            end: getColombiaDateFromISO(endDate) 
         });
-
 
         const batch = firestore.batch();
         let operationsCount = 0;
@@ -115,10 +114,9 @@ export async function addBulkManualClientOperation(data: BulkOperationData): Pro
                 const operationData = {
                     clientName,
                     concept,
-                    // Use startOfDay to ensure the timestamp is at midnight UTC for that day
-                    operationDate: admin.firestore.Timestamp.fromDate(startOfDay(day)),
+                    operationDate: admin.firestore.Timestamp.fromDate(day),
                     specificTariffs,
-                    numeroPersonas: 1, // Se maneja en la cantidad de cada tarifa
+                    numeroPersonas: 1, // This is managed by the quantity of each tariff now
                     details: {
                         startTime: '17:00',
                         endTime: '22:00',
@@ -159,7 +157,7 @@ export async function updateManualClientOperation(id: string, data: Omit<ManualC
         const operationWithTimestamp = {
             ...restOfData,
             details: details || {}, // Ensure details is at least an empty object
-            operationDate: admin.firestore.Timestamp.fromDate(parseISOLocal(data.operationDate)),
+            operationDate: admin.firestore.Timestamp.fromDate(getColombiaDateFromISO(data.operationDate)),
         };
         await docRef.update(operationWithTimestamp);
         
@@ -190,6 +188,3 @@ export async function deleteManualClientOperation(id: string): Promise<{ success
         return { success: false, message: `Error del servidor: ${errorMessage}` };
     }
 }
-
-
-
