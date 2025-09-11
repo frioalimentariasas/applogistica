@@ -54,7 +54,7 @@ const specificTariffSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1, "El nombre es requerido."),
   value: z.coerce.number({ invalid_type_error: "Debe ser un número."}).min(0, "Debe ser >= 0"),
-  unit: z.enum(['HORA', 'UNIDAD', 'DIA', 'VIAJE', 'ALIMENTACION', 'TRANSPORTE'], { required_error: 'Debe seleccionar una unidad.' }),
+  unit: z.enum(['HORA', 'UNIDAD', 'DIA', 'VIAJE', 'ALIMENTACION', 'TRANSPORTE', 'HORA EXTRA DIURNA', 'HORA EXTRA NOCTURNA', 'HORA EXTRA DIURNA DOMINGO Y FESTIVO', 'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO'], { required_error: 'Debe seleccionar una unidad.' }),
 });
 
 const conceptSchema = z.object({
@@ -275,6 +275,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
   }
 
   const unitOfMeasureOptions = ['TONELADA', 'PALETA', 'ESTIBA', 'UNIDAD', 'CAJA', 'SACO', 'CANASTILLA', 'HORA', 'DIA', 'VIAJE', 'MES', 'CONTENEDOR', 'HORA EXTRA DIURNA', 'HORA EXTRA NOCTURNA', 'HORA EXTRA DIURNA DOMINGO Y FESTIVO', 'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO'];
+  const specificUnitOptions = ['HORA', 'UNIDAD', 'DIA', 'VIAJE', 'ALIMENTACION', 'TRANSPORTE', 'HORA EXTRA DIURNA', 'HORA EXTRA NOCTURNA', 'HORA EXTRA DIURNA DOMINGO Y FESTIVO', 'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO'];
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
@@ -422,7 +423,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                                             {addSpecificFields.map((field, index) => (
                                                 <div key={field.id} className="grid grid-cols-1 sm:grid-cols-2 gap-3 border p-3 rounded-md relative">
                                                     <FormField control={addForm.control} name={`specificTariffs.${index}.name`} render={({ field }) => (<FormItem><FormLabel>Nombre Tarifa</FormLabel><FormControl><Input placeholder="Ej: HORA EXTRA DIURNA" {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
-                                                    <FormField control={addForm.control} name={`specificTariffs.${index}.unit`} render={({ field }) => (<FormItem><FormLabel>Unidad</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="HORA">HORA</SelectItem><SelectItem value="UNIDAD">UNIDAD</SelectItem><SelectItem value="DIA">DIA</SelectItem><SelectItem value="VIAJE">VIAJE</SelectItem><SelectItem value="ALIMENTACION">ALIMENTACION</SelectItem><SelectItem value="TRANSPORTE">TRANSPORTE</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
+                                                    <FormField control={addForm.control} name={`specificTariffs.${index}.unit`} render={({ field }) => (<FormItem><FormLabel>Unidad</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><ScrollArea className="h-48">{specificUnitOptions.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</ScrollArea></SelectContent></Select><FormMessage /></FormItem>)}/>
                                                     <FormField control={addForm.control} name={`specificTariffs.${index}.value`} render={({ field }) => (<FormItem className="sm:col-span-2"><FormLabel>Valor (COP)</FormLabel><FormControl><Input type="number" step="0.01" {...field}/></FormControl><FormMessage /></FormItem>)}/>
                                                     <Button type="button" variant="ghost" size="icon" className="absolute top-1 right-1 text-destructive h-6 w-6" onClick={() => addSpecificRemove(index)}><Trash2 className="h-4 w-4" /></Button>
                                                 </div>
@@ -631,7 +632,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                                     {editSpecificFields.map((field, index) => (
                                         <div key={field.id} className="grid grid-cols-1 sm:grid-cols-2 gap-3 border p-3 rounded-md relative">
                                             <FormField control={editForm.control} name={`specificTariffs.${index}.name`} render={({ field }) => (<FormItem><FormLabel>Nombre Tarifa</FormLabel><FormControl><Input placeholder="Ej: HORA EXTRA DIURNA" {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
-                                            <FormField control={editForm.control} name={`specificTariffs.${index}.unit`} render={({ field }) => (<FormItem><FormLabel>Unidad</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="HORA">HORA</SelectItem><SelectItem value="UNIDAD">UNIDAD</SelectItem><SelectItem value="DIA">DIA</SelectItem><SelectItem value="VIAJE">VIAJE</SelectItem><SelectItem value="ALIMENTACION">ALIMENTACION</SelectItem><SelectItem value="TRANSPORTE">TRANSPORTE</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
+                                            <FormField control={editForm.control} name={`specificTariffs.${index}.unit`} render={({ field }) => (<FormItem><FormLabel>Unidad</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><ScrollArea className="h-48">{specificUnitOptions.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</ScrollArea></SelectContent></Select><FormMessage /></FormItem>)}/>
                                             <FormField control={editForm.control} name={`specificTariffs.${index}.value`} render={({ field }) => (<FormItem className="sm:col-span-2"><FormLabel>Valor (COP)</FormLabel><FormControl><Input type="number" step="0.01" {...field}/></FormControl><FormMessage /></FormItem>)}/>
                                             <Button type="button" variant="ghost" size="icon" className="absolute top-1 right-1 text-destructive h-6 w-6" onClick={() => editSpecificRemove(index)}><Trash2 className="h-4 w-4" /></Button>
                                         </div>
