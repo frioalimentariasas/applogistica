@@ -160,6 +160,7 @@ export async function updateManualClientOperation(id: string, data: Omit<ManualC
         let finalSpecificTariffs: { tariffId: string; quantity: number }[] = [];
 
         // Correctly handle the special concept "TIEMPO EXTRA FRIOAL (FIJO)"
+        // It uses a temporary "bulkRoles" field in the form state, which needs to be converted to specificTariffs for saving.
         if (data.concept === 'TIEMPO EXTRA FRIOAL (FIJO)') {
             const bulkRoles = (data as any).bulkRoles || [];
             finalSpecificTariffs = bulkRoles.flatMap((role: any) => {
@@ -172,10 +173,13 @@ export async function updateManualClientOperation(id: string, data: Omit<ManualC
                 return [];
             }).filter(Boolean);
         } else {
+            // For other concepts, use the specificTariffs array directly
             finalSpecificTariffs = data.specificTariffs || [];
         }
 
         const docRef = firestore.collection('manual_client_operations').doc(id);
+        
+        // Prepare the final data object to be saved, ensuring consistency
         const operationWithTimestamp = {
             ...restOfData,
             specificTariffs: finalSpecificTariffs,
@@ -183,7 +187,7 @@ export async function updateManualClientOperation(id: string, data: Omit<ManualC
             operationDate: admin.firestore.Timestamp.fromDate(getColombiaDateFromISO(data.operationDate)),
         };
         
-        // Remove bulkRoles if it exists, as it's a temporary form field, not a DB field
+        // IMPORTANT: Remove the temporary bulkRoles field before saving to Firestore
         delete (operationWithTimestamp as any).bulkRoles;
 
         await docRef.update(operationWithTimestamp);
@@ -215,6 +219,7 @@ export async function deleteManualClientOperation(id: string): Promise<{ success
         return { success: false, message: `Error del servidor: ${errorMessage}` };
     }
 }
+
 
 
 
