@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useForm, SubmitHandler, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, addDays, isBefore, isEqual } from 'date-fns';
 import { DateRange } from 'react-day-picker';
 import { es } from 'date-fns/locale';
 
@@ -58,7 +58,7 @@ const manualOperationSchema = z.object({
   operationDate: z.date({ required_error: 'La fecha es obligatoria.' }).optional(),
   
   // For bulk mode
-  dateRange: z.custom<DateRange>(v => v instanceof Object && 'from' in v && 'to' in v, {
+  dateRange: z.custom<DateRange>(v => v instanceof Object && 'from' in v, {
     message: "El rango de fechas es obligatorio para la liquidación en lote.",
   }).optional(),
   bulkRoles: z.array(bulkRoleSchema).optional(),
@@ -199,6 +199,9 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
             }).filter(r => r.diurnaId && r.nocturnaId);
 
             form.setValue('bulkRoles', bulkRoles);
+            form.setValue('details.startTime', '17:00');
+            form.setValue('details.endTime', '22:00');
+
         } else {
              form.setValue('quantity', undefined);
              form.setValue('bulkRoles', []);
@@ -235,7 +238,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
 
         let results = operations;
 
-        results = results.filter(op => format(new Date(op.operationDate), 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd'));
+        results = results.filter(op => format(parseISO(op.operationDate), 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd'));
 
         if (selectedClient !== 'all') {
             results = results.filter(op => op.clientName === selectedClient);
@@ -299,7 +302,8 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                     container: '',
                     totalPallets: null,
                     arin: '',
-                }
+                },
+                 bulkRoles: [],
             });
         }
         setIsDialogOpen(true);
@@ -541,13 +545,17 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                         {isBulkMode ? (
                                             <>
                                                 <FormField control={form.control} name="dateRange" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Rango de Fechas <span className="text-destructive">*</span></FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={dialogMode === 'view'} className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value?.from ? (field.value.to ? (<>{format(field.value.from, "LLL dd, y", { locale: es })} - {format(field.value.to, "LLL dd, y", { locale: es })}</>) : (format(field.value.from, "LLL dd, y", { locale: es }))) : (<span>Seleccione un rango</span>)}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar initialFocus mode="range" selected={field.value} onSelect={field.onChange} numberOfMonths={2} locale={es} disabled={dialogMode === 'view'} /></PopoverContent></Popover><FormMessage /></FormItem>)} />
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <FormItem><FormLabel>Hora Inicio</FormLabel><FormControl><Input type="time" value="17:00" disabled /></FormControl></FormItem>
+                                                    <FormItem><FormLabel>Hora Fin</FormLabel><FormControl><Input type="time" value="22:00" disabled /></FormControl></FormItem>
+                                                </div>
                                                 <FormField
                                                     control={form.control}
                                                     name="bulkRoles"
                                                     render={() => (
                                                         <FormItem>
                                                             <div className="mb-2"><FormLabel>Personal por Rol</FormLabel><FormDescription>Ingrese el número de personas para cada rol.</FormDescription></div>
-                                                             <Table>
+                                                            <Table>
                                                                 <TableHeader>
                                                                     <TableRow>
                                                                         <TableHead>Rol</TableHead>
@@ -691,4 +699,3 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         </div>
     );
 }
-
