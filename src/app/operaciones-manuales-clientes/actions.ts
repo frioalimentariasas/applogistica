@@ -5,7 +5,7 @@
 import { firestore } from '@/lib/firebase-admin';
 import { revalidatePath } from 'next/cache';
 import admin from 'firebase-admin';
-import { eachDayOfInterval, parseISO, addDays, format, isBefore, isEqual } from 'date-fns';
+import { addDays, format, isBefore, isEqual, parseISO } from 'date-fns';
 
 export interface ManualClientOperationData {
     clientName: string;
@@ -30,9 +30,10 @@ export interface ManualClientOperationData {
 }
 
 function getColombiaDateFromISO(isoString: string): Date {
-    const d = new Date(isoString);
-    // This creates a new date object in UTC, effectively ignoring the local timezone offset of the server.
-    // e.g., if isoString is '2024-09-10T05:00:00.000Z' (which is Sep 10, 00:00 Colombia time), this creates a date object for Sep 10 in UTC.
+    // This function assumes the incoming string is a date like '2024-09-10' (from date picker)
+    // and correctly creates a Date object that represents the start of that day in Colombia time (UTC-5)
+    // by treating it as a UTC date and then conceptually shifting it.
+    const d = parseISO(isoString.substring(0, 10)); // Use only the date part to avoid time components
     return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 5, 0, 0));
 }
 
@@ -89,12 +90,11 @@ export async function addBulkManualClientOperation(data: BulkOperationData): Pro
     try {
         const { startDate, endDate, clientName, concept, roles, createdBy } = data;
         
-        // Correct way to iterate through a date range, timezone-safe
         const dateList: Date[] = [];
         let currentDate = parseISO(startDate);
         const finalDate = parseISO(endDate);
 
-        while (isBefore(currentDate, finalDate) || isEqual(currentDate, finalDate)) {
+        while (currentDate <= finalDate) {
             dateList.push(currentDate);
             currentDate = addDays(currentDate, 1);
         }
@@ -157,12 +157,35 @@ export async function updateManualClientOperation(id: string, data: Omit<ManualC
 
     try {
         const { details, ...restOfData } = data;
+        let finalSpecificTariffs: { tariffId: string; quantity: number }[] = [];
+
+        // Correctly handle the special concept "TIEMPO EXTRA FRIOAL (FIJO)"
+        if (data.concept === 'TIEMPO EXTRA FRIOAL (FIJO)') {
+            const bulkRoles = (data as any).bulkRoles || [];
+            finalSpecificTariffs = bulkRoles.flatMap((role: any) => {
+                if (role.numPersonas > 0) {
+                    return [
+                        { tariffId: role.diurnaId, quantity: 4 * role.numPersonas },
+                        { tariffId: role.nocturnaId, quantity: 1 * role.numPersonas },
+                    ];
+                }
+                return [];
+            }).filter(Boolean);
+        } else {
+            finalSpecificTariffs = data.specificTariffs || [];
+        }
+
         const docRef = firestore.collection('manual_client_operations').doc(id);
         const operationWithTimestamp = {
             ...restOfData,
+            specificTariffs: finalSpecificTariffs,
             details: details || {}, // Ensure details is at least an empty object
             operationDate: admin.firestore.Timestamp.fromDate(getColombiaDateFromISO(data.operationDate)),
         };
+        
+        // Remove bulkRoles if it exists, as it's a temporary form field, not a DB field
+        delete (operationWithTimestamp as any).bulkRoles;
+
         await docRef.update(operationWithTimestamp);
         
         revalidatePath('/billing-reports');
@@ -192,4 +215,6 @@ export async function deleteManualClientOperation(id: string): Promise<{ success
         return { success: false, message: `Error del servidor: ${errorMessage}` };
     }
 }
+
+
 
