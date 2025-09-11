@@ -349,6 +349,11 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         
         try {
             if (isBulkMode) {
+                // If we are editing, we must delete the old one and create a new one, as it might be a date range change.
+                if (dialogMode === 'edit' && opToManage) {
+                    await deleteManualClientOperation(opToManage.id);
+                }
+
                 const bulkData = {
                     clientName: data.clientName,
                     concept: data.concept,
@@ -362,7 +367,10 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                     toast({ title: 'Éxito', description: result.message });
                     setIsDialogOpen(false);
                     form.reset();
-                    await fetchAllOperations();
+                    const updatedOps = await fetchAllOperations();
+                    if(searched){
+                        handleSearch(updatedOps);
+                    }
                 } else {
                     throw new Error(result.message);
                 }
@@ -390,7 +398,6 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                     form.reset();
                     const updatedOps = await fetchAllOperations();
                      if (searched) {
-                        setAllOperations(updatedOps);
                         handleSearch(updatedOps);
                     }
                 } else {
@@ -412,9 +419,11 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         if (result.success) {
             toast({ title: 'Éxito', description: result.message });
             const updatedOps = await fetchAllOperations();
-            setAllOperations(updatedOps);
             if (searched && selectedDate) { // Re-apply filters if a search was active
                 handleSearch(updatedOps);
+            } else {
+                setAllOperations(updatedOps);
+                setFilteredOperations(updatedOps); // if no search was active, just update the main list
             }
         } else {
             toast({ variant: 'destructive', title: 'Error', description: result.message });
@@ -482,7 +491,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                             </div>
                              <div className="space-y-2">
                                 <Label>Cliente</Label>
-                                <Select value={selectedClient} onValueChange={setSelectedClient}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Todos los Clientes</SelectItem>{clients.map(c => <SelectItem key={c.id} value={c.razonSocial}>{c.razonSocial}</SelectItem>)}</SelectContent></Select>
+                                <Select value={selectedClient} onValueChange={setSelectedClient}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Todos los Clientes</SelectItem>{[...new Set(allOperations.map(op => op.clientName).filter(Boolean))].sort((a,b) => a.localeCompare(b)).map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select>
                             </div>
                              <div className="space-y-2">
                                 <Label>Concepto</Label>
@@ -578,10 +587,10 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
 
                                         {isBulkMode ? (
                                             <>
-                                                <FormField control={form.control} name="dateRange" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Rango de Fechas <span className="text-destructive">*</span></FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={dialogMode === 'view'} className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value?.from ? (field.value.to ? (<>{format(field.value.from, "LLL dd, y", { locale: es })} - {format(field.value.to, "LLL dd, y", { locale: es })}</>) : (format(field.value.from, "LLL dd, y", { locale: es }))) : (<span>Seleccione un rango</span>)}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar initialFocus mode="range" selected={field.value} onSelect={field.onChange} numberOfMonths={2} locale={es} disabled={dialogMode === 'view'} /></PopoverContent></Popover><FormMessage /></FormItem>)} />
+                                                <FormField control={form.control} name="dateRange" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Rango de Fechas <span className="text-destructive">*</span></FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={dialogMode === 'edit'} className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value?.from ? (field.value.to ? (<>{format(field.value.from, "LLL dd, y", { locale: es })} - {format(field.value.to, "LLL dd, y", { locale: es })}</>) : (format(field.value.from, "LLL dd, y", { locale: es }))) : (<span>Seleccione un rango</span>)}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar initialFocus mode="range" selected={field.value} onSelect={field.onChange} numberOfMonths={2} locale={es} disabled={dialogMode === 'edit'} /></PopoverContent></Popover><FormMessage /></FormItem>)} />
                                                 <div className="grid grid-cols-2 gap-4">
-                                                    <FormItem><FormLabel>Hora Inicio</FormLabel><FormControl><Input type="time" value="17:00" disabled /></FormControl></FormItem>
-                                                    <FormItem><FormLabel>Hora Fin</FormLabel><FormControl><Input type="time" value="22:00" disabled /></FormControl></FormItem>
+                                                    <FormItem><FormLabel>Hora Inicio</FormLabel><FormControl><Input type="time" value={form.getValues('details.startTime')} disabled /></FormControl></FormItem>
+                                                    <FormItem><FormLabel>Hora Fin</FormLabel><FormControl><Input type="time" value={form.getValues('details.endTime')} disabled /></FormControl></FormItem>
                                                 </div>
                                                 <FormField
                                                     control={form.control}
