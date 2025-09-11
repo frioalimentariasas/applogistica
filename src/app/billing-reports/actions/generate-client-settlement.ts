@@ -453,20 +453,26 @@ export async function generateClientSettlement(criteria: {
                             const specificTariff = concept.specificTariffs?.find(t => t.id === appliedTariff.tariffId);
                             if (specificTariff) {
                                 let totalValue: number;
-                                const quantityForReport = appliedTariff.quantity;
+                                let quantityForReport: number;
 
-                                // New logic for "TIEMPO EXTRA FRIOAL (FIJO)"
+                                // --- Start of corrected logic ---
                                 if (concept.conceptName === 'TIEMPO EXTRA FRIOAL (FIJO)') {
+                                    // The total value is pre-calculated
                                     totalValue = (specificTariff.value || 0) * (appliedTariff.quantity || 0);
+                                    // The quantity to display should be the base hours (4 or 1), not total hours
+                                    const numPersonas = (appliedTariff.quantity || 0) / (specificTariff.name.includes('DIURNA') ? 4 : 1);
+                                    quantityForReport = specificTariff.name.includes('DIURNA') ? 4 : 1;
                                 } else {
                                     // Original logic for other specific tariffs
                                     const numPersonas = Number(opData.numeroPersonas) || 1;
+                                    quantityForReport = appliedTariff.quantity; // Display the raw quantity
                                     if (specificTariff.unit.includes('HORA')) {
                                         totalValue = (appliedTariff.quantity || 0) * (specificTariff.value || 0) * numPersonas;
                                     } else {
                                         totalValue = (specificTariff.value || 0) * numPersonas;
                                     }
                                 }
+                                // --- End of corrected logic ---
                                 
                                 if (totalValue > 0) {
                                     settlementRows.push({
