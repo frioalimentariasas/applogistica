@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -16,7 +17,7 @@ export interface SpecificTariff {
   id: string; // e.g., 'hora-extra-diurna'
   name: string; // e.g., 'HORA EXTRA DIURNA'
   value: number;
-  unit: 'HORA' | 'UNIDAD' | 'DIA' | 'VIAJE' | 'ALIMENTACION' | 'TRANSPORTE' | 'HORA EXTRA DIURNA' | 'HORA EXTRA NOCTURNA' | 'HORA EXTRA DIURNA DOMINGO Y FESTIVO' | 'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO';
+  unit: 'HORA' | 'UNIDAD' | 'DIA' | 'VIAJE' | 'ALIMENTACION' | 'TRANSPORTE' | 'HORA EXTRA DIURNA' | 'HORA EXTRA NOCTURNA' | 'HORA EXTRA DIURNA DOMINGO Y FESTIVO' | 'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO' | 'TRANSPORTE EXTRAORDINARIO' | 'TRANSPORTE DOMINICAL Y FESTIVO';
 }
 
 export interface ClientBillingConcept {
