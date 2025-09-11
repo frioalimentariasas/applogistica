@@ -6,7 +6,7 @@ import { firestore } from '@/lib/firebase-admin';
 import type { ClientBillingConcept, TariffRange, SpecificTariff } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 import { getClientBillingConcepts } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 import admin from 'firebase-admin';
-import { startOfDay, endOfDay, parseISO, differenceInHours, differenceInDays } from 'date-fns';
+import { startOfDay, endOfDay, parseISO, differenceInHours, differenceInDays, getDaysInMonth } from 'date-fns';
 import type { ArticuloData } from '@/app/actions/articulos';
 
 
@@ -167,8 +167,8 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
         .where('formData.fecha', '<=', serverQueryEndDate)
         .get();
 
+    // Fetch all manual operations in the date range (filter by client in code)
     const manualOpsSnapshot = await firestore.collection('manual_client_operations')
-        .where('clientName', '==', clientName)
         .where('operationDate', '>=', serverQueryStartDate)
         .where('operationDate', '<=', serverQueryEndDate)
         .get();
@@ -210,14 +210,16 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
     // Process manual-based concepts
     manualOpsSnapshot.docs.forEach(doc => {
         const opData = doc.data();
-        const conceptsForClient = allConcepts.filter(c => c.clientNames.includes(clientName) || c.clientNames.includes('TODOS (Cualquier Cliente)'));
-        conceptsForClient.forEach(concept => {
-            if (concept.calculationType === 'MANUAL' && concept.conceptName === opData.concept) {
-                if (!applicableConcepts.has(concept.id)) {
-                    applicableConcepts.set(concept.id, concept);
+        if (opData.clientName === clientName) { // Filter by client here
+            const conceptsForClient = allConcepts.filter(c => c.clientNames.includes(clientName) || c.clientNames.includes('TODOS (Cualquier Cliente)'));
+            conceptsForClient.forEach(concept => {
+                if (concept.calculationType === 'MANUAL' && concept.conceptName === opData.concept) {
+                    if (!applicableConcepts.has(concept.id)) {
+                        applicableConcepts.set(concept.id, concept);
+                    }
                 }
-            }
-        });
+            });
+        }
     });
     
     const sortedConcepts = Array.from(applicableConcepts.values());
@@ -450,83 +452,86 @@ export async function generateClientSettlement(criteria: {
                     const date = opData.operationDate ? new Date(opData.operationDate).toISOString().split('T')[0] : startDate;
 
                     if (concept.tariffType === 'ESPECIFICA' && Array.isArray(opData.specificTariffs) && opData.specificTariffs.length > 0) {
-                        opData.specificTariffs.forEach((appliedTariff: { tariffId: string, quantity: number }) => {
-                            const specificTariff = concept.specificTariffs?.find(t => t.id === appliedTariff.tariffId);
-                            if (specificTariff) {
-                                let totalValue: number;
-                                let quantityForReport: number;
-                                let numPersonas: number;
-                                
-                                if (opData.concept === 'TIEMPO EXTRA FRIOAL (FIJO)') {
-                                    numPersonas = specificTariff.name.includes('DIURNA') 
-                                        ? (appliedTariff.quantity || 0) / 4
-                                        : (appliedTariff.quantity || 0);
-                                    quantityForReport = appliedTariff.quantity; // Show total hours
-                                } else {
-                                    numPersonas = Number(opData.numeroPersonas) || 1;
-                                    quantityForReport = appliedTariff.quantity;
-                                }
+                        
+                        if(opData.concept === 'POSICIONES FIJAS CÁMARA CONGELADOS') {
+                            const operationDate = parseISO(opData.operationDate);
+                            const numDias = getDaysInMonth(operationDate);
 
-                                if (specificTariff.unit.includes('HORA')) {
-                                    totalValue = (appliedTariff.quantity || 0) * (specificTariff.value || 0);
-                                } else {
-                                    totalValue = (specificTariff.value || 0) * numPersonas;
-                                }
-                                
-                                if (totalValue > 0) {
-                                    settlementRows.push({
-                                        date,
-                                        container: opData.details?.container || 'No Aplica',
-                                        totalPaletas: opData.details?.totalPallets || 0,
-                                        camara: 'No Aplica',
-                                        operacionLogistica: 'No Aplica',
-                                        pedidoSislog: 'No Aplica',
-                                        conceptName: specificTariff.name,
-                                        tipoVehiculo: 'No Aplica',
-                                        quantity: quantityForReport,
-                                        unitOfMeasure: specificTariff.unit,
-                                        unitValue: specificTariff.value || 0,
-                                        totalValue: totalValue,
-                                        horaInicio: opData.details?.startTime || 'No Aplica',
-                                        horaFin: opData.details?.endTime || 'No Aplica',
-                                        numeroPersonas: numPersonas > 0 ? numPersonas : undefined,
-                                    });
-                                }
-                            }
-                        });
-                    } else if (opData.concept === 'POSICIONES FIJAS CÁMARA CONGELADO') {
-                        const numPosiciones = Number(opData.numeroPosiciones) || 0;
-                        const startDate = opData.startDate ? new Date(opData.startDate) : new Date();
-                        const endDate = opData.endDate ? new Date(opData.endDate) : new Date();
-                        const numDias = differenceInDays(endDate, startDate) + 1;
+                            opData.specificTariffs.forEach((appliedTariff: { tariffId: string, quantity: number }) => {
+                                const specificTariff = concept.specificTariffs?.find(t => t.id === appliedTariff.tariffId);
+                                if (specificTariff) {
+                                    const isExcess = specificTariff.name.includes('EXCESO');
+                                    const basePositions = isExcess ? 0 : (specificTariff.name.includes('600') ? 600 : 200);
+                                    const quantityForReport = isExcess ? appliedTariff.quantity : basePositions;
 
-                        const tarifa600 = concept.specificTariffs?.find(t => t.name === 'TARIFA 600 POSICIONES');
-                        const tarifa200 = concept.specificTariffs?.find(t => t.name === 'TARIFA 200 POSICIONES');
-                        const tarifaExceso = concept.specificTariffs?.find(t => t.name === 'TARIFA EXCESO POSICIONES');
+                                    if (quantityForReport > 0) {
+                                        settlementRows.push({
+                                            date,
+                                            container: opData.details?.container || 'No Aplica',
+                                            totalPaletas: opData.details?.totalPallets || 0,
+                                            camara: 'Congelados',
+                                            operacionLogistica: 'No Aplica',
+                                            pedidoSislog: 'Fijo Mensual',
+                                            conceptName: specificTariff.name,
+                                            tipoVehiculo: 'No Aplica',
+                                            quantity: quantityForReport,
+                                            unitOfMeasure: specificTariff.unit,
+                                            unitValue: specificTariff.value || 0,
+                                            totalValue: quantityForReport * (specificTariff.value || 0) * numDias,
+                                            horaInicio: 'No Aplica',
+                                            horaFin: 'No Aplica',
+                                            numeroPersonas: undefined,
+                                        });
+                                    }
+                                }
+                            });
 
-                        if (numPosiciones > 600 && tarifa600 && tarifaExceso) {
-                            settlementRows.push({
-                                date: format(startDate, 'yyyy-MM-dd'), conceptName: `POSICIONES FIJAS (BASE 600)`, quantity: 600,
-                                unitValue: tarifa600.value, totalValue: 600 * tarifa600.value * numDias,
-                                container: 'N/A', camara: 'N/A', totalPaletas: 0, operacionLogistica: 'N/A', pedidoSislog: 'N/A', tipoVehiculo: 'N/A', unitOfMeasure: 'POSICION/DIA',
-                            });
-                            const exceso = numPosiciones - 600;
-                            settlementRows.push({
-                                date: format(startDate, 'yyyy-MM-dd'), conceptName: `POSICIONES FIJAS (EXCESO)`, quantity: exceso,
-                                unitValue: tarifaExceso.value, totalValue: exceso * tarifaExceso.value * numDias,
-                                container: 'N/A', camara: 'N/A', totalPaletas: 0, operacionLogistica: 'N/A', pedidoSislog: 'N/A', tipoVehiculo: 'N/A', unitOfMeasure: 'POSICION/DIA',
-                            });
-                        } else if (numPosiciones === 600 && tarifa600) {
-                             settlementRows.push({
-                                date: format(startDate, 'yyyy-MM-dd'), conceptName: `POSICIONES FIJAS (BASE 600)`, quantity: 600,
-                                unitValue: tarifa600.value, totalValue: 600 * tarifa600.value * numDias,
-                                container: 'N/A', camara: 'N/A', totalPaletas: 0, operacionLogistica: 'N/A', pedidoSislog: 'N/A', tipoVehiculo: 'N/A', unitOfMeasure: 'POSICION/DIA',
-                            });
-                        } else if (numPosiciones === 200 && tarifa200) {
-                            settlementRows.push({
-                                date: format(startDate, 'yyyy-MM-dd'), conceptName: `POSICIONES FIJAS (BASE 200)`, quantity: 200,
-                                unitValue: tarifa200.value, totalValue: 200 * tarifa200.value * numDias,
-                                container: 'N/A', camara: 'N/A', totalPaletas: 0, operacionLogistica: 'N/A', pedidoSislog: 'N/A', tipoVehiculo: 'N/A', unitOfMeasure: 'POSICION/DIA',
+                        } else { // Standard specific tariffs
+                            opData.specificTariffs.forEach((appliedTariff: { tariffId: string, quantity: number }) => {
+                                const specificTariff = concept.specificTariffs?.find(t => t.id === appliedTariff.tariffId);
+                                if (specificTariff) {
+                                    let totalValue: number;
+                                    let quantityForReport: number;
+                                    let numPersonas: number | undefined;
+
+                                    const isHourly = specificTariff.unit.includes('HORA');
+                                    
+                                    if(opData.concept === 'TIEMPO EXTRA FRIOAL (FIJO)') {
+                                        quantityForReport = appliedTariff.quantity; // Total hours
+                                        numPersonas = isHourly && appliedTariff.quantity > 0
+                                            ? (specificTariff.name.includes('DIURNA') ? appliedTariff.quantity / 4 : appliedTariff.quantity)
+                                            : undefined;
+                                    } else {
+                                        quantityForReport = appliedTariff.quantity;
+                                        numPersonas = opData.numeroPersonas || undefined;
+                                    }
+                                    
+                                    if (isHourly) {
+                                        totalValue = (appliedTariff.quantity || 0) * (specificTariff.value || 0);
+                                    } else {
+                                        totalValue = (specificTariff.value || 0) * (opData.numeroPersonas || 1);
+                                    }
+
+                                    if (totalValue > 0) {
+                                        settlementRows.push({
+                                            date,
+                                            container: opData.details?.container || 'No Aplica',
+                                            totalPaletas: opData.details?.totalPallets || 0,
+                                            camara: 'No Aplica',
+                                            operacionLogistica: 'No Aplica',
+                                            pedidoSislog: 'No Aplica',
+                                            conceptName: specificTariff.name,
+                                            tipoVehiculo: 'No Aplica',
+                                            quantity: quantityForReport,
+                                            unitOfMeasure: specificTariff.unit,
+                                            unitValue: specificTariff.value || 0,
+                                            totalValue: totalValue,
+                                            horaInicio: opData.details?.startTime || 'No Aplica',
+                                            horaFin: opData.details?.endTime || 'No Aplica',
+                                            numeroPersonas: numPersonas,
+                                        });
+                                    }
+                                }
                             });
                         }
                     } else if (concept.tariffType === 'UNICA') {
