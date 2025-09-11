@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -44,6 +45,10 @@ const bulkRoleSchema = z.object({
   roleName: z.string(),
   diurnaId: z.string(),
   nocturnaId: z.string(),
+  diurnaLabel: z.string(),
+  nocturnaLabel: z.string(),
+  diurnaValue: z.number(),
+  nocturnaValue: z.number(),
   numPersonas: z.coerce.number().int().min(0, "Debe ser un número positivo.").default(0),
 });
 
@@ -184,6 +189,10 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                     roleName: r.role,
                     diurnaId: diurnaTariff?.id || '',
                     nocturnaId: nocturnaTariff?.id || '',
+                    diurnaLabel: diurnaTariff?.name || 'No encontrado',
+                    nocturnaLabel: nocturnaTariff?.name || 'No encontrado',
+                    diurnaValue: diurnaTariff?.value || 0,
+                    nocturnaValue: nocturnaTariff?.value || 0,
                     numPersonas: 0
                 };
             }).filter(r => r.diurnaId && r.nocturnaId);
@@ -510,7 +519,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 </Card>
 
                 <Dialog open={isDialogOpen} onOpenChange={(isOpen) => { if (!isOpen) setOpToManage(null); setIsDialogOpen(isOpen); }}>
-                    <DialogContent className="sm:max-w-md">
+                    <DialogContent className="sm:max-w-xl">
                         <DialogHeader>
                             <DialogTitle>
                                 {dialogMode === 'add' && 'Registrar Operación Manual'}
@@ -537,13 +546,36 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                     render={() => (
                                                         <FormItem>
                                                             <div className="mb-2"><FormLabel>Personal por Rol</FormLabel><FormDescription>Ingrese el número de personas para cada rol.</FormDescription></div>
-                                                            <div className="space-y-2">
-                                                                {bulkRoleFields.map((role, index) => (
-                                                                    <FormField key={role.id} name={`bulkRoles.${index}.numPersonas`} control={form.control} render={({ field }) => (
-                                                                        <FormItem className="flex items-center justify-between"><FormLabel>{role.roleName}</FormLabel><FormControl><Input type="number" min="0" step="1" className="w-20 h-8" {...field} disabled={dialogMode === 'view'}/></FormControl></FormItem>
-                                                                    )}/>
-                                                                ))}
-                                                            </div>
+                                                             <Table>
+                                                                <TableHeader>
+                                                                    <TableRow>
+                                                                        <TableHead>Rol</TableHead>
+                                                                        <TableHead>Tarifa</TableHead>
+                                                                        <TableHead className="text-center">Horas</TableHead>
+                                                                        <TableHead className="w-[100px] text-center">No. Personas</TableHead>
+                                                                    </TableRow>
+                                                                </TableHeader>
+                                                                <TableBody>
+                                                                    {bulkRoleFields.map((role, index) => (
+                                                                        <React.Fragment key={role.id}>
+                                                                            <TableRow>
+                                                                                <TableCell rowSpan={2} className="align-middle font-semibold">{role.roleName}</TableCell>
+                                                                                <TableCell className="text-xs">{role.diurnaLabel}</TableCell>
+                                                                                <TableCell className="text-center text-xs">4</TableCell>
+                                                                                <TableCell rowSpan={2} className="align-middle">
+                                                                                    <FormField name={`bulkRoles.${index}.numPersonas`} control={form.control} render={({ field }) => (
+                                                                                        <FormItem><FormControl><Input type="number" min="0" step="1" className="w-20 h-8 text-center" {...field} disabled={dialogMode === 'view'}/></FormControl></FormItem>
+                                                                                    )}/>
+                                                                                </TableCell>
+                                                                            </TableRow>
+                                                                             <TableRow>
+                                                                                <TableCell className="text-xs">{role.nocturnaLabel}</TableCell>
+                                                                                <TableCell className="text-center text-xs">1</TableCell>
+                                                                            </TableRow>
+                                                                        </React.Fragment>
+                                                                    ))}
+                                                                </TableBody>
+                                                            </Table>
                                                             <FormMessage />
                                                         </FormItem>
                                                     )}
@@ -609,8 +641,8 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                     <Separator />
                                                     <p className="text-sm font-medium text-muted-foreground">Detalles Adicionales</p>
                                                     <div className="grid grid-cols-2 gap-4">
-                                                        <FormField control={form.control} name="details.startTime" render={({ field }) => (<FormItem><FormLabel>Hora Inicio</FormLabel><FormControl><Input type="time" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
-                                                        <FormField control={form.control} name="details.endTime" render={({ field }) => (<FormItem><FormLabel>Hora Fin</FormLabel><FormControl><Input type="time" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
+                                                        <FormField control={form.control} name="details.startTime" render={({ field }) => (<FormItem><FormLabel>Hora Inicio</FormLabel><div className="flex items-center gap-2"><FormControl><Input type="time" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} className="flex-grow" /></FormControl>{dialogMode !== 'view' && (<Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('details.startTime')}><Clock className="h-4 w-4" /></Button>)}</div><FormMessage /></FormItem>)} />
+                                                        <FormField control={form.control} name="details.endTime" render={({ field }) => (<FormItem><FormLabel>Hora Fin</FormLabel><div className="flex items-center gap-2"><FormControl><Input type="time" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} className="flex-grow" /></FormControl>{dialogMode !== 'view' && (<Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('details.endTime')}><Clock className="h-4 w-4" /></Button>)}</div><FormMessage /></FormItem>)} />
                                                     </div>
                                                     <FormField control={form.control} name="details.container" render={({ field }) => (<FormItem><FormLabel>Contenedor {<span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Contenedor" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
                                                     {showInspectionFields && (
@@ -658,3 +690,5 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         </div>
     );
 }
+
+    
