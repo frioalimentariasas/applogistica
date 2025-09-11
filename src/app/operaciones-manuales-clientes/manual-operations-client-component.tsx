@@ -286,9 +286,8 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                     const diurnaTariff = conceptInfo?.specificTariffs?.find(t => t.name.includes(r.role) && t.name.includes(r.diurna));
                     const nocturnaTariff = conceptInfo?.specificTariffs?.find(t => t.name.includes(r.role) && t.name.includes(r.nocturna));
     
-                    // Find the saved quantity for this role
                     const savedDiurnaTariff = (op.specificTariffs || []).find((t: any) => t.tariffId === diurnaTariff?.id);
-                    const numPersonas = savedDiurnaTariff ? savedDiurnaTariff.quantity / 4 : 0; // Reverse calculation
+                    const numPersonas = savedDiurnaTariff ? savedDiurnaTariff.quantity / 4 : 0;
     
                     return {
                         roleName: r.role,
@@ -349,30 +348,28 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         
         try {
             if (isBulkMode) {
-                // If we are editing, we must delete the old one and create a new one, as it might be a date range change.
-                if (dialogMode === 'edit' && opToManage) {
-                    await deleteManualClientOperation(opToManage.id);
-                }
-
-                const bulkData = {
-                    clientName: data.clientName,
-                    concept: data.concept,
-                    startDate: data.dateRange!.from!.toISOString(),
-                    endDate: data.dateRange!.to!.toISOString(),
-                    roles: data.bulkRoles!.filter(r => r.numPersonas > 0),
-                    createdBy: { uid: user.uid, displayName: displayName || user.email! }
-                };
-                const result = await addBulkManualClientOperation(bulkData);
-                 if (result.success) {
-                    toast({ title: 'Éxito', description: result.message });
-                    setIsDialogOpen(false);
-                    form.reset();
-                    const updatedOps = await fetchAllOperations();
-                    if(searched){
-                        handleSearch(updatedOps);
+                 if (dialogMode === 'edit' && opToManage) {
+                    const result = await updateManualClientOperation(opToManage.id, {
+                        ...data,
+                        operationDate: opToManage.operationDate // Keep original date, range is not editable
+                    } as Omit<ManualClientOperationData, 'createdAt' | 'createdBy'>);
+                     if (result.success) {
+                        toast({ title: 'Éxito', description: result.message });
+                    } else {
+                        throw new Error(result.message);
                     }
                 } else {
-                    throw new Error(result.message);
+                    const bulkData = {
+                        clientName: data.clientName,
+                        concept: data.concept,
+                        startDate: data.dateRange!.from!.toISOString(),
+                        endDate: data.dateRange!.to!.toISOString(),
+                        roles: data.bulkRoles!.filter(r => r.numPersonas > 0),
+                        createdBy: { uid: user.uid, displayName: displayName || user.email! }
+                    };
+                    const result = await addBulkManualClientOperation(bulkData);
+                    if (!result.success) throw new Error(result.message);
+                    toast({ title: 'Éxito', description: result.message });
                 }
             } else {
                  const payload: ManualClientOperationData = {
@@ -392,18 +389,17 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                     result = await addManualClientOperation(payload);
                 }
                 
-                if (result.success) {
-                    toast({ title: 'Éxito', description: result.message });
-                    setIsDialogOpen(false);
-                    form.reset();
-                    const updatedOps = await fetchAllOperations();
-                     if (searched) {
-                        handleSearch(updatedOps);
-                    }
-                } else {
-                    throw new Error(result.message);
-                }
+                if (!result.success) throw new Error(result.message);
+                toast({ title: 'Éxito', description: result.message });
             }
+            
+            setIsDialogOpen(false);
+            form.reset();
+            const updatedOps = await fetchAllOperations();
+            if (searched) {
+                handleSearch(updatedOps);
+            }
+
         } catch(error) {
             const errorMessage = error instanceof Error ? error.message : "Error desconocido al guardar.";
             toast({ variant: "destructive", title: "Error", description: errorMessage });
