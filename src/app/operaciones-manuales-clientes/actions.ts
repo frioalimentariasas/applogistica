@@ -11,7 +11,7 @@ export interface ManualClientOperationData {
     clientName: string;
     operationDate: string; // ISO string like '2024-07-23T15:49:01.859Z'
     concept: string;
-    specificTariffs?: { tariffId: string; quantity: number }[]; // <-- Changed from specificTariffIds
+    specificTariffs?: { tariffId: string; quantity: number }[];
     quantity?: number; // Kept for simple manual concepts
     numeroPersonas?: number;
     details?: {
@@ -175,3 +175,4 @@ export async function deleteManualClientOperation(id: string): Promise<{ success
         return { success: false, message: `Error del servidor: ${errorMessage}` };
     }
 }
+
