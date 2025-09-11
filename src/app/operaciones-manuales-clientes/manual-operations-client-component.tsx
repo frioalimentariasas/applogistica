@@ -83,7 +83,6 @@ const manualOperationSchema = z.object({
     const isBulkMode = data.concept === 'TIEMPO EXTRA FRIOAL (FIJO)';
     const isPositionMode = data.concept === 'POSICIONES FIJAS CÁMARA CONGELADOS';
 
-
     if (isBulkMode) {
       if (!data.dateRange?.from || !data.dateRange?.to) {
           ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El rango de fechas es obligatorio.", path: ["dateRange"] });
@@ -91,12 +90,17 @@ const manualOperationSchema = z.object({
       if (!data.bulkRoles || data.bulkRoles.every(r => r.numPersonas === 0)) {
            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Debe ingresar al menos una persona en algún rol.", path: ["bulkRoles"] });
       }
-    } else if(isPositionMode) {
+    } else if (isPositionMode) {
         if (!data.operationDate) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La fecha de liquidación es obligatoria.", path: ["operationDate"] });
         }
-        if (!data.numeroPosiciones || data.numeroPosiciones <= 0) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El número de posiciones es requerido.", path: ["numeroPosiciones"] });
+        if (!data.specificTariffs || data.specificTariffs.length === 0) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Debe seleccionar al menos una tarifa.", path: ["specificTariffs"] });
+        } else {
+            const excessTariff = data.specificTariffs.find(t => t.tariffId.includes('EXCESO'));
+            if (excessTariff && (excessTariff.quantity === undefined || excessTariff.quantity <= 0)) {
+                 ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La cantidad para la tarifa de exceso es requerida.", path: [`specificTariffs.${data.specificTariffs.indexOf(excessTariff)}.quantity`] });
+            }
         }
     } else {
        if (!data.operationDate) {
@@ -162,7 +166,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
             quantity: 1,
             specificTariffs: [],
             numeroPersonas: 1,
-            numeroPosiciones: 0,
+            numeroPosiciones: undefined,
             details: {
                 startTime: '',
                 endTime: '',
@@ -352,7 +356,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 concept: "",
                 specificTariffs: [],
                 numeroPersonas: 1,
-                numeroPosiciones: 0,
+                numeroPosiciones: undefined,
                 details: {
                     startTime: '',
                     endTime: '',
@@ -397,7 +401,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                     toast({ title: 'Éxito', description: result.message });
                 }
             } else {
-                 const payload: ManualClientOperationData = {
+                let payload: ManualClientOperationData = {
                     ...data,
                     operationDate: data.operationDate?.toISOString(),
                     details: data.details || {},
@@ -406,6 +410,16 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                         displayName: displayName || user.email!,
                     }
                 };
+
+                 if (isPositionMode && payload.specificTariffs) {
+                    payload.specificTariffs = payload.specificTariffs.map(tariff => {
+                        let quantity = tariff.quantity;
+                        if (tariff.tariffId.includes('600')) quantity = 600;
+                        if (tariff.tariffId.includes('200')) quantity = 200;
+                        return { ...tariff, quantity };
+                    });
+                }
+
 
                 let result;
                 if (dialogMode === 'edit' && opToManage) {
@@ -608,10 +622,48 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
 
                                         {isPositionMode ? (
                                             <>
-                                                <FormField control={form.control} name="operationDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha de Liquidación <span className="text-destructive">*</span></FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={dialogMode === 'view'} className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "PPP", { locale: es }) : <span>Seleccione fecha de liquidación</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={dialogMode === 'view'} initialFocus /></PopoverContent></Popover>
+                                                <FormField control={form.control} name="operationDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha de Liquidación <span className="text-destructive">*</span></FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={dialogMode === 'view'} className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "PPP", { locale: es }) : <span>Seleccione fecha</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={dialogMode === 'view'} initialFocus /></PopoverContent></Popover>
                                                 {field.value && <FormDescription>Se liquidarán {getDaysInMonth(field.value)} días para el mes de {format(field.value, 'MMMM', {locale: es})}.</FormDescription>}
                                                 <FormMessage /></FormItem> )} />
-                                                <FormField control={form.control} name="numeroPosiciones" render={({ field }) => (<FormItem><FormLabel>Número de Posiciones <span className="text-destructive">*</span></FormLabel><FormControl><Input type="number" min="1" step="1" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
+                                                 <FormField control={form.control} name="specificTariffs" render={() => (
+                                                        <FormItem>
+                                                            <div className="mb-4"><FormLabel className="text-base">Tarifas a Aplicar <span className="text-destructive">*</span></FormLabel></div>
+                                                            <div className="space-y-3 border p-4 rounded-md">
+                                                                {(selectedConceptInfo?.specificTariffs || []).map((tariff: SpecificTariff) => (
+                                                                    <FormField key={tariff.id} control={form.control} name={`specificTariffs`}
+                                                                        render={({ field }) => {
+                                                                            const currentSelection = field.value?.find(v => v.tariffId === tariff.id);
+                                                                            const isSelected = !!currentSelection;
+                                                                            const isExcess = tariff.name.includes('EXCESO');
+                                                                            return (
+                                                                                <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
+                                                                                    <div className="flex items-center space-x-2 flex-shrink-0">
+                                                                                        <FormControl><Checkbox checked={isSelected} onCheckedChange={(checked) => {
+                                                                                            const newValue = checked ? [...(field.value || []), { tariffId: tariff.id, quantity: isExcess ? 0 : 1 }] : field.value?.filter((value) => value.tariffId !== tariff.id);
+                                                                                            field.onChange(newValue);
+                                                                                        }} disabled={dialogMode === 'view'} /></FormControl>
+                                                                                        <FormLabel className="font-normal w-60">{tariff.name}</FormLabel>
+                                                                                    </div>
+                                                                                    {isSelected && isExcess && (
+                                                                                         <FormField control={form.control} name={`specificTariffs.${field.value?.findIndex(v => v.tariffId === tariff.id)}.quantity`}
+                                                                                            render={({ field: qtyField }) => (
+                                                                                                <FormItem className="w-full sm:w-auto flex-grow">
+                                                                                                    <FormLabel className="text-xs sr-only">Cantidad Exceso</FormLabel>
+                                                                                                    <FormControl><Input type="number" step="1" className="h-9" placeholder="Cant. Exceso" {...qtyField} disabled={dialogMode === 'view'} /></FormControl>
+                                                                                                    <FormMessage className="text-xs" />
+                                                                                                </FormItem>
+                                                                                            )}
+                                                                                        />
+                                                                                    )}
+                                                                                </div>
+                                                                            );
+                                                                        }}
+                                                                    />
+                                                                ))}
+                                                            </div>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}/>
                                             </>
                                         ) : isBulkMode ? (
                                             <>

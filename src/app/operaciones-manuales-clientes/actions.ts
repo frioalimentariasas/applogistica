@@ -172,6 +172,13 @@ export async function updateManualClientOperation(id: string, data: Omit<ManualC
                 }
                 return [];
             }).filter(Boolean);
+        } else if (data.concept === 'POSICIONES FIJAS CÁMARA CONGELADOS') {
+            finalSpecificTariffs = (data.specificTariffs || []).map(tariff => {
+                let quantity = tariff.quantity;
+                if (tariff.tariffId.includes('600')) quantity = 600;
+                if (tariff.tariffId.includes('200')) quantity = 200;
+                return { ...tariff, quantity };
+            });
         } else {
             finalSpecificTariffs = data.specificTariffs || [];
         }
