@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useMemo, useEffect } from 'react';
@@ -90,7 +91,7 @@ const getImageAsBase64Client = async (url: string): Promise<string> => {
 };
 
 const formatTime12Hour = (time24: string | undefined): string => {
-    if (!time24 || !time24.includes(':')) return 'N/A';
+    if (!time24 || !time24.includes(':')) return 'No Aplica';
     const [hours, minutes] = time24.split(':');
     let h = parseInt(hours, 10);
     const ampm = h >= 12 ? 'PM' : 'AM';
@@ -100,7 +101,7 @@ const formatTime12Hour = (time24: string | undefined): string => {
 };
 
 const formatDuration = (totalMinutes: number | null): string => {
-    if (totalMinutes === null || totalMinutes < 0) return 'N/A';
+    if (totalMinutes === null || totalMinutes < 0) return 'No Aplica';
     if (totalMinutes < 60) {
         return `${totalMinutes} min`;
     }
@@ -276,7 +277,7 @@ export default function PerformanceReportPage() {
                 row.pedidoSislog,
                 formatTime12Hour(row.horaInicio),
                 formatTime12Hour(row.horaFin),
-                row.duracionMinutos ?? 'N/A',
+                row.duracionMinutos ?? 'No Aplica',
             ]);
         });
 

@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -311,8 +312,8 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
                                             <TableRow key={op.id}>
                                                 <TableCell>{format(new Date(op.operationDate), 'dd/MM/yyyy')}</TableCell>
                                                 <TableCell>{op.concept}</TableCell>
-                                                <TableCell>{op.clientName || 'N/A'}</TableCell>
-                                                <TableCell>{op.createdBy?.displayName || 'N/A'}</TableCell>
+                                                <TableCell>{op.clientName || 'No Aplica'}</TableCell>
+                                                <TableCell>{op.createdBy?.displayName || 'No Aplica'}</TableCell>
                                                 <TableCell className="text-right">
                                                     <Button variant="ghost" size="icon" title="Ver" onClick={() => openDialog('view', op)}>
                                                         <Eye className="h-4 w-4 text-gray-500" />
@@ -399,7 +400,7 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
                         </AlertDialogHeader>
                         <AlertDialogFooter>
                             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                            <AlertDialogAction onClick={handleDeleteConfirm} disabled={isDeleting} className={buttonVariants({ variant: 'destructive' })}>
+                            <AlertDialogAction onClick={handleDeleteConfirm} disabled={isDeleting} className={cn(buttonVariants({ variant: 'destructive' }))}>
                                 {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                                 Sí, Eliminar
                             </AlertDialogAction>

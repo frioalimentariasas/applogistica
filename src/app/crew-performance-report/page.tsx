@@ -94,7 +94,7 @@ const AccessDenied = () => (
 );
 
 const formatTime12Hour = (time24: string | undefined): string => {
-    if (!time24 || !time24.includes(':')) return 'N/A';
+    if (!time24 || !time24.includes(':')) return 'No Aplica';
     const [hours, minutes] = time24.split(':');
     let h = parseInt(hours, 10);
     const ampm = h >= 12 ? 'PM' : 'AM';
@@ -104,7 +104,7 @@ const formatTime12Hour = (time24: string | undefined): string => {
 };
 
 const formatDuration = (totalMinutes: number | null): string => {
-    if (totalMinutes === null || totalMinutes < 0) return 'N/A';
+    if (totalMinutes === null || totalMinutes < 0) return 'No Aplica';
     if (totalMinutes < 60) {
         return `${Math.round(totalMinutes)} min`;
     }
@@ -480,7 +480,7 @@ export default function CrewPerformanceReportPage() {
         const summary = liquidationData.reduce((acc, row) => {
             const { conceptoLiquidado, cantidadConcepto, valorUnitario, valorTotalConcepto, unidadMedidaConcepto } = row;
 
-            if (conceptoLiquidado === 'N/A') return acc;
+            if (conceptoLiquidado === 'No Aplica') return acc;
             if (!acc[conceptoLiquidado]) {
                 const firstValidEntry = reportData.find(r => r.conceptoLiquidado === conceptoLiquidado && r.valorUnitario > 0);
                 acc[conceptoLiquidado] = {
@@ -657,12 +657,12 @@ export default function CrewPerformanceReportPage() {
                     cliente: row.cliente,
                     concepto: row.conceptoLiquidado,
                     cantidad: isPending ? 'Pendiente' : row.cantidadConcepto,
-                    unidad: isPending ? 'N/A' : row.unidadMedidaConcepto,
+                    unidad: isPending ? 'No Aplica' : row.unidadMedidaConcepto,
                     hInicio: row.horaInicio,
                     hFin: row.horaFin,
                     duracion: formatDuration(row.totalDurationMinutes),
-                    vlrUnitario: isPending ? 'N/A' : row.valorUnitario,
-                    vlrTotal: isPending ? 'N/A' : row.valorTotalConcepto
+                    vlrUnitario: isPending ? 'No Aplica' : row.valorUnitario,
+                    vlrTotal: isPending ? 'No Aplica' : row.valorTotalConcepto
                 });
                 const addedRow = wsLiq.lastRow!;
                 addedRow.getCell('cantidad').numFmt = '#,##0.00';
@@ -1153,7 +1153,7 @@ export default function CrewPerformanceReportPage() {
                                                                                 Pendiente
                                                                             </Badge>
                                                                         ) : (
-                                                                            <span>{row.cantidadConcepto > 0 ? row.cantidadConcepto.toFixed(2) : 'N/A'}</span>
+                                                                            <span>{row.cantidadConcepto > 0 ? row.cantidadConcepto.toFixed(2) : 'No Aplica'}</span>
                                                                         )}
                                                                     </TableCell><TableCell className="text-xs text-right font-medium">{formatDuration(row.totalDurationMinutes)}</TableCell><TableCell className="text-xs text-right font-medium">{formatDuration(row.operationalDurationMinutes)}</TableCell>
                                                                     <TableCell className="text-xs max-w-[150px]">
@@ -1263,12 +1263,12 @@ export default function CrewPerformanceReportPage() {
                                                             <TableCell className="text-xs max-w-[150px] truncate" title={row.cliente}>{row.cliente}</TableCell>
                                                             <TableCell className="text-xs font-semibold">{row.conceptoLiquidado}</TableCell>
                                                             <TableCell className="text-xs font-mono text-right">{isPending ? 'Pendiente' : row.cantidadConcepto.toFixed(2)}</TableCell>
-                                                            <TableCell className="text-xs">{isPending ? '' : row.unidadMedidaConcepto}</TableCell>
+                                                            <TableCell className="text-xs">{isPending ? 'No Aplica' : row.unidadMedidaConcepto}</TableCell>
                                                             <TableCell className="text-xs">{row.horaInicio}</TableCell>
                                                             <TableCell className="text-xs">{row.horaFin}</TableCell>
                                                             <TableCell className="text-xs">{formatDuration(row.totalDurationMinutes)}</TableCell>
-                                                            <TableCell className="text-xs font-mono text-right">{isPending ? 'N/A' : row.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 })}</TableCell>
-                                                            <TableCell className="text-xs font-mono text-right">{isPending ? 'N/A' : row.valorTotalConcepto.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell>
+                                                            <TableCell className="text-xs font-mono text-right">{isPending ? 'No Aplica' : row.valorUnitario.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 })}</TableCell>
+                                                            <TableCell className="text-xs font-mono text-right">{isPending ? 'No Aplica' : row.valorTotalConcepto.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })}</TableCell>
                                                         </TableRow>
                                                     )
                                                 })

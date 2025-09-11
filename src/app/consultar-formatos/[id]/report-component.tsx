@@ -24,7 +24,7 @@ import { optimizeImage } from '@/lib/image-optimizer';
 // --- HELPER FUNCTIONS ---
 
 const formatTime12Hour = (time24: string | undefined): string => {
-    if (!time24 || !time24.includes(':')) return 'N/A';
+    if (!time24 || !time24.includes(':')) return 'No Aplica';
     const [hours, minutes] = time24.split(':');
     let h = parseInt(hours, 10);
     const ampm = h >= 12 ? 'PM' : 'AM';
@@ -34,7 +34,7 @@ const formatTime12Hour = (time24: string | undefined): string => {
 };
 
 const formatDateLocal = (isoDateString: string | undefined): string => {
-    if (!isoDateString) return 'N/A';
+    if (!isoDateString) return 'No Aplica';
     try {
         const date = new Date(isoDateString);
         // Manually adjust for Colombia's timezone (UTC-5)
@@ -50,7 +50,7 @@ const formatDateLocal = (isoDateString: string | undefined): string => {
 
 const formatOptionalNumber = (num: any): string => {
     if (num === null || num === undefined || Number.isNaN(Number(num))) {
-        return 'N/A';
+        return 'No Aplica';
     }
     return String(num);
 };
@@ -63,7 +63,7 @@ const formatPaletas = (num: any): string => {
 
 const formatTipoPedido = (tipo: string | undefined): string => {
     if (tipo === 'DESPACHO GENERICO') return 'GENERICO';
-    return tipo || 'N/A';
+    return tipo || 'No Aplica';
 };
 
 // --- REACT COMPONENT ---
@@ -360,15 +360,15 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 const generalInfoBody: any[] = [
                         [
                             {content: 'Pedido SISLOG:', styles: {fontStyle: 'bold'}},
-                            formData.pedidoSislog || 'N/A',
+                            formData.pedidoSislog || 'No Aplica',
                             {content: 'Nombre Cliente:', styles: {fontStyle: 'bold'}},
-                            formData.nombreCliente || 'N/A',
+                            formData.nombreCliente || 'No Aplica',
                              {content: 'Precinto/Sello:', styles: {fontStyle: 'bold'}},
-                            formData.precinto || 'N/A'
+                            formData.precinto || 'No Aplica'
                         ],
                         [
                             {content: 'Fecha:', styles: {fontStyle: 'bold'}},
-                            formData.fecha ? formatDateLocal(formData.fecha) : 'N/A',
+                            formData.fecha ? formatDateLocal(formData.fecha) : 'No Aplica',
                             {content: `Hora Inicio ${operationTerm}:`, styles: {fontStyle: 'bold'}},
                             formatTime12Hour(formData.horaInicio),
                             {content: `Hora Fin ${operationTerm}:`, styles: {fontStyle: 'bold'}},
@@ -376,9 +376,9 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         ],
                         [
                             {content: 'Doc. Transp.:', styles: {fontStyle: 'bold'}},
-                            formData.documentoTransporte || 'N/A',
+                            formData.documentoTransporte || 'No Aplica',
                             {content: 'Factura/Remisión:', styles: {fontStyle: 'bold'}},
-                            formData.facturaRemision || 'N/A',
+                            formData.facturaRemision || 'No Aplica',
                             {content: 'Tipo Pedido:', styles: {fontStyle: 'bold'}},
                             formatTipoPedido(formData.tipoPedido)
                         ]
@@ -387,7 +387,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 if (isReception && formData.tipoPedido === 'MAQUILA') {
                     generalInfoBody.push([
                          {
-                            content: `Tipo Empaque: ${formData.tipoEmpaqueMaquila || 'N/A'}`,
+                            content: `Tipo Empaque: ${formData.tipoEmpaqueMaquila || 'No Aplica'}`,
                             styles: {fontStyle: 'bold'},
                             colSpan: 6
                         }
@@ -477,27 +477,27 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     body: [
                          [
                             {content: 'Nombre Conductor:', styles: {fontStyle: 'bold'}},
-                            formData.nombreConductor || 'N/A',
+                            formData.nombreConductor || 'No Aplica',
                             {content: 'Cédula:', styles: {fontStyle: 'bold'}},
-                            formData.cedulaConductor || 'N/A',
+                            formData.cedulaConductor || 'No Aplica',
                             {content: 'Placa:', styles: {fontStyle: 'bold'}},
-                            formData.placa || 'N/A'
+                            formData.placa || 'No Aplica'
                         ],
                         [
                             {content: 'Muelle:', styles: {fontStyle: 'bold'}},
-                            formData.muelle || 'N/A',
+                            formData.muelle || 'No Aplica',
                             {content: 'Contenedor:', styles: {fontStyle: 'bold'}},
-                            formData.contenedor || 'N/A',
+                            formData.contenedor || 'No Aplica',
                             {content: 'Set Point (°C):', styles: {fontStyle: 'bold'}},
                             formatOptionalNumber(formData.setPoint)
                         ],
                         [
                             {content: 'Cond. Higiene:', styles: {fontStyle: 'bold'}},
-                            formData.condicionesHigiene || 'N/A',
+                            formData.condicionesHigiene || 'No Aplica',
                             {content: 'Termoregistrador:', styles: {fontStyle: 'bold'}},
-                            formData.termoregistrador || 'N/A',
+                            formData.termoregistrador || 'No Aplica',
                             {content: 'Cliente Requiere Termoregistro:', styles: {fontStyle: 'bold'}},
-                            formData.clienteRequiereTermoregistro || 'N/A'
+                            formData.clienteRequiereTermoregistro || 'No Aplica'
                         ]
                     ], 
                     theme: 'grid', 
@@ -519,11 +519,11 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     body: [
                         [
                             {content: 'Coordinador:', styles: {fontStyle: 'bold'}},
-                            formData.coordinador || 'N/A',
+                            formData.coordinador || 'No Aplica',
                             {content: 'Operario:', styles: {fontStyle: 'bold'}},
-                            userDisplayName || 'N/A',
+                            userDisplayName || 'No Aplica',
                              {content: 'Operación Realizada por Cuadrilla:', styles: {fontStyle: 'bold'}},
-                            `${formData.aplicaCuadrilla ? formData.aplicaCuadrilla.charAt(0).toUpperCase() + formData.aplicaCuadrilla.slice(1) : 'N/A'}${formData.aplicaCuadrilla === 'si' && isReception && formData.tipoPedido === 'MAQUILA' && formData.numeroOperariosCuadrilla ? ` (${formData.numeroOperariosCuadrilla} operarios)`: ''}`
+                            `${formData.aplicaCuadrilla ? formData.aplicaCuadrilla.charAt(0).toUpperCase() + formData.aplicaCuadrilla.slice(1) : 'No Aplica'}${formData.aplicaCuadrilla === 'si' && isReception && formData.tipoPedido === 'MAQUILA' && formData.numeroOperariosCuadrilla ? ` (${formData.numeroOperariosCuadrilla} operarios)`: ''}`
                         ],
                     ].filter(row => row.length > 0 && row.some(cell => typeof cell === 'string' ? cell.length > 0 : (cell as any).content.length > 0)),
                     theme: 'grid', 
@@ -545,30 +545,30 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     
                     const generalInfoBody: any[][] = [
                         [
-                           {content: 'Pedido SISLOG:', styles: {fontStyle: 'bold'}}, formData.pedidoSislog || 'N/A',
-                           {content: 'Cliente:', styles: {fontStyle: 'bold'}}, formData.cliente || 'N/A',
-                           {content: 'Fecha:', styles: {fontStyle: 'bold'}}, formData.fecha ? formatDateLocal(formData.fecha) : 'N/A'
+                           {content: 'Pedido SISLOG:', styles: {fontStyle: 'bold'}}, formData.pedidoSislog || 'No Aplica',
+                           {content: 'Cliente:', styles: {fontStyle: 'bold'}}, formData.cliente || 'No Aplica',
+                           {content: 'Fecha:', styles: {fontStyle: 'bold'}}, formData.fecha ? formatDateLocal(formData.fecha) : 'No Aplica'
                         ],
                          [
-                           {content: 'Conductor:', styles: {fontStyle: 'bold'}}, formData.conductor || 'N/A',
-                           {content: 'Cédula:', styles: {fontStyle: 'bold'}}, formData.cedulaConductor || 'N/A',
-                           {content: 'Placa:', styles: {fontStyle: 'bold'}}, formData.placa || 'N/A'
+                           {content: 'Conductor:', styles: {fontStyle: 'bold'}}, formData.conductor || 'No Aplica',
+                           {content: 'Cédula:', styles: {fontStyle: 'bold'}}, formData.cedulaConductor || 'No Aplica',
+                           {content: 'Placa:', styles: {fontStyle: 'bold'}}, formData.placa || 'No Aplica'
                          ],
                          [
-                           {content: 'Precinto:', styles: {fontStyle: 'bold'}}, formData.precinto || 'N/A',
+                           {content: 'Precinto:', styles: {fontStyle: 'bold'}}, formData.precinto || 'No Aplica',
                            {content: 'Set Point (°C):', styles: {fontStyle: 'bold'}}, formatOptionalNumber(formData.setPoint),
-                           {content: 'Contenedor:', styles: {fontStyle: 'bold'}}, formData.contenedor || 'N/A'
+                           {content: 'Contenedor:', styles: {fontStyle: 'bold'}}, formData.contenedor || 'No Aplica'
                          ],
                          [
                            {content: `H. Inicio ${operationTerm}:`, styles: {fontStyle: 'bold'}}, formatTime12Hour(formData.horaInicio),
                            {content: `H. Fin ${operationTerm}:`, styles: {fontStyle: 'bold'}}, formatTime12Hour(formData.horaFin),
-                           {content: 'Factura/Remisión:', styles: {fontStyle: 'bold'}}, formData.facturaRemision || 'N/A'
+                           {content: 'Factura/Remisión:', styles: {fontStyle: 'bold'}}, formData.facturaRemision || 'No Aplica'
                          ],
                     ];
                     
                    if (formData.tipoPedido) {
-                       const tipoPedidoText = `Tipo Pedido: ${formData.tipoPedido || 'N/A'}`;
-                       const maquilaText = formData.tipoPedido === 'MAQUILA' ? ` (${formData.tipoEmpaqueMaquila || 'N/A'})` : '';
+                       const tipoPedidoText = `Tipo Pedido: ${formData.tipoPedido || 'No Aplica'}`;
+                       const maquilaText = formData.tipoPedido === 'MAQUILA' ? ` (${formData.tipoEmpaqueMaquila || 'No Aplica'})` : '';
                        generalInfoBody.push([
                            { content: `${tipoPedidoText}${maquilaText}`, styles: { fontStyle: 'bold' }, colSpan: 6 }
                        ]);
@@ -834,19 +834,19 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
 
                     const generalInfoBody: any[][] = [
                         [
-                            {content: 'Pedido SISLOG:', styles: {fontStyle: 'bold'}}, formData.pedidoSislog || 'N/A',
-                            {content: 'Cliente:', styles: {fontStyle: 'bold'}}, formData.cliente || 'N/A',
-                            {content: 'Fecha:', styles: {fontStyle: 'bold'}}, formData.fecha ? formatDateLocal(formData.fecha) : 'N/A'
+                            {content: 'Pedido SISLOG:', styles: {fontStyle: 'bold'}}, formData.pedidoSislog || 'No Aplica',
+                            {content: 'Cliente:', styles: {fontStyle: 'bold'}}, formData.cliente || 'No Aplica',
+                            {content: 'Fecha:', styles: {fontStyle: 'bold'}}, formData.fecha ? formatDateLocal(formData.fecha) : 'No Aplica'
                         ],
                         [
-                            {content: 'Conductor:', styles: {fontStyle: 'bold'}}, formData.conductor || 'N/A',
-                            {content: 'Cédula:', styles: {fontStyle: 'bold'}}, formData.cedulaConductor || 'N/A',
-                            {content: 'Placa:', styles: {fontStyle: 'bold'}}, formData.placa || 'N/A'
+                            {content: 'Conductor:', styles: {fontStyle: 'bold'}}, formData.conductor || 'No Aplica',
+                            {content: 'Cédula:', styles: {fontStyle: 'bold'}}, formData.cedulaConductor || 'No Aplica',
+                            {content: 'Placa:', styles: {fontStyle: 'bold'}}, formData.placa || 'No Aplica'
                         ],
                         [
-                            {content: 'Precinto:', styles: {fontStyle: 'bold'}}, formData.precinto || 'N/A',
+                            {content: 'Precinto:', styles: {fontStyle: 'bold'}}, formData.precinto || 'No Aplica',
                             {content: 'Set Point (°C):', styles: {fontStyle: 'bold'}}, formatOptionalNumber(formData.setPoint),
-                            {content: 'Contenedor:', styles: {fontStyle: 'bold'}}, formData.contenedor || 'N/A'
+                            {content: 'Contenedor:', styles: {fontStyle: 'bold'}}, formData.contenedor || 'No Aplica'
                         ],
                         [
                             {content: `H. Inicio ${operationTerm}:`, styles: {fontStyle: 'bold'}}, formatTime12Hour(formData.horaInicio),
@@ -921,14 +921,14 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                  const showCrewField = formData.tipoPedido !== 'INGRESO DE SALDOS' && formData.tipoPedido !== 'TUNEL A CÁMARA CONGELADOS';
                  const responsablesBody = [
                      [
-                        {content: 'Coordinador:', styles: {fontStyle: 'bold'}}, formData.coordinador || 'N/A',
-                        {content: 'Operario:', styles: {fontStyle: 'bold'}}, userDisplayName || 'N/A',
+                        {content: 'Coordinador:', styles: {fontStyle: 'bold'}}, formData.coordinador || 'No Aplica',
+                        {content: 'Operario:', styles: {fontStyle: 'bold'}}, userDisplayName || 'No Aplica',
                      ]
                  ];
 
                  if (showCrewField) {
                      responsablesBody[0].push({content: 'Operación Realizada por Cuadrilla:', styles: {fontStyle: 'bold'}});
-                     responsablesBody[0].push(`${formData.aplicaCuadrilla ? formData.aplicaCuadrilla.charAt(0).toUpperCase() + formData.aplicaCuadrilla.slice(1) : 'N/A'}${formData.aplicaCuadrilla === 'si' && isReception && formData.tipoPedido === 'MAQUILA' && formData.numeroOperariosCuadrilla ? ` (${formData.numeroOperariosCuadrilla} operarios)`: ''}`);
+                     responsablesBody[0].push(`${formData.aplicaCuadrilla ? formData.aplicaCuadrilla.charAt(0).toUpperCase() + formData.aplicaCuadrilla.slice(1) : 'No Aplica'}${formData.aplicaCuadrilla === 'si' && isReception && formData.tipoPedido === 'MAQUILA' && formData.numeroOperariosCuadrilla ? ` (${formData.numeroOperariosCuadrilla} operarios)`: ''}`);
                  }
 
                  autoTable(doc, { 

@@ -77,18 +77,18 @@ const findMatchingTariff = (tons: number, vehicleType: 'CONTENEDOR' | 'TURBO', c
     );
 };
 
-const getOperationLogisticsType = (isoDateString: string, horaInicio: string, horaFin: string, concept: ClientBillingConcept): "Diurno" | "Nocturno" | "Extra" | "N/A" => {
+const getOperationLogisticsType = (isoDateString: string, horaInicio: string, horaFin: string, concept: ClientBillingConcept): "Diurno" | "Nocturno" | "Extra" | "No Aplica" => {
     if (concept.calculationType === 'OBSERVACION' || concept.calculationType === 'MANUAL') {
-        return "N/A";
+        return "No Aplica";
     }
 
     const specialConcepts = ["FMM DE INGRESO", "ARIN DE INGRESO", "FMM DE SALIDA", "ARIN DE SALIDA", "REESTIBADO"];
     if (specialConcepts.includes(concept.conceptName.toUpperCase())) {
-      return "N/A";
+      return "No Aplica";
     }
     
     if (!isoDateString || !horaInicio || !horaFin || concept.tariffType !== 'RANGOS' || !concept.dayShiftStart || !concept.dayShiftEnd) {
-      return "N/A";
+      return "No Aplica";
     }
 
     try {
@@ -128,7 +128,7 @@ const getOperationLogisticsType = (isoDateString: string, horaInicio: string, ho
 
     } catch (e) {
         console.error(`Error calculating logistics type:`, e);
-        return 'N/A';
+        return 'No Aplica';
     }
 };
 
@@ -322,7 +322,7 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
         totalPaletas += uniquePallets.size;
 
         const firstProductCode = allFormItems[0]?.codigo;
-        const camara = firstProductCode ? articleSessionMap.get(firstProductCode) || 'N/A' : 'N/A';
+        const camara = firstProductCode ? articleSessionMap.get(firstProductCode) || 'No Aplica' : 'No Aplica';
         const pedidoSislog = [...new Set(dailyOperations.map(op => op.formData.pedidoSislog))].join(', ');
 
         for (const concept of selectedConcepts) {
@@ -330,8 +330,8 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
             
             let quantity = 0;
             let unitValue = 0;
-            let operacionLogistica: string = 'N/A';
-            let vehicleTypeForReport = 'N/A';
+            let operacionLogistica: string = 'No Aplica';
+            let vehicleTypeForReport = 'No Aplica';
             let conceptHandled = false;
             
             const applicableOperations = dailyOperations.filter(op => {
@@ -359,7 +359,7 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
                     conceptHandled = true;
                     if (concept.tariffType === 'UNICA') {
                         unitValue = concept.value || 0;
-                        operacionLogistica = 'N/A';
+                        operacionLogistica = 'No Aplica';
                     } else if (concept.tariffType === 'RANGOS') {
                         const totalTons = applicableOperations.reduce((sum, op) => sum + ((op.formData.totalPesoKg ?? op.formData.totalPesoBrutoKg) || 0), 0) / 1000;
                         const vehicleType = container !== 'No aplica' ? 'CONTENEDOR' : 'TURBO';
@@ -374,7 +374,7 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
                             operacionLogistica = opLogisticType;
                         } else {
                             unitValue = concept.value || 0;
-                            operacionLogistica = 'N/A';
+                            operacionLogistica = 'No Aplica';
                         }
                     }
                 }
@@ -389,7 +389,7 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
                     operacionLogistica,
                     pedidoSislog,
                     conceptName: concept.conceptName,
-                    tipoVehiculo: (concept.conceptName === 'OPERACIÓN CARGUE' || concept.conceptName === 'OPERACIÓN DESCARGUE') ? vehicleTypeForReport : 'N/A',
+                    tipoVehiculo: (concept.conceptName === 'OPERACIÓN CARGUE' || concept.conceptName === 'OPERACIÓN DESCARGUE') ? vehicleTypeForReport : 'No Aplica',
                     quantity,
                     unitOfMeasure: concept.unitOfMeasure,
                     unitValue: unitValue,
@@ -417,13 +417,13 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
                 if (totalQuantity > 0) {
                     settlementRows.push({
                         date: startDate,
-                        container: 'N/A',
-                        camara: 'N/A',
+                        container: 'No Aplica',
+                        camara: 'No Aplica',
                         totalPaletas: 0,
-                        operacionLogistica: 'N/A',
+                        operacionLogistica: 'No Aplica',
                         pedidoSislog: 'Por Observación',
                         conceptName: concept.conceptName,
-                        tipoVehiculo: 'N/A',
+                        tipoVehiculo: 'No Aplica',
                         quantity: totalQuantity,
                         unitOfMeasure: concept.unitOfMeasure,
                         unitValue: concept.value || 0,
@@ -452,7 +452,7 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
                                 let totalValue = 0;
                                 let quantityForReport = appliedTariff.quantity;
 
-                                if (specificTariff.unit === 'HORA') {
+                                if (specificTariff.unit.includes('HORA')) {
                                     totalValue = (appliedTariff.quantity || 0) * (specificTariff.value || 0) * numPersonas;
                                 } else {
                                     totalValue = (specificTariff.value || 0) * numPersonas;
@@ -461,13 +461,13 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
 
                                 settlementRows.push({
                                     date,
-                                    container: opData.details?.container || 'Manual',
+                                    container: opData.details?.container || 'No Aplica',
                                     totalPaletas: opData.details?.totalPallets || 0,
-                                    camara: 'N/A',
-                                    operacionLogistica: 'N/A',
-                                    pedidoSislog: `Manual (${specificTariff.name})`,
-                                    conceptName: concept.conceptName,
-                                    tipoVehiculo: 'N/A',
+                                    camara: 'No Aplica',
+                                    operacionLogistica: 'No Aplica',
+                                    pedidoSislog: 'No Aplica',
+                                    conceptName: `${concept.conceptName} - ${specificTariff.name}`,
+                                    tipoVehiculo: 'No Aplica',
                                     quantity: quantityForReport,
                                     unitOfMeasure: specificTariff.unit,
                                     unitValue: specificTariff.value || 0,
@@ -478,13 +478,13 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
                     } else if (concept.tariffType === 'UNICA') {
                          settlementRows.push({
                             date,
-                            container: opData.details?.container || 'Manual',
+                            container: opData.details?.container || 'No Aplica',
                             totalPaletas: opData.details?.totalPallets || 0,
-                            camara: 'N/A',
-                            operacionLogistica: 'N/A',
+                            camara: 'No Aplica',
+                            operacionLogistica: 'No Aplica',
                             pedidoSislog: 'Manual',
                             conceptName: concept.conceptName,
-                            tipoVehiculo: 'N/A',
+                            tipoVehiculo: 'No Aplica',
                             quantity: opData.quantity || 0,
                             unitOfMeasure: concept.unitOfMeasure,
                             unitValue: concept.value || 0,

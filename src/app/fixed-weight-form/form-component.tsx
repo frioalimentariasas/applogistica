@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
@@ -138,9 +139,9 @@ const createFormSchema = (isReception: boolean) => z.object({
         const format1 = /^[A-Z]{4}[0-9]{7}$/;
         const format2 = /^[A-Z]{2}[0-9]{6}-[0-9]{4}$/;
         const upperValue = value.toUpperCase();
-        return upperValue === 'N/A' || format1.test(upperValue) || format2.test(upperValue);
+        return upperValue === 'N/A' || upperValue === 'NO APLICA' || format1.test(upperValue) || format2.test(upperValue);
     }, {
-        message: "Formato inválido. Debe ser 'N/A', 4 letras y 7 números, o 2 letras, 6 números, guion y 4 números."
+        message: "Formato inválido. Debe ser 'No Aplica', 4 letras y 7 números, o 2 letras, 6 números, guion y 4 números."
     }),
     setPoint: z.preprocess(
         (val) => (val === "" || val === null ? null : val),
@@ -612,7 +613,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                     .filter(a => a.startsWith('data:image'))
                     .reduce((sum, base64) => sum + getByteSizeFromBase64(base64.split(',')[1]), 0);
 
-                if (existingImagesSize + newImageSize > MAX_TOTAL_SIZE_BYTES) {
+                if (existingImagesSize + newImagesSize > MAX_TOTAL_SIZE_BYTES) {
                     toast({
                         variant: "destructive",
                         title: "Límite de tamaño excedido",
@@ -708,11 +709,11 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
         if (isSpecialReception) {
             dataToSave = {
                 ...dataToSave,
-                nombreConductor: data.nombreConductor?.trim() || 'N/A',
-                cedulaConductor: data.cedulaConductor?.trim() || 'N/A',
-                placa: data.placa?.trim() || 'N/A',
-                precinto: data.precinto?.trim() || 'N/A',
-                contenedor: data.contenedor?.trim() || 'N/A',
+                nombreConductor: data.nombreConductor?.trim() || 'No Aplica',
+                cedulaConductor: data.cedulaConductor?.trim() || 'No Aplica',
+                placa: data.placa?.trim() || 'No Aplica',
+                precinto: data.precinto?.trim() || 'No Aplica',
+                contenedor: data.contenedor?.trim() || 'No Aplica',
             };
         }
 
@@ -734,7 +735,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
         const isUpdating = !!submissionId;
         
         // Define who the editor is (the person logged in)
-        const editor = { id: user.uid, displayName: displayName || 'N/A' };
+        const editor = { id: user.uid, displayName: displayName || 'No Aplica' };
 
         // Define who the responsible user is
         let responsibleUser = { id: editor.id, displayName: editor.displayName };
@@ -1093,7 +1094,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                       <FormItem>
                           <FormLabel>Precinto/Sello de Seguridad {!isSpecialReception && <span className="text-destructive">*</span>}</FormLabel>
                           <FormControl><Input placeholder="Precinto/sello (máx. 40)" {...field} /></FormControl>
-                          {isSpecialReception && <FormDescription>Si se deja vacío, se guardará como N/A.</FormDescription>}
+                          {isSpecialReception && <FormDescription>Si se deja vacío, se guardará como No Aplica.</FormDescription>}
                           <FormMessage />
                       </FormItem>
                       )}/>
@@ -1263,10 +1264,10 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                   <CardHeader><CardTitle>Información del Vehículo</CardTitle></CardHeader>
                   <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-x-4 gap-y-6">
                       <FormField control={form.control} name="nombreConductor" render={({ field }) => (
-                          <FormItem><FormLabel>Nombre Conductor {!isSpecialReception && <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Nombre del conductor" {...field} /></FormControl>{isSpecialReception && <FormDescription>Si se deja vacío, se guardará como N/A.</FormDescription>}<FormMessage /></FormItem>
+                          <FormItem><FormLabel>Nombre Conductor {!isSpecialReception && <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Nombre del conductor" {...field} /></FormControl>{isSpecialReception && <FormDescription>Si se deja vacío, se guardará como No Aplica.</FormDescription>}<FormMessage /></FormItem>
                       )}/>
                       <FormField control={form.control} name="cedulaConductor" render={({ field }) => (
-                          <FormItem><FormLabel>Cédula Conductor {!isSpecialReception && <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Cédula del conductor" {...field} type="text" inputMode="numeric" pattern="[0-9]*" /></FormControl>{isSpecialReception && <FormDescription>Si se deja vacío, se guardará como N/A.</FormDescription>}<FormMessage /></FormItem>
+                          <FormItem><FormLabel>Cédula Conductor {!isSpecialReception && <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Cédula del conductor" {...field} type="text" inputMode="numeric" pattern="[0-9]*" /></FormControl>{isSpecialReception && <FormDescription>Si se deja vacío, se guardará como No Aplica.</FormDescription>}<FormMessage /></FormItem>
                       )}/>
                       <FormField control={form.control} name="placa" render={({ field }) => (
                           <FormItem>
@@ -1279,7 +1280,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                                       maxLength={6}
                                   />
                               </FormControl>
-                              {isSpecialReception && <FormDescription>Si se deja vacío, se guardará como N/A.</FormDescription>}
+                              {isSpecialReception && <FormDescription>Si se deja vacío, se guardará como No Aplica.</FormDescription>}
                               <FormMessage />
                           </FormItem>
                       )}/>
@@ -1288,11 +1289,11 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                       )}/>
                       <FormField control={form.control} name="contenedor" render={({ field }) => (
                           <FormItem><FormLabel>Contenedor {!isSpecialReception && <span className="text-destructive">*</span>}</FormLabel><FormControl><Input
-                                      placeholder="ABCD1234567 o N/A"
+                                      placeholder="ABCD1234567 o No Aplica"
                                       {...field}
                                       onChange={(e) => field.onChange(e.target.value.toUpperCase())}
                                       value={field.value ?? ''}
-                                  /></FormControl>{isSpecialReception && <FormDescription>Si se deja vacío, se guardará como N/A.</FormDescription>}<FormMessage /></FormItem>
+                                  /></FormControl>{isSpecialReception && <FormDescription>Si se deja vacío, se guardará como No Aplica.</FormDescription>}<FormMessage /></FormItem>
                       )}/>
                       <FormField control={form.control} name="setPoint" render={({ field }) => (
                           <FormItem>
@@ -1383,7 +1384,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                                           name={`observaciones.${index}.quantity`}
                                           render={({ field }) => (
                                               <FormItem>
-                                                  <FormLabel>Cantidad ({stdObsData?.quantityType || 'N/A'})</FormLabel>
+                                                  <FormLabel>Cantidad ({stdObsData?.quantityType || 'No Aplica'})</FormLabel>
                                                   <FormControl>
                                                       <Input type="number" placeholder="0" {...field} />
                                                   </FormControl>
