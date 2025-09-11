@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -63,6 +62,12 @@ const manualOperationSchema = z.object({
   }).optional(),
   bulkRoles: z.array(bulkRoleSchema).optional(),
 
+  // For positions
+  startDate: z.date().optional(),
+  endDate: z.date().optional(),
+  numeroPosiciones: z.coerce.number().int().min(1, "Debe ser al menos 1.").optional(),
+
+
   concept: z.string().min(1, 'El concepto es obligatorio.'),
   specificTariffs: z.array(specificTariffEntrySchema).optional(),
   quantity: z.coerce.number().min(0, 'La cantidad debe ser 0 o mayor.').optional(),
@@ -77,6 +82,8 @@ const manualOperationSchema = z.object({
   }).optional(),
 }).superRefine((data, ctx) => {
     const isBulkMode = data.concept === 'TIEMPO EXTRA FRIOAL (FIJO)';
+    const isPositionMode = data.concept === 'POSICIONES FIJAS CÁMARA CONGELADO';
+
 
     if (isBulkMode) {
       if (!data.dateRange?.from || !data.dateRange?.to) {
@@ -85,6 +92,13 @@ const manualOperationSchema = z.object({
       if (!data.bulkRoles || data.bulkRoles.every(r => r.numPersonas === 0)) {
            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Debe ingresar al menos una persona en algún rol.", path: ["bulkRoles"] });
       }
+    } else if(isPositionMode) {
+        if (!data.startDate || !data.endDate) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El rango de fechas es obligatorio.", path: ["startDate"] });
+        }
+        if (!data.numeroPosiciones || data.numeroPosiciones <= 0) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El número de posiciones es requerido.", path: ["numeroPosiciones"] });
+        }
     } else {
        if (!data.operationDate) {
           ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La fecha es obligatoria.", path: ["operationDate"] });
@@ -149,6 +163,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
             quantity: 1,
             specificTariffs: [],
             numeroPersonas: 1,
+            numeroPosiciones: 0,
             details: {
                 startTime: '',
                 endTime: '',
@@ -169,11 +184,12 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     const watchedConcept = form.watch('concept');
     const selectedConceptInfo = useMemo(() => billingConcepts.find(c => c.conceptName === watchedConcept), [watchedConcept, billingConcepts]);
     const isBulkMode = watchedConcept === 'TIEMPO EXTRA FRIOAL (FIJO)';
+    const isPositionMode = watchedConcept === 'POSICIONES FIJAS CÁMARA CONGELADO';
+
 
     useEffect(() => {
         if (selectedConceptInfo?.tariffType !== 'ESPECIFICA') {
             form.setValue('specificTariffs', []);
-            form.setValue('numeroPersonas', 1);
         } else if (isBulkMode && selectedConceptInfo?.specificTariffs) {
             const roles = [
                 { role: "SUPERVISOR", diurna: "HORA EXTRA DIURNA", nocturna: "HORA EXTRA NOCTURNA" },
@@ -206,6 +222,13 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
              form.setValue('quantity', undefined);
              form.setValue('bulkRoles', []);
         }
+
+        if (selectedConceptInfo?.tariffType !== 'ESPECIFICA' && watchedConcept !== 'POSICIONES FIJAS CÁMARA CONGELADO') {
+            form.setValue('numeroPersonas', undefined);
+        } else if(watchedConcept !== 'POSICIONES FIJAS CÁMARA CONGELADO') {
+             form.setValue('numeroPersonas', form.getValues('numeroPersonas') || 1);
+        }
+
     }, [watchedConcept, selectedConceptInfo, form, isBulkMode]);
 
     const fetchAllOperations = useCallback(async () => {
@@ -272,7 +295,6 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     
         if (op) {
             let bulkRolesData: any[] = [];
-            // If it's a bulk operation being edited, reconstruct the bulkRoles array
             if (op.concept === 'TIEMPO EXTRA FRIOAL (FIJO)') {
                 const conceptInfo = billingConcepts.find(c => c.conceptName === op.concept);
                 const roles = [
@@ -305,10 +327,13 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
             form.reset({
                 clientName: op.clientName || '',
                 operationDate: parseISO(op.operationDate),
+                startDate: op.startDate ? parseISO(op.startDate) : undefined,
+                endDate: op.endDate ? parseISO(op.endDate) : undefined,
                 concept: op.concept,
                 quantity: op.quantity,
                 specificTariffs: op.specificTariffs || [],
                 numeroPersonas: op.numeroPersonas || undefined,
+                numeroPosiciones: op.numeroPosiciones || undefined,
                 details: {
                     startTime: op.details?.startTime || '',
                     endTime: op.details?.endTime || '',
@@ -328,6 +353,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 concept: "",
                 specificTariffs: [],
                 numeroPersonas: 1,
+                numeroPosiciones: 0,
                 details: {
                     startTime: '',
                     endTime: '',
@@ -374,7 +400,9 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
             } else {
                  const payload: ManualClientOperationData = {
                     ...data,
-                    operationDate: data.operationDate!.toISOString(),
+                    operationDate: data.operationDate?.toISOString(),
+                    startDate: data.startDate?.toISOString(),
+                    endDate: data.endDate?.toISOString(),
                     details: data.details || {},
                     createdBy: {
                         uid: user.uid,
@@ -396,7 +424,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
             setIsDialogOpen(false);
             form.reset();
             const updatedOps = await fetchAllOperations();
-            if (searched) {
+            if (searched && selectedDate) {
                 handleSearch(updatedOps);
             }
 
@@ -629,12 +657,20 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                     )}
                                                 />
                                             </>
+                                        ) : isPositionMode ? (
+                                            <>
+                                                <FormField control={form.control} name="startDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha Inicio <span className="text-destructive">*</span></FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={dialogMode === 'view'} className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "PPP", { locale: es }) : <span>Seleccione fecha de inicio</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={dialogMode === 'view'} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
+                                                <FormField control={form.control} name="endDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha Fin <span className="text-destructive">*</span></FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={dialogMode === 'view'} className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "PPP", { locale: es }) : <span>Seleccione fecha de fin</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={dialogMode === 'view'} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
+                                                <FormField control={form.control} name="numeroPosiciones" render={({ field }) => (<FormItem><FormLabel>Número de Posiciones <span className="text-destructive">*</span></FormLabel><FormControl><Input type="number" min="1" step="1" {...field} value={field.value ?? ''} onChange={e => field.onChange(e.target.value === '' ? undefined : parseInt(e.target.value, 10))} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
+                                            </>
                                         ) : (
                                           <>
                                             <FormField control={form.control} name="operationDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha de Operación <span className="text-destructive">*</span></FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={dialogMode === 'view'} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4 opacity-50" />{field.value ? format(field.value, "PPP", { locale: es }) : <span>Seleccione una fecha</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={dialogMode === 'view'} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
                                             {selectedConceptInfo?.tariffType === 'ESPECIFICA' ? (
                                                 <>
+                                                    {watchedConcept !== 'POSICIONES FIJAS CÁMARA CONGELADO' && !isBulkMode && (
                                                     <FormField control={form.control} name="numeroPersonas" render={({ field }) => (<FormItem><FormLabel>No. Personas</FormLabel><FormControl><Input type="number" min="1" step="1" placeholder="1" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10))} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)}/>
+                                                    )}
                                                     <FormField control={form.control} name="specificTariffs" render={() => (
                                                             <FormItem>
                                                                 <div className="mb-4"><FormLabel className="text-base">Tarifas a Aplicar</FormLabel></div>
