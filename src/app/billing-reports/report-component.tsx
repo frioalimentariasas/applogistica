@@ -109,7 +109,7 @@ const getImageAsBase64Client = async (url: string): Promise<string> => {
 };
 
 const formatTime12Hour = (time24: string | undefined): string => {
-    if (!time24 || !time24.includes(':')) return 'N/A';
+    if (!time24 || !time24.includes(':')) return 'No Aplica';
     const [hours, minutes] = time24.split(':');
     let h = parseInt(hours, 10);
     const ampm = h >= 12 ? 'PM' : 'AM';
@@ -119,7 +119,7 @@ const formatTime12Hour = (time24: string | undefined): string => {
 };
 
 const formatDuration = (totalMinutes: number | null): string => {
-    if (totalMinutes === null || totalMinutes < 0) return 'N/A';
+    if (totalMinutes === null || totalMinutes < 0) return 'No Aplica';
     if (totalMinutes < 60) {
         return `${totalMinutes} min`;
     }
@@ -135,7 +135,7 @@ const formatObservaciones = (observaciones: any): string => {
     if (!observaciones || !Array.isArray(observaciones) || observaciones.length === 0) {
       return '';
     }
-    return observaciones.map(obs => {
+    return observaciones.map((obs:any) => {
         if (obs.type === 'OTRAS OBSERVACIONES') {
             return obs.customType || 'OTRAS OBSERVACIONES';
         }
@@ -1112,6 +1112,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             { header: 'Op. Logística', key: 'operacionLogistica', width: 15 },
             { header: 'Concepto', key: 'conceptName', width: 40 },
             { header: 'Tipo Vehículo', key: 'tipoVehiculo', width: 15 },
+            { header: 'H. Inicio', key: 'horaInicio', width: 15 },
+            { header: 'H. Fin', key: 'horaFin', width: 15 },
             { header: 'Cantidad', key: 'quantity', width: 15 },
             { header: 'Unidad', key: 'unitOfMeasure', width: 15 },
             { header: 'Valor Unitario', key: 'unitValue', width: 20 },
@@ -1139,12 +1141,14 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                     camara: getSessionName(row.camara),
                     date: format(parseISO(row.date), 'dd/MM/yyyy'),
                     operacionLogistica: row.operacionLogistica,
-                    unitValue: { formula: `K${worksheet.rowCount + 1}`, result: row.unitValue },
-                    totalValue: { formula: `L${worksheet.rowCount + 1}`, result: row.totalValue }
+                    horaInicio: formatTime12Hour(row.horaInicio),
+                    horaFin: formatTime12Hour(row.horaFin),
+                    unitValue: { formula: `M${worksheet.rowCount + 1}`, result: row.unitValue },
+                    totalValue: { formula: `N${worksheet.rowCount + 1}`, result: row.totalValue }
                 });
-                worksheet.getCell(`K${worksheet.rowCount}`).numFmt = '$ #,##0.00';
-                worksheet.getCell(`L${worksheet.rowCount}`).numFmt = '$ #,##0.00';
-                worksheet.getCell(`I${worksheet.rowCount}`).numFmt = '#,##0.00';
+                worksheet.getCell(`M${worksheet.rowCount}`).numFmt = '$ #,##0.00';
+                worksheet.getCell(`N${worksheet.rowCount}`).numFmt = '$ #,##0.00';
+                worksheet.getCell(`K${worksheet.rowCount}`).numFmt = '#,##0.00';
             });
             const subtotalRow = worksheet.addRow({ 
                 conceptName: `SUBTOTAL ${conceptName}`,
@@ -1153,19 +1157,19 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             });
             subtotalRow.font = { bold: true };
             subtotalRow.getCell('A').alignment = { horizontal: 'right' };
-            subtotalRow.getCell('I').numFmt = '#,##0.00';
-            subtotalRow.getCell('L').numFmt = '$ #,##0.00';
-            worksheet.mergeCells(`A${subtotalRow.number}:H${subtotalRow.number}`);
-            worksheet.mergeCells(`J${subtotalRow.number}:K${subtotalRow.number}`);
+            subtotalRow.getCell('K').numFmt = '#,##0.00';
+            subtotalRow.getCell('N').numFmt = '$ #,##0.00';
+            worksheet.mergeCells(`A${subtotalRow.number}:J${subtotalRow.number}`);
+            worksheet.mergeCells(`L${subtotalRow.number}:M${subtotalRow.number}`);
         });
 
         worksheet.addRow([]);
         const totalRow = worksheet.addRow({ conceptName: 'TOTAL GENERAL', totalValue: totalGeneral });
         totalRow.font = { bold: true, size: 12 };
         totalRow.getCell('A').alignment = { horizontal: 'right' };
-        totalRow.getCell('L').font = { bold: true, size: 12 };
-        totalRow.getCell('L').numFmt = '$ #,##0.00';
-        worksheet.mergeCells(`A${totalRow.number}:K${totalRow.number}`);
+        totalRow.getCell('N').font = { bold: true, size: 12 };
+        totalRow.getCell('N').numFmt = '$ #,##0.00';
+        worksheet.mergeCells(`A${totalRow.number}:M${totalRow.number}`);
 
 
         const buffer = await workbook.xlsx.writeBuffer();
@@ -1195,11 +1199,11 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         CO: 'CONGELADO',
         RE: 'REFRIGERADO',
         SE: 'SECO',
-        'N/A': 'N/A'
+        'No Aplica': 'No Aplica'
     };
 
     const getSessionName = (sesionCode: string) => {
-        return sessionMapping[sesionCode] || 'N/A';
+        return sessionMapping[sesionCode] || 'No Aplica';
     }
     
     const settlementGroupedData = useMemo(() => {
@@ -2081,13 +2085,10 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                             <TableHeader>
                                                 <TableRow>
                                                     <TableHead className="text-xs p-2">Fecha</TableHead>
-                                                    <TableHead className="text-xs p-2">Total Paletas</TableHead>
-                                                    <TableHead className="text-xs p-2">Contenedor</TableHead>
-                                                    <TableHead className="text-xs p-2">Cámara</TableHead>
-                                                    <TableHead className="text-xs p-2">Pedido SISLOG</TableHead>
-                                                    <TableHead className="text-xs p-2">Op. Logística</TableHead>
                                                     <TableHead className="text-xs p-2">Concepto</TableHead>
-                                                    <TableHead className="text-xs p-2">Tipo Vehículo</TableHead>
+                                                    <TableHead className="text-xs p-2">H. Inicio</TableHead>
+                                                    <TableHead className="text-xs p-2">H. Fin</TableHead>
+                                                    <TableHead className="text-xs p-2">Contenedor</TableHead>
                                                     <TableHead className="text-xs p-2">Cantidad</TableHead>
                                                     <TableHead className="text-xs p-2">Unidad</TableHead>
                                                     <TableHead className="text-right text-xs p-2">Valor Unitario</TableHead>
@@ -2102,18 +2103,15 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                         {Object.keys(settlementGroupedData).sort().map(conceptName => (
                                                             <React.Fragment key={conceptName}>
                                                                 <TableRow className="bg-muted hover:bg-muted">
-                                                                    <TableCell colSpan={12} className="font-bold text-primary text-sm p-2">{conceptName}</TableCell>
+                                                                    <TableCell colSpan={9} className="font-bold text-primary text-sm p-2">{conceptName}</TableCell>
                                                                 </TableRow>
                                                                 {settlementGroupedData[conceptName].rows.map((row, i) => (
                                                                     <TableRow key={`${row.date}-${row.conceptName}-${i}`}>
                                                                         <TableCell className="text-xs p-2">{format(parseISO(row.date), 'dd/MM/yyyy', { locale: es })}</TableCell>
-                                                                        <TableCell className="text-xs p-2">{row.totalPaletas}</TableCell>
-                                                                        <TableCell className="text-xs p-2">{row.container}</TableCell>
-                                                                        <TableCell className="text-xs p-2">{getSessionName(row.camara)}</TableCell>
-                                                                        <TableCell className="text-xs p-2">{row.pedidoSislog}</TableCell>
-                                                                        <TableCell className="text-xs p-2">{row.operacionLogistica}</TableCell>
                                                                         <TableCell className="text-xs p-2">{row.conceptName}</TableCell>
-                                                                        <TableCell className="text-xs p-2">{row.tipoVehiculo}</TableCell>
+                                                                        <TableCell className="text-xs p-2">{formatTime12Hour(row.horaInicio)}</TableCell>
+                                                                        <TableCell className="text-xs p-2">{formatTime12Hour(row.horaFin)}</TableCell>
+                                                                        <TableCell className="text-xs p-2">{row.container}</TableCell>
                                                                         <TableCell className="text-xs p-2">{row.quantity.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
                                                                         <TableCell className="text-xs p-2">{row.unitOfMeasure}</TableCell>
                                                                         <TableCell className="text-right text-xs p-2">{row.unitValue.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
@@ -2121,7 +2119,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                     </TableRow>
                                                                 ))}
                                                                 <TableRow className="bg-secondary hover:bg-secondary/80 font-bold">
-                                                                    <TableCell colSpan={8} className="text-right text-xs p-2">SUBTOTAL {conceptName}:</TableCell>
+                                                                    <TableCell colSpan={5} className="text-right text-xs p-2">SUBTOTAL {conceptName}:</TableCell>
                                                                     <TableCell className="text-xs p-2">{settlementGroupedData[conceptName].subtotalCantidad.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
                                                                     <TableCell colSpan={2} className="text-xs p-2"></TableCell>
                                                                     <TableCell className="text-right text-xs p-2">{settlementGroupedData[conceptName].subtotalValor.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
@@ -2129,7 +2127,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                             </React.Fragment>
                                                         ))}
                                                         <TableRow className="bg-primary hover:bg-primary text-primary-foreground font-bold text-base">
-                                                            <TableCell colSpan={11} className="text-right p-2">TOTAL GENERAL:</TableCell>
+                                                            <TableCell colSpan={8} className="text-right p-2">TOTAL GENERAL:</TableCell>
                                                             <TableCell className="text-right p-2">{settlementTotalGeneral.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
                                                         </TableRow>
                                                     </>
@@ -2188,7 +2186,3 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         </div>
     );
 }
-
-    
-
-    

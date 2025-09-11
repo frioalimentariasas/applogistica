@@ -56,6 +56,8 @@ export interface ClientSettlementRow {
   unitOfMeasure: string;
   unitValue: number;
   totalValue: number;
+  horaInicio?: string;
+  horaFin?: string;
 }
 
 export interface ClientSettlementResult {
@@ -288,7 +290,7 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
         .filter(op => op.type === 'form')
         .reduce((acc, op) => {
             const date = new Date(op.data.formData.fecha).toISOString().split('T')[0];
-            const container = op.data.formData.contenedor || 'No aplica';
+            const container = op.data.formData.contenedor || 'No Aplica';
             const key = `${date}|${container}`;
             if (!acc[key]) {
                 acc[key] = [];
@@ -362,7 +364,7 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
                         operacionLogistica = 'No Aplica';
                     } else if (concept.tariffType === 'RANGOS') {
                         const totalTons = applicableOperations.reduce((sum, op) => sum + ((op.formData.totalPesoKg ?? op.formData.totalPesoBrutoKg) || 0), 0) / 1000;
-                        const vehicleType = container !== 'No aplica' ? 'CONTENEDOR' : 'TURBO';
+                        const vehicleType = container !== 'No Aplica' ? 'CONTENEDOR' : 'TURBO';
                         vehicleTypeForReport = vehicleType;
                         
                         const matchingTariff = findMatchingTariff(totalTons, vehicleType, concept);
@@ -472,6 +474,8 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
                                     unitOfMeasure: specificTariff.unit,
                                     unitValue: specificTariff.value || 0,
                                     totalValue: totalValue,
+                                    horaInicio: opData.details?.startTime || 'No Aplica',
+                                    horaFin: opData.details?.endTime || 'No Aplica',
                                 });
                             }
                         });
@@ -482,13 +486,15 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
                             totalPaletas: opData.details?.totalPallets || 0,
                             camara: 'No Aplica',
                             operacionLogistica: 'No Aplica',
-                            pedidoSislog: 'Manual',
+                            pedidoSislog: 'No Aplica',
                             conceptName: concept.conceptName,
                             tipoVehiculo: 'No Aplica',
                             quantity: opData.quantity || 0,
                             unitOfMeasure: concept.unitOfMeasure,
                             unitValue: concept.value || 0,
                             totalValue: (opData.quantity || 0) * (concept.value || 0),
+                            horaInicio: opData.details?.startTime || 'No Aplica',
+                            horaFin: opData.details?.endTime || 'No Aplica',
                         });
                     }
                 }
