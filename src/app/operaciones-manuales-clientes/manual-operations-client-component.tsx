@@ -1,10 +1,8 @@
-
-
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm, SubmitHandler } from 'react-hook-form';
+import { useForm, SubmitHandler, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { format, parseISO, differenceInMinutes, parse } from 'date-fns';
@@ -155,6 +153,11 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
             },
             bulkRoles: [],
         }
+    });
+
+    const { fields: bulkRoleFields } = useFieldArray({
+        control: form.control,
+        name: "bulkRoles"
     });
     
     const watchedConcept = form.watch('concept');
@@ -535,8 +538,8 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                         <FormItem>
                                                             <div className="mb-2"><FormLabel>Personal por Rol</FormLabel><FormDescription>Ingrese el número de personas para cada rol.</FormDescription></div>
                                                             <div className="space-y-2">
-                                                                {form.getValues('bulkRoles')?.map((role, index) => (
-                                                                    <FormField key={role.roleName} name={`bulkRoles.${index}.numPersonas`} control={form.control} render={({ field }) => (
+                                                                {bulkRoleFields.map((role, index) => (
+                                                                    <FormField key={role.id} name={`bulkRoles.${index}.numPersonas`} control={form.control} render={({ field }) => (
                                                                         <FormItem className="flex items-center justify-between"><FormLabel>{role.roleName}</FormLabel><FormControl><Input type="number" min="0" step="1" className="w-20 h-8" {...field} disabled={dialogMode === 'view'}/></FormControl></FormItem>
                                                                     )}/>
                                                                 ))}
