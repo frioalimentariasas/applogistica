@@ -5,7 +5,7 @@
 import { firestore } from '@/lib/firebase-admin';
 import { revalidatePath } from 'next/cache';
 import admin from 'firebase-admin';
-import { eachDayOfInterval, parseISO } from 'date-fns';
+import { eachDayOfInterval, parseISO, addDays, format, isBefore, isEqual } from 'date-fns';
 
 export interface ManualClientOperationData {
     clientName: string;
@@ -29,16 +29,13 @@ export interface ManualClientOperationData {
     }
 }
 
-// Helper to get a date object that correctly represents the local date in UTC.
-// E.g., '2024-09-10T00:00:00.000Z' from the client (which is Sep 9, 7pm Colombia time)
-// becomes a Date object representing Sep 10, 00:00 Colombia time.
 function getColombiaDateFromISO(isoString: string): Date {
     const d = new Date(isoString);
-    // The client sends the date as midnight in its local timezone, which gets converted to UTC.
-    // We need to adjust it back to what the user intended in their local timezone.
-    // A more robust way is to create a new date using UTC methods to avoid local timezone interference.
-    return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate(), 5, 0, 0)); // Set to midnight Colombia Time (UTC-5)
+    // This creates a new date object in UTC, effectively ignoring the local timezone offset of the server.
+    // e.g., if isoString is '2024-09-10T05:00:00.000Z' (which is Sep 10, 00:00 Colombia time), this creates a date object for Sep 10 in UTC.
+    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 5, 0, 0));
 }
+
 
 export async function addManualClientOperation(data: ManualClientOperationData): Promise<{ success: boolean; message: string }> {
     if (!firestore) {
@@ -92,15 +89,20 @@ export async function addBulkManualClientOperation(data: BulkOperationData): Pro
     try {
         const { startDate, endDate, clientName, concept, roles, createdBy } = data;
         
-        const interval = eachDayOfInterval({ 
-            start: getColombiaDateFromISO(startDate), 
-            end: getColombiaDateFromISO(endDate) 
-        });
+        // Correct way to iterate through a date range, timezone-safe
+        const dateList: Date[] = [];
+        let currentDate = parseISO(startDate);
+        const finalDate = parseISO(endDate);
+
+        while (isBefore(currentDate, finalDate) || isEqual(currentDate, finalDate)) {
+            dateList.push(currentDate);
+            currentDate = addDays(currentDate, 1);
+        }
 
         const batch = firestore.batch();
         let operationsCount = 0;
 
-        for (const day of interval) {
+        for (const day of dateList) {
             const specificTariffs = roles.flatMap(role => {
                 if (role.numPersonas > 0) {
                     return [
@@ -190,3 +192,4 @@ export async function deleteManualClientOperation(id: string): Promise<{ success
         return { success: false, message: `Error del servidor: ${errorMessage}` };
     }
 }
+
