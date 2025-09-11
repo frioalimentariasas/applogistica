@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -7,9 +8,10 @@ import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { format, parseISO, differenceInMinutes, parse } from 'date-fns';
+import { DateRange } from 'react-day-picker';
 import { es } from 'date-fns/locale';
 
-import { addManualClientOperation, updateManualClientOperation, deleteManualClientOperation } from './actions';
+import { addManualClientOperation, updateManualClientOperation, deleteManualClientOperation, addBulkManualClientOperation } from './actions';
 import { getAllManualClientOperations } from '@/app/billing-reports/actions/generate-client-settlement';
 import type { ManualClientOperationData } from './actions';
 import { useToast } from '@/hooks/use-toast';
@@ -40,9 +42,23 @@ const specificTariffEntrySchema = z.object({
     quantity: z.coerce.number().min(0, "Debe ser >= 0"),
 });
 
+const bulkRoleSchema = z.object({
+  roleName: z.string(),
+  diurnaId: z.string(),
+  nocturnaId: z.string(),
+  numPersonas: z.coerce.number().int().min(0, "Debe ser un número positivo.").default(0),
+});
+
 const manualOperationSchema = z.object({
   clientName: z.string().min(1, 'El cliente es obligatorio.'),
-  operationDate: z.date({ required_error: 'La fecha es obligatoria.' }),
+  operationDate: z.date({ required_error: 'La fecha es obligatoria.' }).optional(),
+  
+  // For bulk mode
+  dateRange: z.custom<DateRange>(v => v instanceof Object && 'from' in v && 'to' in v, {
+    message: "El rango de fechas es obligatorio para la liquidación en lote.",
+  }).optional(),
+  bulkRoles: z.array(bulkRoleSchema).optional(),
+
   concept: z.string().min(1, 'El concepto es obligatorio.'),
   specificTariffs: z.array(specificTariffEntrySchema).optional(),
   quantity: z.coerce.number().min(0, 'La cantidad debe ser 0 o mayor.').optional(),
@@ -56,12 +72,26 @@ const manualOperationSchema = z.object({
       arin: z.string().optional(),
   }).optional(),
 }).superRefine((data, ctx) => {
-    if(data.details?.startTime && data.details?.endTime && data.details.startTime === data.details.endTime) {
-        ctx.addIssue({
-            code: z.ZodIssueCode.custom,
-            message: "La hora de inicio no puede ser igual a la de fin.",
-            path: ["details", "endTime"],
-        });
+    const isBulkMode = data.concept === 'TIEMPO EXTRA FRIOAL (FIJO)';
+
+    if (isBulkMode) {
+      if (!data.dateRange?.from || !data.dateRange?.to) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El rango de fechas es obligatorio.", path: ["dateRange"] });
+      }
+      if (!data.bulkRoles || data.bulkRoles.every(r => r.numPersonas === 0)) {
+           ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Debe ingresar al menos una persona en algún rol.", path: ["bulkRoles"] });
+      }
+    } else {
+       if (!data.operationDate) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La fecha es obligatoria.", path: ["operationDate"] });
+       }
+        if(data.details?.startTime && data.details?.endTime && data.details.startTime === data.details.endTime) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                message: "La hora de inicio no puede ser igual a la de fin.",
+                path: ["details", "endTime"],
+            });
+        }
     }
 
     const specialConcepts = ['INSPECCIÓN ZFPC', 'TIEMPO EXTRA ZFPC'];
@@ -122,21 +152,45 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 container: '',
                 totalPallets: null,
                 arin: '',
-            }
+            },
+            bulkRoles: [],
         }
     });
     
     const watchedConcept = form.watch('concept');
     const selectedConceptInfo = useMemo(() => billingConcepts.find(c => c.conceptName === watchedConcept), [watchedConcept, billingConcepts]);
+    const isBulkMode = watchedConcept === 'TIEMPO EXTRA FRIOAL (FIJO)';
 
     useEffect(() => {
         if (selectedConceptInfo?.tariffType !== 'ESPECIFICA') {
             form.setValue('specificTariffs', []);
-            form.setValue('numeroPersonas', undefined);
+            form.setValue('numeroPersonas', 1);
+        } else if (isBulkMode && selectedConceptInfo?.specificTariffs) {
+            const roles = [
+                { role: "SUPERVISOR", diurna: "HORA EXTRA DIURNA", nocturna: "HORA EXTRA NOCTURNA" },
+                { role: "MONTACARGUISTA TRILATERAL", diurna: "HORA EXTRA DIURNA", nocturna: "HORA EXTRA NOCTURNA" },
+                { role: "MONTACARGUISTA NORMAL", diurna: "HORA EXTRA DIURNA", nocturna: "HORA EXTRA NOCTURNA" },
+                { role: "OPERARIO", diurna: "HORA EXTRA DIURNA", nocturna: "HORA EXTRA NOCTURNA" },
+            ];
+
+            const bulkRoles = roles.map(r => {
+                const diurnaTariff = selectedConceptInfo.specificTariffs?.find(t => t.name.includes(r.role) && t.name.includes(r.diurna));
+                const nocturnaTariff = selectedConceptInfo.specificTariffs?.find(t => t.name.includes(r.role) && t.name.includes(r.nocturna));
+                
+                return {
+                    roleName: r.role,
+                    diurnaId: diurnaTariff?.id || '',
+                    nocturnaId: nocturnaTariff?.id || '',
+                    numPersonas: 0
+                };
+            }).filter(r => r.diurnaId && r.nocturnaId);
+
+            form.setValue('bulkRoles', bulkRoles);
         } else {
              form.setValue('quantity', undefined);
+             form.setValue('bulkRoles', []);
         }
-    }, [watchedConcept, selectedConceptInfo, form]);
+    }, [watchedConcept, selectedConceptInfo, form, isBulkMode]);
 
     const fetchAllOperations = useCallback(async () => {
         setIsLoading(true);
@@ -242,35 +296,55 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         if (!user) return;
         setIsSubmitting(true);
         
-        const payload: ManualClientOperationData = {
-            ...data,
-            operationDate: data.operationDate.toISOString(),
-            details: data.details || {},
-            createdBy: {
-                uid: user.uid,
-                displayName: displayName || user.email!,
-            }
-        };
-
-        let result;
         try {
-            if (dialogMode === 'edit' && opToManage) {
-                result = await updateManualClientOperation(opToManage.id, payload as Omit<ManualClientOperationData, 'createdAt' | 'createdBy'>);
-            } else {
-                result = await addManualClientOperation(payload);
-            }
-            
-            if (result.success) {
-                toast({ title: 'Éxito', description: result.message });
-                setIsDialogOpen(false);
-                form.reset();
-                const updatedOps = await fetchAllOperations();
-                 if (searched) {
-                    setAllOperations(updatedOps);
-                    handleSearch();
+            if (isBulkMode) {
+                const bulkData = {
+                    clientName: data.clientName,
+                    concept: data.concept,
+                    startDate: data.dateRange!.from!.toISOString(),
+                    endDate: data.dateRange!.to!.toISOString(),
+                    roles: data.bulkRoles!.filter(r => r.numPersonas > 0),
+                    createdBy: { uid: user.uid, displayName: displayName || user.email! }
+                };
+                const result = await addBulkManualClientOperation(bulkData);
+                 if (result.success) {
+                    toast({ title: 'Éxito', description: result.message });
+                    setIsDialogOpen(false);
+                    form.reset();
+                    await fetchAllOperations();
+                } else {
+                    throw new Error(result.message);
                 }
             } else {
-                toast({ variant: "destructive", title: "Error", description: result.message });
+                 const payload: ManualClientOperationData = {
+                    ...data,
+                    operationDate: data.operationDate!.toISOString(),
+                    details: data.details || {},
+                    createdBy: {
+                        uid: user.uid,
+                        displayName: displayName || user.email!,
+                    }
+                };
+
+                let result;
+                if (dialogMode === 'edit' && opToManage) {
+                    result = await updateManualClientOperation(opToManage.id, payload as Omit<ManualClientOperationData, 'createdAt' | 'createdBy'>);
+                } else {
+                    result = await addManualClientOperation(payload);
+                }
+                
+                if (result.success) {
+                    toast({ title: 'Éxito', description: result.message });
+                    setIsDialogOpen(false);
+                    form.reset();
+                    const updatedOps = await fetchAllOperations();
+                     if (searched) {
+                        setAllOperations(updatedOps);
+                        handleSearch();
+                    }
+                } else {
+                    throw new Error(result.message);
+                }
             }
         } catch(error) {
             const errorMessage = error instanceof Error ? error.message : "Error desconocido al guardar.";
@@ -296,6 +370,13 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         }
         setOpToDelete(null);
         setIsDeleting(false);
+    };
+
+    const handleCaptureTime = (fieldName: 'details.startTime' | 'details.endTime') => {
+        const now = new Date();
+        const hours = String(now.getHours()).padStart(2, '0');
+        const minutes = String(now.getMinutes()).padStart(2, '0');
+        form.setValue(fieldName, `${hours}:${minutes}`, { shouldValidate: true });
     };
 
     const showAdvancedFields = ['INSPECCIÓN ZFPC', 'TIEMPO EXTRA ZFPC'].includes(watchedConcept);
@@ -387,8 +468,8 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                             <TableRow key={op.id}>
                                                 <TableCell>{format(new Date(op.operationDate), 'dd/MM/yyyy')}</TableCell>
                                                 <TableCell>{op.concept}</TableCell>
-                                                <TableCell>{op.clientName || 'N/A'}</TableCell>
-                                                <TableCell>{op.createdBy?.displayName || 'N/A'}</TableCell>
+                                                <TableCell>{op.clientName || 'No Aplica'}</TableCell>
+                                                <TableCell>{op.createdBy?.displayName || 'No Aplica'}</TableCell>
                                                 <TableCell className="text-right">
                                                     <Button variant="ghost" size="icon" title="Ver" onClick={() => openDialog('view', op)}>
                                                         <Eye className="h-4 w-4 text-gray-500" />
@@ -442,129 +523,101 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                 <Form {...form}>
                                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                                         <FormField control={form.control} name="clientName" render={({ field }) => ( <FormItem><FormLabel>Cliente <span className="text-destructive">*</span></FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={dialogMode === 'view'}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un cliente" /></SelectTrigger></FormControl><SelectContent><ScrollArea className="h-60">{clients.map(c => <SelectItem key={c.id} value={c.razonSocial}>{c.razonSocial}</SelectItem>)}</ScrollArea></SelectContent></Select><FormMessage /></FormItem> )}/>
-                                        <FormField control={form.control} name="operationDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha de Operación <span className="text-destructive">*</span></FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={dialogMode === 'view'} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4 opacity-50" />{field.value ? format(field.value, "PPP", { locale: es }) : <span>Seleccione una fecha</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={dialogMode === 'view'} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
-                                        
-                                        {showAdvancedFields && (
-                                            <div className="grid grid-cols-2 gap-4">
-                                                <FormField control={form.control} name="details.startTime" render={({ field }) => (<FormItem><FormLabel>Hora Inicio <span className="text-destructive">*</span></FormLabel><div className="flex items-center gap-2"><FormControl><Input type="time" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} className="flex-grow" /></FormControl>{dialogMode !== 'view' && (<Button type="button" variant="outline" size="icon"><Clock className="h-4 w-4" /></Button>)}</div><FormMessage /></FormItem>)} />
-                                                <FormField control={form.control} name="details.endTime" render={({ field }) => (<FormItem><FormLabel>Hora Fin <span className="text-destructive">*</span></FormLabel><div className="flex items-center gap-2"><FormControl><Input type="time" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} className="flex-grow" /></FormControl>{dialogMode !== 'view' && (<Button type="button" variant="outline" size="icon"><Clock className="h-4 w-4" /></Button>)}</div><FormMessage /></FormItem>)} />
-                                            </div>
-                                        )}
-                                        
                                         <FormField control={form.control} name="concept" render={({ field }) => ( <FormItem><FormLabel>Concepto de Liquidación</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={dialogMode === 'view'}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un concepto" /></SelectTrigger></FormControl><SelectContent><ScrollArea className="h-60">{billingConcepts.filter(c => c.calculationType === 'MANUAL').map(c => <SelectItem key={c.id} value={c.conceptName}>{c.conceptName}</SelectItem>)}</ScrollArea></SelectContent></Select><FormMessage /></FormItem> )}/>
 
-                                        {selectedConceptInfo?.tariffType === 'ESPECIFICA' ? (
+                                        {isBulkMode ? (
                                             <>
+                                                <FormField control={form.control} name="dateRange" render={({ field }) => (<FormItem className="flex flex-col"><FormLabel>Rango de Fechas <span className="text-destructive">*</span></FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={dialogMode === 'view'} className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value?.from ? (field.value.to ? (<>{format(field.value.from, "LLL dd, y", { locale: es })} - {format(field.value.to, "LLL dd, y", { locale: es })}</>) : (format(field.value.from, "LLL dd, y", { locale: es }))) : (<span>Seleccione un rango</span>)}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar initialFocus mode="range" selected={field.value} onSelect={field.onChange} numberOfMonths={2} locale={es} disabled={dialogMode === 'view'} /></PopoverContent></Popover><FormMessage /></FormItem>)} />
                                                 <FormField
                                                     control={form.control}
-                                                    name="numeroPersonas"
-                                                    render={({ field }) => (
-                                                        <FormItem>
-                                                            <FormLabel>No. Personas</FormLabel>
-                                                            <FormControl>
-                                                                <Input type="number" min="1" step="1" placeholder="1" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10))} disabled={dialogMode === 'view'} />
-                                                            </FormControl>
-                                                            <FormMessage />
-                                                        </FormItem>
-                                                    )}
-                                                />
-                                                <FormField
-                                                    control={form.control}
-                                                    name="specificTariffs"
+                                                    name="bulkRoles"
                                                     render={() => (
                                                         <FormItem>
-                                                            <div className="mb-4"><FormLabel className="text-base">Tarifas a Aplicar</FormLabel></div>
-                                                            <ScrollArea className="h-40 border rounded-md p-2">
-                                                                <div className="space-y-3">
-                                                                    {(selectedConceptInfo.specificTariffs || []).map((tariff: SpecificTariff, index) => {
-                                                                        const isHourUnit = tariff.unit === 'HORA';
-                                                                        return (
-                                                                            <FormField
-                                                                                key={tariff.id}
-                                                                                control={form.control}
-                                                                                name={`specificTariffs`}
-                                                                                render={({ field }) => {
-                                                                                    const currentSelection = field.value?.find(v => v.tariffId === tariff.id);
-                                                                                    const isSelected = !!currentSelection;
-                                                                                    return (
-                                                                                        <div className="flex flex-row items-start space-x-3 space-y-0">
-                                                                                            <FormControl>
-                                                                                                <Checkbox
-                                                                                                    checked={isSelected}
-                                                                                                    onCheckedChange={(checked) => {
-                                                                                                        const newValue = checked
-                                                                                                            ? [...(field.value || []), { tariffId: tariff.id, quantity: isHourUnit ? 1 : 1 }]
-                                                                                                            : field.value?.filter((value) => value.tariffId !== tariff.id);
-                                                                                                        field.onChange(newValue);
-                                                                                                    }}
-                                                                                                    disabled={dialogMode === 'view'}
-                                                                                                />
-                                                                                            </FormControl>
-                                                                                            <div className="flex flex-col sm:flex-row justify-between w-full">
-                                                                                                <FormLabel className="font-normal">{tariff.name}</FormLabel>
-                                                                                                {isSelected && isHourUnit && (
-                                                                                                     <FormField
-                                                                                                        control={form.control}
-                                                                                                        name={`specificTariffs.${field.value?.findIndex(v => v.tariffId === tariff.id)}.quantity`}
-                                                                                                        render={({ field: qtyField }) => (
-                                                                                                            <FormItem>
-                                                                                                                <FormControl>
-                                                                                                                    <Input type="number" step="0.1" className="h-7 w-24" {...qtyField} disabled={dialogMode === 'view'} />
-                                                                                                                </FormControl>
-                                                                                                                <FormMessage className="text-xs" />
-                                                                                                            </FormItem>
-                                                                                                        )}
-                                                                                                    />
-                                                                                                )}
-                                                                                            </div>
-                                                                                        </div>
-                                                                                    );
-                                                                                }}
-                                                                            />
-                                                                        );
-                                                                    })}
-                                                                </div>
-                                                            </ScrollArea>
+                                                            <div className="mb-2"><FormLabel>Personal por Rol</FormLabel><FormDescription>Ingrese el número de personas para cada rol.</FormDescription></div>
+                                                            <div className="space-y-2">
+                                                                {form.getValues('bulkRoles')?.map((role, index) => (
+                                                                    <FormField key={role.roleName} name={`bulkRoles.${index}.numPersonas`} control={form.control} render={({ field }) => (
+                                                                        <FormItem className="flex items-center justify-between"><FormLabel>{role.roleName}</FormLabel><FormControl><Input type="number" min="0" step="1" className="w-20 h-8" {...field} disabled={dialogMode === 'view'}/></FormControl></FormItem>
+                                                                    )}/>
+                                                                ))}
+                                                            </div>
                                                             <FormMessage />
                                                         </FormItem>
                                                     )}
                                                 />
                                             </>
                                         ) : (
-                                             <FormField
-                                                control={form.control}
-                                                name="quantity"
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <FormLabel>Cantidad</FormLabel>
-                                                        <FormControl>
-                                                            <Input
-                                                                type="number"
-                                                                step="0.01"
-                                                                placeholder="Ej: 1.5"
-                                                                {...field}
-                                                                value={field.value ?? ''}
-                                                                disabled={dialogMode === 'view' || watchedConcept === 'INSPECCIÓN ZFPC'}
-                                                            />
-                                                        </FormControl>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-                                        )}
-                                       
-                                        
-                                        {showAdvancedFields && (
-                                            <>
-                                                <Separator />
-                                                <p className="text-sm font-medium text-muted-foreground">Detalles Adicionales</p>
-                                                <FormField control={form.control} name="details.container" render={({ field }) => (<FormItem><FormLabel>Contenedor {<span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Contenedor" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
-                                                {showInspectionFields && (
-                                                    <FormField control={form.control} name="details.arin" render={({ field }) => (<FormItem><FormLabel>ARIN <span className="text-destructive">*</span></FormLabel><FormControl><Input placeholder="Número de ARIN" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
-                                                )}
-                                                <FormField control={form.control} name="details.plate" render={({ field }) => (<FormItem><FormLabel>Placa (Opcional)</FormLabel><FormControl><Input placeholder="ABC123" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
-                                                <FormField control={form.control} name="details.totalPallets" render={({ field }) => (<FormItem><FormLabel>Total Paletas</FormLabel><FormControl><Input type="number" step="1" placeholder="Ej: 10" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value === '' ? null : parseInt(e.target.value, 10))}/></FormControl><FormMessage /></FormItem>)}/>
-                                            </>
+                                          <>
+                                            <FormField control={form.control} name="operationDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha de Operación <span className="text-destructive">*</span></FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={dialogMode === 'view'} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4 opacity-50" />{field.value ? format(field.value, "PPP", { locale: es }) : <span>Seleccione una fecha</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={dialogMode === 'view'} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
+                                            {selectedConceptInfo?.tariffType === 'ESPECIFICA' ? (
+                                                <>
+                                                    <FormField control={form.control} name="numeroPersonas" render={({ field }) => (<FormItem><FormLabel>No. Personas</FormLabel><FormControl><Input type="number" min="1" step="1" placeholder="1" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10))} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)}/>
+                                                    <FormField control={form.control} name="specificTariffs" render={() => (
+                                                            <FormItem>
+                                                                <div className="mb-4"><FormLabel className="text-base">Tarifas a Aplicar</FormLabel></div>
+                                                                <ScrollArea className="h-40 border rounded-md p-2">
+                                                                    <div className="space-y-3">
+                                                                        {(selectedConceptInfo.specificTariffs || []).map((tariff: SpecificTariff, index) => {
+                                                                            return (
+                                                                                <FormField key={tariff.id} control={form.control} name={`specificTariffs`}
+                                                                                    render={({ field }) => {
+                                                                                        const currentSelection = field.value?.find(v => v.tariffId === tariff.id);
+                                                                                        const isSelected = !!currentSelection;
+                                                                                        return (
+                                                                                            <div className="flex flex-row items-start space-x-3 space-y-0">
+                                                                                                <FormControl>
+                                                                                                    <Checkbox checked={isSelected} onCheckedChange={(checked) => {
+                                                                                                            const newValue = checked ? [...(field.value || []), { tariffId: tariff.id, quantity: 1 }] : field.value?.filter((value) => value.tariffId !== tariff.id);
+                                                                                                            field.onChange(newValue);
+                                                                                                        }} disabled={dialogMode === 'view'}/>
+                                                                                                </FormControl>
+                                                                                                <div className="flex flex-col sm:flex-row justify-between w-full">
+                                                                                                    <FormLabel className="font-normal">{tariff.name}</FormLabel>
+                                                                                                    {isSelected && (
+                                                                                                        <FormField control={form.control} name={`specificTariffs.${field.value?.findIndex(v => v.tariffId === tariff.id)}.quantity`}
+                                                                                                            render={({ field: qtyField }) => (
+                                                                                                                <FormItem>
+                                                                                                                    <div className="flex items-center gap-2">
+                                                                                                                        <FormLabel className="text-xs">Cant:</FormLabel>
+                                                                                                                        <FormControl><Input type="number" step="0.1" className="h-7 w-24" {...qtyField} disabled={dialogMode === 'view'} /></FormControl>
+                                                                                                                    </div>
+                                                                                                                    <FormMessage className="text-xs" />
+                                                                                                                </FormItem>
+                                                                                                            )}
+                                                                                                        />
+                                                                                                    )}
+                                                                                                </div>
+                                                                                            </div>
+                                                                                        );
+                                                                                    }}
+                                                                                />
+                                                                            );
+                                                                        })}
+                                                                    </div>
+                                                                </ScrollArea>
+                                                                <FormMessage />
+                                                            </FormItem>
+                                                        )}/>
+                                                </>
+                                            ) : ( <FormField control={form.control} name="quantity" render={({ field }) => (<FormItem><FormLabel>Cantidad</FormLabel><FormControl><Input type="number" step="0.01" placeholder="Ej: 1.5" {...field} value={field.value ?? ''} disabled={dialogMode === 'view' || watchedConcept === 'INSPECCIÓN ZFPC'} /></FormControl><FormMessage /></FormItem>)}/>)}
+                                            
+                                            {(showAdvancedFields || dialogMode === 'view') && (
+                                                <>
+                                                    <Separator />
+                                                    <p className="text-sm font-medium text-muted-foreground">Detalles Adicionales</p>
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        <FormField control={form.control} name="details.startTime" render={({ field }) => (<FormItem><FormLabel>Hora Inicio</FormLabel><FormControl><Input type="time" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
+                                                        <FormField control={form.control} name="details.endTime" render={({ field }) => (<FormItem><FormLabel>Hora Fin</FormLabel><FormControl><Input type="time" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
+                                                    </div>
+                                                    <FormField control={form.control} name="details.container" render={({ field }) => (<FormItem><FormLabel>Contenedor {<span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Contenedor" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
+                                                    {showInspectionFields && (
+                                                        <FormField control={form.control} name="details.arin" render={({ field }) => (<FormItem><FormLabel>ARIN <span className="text-destructive">*</span></FormLabel><FormControl><Input placeholder="Número de ARIN" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
+                                                    )}
+                                                    <FormField control={form.control} name="details.plate" render={({ field }) => (<FormItem><FormLabel>Placa (Opcional)</FormLabel><FormControl><Input placeholder="ABC123" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
+                                                    <FormField control={form.control} name="details.totalPallets" render={({ field }) => (<FormItem><FormLabel>Total Paletas</FormLabel><FormControl><Input type="number" step="1" placeholder="Ej: 10" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value === '' ? null : parseInt(e.target.value, 10))}/></FormControl><FormMessage /></FormItem>)}/>
+                                                </>
+                                            )}
+                                          </>
                                         )}
                                         
                                         <DialogFooter>
@@ -602,3 +655,4 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         </div>
     );
 }
+
