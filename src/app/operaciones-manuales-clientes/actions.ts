@@ -5,7 +5,7 @@
 import { firestore } from '@/lib/firebase-admin';
 import { revalidatePath } from 'next/cache';
 import admin from 'firebase-admin';
-import { addDays, format, isBefore, isEqual, parseISO } from 'date-fns';
+import { getDaysInMonth, startOfMonth, addDays, format, isBefore, isEqual, parseISO } from 'date-fns';
 
 export interface ManualClientOperationData {
     clientName: string;
@@ -33,9 +33,6 @@ export interface ManualClientOperationData {
 }
 
 function getColombiaDateFromISO(isoString: string): Date {
-    // This function assumes the incoming string is a date like '2024-09-10' (from date picker)
-    // and correctly creates a Date object that represents the start of that day in Colombia time (UTC-5)
-    // by treating it as a UTC date and then conceptually shifting it.
     const d = parseISO(isoString.substring(0, 10)); // Use only the date part to avoid time components
     return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 5, 0, 0));
 }
@@ -49,20 +46,12 @@ export async function addManualClientOperation(data: ManualClientOperationData):
     try {
         const { details, operationDate, startDate, endDate, ...restOfData } = data;
         
-        let operationDateToSave;
-        if (data.concept === 'POSICIONES FIJAS CÁMARA CONGELADO') {
-            // For this special concept, the operationDate is the start of the range.
-            operationDateToSave = admin.firestore.Timestamp.fromDate(getColombiaDateFromISO(startDate!));
-        } else {
-            operationDateToSave = admin.firestore.Timestamp.fromDate(getColombiaDateFromISO(operationDate!));
-        }
-
+        const operationDateToSave = admin.firestore.Timestamp.fromDate(getColombiaDateFromISO(operationDate!));
+        
         const operationWithTimestamp = {
             ...restOfData,
             details: details || {},
             operationDate: operationDateToSave,
-            startDate: startDate ? admin.firestore.Timestamp.fromDate(getColombiaDateFromISO(startDate)) : undefined,
-            endDate: endDate ? admin.firestore.Timestamp.fromDate(getColombiaDateFromISO(endDate)) : undefined,
             createdAt: new Date().toISOString(),
         };
 
@@ -189,20 +178,13 @@ export async function updateManualClientOperation(id: string, data: Omit<ManualC
 
         const docRef = firestore.collection('manual_client_operations').doc(id);
         
-        let operationDateToSave;
-        if (data.concept === 'POSICIONES FIJAS CÁMARA CONGELADO') {
-             operationDateToSave = admin.firestore.Timestamp.fromDate(getColombiaDateFromISO(startDate!));
-        } else {
-            operationDateToSave = admin.firestore.Timestamp.fromDate(getColombiaDateFromISO(operationDate!));
-        }
-
+        const operationDateToSave = admin.firestore.Timestamp.fromDate(getColombiaDateFromISO(operationDate!));
+       
         const operationWithTimestamp = {
             ...restOfData,
             specificTariffs: finalSpecificTariffs,
             details: details || {},
             operationDate: operationDateToSave,
-            startDate: startDate ? admin.firestore.Timestamp.fromDate(getColombiaDateFromISO(startDate)) : undefined,
-            endDate: endDate ? admin.firestore.Timestamp.fromDate(getColombiaDateFromISO(endDate)) : undefined,
         };
         
         delete (operationWithTimestamp as any).bulkRoles;
@@ -236,4 +218,3 @@ export async function deleteManualClientOperation(id: string): Promise<{ success
         return { success: false, message: `Error del servidor: ${errorMessage}` };
     }
 }
-
