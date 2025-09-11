@@ -269,8 +269,40 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     const openDialog = (mode: DialogMode, op?: any) => {
         setDialogMode(mode);
         setOpToManage(op || null);
-
+    
         if (op) {
+            let bulkRolesData: any[] = [];
+            // If it's a bulk operation being edited, reconstruct the bulkRoles array
+            if (op.concept === 'TIEMPO EXTRA FRIOAL (FIJO)') {
+                const conceptInfo = billingConcepts.find(c => c.conceptName === op.concept);
+                const roles = [
+                    { role: "SUPERVISOR", diurna: "HORA EXTRA DIURNA", nocturna: "HORA EXTRA NOCTURNA" },
+                    { role: "MONTACARGUISTA TRILATERAL", diurna: "HORA EXTRA DIURNA", nocturna: "HORA EXTRA NOCTURNA" },
+                    { role: "MONTACARGUISTA NORMAL", diurna: "HORA EXTRA DIURNA", nocturna: "HORA EXTRA NOCTURNA" },
+                    { role: "OPERARIO", diurna: "HORA EXTRA DIURNA", nocturna: "HORA EXTRA NOCTURNA" },
+                ];
+    
+                bulkRolesData = roles.map(r => {
+                    const diurnaTariff = conceptInfo?.specificTariffs?.find(t => t.name.includes(r.role) && t.name.includes(r.diurna));
+                    const nocturnaTariff = conceptInfo?.specificTariffs?.find(t => t.name.includes(r.role) && t.name.includes(r.nocturna));
+    
+                    // Find the saved quantity for this role
+                    const savedDiurnaTariff = (op.specificTariffs || []).find((t: any) => t.tariffId === diurnaTariff?.id);
+                    const numPersonas = savedDiurnaTariff ? savedDiurnaTariff.quantity / 4 : 0; // Reverse calculation
+    
+                    return {
+                        roleName: r.role,
+                        diurnaId: diurnaTariff?.id || '',
+                        nocturnaId: nocturnaTariff?.id || '',
+                        diurnaLabel: diurnaTariff?.name || 'No encontrado',
+                        nocturnaLabel: nocturnaTariff?.name || 'No encontrado',
+                        diurnaValue: diurnaTariff?.value || 0,
+                        nocturnaValue: nocturnaTariff?.value || 0,
+                        numPersonas: numPersonas,
+                    };
+                }).filter(r => r.diurnaId && r.nocturnaId);
+            }
+    
             form.reset({
                 clientName: op.clientName || '',
                 operationDate: parseISO(op.operationDate),
@@ -285,10 +317,12 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                     container: op.details?.container || '',
                     totalPallets: op.details?.totalPallets ?? null,
                     arin: op.details?.arin || '',
-                }
+                },
+                dateRange: (op.concept === 'TIEMPO EXTRA FRIOAL (FIJO)') ? { from: parseISO(op.operationDate), to: parseISO(op.operationDate) } : undefined,
+                bulkRoles: bulkRolesData,
             });
         } else {
-             form.reset({
+            form.reset({
                 operationDate: new Date(),
                 quantity: 1,
                 clientName: "",
@@ -303,7 +337,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                     totalPallets: null,
                     arin: '',
                 },
-                 bulkRoles: [],
+                bulkRoles: [],
             });
         }
         setIsDialogOpen(true);
@@ -378,8 +412,8 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         if (result.success) {
             toast({ title: 'Éxito', description: result.message });
             const updatedOps = await fetchAllOperations();
-            if (searched) {
-                setAllOperations(updatedOps);
+            setAllOperations(updatedOps);
+            if (searched && selectedDate) { // Re-apply filters if a search was active
                 handleSearch(updatedOps);
             }
         } else {
