@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -82,7 +83,7 @@ const manualOperationSchema = z.object({
   }).optional(),
 }).superRefine((data, ctx) => {
     const isBulkMode = data.concept === 'TIEMPO EXTRA FRIOAL (FIJO)';
-    const isPositionMode = data.concept === 'POSICIONES FIJAS CÁMARA CONGELADO';
+    const isPositionMode = data.concept === 'POSICIONES FIJAS CÁMARA CONGELADOS';
 
 
     if (isBulkMode) {
@@ -184,7 +185,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     const watchedConcept = form.watch('concept');
     const selectedConceptInfo = useMemo(() => billingConcepts.find(c => c.conceptName === watchedConcept), [watchedConcept, billingConcepts]);
     const isBulkMode = watchedConcept === 'TIEMPO EXTRA FRIOAL (FIJO)';
-    const isPositionMode = watchedConcept === 'POSICIONES FIJAS CÁMARA CONGELADO';
+    const isPositionMode = watchedConcept === 'POSICIONES FIJAS CÁMARA CONGELADOS';
     const showNumeroPersonas = selectedConceptInfo?.tariffType === 'ESPECIFICA' && !isBulkMode && !isPositionMode;
 
 
@@ -224,9 +225,9 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
              form.setValue('bulkRoles', []);
         }
 
-        if (selectedConceptInfo?.tariffType !== 'ESPECIFICA' && watchedConcept !== 'POSICIONES FIJAS CÁMARA CONGELADO') {
+        if (selectedConceptInfo?.tariffType !== 'ESPECIFICA' && watchedConcept !== 'POSICIONES FIJAS CÁMARA CONGELADOS') {
             form.setValue('numeroPersonas', undefined);
-        } else if(watchedConcept !== 'POSICIONES FIJAS CÁMARA CONGELADO') {
+        } else if(watchedConcept !== 'POSICIONES FIJAS CÁMARA CONGELADOS') {
              form.setValue('numeroPersonas', form.getValues('numeroPersonas') || 1);
         }
 
