@@ -35,14 +35,6 @@ export async function getAllManualClientOperations(): Promise<any[]> {
 }
 
 
-export interface ClientSettlementCriteria {
-  clientName: string;
-  startDate: string;
-  endDate: string;
-  conceptIds: string[];
-  containerNumber?: string;
-}
-
 export interface ClientSettlementRow {
   date: string;
   totalPaletas: number;
@@ -233,7 +225,13 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
 }
 
 
-export async function generateClientSettlement(criteria: ClientSettlementCriteria): Promise<ClientSettlementResult> {
+export async function generateClientSettlement(criteria: {
+  clientName: string;
+  startDate: string;
+  endDate: string;
+  conceptIds: string[];
+  containerNumber?: string;
+}): Promise<ClientSettlementResult> {
   if (!firestore) {
     return { success: false, error: 'El servidor no está configurado correctamente.' };
   }
@@ -396,6 +394,8 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
                     unitOfMeasure: concept.unitOfMeasure,
                     unitValue: unitValue,
                     totalValue: quantity * unitValue,
+                    horaInicio: 'No Aplica',
+                    horaFin: 'No Aplica',
                 });
             }
         }
@@ -430,6 +430,8 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
                         unitOfMeasure: concept.unitOfMeasure,
                         unitValue: concept.value || 0,
                         totalValue: totalQuantity * (concept.value || 0),
+                        horaInicio: 'No Aplica',
+                        horaFin: 'No Aplica',
                     });
                 }
             }
@@ -522,3 +524,5 @@ export async function generateClientSettlement(criteria: ClientSettlementCriteri
     return { success: false, error: error.message || 'Ocurrió un error desconocido en el servidor.' };
   }
 }
+
+

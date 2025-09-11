@@ -2086,9 +2086,13 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                 <TableRow>
                                                     <TableHead className="text-xs p-2">Fecha</TableHead>
                                                     <TableHead className="text-xs p-2">Concepto</TableHead>
+                                                    <TableHead className="text-xs p-2">Total Paletas</TableHead>
+                                                    <TableHead className="text-xs p-2">Cámara</TableHead>
+                                                    <TableHead className="text-xs p-2">Contenedor</TableHead>
+                                                    <TableHead className="text-xs p-2">Op. Logística</TableHead>
+                                                    <TableHead className="text-xs p-2">Tipo Vehículo</TableHead>
                                                     <TableHead className="text-xs p-2">H. Inicio</TableHead>
                                                     <TableHead className="text-xs p-2">H. Fin</TableHead>
-                                                    <TableHead className="text-xs p-2">Contenedor</TableHead>
                                                     <TableHead className="text-xs p-2">Cantidad</TableHead>
                                                     <TableHead className="text-xs p-2">Unidad</TableHead>
                                                     <TableHead className="text-right text-xs p-2">Valor Unitario</TableHead>
@@ -2097,21 +2101,25 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                             </TableHeader>
                                             <TableBody>
                                                 {isSettlementLoading ? (
-                                                    Array.from({length: 3}).map((_, i) => <TableRow key={i}><TableCell colSpan={12}><Skeleton className="h-8 w-full"/></TableCell></TableRow>)
+                                                    Array.from({length: 3}).map((_, i) => <TableRow key={i}><TableCell colSpan={13}><Skeleton className="h-8 w-full"/></TableCell></TableRow>)
                                                 ) : settlementGroupedData && Object.keys(settlementGroupedData).length > 0 ? (
                                                     <>
                                                         {Object.keys(settlementGroupedData).sort().map(conceptName => (
                                                             <React.Fragment key={conceptName}>
                                                                 <TableRow className="bg-muted hover:bg-muted">
-                                                                    <TableCell colSpan={9} className="font-bold text-primary text-sm p-2">{conceptName}</TableCell>
+                                                                    <TableCell colSpan={13} className="font-bold text-primary text-sm p-2">{conceptName}</TableCell>
                                                                 </TableRow>
                                                                 {settlementGroupedData[conceptName].rows.map((row, i) => (
                                                                     <TableRow key={`${row.date}-${row.conceptName}-${i}`}>
                                                                         <TableCell className="text-xs p-2">{format(parseISO(row.date), 'dd/MM/yyyy', { locale: es })}</TableCell>
-                                                                        <TableCell className="text-xs p-2">{row.conceptName}</TableCell>
+                                                                        <TableCell className="text-xs p-2 max-w-[200px] truncate">{row.conceptName}</TableCell>
+                                                                        <TableCell className="text-xs p-2">{row.totalPaletas > 0 ? row.totalPaletas : 'No Aplica'}</TableCell>
+                                                                        <TableCell className="text-xs p-2">{getSessionName(row.camara)}</TableCell>
+                                                                        <TableCell className="text-xs p-2">{row.container}</TableCell>
+                                                                        <TableCell className="text-xs p-2">{row.operacionLogistica}</TableCell>
+                                                                        <TableCell className="text-xs p-2">{row.tipoVehiculo}</TableCell>
                                                                         <TableCell className="text-xs p-2">{formatTime12Hour(row.horaInicio)}</TableCell>
                                                                         <TableCell className="text-xs p-2">{formatTime12Hour(row.horaFin)}</TableCell>
-                                                                        <TableCell className="text-xs p-2">{row.container}</TableCell>
                                                                         <TableCell className="text-xs p-2">{row.quantity.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
                                                                         <TableCell className="text-xs p-2">{row.unitOfMeasure}</TableCell>
                                                                         <TableCell className="text-right text-xs p-2">{row.unitValue.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
@@ -2119,7 +2127,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                     </TableRow>
                                                                 ))}
                                                                 <TableRow className="bg-secondary hover:bg-secondary/80 font-bold">
-                                                                    <TableCell colSpan={5} className="text-right text-xs p-2">SUBTOTAL {conceptName}:</TableCell>
+                                                                    <TableCell colSpan={9} className="text-right text-xs p-2">SUBTOTAL {conceptName}:</TableCell>
                                                                     <TableCell className="text-xs p-2">{settlementGroupedData[conceptName].subtotalCantidad.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
                                                                     <TableCell colSpan={2} className="text-xs p-2"></TableCell>
                                                                     <TableCell className="text-right text-xs p-2">{settlementGroupedData[conceptName].subtotalValor.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
@@ -2127,12 +2135,12 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                             </React.Fragment>
                                                         ))}
                                                         <TableRow className="bg-primary hover:bg-primary text-primary-foreground font-bold text-base">
-                                                            <TableCell colSpan={8} className="text-right p-2">TOTAL GENERAL:</TableCell>
+                                                            <TableCell colSpan={12} className="text-right p-2">TOTAL GENERAL:</TableCell>
                                                             <TableCell className="text-right p-2">{settlementTotalGeneral.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
                                                         </TableRow>
                                                     </>
                                                 ) : (
-                                                    <TableRow><TableCell colSpan={12} className="h-24 text-center">No se encontraron datos para liquidar.</TableCell></TableRow>
+                                                    <TableRow><TableCell colSpan={13} className="h-24 text-center">No se encontraron datos para liquidar.</TableCell></TableRow>
                                                 )}
                                             </TableBody>
                                         </Table>
@@ -2186,3 +2194,5 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         </div>
     );
 }
+
+
