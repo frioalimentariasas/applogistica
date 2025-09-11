@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -6,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useForm, SubmitHandler, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { format, parseISO, differenceInMinutes, parse } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { DateRange } from 'react-day-picker';
 import { es } from 'date-fns/locale';
 
@@ -222,7 +223,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         fetchAllOperations();
     }, [fetchAllOperations]);
     
-    const handleSearch = useCallback(() => {
+    const handleSearch = useCallback((operations: any[]) => {
         if (!selectedDate) {
             toast({
                 variant: 'destructive',
@@ -232,7 +233,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
             return;
         }
 
-        let results = allOperations;
+        let results = operations;
 
         results = results.filter(op => format(new Date(op.operationDate), 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd'));
 
@@ -252,7 +253,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 description: "No se encontraron operaciones con los filtros seleccionados."
             });
         }
-    }, [allOperations, selectedClient, selectedConcept, selectedDate, toast]);
+    }, [selectedClient, selectedConcept, selectedDate, toast]);
     
     const handleClearFilters = () => {
         setSelectedDate(undefined);
@@ -352,7 +353,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                     const updatedOps = await fetchAllOperations();
                      if (searched) {
                         setAllOperations(updatedOps);
-                        handleSearch();
+                        handleSearch(updatedOps);
                     }
                 } else {
                     throw new Error(result.message);
@@ -375,7 +376,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
             const updatedOps = await fetchAllOperations();
             if (searched) {
                 setAllOperations(updatedOps);
-                handleSearch();
+                handleSearch(updatedOps);
             }
         } else {
             toast({ variant: 'destructive', title: 'Error', description: result.message });
@@ -450,7 +451,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                 <Select value={selectedConcept} onValueChange={setSelectedConcept}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Todos los Conceptos</SelectItem>{billingConcepts.filter(c => c.calculationType === 'MANUAL').map(c => <SelectItem key={c.id} value={c.conceptName}>{c.conceptName}</SelectItem>)}</SelectContent></Select>
                             </div>
                             <div className="flex items-end gap-2 xl:col-span-2">
-                                <Button onClick={handleSearch} disabled={!selectedDate || isLoading} className="w-full">
+                                <Button onClick={() => handleSearch(allOperations)} disabled={!selectedDate || isLoading} className="w-full">
                                     <Search className="mr-2 h-4 w-4" />
                                     Consultar
                                 </Button>
@@ -690,5 +691,3 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         </div>
     );
 }
-
-    
