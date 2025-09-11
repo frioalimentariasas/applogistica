@@ -1,9 +1,11 @@
 
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
 import { revalidatePath } from 'next/cache';
 import admin from 'firebase-admin';
+import { eachDayOfInterval, startOfDay } from 'date-fns';
 
 export interface ManualClientOperationData {
     clientName: string;
@@ -52,6 +54,81 @@ export async function addManualClientOperation(data: ManualClientOperationData):
         console.error('Error al agregar operación manual de cliente:', error);
         const errorMessage = error instanceof Error ? error.message : 'Ocurrió un error desconocido.';
         return { success: false, message: `Error del servidor: ${errorMessage}` };
+    }
+}
+
+export interface BulkOperationData {
+    clientName: string;
+    concept: string;
+    startDate: string; // ISO string
+    endDate: string;   // ISO string
+    roles: {
+        diurnaId: string;
+        nocturnaId: string;
+        numPersonas: number;
+    }[];
+    createdBy: {
+        uid: string;
+        displayName: string;
+    }
+}
+
+export async function addBulkManualClientOperation(data: BulkOperationData): Promise<{ success: boolean; message: string; count: number }> {
+    if (!firestore) {
+        return { success: false, message: 'El servidor no está configurado correctamente.', count: 0 };
+    }
+
+    try {
+        const { startDate, endDate, clientName, concept, roles, createdBy } = data;
+        const interval = eachDayOfInterval({ start: new Date(startDate), end: new Date(endDate) });
+
+        const batch = firestore.batch();
+        let operationsCount = 0;
+
+        for (const day of interval) {
+            const specificTariffs = roles.flatMap(role => {
+                if (role.numPersonas > 0) {
+                    return [
+                        { tariffId: role.diurnaId, quantity: 4 * role.numPersonas },
+                        { tariffId: role.nocturnaId, quantity: 1 * role.numPersonas }
+                    ];
+                }
+                return [];
+            }).filter(Boolean);
+
+            if (specificTariffs.length > 0) {
+                const docRef = firestore.collection('manual_client_operations').doc();
+                const operationData = {
+                    clientName,
+                    concept,
+                    operationDate: admin.firestore.Timestamp.fromDate(startOfDay(day)),
+                    specificTariffs,
+                    numeroPersonas: 1, // Se maneja en la cantidad de cada tarifa
+                    details: {
+                        startTime: '17:00',
+                        endTime: '22:00',
+                    },
+                    createdAt: new Date().toISOString(),
+                    createdBy,
+                };
+                batch.set(docRef, operationData);
+                operationsCount++;
+            }
+        }
+        
+        if (operationsCount > 0) {
+            await batch.commit();
+        }
+
+        revalidatePath('/billing-reports');
+        revalidatePath('/operaciones-manuales-clientes');
+        
+        return { success: true, message: `Se crearon ${operationsCount} operaciones manuales con éxito.`, count: operationsCount };
+
+    } catch (error) {
+        console.error('Error al agregar operaciones manuales en lote:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Ocurrió un error desconocido.';
+        return { success: false, message: `Error del servidor: ${errorMessage}`, count: 0 };
     }
 }
 
