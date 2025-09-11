@@ -185,6 +185,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     const selectedConceptInfo = useMemo(() => billingConcepts.find(c => c.conceptName === watchedConcept), [watchedConcept, billingConcepts]);
     const isBulkMode = watchedConcept === 'TIEMPO EXTRA FRIOAL (FIJO)';
     const isPositionMode = watchedConcept === 'POSICIONES FIJAS CÁMARA CONGELADO';
+    const showNumeroPersonas = selectedConceptInfo?.tariffType === 'ESPECIFICA' && !isBulkMode && !isPositionMode;
 
 
     useEffect(() => {
@@ -668,8 +669,8 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                             <FormField control={form.control} name="operationDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha de Operación <span className="text-destructive">*</span></FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={dialogMode === 'view'} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4 opacity-50" />{field.value ? format(field.value, "PPP", { locale: es }) : <span>Seleccione una fecha</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={dialogMode === 'view'} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
                                             {selectedConceptInfo?.tariffType === 'ESPECIFICA' ? (
                                                 <>
-                                                    {watchedConcept !== 'POSICIONES FIJAS CÁMARA CONGELADO' && !isBulkMode && (
-                                                    <FormField control={form.control} name="numeroPersonas" render={({ field }) => (<FormItem><FormLabel>No. Personas</FormLabel><FormControl><Input type="number" min="1" step="1" placeholder="1" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10))} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)}/>
+                                                    {showNumeroPersonas && (
+                                                        <FormField control={form.control} name="numeroPersonas" render={({ field }) => (<FormItem><FormLabel>No. Personas</FormLabel><FormControl><Input type="number" min="1" step="1" placeholder="1" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10))} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
                                                     )}
                                                     <FormField control={form.control} name="specificTariffs" render={() => (
                                                             <FormItem>
@@ -774,3 +775,5 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         </div>
     );
 }
+
+    
