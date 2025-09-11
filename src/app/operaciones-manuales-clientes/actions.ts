@@ -9,11 +9,14 @@ import { addDays, format, isBefore, isEqual, parseISO } from 'date-fns';
 
 export interface ManualClientOperationData {
     clientName: string;
-    operationDate: string; // ISO string like '2024-07-23T15:49:01.859Z'
+    operationDate?: string; // ISO string like '2024-07-23T15:49:01.859Z'
+    startDate?: string;
+    endDate?: string;
     concept: string;
     specificTariffs?: { tariffId: string; quantity: number }[];
     quantity?: number; // Kept for simple manual concepts
     numeroPersonas?: number;
+    numeroPosiciones?: number;
     details?: {
         startTime?: string; // HH:mm
         endTime?: string; // HH:mm
@@ -44,12 +47,22 @@ export async function addManualClientOperation(data: ManualClientOperationData):
     }
 
     try {
-        const { details, ...restOfData } = data;
+        const { details, operationDate, startDate, endDate, ...restOfData } = data;
         
+        let operationDateToSave;
+        if (data.concept === 'POSICIONES FIJAS CÁMARA CONGELADO') {
+            // For this special concept, the operationDate is the start of the range.
+            operationDateToSave = admin.firestore.Timestamp.fromDate(getColombiaDateFromISO(startDate!));
+        } else {
+            operationDateToSave = admin.firestore.Timestamp.fromDate(getColombiaDateFromISO(operationDate!));
+        }
+
         const operationWithTimestamp = {
             ...restOfData,
-            details: details || {}, // Ensure details is at least an empty object
-            operationDate: admin.firestore.Timestamp.fromDate(getColombiaDateFromISO(data.operationDate)),
+            details: details || {},
+            operationDate: operationDateToSave,
+            startDate: startDate ? admin.firestore.Timestamp.fromDate(getColombiaDateFromISO(startDate)) : undefined,
+            endDate: endDate ? admin.firestore.Timestamp.fromDate(getColombiaDateFromISO(endDate)) : undefined,
             createdAt: new Date().toISOString(),
         };
 
@@ -120,7 +133,7 @@ export async function addBulkManualClientOperation(data: BulkOperationData): Pro
                     concept,
                     operationDate: admin.firestore.Timestamp.fromDate(day),
                     specificTariffs,
-                    numeroPersonas: 1, // This is managed by the quantity of each tariff now
+                    numeroPersonas: roles.reduce((sum, r) => sum + r.numPersonas, 0),
                     details: {
                         startTime: '17:00',
                         endTime: '22:00',
@@ -156,11 +169,9 @@ export async function updateManualClientOperation(id: string, data: Omit<ManualC
     }
 
     try {
-        const { details, ...restOfData } = data;
+        const { details, operationDate, startDate, endDate, ...restOfData } = data;
         let finalSpecificTariffs: { tariffId: string; quantity: number }[] = [];
 
-        // Correctly handle the special concept "TIEMPO EXTRA FRIOAL (FIJO)"
-        // It uses a temporary "bulkRoles" field in the form state, which needs to be converted to specificTariffs for saving.
         if (data.concept === 'TIEMPO EXTRA FRIOAL (FIJO)') {
             const bulkRoles = (data as any).bulkRoles || [];
             finalSpecificTariffs = bulkRoles.flatMap((role: any) => {
@@ -173,21 +184,27 @@ export async function updateManualClientOperation(id: string, data: Omit<ManualC
                 return [];
             }).filter(Boolean);
         } else {
-            // For other concepts, use the specificTariffs array directly
             finalSpecificTariffs = data.specificTariffs || [];
         }
 
         const docRef = firestore.collection('manual_client_operations').doc(id);
         
-        // Prepare the final data object to be saved, ensuring consistency
+        let operationDateToSave;
+        if (data.concept === 'POSICIONES FIJAS CÁMARA CONGELADO') {
+             operationDateToSave = admin.firestore.Timestamp.fromDate(getColombiaDateFromISO(startDate!));
+        } else {
+            operationDateToSave = admin.firestore.Timestamp.fromDate(getColombiaDateFromISO(operationDate!));
+        }
+
         const operationWithTimestamp = {
             ...restOfData,
             specificTariffs: finalSpecificTariffs,
-            details: details || {}, // Ensure details is at least an empty object
-            operationDate: admin.firestore.Timestamp.fromDate(getColombiaDateFromISO(data.operationDate)),
+            details: details || {},
+            operationDate: operationDateToSave,
+            startDate: startDate ? admin.firestore.Timestamp.fromDate(getColombiaDateFromISO(startDate)) : undefined,
+            endDate: endDate ? admin.firestore.Timestamp.fromDate(getColombiaDateFromISO(endDate)) : undefined,
         };
         
-        // IMPORTANT: Remove the temporary bulkRoles field before saving to Firestore
         delete (operationWithTimestamp as any).bulkRoles;
 
         await docRef.update(operationWithTimestamp);
@@ -219,7 +236,4 @@ export async function deleteManualClientOperation(id: string): Promise<{ success
         return { success: false, message: `Error del servidor: ${errorMessage}` };
     }
 }
-
-
-
 
