@@ -1,9 +1,11 @@
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
 import { revalidatePath } from 'next/cache';
 import admin from 'firebase-admin';
-import { getDaysInMonth, startOfMonth, addDays, format, isBefore, isEqual, parseISO } from 'date-fns';
+import { getDaysInMonth, startOfMonth, addDays, format, isBefore, isEqual, parseISO, getDay } from 'date-fns';
+import { getClientBillingConcepts, type ClientBillingConcept } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 
 export interface ManualClientOperationData {
     clientName: string;
@@ -72,11 +74,19 @@ export interface BulkOperationData {
         nocturnaId: string;
         numPersonas: number;
     }[];
+    excedenteDiurno: number;
+    excedenteNocturno: number;
     createdBy: {
         uid: string;
         displayName: string;
     }
 }
+
+// Helper to parse time string HH:mm to minutes from midnight
+const timeToMinutes = (time: string): number => {
+    const [hours, minutes] = time.split(':').map(Number);
+    return hours * 60 + minutes;
+};
 
 export async function addBulkManualClientOperation(data: BulkOperationData): Promise<{ success: boolean; message: string; count: number }> {
     if (!firestore) {
@@ -84,8 +94,22 @@ export async function addBulkManualClientOperation(data: BulkOperationData): Pro
     }
 
     try {
-        const { startDate, endDate, clientName, concept, roles, createdBy } = data;
+        const { startDate, endDate, clientName, concept, roles, excedenteDiurno, excedenteNocturno, createdBy } = data;
         
+        const allConcepts = await getClientBillingConcepts();
+        const conceptConfig = allConcepts.find(c => c.conceptName === concept);
+        if (!conceptConfig || !conceptConfig.fixedTimeConfig) {
+            throw new Error(`La configuración para el concepto "${concept}" no fue encontrada.`);
+        }
+
+        const { weekdayStartTime, weekdayEndTime, saturdayStartTime, saturdayEndTime, dayShiftEndTime } = conceptConfig.fixedTimeConfig;
+
+        if (!weekdayStartTime || !weekdayEndTime || !saturdayStartTime || !saturdayEndTime || !dayShiftEndTime) {
+            throw new Error(`La configuración de horarios para "${concept}" está incompleta.`);
+        }
+
+        const dayShiftEndMinutes = timeToMinutes(dayShiftEndTime);
+
         const dateList: Date[] = [];
         let currentDate = parseISO(startDate);
         const finalDate = parseISO(endDate);
@@ -99,12 +123,49 @@ export async function addBulkManualClientOperation(data: BulkOperationData): Pro
         let operationsCount = 0;
 
         for (const day of dateList) {
+            const dayOfWeek = getDay(day); // Sunday = 0, Saturday = 6
+            
+            let baseStartTime: string, baseEndTime: string;
+            let totalDiurnoExcedente = 0, totalNocturnoExcedente = 0;
+
+            if (dayOfWeek === 6) { // Saturday
+                baseStartTime = saturdayStartTime;
+                baseEndTime = saturdayEndTime;
+                totalDiurnoExcedente = excedenteDiurno;
+                totalNocturnoExcedente = 0; // No aplica excedente nocturno para sábados
+            } else if (dayOfWeek > 0 && dayOfWeek < 6) { // Weekday
+                baseStartTime = weekdayStartTime;
+                baseEndTime = weekdayEndTime;
+                totalDiurnoExcedente = 0; // No aplica excedente diurno para L-V
+                totalNocturnoExcedente = excedenteNocturno;
+            } else { // Sunday or invalid day
+                continue;
+            }
+            
+            const startMinutes = timeToMinutes(baseStartTime);
+            const endMinutes = timeToMinutes(baseEndTime);
+            const totalBaseMinutes = endMinutes - startMinutes;
+            
+            const baseDiurnoMinutes = Math.max(0, Math.min(endMinutes, dayShiftEndMinutes) - startMinutes);
+            const baseNocturnoMinutes = Math.max(0, totalBaseMinutes - baseDiurnoMinutes);
+            
+            const baseDiurnoHours = baseDiurnoMinutes / 60;
+            const baseNocturnoHours = baseNocturnoMinutes / 60;
+            
             const specificTariffs = roles.flatMap(role => {
                 if (role.numPersonas > 0) {
-                    return [
-                        { tariffId: role.diurnaId, quantity: 4 * role.numPersonas },
-                        { tariffId: role.nocturnaId, quantity: 1 * role.numPersonas }
-                    ];
+                    const tariffs = [];
+                    // Base Diurno + Excedente Diurno (sábados)
+                    const finalDiurnoHours = baseDiurnoHours + totalDiurnoExcedente;
+                    if (finalDiurnoHours > 0) {
+                        tariffs.push({ tariffId: role.diurnaId, quantity: finalDiurnoHours * role.numPersonas });
+                    }
+                    // Base Nocturno + Excedente Nocturno (L-V)
+                    const finalNocturnoHours = baseNocturnoHours + totalNocturnoExcedente;
+                    if (finalNocturnoHours > 0) {
+                        tariffs.push({ tariffId: role.nocturnaId, quantity: finalNocturnoHours * role.numPersonas });
+                    }
+                    return tariffs;
                 }
                 return [];
             }).filter(Boolean);
@@ -117,10 +178,7 @@ export async function addBulkManualClientOperation(data: BulkOperationData): Pro
                     operationDate: admin.firestore.Timestamp.fromDate(day),
                     specificTariffs,
                     numeroPersonas: roles.reduce((sum, r) => sum + r.numPersonas, 0),
-                    details: {
-                        startTime: '17:00',
-                        endTime: '22:00',
-                    },
+                    details: { startTime: baseStartTime, endTime: baseEndTime },
                     createdAt: new Date().toISOString(),
                     createdBy,
                 };

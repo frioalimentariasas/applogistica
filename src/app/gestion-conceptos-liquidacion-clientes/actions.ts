@@ -20,6 +20,14 @@ export interface SpecificTariff {
   unit: 'HORA' | 'UNIDAD' | 'DIA' | 'VIAJE' | 'ALIMENTACION' | 'TRANSPORTE' | 'HORA EXTRA DIURNA' | 'HORA EXTRA NOCTURNA' | 'HORA EXTRA DIURNA DOMINGO Y FESTIVO' | 'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO' | 'TRANSPORTE EXTRAORDINARIO' | 'TRANSPORTE DOMINICAL Y FESTIVO' | 'POSICION/DIA' | 'POSICIONES/MES';
 }
 
+export interface FixedTimeConfig {
+    weekdayStartTime?: string;
+    weekdayEndTime?: string;
+    saturdayStartTime?: string;
+    saturdayEndTime?: string;
+    dayShiftEndTime?: string;
+}
+
 export interface ClientBillingConcept {
   id: string;
   conceptName: string;
@@ -43,6 +51,7 @@ export interface ClientBillingConcept {
   dayShiftEnd?: string;
   tariffRanges?: TariffRange[];
   specificTariffs?: SpecificTariff[];
+  fixedTimeConfig?: FixedTimeConfig; // New field for TIEMPO EXTRA FRIOAL (FIJO)
 }
 
 // Fetches all concepts
@@ -71,6 +80,7 @@ export async function getClientBillingConcepts(): Promise<ClientBillingConcept[]
         dayShiftEnd: data.dayShiftEnd,
         tariffRanges: Array.isArray(data.tariffRanges) ? data.tariffRanges : [],
         specificTariffs: Array.isArray(data.specificTariffs) ? data.specificTariffs : [],
+        fixedTimeConfig: data.fixedTimeConfig,
       } as ClientBillingConcept;
     });
   } catch (error) {
