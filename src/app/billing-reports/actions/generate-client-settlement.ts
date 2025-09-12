@@ -43,6 +43,7 @@ export interface ClientSettlementRow {
   operacionLogistica: string;
   pedidoSislog: string; 
   conceptName: string;
+  subConceptName?: string; // New field for child concept
   tipoVehiculo: string;
   quantity: number;
   unitOfMeasure: string;
@@ -468,11 +469,14 @@ export async function generateClientSettlement(criteria: {
                                         const finalEndTimeDate = addHours(addMinutes(new Date(`${date}T00:00:00`), timeToMinutes(opData.details.startTime)), totalDiurnaHours);
 
                                         settlementRows.push({
-                                            date, conceptName: diurnaTariff.name,
+                                            date, 
+                                            conceptName: concept.conceptName,
+                                            subConceptName: diurnaTariff.name,
                                             container: opData.details?.container || 'No Aplica',
                                             totalPaletas: opData.details?.totalPallets || 0,
                                             camara: 'No Aplica', operacionLogistica: 'No Aplica', pedidoSislog: 'Fijo Mensual', tipoVehiculo: 'No Aplica',
-                                            quantity: totalDiurnaHours, numeroPersonas: role.numPersonas, unitOfMeasure: diurnaTariff.unit,
+                                            quantity: totalDiurnaHours, 
+                                            numeroPersonas: role.numPersonas, unitOfMeasure: diurnaTariff.unit,
                                             unitValue: diurnaTariff.value || 0, totalValue: totalDiurnaHours * role.numPersonas * (diurnaTariff.value || 0),
                                             horaInicio: opData.details?.startTime || 'N/A',
                                             horaFin: format(finalEndTimeDate, 'HH:mm'),
@@ -490,13 +494,16 @@ export async function generateClientSettlement(criteria: {
                                     const totalNocturnaHours = baseNocturnaHours + excedentNocturno;
 
                                     if (totalNocturnaHours > 0) {
-                                         const finalEndTimeDate = addHours(addMinutes(new Date(`${date}T00:00:00`), timeToMinutes(opData.details.endTime)), excedentNocturno);
+                                        const finalEndTimeDate = addHours(addMinutes(new Date(`${date}T00:00:00`), timeToMinutes(opData.details.endTime)), excedentNocturno);
                                         settlementRows.push({
-                                            date, conceptName: nocturnaTariff.name,
+                                            date, 
+                                            conceptName: concept.conceptName,
+                                            subConceptName: nocturnaTariff.name,
                                             container: opData.details?.container || 'No Aplica',
                                             totalPaletas: opData.details?.totalPallets || 0,
                                             camara: 'No Aplica', operacionLogistica: 'No Aplica', pedidoSislog: 'Fijo Mensual', tipoVehiculo: 'No Aplica',
-                                            quantity: totalNocturnaHours, numeroPersonas: role.numPersonas, unitOfMeasure: nocturnaTariff.unit,
+                                            quantity: totalNocturnaHours, 
+                                            numeroPersonas: role.numPersonas, unitOfMeasure: nocturnaTariff.unit,
                                             unitValue: nocturnaTariff.value || 0, totalValue: totalNocturnaHours * role.numPersonas * (nocturnaTariff.value || 0),
                                             horaInicio: opData.details?.startTime || 'N/A', 
                                             horaFin: format(finalEndTimeDate, 'HH:mm'),
@@ -523,7 +530,8 @@ export async function generateClientSettlement(criteria: {
                                         camara: 'Congelados',
                                         operacionLogistica: 'No Aplica',
                                         pedidoSislog: 'Fijo Mensual',
-                                        conceptName: specificTariff.name,
+                                        conceptName: concept.conceptName,
+                                        subConceptName: specificTariff.name,
                                         tipoVehiculo: 'No Aplica',
                                         quantity: quantityForCalc,
                                         unitOfMeasure: specificTariff.unit,
@@ -557,7 +565,8 @@ export async function generateClientSettlement(criteria: {
                                         camara: 'No Aplica',
                                         operacionLogistica: 'No Aplica',
                                         pedidoSislog: 'No Aplica',
-                                        conceptName: specificTariff.name,
+                                        conceptName: concept.conceptName,
+                                        subConceptName: specificTariff.name,
                                         tipoVehiculo: 'No Aplica',
                                         quantity: appliedTariff.quantity,
                                         unitOfMeasure: specificTariff.unit,
@@ -663,6 +672,7 @@ const timeToMinutes = (timeStr: string): number => {
     const [hours, minutes] = timeStr.split(':').map(Number);
     return hours * 60 + minutes;
 };
+
 
 
 
