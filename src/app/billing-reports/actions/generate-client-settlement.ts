@@ -132,16 +132,16 @@ const serializeTimestamps = (data: any): any => {
         return data;
     }
     if (data instanceof admin.firestore.Timestamp) {
-        return data.toDate().toISOString();
+      return data.toDate().toISOString();
     }
     if (Array.isArray(data)) {
         return data.map(item => serializeTimestamps(item));
     }
     const newObj: { [key: string]: any } = {};
     for (const key in data) {
-        if (Object.prototype.hasOwnProperty.call(data, key)) {
+      if (Object.prototype.hasOwnProperty.call(data, key)) {
             newObj[key] = serializeTimestamps(data[key]);
-        }
+      }
     }
     return newObj;
 };
@@ -457,6 +457,10 @@ export async function generateClientSettlement(criteria: {
                             if (specificTariff) {
                                 const totalValue = (appliedTariff.quantity || 0) * (specificTariff.value || 0);
                                 if (totalValue > 0) {
+                                    const isDiurna = specificTariff.name.includes('DIURNA');
+                                    const quantityToShow = isDiurna ? 4 : 1;
+                                    const numPersonas = appliedTariff.quantity / quantityToShow;
+
                                     settlementRows.push({
                                         date,
                                         container: opData.details?.container || 'No Aplica',
@@ -466,8 +470,8 @@ export async function generateClientSettlement(criteria: {
                                         pedidoSislog: 'Fijo Mensual',
                                         conceptName: specificTariff.name,
                                         tipoVehiculo: 'No Aplica',
-                                        quantity: specificTariff.name.includes('DIURNA') ? 4 : 1, // Visual change
-                                        numeroPersonas: opData.numeroPersonas || (appliedTariff.quantity / (specificTariff.name.includes('DIURNA') ? 4 : 1)), // Visual change
+                                        quantity: quantityToShow,
+                                        numeroPersonas: numPersonas,
                                         unitOfMeasure: specificTariff.unit,
                                         unitValue: specificTariff.value || 0,
                                         totalValue: totalValue,
