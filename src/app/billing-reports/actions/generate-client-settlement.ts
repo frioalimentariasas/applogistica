@@ -6,7 +6,7 @@ import { firestore } from '@/lib/firebase-admin';
 import type { ClientBillingConcept, TariffRange, SpecificTariff } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 import { getClientBillingConcepts } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 import admin from 'firebase-admin';
-import { startOfDay, endOfDay, parseISO, differenceInHours, getDaysInMonth } from 'date-fns';
+import { startOfDay, endOfDay, parseISO, differenceInHours, getDaysInMonth, getDay } from 'date-fns';
 import type { ArticuloData } from '@/app/actions/articulos';
 
 
@@ -455,29 +455,35 @@ export async function generateClientSettlement(criteria: {
                         opData.specificTariffs.forEach((appliedTariff: { tariffId: string, quantity: number }) => {
                             const specificTariff = concept.specificTariffs?.find(t => t.id === appliedTariff.tariffId);
                             if (specificTariff) {
-                                const totalValue = (appliedTariff.quantity || 0) * (specificTariff.value || 0);
-                                if (totalValue > 0) {
-                                    const isDiurna = specificTariff.name.includes('DIURNA');
-                                    const fixedHours = isDiurna ? 4 : 1;
-                                    const numPersonas = appliedTariff.quantity / fixedHours;
+                                const dayOfWeek = getDay(parseISO(opData.operationDate));
+                                const excedente = (dayOfWeek === 6 ? opData.excedenteDiurno : opData.excedenteNocturno) || 0;
+                                const horasBase = specificTariff.name.includes('DIURNA') ? 4 : 1;
+                                
+                                const numPersonas = opData.numeroPersonas || 0;
 
-                                    settlementRows.push({
-                                        date,
-                                        container: opData.details?.container || 'No Aplica',
-                                        totalPaletas: opData.details?.totalPallets || 0,
-                                        camara: 'No Aplica',
-                                        operacionLogistica: 'No Aplica',
-                                        pedidoSislog: 'Fijo Mensual',
-                                        conceptName: specificTariff.name,
-                                        tipoVehiculo: 'No Aplica',
-                                        quantity: fixedHours,
-                                        numeroPersonas: numPersonas,
-                                        unitOfMeasure: specificTariff.unit,
-                                        unitValue: specificTariff.value || 0,
-                                        totalValue: totalValue,
-                                        horaInicio: opData.details?.startTime || '17:00',
-                                        horaFin: opData.details?.endTime || '22:00',
-                                    });
+                                if (numPersonas > 0) {
+                                    const totalHoras = (horasBase * numPersonas) + (excedente * numPersonas);
+                                    const totalValue = totalHoras * (specificTariff.value || 0);
+                                     
+                                    if(totalValue > 0) {
+                                        settlementRows.push({
+                                            date,
+                                            container: opData.details?.container || 'No Aplica',
+                                            totalPaletas: opData.details?.totalPallets || 0,
+                                            camara: 'No Aplica',
+                                            operacionLogistica: 'No Aplica',
+                                            pedidoSislog: 'Fijo Mensual',
+                                            conceptName: specificTariff.name,
+                                            tipoVehiculo: 'No Aplica',
+                                            quantity: horasBase + excedente,
+                                            numeroPersonas: numPersonas,
+                                            unitOfMeasure: specificTariff.unit,
+                                            unitValue: specificTariff.value || 0,
+                                            totalValue: totalValue,
+                                            horaInicio: opData.details?.startTime || '17:00',
+                                            horaFin: opData.details?.endTime || '22:00',
+                                        });
+                                    }
                                 }
                             }
                         });
@@ -578,8 +584,42 @@ export async function generateClientSettlement(criteria: {
             });
         }
     }
+    
+    const conceptOrder = [
+        'OPERACIÓN DESCARGUE',
+        'OPERACIÓN CARGUE',
+        'FMM DE INGRESO ZFPC',
+        'ARIN DE INGRESO ZFPC',
+        'FMM DE SALIDA ZFPC',
+        'ARIN DE SALIDA ZFPC',
+        'REESTIBADO',
+        'TOMA DE PESOS POR ETIQUETA HRS',
+        'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
+        'MOVIMIENTO SALIDA PRODUCTOS PALLET',
+        'CONEXIÓN ELÉCTRICA CONTENEDOR',
+        'ESTIBA MADERA RECICLADA',
+        'POSICIONES FIJAS CÁMARA CONGELADOS',
+        'INSPECCIÓN ZFPC',
+        'TIEMPO EXTRA FRIOAL (FIJO)',
+        'TIEMPO EXTRA ZFPC',
+        'IN-HOUSE INSPECTOR ZFPC',
+        'ALQUILER IMPRESORA ETIQUETADO',
+    ];
+    
+    settlementRows.sort((a, b) => {
+        const dateA = new Date(a.date).getTime();
+        const dateB = new Date(b.date).getTime();
+        if (dateA !== dateB) return dateA - dateB;
 
-    settlementRows.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+        const indexA = conceptOrder.indexOf(a.conceptName);
+        const indexB = conceptOrder.indexOf(b.conceptName);
+        const orderA = indexA === -1 ? Infinity : indexA;
+        const orderB = indexB === -1 ? Infinity : indexB;
+
+        if (orderA !== orderB) return orderA - orderB;
+
+        return a.conceptName.localeCompare(b.conceptName);
+    });
     
     return { success: true, data: settlementRows };
 
