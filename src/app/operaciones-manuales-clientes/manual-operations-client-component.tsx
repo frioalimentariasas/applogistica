@@ -57,20 +57,16 @@ const manualOperationSchema = z.object({
   clientName: z.string().min(1, 'El cliente es obligatorio.'),
   operationDate: z.date({ required_error: 'La fecha es obligatoria.' }).optional(),
   
-  // For bulk mode
   dateRange: z.custom<DateRange>(v => v instanceof Object && 'from' in v, {
     message: "El rango de fechas es obligatorio para la liquidación en lote.",
   }).optional(),
   bulkRoles: z.array(bulkRoleSchema).optional(),
 
-  // For positions
-  numeroPosiciones: z.coerce.number().int().min(1, "Debe ser al menos 1.").optional(),
-
-
   concept: z.string().min(1, 'El concepto es obligatorio.'),
   specificTariffs: z.array(specificTariffEntrySchema).optional(),
   quantity: z.coerce.number().min(0, 'La cantidad debe ser 0 o mayor.').optional(),
   numeroPersonas: z.coerce.number().int().min(1, "Debe ser al menos 1.").optional(),
+  numeroPosiciones: z.coerce.number().int().min(1, 'Debe ingresar al menos una posición.').optional(),
   details: z.object({
       startTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM requerido.').optional().or(z.literal('')),
       endTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM requerido.').optional().or(z.literal('')),
@@ -82,6 +78,7 @@ const manualOperationSchema = z.object({
 }).superRefine((data, ctx) => {
     const isBulkMode = data.concept === 'TIEMPO EXTRA FRIOAL (FIJO)';
     const isPositionMode = data.concept === 'POSICIONES FIJAS CÁMARA CONGELADOS';
+    const isFixedMonthlyService = isPositionMode || data.concept === 'IN-HOUSE INSPECTOR ZFPC';
 
     if (isBulkMode) {
       if (!data.dateRange?.from || !data.dateRange?.to) {
@@ -90,16 +87,16 @@ const manualOperationSchema = z.object({
       if (!data.bulkRoles || data.bulkRoles.every(r => r.numPersonas === 0)) {
            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Debe ingresar al menos una persona en algún rol.", path: ["bulkRoles"] });
       }
-    } else if (isPositionMode) {
+    } else if (isFixedMonthlyService) {
         if (!data.operationDate) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La fecha de liquidación es obligatoria.", path: ["operationDate"] });
         }
-        if (!data.specificTariffs || data.specificTariffs.length === 0) {
+        if (isPositionMode && (!data.specificTariffs || data.specificTariffs.length === 0)) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Debe seleccionar al menos una tarifa.", path: ["specificTariffs"] });
-        } else {
-            const excessTariff = data.specificTariffs.find(t => t.tariffId.includes('EXCESO'));
+        } else if (isPositionMode) {
+            const excessTariff = data.specificTariffs?.find(t => t.tariffId.includes('EXCESO'));
             if (excessTariff && (excessTariff.quantity === undefined || excessTariff.quantity <= 0)) {
-                 ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La cantidad para la tarifa de exceso es requerida.", path: [`specificTariffs.${data.specificTariffs.indexOf(excessTariff)}.quantity`] });
+                 ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La cantidad para la tarifa de exceso es requerida.", path: [`specificTariffs.${data.specificTariffs?.indexOf(excessTariff)}.quantity`] });
             }
         }
     } else {
@@ -126,6 +123,7 @@ const manualOperationSchema = z.object({
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El ARIN es obligatorio para este concepto.", path: ["details", "arin"] });
     }
 });
+
 
 type ManualOperationValues = z.infer<typeof manualOperationSchema>;
 
@@ -166,7 +164,6 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
             quantity: 1,
             specificTariffs: [],
             numeroPersonas: 1,
-            numeroPosiciones: undefined,
             details: {
                 startTime: '',
                 endTime: '',
@@ -187,10 +184,11 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     const watchedConcept = form.watch('concept');
     const watchedOperationDate = form.watch('operationDate');
     const selectedConceptInfo = useMemo(() => billingConcepts.find(c => c.conceptName === watchedConcept), [watchedConcept, billingConcepts]);
+    
     const isBulkMode = watchedConcept === 'TIEMPO EXTRA FRIOAL (FIJO)';
     const isPositionMode = watchedConcept === 'POSICIONES FIJAS CÁMARA CONGELADOS';
+    const isFixedMonthlyService = isPositionMode || watchedConcept === 'IN-HOUSE INSPECTOR ZFPC';
     const showNumeroPersonas = selectedConceptInfo?.tariffType === 'ESPECIFICA' && !isBulkMode && !isPositionMode;
-
 
     useEffect(() => {
         if (selectedConceptInfo?.tariffType !== 'ESPECIFICA') {
@@ -233,7 +231,6 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         } else if(showNumeroPersonas) {
              form.setValue('numeroPersonas', form.getValues('numeroPersonas') || 1);
         }
-
     }, [watchedConcept, selectedConceptInfo, form, isBulkMode, isPositionMode, showNumeroPersonas]);
 
     const fetchAllOperations = useCallback(async () => {
@@ -265,7 +262,6 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         }
 
         let results = operations;
-
         results = results.filter(op => format(parseISO(op.operationDate), 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd'));
 
         if (selectedClient !== 'all') {
@@ -336,7 +332,6 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 quantity: op.quantity,
                 specificTariffs: op.specificTariffs || [],
                 numeroPersonas: op.numeroPersonas || undefined,
-                numeroPosiciones: op.numeroPosiciones || undefined,
                 details: {
                     startTime: op.details?.startTime || '',
                     endTime: op.details?.endTime || '',
@@ -356,7 +351,6 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 concept: "",
                 specificTariffs: [],
                 numeroPersonas: 1,
-                numeroPosiciones: undefined,
                 details: {
                     startTime: '',
                     endTime: '',
@@ -620,129 +614,177 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                         <FormField control={form.control} name="clientName" render={({ field }) => ( <FormItem><FormLabel>Cliente <span className="text-destructive">*</span></FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={dialogMode === 'view'}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un cliente" /></SelectTrigger></FormControl><SelectContent><ScrollArea className="h-60">{clients.map(c => <SelectItem key={c.id} value={c.razonSocial}>{c.razonSocial}</SelectItem>)}</ScrollArea></SelectContent></Select><FormMessage /></FormItem> )}/>
                                         <FormField control={form.control} name="concept" render={({ field }) => ( <FormItem><FormLabel>Concepto de Liquidación</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={dialogMode === 'view'}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un concepto" /></SelectTrigger></FormControl><SelectContent><ScrollArea className="h-60">{billingConcepts.filter(c => c.calculationType === 'MANUAL').map(c => <SelectItem key={c.id} value={c.conceptName}>{c.conceptName}</SelectItem>)}</ScrollArea></SelectContent></Select><FormMessage /></FormItem> )}/>
 
-                                        {isPositionMode ? (
-                                            <>
-                                                <FormField control={form.control} name="operationDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha de Liquidación <span className="text-destructive">*</span></FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={dialogMode === 'view'} className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "PPP", { locale: es }) : <span>Seleccione fecha</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={dialogMode === 'view'} initialFocus /></PopoverContent></Popover>
+                                        {isFixedMonthlyService ? (
+                                            <FormField control={form.control} name="operationDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha de Liquidación <span className="text-destructive">*</span></FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={dialogMode === 'view'} className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "PPP", { locale: es }) : <span>Seleccione fecha</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={dialogMode === 'view'} initialFocus /></PopoverContent></Popover>
                                                 {field.value && <FormDescription>Se liquidarán {getDaysInMonth(field.value)} días para el mes de {format(field.value, 'MMMM', {locale: es})}.</FormDescription>}
                                                 <FormMessage /></FormItem> )} />
-                                                 <FormField control={form.control} name="specificTariffs" render={() => (
-                                                        <FormItem>
-                                                            <div className="mb-4"><FormLabel className="text-base">Tarifas a Aplicar <span className="text-destructive">*</span></FormLabel></div>
-                                                            <div className="space-y-3 border p-4 rounded-md">
-                                                                {(selectedConceptInfo?.specificTariffs || []).map((tariff: SpecificTariff) => (
-                                                                    <FormField key={tariff.id} control={form.control} name={`specificTariffs`}
-                                                                        render={({ field }) => {
-                                                                            const currentSelection = field.value?.find(v => v.tariffId === tariff.id);
-                                                                            const isSelected = !!currentSelection;
-                                                                            const isExcess = tariff.name.includes('EXCESO');
-                                                                            return (
-                                                                                <div className="flex flex-col sm:flex-row items-start sm:items-center space-y-2 sm:space-y-0 sm:space-x-3">
-                                                                                    <div className="flex items-center space-x-2 flex-shrink-0">
-                                                                                        <FormControl><Checkbox checked={isSelected} onCheckedChange={(checked) => {
+                                        ) : isBulkMode ? (
+                                            <FormField
+                                                control={form.control}
+                                                name="dateRange"
+                                                render={({ field }) => (
+                                                <FormItem className="flex flex-col">
+                                                    <FormLabel>Rango de Fechas de Liquidación</FormLabel>
+                                                    <Popover>
+                                                    <PopoverTrigger asChild>
+                                                        <FormControl>
+                                                            <Button
+                                                                id="date"
+                                                                variant={"outline"}
+                                                                className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}
+                                                                disabled={dialogMode === 'edit'}
+                                                            >
+                                                            <CalendarIcon className="mr-2 h-4 w-4" />
+                                                            {field.value?.from ? (
+                                                                field.value.to ? (
+                                                                <>
+                                                                    {format(field.value.from, "LLL dd, y")} -{" "}
+                                                                    {format(field.value.to, "LLL dd, y")}
+                                                                </>
+                                                                ) : (
+                                                                format(field.value.from, "LLL dd, y")
+                                                                )
+                                                            ) : (
+                                                                <span>Seleccione un rango</span>
+                                                            )}
+                                                            </Button>
+                                                        </FormControl>
+                                                    </PopoverTrigger>
+                                                    <PopoverContent className="w-auto p-0" align="start">
+                                                        <Calendar
+                                                            initialFocus
+                                                            mode="range"
+                                                            defaultMonth={field.value?.from}
+                                                            selected={field.value}
+                                                            onSelect={field.onChange}
+                                                            numberOfMonths={2}
+                                                            disabled={dialogMode === 'edit'}
+                                                        />
+                                                    </PopoverContent>
+                                                    </Popover>
+                                                    <FormMessage />
+                                                </FormItem>
+                                                )}
+                                            />
+                                        ) : (
+                                          <FormField control={form.control} name="operationDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha de Operación <span className="text-destructive">*</span></FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={dialogMode === 'view'} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4 opacity-50" />{field.value ? format(field.value, "PPP", { locale: es }) : <span>Seleccione una fecha</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={dialogMode === 'view'} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
+                                        )}
+
+                                        {isPositionMode ? (
+                                            <FormField control={form.control} name="specificTariffs" render={() => (
+                                                <FormItem>
+                                                    <div className="mb-4"><FormLabel className="text-base">Tarifas a Aplicar</FormLabel></div>
+                                                    <div className="space-y-3">
+                                                        {(selectedConceptInfo?.specificTariffs || []).map((tariff: SpecificTariff, index) => {
+                                                            return (
+                                                                <FormField key={tariff.id} control={form.control} name={`specificTariffs`}
+                                                                    render={({ field }) => {
+                                                                        const currentSelection = field.value?.find(v => v.tariffId === tariff.id);
+                                                                        const isSelected = !!currentSelection;
+                                                                        const isExcess = tariff.name.includes("EXCESO");
+                                                                        return (
+                                                                            <div className="flex flex-row items-start space-x-3 space-y-0">
+                                                                                <FormControl>
+                                                                                    <Checkbox checked={isSelected} onCheckedChange={(checked) => {
                                                                                             const newValue = checked ? [...(field.value || []), { tariffId: tariff.id, quantity: isExcess ? 0 : 1 }] : field.value?.filter((value) => value.tariffId !== tariff.id);
                                                                                             field.onChange(newValue);
-                                                                                        }} disabled={dialogMode === 'view'} /></FormControl>
-                                                                                        <FormLabel className="font-normal w-60">{tariff.name}</FormLabel>
-                                                                                    </div>
+                                                                                        }} disabled={dialogMode === 'view'}/>
+                                                                                </FormControl>
+                                                                                <div className="flex flex-col sm:flex-row justify-between w-full">
+                                                                                    <FormLabel className="font-normal">{tariff.name}</FormLabel>
                                                                                     {isSelected && isExcess && (
-                                                                                         <FormField control={form.control} name={`specificTariffs.${field.value?.findIndex(v => v.tariffId === tariff.id)}.quantity`}
+                                                                                        <FormField control={form.control} name={`specificTariffs.${field.value?.findIndex(v => v.tariffId === tariff.id)}.quantity`}
                                                                                             render={({ field: qtyField }) => (
-                                                                                                <FormItem className="w-full sm:w-auto flex-grow">
-                                                                                                    <FormLabel className="text-xs sr-only">Cantidad Exceso</FormLabel>
-                                                                                                    <FormControl><Input type="number" step="1" className="h-9" placeholder="Cant. Exceso" {...qtyField} disabled={dialogMode === 'view'} /></FormControl>
+                                                                                                <FormItem>
+                                                                                                    <div className="flex items-center gap-2">
+                                                                                                        <FormLabel className="text-xs">Cant. Exceso:</FormLabel>
+                                                                                                        <FormControl><Input type="number" min="1" step="1" className="h-7 w-24" {...qtyField} disabled={dialogMode === 'view'} /></FormControl>
+                                                                                                    </div>
                                                                                                     <FormMessage className="text-xs" />
                                                                                                 </FormItem>
                                                                                             )}
                                                                                         />
                                                                                     )}
                                                                                 </div>
-                                                                            );
-                                                                        }}
-                                                                    />
-                                                                ))}
-                                                            </div>
+                                                                            </div>
+                                                                        );
+                                                                    }}
+                                                                />
+                                                            );
+                                                        })}
+                                                    </div>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}/>
+                                        ) : selectedConceptInfo?.tariffType === 'ESPECIFICA' ? (
+                                            <>
+                                                {showNumeroPersonas && (
+                                                    <FormField control={form.control} name="numeroPersonas" render={({ field }) => (<FormItem><FormLabel>No. Personas</FormLabel><FormControl><Input type="number" min="1" step="1" placeholder="1" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10))} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
+                                                )}
+                                                <FormField control={form.control} name="specificTariffs" render={() => (
+                                                        <FormItem>
+                                                            <div className="mb-4"><FormLabel className="text-base">Tarifas a Aplicar</FormLabel></div>
+                                                            <ScrollArea className="h-40 border rounded-md p-2">
+                                                                <div className="space-y-3">
+                                                                    {(selectedConceptInfo.specificTariffs || []).map((tariff: SpecificTariff, index) => {
+                                                                        return (
+                                                                            <FormField key={tariff.id} control={form.control} name={`specificTariffs`}
+                                                                                render={({ field }) => {
+                                                                                    const currentSelection = field.value?.find(v => v.tariffId === tariff.id);
+                                                                                    const isSelected = !!currentSelection;
+                                                                                    return (
+                                                                                        <div className="flex flex-row items-start space-x-3 space-y-0">
+                                                                                            <FormControl>
+                                                                                                <Checkbox checked={isSelected} onCheckedChange={(checked) => {
+                                                                                                        const newValue = checked ? [...(field.value || []), { tariffId: tariff.id, quantity: 1 }] : field.value?.filter((value) => value.tariffId !== tariff.id);
+                                                                                                        field.onChange(newValue);
+                                                                                                    }} disabled={dialogMode === 'view'}/>
+                                                                                            </FormControl>
+                                                                                            <div className="flex flex-col sm:flex-row justify-between w-full">
+                                                                                                <FormLabel className="font-normal">{tariff.name}</FormLabel>
+                                                                                                {isSelected && (
+                                                                                                    <FormField control={form.control} name={`specificTariffs.${field.value?.findIndex(v => v.tariffId === tariff.id)}.quantity`}
+                                                                                                        render={({ field: qtyField }) => (
+                                                                                                            <FormItem>
+                                                                                                                <div className="flex items-center gap-2">
+                                                                                                                    <FormLabel className="text-xs">Cant:</FormLabel>
+                                                                                                                    <FormControl><Input type="number" step="0.1" className="h-7 w-24" {...qtyField} disabled={dialogMode === 'view'} /></FormControl>
+                                                                                                                </div>
+                                                                                                                <FormMessage className="text-xs" />
+                                                                                                            </FormItem>
+                                                                                                        )}
+                                                                                                    />
+                                                                                                )}
+                                                                                            </div>
+                                                                                        </div>
+                                                                                    );
+                                                                                }}
+                                                                            />
+                                                                        );
+                                                                    })}
+                                                                </div>
+                                                            </ScrollArea>
                                                             <FormMessage />
                                                         </FormItem>
                                                     )}/>
                                             </>
-                                        ) : isBulkMode ? (
+                                        ) : ( !isFixedMonthlyService && <FormField control={form.control} name="quantity" render={({ field }) => (<FormItem><FormLabel>Cantidad</FormLabel><FormControl><Input type="number" step="0.01" placeholder="Ej: 1.5" {...field} value={field.value ?? ''} disabled={dialogMode === 'view' || watchedConcept === 'INSPECCIÓN ZFPC'} /></FormControl><FormMessage /></FormItem>)}/>)}
+                                        
+                                        {(showAdvancedFields || dialogMode === 'view') && (
                                             <>
-                                                {/* Bulk mode form elements */}
+                                                <Separator />
+                                                <p className="text-sm font-medium text-muted-foreground">Detalles Adicionales</p>
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <FormField control={form.control} name="details.startTime" render={({ field }) => (<FormItem><FormLabel>Hora Inicio</FormLabel><div className="flex items-center gap-2"><FormControl><Input type="time" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} className="flex-grow" /></FormControl>{dialogMode !== 'view' && (<Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('details.startTime')}><Clock className="h-4 w-4" /></Button>)}</div><FormMessage /></FormItem>)} />
+                                                    <FormField control={form.control} name="details.endTime" render={({ field }) => (<FormItem><FormLabel>Hora Fin</FormLabel><div className="flex items-center gap-2"><FormControl><Input type="time" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} className="flex-grow" /></FormControl>{dialogMode !== 'view' && (<Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('details.endTime')}><Clock className="h-4 w-4" /></Button>)}</div><FormMessage /></FormItem>)} />
+                                                </div>
+                                                <FormField control={form.control} name="details.container" render={({ field }) => (<FormItem><FormLabel>Contenedor {<span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Contenedor" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
+                                                {showInspectionFields && (
+                                                    <FormField control={form.control} name="details.arin" render={({ field }) => (<FormItem><FormLabel>ARIN <span className="text-destructive">*</span></FormLabel><FormControl><Input placeholder="Número de ARIN" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
+                                                )}
+                                                <FormField control={form.control} name="details.plate" render={({ field }) => (<FormItem><FormLabel>Placa (Opcional)</FormLabel><FormControl><Input placeholder="ABC123" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
+                                                <FormField control={form.control} name="details.totalPallets" render={({ field }) => (<FormItem><FormLabel>Total Paletas</FormLabel><FormControl><Input type="number" step="1" placeholder="Ej: 10" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value === '' ? null : parseInt(e.target.value, 10))}/></FormControl><FormMessage /></FormItem>)}/>
                                             </>
-                                        ) : (
-                                          <>
-                                            <FormField control={form.control} name="operationDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha de Operación <span className="text-destructive">*</span></FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={dialogMode === 'view'} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4 opacity-50" />{field.value ? format(field.value, "PPP", { locale: es }) : <span>Seleccione una fecha</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={dialogMode === 'view'} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
-                                            {selectedConceptInfo?.tariffType === 'ESPECIFICA' ? (
-                                                <>
-                                                    {showNumeroPersonas && (
-                                                        <FormField control={form.control} name="numeroPersonas" render={({ field }) => (<FormItem><FormLabel>No. Personas</FormLabel><FormControl><Input type="number" min="1" step="1" placeholder="1" {...field} onChange={e => field.onChange(parseInt(e.target.value, 10))} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
-                                                    )}
-                                                    <FormField control={form.control} name="specificTariffs" render={() => (
-                                                            <FormItem>
-                                                                <div className="mb-4"><FormLabel className="text-base">Tarifas a Aplicar</FormLabel></div>
-                                                                <ScrollArea className="h-40 border rounded-md p-2">
-                                                                    <div className="space-y-3">
-                                                                        {(selectedConceptInfo.specificTariffs || []).map((tariff: SpecificTariff, index) => {
-                                                                            return (
-                                                                                <FormField key={tariff.id} control={form.control} name={`specificTariffs`}
-                                                                                    render={({ field }) => {
-                                                                                        const currentSelection = field.value?.find(v => v.tariffId === tariff.id);
-                                                                                        const isSelected = !!currentSelection;
-                                                                                        return (
-                                                                                            <div className="flex flex-row items-start space-x-3 space-y-0">
-                                                                                                <FormControl>
-                                                                                                    <Checkbox checked={isSelected} onCheckedChange={(checked) => {
-                                                                                                            const newValue = checked ? [...(field.value || []), { tariffId: tariff.id, quantity: 1 }] : field.value?.filter((value) => value.tariffId !== tariff.id);
-                                                                                                            field.onChange(newValue);
-                                                                                                        }} disabled={dialogMode === 'view'}/>
-                                                                                                </FormControl>
-                                                                                                <div className="flex flex-col sm:flex-row justify-between w-full">
-                                                                                                    <FormLabel className="font-normal">{tariff.name}</FormLabel>
-                                                                                                    {isSelected && (
-                                                                                                        <FormField control={form.control} name={`specificTariffs.${field.value?.findIndex(v => v.tariffId === tariff.id)}.quantity`}
-                                                                                                            render={({ field: qtyField }) => (
-                                                                                                                <FormItem>
-                                                                                                                    <div className="flex items-center gap-2">
-                                                                                                                        <FormLabel className="text-xs">Cant:</FormLabel>
-                                                                                                                        <FormControl><Input type="number" step="0.1" className="h-7 w-24" {...qtyField} disabled={dialogMode === 'view'} /></FormControl>
-                                                                                                                    </div>
-                                                                                                                    <FormMessage className="text-xs" />
-                                                                                                                </FormItem>
-                                                                                                            )}
-                                                                                                        />
-                                                                                                    )}
-                                                                                                </div>
-                                                                                            </div>
-                                                                                        );
-                                                                                    }}
-                                                                                />
-                                                                            );
-                                                                        })}
-                                                                    </div>
-                                                                </ScrollArea>
-                                                                <FormMessage />
-                                                            </FormItem>
-                                                        )}/>
-                                                </>
-                                            ) : ( <FormField control={form.control} name="quantity" render={({ field }) => (<FormItem><FormLabel>Cantidad</FormLabel><FormControl><Input type="number" step="0.01" placeholder="Ej: 1.5" {...field} value={field.value ?? ''} disabled={dialogMode === 'view' || watchedConcept === 'INSPECCIÓN ZFPC'} /></FormControl><FormMessage /></FormItem>)}/>)}
-                                            
-                                            {(showAdvancedFields || dialogMode === 'view') && (
-                                                <>
-                                                    <Separator />
-                                                    <p className="text-sm font-medium text-muted-foreground">Detalles Adicionales</p>
-                                                    <div className="grid grid-cols-2 gap-4">
-                                                        <FormField control={form.control} name="details.startTime" render={({ field }) => (<FormItem><FormLabel>Hora Inicio</FormLabel><div className="flex items-center gap-2"><FormControl><Input type="time" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} className="flex-grow" /></FormControl>{dialogMode !== 'view' && (<Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('details.startTime')}><Clock className="h-4 w-4" /></Button>)}</div><FormMessage /></FormItem>)} />
-                                                        <FormField control={form.control} name="details.endTime" render={({ field }) => (<FormItem><FormLabel>Hora Fin</FormLabel><div className="flex items-center gap-2"><FormControl><Input type="time" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} className="flex-grow" /></FormControl>{dialogMode !== 'view' && (<Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('details.endTime')}><Clock className="h-4 w-4" /></Button>)}</div><FormMessage /></FormItem>)} />
-                                                    </div>
-                                                    <FormField control={form.control} name="details.container" render={({ field }) => (<FormItem><FormLabel>Contenedor {<span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Contenedor" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
-                                                    {showInspectionFields && (
-                                                        <FormField control={form.control} name="details.arin" render={({ field }) => (<FormItem><FormLabel>ARIN <span className="text-destructive">*</span></FormLabel><FormControl><Input placeholder="Número de ARIN" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
-                                                    )}
-                                                    <FormField control={form.control} name="details.plate" render={({ field }) => (<FormItem><FormLabel>Placa (Opcional)</FormLabel><FormControl><Input placeholder="ABC123" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
-                                                    <FormField control={form.control} name="details.totalPallets" render={({ field }) => (<FormItem><FormLabel>Total Paletas</FormLabel><FormControl><Input type="number" step="1" placeholder="Ej: 10" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value === '' ? null : parseInt(e.target.value, 10))}/></FormControl><FormMessage /></FormItem>)}/>
-                                                </>
-                                            )}
-                                          </>
                                         )}
                                         
                                         <DialogFooter>
@@ -780,3 +822,6 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         </div>
     );
 }
+
+
+    

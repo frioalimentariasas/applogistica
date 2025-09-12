@@ -1,12 +1,11 @@
 
-
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
 import type { ClientBillingConcept, TariffRange, SpecificTariff } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 import { getClientBillingConcepts } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 import admin from 'firebase-admin';
-import { startOfDay, endOfDay, parseISO, differenceInHours, differenceInDays, getDaysInMonth } from 'date-fns';
+import { startOfDay, endOfDay, parseISO, differenceInHours, getDaysInMonth } from 'date-fns';
 import type { ArticuloData } from '@/app/actions/articulos';
 
 
@@ -167,7 +166,7 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
         .where('formData.fecha', '<=', serverQueryEndDate)
         .get();
 
-    // Fetch all manual operations in the date range (filter by client in code)
+    // Fetch all manual operations in the date range and filter by client later.
     const manualOpsSnapshot = await firestore.collection('manual_client_operations')
         .where('operationDate', '>=', serverQueryStartDate)
         .where('operationDate', '<=', serverQueryEndDate)
@@ -453,7 +452,7 @@ export async function generateClientSettlement(criteria: {
 
                     if (concept.tariffType === 'ESPECIFICA' && Array.isArray(opData.specificTariffs) && opData.specificTariffs.length > 0) {
                         
-                        if(opData.concept === 'POSICIONES FIJAS CÁMARA CONGELADOS') {
+                         if (opData.concept === 'POSICIONES FIJAS CÁMARA CONGELADOS') {
                             const operationDate = parseISO(opData.operationDate);
                             const numDias = getDaysInMonth(operationDate);
 
@@ -462,9 +461,10 @@ export async function generateClientSettlement(criteria: {
                                 if (specificTariff) {
                                     const isExcess = specificTariff.name.includes('EXCESO');
                                     const basePositions = isExcess ? 0 : (specificTariff.name.includes('600') ? 600 : 200);
-                                    const quantityForReport = isExcess ? appliedTariff.quantity : basePositions;
+                                    // For fixed tariffs, quantity is fixed. For excess, it's user-provided.
+                                    const quantityForCalc = isExcess ? appliedTariff.quantity : basePositions;
 
-                                    if (quantityForReport > 0) {
+                                    if (quantityForCalc > 0) {
                                         settlementRows.push({
                                             date,
                                             container: opData.details?.container || 'No Aplica',
@@ -474,10 +474,10 @@ export async function generateClientSettlement(criteria: {
                                             pedidoSislog: 'Fijo Mensual',
                                             conceptName: specificTariff.name,
                                             tipoVehiculo: 'No Aplica',
-                                            quantity: quantityForReport,
+                                            quantity: quantityForCalc,
                                             unitOfMeasure: specificTariff.unit,
                                             unitValue: specificTariff.value || 0,
-                                            totalValue: quantityForReport * (specificTariff.value || 0) * numDias,
+                                            totalValue: quantityForCalc * (specificTariff.value || 0) * numDias,
                                             horaInicio: 'No Aplica',
                                             horaFin: 'No Aplica',
                                             numeroPersonas: undefined,
@@ -485,8 +485,7 @@ export async function generateClientSettlement(criteria: {
                                     }
                                 }
                             });
-
-                        } else { // Standard specific tariffs
+                         } else { // Standard specific tariffs
                             opData.specificTariffs.forEach((appliedTariff: { tariffId: string, quantity: number }) => {
                                 const specificTariff = concept.specificTariffs?.find(t => t.id === appliedTariff.tariffId);
                                 if (specificTariff) {
@@ -498,9 +497,8 @@ export async function generateClientSettlement(criteria: {
                                     
                                     if(opData.concept === 'TIEMPO EXTRA FRIOAL (FIJO)') {
                                         quantityForReport = appliedTariff.quantity; // Total hours
-                                        numPersonas = isHourly && appliedTariff.quantity > 0
-                                            ? (specificTariff.name.includes('DIURNA') ? appliedTariff.quantity / 4 : appliedTariff.quantity)
-                                            : undefined;
+                                        const hoursBase = specificTariff.name.includes('DIURNA') ? 4 : 1;
+                                        numPersonas = isHourly && quantityForReport > 0 ? (quantityForReport / hoursBase) : undefined;
                                     } else {
                                         quantityForReport = appliedTariff.quantity;
                                         numPersonas = opData.numeroPersonas || undefined;
@@ -535,6 +533,16 @@ export async function generateClientSettlement(criteria: {
                             });
                         }
                     } else if (concept.tariffType === 'UNICA') {
+                         let quantityForCalc = opData.quantity || 0;
+                         let totalValue = quantityForCalc * (concept.value || 0);
+                         
+                         if(concept.conceptName === 'IN-HOUSE INSPECTOR ZFPC') {
+                            const operationDate = parseISO(opData.operationDate);
+                            const numDias = getDaysInMonth(operationDate);
+                            quantityForCalc = numDias; // The quantity is the number of days in the month
+                            totalValue = numDias * (concept.value || 0);
+                         }
+
                          settlementRows.push({
                             date,
                             container: opData.details?.container || 'No Aplica',
@@ -544,10 +552,10 @@ export async function generateClientSettlement(criteria: {
                             pedidoSislog: 'No Aplica',
                             conceptName: concept.conceptName,
                             tipoVehiculo: 'No Aplica',
-                            quantity: opData.quantity || 0,
+                            quantity: quantityForCalc,
                             unitOfMeasure: concept.unitOfMeasure,
                             unitValue: concept.value || 0,
-                            totalValue: (opData.quantity || 0) * (concept.value || 0),
+                            totalValue: totalValue,
                             horaInicio: opData.details?.startTime || 'No Aplica',
                             horaFin: opData.details?.endTime || 'No Aplica',
                         });
@@ -577,8 +585,3 @@ export async function generateClientSettlement(criteria: {
     return { success: false, error: error.message || 'Ocurrió un error desconocido en el servidor.' };
   }
 }
-
-
-
-
-    
