@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -6,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useForm, SubmitHandler, useFieldArray } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { format, parseISO, addDays, getDaysInMonth } from 'date-fns';
+import { format, parseISO, addDays, getDaysInMonth, getDay, isSaturday, isSunday } from 'date-fns';
 import { DateRange } from 'react-day-picker';
 import { es } from 'date-fns/locale';
 
@@ -175,8 +176,8 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 arin: '',
             },
             bulkRoles: [],
-            excedenteDiurno: '0',
-            excedenteNocturno: '0',
+            excedenteDiurno: 0,
+            excedenteNocturno: 0,
         }
     });
 
@@ -312,8 +313,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                     const diurnaTariff = conceptInfo?.specificTariffs?.find(t => t.name.includes(r.role) && t.name.includes(r.diurna));
                     const nocturnaTariff = conceptInfo?.specificTariffs?.find(t => t.name.includes(r.role) && t.name.includes(r.nocturna));
     
-                    const savedDiurnaTariff = (op.specificTariffs || []).find((t: any) => t.tariffId === diurnaTariff?.id);
-                    const numPersonas = savedDiurnaTariff ? savedDiurnaTariff.quantity / 4 : 0;
+                    const savedRole = (op.bulkRoles || []).find((br: any) => br.roleName === r.role);
     
                     return {
                         roleName: r.role,
@@ -323,7 +323,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                         nocturnaLabel: nocturnaTariff?.name || 'No encontrado',
                         diurnaValue: diurnaTariff?.value || 0,
                         nocturnaValue: nocturnaTariff?.value || 0,
-                        numPersonas: numPersonas,
+                        numPersonas: savedRole?.numPersonas || 0,
                     };
                 }).filter(r => r.diurnaId && r.nocturnaId);
             }
@@ -345,8 +345,8 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 },
                 dateRange: (op.concept === 'TIEMPO EXTRA FRIOAL (FIJO)') ? { from: parseISO(op.operationDate), to: parseISO(op.operationDate) } : undefined,
                 bulkRoles: bulkRolesData,
-                excedenteDiurno: op.excedenteDiurno || '0',
-                excedenteNocturno: op.excedenteNocturno || '0',
+                excedenteDiurno: op.excedenteDiurno || 0,
+                excedenteNocturno: op.excedenteNocturno || 0,
             });
         } else {
             form.reset({
@@ -365,8 +365,8 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                     arin: '',
                 },
                 bulkRoles: [],
-                excedenteDiurno: '0',
-                excedenteNocturno: '0',
+                excedenteDiurno: 0,
+                excedenteNocturno: 0,
             });
         }
         setIsDialogOpen(true);
@@ -667,7 +667,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                             selected={field.value}
                                                             onSelect={field.onChange}
                                                             numberOfMonths={2}
-                                                            disabled={dialogMode === 'edit'}
+                                                            disabled={(date) => isSunday(date) || dialogMode === 'edit'}
                                                         />
                                                     </PopoverContent>
                                                     </Popover>
@@ -749,8 +749,8 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                 ))}
                                                 <Separator />
                                                 <div className="grid grid-cols-2 gap-4">
-                                                  <FormField name="excedenteDiurno" control={form.control} render={({ field }) => (<FormItem><FormLabel>Horas Diurnas Excedentes (Sáb)</FormLabel><FormControl><Input type="text" inputMode="decimal" {...field} /></FormControl><FormMessage /></FormItem>)}/>
                                                   <FormField name="excedenteNocturno" control={form.control} render={({ field }) => (<FormItem><FormLabel>Horas Nocturnas Excedentes (L-V)</FormLabel><FormControl><Input type="text" inputMode="decimal" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                                                  <FormField name="excedenteDiurno" control={form.control} render={({ field }) => (<FormItem><FormLabel>Horas Diurnas Excedentes (Sáb)</FormLabel><FormControl><Input type="text" inputMode="decimal" {...field} /></FormControl><FormMessage /></FormItem>)}/>
                                                 </div>
                                             </div>
                                         ) : selectedConceptInfo?.tariffType === 'ESPECIFICA' ? (
@@ -859,3 +859,4 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         </div>
     );
 }
+

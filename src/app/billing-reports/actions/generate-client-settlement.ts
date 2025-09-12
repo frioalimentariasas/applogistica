@@ -451,20 +451,28 @@ export async function generateClientSettlement(criteria: {
                 if (concept) {
                     const date = opData.operationDate ? new Date(opData.operationDate).toISOString().split('T')[0] : startDate;
 
-                    if (concept.conceptName === 'TIEMPO EXTRA FRIOAL (FIJO)' && Array.isArray(opData.specificTariffs)) {
+                     if (concept.conceptName === 'TIEMPO EXTRA FRIOAL (FIJO)' && Array.isArray(opData.specificTariffs)) {
                         opData.specificTariffs.forEach((appliedTariff: { tariffId: string, quantity: number }) => {
                             const specificTariff = concept.specificTariffs?.find(t => t.id === appliedTariff.tariffId);
                             if (specificTariff) {
-                                const dayOfWeek = getDay(parseISO(opData.operationDate));
-                                const excedente = (dayOfWeek === 6 ? opData.excedenteDiurno : opData.excedenteNocturno) || 0;
-                                const horasBase = specificTariff.name.includes('DIURNA') ? 4 : 1;
+                                // Find the role configuration for this tariff to get the number of people
+                                const roleConfig = opData.bulkRoles?.find((r: any) => r.diurnaId === appliedTariff.tariffId || r.nocturnaId === appliedTariff.tariffId);
+                                const numPersonas = roleConfig?.numPersonas || 0;
                                 
-                                const numPersonas = opData.numeroPersonas || 0;
-
                                 if (numPersonas > 0) {
-                                    const totalHoras = (horasBase * numPersonas) + (excedente * numPersonas);
-                                    const totalValue = totalHoras * (specificTariff.value || 0);
-                                     
+                                    // Base hours
+                                    const isDiurna = specificTariff.name.includes("DIURNA");
+                                    const isSabado = getDay(parseISO(opData.operationDate)) === 6;
+                                    const baseHours = isSabado ? (isDiurna ? 5 : 0) : (isDiurna ? 4 : 1);
+                                    
+                                    // Excedent hours
+                                    const excedentDiurno = isSabado ? (opData.excedenteDiurno || 0) : 0;
+                                    const excedentNocturno = !isSabado ? (opData.excedenteNocturno || 0) : 0;
+                                    
+                                    const finalHours = isDiurna ? (baseHours + excedentDiurno) : (baseHours + excedentNocturno);
+                                    
+                                    const totalValue = finalHours * numPersonas * (specificTariff.value || 0);
+
                                     if(totalValue > 0) {
                                         settlementRows.push({
                                             date,
@@ -475,7 +483,7 @@ export async function generateClientSettlement(criteria: {
                                             pedidoSislog: 'Fijo Mensual',
                                             conceptName: specificTariff.name,
                                             tipoVehiculo: 'No Aplica',
-                                            quantity: horasBase + excedente,
+                                            quantity: finalHours,
                                             numeroPersonas: numPersonas,
                                             unitOfMeasure: specificTariff.unit,
                                             unitValue: specificTariff.value || 0,
