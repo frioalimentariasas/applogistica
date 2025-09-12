@@ -452,25 +452,30 @@ export async function generateClientSettlement(criteria: {
                     const date = opData.operationDate ? new Date(opData.operationDate).toISOString().split('T')[0] : startDate;
 
                      if (concept.conceptName === 'TIEMPO EXTRA FRIOAL (FIJO)' && Array.isArray(opData.specificTariffs)) {
+                        const operationDate = parseISO(opData.operationDate);
+                        const dayOfWeek = getDay(operationDate);
+                        const isSaturday = dayOfWeek === 6;
+                        const dayString = format(operationDate, 'yyyy-MM-dd');
+                        const excedentEntry = (opData.excedentes || []).find((e: any) => e.date === dayString);
+                        const excedentHours = excedentEntry ? Number(excedentEntry.hours) || 0 : 0;
+
                         opData.specificTariffs.forEach((appliedTariff: { tariffId: string, quantity: number }) => {
                             const specificTariff = concept.specificTariffs?.find(t => t.id === appliedTariff.tariffId);
                             if (specificTariff) {
-                                // Find the role configuration for this tariff to get the number of people
                                 const roleConfig = opData.bulkRoles?.find((r: any) => r.diurnaId === appliedTariff.tariffId || r.nocturnaId === appliedTariff.tariffId);
                                 const numPersonas = roleConfig?.numPersonas || 0;
                                 
                                 if (numPersonas > 0) {
-                                    // Base hours
                                     const isDiurna = specificTariff.name.includes("DIURNA");
-                                    const isSabado = getDay(parseISO(opData.operationDate)) === 6;
-                                    const baseHours = isSabado ? (isDiurna ? 5 : 0) : (isDiurna ? 4 : 1);
+                                    const baseHours = appliedTariff.quantity || 0;
                                     
-                                    // Excedent hours
-                                    const excedentDiurno = isSabado ? (opData.excedenteDiurno || 0) : 0;
-                                    const excedentNocturno = !isSabado ? (opData.excedenteNocturno || 0) : 0;
-                                    
-                                    const finalHours = isDiurna ? (baseHours + excedentDiurno) : (baseHours + excedentNocturno);
-                                    
+                                    let finalHours = baseHours;
+                                    if (isSaturday && isDiurna) {
+                                        finalHours += excedentHours;
+                                    } else if (!isSaturday && !isDiurna) { // L-V y Nocturna
+                                        finalHours += excedentHours;
+                                    }
+
                                     const totalValue = finalHours * numPersonas * (specificTariff.value || 0);
 
                                     if(totalValue > 0) {
@@ -647,4 +652,5 @@ export async function generateClientSettlement(criteria: {
     return { success: false, error: error.message || 'Ocurrió un error desconocido en el servidor.' };
   }
 }
+
 
