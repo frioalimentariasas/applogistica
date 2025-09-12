@@ -4,7 +4,7 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm, SubmitHandler, useFieldArray, useWatch, FieldErrors } from 'react-hook-form';
+import { useForm, SubmitHandler, useFieldArray, useWatch, FieldErrors, useFormContext } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { format, parseISO, addDays, getDaysInMonth, getDay, isSaturday, isSunday, isWithinInterval, startOfDay } from 'date-fns';
@@ -688,34 +688,6 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                 </div>
                                                 ))}
                                                 <Separator />
-                                                <FormLabel className="text-base pt-2 block">Horas Excedentes</FormLabel>
-                                                <div className="space-y-2">
-                                                    {excedentFields.map((field, index) => {
-                                                        const date = parseISO(field.date);
-                                                        const dayType = isSaturday(date) ? 'Sábado' : 'L-V';
-                                                        return (
-                                                            <div key={field.id} className="flex items-center justify-between gap-2 p-2 bg-muted/50 rounded-md">
-                                                                <p className="text-sm">
-                                                                    <span className="font-semibold">{format(date, 'PPP', { locale: es })}</span> ({dayType})
-                                                                </p>
-                                                                <div className="flex items-center gap-2">
-                                                                    <Label htmlFor={`excedente-hours-${index}`} className="text-xs">{dayType === 'Sábado' ? 'H. Diurnas' : 'H. Nocturnas'}</Label>
-                                                                    <Input 
-                                                                        id={`excedente-hours-${index}`}
-                                                                        type="number"
-                                                                        step="0.1"
-                                                                        className="h-8 w-24"
-                                                                        value={field.hours}
-                                                                        onChange={e => updateExcedent(index, { date: field.date, hours: parseFloat(e.target.value) || 0 })}
-                                                                    />
-                                                                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removeExcedent(index)}>
-                                                                        <X className="h-4 w-4" />
-                                                                    </Button>
-                                                                </div>
-                                                            </div>
-                                                        )
-                                                    })}
-                                                </div>
                                                 <ExcedentManager />
                                             </div>
                                         ) : selectedConceptInfo?.tariffType === 'ESPECIFICA' ? (
@@ -849,7 +821,7 @@ const ExcedentManager = () => {
 
     const isDateValid = (date: Date) => {
         if (!dateRange?.from || !dateRange.to) return false;
-        return isWithinInterval(date, { start: startOfDay(dateRange.from), end: startOfDay(dateRange.to) });
+        return isWithinInterval(date, { start: startOfDay(dateRange.from), end: startOfDay(dateRange.to) }) && !isSunday(date);
     };
 
     const dayType = excedentDate ? (isSaturday(excedentDate) ? 'Sábado (Diurnas)' : 'L-V (Nocturnas)') : 'Seleccione Fecha';
@@ -857,37 +829,65 @@ const ExcedentManager = () => {
     return (
         <div className="space-y-3 p-3 border rounded-md">
             <h4 className="text-sm font-medium">Gestionar Horas Excedentes</h4>
-            <div className="flex flex-col sm:flex-row gap-2 items-start">
-                <Popover>
-                    <PopoverTrigger asChild>
-                        <Button variant="outline" className={cn("w-full sm:w-auto justify-start text-left font-normal", !excedentDate && "text-muted-foreground")}>
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {excedentDate ? format(excedentDate, "PPP", { locale: es }) : <span>Seleccione fecha</span>}
-                        </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
-                        <Calendar
-                            mode="single"
-                            selected={excedentDate}
-                            onSelect={setExcedentDate}
-                            disabled={(date) => !isDateValid(date) || isSunday(date)}
-                            initialFocus
-                            month={dateRange?.from}
+             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-end">
+                <div className="space-y-1">
+                    <Label>Fecha del Excedente</Label>
+                    <Popover>
+                        <PopoverTrigger asChild>
+                            <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !excedentDate && "text-muted-foreground")} disabled={!dateRange?.from || !dateRange.to}>
+                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                {excedentDate ? format(excedentDate, "PPP", { locale: es }) : <span>Seleccione fecha</span>}
+                            </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0">
+                            <Calendar
+                                mode="single"
+                                selected={excedentDate}
+                                onSelect={setExcedentDate}
+                                disabled={(date) => !isDateValid(date)}
+                                initialFocus
+                                month={dateRange?.from}
+                            />
+                        </PopoverContent>
+                    </Popover>
+                </div>
+                <div className="flex items-end gap-2">
+                    <div className="space-y-1 flex-grow">
+                        <Label>Horas Excedentes</Label>
+                        <Input
+                            type="text"
+                            inputMode="decimal"
+                            placeholder={dayType}
+                            value={excedentHours}
+                            onChange={e => setExcedentHours(e.target.value)}
+                            disabled={!excedentDate}
                         />
-                    </PopoverContent>
-                </Popover>
-                <div className="flex-grow flex items-center gap-2">
-                    <Input
-                        type="text"
-                        inputMode="decimal"
-                        placeholder={`H. Exced. ${dayType}`}
-                        value={excedentHours}
-                        onChange={e => setExcedentHours(e.target.value)}
-                        disabled={!excedentDate}
-                    />
+                    </div>
                     <Button type="button" size="sm" onClick={handleAddExcedent} disabled={!excedentDate || !excedentHours}>Agregar</Button>
                 </div>
             </div>
+             {fields.length > 0 && (
+                <div className="space-y-2 mt-2">
+                    <h5 className="text-xs font-semibold text-muted-foreground">Excedentes Registrados:</h5>
+                     <ScrollArea className="h-24">
+                        <div className="space-y-1 pr-2">
+                            {fields.map((field, index) => {
+                                const date = parseISO(field.date);
+                                const dayType = isSaturday(date) ? 'Sáb' : 'L-V';
+                                return (
+                                    <div key={field.id} className="flex items-center justify-between text-sm p-1.5 bg-muted/50 rounded-md">
+                                        <span>{format(date, "d MMM", { locale: es })} ({dayType})</span>
+                                        <div className="flex items-center gap-2">
+                                            <span className="font-mono">{field.hours.toLocaleString('es-CO')} hrs</span>
+                                            <Button type="button" variant="ghost" size="icon" className="h-5 w-5 text-destructive" onClick={() => remove(index)}><X className="h-3 w-3" /></Button>
+                                        </div>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    </ScrollArea>
+                </div>
+            )}
         </div>
     )
 }
