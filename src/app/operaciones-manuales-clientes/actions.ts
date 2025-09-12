@@ -1,4 +1,3 @@
-
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -29,7 +28,11 @@ export interface ManualClientOperationData {
     createdBy?: {
         uid: string;
         displayName: string;
-    }
+    },
+    // New fields for bulk operations
+    bulkRoles?: any[],
+    excedenteDiurno?: number;
+    excedenteNocturno?: number;
 }
 
 
@@ -125,25 +128,20 @@ export async function addBulkManualClientOperation(data: BulkOperationData): Pro
         for (const day of dateList) {
             const dayOfWeek = getDay(day); // Sunday = 0, Saturday = 6
             
-            let baseStartTime: string, baseEndTime: string;
-            let totalDiurnoExcedente = 0, totalNocturnoExcedente = 0;
-
+            let baseStartTimeStr: string, baseEndTimeStr: string;
+            
             if (dayOfWeek === 6) { // Saturday
-                baseStartTime = saturdayStartTime;
-                baseEndTime = saturdayEndTime;
-                totalDiurnoExcedente = excedenteDiurno;
-                totalNocturnoExcedente = 0; // No aplica excedente nocturno para sábados
+                baseStartTimeStr = saturdayStartTime;
+                baseEndTimeStr = saturdayEndTime;
             } else if (dayOfWeek > 0 && dayOfWeek < 6) { // Weekday
-                baseStartTime = weekdayStartTime;
-                baseEndTime = weekdayEndTime;
-                totalDiurnoExcedente = 0; // No aplica excedente diurno para L-V
-                totalNocturnoExcedente = excedenteNocturno;
+                baseStartTimeStr = weekdayStartTime;
+                baseEndTimeStr = weekdayEndTime;
             } else { // Sunday or invalid day
                 continue;
             }
             
-            const startMinutes = timeToMinutes(baseStartTime);
-            const endMinutes = timeToMinutes(baseEndTime);
+            const startMinutes = timeToMinutes(baseStartTimeStr);
+            const endMinutes = timeToMinutes(baseEndTimeStr);
             const totalBaseMinutes = endMinutes - startMinutes;
             
             const baseDiurnoMinutes = Math.max(0, Math.min(endMinutes, dayShiftEndMinutes) - startMinutes);
@@ -155,13 +153,13 @@ export async function addBulkManualClientOperation(data: BulkOperationData): Pro
             const specificTariffs = roles.flatMap(role => {
                 if (role.numPersonas > 0) {
                     const tariffs = [];
-                    // Base Diurno + Excedente Diurno (sábados)
-                    const finalDiurnoHours = baseDiurnoHours + totalDiurnoExcedente;
+                    // Sábados solo tienen excedente diurno
+                    const finalDiurnoHours = baseDiurnoHours + (dayOfWeek === 6 ? excedenteDiurno : 0);
                     if (finalDiurnoHours > 0) {
                         tariffs.push({ tariffId: role.diurnaId, quantity: finalDiurnoHours * role.numPersonas });
                     }
-                    // Base Nocturno + Excedente Nocturno (L-V)
-                    const finalNocturnoHours = baseNocturnoHours + totalNocturnoExcedente;
+                    // L-V solo tienen excedente nocturno
+                    const finalNocturnoHours = baseNocturnoHours + (dayOfWeek > 0 && dayOfWeek < 6 ? excedenteNocturno : 0);
                     if (finalNocturnoHours > 0) {
                         tariffs.push({ tariffId: role.nocturnaId, quantity: finalNocturnoHours * role.numPersonas });
                     }
@@ -178,9 +176,11 @@ export async function addBulkManualClientOperation(data: BulkOperationData): Pro
                     operationDate: admin.firestore.Timestamp.fromDate(day),
                     specificTariffs,
                     numeroPersonas: roles.reduce((sum, r) => sum + r.numPersonas, 0),
-                    details: { startTime: baseStartTime, endTime: baseEndTime },
+                    details: { startTime: baseStartTimeStr, endTime: baseEndTimeStr },
                     createdAt: new Date().toISOString(),
                     createdBy,
+                    excedenteDiurno: dayOfWeek === 6 ? excedenteDiurno : 0,
+                    excedenteNocturno: dayOfWeek > 0 && dayOfWeek < 6 ? excedenteNocturno : 0,
                 };
                 batch.set(docRef, operationData);
                 operationsCount++;

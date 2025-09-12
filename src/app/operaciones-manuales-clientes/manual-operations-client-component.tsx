@@ -1,5 +1,3 @@
-
-
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -61,6 +59,8 @@ const manualOperationSchema = z.object({
     message: "El rango de fechas es obligatorio para la liquidación en lote.",
   }).optional(),
   bulkRoles: z.array(bulkRoleSchema).optional(),
+  excedenteDiurno: z.coerce.number().min(0).optional().default(0),
+  excedenteNocturno: z.coerce.number().min(0).optional().default(0),
 
   concept: z.string().min(1, 'El concepto es obligatorio.'),
   specificTariffs: z.array(specificTariffEntrySchema).optional(),
@@ -174,6 +174,8 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 arin: '',
             },
             bulkRoles: [],
+            excedenteDiurno: 0,
+            excedenteNocturno: 0,
         }
     });
 
@@ -220,9 +222,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
             }).filter(r => r.diurnaId && r.nocturnaId);
 
             form.setValue('bulkRoles', bulkRoles);
-            form.setValue('details.startTime', '17:00');
-            form.setValue('details.endTime', '22:00');
-
+            
         } else {
              form.setValue('quantity', undefined);
              form.setValue('bulkRoles', []);
@@ -344,6 +344,8 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 },
                 dateRange: (op.concept === 'TIEMPO EXTRA FRIOAL (FIJO)') ? { from: parseISO(op.operationDate), to: parseISO(op.operationDate) } : undefined,
                 bulkRoles: bulkRolesData,
+                excedenteDiurno: op.excedenteDiurno || 0,
+                excedenteNocturno: op.excedenteNocturno || 0,
             });
         } else {
             form.reset({
@@ -362,6 +364,8 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                     arin: '',
                 },
                 bulkRoles: [],
+                excedenteDiurno: 0,
+                excedenteNocturno: 0,
             });
         }
         setIsDialogOpen(true);
@@ -390,6 +394,8 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                         startDate: data.dateRange!.from!.toISOString(),
                         endDate: data.dateRange!.to!.toISOString(),
                         roles: data.bulkRoles!.filter(r => r.numPersonas > 0),
+                        excedenteDiurno: data.excedenteDiurno || 0,
+                        excedenteNocturno: data.excedenteNocturno || 0,
                         createdBy: { uid: user.uid, displayName: displayName || user.email! }
                     };
                     const result = await addBulkManualClientOperation(bulkData);
@@ -740,6 +746,11 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                     />
                                                 </div>
                                                 ))}
+                                                <Separator />
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <FormField name="excedenteDiurno" control={form.control} render={({ field }) => (<FormItem><FormLabel>Horas Diurnas Excedentes (Sáb)</FormLabel><FormControl><Input type="number" min="0" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                                                    <FormField name="excedenteNocturno" control={form.control} render={({ field }) => (<FormItem><FormLabel>Horas Nocturnas Excedentes (L-V)</FormLabel><FormControl><Input type="number" min="0" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                                                </div>
                                             </div>
                                         ) : selectedConceptInfo?.tariffType === 'ESPECIFICA' ? (
                                             <>
