@@ -1,3 +1,4 @@
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -5,6 +6,11 @@ import { revalidatePath } from 'next/cache';
 import admin from 'firebase-admin';
 import { getDaysInMonth, startOfMonth, addDays, format, isBefore, isEqual, parseISO, getDay } from 'date-fns';
 import { getClientBillingConcepts, type ClientBillingConcept } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
+
+export interface ExcedentEntry {
+    date: string; // YYYY-MM-DD
+    hours: number;
+}
 
 export interface ManualClientOperationData {
     clientName: string;
@@ -31,8 +37,7 @@ export interface ManualClientOperationData {
     },
     // New fields for bulk operations
     bulkRoles?: any[],
-    excedenteDiurno?: number;
-    excedenteNocturno?: number;
+    excedentes?: ExcedentEntry[];
 }
 
 
@@ -77,8 +82,7 @@ export interface BulkOperationData {
         nocturnaId: string;
         numPersonas: number;
     }[];
-    excedenteDiurno: number;
-    excedenteNocturno: number;
+    excedentes: ExcedentEntry[];
     createdBy: {
         uid: string;
         displayName: string;
@@ -97,7 +101,7 @@ export async function addBulkManualClientOperation(data: BulkOperationData): Pro
     }
 
     try {
-        const { startDate, endDate, clientName, concept, roles, excedenteDiurno, excedenteNocturno, createdBy } = data;
+        const { startDate, endDate, clientName, concept, roles, excedentes, createdBy } = data;
         
         const allConcepts = await getClientBillingConcepts();
         const conceptConfig = allConcepts.find(c => c.conceptName === concept);
@@ -112,6 +116,7 @@ export async function addBulkManualClientOperation(data: BulkOperationData): Pro
         }
 
         const dayShiftEndMinutes = timeToMinutes(dayShiftEndTime);
+        const excedentesMap = new Map(excedentes.map(e => [e.date, e.hours]));
 
         const dateList: Date[] = [];
         let currentDate = parseISO(startDate);
@@ -129,11 +134,13 @@ export async function addBulkManualClientOperation(data: BulkOperationData): Pro
             const dayOfWeek = getDay(day); // Sunday = 0, Saturday = 6
             
             let baseStartTimeStr: string, baseEndTimeStr: string;
+            const isWeekDay = dayOfWeek > 0 && dayOfWeek < 6;
+            const isSaturday = dayOfWeek === 6;
             
-            if (dayOfWeek === 6) { // Saturday
+            if (isSaturday) {
                 baseStartTimeStr = saturdayStartTime;
                 baseEndTimeStr = saturdayEndTime;
-            } else if (dayOfWeek > 0 && dayOfWeek < 6) { // Weekday
+            } else if (isWeekDay) {
                 baseStartTimeStr = weekdayStartTime;
                 baseEndTimeStr = weekdayEndTime;
             } else { // Sunday or invalid day
@@ -149,24 +156,30 @@ export async function addBulkManualClientOperation(data: BulkOperationData): Pro
             
             const baseDiurnoHours = baseDiurnoMinutes / 60;
             const baseNocturnoHours = baseNocturnoMinutes / 60;
+
+            const dayString = format(day, 'yyyy-MM-dd');
+            const excedentHours = excedentesMap.get(dayString) || 0;
             
             const specificTariffs = roles.flatMap(role => {
                 if (role.numPersonas > 0) {
                     const tariffs = [];
-                    // Sábados solo tienen excedente diurno
-                    const finalDiurnoHours = baseDiurnoHours + (dayOfWeek === 6 ? excedenteDiurno : 0);
+                    
+                    // Sábados -> Excedente es Diurno
+                    const finalDiurnoHours = baseDiurnoHours + (isSaturday ? excedentHours : 0);
                     if (finalDiurnoHours > 0) {
-                        tariffs.push({ tariffId: role.diurnaId, quantity: finalDiurnoHours * role.numPersonas });
+                        tariffs.push({ tariffId: role.diurnaId, quantity: finalDiurnoHours });
                     }
-                    // L-V solo tienen excedente nocturno
-                    const finalNocturnoHours = baseNocturnoHours + (dayOfWeek > 0 && dayOfWeek < 6 ? excedenteNocturno : 0);
+                    
+                    // L-V -> Excedente es Nocturno
+                    const finalNocturnoHours = baseNocturnoHours + (isWeekDay ? excedentHours : 0);
                     if (finalNocturnoHours > 0) {
-                        tariffs.push({ tariffId: role.nocturnaId, quantity: finalNocturnoHours * role.numPersonas });
+                        tariffs.push({ tariffId: role.nocturnaId, quantity: finalNocturnoHours });
                     }
-                    return tariffs;
+                    return tariffs.map(t => ({...t, numPersonas: role.numPersonas}));
                 }
                 return [];
             }).filter(Boolean);
+
 
             if (specificTariffs.length > 0) {
                 const docRef = firestore.collection('manual_client_operations').doc();
@@ -175,12 +188,11 @@ export async function addBulkManualClientOperation(data: BulkOperationData): Pro
                     concept,
                     operationDate: admin.firestore.Timestamp.fromDate(day),
                     specificTariffs,
-                    numeroPersonas: roles.reduce((sum, r) => sum + r.numPersonas, 0),
+                    bulkRoles: roles.filter(r => r.numPersonas > 0),
                     details: { startTime: baseStartTimeStr, endTime: baseEndTimeStr },
                     createdAt: new Date().toISOString(),
                     createdBy,
-                    excedenteDiurno: dayOfWeek === 6 ? excedenteDiurno : 0,
-                    excedenteNocturno: dayOfWeek > 0 && dayOfWeek < 6 ? excedenteNocturno : 0,
+                    excedentes: excedentesMap.has(dayString) ? [{ date: dayString, hours: excedentHours }] : [],
                 };
                 batch.set(docRef, operationData);
                 operationsCount++;
@@ -277,3 +289,4 @@ export async function deleteManualClientOperation(id: string): Promise<{ success
         return { success: false, message: `Error del servidor: ${errorMessage}` };
     }
 }
+
