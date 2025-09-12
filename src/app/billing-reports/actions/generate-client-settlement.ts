@@ -457,7 +457,7 @@ export async function generateClientSettlement(criteria: {
 
                          opData.bulkRoles.forEach((role: any) => {
                             if (role.numPersonas > 0) {
-                                // Add Diurna hours
+                                
                                 const diurnaTariff = concept.specificTariffs?.find(t => t.id === role.diurnaId);
                                 if (diurnaTariff) {
                                     const baseDiurnaHours = opData.details.endTime === '17:00' ? 5 : 4;
@@ -484,7 +484,6 @@ export async function generateClientSettlement(criteria: {
                                     }
                                 }
 
-                                // Add Nocturna hours
                                 const nocturnaTariff = concept.specificTariffs?.find(t => t.id === role.nocturnaId);
                                 if (nocturnaTariff) {
                                     const baseNocturnaHours = opData.details.endTime === '17:00' ? 0 : 1;
@@ -672,6 +671,7 @@ const timeToMinutes = (timeStr: string): number => {
     const [hours, minutes] = timeStr.split(':').map(Number);
     return hours * 60 + minutes;
 };
+
 
 
 
