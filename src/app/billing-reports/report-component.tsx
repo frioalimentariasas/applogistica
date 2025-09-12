@@ -1105,6 +1105,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         
         worksheet.columns = [
             { header: 'Fecha', key: 'date', width: 15 },
+            { header: 'No. Personas', key: 'numeroPersonas', width: 15 },
             { header: 'Total Paletas', key: 'totalPaletas', width: 15 },
             { header: 'Contenedor', key: 'container', width: 20 },
             { header: 'Cámara', key: 'camara', width: 20 },
@@ -1112,7 +1113,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             { header: 'Op. Logística', key: 'operacionLogistica', width: 15 },
             { header: 'Concepto', key: 'conceptName', width: 40 },
             { header: 'Tipo Vehículo', key: 'tipoVehiculo', width: 15 },
-            { header: 'No. Personas', key: 'numeroPersonas', width: 15 },
             { header: 'H. Inicio', key: 'horaInicio', width: 15 },
             { header: 'H. Fin', key: 'horaFin', width: 15 },
             { header: 'Cantidad', key: 'quantity', width: 15 },
@@ -1208,7 +1208,29 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     }
     
     const settlementGroupedData = useMemo(() => {
-        return settlementReportData.reduce((acc, row) => {
+        const conceptOrder = [
+            'OPERACIÓN DESCARGUE',
+            'OPERACIÓN CARGUE',
+            'FMM DE INGRESO ZFPC',
+            'ARIN DE INGRESO ZFPC',
+            'FMM DE SALIDA ZFPC',
+            'ARIN DE SALIDA ZFPC',
+            'REESTIBADO',
+            'TOMA DE PESOS POR ETIQUETA HRS',
+            'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
+            'MOVIMIENTO SALIDA PRODUCTOS PALLET',
+            'CONEXIÓN ELÉCTRICA CONTENEDOR',
+            'ESTIBA MADERA RECICLADA',
+            'POSICIONES FIJAS CÁMARA CONGELADOS',
+            'INSPECCIÓN ZFPC',
+            'TIEMPO EXTRA FRIOAL (FIJO)',
+            'TIEMPO EXTRA ZFPC',
+            'IN-HOUSE INSPECTOR ZFPC',
+            'ALQUILER IMPRESORA ETIQUETADO',
+        ];
+        
+        // First, group data
+        const grouped = settlementReportData.reduce((acc, row) => {
             if (!acc[row.conceptName]) {
                 acc[row.conceptName] = { rows: [], subtotalCantidad: 0, subtotalValor: 0 };
             }
@@ -1217,6 +1239,28 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             acc[row.conceptName].subtotalValor += row.totalValue || 0;
             return acc;
         }, {} as Record<string, { rows: ClientSettlementRow[], subtotalCantidad: number, subtotalValor: number }>);
+        
+        // Then, sort the keys based on the custom order
+        const sortedKeys = Object.keys(grouped).sort((a, b) => {
+            const indexA = conceptOrder.indexOf(a);
+            const indexB = conceptOrder.indexOf(b);
+
+            const orderA = indexA === -1 ? Infinity : indexA;
+            const orderB = indexB === -1 ? Infinity : indexB;
+
+            if (orderA !== orderB) {
+                return orderA - orderB;
+            }
+            return a.localeCompare(b); // Fallback to alphabetical for concepts not in the list
+        });
+
+        // Create a new object with sorted keys
+        const sortedGroupedData: Record<string, { rows: ClientSettlementRow[], subtotalCantidad: number, subtotalValor: number }> = {};
+        sortedKeys.forEach(key => {
+            sortedGroupedData[key] = grouped[key];
+        });
+
+        return sortedGroupedData;
     }, [settlementReportData]);
     
     const settlementTotalGeneral = useMemo(() => {
@@ -2107,7 +2151,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                     Array.from({length: 3}).map((_, i) => <TableRow key={i}><TableCell colSpan={15}><Skeleton className="h-8 w-full"/></TableCell></TableRow>)
                                                 ) : settlementGroupedData && Object.keys(settlementGroupedData).length > 0 ? (
                                                     <>
-                                                        {Object.keys(settlementGroupedData).sort().map(conceptName => (
+                                                        {Object.keys(settlementGroupedData).map(conceptName => (
                                                             <React.Fragment key={conceptName}>
                                                                 <TableRow className="bg-muted hover:bg-muted">
                                                                     <TableCell colSpan={15} className="font-bold text-primary text-sm p-2">{conceptName}</TableCell>
@@ -2199,4 +2243,5 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         </div>
     );
 }
+
 
