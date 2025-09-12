@@ -458,8 +458,8 @@ export async function generateClientSettlement(criteria: {
                                 const totalValue = (appliedTariff.quantity || 0) * (specificTariff.value || 0);
                                 if (totalValue > 0) {
                                     const isDiurna = specificTariff.name.includes('DIURNA');
-                                    const quantityToShow = isDiurna ? 4 : 1;
-                                    const numPersonas = appliedTariff.quantity / quantityToShow;
+                                    const fixedHours = isDiurna ? 4 : 1;
+                                    const numPersonas = appliedTariff.quantity / fixedHours;
 
                                     settlementRows.push({
                                         date,
@@ -470,7 +470,7 @@ export async function generateClientSettlement(criteria: {
                                         pedidoSislog: 'Fijo Mensual',
                                         conceptName: specificTariff.name,
                                         tipoVehiculo: 'No Aplica',
-                                        quantity: quantityToShow,
+                                        quantity: fixedHours,
                                         numeroPersonas: numPersonas,
                                         unitOfMeasure: specificTariff.unit,
                                         unitValue: specificTariff.value || 0,
@@ -579,7 +579,46 @@ export async function generateClientSettlement(criteria: {
         }
     }
 
-    settlementRows.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime() || a.conceptName.localeCompare(b.conceptName));
+    const conceptOrder = [
+        'OPERACIÓN DESCARGUE',
+        'OPERACIÓN CARGUE',
+        'FMM DE INGRESO ZFPC',
+        'ARIN DE INGRESO ZFPC',
+        'FMM DE SALIDA ZFPC',
+        'ARIN DE SALIDA ZFPC',
+        'REESTIBADO',
+        'TOMA DE PESOS POR ETIQUETA HRS',
+        'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
+        'MOVIMIENTO SALIDA PRODUCTOS PALLET',
+        'CONEXIÓN ELÉCTRICA CONTENEDOR',
+        'ESTIBA MADERA RECICLADA',
+        'POSICIONES FIJAS CÁMARA CONGELADOS',
+        'INSPECCIÓN ZFPC',
+        'TIEMPO EXTRA FRIOAL (FIJO)',
+        'TIEMPO EXTRA ZFPC',
+        'IN-HOUSE INSPECTOR ZFPC',
+        'ALQUILER IMPRESORA ETIQUETADO',
+    ];
+
+    settlementRows.sort((a, b) => {
+        const dateA = new Date(a.date).getTime();
+        const dateB = new Date(b.date).getTime();
+        if (dateA !== dateB) {
+            return dateA - dateB;
+        }
+
+        const indexA = conceptOrder.indexOf(a.conceptName);
+        const indexB = conceptOrder.indexOf(b.conceptName);
+
+        const orderA = indexA === -1 ? Infinity : indexA;
+        const orderB = indexB === -1 ? Infinity : indexB;
+
+        if (orderA !== orderB) {
+            return orderA - orderB;
+        }
+
+        return a.conceptName.localeCompare(b.conceptName);
+    });
     
     return { success: true, data: settlementRows };
 
