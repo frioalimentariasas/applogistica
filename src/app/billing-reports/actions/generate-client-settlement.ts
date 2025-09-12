@@ -6,7 +6,7 @@ import { firestore } from '@/lib/firebase-admin';
 import type { ClientBillingConcept, TariffRange, SpecificTariff } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 import { getClientBillingConcepts } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 import admin from 'firebase-admin';
-import { startOfDay, endOfDay, parseISO, differenceInHours, getDaysInMonth, getDay } from 'date-fns';
+import { startOfDay, endOfDay, parseISO, differenceInHours, getDaysInMonth, getDay, format } from 'date-fns';
 import type { ArticuloData } from '@/app/actions/articulos';
 
 
@@ -457,8 +457,7 @@ export async function generateClientSettlement(criteria: {
                         const isSaturday = dayOfWeek === 6;
                         const dayString = format(operationDate, 'yyyy-MM-dd');
                         const excedentEntry = (opData.excedentes || []).find((e: any) => e.date === dayString);
-                        const excedentHours = excedentEntry ? Number(excedentEntry.hours) || 0 : 0;
-
+                        
                         opData.specificTariffs.forEach((appliedTariff: { tariffId: string, quantity: number }) => {
                             const specificTariff = concept.specificTariffs?.find(t => t.id === appliedTariff.tariffId);
                             if (specificTariff) {
@@ -467,15 +466,19 @@ export async function generateClientSettlement(criteria: {
                                 
                                 if (numPersonas > 0) {
                                     const isDiurna = specificTariff.name.includes("DIURNA");
-                                    const baseHours = appliedTariff.quantity || 0;
+                                    const isNocturna = specificTariff.name.includes("NOCTURNA");
+                                    let baseHours = appliedTariff.quantity || 0;
                                     
-                                    let finalHours = baseHours;
-                                    if (isSaturday && isDiurna) {
-                                        finalHours += excedentHours;
-                                    } else if (!isSaturday && !isDiurna) { // L-V y Nocturna
-                                        finalHours += excedentHours;
+                                    let excedentHours = 0;
+                                    if (excedentEntry) {
+                                        if (isSaturday && isDiurna) {
+                                            excedentHours = excedentEntry.hours;
+                                        } else if (!isSaturday && isNocturna) {
+                                            excedentHours = excedentEntry.hours;
+                                        }
                                     }
 
+                                    const finalHours = baseHours + excedentHours;
                                     const totalValue = finalHours * numPersonas * (specificTariff.value || 0);
 
                                     if(totalValue > 0) {
@@ -652,5 +655,6 @@ export async function generateClientSettlement(criteria: {
     return { success: false, error: error.message || 'Ocurrió un error desconocido en el servidor.' };
   }
 }
+
 
 
