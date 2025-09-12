@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -460,9 +461,8 @@ export async function generateClientSettlement(criteria: {
                                 const specificTariff = concept.specificTariffs?.find(t => t.id === appliedTariff.tariffId);
                                 if (specificTariff) {
                                     const isExcess = specificTariff.name.includes('EXCESO');
-                                    const basePositions = isExcess ? 0 : (specificTariff.name.includes('600') ? 600 : 200);
                                     // For fixed tariffs, quantity is fixed. For excess, it's user-provided.
-                                    const quantityForCalc = isExcess ? appliedTariff.quantity : basePositions;
+                                    const quantityForCalc = isExcess ? appliedTariff.quantity : (specificTariff.name.includes('600') ? 600 : (specificTariff.name.includes('200') ? 200 : 0));
 
                                     if (quantityForCalc > 0) {
                                         settlementRows.push({
@@ -536,7 +536,7 @@ export async function generateClientSettlement(criteria: {
                          let quantityForCalc = opData.quantity || 0;
                          let totalValue = quantityForCalc * (concept.value || 0);
                          
-                         if(concept.conceptName === 'IN-HOUSE INSPECTOR ZFPC') {
+                         if(concept.conceptName === 'IN-HOUSE INSPECTOR ZFPC' || concept.conceptName === 'ALQUILER IMPRESORA ETIQUETADO') {
                             const operationDate = parseISO(opData.operationDate);
                             const numDias = getDaysInMonth(operationDate);
                             quantityForCalc = numDias; // The quantity is the number of days in the month
@@ -585,3 +585,4 @@ export async function generateClientSettlement(criteria: {
     return { success: false, error: error.message || 'Ocurrió un error desconocido en el servidor.' };
   }
 }
+

@@ -78,7 +78,8 @@ const manualOperationSchema = z.object({
 }).superRefine((data, ctx) => {
     const isBulkMode = data.concept === 'TIEMPO EXTRA FRIOAL (FIJO)';
     const isPositionMode = data.concept === 'POSICIONES FIJAS CÁMARA CONGELADOS';
-    const isFixedMonthlyService = isPositionMode || data.concept === 'IN-HOUSE INSPECTOR ZFPC';
+    const isFixedMonthlyService = isPositionMode || data.concept === 'IN-HOUSE INSPECTOR ZFPC' || data.concept === 'ALQUILER IMPRESORA ETIQUETADO';
+
 
     if (isBulkMode) {
       if (!data.dateRange?.from || !data.dateRange?.to) {
@@ -187,8 +188,9 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     
     const isBulkMode = watchedConcept === 'TIEMPO EXTRA FRIOAL (FIJO)';
     const isPositionMode = watchedConcept === 'POSICIONES FIJAS CÁMARA CONGELADOS';
-    const isFixedMonthlyService = isPositionMode || watchedConcept === 'IN-HOUSE INSPECTOR ZFPC';
+    const isFixedMonthlyService = isPositionMode || watchedConcept === 'IN-HOUSE INSPECTOR ZFPC' || watchedConcept === 'ALQUILER IMPRESORA ETIQUETADO';
     const showNumeroPersonas = selectedConceptInfo?.tariffType === 'ESPECIFICA' && !isBulkMode && !isPositionMode;
+
 
     useEffect(() => {
         if (selectedConceptInfo?.tariffType !== 'ESPECIFICA') {
@@ -823,5 +825,3 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     );
 }
 
-
-    
