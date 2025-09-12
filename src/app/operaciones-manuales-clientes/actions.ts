@@ -1,5 +1,3 @@
-
-
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -69,6 +67,7 @@ export interface BulkOperationData {
     startDate: string; // ISO string
     endDate: string;   // ISO string
     roles: {
+        roleName: string;
         diurnaId: string;
         nocturnaId: string;
         numPersonas: number;
@@ -220,7 +219,3 @@ export async function deleteManualClientOperation(id: string): Promise<{ success
         return { success: false, message: `Error del servidor: ${errorMessage}` };
     }
 }
-
-
-
-

@@ -718,6 +718,29 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                     <FormMessage />
                                                 </FormItem>
                                             )}/>
+                                        ) : selectedConceptInfo?.tariffType === 'ESPECIFICA' && isBulkMode ? (
+                                            <div className="space-y-4">
+                                                <FormLabel className="text-base">Asignación de Personal</FormLabel>
+                                                {bulkRoleFields.map((field, index) => (
+                                                <div key={field.id} className="grid grid-cols-5 items-center gap-2 border-b pb-2">
+                                                    <Label className="col-span-2 text-sm">{field.roleName}</Label>
+                                                    <FormField
+                                                        control={form.control}
+                                                        name={`bulkRoles.${index}.numPersonas`}
+                                                        render={({ field: numField }) => (
+                                                        <FormItem className="col-span-3">
+                                                            <div className="flex items-center gap-2">
+                                                                <Label htmlFor={`num-personas-${index}`} className="text-xs">Personas:</Label>
+                                                                <FormControl>
+                                                                    <Input id={`num-personas-${index}`} type="number" min="0" step="1" className="h-8 w-20" {...numField} />
+                                                                </FormControl>
+                                                            </div>
+                                                        </FormItem>
+                                                        )}
+                                                    />
+                                                </div>
+                                                ))}
+                                            </div>
                                         ) : selectedConceptInfo?.tariffType === 'ESPECIFICA' ? (
                                             <>
                                                 {showNumeroPersonas && (
