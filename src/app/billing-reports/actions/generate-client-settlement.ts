@@ -6,7 +6,7 @@ import { firestore } from '@/lib/firebase-admin';
 import type { ClientBillingConcept, TariffRange, SpecificTariff } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 import { getClientBillingConcepts } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 import admin from 'firebase-admin';
-import { startOfDay, endOfDay, parseISO, differenceInHours, getDaysInMonth, getDay, format } from 'date-fns';
+import { startOfDay, endOfDay, parseISO, differenceInHours, getDaysInMonth, getDay, format, addMinutes, addHours } from 'date-fns';
 import type { ArticuloData } from '@/app/actions/articulos';
 
 
@@ -452,16 +452,21 @@ export async function generateClientSettlement(criteria: {
                     const date = opData.operationDate ? new Date(opData.operationDate).toISOString().split('T')[0] : startDate;
 
                     if (concept.conceptName === 'TIEMPO EXTRA FRIOAL (FIJO)' && Array.isArray(opData.bulkRoles)) {
-                        opData.bulkRoles.forEach((role: any) => {
+                         const excedentesMap = new Map((opData.excedentes || []).map((e: any) => [e.date, e.hours]));
+
+                         opData.bulkRoles.forEach((role: any) => {
                             if (role.numPersonas > 0) {
                                 // Add Diurna hours
                                 const diurnaTariff = concept.specificTariffs?.find(t => t.id === role.diurnaId);
                                 if (diurnaTariff) {
                                     const baseDiurnaHours = opData.details.endTime === '17:00' ? 5 : 4;
-                                    const excedentDiurno = (opData.excedentes || []).find((e: any) => e.date === date && getDay(parseISO(e.date)) === 6)?.hours || 0;
+                                    const isSaturday = getDay(parseISO(date)) === 6;
+                                    const excedentDiurno = isSaturday ? (excedentesMap.get(date) || 0) : 0;
                                     const totalDiurnaHours = baseDiurnaHours + excedentDiurno;
 
                                     if (totalDiurnaHours > 0) {
+                                        const finalEndTimeDate = addHours(addMinutes(new Date(`${date}T00:00:00`), timeToMinutes(opData.details.startTime)), totalDiurnaHours);
+
                                         settlementRows.push({
                                             date, conceptName: diurnaTariff.name,
                                             container: opData.details?.container || 'No Aplica',
@@ -469,7 +474,8 @@ export async function generateClientSettlement(criteria: {
                                             camara: 'No Aplica', operacionLogistica: 'No Aplica', pedidoSislog: 'Fijo Mensual', tipoVehiculo: 'No Aplica',
                                             quantity: totalDiurnaHours, numeroPersonas: role.numPersonas, unitOfMeasure: diurnaTariff.unit,
                                             unitValue: diurnaTariff.value || 0, totalValue: totalDiurnaHours * role.numPersonas * (diurnaTariff.value || 0),
-                                            horaInicio: opData.details?.startTime || 'N/A', horaFin: opData.details?.endTime || 'N/A',
+                                            horaInicio: opData.details?.startTime || 'N/A',
+                                            horaFin: format(finalEndTimeDate, 'HH:mm'),
                                         });
                                     }
                                 }
@@ -480,10 +486,11 @@ export async function generateClientSettlement(criteria: {
                                     const baseNocturnaHours = opData.details.endTime === '17:00' ? 0 : 1;
                                     const dayOfWeek = getDay(parseISO(date));
                                     const isWeekday = dayOfWeek >= 1 && dayOfWeek <= 5;
-                                    const excedentNocturno = isWeekday ? ((opData.excedentes || []).find((e: any) => e.date === date)?.hours || 0) : 0;
+                                    const excedentNocturno = isWeekday ? (excedentesMap.get(date) || 0) : 0;
                                     const totalNocturnaHours = baseNocturnaHours + excedentNocturno;
 
                                     if (totalNocturnaHours > 0) {
+                                         const finalEndTimeDate = addHours(addMinutes(new Date(`${date}T00:00:00`), timeToMinutes(opData.details.endTime)), excedentNocturno);
                                         settlementRows.push({
                                             date, conceptName: nocturnaTariff.name,
                                             container: opData.details?.container || 'No Aplica',
@@ -491,7 +498,8 @@ export async function generateClientSettlement(criteria: {
                                             camara: 'No Aplica', operacionLogistica: 'No Aplica', pedidoSislog: 'Fijo Mensual', tipoVehiculo: 'No Aplica',
                                             quantity: totalNocturnaHours, numeroPersonas: role.numPersonas, unitOfMeasure: nocturnaTariff.unit,
                                             unitValue: nocturnaTariff.value || 0, totalValue: totalNocturnaHours * role.numPersonas * (nocturnaTariff.value || 0),
-                                            horaInicio: opData.details?.startTime || 'N/A', horaFin: opData.details?.endTime || 'N/A',
+                                            horaInicio: opData.details?.startTime || 'N/A', 
+                                            horaFin: format(finalEndTimeDate, 'HH:mm'),
                                         });
                                     }
                                 }
@@ -649,6 +657,13 @@ export async function generateClientSettlement(criteria: {
     return { success: false, error: error.message || 'Ocurrió un error desconocido en el servidor.' };
   }
 }
+
+const timeToMinutes = (timeStr: string): number => {
+    if (!timeStr || !timeStr.includes(':')) return 0;
+    const [hours, minutes] = timeStr.split(':').map(Number);
+    return hours * 60 + minutes;
+};
+
 
 
 
