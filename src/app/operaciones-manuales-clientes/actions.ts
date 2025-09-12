@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -164,18 +165,16 @@ export async function addBulkManualClientOperation(data: BulkOperationData): Pro
                 if (role.numPersonas > 0) {
                     const tariffs = [];
                     
-                    // Sábados -> Excedente es Diurno
                     const finalDiurnoHours = baseDiurnoHours + (isSaturday ? excedentHours : 0);
                     if (finalDiurnoHours > 0) {
                         tariffs.push({ tariffId: role.diurnaId, quantity: finalDiurnoHours });
                     }
                     
-                    // L-V -> Excedente es Nocturno
                     const finalNocturnoHours = baseNocturnoHours + (isWeekDay ? excedentHours : 0);
                     if (finalNocturnoHours > 0) {
                         tariffs.push({ tariffId: role.nocturnaId, quantity: finalNocturnoHours });
                     }
-                    return tariffs.map(t => ({...t, numPersonas: role.numPersonas}));
+                    return tariffs;
                 }
                 return [];
             }).filter(Boolean);

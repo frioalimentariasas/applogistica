@@ -4,16 +4,16 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm, SubmitHandler, useFieldArray } from 'react-hook-form';
+import { useForm, SubmitHandler, useFieldArray, useWatch, FieldErrors } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { format, parseISO, addDays, getDaysInMonth, getDay, isSaturday, isSunday } from 'date-fns';
+import { format, parseISO, addDays, getDaysInMonth, getDay, isSaturday, isSunday, isWithinInterval, startOfDay } from 'date-fns';
 import { DateRange } from 'react-day-picker';
 import { es } from 'date-fns/locale';
 
 import { addManualClientOperation, updateManualClientOperation, deleteManualClientOperation, addBulkManualClientOperation } from './actions';
 import { getAllManualClientOperations } from '@/app/billing-reports/actions/generate-client-settlement';
-import type { ManualClientOperationData } from './actions';
+import type { ManualClientOperationData, ExcedentEntry } from './actions';
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import type { ClientInfo } from '@/app/actions/clients';
@@ -53,6 +53,11 @@ const bulkRoleSchema = z.object({
   numPersonas: z.coerce.number().int().min(0, "Debe ser un número positivo.").default(0),
 });
 
+const excedentSchema = z.object({
+    date: z.string(),
+    hours: z.coerce.number().min(0, "Debe ser un número positivo"),
+});
+
 const manualOperationSchema = z.object({
   clientName: z.string().min(1, 'El cliente es obligatorio.'),
   operationDate: z.date({ required_error: 'La fecha es obligatoria.' }).optional(),
@@ -61,8 +66,7 @@ const manualOperationSchema = z.object({
     message: "El rango de fechas es obligatorio para la liquidación en lote.",
   }).optional(),
   bulkRoles: z.array(bulkRoleSchema).optional(),
-  excedenteDiurno: z.string().transform(val => val.replace(',', '.')).pipe(z.coerce.number().min(0).optional().default(0)),
-  excedenteNocturno: z.string().transform(val => val.replace(',', '.')).pipe(z.coerce.number().min(0).optional().default(0)),
+  excedentes: z.array(excedentSchema).optional(),
 
   concept: z.string().min(1, 'El concepto es obligatorio.'),
   specificTariffs: z.array(specificTariffEntrySchema).optional(),
@@ -176,14 +180,17 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 arin: '',
             },
             bulkRoles: [],
-            excedenteDiurno: 0,
-            excedenteNocturno: 0,
+            excedentes: [],
         }
     });
 
     const { fields: bulkRoleFields } = useFieldArray({
         control: form.control,
         name: "bulkRoles"
+    });
+    const { fields: excedentFields, append: appendExcedent, remove: removeExcedent, update: updateExcedent } = useFieldArray({
+        control: form.control,
+        name: "excedentes"
     });
     
     const watchedConcept = form.watch('concept');
@@ -299,74 +306,30 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         setOpToManage(op || null);
     
         if (op) {
-            let bulkRolesData: any[] = [];
-            if (op.concept === 'TIEMPO EXTRA FRIOAL (FIJO)') {
-                const conceptInfo = billingConcepts.find(c => c.conceptName === op.concept);
-                const roles = [
-                    { role: "SUPERVISOR", diurna: "HORA EXTRA DIURNA", nocturna: "HORA EXTRA NOCTURNA" },
-                    { role: "MONTACARGUISTA TRILATERAL", diurna: "HORA EXTRA DIURNA", nocturna: "HORA EXTRA NOCTURNA" },
-                    { role: "MONTACARGUISTA NORMAL", diurna: "HORA EXTRA DIURNA", nocturna: "HORA EXTRA NOCTURNA" },
-                    { role: "OPERARIO", diurna: "HORA EXTRA DIURNA", nocturna: "HORA EXTRA NOCTURNA" },
-                ];
-    
-                bulkRolesData = roles.map(r => {
-                    const diurnaTariff = conceptInfo?.specificTariffs?.find(t => t.name.includes(r.role) && t.name.includes(r.diurna));
-                    const nocturnaTariff = conceptInfo?.specificTariffs?.find(t => t.name.includes(r.role) && t.name.includes(r.nocturna));
-    
-                    const savedRole = (op.bulkRoles || []).find((br: any) => br.roleName === r.role);
-    
-                    return {
-                        roleName: r.role,
-                        diurnaId: diurnaTariff?.id || '',
-                        nocturnaId: nocturnaTariff?.id || '',
-                        diurnaLabel: diurnaTariff?.name || 'No encontrado',
-                        nocturnaLabel: nocturnaTariff?.name || 'No encontrado',
-                        diurnaValue: diurnaTariff?.value || 0,
-                        nocturnaValue: nocturnaTariff?.value || 0,
-                        numPersonas: savedRole?.numPersonas || 0,
-                    };
-                }).filter(r => r.diurnaId && r.nocturnaId);
-            }
-    
+             const defaultDate = op.operationDate ? parseISO(op.operationDate) : new Date();
             form.reset({
                 clientName: op.clientName || '',
-                operationDate: parseISO(op.operationDate),
+                operationDate: defaultDate,
                 concept: op.concept,
                 quantity: op.quantity,
                 specificTariffs: op.specificTariffs || [],
                 numeroPersonas: op.numeroPersonas || undefined,
-                details: {
-                    startTime: op.details?.startTime || '',
-                    endTime: op.details?.endTime || '',
-                    plate: op.details?.plate || '',
-                    container: op.details?.container || '',
-                    totalPallets: op.details?.totalPallets ?? null,
-                    arin: op.details?.arin || '',
-                },
-                dateRange: (op.concept === 'TIEMPO EXTRA FRIOAL (FIJO)') ? { from: parseISO(op.operationDate), to: parseISO(op.operationDate) } : undefined,
-                bulkRoles: bulkRolesData,
-                excedenteDiurno: op.excedenteDiurno || 0,
-                excedenteNocturno: op.excedenteNocturno || 0,
+                details: op.details || {},
+                dateRange: (op.concept === 'TIEMPO EXTRA FRIOAL (FIJO)') ? { from: defaultDate, to: addDays(defaultDate, (op.bulkRoles || []).length > 0 ? (op.bulkRoles[0].numPersonas > 0 ? op.bulkRoles[0].numPersonas : 0) : 0) } : undefined, // Simplification for display
+                bulkRoles: op.bulkRoles || [],
+                excedentes: op.excedentes || [],
             });
         } else {
             form.reset({
-                operationDate: new Date(),
-                quantity: 1,
                 clientName: "",
                 concept: "",
+                operationDate: new Date(),
+                quantity: 1,
                 specificTariffs: [],
                 numeroPersonas: 1,
-                details: {
-                    startTime: '',
-                    endTime: '',
-                    plate: '',
-                    container: '',
-                    totalPallets: null,
-                    arin: '',
-                },
+                details: { startTime: '', endTime: '', plate: '', container: '', totalPallets: null, arin: '' },
                 bulkRoles: [],
-                excedenteDiurno: 0,
-                excedenteNocturno: 0,
+                excedentes: [],
             });
         }
         setIsDialogOpen(true);
@@ -378,31 +341,18 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         
         try {
             if (isBulkMode) {
-                 if (dialogMode === 'edit' && opToManage) {
-                    const result = await updateManualClientOperation(opToManage.id, {
-                        ...data,
-                        operationDate: opToManage.operationDate // Keep original date, range is not editable
-                    } as Omit<ManualClientOperationData, 'createdAt' | 'createdBy'>);
-                     if (result.success) {
-                        toast({ title: 'Éxito', description: result.message });
-                    } else {
-                        throw new Error(result.message);
-                    }
-                } else {
-                    const bulkData = {
-                        clientName: data.clientName,
-                        concept: data.concept,
-                        startDate: data.dateRange!.from!.toISOString(),
-                        endDate: data.dateRange!.to!.toISOString(),
-                        roles: data.bulkRoles!.filter(r => r.numPersonas > 0),
-                        excedenteDiurno: Number(String(data.excedenteDiurno).replace(',', '.')),
-                        excedenteNocturno: Number(String(data.excedenteNocturno).replace(',', '.')),
-                        createdBy: { uid: user.uid, displayName: displayName || user.email! }
-                    };
-                    const result = await addBulkManualClientOperation(bulkData);
-                    if (!result.success) throw new Error(result.message);
-                    toast({ title: 'Éxito', description: result.message });
-                }
+                const bulkData = {
+                    clientName: data.clientName,
+                    concept: data.concept,
+                    startDate: data.dateRange!.from!.toISOString(),
+                    endDate: data.dateRange!.to!.toISOString(),
+                    roles: data.bulkRoles!.filter(r => r.numPersonas > 0),
+                    excedentes: data.excedentes || [],
+                    createdBy: { uid: user.uid, displayName: displayName || user.email! }
+                };
+                const result = await addBulkManualClientOperation(bulkData);
+                if (!result.success) throw new Error(result.message);
+                toast({ title: 'Éxito', description: result.message });
             } else {
                 let payload: ManualClientOperationData = {
                     ...data,
@@ -413,16 +363,6 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                         displayName: displayName || user.email!,
                     }
                 };
-
-                 if (isPositionMode && payload.specificTariffs) {
-                    payload.specificTariffs = payload.specificTariffs.map(tariff => {
-                        let quantity = tariff.quantity;
-                        if (tariff.tariffId.includes('600')) quantity = 600;
-                        if (tariff.tariffId.includes('200')) quantity = 200;
-                        return { ...tariff, quantity };
-                    });
-                }
-
 
                 let result;
                 if (dialogMode === 'edit' && opToManage) {
@@ -748,10 +688,35 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                 </div>
                                                 ))}
                                                 <Separator />
-                                                <div className="grid grid-cols-2 gap-4">
-                                                  <FormField name="excedenteNocturno" control={form.control} render={({ field }) => (<FormItem><FormLabel>Horas Nocturnas Excedentes (L-V)</FormLabel><FormControl><Input type="text" inputMode="decimal" {...field} /></FormControl><FormMessage /></FormItem>)}/>
-                                                  <FormField name="excedenteDiurno" control={form.control} render={({ field }) => (<FormItem><FormLabel>Horas Diurnas Excedentes (Sáb)</FormLabel><FormControl><Input type="text" inputMode="decimal" {...field} /></FormControl><FormMessage /></FormItem>)}/>
+                                                <FormLabel className="text-base pt-2 block">Horas Excedentes</FormLabel>
+                                                <div className="space-y-2">
+                                                    {excedentFields.map((field, index) => {
+                                                        const date = parseISO(field.date);
+                                                        const dayType = isSaturday(date) ? 'Sábado' : 'L-V';
+                                                        return (
+                                                            <div key={field.id} className="flex items-center justify-between gap-2 p-2 bg-muted/50 rounded-md">
+                                                                <p className="text-sm">
+                                                                    <span className="font-semibold">{format(date, 'PPP', { locale: es })}</span> ({dayType})
+                                                                </p>
+                                                                <div className="flex items-center gap-2">
+                                                                    <Label htmlFor={`excedente-hours-${index}`} className="text-xs">{dayType === 'Sábado' ? 'H. Diurnas' : 'H. Nocturnas'}</Label>
+                                                                    <Input 
+                                                                        id={`excedente-hours-${index}`}
+                                                                        type="number"
+                                                                        step="0.1"
+                                                                        className="h-8 w-24"
+                                                                        value={field.hours}
+                                                                        onChange={e => updateExcedent(index, { date: field.date, hours: parseFloat(e.target.value) || 0 })}
+                                                                    />
+                                                                    <Button type="button" variant="ghost" size="icon" className="h-7 w-7 text-destructive" onClick={() => removeExcedent(index)}>
+                                                                        <X className="h-4 w-4" />
+                                                                    </Button>
+                                                                </div>
+                                                            </div>
+                                                        )
+                                                    })}
                                                 </div>
+                                                <ExcedentManager />
                                             </div>
                                         ) : selectedConceptInfo?.tariffType === 'ESPECIFICA' ? (
                                             <>
@@ -860,3 +825,69 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     );
 }
 
+const ExcedentManager = () => {
+    const { control, watch } = useFormContext<ManualOperationValues>();
+    const { fields, append, remove } = useFieldArray({ control, name: 'excedentes' });
+    const [excedentDate, setExcedentDate] = useState<Date | undefined>();
+    const [excedentHours, setExcedentHours] = useState('');
+    
+    const dateRange = watch('dateRange');
+
+    const handleAddExcedent = () => {
+        if (!excedentDate || !excedentHours) return;
+        const dateStr = format(excedentDate, 'yyyy-MM-dd');
+        const hours = parseFloat(excedentHours.replace(',', '.'));
+        
+        const existingIndex = fields.findIndex(f => f.date === dateStr);
+        if (existingIndex > -1) {
+            remove(existingIndex);
+        }
+        append({ date: dateStr, hours });
+        setExcedentDate(undefined);
+        setExcedentHours('');
+    };
+
+    const isDateValid = (date: Date) => {
+        if (!dateRange?.from || !dateRange.to) return false;
+        return isWithinInterval(date, { start: startOfDay(dateRange.from), end: startOfDay(dateRange.to) });
+    };
+
+    const dayType = excedentDate ? (isSaturday(excedentDate) ? 'Sábado (Diurnas)' : 'L-V (Nocturnas)') : 'Seleccione Fecha';
+
+    return (
+        <div className="space-y-3 p-3 border rounded-md">
+            <h4 className="text-sm font-medium">Gestionar Horas Excedentes</h4>
+            <div className="flex flex-col sm:flex-row gap-2 items-start">
+                <Popover>
+                    <PopoverTrigger asChild>
+                        <Button variant="outline" className={cn("w-full sm:w-auto justify-start text-left font-normal", !excedentDate && "text-muted-foreground")}>
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {excedentDate ? format(excedentDate, "PPP", { locale: es }) : <span>Seleccione fecha</span>}
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                        <Calendar
+                            mode="single"
+                            selected={excedentDate}
+                            onSelect={setExcedentDate}
+                            disabled={(date) => !isDateValid(date) || isSunday(date)}
+                            initialFocus
+                            month={dateRange?.from}
+                        />
+                    </PopoverContent>
+                </Popover>
+                <div className="flex-grow flex items-center gap-2">
+                    <Input
+                        type="text"
+                        inputMode="decimal"
+                        placeholder={`H. Exced. ${dayType}`}
+                        value={excedentHours}
+                        onChange={e => setExcedentHours(e.target.value)}
+                        disabled={!excedentDate}
+                    />
+                    <Button type="button" size="sm" onClick={handleAddExcedent} disabled={!excedentDate || !excedentHours}>Agregar</Button>
+                </div>
+            </div>
+        </div>
+    )
+}
