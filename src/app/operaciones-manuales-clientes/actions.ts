@@ -33,8 +33,10 @@ export interface ManualClientOperationData {
 }
 
 function getColombiaDateFromISO(isoString: string): Date {
-    const d = parseISO(isoString.substring(0, 10)); // Use only the date part to avoid time components
-    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate(), 5, 0, 0));
+    // Treat the date string as a literal UTC date to avoid timezone shifts.
+    // "2024-09-11T..." becomes new Date('2024-09-11T00:00:00.000Z')
+    const datePart = isoString.substring(0, 10);
+    return new Date(datePart + 'T00:00:00.000Z');
 }
 
 
@@ -225,4 +227,5 @@ export async function deleteManualClientOperation(id: string): Promise<{ success
         return { success: false, message: `Error del servidor: ${errorMessage}` };
     }
 }
+
 
