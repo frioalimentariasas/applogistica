@@ -824,4 +824,3 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         </div>
     );
 }
-
