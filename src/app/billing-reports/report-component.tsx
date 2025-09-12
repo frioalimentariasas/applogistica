@@ -1112,6 +1112,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             { header: 'Op. Logística', key: 'operacionLogistica', width: 15 },
             { header: 'Concepto', key: 'conceptName', width: 40 },
             { header: 'Tipo Vehículo', key: 'tipoVehiculo', width: 15 },
+            { header: 'No. Personas', key: 'numeroPersonas', width: 15 },
             { header: 'H. Inicio', key: 'horaInicio', width: 15 },
             { header: 'H. Fin', key: 'horaFin', width: 15 },
             { header: 'Cantidad', key: 'quantity', width: 15 },
@@ -1126,12 +1127,12 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 acc[row.conceptName] = { rows: [], subtotalCantidad: 0, subtotalValor: 0 };
             }
             acc[row.conceptName].rows.push(row);
-            acc[row.conceptName].subtotalCantidad += row.quantity;
-            acc[row.conceptName].subtotalValor += row.totalValue;
+            acc[row.conceptName].subtotalCantidad += row.quantity || 0;
+            acc[row.conceptName].subtotalValor += row.totalValue || 0;
             return acc;
         }, {} as Record<string, { rows: ClientSettlementRow[], subtotalCantidad: number, subtotalValor: number }>);
         
-        const totalGeneral = settlementReportData.reduce((sum, row) => sum + row.totalValue, 0);
+        const totalGeneral = settlementReportData.reduce((sum, row) => sum + (row.totalValue || 0), 0);
 
         Object.keys(groupedData).sort().forEach(conceptName => {
             groupedData[conceptName].rows.forEach(row => {
@@ -1143,12 +1144,12 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                     operacionLogistica: row.operacionLogistica,
                     horaInicio: formatTime12Hour(row.horaInicio),
                     horaFin: formatTime12Hour(row.horaFin),
-                    unitValue: { formula: `M${worksheet.rowCount + 1}`, result: row.unitValue },
-                    totalValue: { formula: `N${worksheet.rowCount + 1}`, result: row.totalValue }
+                    unitValue: { formula: `N${worksheet.rowCount + 1}`, result: row.unitValue },
+                    totalValue: { formula: `O${worksheet.rowCount + 1}`, result: row.totalValue }
                 });
-                worksheet.getCell(`M${worksheet.rowCount}`).numFmt = '$ #,##0.00';
                 worksheet.getCell(`N${worksheet.rowCount}`).numFmt = '$ #,##0.00';
-                worksheet.getCell(`K${worksheet.rowCount}`).numFmt = '#,##0.00';
+                worksheet.getCell(`O${worksheet.rowCount}`).numFmt = '$ #,##0.00';
+                worksheet.getCell(`L${worksheet.rowCount}`).numFmt = '#,##0.00';
             });
             const subtotalRow = worksheet.addRow({ 
                 conceptName: `SUBTOTAL ${conceptName}`,
@@ -1157,19 +1158,19 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             });
             subtotalRow.font = { bold: true };
             subtotalRow.getCell('A').alignment = { horizontal: 'right' };
-            subtotalRow.getCell('K').numFmt = '#,##0.00';
-            subtotalRow.getCell('N').numFmt = '$ #,##0.00';
-            worksheet.mergeCells(`A${subtotalRow.number}:J${subtotalRow.number}`);
-            worksheet.mergeCells(`L${subtotalRow.number}:M${subtotalRow.number}`);
+            subtotalRow.getCell('L').numFmt = '#,##0.00';
+            subtotalRow.getCell('O').numFmt = '$ #,##0.00';
+            worksheet.mergeCells(`A${subtotalRow.number}:K${subtotalRow.number}`);
+            worksheet.mergeCells(`M${subtotalRow.number}:N${subtotalRow.number}`);
         });
 
         worksheet.addRow([]);
         const totalRow = worksheet.addRow({ conceptName: 'TOTAL GENERAL', totalValue: totalGeneral });
         totalRow.font = { bold: true, size: 12 };
         totalRow.getCell('A').alignment = { horizontal: 'right' };
-        totalRow.getCell('N').font = { bold: true, size: 12 };
-        totalRow.getCell('N').numFmt = '$ #,##0.00';
-        worksheet.mergeCells(`A${totalRow.number}:M${totalRow.number}`);
+        totalRow.getCell('O').font = { bold: true, size: 12 };
+        totalRow.getCell('O').numFmt = '$ #,##0.00';
+        worksheet.mergeCells(`A${totalRow.number}:N${totalRow.number}`);
 
 
         const buffer = await workbook.xlsx.writeBuffer();
@@ -2086,6 +2087,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                 <TableRow>
                                                     <TableHead className="text-xs p-2">Fecha</TableHead>
                                                     <TableHead className="text-xs p-2">Concepto</TableHead>
+                                                    <TableHead className="text-xs p-2">No. Personas</TableHead>
                                                     <TableHead className="text-xs p-2">Total Paletas</TableHead>
                                                     <TableHead className="text-xs p-2">Cámara</TableHead>
                                                     <TableHead className="text-xs p-2">Contenedor</TableHead>
@@ -2102,19 +2104,20 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                             </TableHeader>
                                             <TableBody>
                                                 {isSettlementLoading ? (
-                                                    Array.from({length: 3}).map((_, i) => <TableRow key={i}><TableCell colSpan={14}><Skeleton className="h-8 w-full"/></TableCell></TableRow>)
+                                                    Array.from({length: 3}).map((_, i) => <TableRow key={i}><TableCell colSpan={15}><Skeleton className="h-8 w-full"/></TableCell></TableRow>)
                                                 ) : settlementGroupedData && Object.keys(settlementGroupedData).length > 0 ? (
                                                     <>
                                                         {Object.keys(settlementGroupedData).sort().map(conceptName => (
                                                             <React.Fragment key={conceptName}>
                                                                 <TableRow className="bg-muted hover:bg-muted">
-                                                                    <TableCell colSpan={14} className="font-bold text-primary text-sm p-2">{conceptName}</TableCell>
+                                                                    <TableCell colSpan={15} className="font-bold text-primary text-sm p-2">{conceptName}</TableCell>
                                                                 </TableRow>
                                                                 {settlementGroupedData[conceptName].rows.map((row, i) => (
                                                                     <TableRow key={`${row.date}-${row.conceptName}-${i}`}>
                                                                         <TableCell className="text-xs p-2">{format(parseISO(row.date), 'dd/MM/yyyy', { locale: es })}</TableCell>
                                                                         <TableCell className="text-xs p-2 max-w-[200px] truncate">{row.conceptName}</TableCell>
-                                                                        <TableCell className="text-xs p-2">{row.totalPaletas > 0 ? row.totalPaletas : 'No Aplica'}</TableCell>
+                                                                        <TableCell className="text-xs p-2">{row.numeroPersonas || ''}</TableCell>
+                                                                        <TableCell className="text-xs p-2">{row.totalPaletas > 0 ? row.totalPaletas : ''}</TableCell>
                                                                         <TableCell className="text-xs p-2">{getSessionName(row.camara)}</TableCell>
                                                                         <TableCell className="text-xs p-2">{row.container}</TableCell>
                                                                         <TableCell className="text-xs p-2">{row.pedidoSislog}</TableCell>
@@ -2129,7 +2132,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                     </TableRow>
                                                                 ))}
                                                                 <TableRow className="bg-secondary hover:bg-secondary/80 font-bold">
-                                                                    <TableCell colSpan={10} className="text-right text-xs p-2">SUBTOTAL {conceptName}:</TableCell>
+                                                                    <TableCell colSpan={11} className="text-right text-xs p-2">SUBTOTAL {conceptName}:</TableCell>
                                                                     <TableCell className="text-xs p-2">{settlementGroupedData[conceptName].subtotalCantidad.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
                                                                     <TableCell colSpan={2} className="text-xs p-2"></TableCell>
                                                                     <TableCell className="text-right text-xs p-2">{settlementGroupedData[conceptName].subtotalValor.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
@@ -2137,12 +2140,12 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                             </React.Fragment>
                                                         ))}
                                                         <TableRow className="bg-primary hover:bg-primary text-primary-foreground font-bold text-base">
-                                                            <TableCell colSpan={13} className="text-right p-2">TOTAL GENERAL:</TableCell>
+                                                            <TableCell colSpan={14} className="text-right p-2">TOTAL GENERAL:</TableCell>
                                                             <TableCell className="text-right p-2">{settlementTotalGeneral.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
                                                         </TableRow>
                                                     </>
                                                 ) : (
-                                                    <TableRow><TableCell colSpan={14} className="h-24 text-center">No se encontraron datos para liquidar.</TableCell></TableRow>
+                                                    <TableRow><TableCell colSpan={15} className="h-24 text-center">No se encontraron datos para liquidar.</TableCell></TableRow>
                                                 )}
                                             </TableBody>
                                         </Table>
@@ -2196,6 +2199,4 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         </div>
     );
 }
-
-
 
