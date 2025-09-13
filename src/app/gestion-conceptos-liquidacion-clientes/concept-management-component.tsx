@@ -675,8 +675,8 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                     )}
                     {watchedEditTariffType === 'ESPECIFICA' && (
                          <div className='space-y-4 p-4 border rounded-md bg-muted/20'>
-                            {watchedEditConceptName === 'TIEMPO EXTRA FRIOAL (FIJO)' ? (
-                                <div className="space-y-4">
+                            {watchedEditConceptName === 'TIEMPO EXTRA FRIOAL (FIJO)' && (
+                                <div className="space-y-4 mb-4 pb-4 border-b">
                                     <FormLabel>Configuración de Horarios Fijos</FormLabel>
                                     <div className="grid grid-cols-2 gap-4">
                                         <FormField control={editForm.control} name="fixedTimeConfig.weekdayStartTime" render={({ field }) => (<FormItem><FormLabel>Inicio L-V</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormMessage /></FormItem>)} />
@@ -686,26 +686,23 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                                     </div>
                                     <FormField control={editForm.control} name="fixedTimeConfig.dayShiftEndTime" render={({ field }) => (<FormItem><FormLabel>Hora Fin Turno Diurno</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormDescription>Para calcular horas nocturnas.</FormDescription><FormMessage /></FormItem>)} />
                                 </div>
-                            ) : (
-                                <>
-                                <FormLabel>Tarifas Específicas</FormLabel>
-                                <ScrollArea className="h-40 pr-4">
-                                <div className="space-y-4">
-                                    {editSpecificFields.map((field, index) => (
-                                        <div key={field.id} className="grid grid-cols-1 sm:grid-cols-2 gap-3 border p-3 rounded-md relative">
-                                            <FormField control={editForm.control} name={`specificTariffs.${index}.name`} render={({ field }) => (<FormItem><FormLabel>Nombre Tarifa</FormLabel><FormControl><Input placeholder="Ej: HORA EXTRA DIURNA" {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
-                                            <FormField control={editForm.control} name={`specificTariffs.${index}.unit`} render={({ field }) => (<FormItem><FormLabel>Unidad</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><ScrollArea className="h-48">{specificUnitOptions.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</ScrollArea></SelectContent></Select><FormMessage /></FormItem>)}/>
-                                            <FormField control={editForm.control} name={`specificTariffs.${index}.value`} render={({ field }) => (<FormItem className="sm:col-span-2"><FormLabel>Valor (COP)</FormLabel><FormControl><Input type="number" step="0.01" {...field}/></FormControl><FormMessage /></FormItem>)}/>
-                                            <Button type="button" variant="ghost" size="icon" className="absolute top-1 right-1 text-destructive h-6 w-6" onClick={() => editSpecificRemove(index)}><Trash2 className="h-4 w-4" /></Button>
-                                        </div>
-                                    ))}
-                                </div>
-                                </ScrollArea>
-                                <Button type="button" variant="outline" size="sm" onClick={() => editSpecificAppend({ id: `new_${Date.now()}`, name: '', value: 0, unit: 'UNIDAD' })}>
-                                    <PlusCircle className="mr-2 h-4 w-4" /> Agregar Tarifa
-                                </Button>
-                                </>
                             )}
+                            <FormLabel>Tarifas Específicas</FormLabel>
+                            <ScrollArea className="h-40 pr-4">
+                            <div className="space-y-4">
+                                {editSpecificFields.map((field, index) => (
+                                    <div key={field.id} className="grid grid-cols-1 sm:grid-cols-2 gap-3 border p-3 rounded-md relative">
+                                        <FormField control={editForm.control} name={`specificTariffs.${index}.name`} render={({ field }) => (<FormItem><FormLabel>Nombre Tarifa</FormLabel><FormControl><Input placeholder="Ej: HORA EXTRA DIURNA" {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
+                                        <FormField control={editForm.control} name={`specificTariffs.${index}.unit`} render={({ field }) => (<FormItem><FormLabel>Unidad</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><ScrollArea className="h-48">{specificUnitOptions.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</ScrollArea></SelectContent></Select><FormMessage /></FormItem>)}/>
+                                        <FormField control={editForm.control} name={`specificTariffs.${index}.value`} render={({ field }) => (<FormItem className="sm:col-span-2"><FormLabel>Valor (COP)</FormLabel><FormControl><Input type="number" step="0.01" {...field}/></FormControl><FormMessage /></FormItem>)}/>
+                                        <Button type="button" variant="ghost" size="icon" className="absolute top-1 right-1 text-destructive h-6 w-6" onClick={() => editSpecificRemove(index)}><Trash2 className="h-4 w-4" /></Button>
+                                    </div>
+                                ))}
+                            </div>
+                            </ScrollArea>
+                            <Button type="button" variant="outline" size="sm" onClick={() => editSpecificAppend({ id: `new_${Date.now()}`, name: '', value: 0, unit: 'UNIDAD' })}>
+                                <PlusCircle className="mr-2 h-4 w-4" /> Agregar Tarifa
+                            </Button>
                         </div>
                     )}
                     <DialogFooter className="pt-4">
@@ -833,5 +830,6 @@ function ClientMultiSelectDialog({
     </Dialog>
   );
 }
+
 
 
