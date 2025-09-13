@@ -2139,7 +2139,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                 {settlementGroupedData[conceptName].rows.map((row, i) => (
                                                                     <TableRow key={`${row.date}-${row.conceptName}-${i}`}>
                                                                         <TableCell className="text-xs p-2">{format(parseISO(row.date), 'dd/MM/yyyy', { locale: es })}</TableCell>
-                                                                        <TableCell className="text-xs p-2 max-w-[200px] truncate">{row.subConceptName}</TableCell>
+                                                                        <TableCell className="text-xs p-2 whitespace-normal">{row.subConceptName}</TableCell>
                                                                         <TableCell className="text-xs p-2">{row.numeroPersonas || ''}</TableCell>
                                                                         <TableCell className="text-xs p-2">{row.totalPaletas > 0 ? row.totalPaletas : ''}</TableCell>
                                                                         <TableCell className="text-xs p-2">{getSessionName(row.camara)}</TableCell>
@@ -2223,6 +2223,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         </div>
     );
 }
+
 
 
 
