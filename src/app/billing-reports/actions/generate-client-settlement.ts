@@ -460,8 +460,8 @@ export async function generateClientSettlement(criteria: {
                                 
                                 const diurnaTariff = concept.specificTariffs?.find(t => t.id === role.diurnaId);
                                 if (diurnaTariff) {
-                                    const baseDiurnaHours = opData.details.endTime === '17:00' ? 5 : 4;
                                     const isSaturday = getDay(parseISO(date)) === 6;
+                                    const baseDiurnaHours = isSaturday ? 5 : 4;
                                     const excedentDiurno = isSaturday ? (excedentesMap.get(date) || 0) : 0;
                                     const totalDiurnaHours = baseDiurnaHours + excedentDiurno;
 
@@ -486,14 +486,14 @@ export async function generateClientSettlement(criteria: {
 
                                 const nocturnaTariff = concept.specificTariffs?.find(t => t.id === role.nocturnaId);
                                 if (nocturnaTariff) {
-                                    const baseNocturnaHours = opData.details.endTime === '17:00' ? 0 : 1;
                                     const dayOfWeek = getDay(parseISO(date));
                                     const isWeekday = dayOfWeek >= 1 && dayOfWeek <= 5;
+                                    const baseNocturnaHours = isWeekday ? 1 : 0;
                                     const excedentNocturno = isWeekday ? (excedentesMap.get(date) || 0) : 0;
                                     const totalNocturnaHours = baseNocturnaHours + excedentNocturno;
 
                                     if (totalNocturnaHours > 0) {
-                                        const finalEndTimeDate = addHours(addMinutes(new Date(`${date}T00:00:00`), timeToMinutes(opData.details.endTime)), excedentNocturno);
+                                        const finalEndTimeDate = addHours(addMinutes(new Date(`${date}T00:00:00`), timeToMinutes('22:00')), excedentNocturno);
                                         settlementRows.push({
                                             date, 
                                             conceptName: concept.conceptName,
@@ -504,7 +504,7 @@ export async function generateClientSettlement(criteria: {
                                             quantity: totalNocturnaHours, 
                                             numeroPersonas: role.numPersonas, unitOfMeasure: nocturnaTariff.unit,
                                             unitValue: nocturnaTariff.value || 0, totalValue: totalNocturnaHours * role.numPersonas * (nocturnaTariff.value || 0),
-                                            horaInicio: opData.details?.startTime || 'N/A', 
+                                            horaInicio: '21:00', 
                                             horaFin: format(finalEndTimeDate, 'HH:mm'),
                                         });
                                     }
@@ -644,7 +644,7 @@ export async function generateClientSettlement(criteria: {
 
         if (orderA !== orderB) return orderA - orderB;
 
-        return a.conceptName.localeCompare(b.conceptName);
+        return (a.subConceptName || '').localeCompare(b.subConceptName || '');
     });
     
     return { success: true, data: settlementRows };
@@ -671,6 +671,7 @@ const timeToMinutes = (timeStr: string): number => {
     const [hours, minutes] = timeStr.split(':').map(Number);
     return hours * 60 + minutes;
 };
+
 
 
 
