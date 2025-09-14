@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -273,7 +272,10 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         }
 
         let results = operations;
-        results = results.filter(op => format(parseISO(op.operationDate), 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd'));
+        results = results.filter(op => {
+            const opDate = new Date(op.operationDate);
+            return format(opDate, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd');
+        });
 
         if (selectedClient !== 'all') {
             results = results.filter(op => op.clientName === selectedClient);
@@ -306,16 +308,18 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         setOpToManage(op || null);
     
         if (op) {
-             const defaultDate = op.operationDate ? parseISO(op.operationDate) : new Date();
+             const opDate = new Date(op.operationDate);
             form.reset({
                 clientName: op.clientName || '',
-                operationDate: defaultDate,
+                operationDate: opDate,
                 concept: op.concept,
                 quantity: op.quantity,
                 specificTariffs: op.specificTariffs || [],
                 numeroPersonas: op.numeroPersonas || undefined,
                 details: op.details || {},
-                dateRange: (op.concept === 'TIEMPO EXTRA FRIOAL (FIJO)') ? { from: defaultDate, to: addDays(defaultDate, (op.bulkRoles || []).length > 0 ? (op.bulkRoles[0].numPersonas > 0 ? op.bulkRoles[0].numPersonas : 0) : 0) } : undefined, // Simplification for display
+                dateRange: op.startDate && op.endDate
+                    ? { from: new Date(op.startDate.seconds * 1000), to: new Date(op.endDate.seconds * 1000) }
+                    : undefined,
                 bulkRoles: op.bulkRoles || [],
                 excedentes: op.excedentes || [],
             });
@@ -340,7 +344,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         setIsSubmitting(true);
         
         try {
-            if (isBulkMode) {
+            if (isBulkMode && dialogMode === 'add') {
                 const bulkData = {
                     clientName: data.clientName,
                     concept: data.concept,
@@ -397,11 +401,10 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         if (result.success) {
             toast({ title: 'Éxito', description: result.message });
             const updatedOps = await fetchAllOperations();
-            if (searched && selectedDate) { // Re-apply filters if a search was active
+             if (searched) {
                 handleSearch(updatedOps);
             } else {
-                setAllOperations(updatedOps);
-                setFilteredOperations(updatedOps); // if no search was active, just update the main list
+                setFilteredOperations(updatedOps);
             }
         } else {
             toast({ variant: 'destructive', title: 'Error', description: result.message });
@@ -504,7 +507,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                     ) : filteredOperations.length > 0 ? (
                                         filteredOperations.map((op) => (
                                             <TableRow key={op.id}>
-                                                <TableCell>{format(new Date(op.operationDate), 'dd/MM/yyyy')}</TableCell>
+                                                <TableCell>{op.startDate && op.endDate ? `${format(op.startDate.toDate(), 'dd/MM/yy')} - ${format(op.endDate.toDate(), 'dd/MM/yy')}` : format(parseISO(op.operationDate), 'dd/MM/yyyy')}</TableCell>
                                                 <TableCell>{op.concept}</TableCell>
                                                 <TableCell>{op.clientName || 'No Aplica'}</TableCell>
                                                 <TableCell>{op.createdBy?.displayName || 'N/A'}</TableCell>
@@ -752,7 +755,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                     <FormField control={form.control} name="details.startTime" render={({ field }) => (<FormItem><FormLabel>Hora Inicio</FormLabel><div className="flex items-center gap-2"><FormControl><Input type="time" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} className="flex-grow" /></FormControl>{dialogMode !== 'view' && (<Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('details.startTime')}><Clock className="h-4 w-4" /></Button>)}</div><FormMessage /></FormItem>)} />
                                                     <FormField control={form.control} name="details.endTime" render={({ field }) => (<FormItem><FormLabel>Hora Fin</FormLabel><div className="flex items-center gap-2"><FormControl><Input type="time" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} className="flex-grow" /></FormControl>{dialogMode !== 'view' && (<Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('details.endTime')}><Clock className="h-4 w-4" /></Button>)}</div><FormMessage /></FormItem>)} />
                                                 </div>
-                                                <FormField control={form.control} name="details.container" render={({ field }) => (<FormItem><FormLabel>Contenedor {<span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Contenedor" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
+                                                <FormField control={form.control} name="details.container" render={({ field }) => (<FormItem><FormLabel>Contenedor {showInspectionFields && <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Contenedor" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
                                                 {showInspectionFields && (
                                                     <FormField control={form.control} name="details.arin" render={({ field }) => (<FormItem><FormLabel>ARIN <span className="text-destructive">*</span></FormLabel><FormControl><Input placeholder="Número de ARIN" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
                                                 )}

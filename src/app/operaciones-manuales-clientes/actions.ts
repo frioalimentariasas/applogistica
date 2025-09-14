@@ -5,7 +5,7 @@
 import { firestore } from '@/lib/firebase-admin';
 import { revalidatePath } from 'next/cache';
 import admin from 'firebase-admin';
-import { getDaysInMonth, startOfMonth, addDays, format, isBefore, isEqual, parseISO, getDay } from 'date-fns';
+import { getDaysInMonth, startOfDay, addDays, format, isBefore, isEqual, parseISO, getDay, eachDayOfInterval } from 'date-fns';
 import { getClientBillingConcepts, type ClientBillingConcept } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 
 export interface ExcedentEntry {
@@ -90,12 +90,6 @@ export interface BulkOperationData {
     }
 }
 
-// Helper to parse time string HH:mm to minutes from midnight
-const timeToMinutes = (time: string): number => {
-    const [hours, minutes] = time.split(':').map(Number);
-    return hours * 60 + minutes;
-};
-
 export async function addBulkManualClientOperation(data: BulkOperationData): Promise<{ success: boolean; message: string; count: number }> {
     if (!firestore) {
         return { success: false, message: 'El servidor no está configurado correctamente.', count: 0 };
@@ -116,64 +110,52 @@ export async function addBulkManualClientOperation(data: BulkOperationData): Pro
             throw new Error(`La configuración de horarios para "${concept}" está incompleta.`);
         }
 
+        const timeToMinutes = (time: string): number => {
+            const [hours, minutes] = time.split(':').map(Number);
+            return hours * 60 + minutes;
+        };
+
         const dayShiftEndMinutes = timeToMinutes(dayShiftEndTime);
         const excedentesMap = new Map(excedentes.map(e => [e.date, e.hours]));
 
-        const dateList: Date[] = [];
-        let currentDate = parseISO(startDate);
-        const finalDate = parseISO(endDate);
+        const start = new Date(startDate.split('T')[0] + 'T05:00:00.000Z');
+        const end = new Date(endDate.split('T')[0] + 'T05:00:00.000Z');
 
-        while (currentDate <= finalDate) {
-            dateList.push(currentDate);
-            currentDate = addDays(currentDate, 1);
-        }
+        const dateList = eachDayOfInterval({ start, end });
 
         const batch = firestore.batch();
         let operationsCount = 0;
 
         for (const day of dateList) {
             const dayOfWeek = getDay(day); // Sunday = 0, Saturday = 6
-            
-            let baseStartTimeStr: string, baseEndTimeStr: string;
-            const isWeekDay = dayOfWeek > 0 && dayOfWeek < 6;
-            const isSaturday = dayOfWeek === 6;
-            
-            if (isSaturday) {
-                baseStartTimeStr = saturdayStartTime;
-                baseEndTimeStr = saturdayEndTime;
-            } else if (isWeekDay) {
-                baseStartTimeStr = weekdayStartTime;
-                baseEndTimeStr = weekdayEndTime;
-            } else { // Sunday or invalid day
-                continue;
-            }
-            
-            const startMinutes = timeToMinutes(baseStartTimeStr);
-            const endMinutes = timeToMinutes(baseEndTimeStr);
-            const totalBaseMinutes = endMinutes - startMinutes;
-            
-            const baseDiurnoMinutes = Math.max(0, Math.min(endMinutes, dayShiftEndMinutes) - startMinutes);
-            const baseNocturnoMinutes = Math.max(0, totalBaseMinutes - baseDiurnoMinutes);
-            
-            const baseDiurnoHours = baseDiurnoMinutes / 60;
-            const baseNocturnoHours = baseNocturnoMinutes / 60;
+            if (isSunday(day)) continue; // Skip Sundays
 
+            const isSaturday = dayOfWeek === 6;
+            const baseStartTimeStr = isSaturday ? saturdayStartTime : weekdayStartTime;
+            const baseEndTimeStr = isSaturday ? saturdayEndTime : weekdayEndTime;
+            
             const dayString = format(day, 'yyyy-MM-dd');
             const excedentHours = excedentesMap.get(dayString) || 0;
-            
+
             const specificTariffs = roles.flatMap(role => {
                 if (role.numPersonas > 0) {
-                    const tariffs = [];
+                    const startMinutes = timeToMinutes(baseStartTimeStr);
+                    const endMinutes = timeToMinutes(baseEndTimeStr);
+                    const totalBaseMinutes = endMinutes - startMinutes;
                     
+                    const baseDiurnoMinutes = Math.max(0, Math.min(endMinutes, dayShiftEndMinutes) - startMinutes);
+                    const baseNocturnoMinutes = Math.max(0, totalBaseMinutes - baseDiurnoMinutes);
+                    
+                    const baseDiurnoHours = baseDiurnoMinutes / 60;
+                    const baseNocturnoHours = baseNocturnoMinutes / 60;
+
                     const finalDiurnoHours = baseDiurnoHours + (isSaturday ? excedentHours : 0);
-                    if (finalDiurnoHours > 0) {
-                        tariffs.push({ tariffId: role.diurnaId, quantity: finalDiurnoHours });
-                    }
+                    const finalNocturnoHours = baseNocturnoHours + (!isSaturday ? excedentHours : 0);
                     
-                    const finalNocturnoHours = baseNocturnoHours + (isWeekDay ? excedentHours : 0);
-                    if (finalNocturnoHours > 0) {
-                        tariffs.push({ tariffId: role.nocturnaId, quantity: finalNocturnoHours });
-                    }
+                    const tariffs = [];
+                    if (finalDiurnoHours > 0) tariffs.push({ tariffId: role.diurnaId, quantity: finalDiurnoHours });
+                    if (finalNocturnoHours > 0) tariffs.push({ tariffId: role.nocturnaId, quantity: finalNocturnoHours });
+                    
                     return tariffs;
                 }
                 return [];
@@ -225,13 +207,36 @@ export async function updateManualClientOperation(id: string, data: Omit<ManualC
         let finalSpecificTariffs: { tariffId: string; quantity: number }[] = [];
 
         if (data.concept === 'TIEMPO EXTRA FRIOAL (FIJO)') {
-            const bulkRoles = (data as any).bulkRoles || [];
-            finalSpecificTariffs = bulkRoles.flatMap((role: any) => {
+             const allConcepts = await getClientBillingConcepts();
+            const conceptConfig = allConcepts.find(c => c.conceptName === data.concept);
+            if (!conceptConfig || !conceptConfig.fixedTimeConfig) throw new Error("Config not found");
+            const { weekdayStartTime, weekdayEndTime, saturdayStartTime, saturdayEndTime, dayShiftEndTime } = conceptConfig.fixedTimeConfig;
+            const timeToMinutes = (time: string): number => { const [hours, minutes] = time.split(':').map(Number); return hours * 60 + minutes; };
+            const dayShiftEndMinutes = timeToMinutes(dayShiftEndTime!);
+
+            const day = new Date(data.operationDate!);
+            const isSaturday = getDay(day) === 6;
+            const baseStartTimeStr = isSaturday ? saturdayStartTime! : weekdayStartTime!;
+            const baseEndTimeStr = isSaturday ? saturdayEndTime! : weekdayEndTime!;
+            const dayString = format(day, 'yyyy-MM-dd');
+            const excedentHours = data.excedentes?.find(e => e.date === dayString)?.hours || 0;
+
+            finalSpecificTariffs = (data.bulkRoles || []).flatMap(role => {
                 if (role.numPersonas > 0) {
-                    return [
-                        { tariffId: role.diurnaId, quantity: 4 * role.numPersonas },
-                        { tariffId: role.nocturnaId, quantity: 1 * role.numPersonas },
-                    ];
+                    const startMinutes = timeToMinutes(baseStartTimeStr);
+                    const endMinutes = timeToMinutes(baseEndTimeStr);
+                    const totalBaseMinutes = endMinutes - startMinutes;
+                    const baseDiurnoMinutes = Math.max(0, Math.min(endMinutes, dayShiftEndMinutes) - startMinutes);
+                    const baseNocturnoMinutes = Math.max(0, totalBaseMinutes - baseDiurnoMinutes);
+                    const baseDiurnoHours = baseDiurnoMinutes / 60;
+                    const baseNocturnoHours = baseNocturnoMinutes / 60;
+                    const finalDiurnoHours = baseDiurnoHours + (isSaturday ? excedentHours : 0);
+                    const finalNocturnoHours = baseNocturnoHours + (!isSaturday ? excedentHours : 0);
+                    
+                    const tariffs = [];
+                    if (finalDiurnoHours > 0) tariffs.push({ tariffId: role.diurnaId, quantity: finalDiurnoHours });
+                    if (finalNocturnoHours > 0) tariffs.push({ tariffId: role.nocturnaId, quantity: finalNocturnoHours });
+                    return tariffs;
                 }
                 return [];
             }).filter(Boolean);
@@ -288,5 +293,3 @@ export async function deleteManualClientOperation(id: string): Promise<{ success
         return { success: false, message: `Error del servidor: ${errorMessage}` };
     }
 }
-
-
