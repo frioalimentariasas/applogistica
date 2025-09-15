@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -35,7 +34,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 
 
 const specificTariffEntrySchema = z.object({
@@ -276,7 +274,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
 
         let results = operations;
         results = results.filter(op => {
-            const opDate = new Date(op.operationDate);
+            const opDate = op.startDate ? new Date(op.startDate) : parseISO(op.operationDate);
             return format(opDate, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd');
         });
 
@@ -311,7 +309,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         setOpToManage(op || null);
     
         if (op) {
-             const opDate = op.startDate ? new Date(op.startDate.seconds * 1000) : new Date(op.operationDate);
+             const opDate = op.startDate ? parseISO(op.startDate) : parseISO(op.operationDate);
             form.reset({
                 clientName: op.clientName || '',
                 operationDate: opDate,
@@ -321,7 +319,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 numeroPersonas: op.numeroPersonas || undefined,
                 details: op.details || {},
                 dateRange: op.startDate && op.endDate
-                    ? { from: new Date(op.startDate.seconds * 1000), to: new Date(op.endDate.seconds * 1000) }
+                    ? { from: parseISO(op.startDate), to: parseISO(op.endDate) }
                     : undefined,
                 bulkRoles: op.bulkRoles || [],
                 excedentes: op.excedentes || [],
@@ -404,10 +402,8 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         if (result.success) {
             toast({ title: 'Éxito', description: result.message });
             const updatedOps = await fetchAllOperations();
-             if (searched) {
+             if (searched && selectedDate) {
                 handleSearch(updatedOps);
-            } else {
-                setFilteredOperations(updatedOps);
             }
         } else {
             toast({ variant: 'destructive', title: 'Error', description: result.message });
@@ -510,7 +506,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                     ) : filteredOperations.length > 0 ? (
                                         filteredOperations.map((op) => (
                                             <TableRow key={op.id}>
-                                                <TableCell>{op.startDate && op.endDate ? `${format(new Date(op.startDate.seconds * 1000), 'dd/MM/yy')} - ${format(new Date(op.endDate.seconds * 1000), 'dd/MM/yy')}` : format(parseISO(op.operationDate), 'dd/MM/yyyy')}</TableCell>
+                                                <TableCell>{op.startDate && op.endDate ? `${format(parseISO(op.startDate), 'dd/MM/yy')} - ${format(parseISO(op.endDate), 'dd/MM/yy')}` : format(parseISO(op.operationDate), 'dd/MM/yyyy')}</TableCell>
                                                 <TableCell>{op.concept}</TableCell>
                                                 <TableCell>{op.clientName || 'No Aplica'}</TableCell>
                                                 <TableCell>{op.createdBy?.displayName || 'N/A'}</TableCell>
@@ -587,33 +583,17 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                         </Button>
                                                     </FormControl>
                                                     </DialogTrigger>
-                                                    <DialogContent className="p-0">
-                                                        <DialogHeader className="p-4 pb-0"><DialogTitle>Seleccionar Concepto</DialogTitle></DialogHeader>
-                                                        <Command>
-                                                            <CommandInput placeholder="Buscar concepto..." />
-                                                            <CommandList>
-                                                                <CommandEmpty>No se encontró el concepto.</CommandEmpty>
-                                                                <CommandGroup>
-                                                                    <ScrollArea className="h-60">
-                                                                    {billingConcepts
-                                                                        .filter((c) => c.calculationType === 'MANUAL')
-                                                                        .map((c) => (
-                                                                        <CommandItem
-                                                                            value={c.conceptName}
-                                                                            key={c.id}
-                                                                            onSelect={() => {
-                                                                                form.setValue("concept", c.conceptName);
-                                                                                setConceptDialogOpen(false);
-                                                                            }}
-                                                                        >
-                                                                            <Check className={cn("mr-2 h-4 w-4", c.conceptName === field.value ? "opacity-100" : "opacity-0")} />
-                                                                            {c.conceptName}
-                                                                        </CommandItem>
-                                                                        ))}
-                                                                    </ScrollArea>
-                                                                </CommandGroup>
-                                                            </CommandList>
-                                                        </Command>
+                                                    <DialogContent>
+                                                        <DialogHeader>
+                                                            <DialogTitle>Seleccionar Concepto</DialogTitle>
+                                                        </DialogHeader>
+                                                        <ConceptSelectorDialog
+                                                            billingConcepts={billingConcepts}
+                                                            onSelect={(conceptName) => {
+                                                                form.setValue("concept", conceptName);
+                                                                setConceptDialogOpen(false);
+                                                            }}
+                                                        />
                                                     </DialogContent>
                                                 </Dialog>
                                                 <FormMessage />
@@ -851,6 +831,43 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 </AlertDialog>
 
             </div>
+        </div>
+    );
+}
+
+function ConceptSelectorDialog({ billingConcepts, onSelect }: { billingConcepts: ClientBillingConcept[], onSelect: (conceptName: string) => void }) {
+    const [search, setSearch] = useState('');
+    const filteredConcepts = useMemo(() => {
+        const manualConcepts = billingConcepts.filter(c => c.calculationType === 'MANUAL');
+        if (!search) return manualConcepts;
+        return manualConcepts.filter(c => c.conceptName.toLowerCase().includes(search.toLowerCase()));
+    }, [search, billingConcepts]);
+
+    return (
+        <div className="p-4">
+            <Input
+                placeholder="Buscar concepto..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="mb-4"
+            />
+            <ScrollArea className="h-60">
+                <div className="space-y-1">
+                    {filteredConcepts.map(c => (
+                        <Button
+                            key={c.id}
+                            variant="ghost"
+                            className="w-full justify-start"
+                            onClick={() => onSelect(c.conceptName)}
+                        >
+                            {c.conceptName}
+                        </Button>
+                    ))}
+                    {filteredConcepts.length === 0 && (
+                        <p className="text-center text-sm text-muted-foreground">No se encontraron conceptos.</p>
+                    )}
+                </div>
+            </ScrollArea>
         </div>
     );
 }
