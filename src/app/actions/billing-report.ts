@@ -156,8 +156,12 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                 dailyData.fixedRecibidas += receivedFixedPallets;
 
             } else if (formType === 'fixed-weight-despacho') {
-                const dispatchedFixedPallets = productos.reduce((sum: number, p: any) => {
-                    return isInSession(p.descripcion) ? sum + (Number(p.totalPaletas ?? p.paletas) || 0) : sum;
+                 const dispatchedFixedPallets = productos.reduce((sum: number, p: any) => {
+                    if (isInSession(p.descripcion)) {
+                        // Sum only 'paletasCompletas', ignore 'paletasPicking'
+                        return sum + (Number(p.paletasCompletas) || 0);
+                    }
+                    return sum;
                 }, 0);
                 dailyData.fixedDespachadas += dispatchedFixedPallets;
 
@@ -207,21 +211,27 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                     // New logic for Dispatch by Destination with Summary
                     const totalPallets = Number(submission.formData.totalPaletasDespacho) || 0;
                     dailyData.fixedDespachadas += totalPallets;
-                } else {
-                    // Original logic for other variable weight dispatches
-                    const uniquePalletsInSession = new Set<number>();
+                } else if (!isByDestination && isSummaryFormat) {
+                    // Logic for non-destination summary format
                     let summaryPallets = 0;
                     allItems.forEach((item: any) => {
+                         if (isInSession(item.descripcion) && Number(item.paleta) === 0) {
+                             summaryPallets += (Number(item.paletasCompletas) || 0);
+                         }
+                    });
+                    dailyData.fixedDespachadas += summaryPallets;
+                } else {
+                    // Original logic for detailed variable weight dispatches (non-summary)
+                    const uniquePalletsInSession = new Set<number>();
+                    allItems.forEach((item: any) => {
                         const paletaValue = Number(item.paleta);
-                        if(isInSession(item.descripcion)){
-                            if (paletaValue === 0) { // Summary row (non-destination format)
-                                summaryPallets += (Number(item.totalPaletas) || 0);
-                            } else if (!isNaN(paletaValue) && paletaValue > 0 && paletaValue !== 999) { // Itemized row, excluding 999
+                        if(isInSession(item.descripcion) && !item.esPicking){
+                            if (!isNaN(paletaValue) && paletaValue > 0 && paletaValue !== 999) {
                                 uniquePalletsInSession.add(paletaValue);
                             }
                         }
                     });
-                    dailyData.fixedDespachadas += uniquePalletsInSession.size + summaryPallets;
+                    dailyData.fixedDespachadas += uniquePalletsInSession.size;
                 }
             }
         });
