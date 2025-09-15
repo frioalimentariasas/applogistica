@@ -84,7 +84,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 const itemSchema = z.object({
     paleta: z.coerce.number({ invalid_type_error: "La paleta debe ser un número."}).int().nullable(),
     totalCantidad: z.coerce.number({ invalid_type_error: "Debe ser un número."}).int().min(0, "Debe ser >= 0").optional(),
-    totalPaletas: z.coerce.number({ invalid_type_error: "Debe ser un número."}).int().min(0, "Debe ser >= 0").optional(),
+    paletasCompletas: z.coerce.number().int("Debe ser un número entero.").min(0, "No puede ser negativo.").optional(),
+    paletasPicking: z.coerce.number().int("Debe ser un número entero.").min(0, "No puede ser negativo.").optional(),
     totalPesoNeto: z.coerce.number({ invalid_type_error: "Debe ser un número."}).min(0, "Debe ser >= 0").optional(),
     cantidadPorPaleta: z.coerce.number({ invalid_type_error: "Debe ser un número." }).int().min(0, "Debe ser >= 0").optional(),
     pesoBruto: z.coerce.number({ invalid_type_error: "Debe ser un número." }).min(0, "Debe ser >= 0").optional(),
@@ -97,6 +98,7 @@ const itemSchema = z.object({
     destino: z.string().optional(),
     totalTaraCaja: z.number().nullable().optional(),
     pesoNeto: z.number().nullable().optional(),
+    esPicking: z.boolean().default(false),
 }).superRefine((data, ctx) => {
     if (data.paleta === null || data.paleta === undefined) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El campo Paleta es obligatorio.", path: ["paleta"] });
@@ -105,7 +107,8 @@ const itemSchema = z.object({
     
     if (data.paleta === 0) { // Summary Row Validation
         if (data.totalCantidad === undefined || data.totalCantidad === null) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Total Cantidad es requerido.', path: ['totalCantidad'] });
-        if (data.totalPaletas === undefined || data.totalPaletas === null) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Total Paletas es requerido.', path: ['totalPaletas'] });
+        if (data.paletasCompletas === undefined || data.paletasCompletas === null) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Paletas Completas es requerido.', path: ['paletasCompletas'] });
+        if (data.paletasPicking === undefined || data.paletasPicking === null) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Paletas Picking es requerido.', path: ['paletasPicking'] });
         if (data.totalPesoNeto === undefined || data.totalPesoNeto === null) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Total Peso Neto es requerido.', path: ['totalPesoNeto'] });
     } else { // Individual Pallet Validation
         if (data.cantidadPorPaleta === undefined || data.cantidadPorPaleta === null) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Cant. Por Paleta es requerida.', path: ['cantidadPorPaleta'] });
@@ -439,7 +442,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
               group.items.forEach((item:any) => {
                   totalPeso += Number(item.totalPesoNeto) || 0;
                   totalCantidad += Number(item.totalCantidad) || 0;
-                  totalPaletas += Number(item.totalPaletas) || 0;
+                  totalPaletas += (Number(item.paletasCompletas) || 0) + (Number(item.paletasPicking) || 0);
               });
           } else {
               group.items.forEach((item:any) => {
@@ -957,7 +960,8 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
             totalTaraCaja: null,
             pesoNeto: null,
             totalCantidad: null,
-            totalPaletas: null,
+            paletasCompletas: null,
+            paletasPicking: null,
             totalPesoNeto: null,
         });
     }
@@ -1894,7 +1898,7 @@ function ItemsPorDestino({ control, remove, handleProductDialogOpening, destinoI
         return watchedItems.reduce((acc: {cantidad: number, paletas: number, peso: number}, item: any) => {
             if (isSummaryFormat) {
                 acc.cantidad += Number(item.totalCantidad) || 0;
-                acc.paletas += Number(item.totalPaletas) || 0;
+                acc.paletas += (Number(item.paletasCompletas) || 0) + (Number(item.paletasPicking) || 0);
                 acc.peso += Number(item.totalPesoNeto) || 0;
             } else {
                 acc.cantidad += Number(item.cantidadPorPaleta) || 0;
@@ -1927,21 +1931,25 @@ function ItemsPorDestino({ control, remove, handleProductDialogOpening, destinoI
 
         if (!lastItem) {
             append({
-                codigo: '', paleta: null, descripcion: "", lote: "", presentacion: "",
-                cantidadPorPaleta: null, pesoBruto: null, taraEstiba: null, taraCaja: null, totalTaraCaja: null, pesoNeto: null,
-                totalCantidad: null, totalPaletas: null, totalPesoNeto: null
+                ...originalDefaultValues.items![0],
+                esPicking: false
             });
             return;
         }
 
         if (lastItem.paleta === 0) {
             append({
-                codigo: lastItem.codigo, descripcion: lastItem.descripcion, lote: lastItem.lote, presentacion: lastItem.presentacion,
-                paleta: 0, totalCantidad: null, totalPaletas: null, totalPesoNeto: null,
-                cantidadPorPaleta: null, pesoBruto: null, taraEstiba: null, taraCaja: null, totalTaraCaja: null, pesoNeto: null,
+                ...originalDefaultValues.items![0],
+                codigo: lastItem.codigo,
+                paleta: 0,
+                descripcion: lastItem.descripcion,
+                lote: lastItem.lote,
+                presentacion: lastItem.presentacion,
+                esPicking: false
             });
         } else {
             append({
+                ...originalDefaultValues.items![0],
                 codigo: lastItem.codigo,
                 descripcion: lastItem.descripcion,
                 lote: lastItem.lote,
@@ -1954,8 +1962,10 @@ function ItemsPorDestino({ control, remove, handleProductDialogOpening, destinoI
                 totalTaraCaja: null,
                 pesoNeto: null,
                 totalCantidad: null,
-                totalPaletas: null,
+                paletasCompletas: null,
+                paletasPicking: null,
                 totalPesoNeto: null,
+                esPicking: false,
             });
         }
     };
@@ -2127,19 +2137,22 @@ const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, de
                 )} />
             </div>
             {isSummaryRow ? (
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                     <FormField control={control} name={`${basePath}.${itemIndex}.totalCantidad`} render={({ field }) => (
                         <FormItem><FormLabel>Total Cantidad <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                     )} />
-                     <FormField control={control} name={`${basePath}.${itemIndex}.totalPaletas`} render={({ field }) => (
-                        <FormItem><FormLabel>Total Paletas <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="numeric" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                    <FormField control={control} name={`${basePath}.${itemIndex}.paletasCompletas`} render={({ field }) => (
+                        <FormItem><FormLabel>Paletas Completas <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={control} name={`${basePath}.${itemIndex}.paletasPicking`} render={({ field }) => (
+                        <FormItem><FormLabel>Paletas Picking <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormField control={control} name={`${basePath}.${itemIndex}.totalPesoNeto`} render={({ field }) => (
                         <FormItem><FormLabel>Total Peso Neto (kg) <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="decimal" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                     )} />
                 </div>
             ) : (
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
+                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-4 items-center">
                     <FormField control={control} name={`${basePath}.${itemIndex}.cantidadPorPaleta`} render={({ field }) => (
                         <FormItem><FormLabel>Cant. Por Paleta <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="numeric" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                     )} />
@@ -2153,6 +2166,12 @@ const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, de
                         <FormItem><FormLabel>T. Caja (kg) <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="decimal" min="0" step="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                     )} />
                     <FormItem><FormLabel>Peso Neto (kg)</FormLabel><FormControl><Input disabled readOnly value={pesoNeto != null && !isNaN(pesoNeto) ? pesoNeto.toFixed(2) : '0.00'} /></FormControl></FormItem>
+                    <FormField control={control} name={`${basePath}.${itemIndex}.esPicking`} render={({ field }) => (
+                        <FormItem className="flex items-center space-x-2 pt-6">
+                            <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
+                            <Label htmlFor={`${basePath}.${itemIndex}.esPicking`} className="font-normal cursor-pointer">Es Picking</Label>
+                        </FormItem>
+                    )} />
                 </div>
             )}
         </>
@@ -2188,5 +2207,3 @@ const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, de
       </div>
     );
 };
-
-    

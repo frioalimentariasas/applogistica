@@ -450,7 +450,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
               productos: (formData.productos || []).map((p: any) => ({
                   ...originalDefaultValues.productos[0],
                   ...p,
-                  paletasCompletas: p.paletasCompletas ?? p.totalPaletas ?? p.paletas ?? 0,
+                  paletasCompletas: p.paletasCompletas ?? 0,
                   paletasPicking: p.paletasPicking ?? 0,
                   pesoNetoKg: p.pesoNetoKg ?? p.cantidadKg ?? 0,
                   temperatura1: p.temperatura1 ?? p.temperatura ?? null,
@@ -1184,7 +1184,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                                       </FormItem>
                                   )}/>
                               </div>
-                              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                                   <FormField control={form.control} name={`productos.${index}.cajas`} render={({ field }) => (
                                       <FormItem>
                                           <FormLabel>No. de Cajas <span className="text-destructive">*</span></FormLabel>
@@ -1192,32 +1192,22 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                                           <FormMessage />
                                       </FormItem>
                                   )}/>
-                                  {isReception ? (
-                                      <FormField control={form.control} name={`productos.${index}.paletasCompletas`} render={({ field }) => (
-                                          <FormItem>
-                                            <FormLabel>Total Paletas <span className="text-destructive">*</span></FormLabel>
+                                  
+                                    <FormField control={form.control} name={`productos.${index}.paletasCompletas`} render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Paletas Completas <span className="text-destructive">*</span></FormLabel>
                                             <FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))} value={field.value ?? ''} /></FormControl>
                                             <FormMessage />
-                                          </FormItem>
-                                      )}/>
-                                  ) : (
-                                    <>
-                                        <FormField control={form.control} name={`productos.${index}.paletasCompletas`} render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Paletas Completas <span className="text-destructive">*</span></FormLabel>
-                                                <FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))} value={field.value ?? ''} /></FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}/>
-                                        <FormField control={form.control} name={`productos.${index}.paletasPicking`} render={({ field }) => (
-                                            <FormItem>
-                                                <FormLabel>Paletas Picking <span className="text-destructive">*</span></FormLabel>
-                                                <FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))} value={field.value ?? ''} /></FormControl>
-                                                <FormMessage />
-                                            </FormItem>
-                                        )}/>
-                                    </>
-                                  )}
+                                        </FormItem>
+                                    )}/>
+                                    <FormField control={form.control} name={`productos.${index}.paletasPicking`} render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Paletas Picking <span className="text-destructive">*</span></FormLabel>
+                                            <FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))} value={field.value ?? ''} /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}/>
+                                  
                                   <FormField control={form.control} name={`productos.${index}.pesoNetoKg`} render={({ field }) => (
                                       <FormItem>
                                           <FormLabel>Peso Neto (kg) <span className="text-destructive">*</span></FormLabel>
@@ -1272,23 +1262,14 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                           <span className="font-medium text-sm">Totales Cajas</span>
                           <Input className="w-28" disabled value={totalCajas} />
                       </div>
-                      {isReception ? (
+                    <div className="flex items-center gap-2">
+                        <span className="font-medium text-sm">Totales Pal. Completas</span>
+                        <Input className="w-28" disabled value={totalPaletasCompletas} />
+                    </div>
                         <div className="flex items-center gap-2">
-                            <span className="font-medium text-sm">Total Paletas</span>
-                            <Input className="w-28" disabled value={totalPaletasCompletas} />
-                        </div>
-                      ) : (
-                         <>
-                            <div className="flex items-center gap-2">
-                                <span className="font-medium text-sm">Totales Pal. Completas</span>
-                                <Input className="w-28" disabled value={totalPaletasCompletas} />
-                            </div>
-                             <div className="flex items-center gap-2">
-                                <span className="font-medium text-sm">Totales Pal. Picking</span>
-                                <Input className="w-28" disabled value={totalPaletasPicking} />
-                            </div>
-                         </>
-                      )}
+                        <span className="font-medium text-sm">Totales Pal. Picking</span>
+                        <Input className="w-28" disabled value={totalPaletasPicking} />
+                    </div>
                       <div className="flex items-center gap-2">
                           <span className="font-medium text-sm">Total Peso Neto (kg)</span>
                           <Input className="w-28" disabled value={totalPesoNetoKg % 1 === 0 ? totalPesoNetoKg : totalPesoNetoKg.toFixed(2)} />

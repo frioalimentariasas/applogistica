@@ -158,7 +158,6 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
             } else if (formType === 'fixed-weight-despacho') {
                  const dispatchedFixedPallets = productos.reduce((sum: number, p: any) => {
                     if (isInSession(p.descripcion)) {
-                        // Sum only 'paletasCompletas', ignore 'paletasPicking'
                         return sum + (Number(p.paletasCompletas) || 0);
                     }
                     return sum;
@@ -166,7 +165,6 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                 dailyData.fixedDespachadas += dispatchedFixedPallets;
 
             } else if (formType === 'variable-weight-recepcion' || formType === 'variable-weight-reception') {
-                 // **START of corrected logic**
                 const isIngresoSaldosSummary = submission.formData.tipoPedido === 'INGRESO DE SALDOS' && items.some((item: any) => Number(item.paleta) === 0);
 
                 if (isIngresoSaldosSummary) {
@@ -187,17 +185,15 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                     });
                     dailyData.fixedRecibidas += uniquePalletsInSession.size;
                 }
-                // **END of corrected logic**
                 
-                // NEW LOGIC for Maquila dispatch pallets
-                 if (submission.formData.tipoPedido === 'MAQUILA') {
-                    if (criteria.sesion === 'CO') {
+                if (submission.formData.tipoPedido === 'MAQUILA') {
+                    if (!criteria.sesion || criteria.sesion === 'CO') {
                         dailyData.fixedDespachadas += Number(submission.formData.salidaPaletasMaquilaCO || 0);
                     }
-                    if (criteria.sesion === 'RE') {
+                    if (!criteria.sesion || criteria.sesion === 'RE') {
                         dailyData.fixedDespachadas += Number(submission.formData.salidaPaletasMaquilaRE || 0);
                     }
-                    if (criteria.sesion === 'SE') {
+                    if (!criteria.sesion || criteria.sesion === 'SE') {
                         dailyData.fixedDespachadas += Number(submission.formData.salidaPaletasMaquilaSE || 0);
                     }
                 }
@@ -208,9 +204,8 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                 const isSummaryFormat = allItems.some((item: any) => Number(item.paleta) === 0);
 
                 if (isByDestination && isSummaryFormat) {
-                    // New logic for Dispatch by Destination with Summary
-                    const totalPallets = Number(submission.formData.totalPaletasDespacho) || 0;
-                    dailyData.fixedDespachadas += totalPallets;
+                    // This now correctly uses the main field for total pallets, regardless of session
+                    dailyData.fixedDespachadas += Number(submission.formData.totalPaletasDespacho) || 0;
                 } else if (!isByDestination && isSummaryFormat) {
                     // Logic for non-destination summary format
                     let summaryPallets = 0;
