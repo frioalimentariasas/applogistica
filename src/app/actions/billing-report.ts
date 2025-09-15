@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import admin from 'firebase-admin';
@@ -185,8 +186,16 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                 // **END of corrected logic**
                 
                 // NEW LOGIC for Maquila dispatch pallets
-                if (submission.formData.tipoPedido === 'MAQUILA' && submission.formData.salidaPaletasMaquila > 0) {
-                    dailyData.fixedDespachadas += Number(submission.formData.salidaPaletasMaquila);
+                 if (submission.formData.tipoPedido === 'MAQUILA') {
+                    if (criteria.sesion === 'CO') {
+                        dailyData.fixedDespachadas += Number(submission.formData.salidaPaletasMaquilaCO || 0);
+                    }
+                    if (criteria.sesion === 'RE') {
+                        dailyData.fixedDespachadas += Number(submission.formData.salidaPaletasMaquilaRE || 0);
+                    }
+                    if (criteria.sesion === 'SE') {
+                        dailyData.fixedDespachadas += Number(submission.formData.salidaPaletasMaquilaSE || 0);
+                    }
                 }
 
             } else if (formType === 'variable-weight-despacho') {

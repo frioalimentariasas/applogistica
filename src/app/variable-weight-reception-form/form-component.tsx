@@ -173,7 +173,9 @@ const formSchema = z.object({
     operarioResponsable: z.string().optional(),
     tipoPedido: z.string({required_error: "El tipo de pedido es obligatorio."}).min(1, "El tipo de pedido es obligatorio."),
     tipoEmpaqueMaquila: z.enum(['EMPAQUE DE SACOS', 'EMPAQUE DE CAJAS']).optional(),
-    salidaPaletasMaquila: z.coerce.number().int().min(1, "Debe ser al menos 1.").optional(),
+    salidaPaletasMaquilaCO: z.coerce.number().int().min(0, "Debe ser un número no negativo.").optional(),
+    salidaPaletasMaquilaRE: z.coerce.number().int().min(0, "Debe ser un número no negativo.").optional(),
+    salidaPaletasMaquilaSE: z.coerce.number().int().min(0, "Debe ser un número no negativo.").optional(),
     numeroOperariosCuadrilla: z.coerce.number().min(0.1, "Debe ser mayor a 0.").optional(),
     unidadDeMedidaPrincipal: z.string().optional(),
 }).superRefine((data, ctx) => {
@@ -200,9 +202,6 @@ const formSchema = z.object({
       if (data.tipoPedido === 'MAQUILA') {
           if (!data.tipoEmpaqueMaquila) {
               ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El tipo de empaque es obligatorio para maquila.", path: ['tipoEmpaqueMaquila'] });
-          }
-          if (data.salidaPaletasMaquila === undefined || data.salidaPaletasMaquila === null) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La salida de paletas de maquila es obligatoria.", path: ['salidaPaletasMaquila'] });
           }
           if (data.aplicaCuadrilla === 'si' && (data.numeroOperariosCuadrilla === undefined || data.numeroOperariosCuadrilla <= 0)) {
               ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El número de operarios es obligatorio.", path: ['numeroOperariosCuadrilla'] });
@@ -428,7 +427,9 @@ const originalDefaultValues: FormValues = {
   operarioResponsable: undefined,
   tipoPedido: undefined,
   tipoEmpaqueMaquila: undefined,
-  salidaPaletasMaquila: undefined,
+  salidaPaletasMaquilaCO: 0,
+  salidaPaletasMaquilaRE: 0,
+  salidaPaletasMaquilaSE: 0,
   numeroOperariosCuadrilla: undefined,
   unidadDeMedidaPrincipal: "PALETA",
 };
@@ -672,11 +673,11 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
         }
 
         const groupedByPresentation = allItems.reduce((acc: any, item: any) => {
-            const presentacion = item.presentacion || 'SIN PRESENTACIÓN';
-            if (!acc[presentacion]) {
-                acc[presentacion] = [];
+            const presentation = item.presentacion || 'SIN PRESENTACIÓN';
+            if (!acc[presentation]) {
+                acc[presentation] = [];
             }
-            acc[presentacion].push(item);
+            acc[presentation].push(item);
             return acc;
         }, {} as Record<string, any[]>);
 
@@ -707,7 +708,9 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                 } else {
                     acc[key].totalPeso += Number(item.pesoNeto) || 0;
                     acc[key].totalCantidad += Number(item.cantidadPorPaleta) || 0;
-                    if (item.paleta !== undefined && !isNaN(Number(item.paleta))) acc[key].paletas.add(Number(item.paleta));
+                    if (item.paleta !== undefined && !isNaN(Number(item.paleta)) && Number(item.paleta) > 0) {
+                        acc[key].paletas.add(item.paleta);
+                    }
                 }
                 return acc;
             }, {} as any);
@@ -802,7 +805,9 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
               aplicaCuadrilla: formData.aplicaCuadrilla ?? undefined,
               tipoPedido: formData.tipoPedido ?? undefined,
               tipoEmpaqueMaquila: formData.tipoEmpaqueMaquila ?? undefined,
-              salidaPaletasMaquila: formData.salidaPaletasMaquila ?? undefined,
+              salidaPaletasMaquilaCO: formData.salidaPaletasMaquilaCO ?? 0,
+              salidaPaletasMaquilaRE: formData.salidaPaletasMaquilaRE ?? 0,
+              salidaPaletasMaquilaSE: formData.salidaPaletasMaquilaSE ?? 0,
               numeroOperariosCuadrilla: formData.numeroOperariosCuadrilla ?? undefined,
               facturaRemision: formData.facturaRemision ?? "",
               operarioResponsable: submission.userId,
@@ -1580,7 +1585,15 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                 control={form.control}
                                 name="recepcionPorPlaca"
                                 render={({ field }) => (
-                                    <FormItem className="flex flex-row items-center space-x-3 space-y-0 rounded-md border p-4">
+                                    <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
+                                        <div className="space-y-0.5">
+                                            <FormLabel className="text-base">Recepción por Placa</FormLabel>
+                                            {watchedTipoPedido !== 'TUNEL DE CONGELACIÓN' && (
+                                                <FormDescription>
+                                                    Marque esta opción para agrupar ítems por placa de vehículo.
+                                                </FormDescription>
+                                            )}
+                                        </div>
                                         <FormControl>
                                             <Checkbox
                                                 checked={field.value}
@@ -1591,14 +1604,6 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                                 disabled={watchedTipoPedido === 'TUNEL DE CONGELACIÓN'}
                                             />
                                         </FormControl>
-                                        <div className="space-y-1 leading-none">
-                                            <FormLabel>Recepción por Placa</FormLabel>
-                                            {watchedTipoPedido !== 'TUNEL DE CONGELACIÓN' && (
-                                                <FormDescription>
-                                                    Marque esta opción para agrupar ítems por placa de vehículo.
-                                                </FormDescription>
-                                            )}
-                                        </div>
                                     </FormItem>
                                 )}
                             />
@@ -1721,29 +1726,42 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                     )}
                     {watchedTipoPedido === 'MAQUILA' && (
                         <div className="mt-6 pt-6 border-t">
-                             <FormField
-                                control={form.control}
-                                name="salidaPaletasMaquila"
-                                render={({ field }) => (
-                                    <FormItem className="max-w-sm">
-                                        <FormLabel>Salida Paletas Maquila <span className="text-destructive">*</span></FormLabel>
-                                        <FormControl>
-                                            <Input 
-                                                type="number"
-                                                min="1"
-                                                placeholder="Ej: 5" 
-                                                {...field} 
-                                                value={field.value ?? ''}
-                                                onChange={e => field.onChange(parseInt(e.target.value, 10) || undefined)}
-                                            />
-                                        </FormControl>
-                                        <FormDescription>
-                                            Cantidad de paletas utilizadas en la maquila que se sumarán a los despachos.
-                                        </FormDescription>
-                                        <FormMessage />
-                                    </FormItem>
-                                )}
-                            />
+                            <h4 className="text-md font-semibold mb-4">Salida de Paletas de Maquila</h4>
+                             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                <FormField
+                                    control={form.control}
+                                    name="salidaPaletasMaquilaCO"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Salida Paletas (Congelados)</FormLabel>
+                                            <FormControl><Input type="number" min="0" placeholder="0" {...field} value={field.value ?? 0} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)} /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="salidaPaletasMaquilaRE"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Salida Paletas (Refrigerado)</FormLabel>
+                                            <FormControl><Input type="number" min="0" placeholder="0" {...field} value={field.value ?? 0} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)}/></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                                <FormField
+                                    control={form.control}
+                                    name="salidaPaletasMaquilaSE"
+                                    render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Salida Paletas (Seco)</FormLabel>
+                                            <FormControl><Input type="number" min="0" placeholder="0" {...field} value={field.value ?? 0} onChange={e => field.onChange(parseInt(e.target.value, 10) || 0)} /></FormControl>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}
+                                />
+                            </div>
                         </div>
                     )}
                   </CardContent>
@@ -1776,7 +1794,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                                 </TableRow>
                                             </TableBody>
                                             {placaGroup.presentationGroups.map((group: any, groupIndex: number) => (
-                                                <React.Fragment key={`${placaGroup.placa}-${group.presentation}`}>
+                                                <React.Fragment key={`${placaGroupIndex}-${groupIndex}`}>
                                                     <TableBody>
                                                         <TableRow className="bg-muted/50 hover:bg-muted/50">
                                                             <TableCell colSpan={5} className="font-semibold text-primary pl-8">Presentación: {group.presentation}</TableCell>
@@ -1964,7 +1982,7 @@ export default function VariableWeightReceptionFormComponent({ pedidoTypes }: { 
                                                 name={`observaciones.${index}.quantity`}
                                                 render={({ field }) => (
                                                     <FormItem>
-                                                        <FormLabel>Cantidad ({stdObsData?.quantityType || 'No Aplica'})</FormLabel>
+                                                        <FormLabel>Cantidad ({stdObsData?.quantityType || 'N/A'})</FormLabel>
                                                         <FormControl>
                                                             <Input type="number" placeholder="0" {...field} />
                                                         </FormControl>
@@ -2406,4 +2424,5 @@ function PedidoTypeSelectorDialog({
         </Dialog>
     );
 }
+
 
