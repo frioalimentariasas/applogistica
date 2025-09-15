@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -25,7 +26,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
-import { ArrowLeft, Loader2, CalendarIcon, PlusCircle, X, Edit2, Trash2, Edit, Search, XCircle, FolderSearch, Eye, Clock, DollarSign } from 'lucide-react';
+import { ArrowLeft, Loader2, CalendarIcon, PlusCircle, X, Edit2, Trash2, Edit, Search, XCircle, FolderSearch, Eye, Clock, DollarSign, ChevronsUpDown, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -34,6 +35,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
 
 
 const specificTariffEntrySchema = z.object({
@@ -308,7 +310,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         setOpToManage(op || null);
     
         if (op) {
-             const opDate = new Date(op.operationDate);
+             const opDate = op.startDate ? new Date(op.startDate.seconds * 1000) : new Date(op.operationDate);
             form.reset({
                 clientName: op.clientName || '',
                 operationDate: opDate,
@@ -428,7 +430,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
             <div className="max-w-4xl mx-auto">
                 <header className="mb-8">
                     <div className="relative flex items-center justify-center text-center">
-                         <Button variant="ghost" size="icon" className="absolute left-0 top-1/2 -translate-y-1/2" onClick={() => router.push('/')}>
+                         <Button variant="ghost" size="icon" className="absolute left-0 top-1/2 -translate-y-1/2" onClick={() => router.push('/billing-reports')}>
                             <ArrowLeft className="h-6 w-6" />
                         </Button>
                         <div>
@@ -438,9 +440,9 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                             </div>
                              <p className="text-sm text-gray-500">Agregue, edite o elimine operaciones manuales para facturar a clientes.</p>
                         </div>
-                         <Button onClick={() => router.push('/billing-reports')} className="absolute right-0 top-1/2 -translate-y-1/2">
+                         <Button onClick={() => router.push('/gestion-conceptos-liquidacion-clientes')} className="absolute right-0 top-1/2 -translate-y-1/2">
                             <DollarSign className="mr-2 h-4 w-4" />
-                            Ir a Liquidación
+                            Gestionar Conceptos
                         </Button>
                     </div>
                 </header>
@@ -564,7 +566,71 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                 <Form {...form}>
                                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                                         <FormField control={form.control} name="clientName" render={({ field }) => ( <FormItem><FormLabel>Cliente <span className="text-destructive">*</span></FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={dialogMode === 'view'}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un cliente" /></SelectTrigger></FormControl><SelectContent><ScrollArea className="h-60">{clients.map(c => <SelectItem key={c.id} value={c.razonSocial}>{c.razonSocial}</SelectItem>)}</ScrollArea></SelectContent></Select><FormMessage /></FormItem> )}/>
-                                        <FormField control={form.control} name="concept" render={({ field }) => ( <FormItem><FormLabel>Concepto de Liquidación</FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={dialogMode === 'view'}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un concepto" /></SelectTrigger></FormControl><SelectContent><ScrollArea className="h-60">{billingConcepts.filter(c => c.calculationType === 'MANUAL').map(c => <SelectItem key={c.id} value={c.conceptName}>{c.conceptName}</SelectItem>)}</ScrollArea></SelectContent></Select><FormMessage /></FormItem> )}/>
+                                        <FormField
+                                            control={form.control}
+                                            name="concept"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                <FormLabel>Concepto de Liquidación</FormLabel>
+                                                <Popover>
+                                                    <PopoverTrigger asChild>
+                                                    <FormControl>
+                                                        <Button
+                                                        variant="outline"
+                                                        role="combobox"
+                                                        disabled={dialogMode === 'view'}
+                                                        className={cn(
+                                                            "w-full justify-between",
+                                                            !field.value && "text-muted-foreground"
+                                                        )}
+                                                        >
+                                                        {field.value
+                                                            ? billingConcepts.find(
+                                                                (c) => c.conceptName === field.value
+                                                            )?.conceptName
+                                                            : "Seleccione un concepto"}
+                                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                                                        </Button>
+                                                    </FormControl>
+                                                    </PopoverTrigger>
+                                                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
+                                                    <Command>
+                                                        <CommandInput placeholder="Buscar concepto..." />
+                                                        <CommandList>
+                                                            <CommandEmpty>No se encontró el concepto.</CommandEmpty>
+                                                            <CommandGroup>
+                                                                <ScrollArea className="h-60">
+                                                                {billingConcepts
+                                                                    .filter((c) => c.calculationType === 'MANUAL')
+                                                                    .map((c) => (
+                                                                    <CommandItem
+                                                                        value={c.conceptName}
+                                                                        key={c.id}
+                                                                        onSelect={() => {
+                                                                        form.setValue("concept", c.conceptName);
+                                                                        }}
+                                                                    >
+                                                                        <Check
+                                                                        className={cn(
+                                                                            "mr-2 h-4 w-4",
+                                                                            c.conceptName === field.value
+                                                                            ? "opacity-100"
+                                                                            : "opacity-0"
+                                                                        )}
+                                                                        />
+                                                                        {c.conceptName}
+                                                                    </CommandItem>
+                                                                    ))}
+                                                                </ScrollArea>
+                                                            </CommandGroup>
+                                                        </CommandList>
+                                                    </Command>
+                                                    </PopoverContent>
+                                                </Popover>
+                                                <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
 
                                         {isFixedMonthlyService ? (
                                             <FormField control={form.control} name="operationDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha de Liquidación <span className="text-destructive">*</span></FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={dialogMode === 'view'} className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "PPP", { locale: es }) : <span>Seleccione fecha</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={dialogMode === 'view'} initialFocus /></PopoverContent></Popover>
@@ -757,7 +823,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                 </div>
                                                 <FormField control={form.control} name="details.container" render={({ field }) => (<FormItem><FormLabel>Contenedor {showInspectionFields && <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Contenedor" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
                                                 {showInspectionFields && (
-                                                    <FormField control={form.control} name="details.arin" render={({ field }) => (<FormItem><FormLabel>ARIN <span className="text-destructive">*</span></FormLabel><FormControl><Input placeholder="Número de ARIN" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
+                                                    <FormField control={form.control} name="details.arin" render={({ field }) => (<FormItem><FormLabel>ARIN <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Número de ARIN" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
                                                 )}
                                                 <FormField control={form.control} name="details.plate" render={({ field }) => (<FormItem><FormLabel>Placa (Opcional)</FormLabel><FormControl><Input placeholder="ABC123" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
                                                 <FormField control={form.control} name="details.totalPallets" render={({ field }) => (<FormItem><FormLabel>Total Paletas</FormLabel><FormControl><Input type="number" step="1" placeholder="Ej: 10" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value === '' ? null : parseInt(e.target.value, 10))}/></FormControl><FormMessage /></FormItem>)}/>
