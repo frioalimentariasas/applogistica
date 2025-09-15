@@ -162,6 +162,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     const [opToManage, setOpToManage] = useState<any | null>(null);
     const [opToDelete, setOpToDelete] = useState<any | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+    const [isConceptDialogOpen, setConceptDialogOpen] = useState(false);
 
     const form = useForm<ManualOperationValues>({
         resolver: zodResolver(manualOperationSchema),
@@ -509,7 +510,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                     ) : filteredOperations.length > 0 ? (
                                         filteredOperations.map((op) => (
                                             <TableRow key={op.id}>
-                                                <TableCell>{op.startDate && op.endDate ? `${format(op.startDate.toDate(), 'dd/MM/yy')} - ${format(op.endDate.toDate(), 'dd/MM/yy')}` : format(parseISO(op.operationDate), 'dd/MM/yyyy')}</TableCell>
+                                                <TableCell>{op.startDate && op.endDate ? `${format(new Date(op.startDate.seconds * 1000), 'dd/MM/yy')} - ${format(new Date(op.endDate.seconds * 1000), 'dd/MM/yy')}` : format(parseISO(op.operationDate), 'dd/MM/yyyy')}</TableCell>
                                                 <TableCell>{op.concept}</TableCell>
                                                 <TableCell>{op.clientName || 'No Aplica'}</TableCell>
                                                 <TableCell>{op.createdBy?.displayName || 'N/A'}</TableCell>
@@ -572,61 +573,49 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                             render={({ field }) => (
                                                 <FormItem>
                                                 <FormLabel>Concepto de Liquidación</FormLabel>
-                                                <Popover>
-                                                    <PopoverTrigger asChild>
+                                                <Dialog open={isConceptDialogOpen} onOpenChange={setConceptDialogOpen}>
+                                                    <DialogTrigger asChild>
                                                     <FormControl>
                                                         <Button
                                                         variant="outline"
                                                         role="combobox"
                                                         disabled={dialogMode === 'view'}
-                                                        className={cn(
-                                                            "w-full justify-between",
-                                                            !field.value && "text-muted-foreground"
-                                                        )}
+                                                        className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
                                                         >
-                                                        {field.value
-                                                            ? billingConcepts.find(
-                                                                (c) => c.conceptName === field.value
-                                                            )?.conceptName
-                                                            : "Seleccione un concepto"}
+                                                        {field.value || "Seleccione un concepto"}
                                                         <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
                                                         </Button>
                                                     </FormControl>
-                                                    </PopoverTrigger>
-                                                    <PopoverContent className="w-[--radix-popover-trigger-width] p-0">
-                                                    <Command>
-                                                        <CommandInput placeholder="Buscar concepto..." />
-                                                        <CommandList>
-                                                            <CommandEmpty>No se encontró el concepto.</CommandEmpty>
-                                                            <CommandGroup>
-                                                                <ScrollArea className="h-60">
-                                                                {billingConcepts
-                                                                    .filter((c) => c.calculationType === 'MANUAL')
-                                                                    .map((c) => (
-                                                                    <CommandItem
-                                                                        value={c.conceptName}
-                                                                        key={c.id}
-                                                                        onSelect={() => {
-                                                                        form.setValue("concept", c.conceptName);
-                                                                        }}
-                                                                    >
-                                                                        <Check
-                                                                        className={cn(
-                                                                            "mr-2 h-4 w-4",
-                                                                            c.conceptName === field.value
-                                                                            ? "opacity-100"
-                                                                            : "opacity-0"
-                                                                        )}
-                                                                        />
-                                                                        {c.conceptName}
-                                                                    </CommandItem>
-                                                                    ))}
-                                                                </ScrollArea>
-                                                            </CommandGroup>
-                                                        </CommandList>
-                                                    </Command>
-                                                    </PopoverContent>
-                                                </Popover>
+                                                    </DialogTrigger>
+                                                    <DialogContent className="p-0">
+                                                        <DialogHeader className="p-4 pb-0"><DialogTitle>Seleccionar Concepto</DialogTitle></DialogHeader>
+                                                        <Command>
+                                                            <CommandInput placeholder="Buscar concepto..." />
+                                                            <CommandList>
+                                                                <CommandEmpty>No se encontró el concepto.</CommandEmpty>
+                                                                <CommandGroup>
+                                                                    <ScrollArea className="h-60">
+                                                                    {billingConcepts
+                                                                        .filter((c) => c.calculationType === 'MANUAL')
+                                                                        .map((c) => (
+                                                                        <CommandItem
+                                                                            value={c.conceptName}
+                                                                            key={c.id}
+                                                                            onSelect={() => {
+                                                                                form.setValue("concept", c.conceptName);
+                                                                                setConceptDialogOpen(false);
+                                                                            }}
+                                                                        >
+                                                                            <Check className={cn("mr-2 h-4 w-4", c.conceptName === field.value ? "opacity-100" : "opacity-0")} />
+                                                                            {c.conceptName}
+                                                                        </CommandItem>
+                                                                        ))}
+                                                                    </ScrollArea>
+                                                                </CommandGroup>
+                                                            </CommandList>
+                                                        </Command>
+                                                    </DialogContent>
+                                                </Dialog>
                                                 <FormMessage />
                                                 </FormItem>
                                             )}
