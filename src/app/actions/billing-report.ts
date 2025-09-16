@@ -68,7 +68,7 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
     try {
         const submissionsSnapshot = await firestore.collection('submissions').get();
         
-        // Fetch all articles for the client to create a session lookup map
+        // Fetch all articles for the client to create a complete session lookup map
         const articlesSnapshot = await firestore.collection('articulos')
             .where('razonSocial', '==', criteria.clientName)
             .get();
