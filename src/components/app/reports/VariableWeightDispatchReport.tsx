@@ -80,14 +80,15 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
         return items.reduce((acc, item) => {
             if (isSummaryFormat) {
                 acc.cantidad += Number(item.totalCantidad) || 0;
-                acc.paletas += Number(item.totalPaletas) || 0;
+                acc.paletasCompletas += Number(item.paletasCompletas) || 0;
+                acc.paletasPicking += Number(item.paletasPicking) || 0;
                 acc.peso += Number(item.totalPesoNeto) || 0;
             } else {
                 acc.cantidad += Number(item.cantidadPorPaleta) || 0;
                 acc.peso += Number(item.pesoNeto) || 0;
             }
             return acc;
-        }, { cantidad: 0, paletas: 0, peso: 0 });
+        }, { cantidad: 0, paletasCompletas: 0, paletasPicking: 0, peso: 0 });
     };
 
     const recalculatedSummary = (() => {
@@ -115,41 +116,60 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
             let totalPeso = 0;
             let totalCantidad = 0;
             let totalPaletas = 0;
+            let pallets999Count = 0;
             const uniquePallets = new Set<number>();
+            let totalPaletasCompletas = 0;
+            let totalPaletasPicking = 0;
+
             if (isSummaryFormat) {
                 group.items.forEach(item => {
                     totalPeso += Number(item.totalPesoNeto) || 0;
                     totalCantidad += Number(item.totalCantidad) || 0;
-                    totalPaletas += Number(item.totalPaletas) || 0;
+                    totalPaletasCompletas += (Number(item.paletasCompletas) || 0);
+                    totalPaletasPicking += (Number(item.paletasPicking) || 0);
                 });
+                totalPaletas = totalPaletasCompletas + totalPaletasPicking;
             } else {
                 group.items.forEach(item => {
                     totalPeso += Number(item.pesoNeto) || 0;
                     totalCantidad += Number(item.cantidadPorPaleta) || 0;
                     const paletaNum = Number(item.paleta);
-                    if (!isNaN(paletaNum) && paletaNum > 0) uniquePallets.add(paletaNum);
+                    if (!isNaN(paletaNum) && paletaNum > 0) {
+                      if (paletaNum === 999) {
+                          pallets999Count++;
+                      } else if (!item.esPicking) {
+                          uniquePallets.add(paletaNum);
+                      }
+                    }
                 });
-                totalPaletas = uniquePallets.size;
+                totalPaletas = uniquePallets.size + pallets999Count;
             }
-            return { ...group, totalPeso, totalCantidad, totalPaletas };
+            return { ...group, totalPeso, totalCantidad, totalPaletas, totalPaletasCompletas, totalPaletasPicking };
         });
     })();
     
     const totalGeneralPeso = recalculatedSummary.reduce((acc, p) => acc + (p.totalPeso || 0), 0);
     const totalGeneralCantidad = recalculatedSummary.reduce((acc, p) => acc + (p.totalCantidad || 0), 0);
+    const totalGeneralPaletasCompletas = recalculatedSummary.reduce((acc, p) => acc + p.totalPaletasCompletas, 0);
+    const totalGeneralPaletasPicking = recalculatedSummary.reduce((acc, p) => acc + p.totalPaletasPicking, 0);
     
     const totalGeneralPaletas = (() => {
         if (isSummaryFormat) {
-            return formData.despachoPorDestino
-                ? formData.totalPaletasDespacho
-                : recalculatedSummary.reduce((acc, p) => acc + (p.totalPaletas || 0), 0);
+            return totalGeneralPaletasCompletas + totalGeneralPaletasPicking;
         }
         const uniquePallets = new Set<number>();
+        let count999 = 0;
         allItems.forEach((i: any) => {
             const pNum = Number(i.paleta);
-            if (!isNaN(pNum) && pNum > 0) uniquePallets.add(pNum);
+            if (!isNaN(pNum) && pNum > 0) {
+                if (pNum === 999) {
+                    count999++;
+                } else if (!i.esPicking) { // Solo contar las paletas completas
+                    uniquePallets.add(pNum);
+                }
+            }
         });
-        return uniquePallets.size;
+        return uniquePallets.size + count999;
     })();
 
 
@@ -196,11 +216,18 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                             const subtotals = getSubtotalsForDestino(destino.items);
                             if (!isSummaryFormat) {
                                 const uniquePallets = new Set();
+                                let pallets999Count = 0;
                                 destino.items.forEach((item: any) => {
                                     const paletaNum = Number(item.paleta);
-                                    if (!isNaN(paletaNum) && paletaNum > 0) uniquePallets.add(paletaNum);
+                                    if (!isNaN(paletaNum) && paletaNum > 0) {
+                                        if (paletaNum === 999) {
+                                            pallets999Count++;
+                                        } else if (!item.esPicking) {
+                                            uniquePallets.add(paletaNum);
+                                        }
+                                    }
                                 });
-                                subtotals.paletas = uniquePallets.size;
+                                subtotals.paletas = uniquePallets.size + pallets999Count;
                             }
                             return (
                             <div key={destinoIndex} style={{ marginBottom: '10px', breakInside: 'avoid', pageBreakInside: 'avoid' }}>
@@ -210,7 +237,7 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                                 <ItemsTable items={destino.items} isSummaryFormat={isSummaryFormat} />
                                 <div style={{padding: '4px 12px', backgroundColor: '#fafafa', borderTop: '1px solid #ddd', textAlign: 'right', fontSize: '11px', fontWeight: 'bold'}}>
                                     Subtotales Destino: Cantidad: {subtotals.cantidad},
-                                    {!isSummaryFormat && ` Paletas: ${subtotals.paletas},`}
+                                    {isSummaryFormat ? ` Pal. Completas: ${subtotals.paletasCompletas}, Pal. Picking: ${subtotals.paletasPicking},` : ` Paletas Despachadas: ${subtotals.paletas},`}
                                     Peso: {subtotals.peso.toFixed(2)} kg
                                 </div>
                             </div>
@@ -230,7 +257,14 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                                 <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Descripción</th>
                                 <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Temp(°C)</th>
                                 <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Cantidad</th>
-                                <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Paletas</th>
+                                {isSummaryFormat ? (
+                                    <>
+                                        <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Pal. Completas</th>
+                                        <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Pal. Picking</th>
+                                    </>
+                                ) : (
+                                    <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Paletas</th>
+                                )}
                                 <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Peso (kg)</th>
                             </tr>
                         </thead>
@@ -241,7 +275,14 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                                     <td style={{ padding: '4px' }}>{p.descripcion}</td>
                                     <td style={{ textAlign: 'right', padding: '4px' }}>{p.temperatura}</td>
                                     <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalCantidad}</td>
-                                    <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPaletas}</td>
+                                    {isSummaryFormat ? (
+                                        <>
+                                            <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPaletasCompletas}</td>
+                                            <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPaletasPicking}</td>
+                                        </>
+                                    ) : (
+                                        <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPaletas}</td>
+                                    )}
                                     <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPeso?.toFixed(2)}</td>
                                 </tr>
                             ))}
@@ -249,7 +290,14 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                                 <td style={{ padding: '4px', textAlign: 'right' }} colSpan={formData.despachoPorDestino && !isSummaryFormat ? 2 : 1}>TOTALES:</td>
                                 <td style={{ padding: '4px' }}></td>
                                 <td style={{ textAlign: 'right', padding: '4px' }}>{totalGeneralCantidad}</td>
-                                <td style={{ textAlign: 'right', padding: '4px' }}>{totalGeneralPaletas}</td>
+                                {isSummaryFormat ? (
+                                    <>
+                                        <td style={{ textAlign: 'right', padding: '4px' }}>{totalGeneralPaletasCompletas}</td>
+                                        <td style={{ textAlign: 'right', padding: '4px' }}>{totalGeneralPaletasPicking}</td>
+                                    </>
+                                ) : (
+                                    <td style={{ textAlign: 'right', padding: '4px' }}>{totalGeneralPaletas}</td>
+                                )}
                                 <td style={{ textAlign: 'right', padding: '4px' }}>{totalGeneralPeso.toFixed(2)}</td>
                             </tr>
                         </tbody>
@@ -355,12 +403,14 @@ const ItemsTable = ({ items, isSummaryFormat }: { items: any[], isSummaryFormat:
                         <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Lote</th>
                         <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Presentación</th>
                         <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Cant.</th>
-                        <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Paletas</th>
+                        <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Pal. Completas</th>
+                        <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Pal. Picking</th>
                         <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total P. Neto</th>
                     </>
                 ) : (
                     <>
                         <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Paleta</th>
+                        <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Tipo Salida</th>
                         <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Descripción</th>
                         <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Lote</th>
                         <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Presentación</th>
@@ -383,7 +433,8 @@ const ItemsTable = ({ items, isSummaryFormat }: { items: any[], isSummaryFormat:
                             <td style={{ padding: '4px' }}>{p.lote}</td>
                             <td style={{ padding: '4px' }}>{p.presentacion}</td>
                             <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalCantidad}</td>
-                            <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPaletas}</td>
+                            <td style={{ textAlign: 'right', padding: '4px' }}>{p.paletasCompletas}</td>
+                            <td style={{ textAlign: 'right', padding: '4px' }}>{p.paletasPicking}</td>
                             <td style={{ textAlign: 'right', padding: '4px' }}>{p.totalPesoNeto?.toFixed(2)}</td>
                         </tr>
                     );
@@ -391,6 +442,7 @@ const ItemsTable = ({ items, isSummaryFormat }: { items: any[], isSummaryFormat:
                      return (
                         <tr key={i} style={{ borderBottom: '1px solid #eee' }}>
                             <td style={{ padding: '4px' }}>{p.paleta}</td>
+                            <td style={{ padding: '4px' }}>{p.esPicking ? 'Picking' : 'Completa'}</td>
                             <td style={{ padding: '4px' }}>{p.descripcion}</td>
                             <td style={{ padding: '4px' }}>{p.lote}</td>
                             <td style={{ padding: '4px' }}>{p.presentacion}</td>
@@ -407,7 +459,3 @@ const ItemsTable = ({ items, isSummaryFormat }: { items: any[], isSummaryFormat:
         </tbody>
     </table>
 );
-
-
-
-
