@@ -108,8 +108,7 @@ const itemSchema = z.object({
     
     if (data.paleta === 0) { // Summary Row Validation
         if (data.totalCantidad === undefined || data.totalCantidad === null) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Total Cantidad es requerido.', path: ['totalCantidad'] });
-        if (data.paletasCompletas === undefined || data.paletasCompletas === null) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Paletas Completas es requerido.', path: ['paletasCompletas'] });
-        if (data.paletasPicking === undefined || data.paletasPicking === null) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Paletas Picking es requerido.', path: ['paletasPicking'] });
+        // Validation for paletasCompletas/Picking is implicit as they default to 0
         if (data.totalPesoNeto === undefined || data.totalPesoNeto === null) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Total Peso Neto es requerido.', path: ['totalPesoNeto'] });
     } else { // Individual Pallet Validation
         if (data.cantidadPorPaleta === undefined || data.cantidadPorPaleta === null) ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Cant. Por Paleta es requerida.', path: ['cantidadPorPaleta'] });
@@ -141,6 +140,8 @@ const summaryItemSchema = z.object({
     totalPeso: z.number(),
     totalCantidad: z.number(),
     totalPaletas: z.number(),
+    totalPaletasCompletas: z.number(),
+    totalPaletasPicking: z.number(),
     destino: z.string().optional(),
 }).refine(data => {
     // Al menos una temperatura es requerida.
@@ -313,6 +314,11 @@ const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, is
     const basePath = destinoIndex !== undefined ? `destinos.${destinoIndex}.items` : 'items';
     const watchedItem = watch(`${basePath}.${itemIndex}`);
     const isSummaryRow = watchedItem?.paleta === 0;
+
+    const showLegacyPalletField = isSummaryRow &&
+                                watchedItem.totalPaletas !== undefined &&
+                                watchedItem.totalPaletas !== null &&
+                                (watchedItem.paletasCompletas === 0 && watchedItem.paletasPicking === 0);
     
     useEffect(() => {
         if (watchedItem && watchedItem.paleta !== 0) {
@@ -440,16 +446,30 @@ const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, is
                 )} />
             </div>
             {isSummaryRow ? (
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-start">
                     <FormField control={control} name={`${basePath}.${itemIndex}.totalCantidad`} render={({ field }) => (
                         <FormItem><FormLabel>Total Cantidad <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                     )} />
-                    <FormField control={control} name={`${basePath}.${itemIndex}.paletasCompletas`} render={({ field }) => (
-                        <FormItem><FormLabel>Paletas Completas</FormLabel><FormControl><Input type="text" inputMode="numeric" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                    )}/>
-                    <FormField control={control} name={`${basePath}.${itemIndex}.paletasPicking`} render={({ field }) => (
-                        <FormItem><FormLabel>Paletas Picking</FormLabel><FormControl><Input type="text" inputMode="numeric" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                    )}/>
+                     {showLegacyPalletField ? (
+                        <FormField
+                            name={`${basePath}.${itemIndex}.totalPaletas`}
+                            render={({ field }) => (
+                            <FormItem>
+                                <FormLabel>Total Paletas (Dato Anterior)</FormLabel>
+                                <FormControl><Input disabled value={field.value ?? 0} /></FormControl>
+                                <FormDescription>Ajuste abajo.</FormDescription>
+                            </FormItem>
+                            )}
+                        />
+                    ) : null}
+                    <div className="grid grid-cols-2 gap-2">
+                        <FormField control={control} name={`${basePath}.${itemIndex}.paletasCompletas`} render={({ field }) => (
+                            <FormItem><FormLabel>Pal. Completas</FormLabel><FormControl><Input type="text" inputMode="numeric" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                        )}/>
+                        <FormField control={control} name={`${basePath}.${itemIndex}.paletasPicking`} render={({ field }) => (
+                            <FormItem><FormLabel>Pal. Picking</FormLabel><FormControl><Input type="text" inputMode="numeric" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                        )}/>
+                    </div>
                     <FormField control={control} name={`${basePath}.${itemIndex}.totalPesoNeto`} render={({ field }) => (
                         <FormItem><FormLabel>Total Peso Neto (kg) <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="decimal" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                     )} />
@@ -632,13 +652,17 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
           let totalPaletas = 0;
           let pallets999Count = 0;
           const uniquePallets = new Set<number>();
-          
+          let totalPaletasCompletas = 0;
+          let totalPaletasPicking = 0;
+
           if (isSummaryMode) {
               group.items.forEach((item:any) => {
                   totalPeso += Number(item.totalPesoNeto) || 0;
                   totalCantidad += Number(item.totalCantidad) || 0;
-                  totalPaletas += (Number(item.paletasCompletas) || 0) + (Number(item.paletasPicking) || 0);
+                  totalPaletasCompletas += (Number(item.paletasCompletas) || 0);
+                  totalPaletasPicking += (Number(item.paletasPicking) || 0);
               });
+              totalPaletas = totalPaletasCompletas + totalPaletasPicking;
           } else {
               group.items.forEach((item:any) => {
                   totalPeso += Number(item.pesoNeto) || 0;
@@ -654,19 +678,18 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
               });
               totalPaletas = uniquePallets.size + pallets999Count;
           }
-          return { ...group, totalPeso, totalCantidad, totalPaletas };
+          return { ...group, totalPeso, totalCantidad, totalPaletas, totalPaletasCompletas, totalPaletasPicking };
       });
   }, [despachoPorDestino, allDestinos, allItems, isSummaryMode, form]);
 
   const totalGeneralPeso = useMemo(() => calculatedSummary.reduce((acc, p) => acc + p.totalPeso, 0), [calculatedSummary]);
   const totalGeneralCantidad = useMemo(() => calculatedSummary.reduce((acc, p) => acc + p.totalCantidad, 0), [calculatedSummary]);
+  const totalGeneralPaletasCompletas = useMemo(() => calculatedSummary.reduce((acc, p) => acc + p.totalPaletasCompletas, 0), [calculatedSummary]);
+  const totalGeneralPaletasPicking = useMemo(() => calculatedSummary.reduce((acc, p) => acc + p.totalPaletasPicking, 0), [calculatedSummary]);
   
   const totalGeneralPaletas = useMemo(() => {
     if (isSummaryMode) {
-      if (despachoPorDestino) {
-        return form.getValues('totalPaletasDespacho') || 0;
-      }
-      return calculatedSummary.reduce((sum, item) => sum + (Number(item.totalPaletas) || 0), 0);
+        return totalGeneralPaletasCompletas + totalGeneralPaletasPicking;
     }
     const itemsToProcess = despachoPorDestino ? (allDestinos || []).flatMap(d => d.items) : (allItems || []);
     const uniquePallets = new Set<number>();
@@ -682,7 +705,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
         }
     });
     return uniquePallets.size + count999;
-  }, [calculatedSummary, despachoPorDestino, allDestinos, allItems, isSummaryMode, form]);
+  }, [calculatedSummary, despachoPorDestino, allDestinos, allItems, isSummaryMode, form, totalGeneralPaletasCompletas, totalGeneralPaletasPicking]);
 
   useEffect(() => {
     const currentSummaryInForm = form.getValues('summary') || [];
@@ -1155,8 +1178,8 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
             totalTaraCaja: null,
             pesoNeto: null,
             totalCantidad: null,
-            paletasCompletas: null,
-            paletasPicking: null,
+            paletasCompletas: 0,
+            paletasPicking: 0,
             totalPesoNeto: null,
             esPicking: false,
         });
@@ -1526,7 +1549,14 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                                             <TableHead>Descripción del Producto</TableHead>
                                             <TableHead className="w-[120px]">Temp. (°C) <span className="text-destructive">*</span></TableHead>
                                             <TableHead className="text-right">Total Cantidad</TableHead>
-                                            <TableHead className="text-right">Total Paletas</TableHead>
+                                            {isSummaryMode ? (
+                                                <>
+                                                    <TableHead className="text-right">Pal. Completas</TableHead>
+                                                    <TableHead className="text-right">Pal. Picking</TableHead>
+                                                </>
+                                            ) : (
+                                                <TableHead className="text-right">Total Paletas</TableHead>
+                                            )}
                                             <TableHead className="text-right">Total Peso (kg)</TableHead>
                                         </TableRow>
                                     </TableHeader>
@@ -1552,7 +1582,14 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                                                     />
                                                 </TableCell>
                                                 <TableCell className="text-right">{summaryItem.totalCantidad}</TableCell>
-                                                <TableCell className="text-right">{summaryItem.totalPaletas}</TableCell>
+                                                {isSummaryMode ? (
+                                                    <>
+                                                        <TableCell className="text-right">{summaryItem.totalPaletasCompletas}</TableCell>
+                                                        <TableCell className="text-right">{summaryItem.totalPaletasPicking}</TableCell>
+                                                    </>
+                                                ) : (
+                                                    <TableCell className="text-right">{summaryItem.totalPaletas}</TableCell>
+                                                )}
                                                 <TableCell className="text-right">{summaryItem.totalPeso.toFixed(2)}</TableCell>
                                             </TableRow>
                                         )})}
@@ -1560,7 +1597,14 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                                             <TableCell colSpan={despachoPorDestino && !isSummaryMode ? 2 : 1} className="text-right text-lg">TOTAL GENERAL:</TableCell>
                                             <TableCell></TableCell>
                                             <TableCell className="text-right text-lg">{totalGeneralCantidad}</TableCell>
-                                            <TableCell className="text-right text-lg">{totalGeneralPaletas}</TableCell>
+                                             {isSummaryMode ? (
+                                                    <>
+                                                        <TableCell className="text-right text-lg">{totalGeneralPaletasCompletas}</TableCell>
+                                                        <TableCell className="text-right text-lg">{totalGeneralPaletasPicking}</TableCell>
+                                                    </>
+                                                ) : (
+                                                    <TableCell className="text-right text-lg">{totalGeneralPaletas}</TableCell>
+                                                )}
                                             <TableCell className="text-right text-lg">{totalGeneralPeso.toFixed(2)}</TableCell>
                                         </TableRow>
                                     </TableBody>
@@ -1867,18 +1911,18 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                 </AlertDialogFooter>
             </AlertDialogContent>
         </AlertDialog>
-        <AlertDialog open={isMixErrorDialogOpen} onOpenChange={setMixErrorDialogOpen}>
-          <AlertDialogContent>
-              <AlertDialogHeader>
-                  <AlertDialogTitle>Error de Validación</AlertDialogTitle>
-                  <AlertDialogDesc>
-                  No se pueden mezclar ítems de resumen (Paleta 0) con ítems de paletas individuales. Por favor, use solo un método.
-                  </AlertDialogDesc>
-              </AlertDialogHeader>
-              <AlertDialogFooter>
-                  <AlertDialogAction onClick={() => setMixErrorDialogOpen(false)}>Entendido</AlertDialogAction>
-              </AlertDialogFooter>
-          </AlertDialogContent>
+         <AlertDialog open={isMixErrorDialogOpen} onOpenChange={setMixErrorDialogOpen}>
+            <AlertDialogContent>
+            <AlertDialogHeader>
+                <AlertDialogTitle>Error de Validación</AlertDialogTitle>
+                <AlertDialogDesc>
+                No se pueden mezclar ítems de resumen (Paleta 0) con ítems de paletas individuales. Por favor, use solo un método.
+                </AlertDialogDesc>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+                <AlertDialogAction onClick={() => setMixErrorDialogOpen(false)}>Entendido</AlertDialogAction>
+            </AlertDialogFooter>
+            </AlertDialogContent>
         </AlertDialog>
       </div>
     </FormProvider>
@@ -2158,8 +2202,8 @@ function ItemsPorDestino({ control, remove, handleProductDialogOpening, destinoI
                 totalTaraCaja: null,
                 pesoNeto: null,
                 totalCantidad: null,
-                paletasCompletas: null,
-                paletasPicking: null,
+                paletasCompletas: 0,
+                paletasPicking: 0,
                 totalPesoNeto: null,
                 esPicking: false,
             });
