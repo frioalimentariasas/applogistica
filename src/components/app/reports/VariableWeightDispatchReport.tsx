@@ -358,7 +358,7 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
                                 <ReportField label="Operación Realizada por Cuadrilla" value={formData.aplicaCuadrilla ? formData.aplicaCuadrilla.charAt(0).toUpperCase() + formData.aplicaCuadrilla.slice(1) : 'N/A'} />
                                 {formData.aplicaCuadrilla === 'si' && formData.tipoPedido === 'MAQUILA' && formData.numeroOperariosCuadrilla && (
                                     <div style={{ marginLeft: '8px', fontSize: '10px' }}>
-                                        ↳ No. Operarios: {formData.numeroOperariosCuadrilla}
+                                         ↳ No. Operarios: {formData.numeroOperariosCuadrilla}
                                     </div>
                                 )}
                             </td>
