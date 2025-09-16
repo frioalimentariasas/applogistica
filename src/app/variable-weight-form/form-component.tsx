@@ -307,220 +307,6 @@ function getByteSizeFromBase64(base64: string): number {
     return base64.length * (3 / 4) - (base64.endsWith('==') ? 2 : base64.endsWith('=') ? 1 : 0);
 }
 
-const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, isTunel = false, placaIndex, destinoIndex }: { control: any, itemIndex: number, handleProductDialogOpening: (context: { itemIndex: number, placaIndex?: number, destinoIndex?: number }) => void, remove?: (index: number) => void, isTunel?: boolean, placaIndex?: number, destinoIndex?: number }) => {
-    const { getValues, setValue, watch } = useFormContext<FormValues>();
-    const { toast } = useToast();
-
-    const basePath = destinoIndex !== undefined ? `destinos.${destinoIndex}.items` : 'items';
-    const watchedItem = watch(`${basePath}.${itemIndex}`);
-    const isSummaryRow = watchedItem?.paleta === 0;
-
-    const showLegacyPalletField = isSummaryRow &&
-                                watchedItem.totalPaletas !== undefined &&
-                                watchedItem.totalPaletas !== null &&
-                                (watchedItem.paletasCompletas === 0 || watchedItem.paletasCompletas === undefined) &&
-                                (watchedItem.paletasPicking === 0 || watchedItem.paletasPicking === undefined);
-    
-    useEffect(() => {
-        if (watchedItem && watchedItem.paleta !== 0) {
-            const cantidadPorPaleta = Number(watchedItem.cantidadPorPaleta) || 0;
-            const taraCaja = Number(watchedItem.taraCaja) || 0;
-            const pesoBruto = Number(watchedItem.pesoBruto) || 0;
-            const taraEstiba = Number(watchedItem.taraEstiba) || 0;
-
-            const calculatedTotalTaraCaja = cantidadPorPaleta * taraCaja;
-            const calculatedPesoNeto = pesoBruto - taraEstiba - calculatedTotalTaraCaja;
-
-            if (watchedItem.totalTaraCaja !== calculatedTotalTaraCaja) {
-                setValue(`${basePath}.${itemIndex}.totalTaraCaja`, calculatedTotalTaraCaja, { shouldValidate: false });
-            }
-            if (watchedItem.pesoNeto !== calculatedPesoNeto) {
-                setValue(`${basePath}.${itemIndex}.pesoNeto`, calculatedPesoNeto, { shouldValidate: false });
-            }
-        }
-    }, [watchedItem?.cantidadPorPaleta, watchedItem?.taraCaja, watchedItem?.pesoBruto, watchedItem?.taraEstiba, watchedItem?.paleta, basePath, itemIndex, setValue, watchedItem]);
-
-    const handlePalletLookup = useCallback(async (event: React.FocusEvent<HTMLInputElement>) => {
-        const palletCode = event.target.value.trim();
-        if (!palletCode || isNaN(Number(palletCode)) || Number(palletCode) <= 0) return;
-
-        const clientName = getValues('cliente');
-        if (!clientName) {
-            toast({
-                variant: 'destructive',
-                title: 'Cliente no seleccionado',
-                description: 'Por favor, seleccione un cliente antes de buscar una paleta.',
-            });
-            return;
-        }
-
-        try {
-            const result = await getPalletInfoByCode(palletCode, clientName);
-            if (result.success && result.palletInfo) {
-                const { palletInfo } = result;
-                setValue(`${basePath}.${itemIndex}.codigo`, palletInfo.codigo, { shouldValidate: true });
-                setValue(`${basePath}.${itemIndex}.descripcion`, palletInfo.descripcion, { shouldValidate: true });
-                setValue(`${basePath}.${itemIndex}.lote`, palletInfo.lote, { shouldValidate: true });
-                setValue(`${basePath}.${itemIndex}.presentacion`, palletInfo.presentacion, { shouldValidate: true });
-                setValue(`${basePath}.${itemIndex}.cantidadPorPaleta`, palletInfo.cantidadPorPaleta, { shouldValidate: true });
-                setValue(`${basePath}.${itemIndex}.pesoBruto`, palletInfo.pesoBruto, { shouldValidate: true });
-                setValue(`${basePath}.${itemIndex}.taraEstiba`, palletInfo.taraEstiba, { shouldValidate: true });
-                setValue(`${basePath}.${itemIndex}.taraCaja`, palletInfo.taraCaja, { shouldValidate: true });
-                toast({
-                    title: 'Paleta Encontrada',
-                    description: `Se cargaron los datos de la paleta ${palletCode}.`,
-                });
-            } else {
-                 toast({
-                    variant: 'destructive',
-                    title: 'Paleta no encontrada',
-                    description: result.message,
-                });
-            }
-        } catch (error) {
-            toast({
-                variant: 'destructive',
-                title: 'Error de Búsqueda',
-                description: 'Ocurrió un error al buscar la información de la paleta.',
-            });
-        }
-    }, [getValues, setValue, basePath, itemIndex, toast]);
-
-    const pesoNeto = watchedItem?.pesoNeto;
-    
-    return (
-      <div className="p-4 border rounded-lg relative bg-white space-y-4">
-         <div className="flex justify-between items-center">
-            <h4 className="text-lg font-semibold md:text-base">Ítem #{itemIndex + 1}</h4>
-            {remove && (
-                <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => remove(itemIndex)}>
-                    <Trash2 className="h-4 w-4" />
-                </Button>
-            )}
-        </div>
-        <>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <FormField control={control} name={`${basePath}.${itemIndex}.codigo`} render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Código <span className="text-destructive">*</span></FormLabel>
-                        <Button type="button" variant="outline" className="w-full justify-between h-10 text-left font-normal" onClick={() => handleProductDialogOpening({ itemIndex, placaIndex, destinoIndex })}>
-                            <span className="truncate">{field.value || "Seleccionar código..."}</span>
-                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                        <FormMessage />
-                    </FormItem>
-                )} />
-                <FormField control={control} name={`${basePath}.${itemIndex}.descripcion`} render={({ field }) => (
-                    <FormItem className="md:col-span-2">
-                        <FormLabel>Descripción del Producto <span className="text-destructive">*</span></FormLabel>
-                        <Button type="button" variant="outline" className="w-full justify-between h-10 text-left font-normal" onClick={() => handleProductDialogOpening({ itemIndex, placaIndex, destinoIndex })}>
-                            <span className="truncate">{field.value || "Seleccionar producto..."}</span>
-                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                        <FormMessage />
-                    </FormItem>
-                )} />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                <FormField control={control} name={`${basePath}.${itemIndex}.paleta`} render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Paleta <span className="text-destructive">*</span></FormLabel>
-                        <FormControl>
-                            <Input
-                                type="text"
-                                inputMode="numeric"
-                                placeholder="0 para resumen"
-                                {...field}
-                                onChange={e => field.onChange(e.target.value === '' ? null : Number(e.target.value))}
-                                value={field.value ?? ''}
-                                onBlur={handlePalletLookup}
-                            />
-                        </FormControl>
-                        <FormMessage />
-                    </FormItem>
-                )} />
-                <FormField control={control} name={`${basePath}.${itemIndex}.lote`} render={({ field }) => (
-                    <FormItem><FormLabel>Lote</FormLabel><FormControl><Input placeholder="Lote (máx. 15)" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>
-                )} />
-                <FormField control={control} name={`${basePath}.${itemIndex}.presentacion`} render={({ field }) => (
-                    <FormItem><FormLabel>Presentación <span className="text-destructive">*</span></FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione" /></SelectTrigger></FormControl><SelectContent>{presentaciones.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
-                )} />
-            </div>
-            {isSummaryRow ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
-                    <FormField control={control} name={`${basePath}.${itemIndex}.totalCantidad`} render={({ field }) => (
-                        <FormItem><FormLabel>Total Cantidad <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                     {showLegacyPalletField && (
-                        <FormField
-                            name={`${basePath}.${itemIndex}.totalPaletas`}
-                            render={({ field }) => (
-                            <FormItem>
-                                <FormLabel>Total Paletas (Dato Anterior)</FormLabel>
-                                <FormControl><Input disabled value={field.value ?? 0} /></FormControl>
-                                <FormDescription>Ajuste abajo.</FormDescription>
-                            </FormItem>
-                            )}
-                        />
-                    )}
-                     <div className="grid grid-cols-2 gap-2">
-                        <FormField control={control} name={`${basePath}.${itemIndex}.paletasCompletas`} render={({ field }) => (
-                            <FormItem><FormLabel>Pal. Completas</FormLabel><FormControl><Input type="text" inputMode="numeric" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                        )}/>
-                        <FormField control={control} name={`${basePath}.${itemIndex}.paletasPicking`} render={({ field }) => (
-                            <FormItem><FormLabel>Pal. Picking</FormLabel><FormControl><Input type="text" inputMode="numeric" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                        )}/>
-                    </div>
-
-                    <FormField control={control} name={`${basePath}.${itemIndex}.totalPesoNeto`} render={({ field }) => (
-                        <FormItem className="lg:col-start-4"><FormLabel>Total Peso Neto (kg) <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="decimal" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                </div>
-            ) : (
-                <>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
-                    <FormField control={control} name={`${basePath}.${itemIndex}.cantidadPorPaleta`} render={({ field }) => (
-                        <FormItem><FormLabel>Cant. Por Paleta <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="numeric" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField control={control} name={`${basePath}.${itemIndex}.pesoBruto`} render={({ field }) => (
-                        <FormItem><FormLabel>P. Bruto (kg) <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="decimal" min="0" step="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField control={control} name={`${basePath}.${itemIndex}.taraEstiba`} render={({ field }) => (
-                        <FormItem><FormLabel>T. Estiba (kg) <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="decimal" min="0" step="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField control={control} name={`${basePath}.${itemIndex}.taraCaja`} render={({ field }) => (
-                        <FormItem><FormLabel>T. Caja (kg) <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="decimal" min="0" step="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormItem><FormLabel>Peso Neto (kg)</FormLabel><FormControl><Input disabled readOnly value={pesoNeto != null && !isNaN(pesoNeto) ? pesoNeto.toFixed(2) : '0.00'} /></FormControl></FormItem>
-                </div>
-                <FormField
-                    control={control}
-                    name={`${basePath}.${itemIndex}.esPicking`}
-                    render={({ field }) => (
-                        <FormItem className="flex flex-row items-center space-x-2 pt-4">
-                            <FormControl>
-                                <Checkbox
-                                    checked={field.value}
-                                    onCheckedChange={field.onChange}
-                                />
-                            </FormControl>
-                            <div className="space-y-1 leading-none">
-                                <FormLabel>
-                                    ¿Es Picking?
-                                </FormLabel>
-                                <FormDescription>
-                                    Marque si la paleta no sale completa de la bodega.
-                                </FormDescription>
-                            </div>
-                        </FormItem>
-                    )}
-                />
-                </>
-            )}
-        </>
-      </div>
-    );
-};
 export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTypes: PedidoType[] }) {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -700,7 +486,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
         if (!isNaN(pNum) && pNum > 0) {
             if (pNum === 999) {
                 count999++;
-            } else if (!i.esPicking) {
+            } else if (!i.esPicking) { // Solo contar las paletas completas
                 uniquePallets.add(pNum);
             }
         }
@@ -1024,6 +810,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
 
     setIsSubmitting(true);
     try {
+        
         const finalSummary = (data.summary || []).map(item => {
             const { paletas, ...rest } = item as any;
             return rest;
@@ -2228,3 +2015,216 @@ function ItemsPorDestino({ control, remove, handleProductDialogOpening, destinoI
     );
 }
 
+function ItemFields({ control, itemIndex, handleProductDialogOpening, remove, isTunel = false, placaIndex, destinoIndex }: { control: any, itemIndex: number, handleProductDialogOpening: (context: { itemIndex: number, placaIndex?: number, destinoIndex?: number }) => void, remove?: (index: number) => void, isTunel?: boolean, placaIndex?: number, destinoIndex?: number }) {
+    const { getValues, setValue, watch } = useFormContext<FormValues>();
+    const { toast } = useToast();
+
+    const basePath = destinoIndex !== undefined ? `destinos.${destinoIndex}.items` : 'items';
+    const watchedItem = watch(`${basePath}.${itemIndex}`);
+    const isSummaryRow = watchedItem?.paleta === 0;
+
+    const showLegacyPalletField = isSummaryRow &&
+                                watchedItem.totalPaletas !== undefined &&
+                                watchedItem.totalPaletas !== null &&
+                                (watchedItem.paletasCompletas === 0 || watchedItem.paletasCompletas === undefined) &&
+                                (watchedItem.paletasPicking === 0 || watchedItem.paletasPicking === undefined);
+    
+    useEffect(() => {
+        if (watchedItem && watchedItem.paleta !== 0) {
+            const cantidadPorPaleta = Number(watchedItem.cantidadPorPaleta) || 0;
+            const taraCaja = Number(watchedItem.taraCaja) || 0;
+            const pesoBruto = Number(watchedItem.pesoBruto) || 0;
+            const taraEstiba = Number(watchedItem.taraEstiba) || 0;
+
+            const calculatedTotalTaraCaja = cantidadPorPaleta * taraCaja;
+            const calculatedPesoNeto = pesoBruto - taraEstiba - calculatedTotalTaraCaja;
+
+            if (watchedItem.totalTaraCaja !== calculatedTotalTaraCaja) {
+                setValue(`${basePath}.${itemIndex}.totalTaraCaja`, calculatedTotalTaraCaja, { shouldValidate: false });
+            }
+            if (watchedItem.pesoNeto !== calculatedPesoNeto) {
+                setValue(`${basePath}.${itemIndex}.pesoNeto`, calculatedPesoNeto, { shouldValidate: false });
+            }
+        }
+    }, [watchedItem?.cantidadPorPaleta, watchedItem?.taraCaja, watchedItem?.pesoBruto, watchedItem?.taraEstiba, watchedItem?.paleta, basePath, itemIndex, setValue, watchedItem]);
+
+    const handlePalletLookup = useCallback(async (event: React.FocusEvent<HTMLInputElement>) => {
+        const palletCode = event.target.value.trim();
+        if (!palletCode || isNaN(Number(palletCode)) || Number(palletCode) <= 0) return;
+
+        const clientName = getValues('cliente');
+        if (!clientName) {
+            toast({
+                variant: 'destructive',
+                title: 'Cliente no seleccionado',
+                description: 'Por favor, seleccione un cliente antes de buscar una paleta.',
+            });
+            return;
+        }
+
+        try {
+            const result = await getPalletInfoByCode(palletCode, clientName);
+            if (result.success && result.palletInfo) {
+                const { palletInfo } = result;
+                setValue(`${basePath}.${itemIndex}.codigo`, palletInfo.codigo, { shouldValidate: true });
+                setValue(`${basePath}.${itemIndex}.descripcion`, palletInfo.descripcion, { shouldValidate: true });
+                setValue(`${basePath}.${itemIndex}.lote`, palletInfo.lote, { shouldValidate: true });
+                setValue(`${basePath}.${itemIndex}.presentacion`, palletInfo.presentacion, { shouldValidate: true });
+                setValue(`${basePath}.${itemIndex}.cantidadPorPaleta`, palletInfo.cantidadPorPaleta, { shouldValidate: true });
+                setValue(`${basePath}.${itemIndex}.pesoBruto`, palletInfo.pesoBruto, { shouldValidate: true });
+                setValue(`${basePath}.${itemIndex}.taraEstiba`, palletInfo.taraEstiba, { shouldValidate: true });
+                setValue(`${basePath}.${itemIndex}.taraCaja`, palletInfo.taraCaja, { shouldValidate: true });
+                toast({
+                    title: 'Paleta Encontrada',
+                    description: `Se cargaron los datos de la paleta ${palletCode}.`,
+                });
+            } else {
+                 toast({
+                    variant: 'destructive',
+                    title: 'Paleta no encontrada',
+                    description: result.message,
+                });
+            }
+        } catch (error) {
+            toast({
+                variant: 'destructive',
+                title: 'Error de Búsqueda',
+                description: 'Ocurrió un error al buscar la información de la paleta.',
+            });
+        }
+    }, [getValues, setValue, basePath, itemIndex, toast]);
+
+    const pesoNeto = watchedItem?.pesoNeto;
+    
+    return (
+      <div className="p-4 border rounded-lg relative bg-white space-y-4">
+         <div className="flex justify-between items-center">
+            <h4 className="text-lg font-semibold md:text-base">Ítem #{itemIndex + 1}</h4>
+            {remove && (
+                <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => remove(itemIndex)}>
+                    <Trash2 className="h-4 w-4" />
+                </Button>
+            )}
+        </div>
+        <>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <FormField control={control} name={`${basePath}.${itemIndex}.codigo`} render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Código <span className="text-destructive">*</span></FormLabel>
+                        <Button type="button" variant="outline" className="w-full justify-between h-10 text-left font-normal" onClick={() => handleProductDialogOpening({ itemIndex, placaIndex, destinoIndex })}>
+                            <span className="truncate">{field.value || "Seleccionar código..."}</span>
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                        <FormMessage />
+                    </FormItem>
+                )} />
+                <FormField control={control} name={`${basePath}.${itemIndex}.descripcion`} render={({ field }) => (
+                    <FormItem className="md:col-span-2">
+                        <FormLabel>Descripción del Producto <span className="text-destructive">*</span></FormLabel>
+                        <Button type="button" variant="outline" className="w-full justify-between h-10 text-left font-normal" onClick={() => handleProductDialogOpening({ itemIndex, placaIndex, destinoIndex })}>
+                            <span className="truncate">{field.value || "Seleccionar producto..."}</span>
+                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                        <FormMessage />
+                    </FormItem>
+                )} />
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+                <FormField control={control} name={`${basePath}.${itemIndex}.paleta`} render={({ field }) => (
+                    <FormItem>
+                        <FormLabel>Paleta <span className="text-destructive">*</span></FormLabel>
+                        <FormControl>
+                            <Input
+                                type="text"
+                                inputMode="numeric"
+                                placeholder="0 para resumen"
+                                {...field}
+                                onChange={e => field.onChange(e.target.value === '' ? null : Number(e.target.value))}
+                                value={field.value ?? ''}
+                                onBlur={handlePalletLookup}
+                            />
+                        </FormControl>
+                        <FormMessage />
+                    </FormItem>
+                )} />
+                <FormField control={control} name={`${basePath}.${itemIndex}.lote`} render={({ field }) => (
+                    <FormItem><FormLabel>Lote</FormLabel><FormControl><Input placeholder="Lote (máx. 15)" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>
+                )} />
+                <FormField control={control} name={`${basePath}.${itemIndex}.presentacion`} render={({ field }) => (
+                    <FormItem><FormLabel>Presentación <span className="text-destructive">*</span></FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione" /></SelectTrigger></FormControl><SelectContent>{presentaciones.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
+                )} />
+            </div>
+            {isSummaryRow ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-start">
+                    <FormField control={control} name={`${basePath}.${itemIndex}.totalCantidad`} render={({ field }) => (
+                        <FormItem><FormLabel>Total Cantidad <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                     <div className="grid grid-cols-1 gap-2">
+                        {showLegacyPalletField && (
+                            <FormField
+                                name={`${basePath}.${itemIndex}.totalPaletas`}
+                                render={({ field }) => (
+                                <FormItem>
+                                    <FormLabel>Total Paletas (Dato Anterior)</FormLabel>
+                                    <FormControl><Input disabled value={field.value ?? 0} /></FormControl>
+                                </FormItem>
+                                )}
+                            />
+                        )}
+                        <FormField control={control} name={`${basePath}.${itemIndex}.paletasCompletas`} render={({ field }) => (
+                            <FormItem><FormLabel>Pal. Completas</FormLabel><FormControl><Input type="text" inputMode="numeric" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? 0 : Number(e.target.value))} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                        )}/>
+                    </div>
+                     <FormField control={control} name={`${basePath}.${itemIndex}.paletasPicking`} render={({ field }) => (
+                        <FormItem><FormLabel>Pal. Picking</FormLabel><FormControl><Input type="text" inputMode="numeric" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? 0 : Number(e.target.value))} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                    )}/>
+
+                    <FormField control={control} name={`${basePath}.${itemIndex}.totalPesoNeto`} render={({ field }) => (
+                        <FormItem><FormLabel>Total Peso Neto (kg) <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="decimal" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                </div>
+            ) : (
+                <>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4">
+                    <FormField control={control} name={`${basePath}.${itemIndex}.cantidadPorPaleta`} render={({ field }) => (
+                        <FormItem><FormLabel>Cant. Por Paleta <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="numeric" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={control} name={`${basePath}.${itemIndex}.pesoBruto`} render={({ field }) => (
+                        <FormItem><FormLabel>P. Bruto (kg) <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="decimal" min="0" step="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={control} name={`${basePath}.${itemIndex}.taraEstiba`} render={({ field }) => (
+                        <FormItem><FormLabel>T. Estiba (kg) <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="decimal" min="0" step="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormField control={control} name={`${basePath}.${itemIndex}.taraCaja`} render={({ field }) => (
+                        <FormItem><FormLabel>T. Caja (kg) <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="decimal" min="0" step="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                    )} />
+                    <FormItem><FormLabel>Peso Neto (kg)</FormLabel><FormControl><Input disabled readOnly value={pesoNeto != null && !isNaN(pesoNeto) ? pesoNeto.toFixed(2) : '0.00'} /></FormControl></FormItem>
+                </div>
+                <FormField
+                    control={control}
+                    name={`${basePath}.${itemIndex}.esPicking`}
+                    render={({ field }) => (
+                        <FormItem className="flex flex-row items-center space-x-2 pt-4">
+                            <FormControl>
+                                <Checkbox
+                                    checked={field.value}
+                                    onCheckedChange={field.onChange}
+                                />
+                            </FormControl>
+                            <div className="space-y-1 leading-none">
+                                <FormLabel>
+                                    ¿Es Picking?
+                                </FormLabel>
+                                <FormDescription>
+                                    Marque si la paleta no sale completa de la bodega.
+                                </FormDescription>
+                            </div>
+                        </FormItem>
+                    )}
+                />
+                </>
+            )}
+        </>
+      </div>
+    );
+};
