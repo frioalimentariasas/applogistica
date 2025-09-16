@@ -152,25 +152,7 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
     const totalGeneralCantidad = recalculatedSummary.reduce((acc, p) => acc + (p.totalCantidad || 0), 0);
     const totalGeneralPaletasCompletas = recalculatedSummary.reduce((acc, p) => acc + p.totalPaletasCompletas, 0);
     const totalGeneralPaletasPicking = recalculatedSummary.reduce((acc, p) => acc + p.totalPaletasPicking, 0);
-    
-    const totalGeneralPaletas = (() => {
-        if (isSummaryFormat) {
-            return totalGeneralPaletasCompletas + totalGeneralPaletasPicking;
-        }
-        const uniquePallets = new Set<number>();
-        let count999 = 0;
-        allItems.forEach((i: any) => {
-            const pNum = Number(i.paleta);
-            if (!isNaN(pNum) && pNum > 0) {
-                if (pNum === 999) {
-                    count999++;
-                } else if (!i.esPicking) { // Solo contar las paletas completas
-                    uniquePallets.add(pNum);
-                }
-            }
-        });
-        return uniquePallets.size + count999;
-    })();
+    const totalGeneralPaletas = recalculatedSummary.reduce((acc, p) => acc + (p.totalPaletas || 0), 0);
 
 
     return (
@@ -249,7 +231,7 @@ export function VariableWeightDispatchReport({ formData, userDisplayName, attach
             </ReportSection>
 
             {recalculatedSummary && recalculatedSummary.length > 0 && (
-                <ReportSection title="Resumen de Productos">
+                <ReportSection title="Resumen Agrupado de Productos">
                     <table style={{ width: '100%', fontSize: '11px', borderCollapse: 'collapse' }}>
                         <thead>
                              <tr style={{ borderBottom: '1px solid #aaa' }}>
@@ -459,3 +441,9 @@ const ItemsTable = ({ items, isSummaryFormat }: { items: any[], isSummaryFormat:
         </tbody>
     </table>
 );
+
+
+
+
+
+
