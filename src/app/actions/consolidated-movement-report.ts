@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import admin from 'firebase-admin';
@@ -13,7 +14,7 @@ export interface ConsolidatedReportCriteria {
   clientName: string;
   startDate: string;
   endDate: string;
-  sesion: string;
+  sesion: 'CO' | 'RE' | 'SE'; // Keep session here as the final report is for ONE session
 }
 
 export interface ConsolidatedReportRow {
@@ -34,12 +35,11 @@ export async function getConsolidatedMovementReport(
     throw new Error('Se requieren el cliente, la sesión y un rango de fechas.');
   }
 
-  // 1. Get daily movements (received and dispatched)
+  // 1. Get daily movements for ALL sessions
   const billingData = await getBillingReport({
     clientName: criteria.clientName,
     startDate: criteria.startDate,
     endDate: criteria.endDate,
-    sesion: criteria.sesion as any,
   });
 
   // 2. Get daily inventory stock for the period
@@ -50,7 +50,7 @@ export async function getConsolidatedMovementReport(
     sesion: criteria.sesion,
   });
 
-  // 3. NEW LOGIC: Directly fetch and calculate initial stock from the day before the report's start date.
+  // 3. Get initial stock from the day before the report's start date for the specific session.
   let saldoInicial = 0;
   try {
     const reportStartDate = parseISO(criteria.startDate);
@@ -84,22 +84,25 @@ export async function getConsolidatedMovementReport(
     }
   } catch (error) {
       console.error(`Error fetching latest stock for ${criteria.clientName} before ${criteria.startDate}:`, error);
-      // Do not throw, just default to 0 as a fallback
       saldoInicial = 0;
   }
 
-  // 4. Combine and process the data into a map for quick lookups
   const consolidatedMap = new Map<string, Omit<ConsolidatedReportRow, 'date'>>();
   
+  // 4. Populate map with movements for the SELECTED session
+  const recibidasKey = `paletasRecibidas${criteria.sesion}` as keyof typeof billingData[0];
+  const despachadasKey = `paletasDespachadas${criteria.sesion}` as keyof typeof billingData[0];
+
   billingData.forEach(item => {
     if (!consolidatedMap.has(item.date)) {
         consolidatedMap.set(item.date, { paletasRecibidas: 0, paletasDespachadas: 0, inventarioAcumulado: 0, posicionesAlmacenadas: 0 });
     }
     const entry = consolidatedMap.get(item.date)!;
-    entry.paletasRecibidas = item.paletasRecibidas;
-    entry.paletasDespachadas = item.paletasDespachadas;
+    entry.paletasRecibidas = (item[recibidasKey] as number) || 0;
+    entry.paletasDespachadas = (item[despachadasKey] as number) || 0;
   });
 
+  // 5. Populate map with inventory data for the SELECTED session
   inventoryData.rows.forEach(item => {
     const inventoryCount = item.clientData[criteria.clientName] || 0;
     if (!consolidatedMap.has(item.date)) {
@@ -108,7 +111,6 @@ export async function getConsolidatedMovementReport(
     consolidatedMap.get(item.date)!.inventarioAcumulado = inventoryCount;
   });
 
-  // 5. Generate a complete date range for the report to fill in missing days.
   const fullDateRange: string[] = [];
   let currentDate = parseISO(criteria.startDate);
   const reportEndDate = parseISO(criteria.endDate);
@@ -119,7 +121,7 @@ export async function getConsolidatedMovementReport(
 
   // 6. Calculate rolling balance for "Posiciones Almacenadas"
   const consolidatedReport: ConsolidatedReportRow[] = [];
-  let posicionesDiaAnterior = saldoInicial; // Use the correctly fetched initial stock
+  let posicionesDiaAnterior = saldoInicial;
 
   for (const dateStr of fullDateRange) {
       const dataForDay = consolidatedMap.get(dateStr);

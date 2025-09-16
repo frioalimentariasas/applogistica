@@ -41,10 +41,11 @@ const serializeTimestamps = (data: any): any => {
 };
 
 export interface BillingReportCriteria {
-  clientName: string; // Must be provided for this report
+  clientName: string;
   startDate: string;
   endDate: string;
-  sesion?: 'CO' | 'RE' | 'SE';
+  // sesion is now removed from criteria, as we process all sessions at once
+  // sesion?: 'CO' | 'RE' | 'SE';
   tipoOperacion?: 'recepcion' | 'despacho';
   tiposPedido?: string[];
   pedidoSislog?: string;
@@ -52,9 +53,14 @@ export interface BillingReportCriteria {
 
 export interface DailyReportData {
   date: string; // YYYY-MM-DD
-  paletasRecibidas: number;
-  paletasDespachadas: number;
+  paletasRecibidasCO: number;
+  paletasDespachadasCO: number;
+  paletasRecibidasRE: number;
+  paletasDespachadasRE: number;
+  paletasRecibidasSE: number;
+  paletasDespachadasSE: number;
 }
+
 
 export async function getBillingReport(criteria: BillingReportCriteria): Promise<DailyReportData[]> {
     if (!firestore) {
@@ -81,8 +87,12 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
         });
 
         const dailyDataMap = new Map<string, {
-            fixedRecibidas: number;
-            fixedDespachadas: number;
+            paletasRecibidasCO: number;
+            paletasDespachadasCO: number;
+            paletasRecibidasRE: number;
+            paletasDespachadasRE: number;
+            paletasRecibidasSE: number;
+            paletasDespachadasSE: number;
         }>();
 
         submissionsSnapshot.docs.forEach(doc => {
@@ -122,8 +132,12 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
 
             if (!dailyDataMap.has(groupingDate)) {
                 dailyDataMap.set(groupingDate, {
-                    fixedRecibidas: 0,
-                    fixedDespachadas: 0,
+                    paletasRecibidasCO: 0,
+                    paletasDespachadasCO: 0,
+                    paletasRecibidasRE: 0,
+                    paletasDespachadasRE: 0,
+                    paletasRecibidasSE: 0,
+                    paletasDespachadasSE: 0,
                 });
             }
 
@@ -133,61 +147,73 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
             const productos = submission.formData.productos || [];
             const destinos = submission.formData.destinos || [];
 
-            // Helper to check if a product belongs to the selected session
-            const isInSession = (descripcion: string) => {
-                if (!criteria.sesion) return true; // No session filter, include all
-                if (!descripcion) return false;
-                const session = articleSessionMap.get(descripcion.toLowerCase());
-                return session === criteria.sesion;
+            // Helper to get the session of a product
+            const getSessionForProduct = (descripcion: string): 'CO' | 'RE' | 'SE' | null => {
+                if (!descripcion) return null;
+                return articleSessionMap.get(descripcion.toLowerCase()) || null;
             };
 
+            const incrementPallets = (session: 'CO' | 'RE' | 'SE' | null, type: 'recibidas' | 'despachadas', count: number) => {
+                if (!session || count === 0) return;
+                if (type === 'recibidas') {
+                    if (session === 'CO') dailyData.paletasRecibidasCO += count;
+                    else if (session === 'RE') dailyData.paletasRecibidasRE += count;
+                    else if (session === 'SE') dailyData.paletasRecibidasSE += count;
+                } else {
+                    if (session === 'CO') dailyData.paletasDespachadasCO += count;
+                    else if (session === 'RE') dailyData.paletasDespachadasRE += count;
+                    else if (session === 'SE') dailyData.paletasDespachadasSE += count;
+                }
+            };
+
+
             if (formType === 'fixed-weight-recepcion') {
-                const receivedFixedPallets = productos.reduce((sum: number, p: any) => {
-                    return isInSession(p.descripcion) ? sum + (Number(p.totalPaletas ?? p.paletas) || 0) : sum;
-                }, 0);
-                dailyData.fixedRecibidas += receivedFixedPallets;
+                productos.forEach((p: any) => {
+                    const session = getSessionForProduct(p.descripcion);
+                    incrementPallets(session, 'recibidas', Number(p.totalPaletas ?? p.paletas) || 0);
+                });
 
             } else if (formType === 'fixed-weight-despacho') {
-                 const dispatchedFixedPallets = productos.reduce((sum: number, p: any) => {
-                    if (isInSession(p.descripcion)) {
-                        return sum + (Number(p.paletasCompletas) || 0);
-                    }
-                    return sum;
-                }, 0);
-                dailyData.fixedDespachadas += dispatchedFixedPallets;
-
+                productos.forEach((p: any) => {
+                    const session = getSessionForProduct(p.descripcion);
+                    incrementPallets(session, 'despachadas', (Number(p.paletasCompletas) || 0));
+                });
             } else if (formType === 'variable-weight-recepcion' || formType === 'variable-weight-reception') {
                 const isIngresoSaldosSummary = submission.formData.tipoPedido === 'INGRESO DE SALDOS' && items.some((item: any) => Number(item.paleta) === 0);
 
                 if (isIngresoSaldosSummary) {
-                    const summaryPallets = items.reduce((sum: number, item: any) => {
-                         if (Number(item.paleta) === 0 && isInSession(item.descripcion)) {
-                            return sum + (Number(item.totalPaletas) || 0);
-                        }
-                        return sum;
-                    }, 0);
-                    dailyData.fixedRecibidas += summaryPallets;
-                } else {
-                    const uniquePalletsInSession = new Set<number>();
                     items.forEach((item: any) => {
-                        const paletaValue = Number(item.paleta);
-                        if (isInSession(item.descripcion) && !isNaN(paletaValue) && paletaValue > 0) {
-                            uniquePalletsInSession.add(paletaValue);
+                         if (Number(item.paleta) === 0) {
+                            const session = getSessionForProduct(item.descripcion);
+                            incrementPallets(session, 'recibidas', Number(item.totalPaletas) || 0);
                         }
                     });
-                    dailyData.fixedRecibidas += uniquePalletsInSession.size;
+                } else {
+                    const palletSessionMap = new Map<number, 'CO' | 'RE' | 'SE' | null>();
+                    items.forEach((item: any) => {
+                        const paletaValue = Number(item.paleta);
+                        if (!isNaN(paletaValue) && paletaValue > 0) {
+                            if (!palletSessionMap.has(paletaValue)) {
+                                palletSessionMap.set(paletaValue, getSessionForProduct(item.descripcion));
+                            }
+                        }
+                    });
+
+                    let countCO = 0, countRE = 0, countSE = 0;
+                    for (const session of palletSessionMap.values()) {
+                        if (session === 'CO') countCO++;
+                        else if (session === 'RE') countRE++;
+                        else if (session === 'SE') countSE++;
+                    }
+                    dailyData.paletasRecibidasCO += countCO;
+                    dailyData.paletasRecibidasRE += countRE;
+                    dailyData.paletasRecibidasSE += countSE;
                 }
                 
                 if (submission.formData.tipoPedido === 'MAQUILA') {
-                    if (!criteria.sesion || criteria.sesion === 'CO') {
-                        dailyData.fixedDespachadas += Number(submission.formData.salidaPaletasMaquilaCO || 0);
-                    }
-                    if (!criteria.sesion || criteria.sesion === 'RE') {
-                        dailyData.fixedDespachadas += Number(submission.formData.salidaPaletasMaquilaRE || 0);
-                    }
-                    if (!criteria.sesion || criteria.sesion === 'SE') {
-                        dailyData.fixedDespachadas += Number(submission.formData.salidaPaletasMaquilaSE || 0);
-                    }
+                    dailyData.paletasDespachadasCO += Number(submission.formData.salidaPaletasMaquilaCO || 0);
+                    dailyData.paletasDespachadasRE += Number(submission.formData.salidaPaletasMaquilaRE || 0);
+                    dailyData.paletasDespachadasSE += Number(submission.formData.salidaPaletasMaquilaSE || 0);
                 }
 
             } else if (formType === 'variable-weight-despacho') {
@@ -196,42 +222,51 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                 const isSummaryFormat = allItems.some((item: any) => Number(item.paleta) === 0);
 
                 if (isByDestination && isSummaryFormat) {
-                    // This now correctly uses the main field for total pallets, regardless of session
-                    dailyData.fixedDespachadas += Number(submission.formData.totalPaletasDespacho) || 0;
+                    // Logic to distribute total pallets among sessions if possible, or apply it to one if not.
+                    // This case is ambiguous without more rules. For now, assuming it's not mixed.
+                    // The most robust way is to iterate items even in summary format.
+                     allItems.forEach((item: any) => {
+                        if (Number(item.paleta) === 0) {
+                            const session = getSessionForProduct(item.descripcion);
+                            incrementPallets(session, 'despachadas', (Number(item.paletasCompletas) || 0));
+                        }
+                    });
                 } else if (!isByDestination && isSummaryFormat) {
-                    // Logic for non-destination summary format
-                    let summaryPallets = 0;
-                    allItems.forEach((item: any) => {
-                         if (isInSession(item.descripcion) && Number(item.paleta) === 0) {
-                             summaryPallets += (Number(item.paletasCompletas) || 0);
+                     allItems.forEach((item: any) => {
+                         if (Number(item.paleta) === 0) {
+                            const session = getSessionForProduct(item.descripcion);
+                            incrementPallets(session, 'despachadas', (Number(item.paletasCompletas) || 0));
                          }
                     });
-                    dailyData.fixedDespachadas += summaryPallets;
                 } else {
-                    // Original logic for detailed variable weight dispatches (non-summary)
-                    const uniquePalletsInSession = new Set<number>();
+                    // Detailed variable weight dispatch
+                    const palletSessionMap = new Map<number, 'CO' | 'RE' | 'SE' | null>();
                     allItems.forEach((item: any) => {
                         const paletaValue = Number(item.paleta);
-                        if(isInSession(item.descripcion) && !item.esPicking){
-                            if (!isNaN(paletaValue) && paletaValue > 0 && paletaValue !== 999) {
-                                uniquePalletsInSession.add(paletaValue);
+                         if(!item.esPicking && !isNaN(paletaValue) && paletaValue > 0 && paletaValue !== 999){
+                            if (!palletSessionMap.has(paletaValue)) {
+                                palletSessionMap.set(paletaValue, getSessionForProduct(item.descripcion));
                             }
                         }
                     });
-                    dailyData.fixedDespachadas += uniquePalletsInSession.size;
+                    
+                    let countCO = 0, countRE = 0, countSE = 0;
+                    for (const session of palletSessionMap.values()) {
+                        if (session === 'CO') countCO++;
+                        else if (session === 'RE') countRE++;
+                        else if (session === 'SE') countSE++;
+                    }
+                    dailyData.paletasDespachadasCO += countCO;
+                    dailyData.paletasDespachadasRE += countRE;
+                    dailyData.paletasDespachadasSE += countSE;
                 }
             }
         });
         
         const reporteFinal: DailyReportData[] = [];
         for (const [date, movements] of dailyDataMap.entries()) {
-            // Totals are already calculated and added to fixedRecibidas/fixedDespachadas
-            if (movements.fixedRecibidas > 0 || movements.fixedDespachadas > 0) {
-                reporteFinal.push({
-                    date,
-                    paletasRecibidas: movements.fixedRecibidas,
-                    paletasDespachadas: movements.fixedDespachadas,
-                });
+            if (Object.values(movements).some(v => v > 0)) {
+                reporteFinal.push({ date, ...movements });
             }
         }
         
