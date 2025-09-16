@@ -318,7 +318,8 @@ const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, is
     const showLegacyPalletField = isSummaryRow &&
                                 watchedItem.totalPaletas !== undefined &&
                                 watchedItem.totalPaletas !== null &&
-                                (watchedItem.paletasCompletas === 0 && watchedItem.paletasPicking === 0);
+                                (watchedItem.paletasCompletas === 0 || watchedItem.paletasCompletas === undefined) &&
+                                (watchedItem.paletasPicking === 0 || watchedItem.paletasPicking === undefined);
     
     useEffect(() => {
         if (watchedItem && watchedItem.paleta !== 0) {
@@ -446,12 +447,11 @@ const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, is
                 )} />
             </div>
             {isSummaryRow ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 items-start">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end">
                     <FormField control={control} name={`${basePath}.${itemIndex}.totalCantidad`} render={({ field }) => (
                         <FormItem><FormLabel>Total Cantidad <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                     )} />
-                    
-                    {showLegacyPalletField ? (
+                     {showLegacyPalletField && (
                         <FormField
                             name={`${basePath}.${itemIndex}.totalPaletas`}
                             render={({ field }) => (
@@ -462,9 +462,8 @@ const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, is
                             </FormItem>
                             )}
                         />
-                    ) : null}
-
-                    <div className="grid grid-cols-2 gap-2">
+                    )}
+                     <div className="grid grid-cols-2 gap-2">
                         <FormField control={control} name={`${basePath}.${itemIndex}.paletasCompletas`} render={({ field }) => (
                             <FormItem><FormLabel>Pal. Completas</FormLabel><FormControl><Input type="text" inputMode="numeric" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                         )}/>
@@ -474,7 +473,7 @@ const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, is
                     </div>
 
                     <FormField control={control} name={`${basePath}.${itemIndex}.totalPesoNeto`} render={({ field }) => (
-                        <FormItem><FormLabel>Total Peso Neto (kg) <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="decimal" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
+                        <FormItem className="lg:col-start-4"><FormLabel>Total Peso Neto (kg) <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="decimal" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
                     )} />
                 </div>
             ) : (
@@ -2228,3 +2227,4 @@ function ItemsPorDestino({ control, remove, handleProductDialogOpening, destinoI
         </div>
     );
 }
+
