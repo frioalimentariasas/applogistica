@@ -83,10 +83,6 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
         const dailyDataMap = new Map<string, {
             fixedRecibidas: number;
             fixedDespachadas: number;
-            varRecibidasItemized: Set<number>;
-            varDespachadasItemized: Set<number>;
-            varRecibidasSummary: number;
-            varDespachadasSummary: number;
         }>();
 
         submissionsSnapshot.docs.forEach(doc => {
@@ -128,10 +124,6 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                 dailyDataMap.set(groupingDate, {
                     fixedRecibidas: 0,
                     fixedDespachadas: 0,
-                    varRecibidasItemized: new Set(),
-                    varDespachadasItemized: new Set(),
-                    varRecibidasSummary: 0,
-                    varDespachadasSummary: 0,
                 });
             }
 
