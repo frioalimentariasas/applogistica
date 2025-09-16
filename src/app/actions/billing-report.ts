@@ -90,7 +90,9 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
         const articleSessionMap = new Map<string, 'CO' | 'RE' | 'SE'>();
         articlesSnapshot.forEach(doc => {
             const article = doc.data() as ArticuloData;
-            articleSessionMap.set(article.denominacionArticulo.toLowerCase(), article.sesion);
+            // Use a composite key of code and description to ensure uniqueness
+            const key = `${article.codigoProducto}|${article.denominacionArticulo}`.toLowerCase();
+            articleSessionMap.set(key, article.sesion);
         });
 
         const dailyDataMap = new Map<string, {
@@ -146,9 +148,10 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
             const productos = submission.formData.productos || [];
             const destinos = submission.formData.destinos || [];
 
-            const getSessionForProduct = (descripcion: string): 'CO' | 'RE' | 'SE' | null => {
-                if (!descripcion) return null;
-                return articleSessionMap.get(descripcion.toLowerCase()) || null;
+            const getSessionForProduct = (codigo: string, descripcion: string): 'CO' | 'RE' | 'SE' | null => {
+                if (!codigo || !descripcion) return null;
+                const key = `${codigo}|${descripcion}`.toLowerCase();
+                return articleSessionMap.get(key) || null;
             };
 
             const incrementPallets = (session: 'CO' | 'RE' | 'SE' | null, type: 'recibidas' | 'despachadas', count: number) => {
@@ -167,14 +170,14 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
 
             if (formType === 'fixed-weight-recepcion' || formType === 'fixed-weight-reception') {
                 productos.forEach((p: any) => {
-                    const session = getSessionForProduct(p.descripcion);
+                    const session = getSessionForProduct(p.codigo, p.descripcion);
                     const paletas = Number(p.totalPaletas ?? p.paletas ?? 0);
                     incrementPallets(session, 'recibidas', paletas);
                 });
 
             } else if (formType === 'fixed-weight-despacho') {
                 productos.forEach((p: any) => {
-                    const session = getSessionForProduct(p.descripcion);
+                    const session = getSessionForProduct(p.codigo, p.descripcion);
                     const paletas = (Number(p.paletasCompletas) || 0);
                     incrementPallets(session, 'despachadas', paletas);
                 });
@@ -184,18 +187,17 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                 if (isIngresoSaldosSummary) {
                     items.forEach((item: any) => {
                          if (Number(item.paleta) === 0) {
-                            const session = getSessionForProduct(item.descripcion);
+                            const session = getSessionForProduct(item.codigo, item.descripcion);
                             incrementPallets(session, 'recibidas', Number(item.totalPaletas) || 0);
                         }
                     });
                 } else {
-                    // Corrected logic for detailed variable weight reception
                     const palletSessionMap = new Map<string, 'CO' | 'RE' | 'SE' | 'MIXTA'>();
                     
                     items.forEach((item: any) => {
                         const paletaValue = String(item.paleta);
                         if (item.paleta !== undefined && Number(paletaValue) > 0) {
-                            const itemSession = getSessionForProduct(item.descripcion);
+                            const itemSession = getSessionForProduct(item.codigo, item.descripcion);
                             if (palletSessionMap.has(paletaValue)) {
                                 const existingSession = palletSessionMap.get(paletaValue);
                                 if (existingSession !== itemSession && itemSession !== null) {
@@ -233,7 +235,7 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                 if (isSummaryFormat) {
                      allItems.forEach((item: any) => {
                          if (Number(item.paleta) === 0) {
-                            const session = getSessionForProduct(item.descripcion);
+                            const session = getSessionForProduct(item.codigo, item.descripcion);
                             const paletas = Number(item.paletasCompletas || 0);
                             incrementPallets(session, 'despachadas', paletas);
                          }
@@ -243,7 +245,7 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                     allItems.forEach((item: any) => {
                         const paletaValue = String(item.paleta);
                         if (!item.esPicking && item.paleta !== undefined && Number(paletaValue) > 0 && Number(paletaValue) !== 999){
-                            const itemSession = getSessionForProduct(item.descripcion);
+                            const itemSession = getSessionForProduct(item.codigo, item.descripcion);
                             if (palletSessionMap.has(paletaValue)) {
                                 if (palletSessionMap.get(paletaValue) !== itemSession && itemSession) {
                                     palletSessionMap.set(paletaValue, 'MIXTA');
