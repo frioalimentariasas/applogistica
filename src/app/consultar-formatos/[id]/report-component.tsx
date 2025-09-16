@@ -411,49 +411,47 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                 yPos = (doc as any).autoTable.previous.finalY + 15;
                 
                 let productHead: any[];
-                if (isReception) {
-                    productHead = [['Código', 'Descripción', 'No. Cajas', 'Total Paletas']];
-                } else { // Despacho
-                    productHead = [['Código', 'Descripción', 'No. Cajas', 'Pal. Completas', 'Pal. Picking']];
-                }
-                
-                if (showPesoNetoColumn) {
-                    productHead[0].push('Peso Neto (kg)');
-                }
-                productHead[0].push('Temp(°C)');
-                
-                const productBody = formData.productos.map((p: any) => {
-                    const temps = [p.temperatura1, p.temperatura2, p.temperatura3].filter(t => t != null && !isNaN(Number(t))).join(' / ');
-                    let row = [p.codigo, p.descripcion, p.cajas];
-                    if (isReception) {
-                        row.push(formatPaletas(p.totalPaletas ?? p.paletas));
-                    } else {
-                        row.push(formatPaletas(p.paletasCompletas));
-                        row.push(formatPaletas(p.paletasPicking));
-                    }
-                    if (showPesoNetoColumn) {
-                        row.push(Number(p.pesoNetoKg) > 0 ? Number(p.pesoNetoKg).toFixed(2) : '');
-                    }
-                    row.push(temps);
-                    return row;
-                });
+                let productBody: any[][];
                 
                 const totalCajas = formData.productos.reduce((acc: any, p: any) => acc + (Number(p.cajas) || 0), 0);
                 const totalPesoNetoKg = formData.productos.reduce((acc: any, p: any) => acc + (Number(p.pesoNetoKg) || 0), 0);
-
                 let footRow: any[];
-                if(isReception) {
+                
+                if (isReception) {
+                    productHead = [['Código', 'Descripción', 'No. Cajas', 'Total Paletas']];
+                    productBody = formData.productos.map((p: any) => {
+                        const row = [p.codigo, p.descripcion, p.cajas, formatPaletas(p.totalPaletas ?? p.paletas)];
+                        if (showPesoNetoColumn) {
+                            row.push(Number(p.pesoNetoKg) > 0 ? Number(p.pesoNetoKg).toFixed(2) : '');
+                        }
+                        const temps = [p.temperatura1, p.temperatura2, p.temperatura3].filter(t => t != null && !isNaN(Number(t))).join(' / ');
+                        row.push(temps);
+                        return row;
+                    });
                     const totalPaletas = formData.productos.reduce((acc: any, p: any) => acc + (Number(p.totalPaletas ?? p.paletas) || 0), 0);
                     footRow = [{ content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }, totalCajas, formatPaletas(totalPaletas)];
-                } else {
+
+                } else { // Despacho
+                    productHead = [['Código', 'Descripción', 'No. Cajas', 'Pal. Completas', 'Pal. Picking']];
+                     productBody = formData.productos.map((p: any) => {
+                        const row = [p.codigo, p.descripcion, p.cajas, formatPaletas(p.paletasCompletas), formatPaletas(p.paletasPicking)];
+                        if (showPesoNetoColumn) {
+                            row.push(Number(p.pesoNetoKg) > 0 ? Number(p.pesoNetoKg).toFixed(2) : '');
+                        }
+                        const temps = [p.temperatura1, p.temperatura2, p.temperatura3].filter(t => t != null && !isNaN(Number(t))).join(' / ');
+                        row.push(temps);
+                        return row;
+                    });
                     const totalPaletasCompletas = formData.productos.reduce((acc: any, p: any) => acc + (Number(p.paletasCompletas) || 0), 0);
                     const totalPaletasPicking = formData.productos.reduce((acc: any, p: any) => acc + (Number(p.paletasPicking) || 0), 0);
                     footRow = [{ content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }, totalCajas, formatPaletas(totalPaletasCompletas), formatPaletas(totalPaletasPicking)];
                 }
                 
                 if (showPesoNetoColumn) {
+                    productHead[0].push('Peso Neto (kg)');
                     footRow.push(totalPesoNetoKg > 0 ? totalPesoNetoKg.toFixed(2) : '');
                 }
+                productHead[0].push('Temp(°C)');
                 footRow.push('');
     
                 const productTableConfig: any = {
@@ -834,7 +832,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     const totalGeneralPaletasPicking = recalculatedSummary.reduce((acc: any, p: any) => acc + (Number(p.totalPaletasPicking) || 0), 0);
 
                     const totalGeneralPaletas = isSummaryFormat
-                        ? totalGeneralPaletasCompletas + totalGeneralPaletasPicking
+                        ? formData.totalPaletasDespacho || (totalGeneralPaletasCompletas + totalGeneralPaletasPicking)
                         : recalculatedSummary.reduce((acc: number, p: any) => acc + p.totalPaletas, 0);
 
                     const generalInfoBody: any[][] = [
@@ -875,7 +873,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                         (formData.destinos || []).forEach((destino: any, index: number) => {
                             autoTable(doc, {
                                 startY: yPos,
-                                head: [[{ content: `Destino: ${destino.nombreDestino}`, colSpan: isSummaryFormat ? 6 : 11, styles: { fillColor: '#187bcd', fontStyle: 'bold', textColor: '#fff' } }]],
+                                head: [[{ content: `Destino: ${destino.nombreDestino}`, colSpan: isSummaryFormat ? 7 : 11, styles: { fillColor: '#187bcd', fontStyle: 'bold', textColor: '#fff' } }]],
                                 theme: 'grid',
                                 margin: { horizontal: margin },
                             });
@@ -914,26 +912,33 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     let summaryHead: any[];
                     let summaryBody: any[];
                     let summaryFoot: any[];
+                    let columnStyles: any = {};
 
-                    if(isSummaryFormat) {
-                        summaryHead = [['Descripción', 'Temp(°C)', 'Total Cantidad', 'Pal. Completas', 'Pal. Picking', 'Total Peso (kg)']];
-                        summaryBody = recalculatedSummary.map((p: any) => [ p.descripcion, p.temperatura, p.totalCantidad, p.totalPaletasCompletas, p.totalPaletasPicking, p.totalPeso.toFixed(2) ]);
-                        summaryFoot = [[ 
-                            { content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }, 
-                            { content: totalGeneralCantidad, styles: { halign: 'right' } },
-                            { content: totalGeneralPaletasCompletas, styles: { halign: 'right' } },
-                            { content: totalGeneralPaletasPicking, styles: { halign: 'right' } },
-                            { content: totalGeneralPeso.toFixed(2), styles: { halign: 'right' } },
-                        ]];
+                    if (isSummaryFormat) {
+                      summaryHead = [['Descripción', 'Temp(°C)', 'Total Cantidad', 'Pal. Completas', 'Pal. Picking', 'Total Peso (kg)']];
+                      summaryBody = recalculatedSummary.map((p: any) => [p.descripcion, p.temperatura, p.totalCantidad, p.totalPaletasCompletas, p.totalPaletasPicking, p.totalPeso.toFixed(2)]);
+                      summaryFoot = [[
+                        { content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } },
+                        { content: totalGeneralCantidad, styles: { halign: 'right' } },
+                        { content: totalGeneralPaletasCompletas, styles: { halign: 'right' } },
+                        { content: totalGeneralPaletasPicking, styles: { halign: 'right' } },
+                        { content: totalGeneralPeso.toFixed(2), styles: { halign: 'right' } },
+                      ]];
+                      columnStyles = {
+                        0: { halign: 'left' }, 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' }, 5: { halign: 'right' }
+                      };
                     } else {
-                        summaryHead = [['Descripción', 'Temp(°C)', 'Total Cantidad', 'Total Paletas', 'Total Peso (kg)']];
-                        summaryBody = recalculatedSummary.map((p: any) => [ p.descripcion, p.temperatura, p.totalCantidad, p.totalPaletas, p.totalPeso.toFixed(2) ]);
-                        summaryFoot = [[ 
-                            { content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }, 
-                            { content: totalGeneralCantidad, styles: { halign: 'right' } },
-                            { content: totalGeneralPaletas, styles: { halign: 'right' } },
-                            { content: totalGeneralPeso.toFixed(2), styles: { halign: 'right' } },
-                        ]];
+                      summaryHead = [['Descripción', 'Temp(°C)', 'Total Cantidad', 'Total Paletas', 'Total Peso (kg)']];
+                      summaryBody = recalculatedSummary.map((p: any) => [p.descripcion, p.temperatura, p.totalCantidad, p.totalPaletas, p.totalPeso.toFixed(2)]);
+                      summaryFoot = [[
+                        { content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } },
+                        { content: totalGeneralCantidad, styles: { halign: 'right' } },
+                        { content: totalGeneralPaletas, styles: { halign: 'right' } },
+                        { content: totalGeneralPeso.toFixed(2), styles: { halign: 'right' } },
+                      ]];
+                      columnStyles = {
+                        0: { halign: 'left' }, 1: { halign: 'right' }, 2: { halign: 'right' }, 3: { halign: 'right' }, 4: { halign: 'right' }
+                      };
                     }
 
                      addTableWithPageBreak({
@@ -945,6 +950,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                          styles: { fontSize: 8, cellPadding: 4 },
                          headStyles: { fillColor: '#f8fafc', textColor: '#334155', fontStyle: 'bold' },
                          margin: { horizontal: margin, bottom: 40 },
+                         columnStyles: columnStyles,
                      });
                  }
                  addObservationsTable();
