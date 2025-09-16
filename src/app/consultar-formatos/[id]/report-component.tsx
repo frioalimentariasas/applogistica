@@ -434,7 +434,7 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     if (showPesoNetoColumn) {
                         row.push(Number(p.pesoNetoKg) > 0 ? Number(p.pesoNetoKg).toFixed(2) : '');
                     }
-                    row.push(tempString);
+                    row.push(temps);
                     return row;
                 });
                 
@@ -833,6 +833,10 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     const totalGeneralPaletasCompletas = recalculatedSummary.reduce((acc: any, p: any) => acc + (Number(p.totalPaletasCompletas) || 0), 0);
                     const totalGeneralPaletasPicking = recalculatedSummary.reduce((acc: any, p: any) => acc + (Number(p.totalPaletasPicking) || 0), 0);
 
+                    const totalGeneralPaletas = isSummaryFormat
+                        ? totalGeneralPaletasCompletas + totalGeneralPaletasPicking
+                        : recalculatedSummary.reduce((acc: number, p: any) => acc + p.totalPaletas, 0);
+
                     const generalInfoBody: any[][] = [
                         [
                             {content: 'Pedido SISLOG:', styles: {fontStyle: 'bold'}}, formData.pedidoSislog || 'No Aplica',
@@ -914,17 +918,28 @@ export default function ReportComponent({ submission }: ReportComponentProps) {
                     if(isSummaryFormat) {
                         summaryHead = [['Descripción', 'Temp(°C)', 'Total Cantidad', 'Pal. Completas', 'Pal. Picking', 'Total Peso (kg)']];
                         summaryBody = recalculatedSummary.map((p: any) => [ p.descripcion, p.temperatura, p.totalCantidad, p.totalPaletasCompletas, p.totalPaletasPicking, p.totalPeso.toFixed(2) ]);
-                        summaryFoot = [[ { content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }, totalGeneralCantidad, totalGeneralPaletasCompletas, totalGeneralPaletasPicking, totalGeneralPeso.toFixed(2) ]];
+                        summaryFoot = [[ 
+                            { content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }, 
+                            { content: totalGeneralCantidad, styles: { halign: 'right' } },
+                            { content: totalGeneralPaletasCompletas, styles: { halign: 'right' } },
+                            { content: totalGeneralPaletasPicking, styles: { halign: 'right' } },
+                            { content: totalGeneralPeso.toFixed(2), styles: { halign: 'right' } },
+                        ]];
                     } else {
                         summaryHead = [['Descripción', 'Temp(°C)', 'Total Cantidad', 'Total Paletas', 'Total Peso (kg)']];
                         summaryBody = recalculatedSummary.map((p: any) => [ p.descripcion, p.temperatura, p.totalCantidad, p.totalPaletas, p.totalPeso.toFixed(2) ]);
-                        summaryFoot = [[ { content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }, totalGeneralCantidad, totalGeneralPaletas, totalGeneralPeso.toFixed(2) ]];
+                        summaryFoot = [[ 
+                            { content: 'TOTALES:', colSpan: 2, styles: { halign: 'right', fontStyle: 'bold' } }, 
+                            { content: totalGeneralCantidad, styles: { halign: 'right' } },
+                            { content: totalGeneralPaletas, styles: { halign: 'right' } },
+                            { content: totalGeneralPeso.toFixed(2), styles: { halign: 'right' } },
+                        ]];
                     }
 
                      addTableWithPageBreak({
                          head: summaryHead,
                          body: summaryBody,
-                         foot: [summaryFoot],
+                         foot: summaryFoot,
                          theme: 'grid',
                          footStyles: { fillColor: '#f1f5f9', fontStyle: 'bold', textColor: '#1a202c' },
                          styles: { fontSize: 8, cellPadding: 4 },
