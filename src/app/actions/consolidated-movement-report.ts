@@ -42,7 +42,7 @@ export async function getConsolidatedMovementReport(
     endDate: criteria.endDate,
   });
 
-  // 2. Get daily inventory stock for the period
+  // 2. Get daily inventory stock for the period for the specific session
   const inventoryData = await getInventoryReport({
     clientNames: [criteria.clientName],
     startDate: criteria.startDate,
@@ -66,6 +66,7 @@ export async function getConsolidatedMovementReport(
                 row?.PROPIETARIO?.trim() === criteria.clientName
             );
 
+            // Filter by session
             if (criteria.sesion && criteria.sesion.trim() && criteria.sesion !== 'TODAS') {
                 relevantRows = relevantRows.filter(row => 
                     row && row.SE !== undefined && row.SE !== null &&

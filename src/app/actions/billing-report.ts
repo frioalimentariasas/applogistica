@@ -44,8 +44,6 @@ export interface BillingReportCriteria {
   clientName: string;
   startDate: string;
   endDate: string;
-  // sesion is now removed from criteria, as we process all sessions at once
-  // sesion?: 'CO' | 'RE' | 'SE';
   tipoOperacion?: 'recepcion' | 'despacho';
   tiposPedido?: string[];
   pedidoSislog?: string;
@@ -72,7 +70,17 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
     }
 
     try {
-        const submissionsSnapshot = await firestore.collection('submissions').get();
+        // Fetch all submissions for the client in the date range
+        let submissionsQuery: admin.firestore.Query = firestore.collection('submissions')
+            .where('formData.fecha', '>=', new Date(criteria.startDate + 'T00:00:00-05:00'))
+            .where('formData.fecha', '<=', new Date(criteria.endDate + 'T23:59:59.999-05:00'));
+
+        const submissionsSnapshot = await submissionsQuery.get();
+
+        const clientDocs = submissionsSnapshot.docs.filter(doc => {
+            const clientField = doc.data().formData.nombreCliente || doc.data().formData.cliente;
+            return clientField && clientField.trim().toLowerCase() === criteria.clientName.trim().toLowerCase();
+        });
         
         // Fetch all articles for the client to create a complete session lookup map
         const articlesSnapshot = await firestore.collection('articulos')
@@ -82,7 +90,6 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
         const articleSessionMap = new Map<string, 'CO' | 'RE' | 'SE'>();
         articlesSnapshot.forEach(doc => {
             const article = doc.data() as ArticuloData;
-            // Use description as key as it's more consistently available
             articleSessionMap.set(article.denominacionArticulo.toLowerCase(), article.sesion);
         });
 
@@ -95,22 +102,14 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
             paletasDespachadasSE: number;
         }>();
 
-        submissionsSnapshot.docs.forEach(doc => {
+        clientDocs.forEach(doc => {
             const submission = serializeTimestamps(doc.data());
             
-            const clientField = submission.formData.nombreCliente || submission.formData.cliente;
-            
-            if (!clientField || clientField.trim().toLowerCase() !== criteria.clientName.trim().toLowerCase()) {
-                return;
-            }
-
             const formIsoDate = submission.formData.fecha;
             if (!formIsoDate || typeof formIsoDate !== 'string') return;
             
             const groupingDate = getLocalGroupingDate(formIsoDate);
             if (!groupingDate) return;
-
-            if (groupingDate < criteria.startDate || groupingDate > criteria.endDate) return;
 
             // Apply new filters
             if (criteria.pedidoSislog && submission.formData.pedidoSislog !== criteria.pedidoSislog) {
@@ -147,7 +146,6 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
             const productos = submission.formData.productos || [];
             const destinos = submission.formData.destinos || [];
 
-            // Helper to get the session of a product
             const getSessionForProduct = (descripcion: string): 'CO' | 'RE' | 'SE' | null => {
                 if (!descripcion) return null;
                 return articleSessionMap.get(descripcion.toLowerCase()) || null;
@@ -167,20 +165,22 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
             };
 
 
-            if (formType === 'fixed-weight-recepcion') {
+            if (formType === 'fixed-weight-recepcion' || formType === 'fixed-weight-reception') {
                 productos.forEach((p: any) => {
                     const session = getSessionForProduct(p.descripcion);
-                    incrementPallets(session, 'recibidas', Number(p.totalPaletas ?? p.paletas) || 0);
+                    const paletas = Number(p.totalPaletas ?? p.paletas ?? 0);
+                    incrementPallets(session, 'recibidas', paletas);
                 });
 
             } else if (formType === 'fixed-weight-despacho') {
                 productos.forEach((p: any) => {
                     const session = getSessionForProduct(p.descripcion);
-                    incrementPallets(session, 'despachadas', (Number(p.paletasCompletas) || 0));
+                    const paletas = (Number(p.paletasCompletas) || 0);
+                    incrementPallets(session, 'despachadas', paletas);
                 });
             } else if (formType === 'variable-weight-recepcion' || formType === 'variable-weight-reception') {
                 const isIngresoSaldosSummary = submission.formData.tipoPedido === 'INGRESO DE SALDOS' && items.some((item: any) => Number(item.paleta) === 0);
-
+                
                 if (isIngresoSaldosSummary) {
                     items.forEach((item: any) => {
                          if (Number(item.paleta) === 0) {
@@ -189,12 +189,20 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                         }
                     });
                 } else {
-                    const palletSessionMap = new Map<number, 'CO' | 'RE' | 'SE' | null>();
+                    // Corrected logic for detailed variable weight reception
+                    const palletSessionMap = new Map<string, 'CO' | 'RE' | 'SE' | 'MIXTA'>();
+                    
                     items.forEach((item: any) => {
-                        const paletaValue = Number(item.paleta);
-                        if (!isNaN(paletaValue) && paletaValue > 0) {
-                            if (!palletSessionMap.has(paletaValue)) {
-                                palletSessionMap.set(paletaValue, getSessionForProduct(item.descripcion));
+                        const paletaValue = String(item.paleta);
+                        if (item.paleta !== undefined && Number(paletaValue) > 0) {
+                            const itemSession = getSessionForProduct(item.descripcion);
+                            if (palletSessionMap.has(paletaValue)) {
+                                const existingSession = palletSessionMap.get(paletaValue);
+                                if (existingSession !== itemSession && itemSession !== null) {
+                                    palletSessionMap.set(paletaValue, 'MIXTA');
+                                }
+                            } else if (itemSession) {
+                                palletSessionMap.set(paletaValue, itemSession);
                             }
                         }
                     });
@@ -204,6 +212,7 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                         if (session === 'CO') countCO++;
                         else if (session === 'RE') countRE++;
                         else if (session === 'SE') countSE++;
+                        // Paletas MIXTAS no se cuentan para ninguna sesion individual
                     }
                     dailyData.paletasRecibidasCO += countCO;
                     dailyData.paletasRecibidasRE += countRE;
@@ -221,31 +230,26 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                 const allItems = isByDestination ? destinos.flatMap((d: any) => d.items) : items;
                 const isSummaryFormat = allItems.some((item: any) => Number(item.paleta) === 0);
 
-                if (isByDestination && isSummaryFormat) {
-                    // Logic to distribute total pallets among sessions if possible, or apply it to one if not.
-                    // This case is ambiguous without more rules. For now, assuming it's not mixed.
-                    // The most robust way is to iterate items even in summary format.
-                     allItems.forEach((item: any) => {
-                        if (Number(item.paleta) === 0) {
-                            const session = getSessionForProduct(item.descripcion);
-                            incrementPallets(session, 'despachadas', (Number(item.paletasCompletas) || 0));
-                        }
-                    });
-                } else if (!isByDestination && isSummaryFormat) {
+                if (isSummaryFormat) {
                      allItems.forEach((item: any) => {
                          if (Number(item.paleta) === 0) {
                             const session = getSessionForProduct(item.descripcion);
-                            incrementPallets(session, 'despachadas', (Number(item.paletasCompletas) || 0));
+                            const paletas = Number(item.paletasCompletas || 0);
+                            incrementPallets(session, 'despachadas', paletas);
                          }
                     });
                 } else {
-                    // Detailed variable weight dispatch
-                    const palletSessionMap = new Map<number, 'CO' | 'RE' | 'SE' | null>();
+                    const palletSessionMap = new Map<string, 'CO' | 'RE' | 'SE' | 'MIXTA'>();
                     allItems.forEach((item: any) => {
-                        const paletaValue = Number(item.paleta);
-                         if(!item.esPicking && !isNaN(paletaValue) && paletaValue > 0 && paletaValue !== 999){
-                            if (!palletSessionMap.has(paletaValue)) {
-                                palletSessionMap.set(paletaValue, getSessionForProduct(item.descripcion));
+                        const paletaValue = String(item.paleta);
+                        if (!item.esPicking && item.paleta !== undefined && Number(paletaValue) > 0 && Number(paletaValue) !== 999){
+                            const itemSession = getSessionForProduct(item.descripcion);
+                            if (palletSessionMap.has(paletaValue)) {
+                                if (palletSessionMap.get(paletaValue) !== itemSession && itemSession) {
+                                    palletSessionMap.set(paletaValue, 'MIXTA');
+                                }
+                            } else if (itemSession) {
+                                palletSessionMap.set(paletaValue, itemSession);
                             }
                         }
                     });
