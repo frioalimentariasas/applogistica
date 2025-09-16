@@ -84,8 +84,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 const itemSchema = z.object({
     paleta: z.coerce.number({ invalid_type_error: "La paleta debe ser un número."}).int().nullable(),
     totalCantidad: z.coerce.number({ invalid_type_error: "Debe ser un número."}).int().min(0, "Debe ser >= 0").optional(),
-    paletasCompletas: z.coerce.number().int("Debe ser un número entero.").min(0, "No puede ser negativo.").optional(),
-    paletasPicking: z.coerce.number().int("Debe ser un número entero.").min(0, "No puede ser negativo.").optional(),
+    paletasCompletas: z.coerce.number({invalid_type_error: "Debe ser numérico"}).int("Debe ser un número entero.").min(0, "No puede ser negativo.").default(0),
+    paletasPicking: z.coerce.number({invalid_type_error: "Debe ser numérico"}).int("Debe ser un número entero.").min(0, "No puede ser negativo.").default(0),
     totalPesoNeto: z.coerce.number({ invalid_type_error: "Debe ser un número."}).min(0, "Debe ser >= 0").optional(),
     cantidadPorPaleta: z.coerce.number({ invalid_type_error: "Debe ser un número." }).int().min(0, "Debe ser >= 0").optional(),
     pesoBruto: z.coerce.number({ invalid_type_error: "Debe ser un número." }).min(0, "Debe ser >= 0").optional(),
@@ -452,7 +452,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
                   if (!isNaN(paletaNum) && paletaNum > 0) {
                     if (paletaNum === 999) {
                         pallets999Count++;
-                    } else {
+                    } else if (!item.esPicking) {
                         uniquePallets.add(paletaNum);
                     }
                   }
@@ -481,7 +481,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
         if (!isNaN(pNum) && pNum > 0) {
             if (pNum === 999) {
                 count999++;
-            } else {
+            } else if (!i.esPicking) {
                 uniquePallets.add(pNum);
             }
         }
@@ -963,6 +963,7 @@ export default function VariableWeightFormComponent({ pedidoTypes }: { pedidoTyp
             paletasCompletas: null,
             paletasPicking: null,
             totalPesoNeto: null,
+            esPicking: false,
         });
     }
   };
@@ -1916,7 +1917,7 @@ function ItemsPorDestino({ control, remove, handleProductDialogOpening, destinoI
             if (!isNaN(paletaNum) && paletaNum > 0) {
                  if (paletaNum === 999) {
                     pallets999Count++;
-                } else {
+                } else if (!item.esPicking) {
                     uniquePallets.add(paletaNum);
                 }
             }
@@ -1986,224 +1987,3 @@ function ItemsPorDestino({ control, remove, handleProductDialogOpening, destinoI
         </div>
     );
 }
-
-const ItemFields = ({ control, itemIndex, handleProductDialogOpening, remove, destinoIndex }: { control: any, itemIndex: number, handleProductDialogOpening: (context: { itemIndex: number, destinoIndex?: number }) => void, remove?: (index: number) => void, destinoIndex?: number }) => {
-    const { toast } = useToast();
-    const [isLoadingPallet, setIsLoadingPallet] = useState(false);
-    const [isConfirmLoadOpen, setConfirmLoadOpen] = useState(false);
-    const [isNotFoundDialogOpen, setIsNotFoundDialogOpen] = useState(false);
-    const [notFoundMessage, setNotFoundMessage] = useState("");
-    const [foundPalletInfo, setFoundPalletInfo] = useState<PalletInfo | null>(null);
-
-    const { setValue, getValues, watch } = useFormContext();
-    const basePath = destinoIndex !== undefined ? `destinos.${destinoIndex}.items` : 'items';
-    const watchedItem = watch(`${basePath}.${itemIndex}`);
-    const clientName = watch('cliente');
-
-    useEffect(() => {
-        if (watchedItem && watchedItem.paleta !== 0) {
-            const cantidadPorPaleta = Number(watchedItem.cantidadPorPaleta) || 0;
-            const taraCaja = Number(watchedItem.taraCaja) || 0;
-            const pesoBruto = Number(watchedItem.pesoBruto) || 0;
-            const taraEstiba = Number(watchedItem.taraEstiba) || 0;
-
-            const calculatedTotalTaraCaja = cantidadPorPaleta * taraCaja;
-            const calculatedPesoNeto = pesoBruto - taraEstiba - calculatedTotalTaraCaja;
-
-            if (watchedItem.totalTaraCaja !== calculatedTotalTaraCaja) {
-                setValue(`${basePath}.${itemIndex}.totalTaraCaja`, calculatedTotalTaraCaja, { shouldValidate: false });
-            }
-            if (watchedItem.pesoNeto !== calculatedPesoNeto) {
-                setValue(`${basePath}.${itemIndex}.pesoNeto`, calculatedPesoNeto, { shouldValidate: false });
-            }
-        }
-    }, [watchedItem?.cantidadPorPaleta, watchedItem?.taraCaja, watchedItem?.pesoBruto, watchedItem?.taraEstiba, watchedItem?.paleta, basePath, itemIndex, setValue, watchedItem]);
-
-    const handlePalletLookup = async (palletCode: string) => {
-        if (!palletCode || palletCode === "0" || palletCode === "999") return;
-        
-        if (!clientName) {
-            setNotFoundMessage("Por favor, seleccione un cliente antes de buscar una paleta.");
-            setIsNotFoundDialogOpen(true);
-            return;
-        }
-
-        setIsLoadingPallet(true);
-        try {
-            const result = await getPalletInfoByCode(palletCode, clientName);
-            if (result.success && result.palletInfo) {
-                setFoundPalletInfo(result.palletInfo);
-                setConfirmLoadOpen(true);
-            } else {
-                setNotFoundMessage(result.message);
-                setIsNotFoundDialogOpen(true);
-            }
-        } catch (error) {
-            setNotFoundMessage("Error del servidor: No se pudo buscar la información de la paleta.");
-            setIsNotFoundDialogOpen(true);
-        } finally {
-            setIsLoadingPallet(false);
-        }
-    };
-    
-    const confirmLoadPalletData = () => {
-        if (!foundPalletInfo) return;
-        setValue(`${basePath}.${itemIndex}.codigo`, foundPalletInfo.codigo);
-        setValue(`${basePath}.${itemIndex}.descripcion`, foundPalletInfo.descripcion);
-        setValue(`${basePath}.${itemIndex}.lote`, foundPalletInfo.lote);
-        setValue(`${basePath}.${itemIndex}.presentacion`, foundPalletInfo.presentacion);
-        setValue(`${basePath}.${itemIndex}.cantidadPorPaleta`, foundPalletInfo.cantidadPorPaleta);
-        setValue(`${basePath}.${itemIndex}.pesoBruto`, foundPalletInfo.pesoBruto);
-        setValue(`${basePath}.${itemIndex}.taraEstiba`, foundPalletInfo.taraEstiba);
-        setValue(`${basePath}.${itemIndex}.taraCaja`, foundPalletInfo.taraCaja);
-        // Let the useEffect recalculate pesoNeto and totalTaraCaja
-        setConfirmLoadOpen(false);
-        setFoundPalletInfo(null);
-    };
-
-    const isSummaryRow = watchedItem?.paleta === 0;
-    const pesoNeto = watchedItem?.pesoNeto;
-    
-    return (
-      <div className="p-4 border rounded-lg relative bg-white space-y-4">
-         <div className="flex justify-between items-center">
-            <h4 className="text-lg font-semibold md:text-base">Ítem #{itemIndex + 1}</h4>
-            {remove && (
-                <Button type="button" variant="ghost" size="icon" className="text-destructive" onClick={() => remove(itemIndex)}>
-                    <Trash2 className="h-4 w-4" />
-                </Button>
-            )}
-        </div>
-        <>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <FormField control={control} name={`${basePath}.${itemIndex}.codigo`} render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Código <span className="text-destructive">*</span></FormLabel>
-                        <Button type="button" variant="outline" className="w-full justify-between h-10 text-left font-normal" onClick={() => handleProductDialogOpening({ itemIndex, destinoIndex })}>
-                            <span className="truncate">{field.value || "Seleccionar código..."}</span>
-                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                        <FormMessage />
-                    </FormItem>
-                )} />
-                <FormField control={control} name={`${basePath}.${itemIndex}.descripcion`} render={({ field }) => (
-                    <FormItem className="md:col-span-2">
-                        <FormLabel>Descripción <span className="text-destructive">*</span></FormLabel>
-                        <Button type="button" variant="outline" className="w-full justify-between h-10 text-left font-normal" onClick={() => handleProductDialogOpening({ itemIndex, destinoIndex })}>
-                            <span className="truncate">{field.value || "Seleccionar producto..."}</span>
-                            <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                        <FormMessage />
-                    </FormItem>
-                )} />
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <FormField control={control} name={`${basePath}.${itemIndex}.paleta`} render={({ field }) => (
-                    <FormItem>
-                        <FormLabel>Paleta <span className="text-destructive">*</span></FormLabel>
-                        <TooltipProvider>
-                            <Tooltip>
-                                <TooltipTrigger asChild>
-                                    <div className="flex items-center gap-2">
-                                        <FormControl>
-                                            <Input
-                                                type="text"
-                                                inputMode="numeric"
-                                                placeholder="0 para resumen"
-                                                {...field}
-                                                onBlur={(e) => handlePalletLookup(e.target.value)}
-                                                onChange={e => field.onChange(e.target.value === '' ? null : Number(e.target.value))}
-                                                value={field.value ?? ''}
-                                                disabled={!clientName || isLoadingPallet}
-                                            />
-                                        </FormControl>
-                                    </div>
-                                </TooltipTrigger>
-                                {!clientName && (
-                                    <TooltipContent>
-                                        <p>Por favor, seleccione un cliente primero.</p>
-                                    </TooltipContent>
-                                )}
-                            </Tooltip>
-                        </TooltipProvider>
-                        <FormMessage />
-                    </FormItem>
-                )} />
-                <FormField control={control} name={`${basePath}.${itemIndex}.lote`} render={({ field }) => (
-                    <FormItem><FormLabel>Lote</FormLabel><FormControl><Input placeholder="Lote (máx. 15)" {...field} value={field.value ?? ''} onChange={(e) => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>
-                )} />
-                <FormField control={control} name={`${basePath}.${itemIndex}.presentacion`} render={({ field }) => (
-                    <FormItem><FormLabel>Presentación <span className="text-destructive">*</span></FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione" /></SelectTrigger></FormControl><SelectContent>{presentaciones.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>
-                )} />
-            </div>
-            {isSummaryRow ? (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <FormField control={control} name={`${basePath}.${itemIndex}.totalCantidad`} render={({ field }) => (
-                        <FormItem><FormLabel>Total Cantidad <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField control={control} name={`${basePath}.${itemIndex}.paletasCompletas`} render={({ field }) => (
-                        <FormItem><FormLabel>Paletas Completas <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField control={control} name={`${basePath}.${itemIndex}.paletasPicking`} render={({ field }) => (
-                        <FormItem><FormLabel>Paletas Picking <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField control={control} name={`${basePath}.${itemIndex}.totalPesoNeto`} render={({ field }) => (
-                        <FormItem><FormLabel>Total Peso Neto (kg) <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="decimal" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                </div>
-            ) : (
-                 <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-6 gap-4 items-center">
-                    <FormField control={control} name={`${basePath}.${itemIndex}.cantidadPorPaleta`} render={({ field }) => (
-                        <FormItem><FormLabel>Cant. Por Paleta <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="numeric" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField control={control} name={`${basePath}.${itemIndex}.pesoBruto`} render={({ field }) => (
-                        <FormItem><FormLabel>P. Bruto (kg) <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="decimal" min="0" step="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField control={control} name={`${basePath}.${itemIndex}.taraEstiba`} render={({ field }) => (
-                        <FormItem><FormLabel>T. Estiba (kg) <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="decimal" min="0" step="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormField control={control} name={`${basePath}.${itemIndex}.taraCaja`} render={({ field }) => (
-                        <FormItem><FormLabel>T. Caja (kg) <span className="text-destructive">*</span></FormLabel><FormControl><Input type="text" inputMode="decimal" min="0" step="0.01" placeholder="0.00" {...field} onChange={e => field.onChange(e.target.value === '' ? null : e.target.value)} value={field.value ?? ''} /></FormControl><FormMessage /></FormItem>
-                    )} />
-                    <FormItem><FormLabel>Peso Neto (kg)</FormLabel><FormControl><Input disabled readOnly value={pesoNeto != null && !isNaN(pesoNeto) ? pesoNeto.toFixed(2) : '0.00'} /></FormControl></FormItem>
-                    <FormField control={control} name={`${basePath}.${itemIndex}.esPicking`} render={({ field }) => (
-                        <FormItem className="flex items-center space-x-2 pt-6">
-                            <FormControl><Checkbox checked={field.value} onCheckedChange={field.onChange} /></FormControl>
-                            <Label htmlFor={`${basePath}.${itemIndex}.esPicking`} className="font-normal cursor-pointer">Es Picking</Label>
-                        </FormItem>
-                    )} />
-                </div>
-            )}
-        </>
-        <AlertDialog open={isConfirmLoadOpen} onOpenChange={setConfirmLoadOpen}>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                    <AlertDialogTitle>Datos Encontrados</AlertDialogTitle>
-                    <AlertDialogDesc>
-                        Se encontraron datos para la paleta {watchedItem?.paleta}. ¿Desea cargarlos en este ítem?
-                    </AlertDialogDesc>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <AlertDialogCancel onClick={() => setConfirmLoadOpen(false)}>No, Ingresar Manualmente</AlertDialogCancel>
-                    <AlertDialogAction onClick={confirmLoadPalletData}>Sí, Cargar Datos</AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
-         <AlertDialog open={isNotFoundDialogOpen} onOpenChange={setIsNotFoundDialogOpen}>
-            <AlertDialogContent>
-                <AlertDialogHeader>
-                    <AlertDialogTitle>Paleta no Encontrada</AlertDialogTitle>
-                    <AlertDialogDesc>
-                        {notFoundMessage}
-                        <br /><br />
-                        Puede corregir el código o continuar para ingresar los datos del producto manualmente.
-                    </AlertDialogDesc>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                    <AlertDialogAction onClick={() => setIsNotFoundDialogOpen(false)}>Aceptar</AlertDialogAction>
-                </AlertDialogFooter>
-            </AlertDialogContent>
-        </AlertDialog>
-      </div>
-    );
-};

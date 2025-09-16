@@ -88,8 +88,9 @@ const productSchema = z.object({
   codigo: z.string().min(1, "El código es requerido."),
   descripcion: z.string().min(1, "La descripción es requerida."),
   cajas: z.coerce.number({required_error: "El No. de cajas es requerido.", invalid_type_error: "El No. de cajas es requerido."}).int().min(0, "El No. de Cajas debe ser 0 o mayor."),
-  paletasCompletas: z.coerce.number().int("Debe ser un número entero.").min(0, "No puede ser negativo.").optional(),
-  paletasPicking: z.coerce.number().int("Debe ser un número entero.").min(0, "No puede ser negativo.").optional(),
+  paletasCompletas: z.coerce.number({invalid_type_error: "Debe ser numérico"}).int("Debe ser un número entero.").min(0, "No puede ser negativo.").default(0),
+  paletasPicking: z.coerce.number({invalid_type_error: "Debe ser numérico"}).int("Debe ser un número entero.").min(0, "No puede ser negativo.").default(0),
+  totalPaletas: z.coerce.number().optional(), // Campo antiguo para compatibilidad
   pesoNetoKg: z.coerce.number({ required_error: "El peso neto es requerido.", invalid_type_error: "Peso Neto (kg) debe ser un número."})
     .min(0, "Peso Neto (kg) debe ser un número no negativo."),
   temperatura1: tempSchema,
@@ -452,6 +453,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                   ...p,
                   paletasCompletas: p.paletasCompletas ?? 0,
                   paletasPicking: p.paletasPicking ?? 0,
+                  totalPaletas: p.totalPaletas ?? p.paletas, // For backward compatibility
                   pesoNetoKg: p.pesoNetoKg ?? p.cantidadKg ?? 0,
                   temperatura1: p.temperatura1 ?? p.temperatura ?? null,
                   temperatura2: p.temperatura2 ?? null,
@@ -1143,7 +1145,10 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                   <CardTitle>Características del Producto <span className="text-destructive">*</span></CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  {fields.map((item, index) => (
+                  {fields.map((item, index) => {
+                      const showLegacyPalletField = item.totalPaletas !== undefined && item.totalPaletas !== null && (item.paletasCompletas === 0 && item.paletasPicking === 0);
+
+                      return (
                       <div key={item.id} className="p-4 border rounded-md relative space-y-4">
                           <div className="flex justify-between items-center">
                               <h4 className="font-semibold">Producto #{index + 1}</h4>
@@ -1193,16 +1198,29 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                                       </FormItem>
                                   )}/>
                                   
+                                    {showLegacyPalletField ? (
+                                        <FormField
+                                            name={`productos.${index}.totalPaletas`}
+                                            render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Total Paletas (Dato Anterior)</FormLabel>
+                                                <FormControl><Input disabled value={field.value ?? 0} /></FormControl>
+                                                <FormDescription>Ajuste abajo.</FormDescription>
+                                            </FormItem>
+                                            )}
+                                        />
+                                    ) : null}
+
                                     <FormField control={form.control} name={`productos.${index}.paletasCompletas`} render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Paletas Completas <span className="text-destructive">*</span></FormLabel>
+                                            <FormLabel>Paletas Completas</FormLabel>
                                             <FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))} value={field.value ?? ''} /></FormControl>
                                             <FormMessage />
                                         </FormItem>
                                     )}/>
                                     <FormField control={form.control} name={`productos.${index}.paletasPicking`} render={({ field }) => (
                                         <FormItem>
-                                            <FormLabel>Paletas Picking <span className="text-destructive">*</span></FormLabel>
+                                            <FormLabel>Paletas Picking</FormLabel>
                                             <FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))} value={field.value ?? ''} /></FormControl>
                                             <FormMessage />
                                         </FormItem>
@@ -1227,7 +1245,8 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                               </div>
                           </div>
                       </div>
-                  ))}
+                      )
+                  })}
                   <Button type="button" variant="outline" onClick={() => append({ codigo: '', descripcion: '', cajas: 0, paletasCompletas: 0, paletasPicking: 0, pesoNetoKg: 0, temperatura1: null, temperatura2: null, temperatura3: null })}>
                       <PlusCircle className="mr-2 h-4 w-4" />
                       Agregar Producto
@@ -1855,3 +1874,4 @@ function ProductSelectorDialog({
         </Dialog>
     );
 }
+
