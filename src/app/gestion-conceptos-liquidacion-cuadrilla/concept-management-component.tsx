@@ -42,7 +42,7 @@ const conceptSchema = z.object({
   conceptName: z.string().min(3, { message: "El nombre del concepto es requerido (mín. 3 caracteres)."}),
   clientNames: z.array(z.string()).min(1, { message: 'Debe seleccionar al menos un cliente.' }),
   operationType: z.enum(['recepcion', 'despacho', 'TODAS'], { required_error: 'Debe seleccionar un tipo de operación.' }),
-  productType: z.enum(['fijo', 'variable', 'TODOS'], { required_error: 'Debe seleccionar un tipo de producto.' }),
+  productType: z.enum(['fijo', 'variable', 'TODAS'], { required_error: 'Debe seleccionar un tipo de producto.' }),
   unitOfMeasure: z.enum(['TONELADA', 'PALETA', 'UNIDAD', 'CAJA', 'SACO', 'CANASTILLA', 'HORA'], { required_error: 'Debe seleccionar una unidad de medida.'}),
   value: z.coerce.number({invalid_type_error: "Debe ser un número"}).min(0, "Debe ser 0 o mayor."),
   excludeIfOtherApplies: z.boolean().default(false).optional(),
