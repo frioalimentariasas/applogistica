@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -10,7 +11,7 @@ export interface BillingConcept {
   clientNames: string[]; // "TODOS (Cualquier Cliente)" or specific client names
   operationType: 'recepcion' | 'despacho' | 'TODAS';
   productType: 'fijo' | 'variable' | 'TODOS';
-  unitOfMeasure: 'TONELADA' | 'PALETA' | 'UNIDAD' | 'CAJA' | 'SACO' | 'CANASTILLA';
+  unitOfMeasure: 'TONELADA' | 'PALETA' | 'UNIDAD' | 'CAJA' | 'SACO' | 'CANASTILLA' | 'HORA';
   value: number;
 }
 
@@ -94,3 +95,5 @@ export async function deleteMultipleBillingConcepts(ids: string[]): Promise<{ su
     return { success: false, message: 'Ocurrió un error en el servidor.' };
   }
 }
+
+    
