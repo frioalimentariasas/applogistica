@@ -235,7 +235,11 @@ const calculateWeightForOperation = (op: any): number => {
     const { formType, formData } = op;
 
     if (formType === 'fixed-weight-despacho') {
-        return formData.totalPesoBrutoKg || 0;
+        // Prioritize totalPesoBrutoKg, but fallback to summing up net weights if it's not available
+        if (formData.totalPesoBrutoKg && Number(formData.totalPesoBrutoKg) > 0) {
+            return Number(formData.totalPesoBrutoKg);
+        }
+        return (formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.pesoNetoKg) || 0), 0);
     }
     
     if (formType === 'variable-weight-despacho') {
