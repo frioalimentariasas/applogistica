@@ -176,6 +176,10 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
 
     const clientSubmissions = submissionsSnapshot.docs.filter(doc => {
         const docClientName = doc.data().formData?.cliente || doc.data().formData?.nombreCliente;
+        const formType = doc.data().formType;
+        if (docClientName === 'GRUPO FRUTELLI SAS' && (formType === 'variable-weight-recepcion' || formType === 'variable-weight-reception')) {
+            return false;
+        }
         return docClientName === clientName;
     });
     
@@ -268,6 +272,15 @@ export async function generateClientSettlement(criteria: {
     submissionsSnapshot.docs.forEach(doc => {
         const data = serializeTimestamps(doc.data());
         const docClientName = data.formData?.cliente || data.formData?.nombreCliente;
+        const formType = data.formType;
+
+        if (
+            docClientName === 'GRUPO FRUTELLI SAS' && 
+            (formType === 'variable-weight-recepcion' || formType === 'variable-weight-reception')
+        ) {
+            return; // Exclude this specific case
+        }
+        
         if (docClientName === clientName) {
             if (containerNumber && data.formData.contenedor !== containerNumber) {
                 return;
@@ -671,6 +684,7 @@ const timeToMinutes = (timeStr: string): number => {
     const [hours, minutes] = timeStr.split(':').map(Number);
     return hours * 60 + minutes;
 };
+
 
 
 

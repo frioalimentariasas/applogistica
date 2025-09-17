@@ -284,6 +284,13 @@ export async function getDetailedReport(criteria: DetailedReportCriteria): Promi
                 id: doc.id,
                 ...serializeTimestamps(doc.data())
             };
+        }).filter(submission => {
+            const clientName = submission.formData?.nombreCliente || submission.formData?.cliente;
+            const isFrutelliRecepcionVariable = 
+                clientName === 'GRUPO FRUTELLI SAS' && 
+                (submission.formType === 'variable-weight-recepcion' || submission.formType === 'variable-weight-reception');
+            
+            return !isFrutelliRecepcionVariable;
         });
 
         const dateFilteredSubmissions = allSubmissions.filter(submission => {

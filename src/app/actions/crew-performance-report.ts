@@ -323,7 +323,17 @@ export async function getCrewPerformanceReport(criteria: CrewPerformanceReportCr
             getBillingConcepts()
         ]);
         
-        const allSubmissionDocs = submissionsSnapshot.docs.map(doc => ({ id: doc.id, type: 'submission', ...serializeTimestamps(doc.data()) }));
+        const allSubmissionDocs = submissionsSnapshot.docs
+            .map(doc => ({ id: doc.id, type: 'submission', ...serializeTimestamps(doc.data()) }))
+            .filter(submission => {
+                const clientName = submission.formData?.nombreCliente || submission.formData?.cliente;
+                const isFrutelliRecepcionVariable = 
+                    clientName === 'GRUPO FRUTELLI SAS' && 
+                    (submission.formType === 'variable-weight-recepcion' || submission.formType === 'variable-weight-reception');
+                
+                return !isFrutelliRecepcionVariable;
+            });
+
         const manualOpsData = manualOpsSnapshot.docs.map(doc => ({ id: doc.id, type: 'manual', ...serializeTimestamps(doc.data()) }));
 
         let allResults: any[] = [...allSubmissionDocs, ...manualOpsData];
