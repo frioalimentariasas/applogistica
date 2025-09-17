@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -61,9 +62,7 @@ const manualOperationSchema = z.object({
   clientName: z.string().min(1, 'El cliente es obligatorio.'),
   operationDate: z.date({ required_error: 'La fecha es obligatoria.' }).optional(),
   
-  dateRange: z.custom<DateRange>(v => v instanceof Object && 'from' in v, {
-    message: "El rango de fechas es obligatorio para la liquidación en lote.",
-  }).optional(),
+  selectedDates: z.array(z.date()).optional(),
   bulkRoles: z.array(bulkRoleSchema).optional(),
   excedentes: z.array(excedentSchema).optional(),
 
@@ -87,8 +86,8 @@ const manualOperationSchema = z.object({
 
 
     if (isBulkMode) {
-      if (!data.dateRange?.from || !data.dateRange?.to) {
-          ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El rango de fechas es obligatorio.", path: ["dateRange"] });
+      if (!data.selectedDates || data.selectedDates.length === 0) {
+          ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Debe seleccionar al menos una fecha.", path: ["selectedDates"] });
       }
       if (!data.bulkRoles || data.bulkRoles.every(r => r.numPersonas === 0)) {
            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Debe ingresar al menos una persona en algún rol.", path: ["bulkRoles"] });
@@ -181,6 +180,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
             },
             bulkRoles: [],
             excedentes: [],
+            selectedDates: [],
         }
     });
 
@@ -318,9 +318,9 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 specificTariffs: op.specificTariffs || [],
                 numeroPersonas: op.numeroPersonas || undefined,
                 details: op.details || {},
-                dateRange: op.startDate && op.endDate
-                    ? { from: parseISO(op.startDate), to: parseISO(op.endDate) }
-                    : undefined,
+                selectedDates: op.startDate && op.endDate
+                    ? eachDayOfInterval({ start: parseISO(op.startDate), end: parseISO(op.endDate) })
+                    : op.operationDate ? [opDate] : [],
                 bulkRoles: op.bulkRoles || [],
                 excedentes: op.excedentes || [],
             });
@@ -335,6 +335,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 details: { startTime: '', endTime: '', plate: '', container: '', totalPallets: null, arin: '' },
                 bulkRoles: [],
                 excedentes: [],
+                selectedDates: [],
             });
         }
         setIsDialogOpen(true);
@@ -345,12 +346,11 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         setIsSubmitting(true);
         
         try {
-            if (isBulkMode && dialogMode === 'add') {
+            if (isBulkMode && dialogMode === 'add' && data.selectedDates) {
                 const bulkData = {
                     clientName: data.clientName,
                     concept: data.concept,
-                    startDate: data.dateRange!.from!.toISOString(),
-                    endDate: data.dateRange!.to!.toISOString(),
+                    dates: data.selectedDates.map(d => d.toISOString()),
                     roles: data.bulkRoles!.filter(r => r.numPersonas > 0),
                     excedentes: data.excedentes || [],
                     createdBy: { uid: user.uid, displayName: displayName || user.email! }
@@ -608,46 +608,35 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                         ) : isBulkMode ? (
                                             <FormField
                                                 control={form.control}
-                                                name="dateRange"
+                                                name="selectedDates"
                                                 render={({ field }) => (
                                                 <FormItem className="flex flex-col">
-                                                    <FormLabel>Rango de Fechas de Liquidación</FormLabel>
+                                                    <FormLabel>Fechas de Liquidación</FormLabel>
                                                     <Popover>
-                                                    <PopoverTrigger asChild>
-                                                        <FormControl>
+                                                        <PopoverTrigger asChild>
                                                             <Button
-                                                                id="date"
-                                                                variant={"outline"}
-                                                                className={cn("w-full justify-start text-left font-normal", !field.value && "text-muted-foreground")}
-                                                                disabled={dialogMode === 'edit'}
+                                                                variant="outline"
+                                                                className={cn("w-full justify-start text-left font-normal h-auto", !field.value?.length && "text-muted-foreground")}
+                                                                disabled={dialogMode === 'view'}
                                                             >
-                                                            <CalendarIcon className="mr-2 h-4 w-4" />
-                                                            {field.value?.from ? (
-                                                                field.value.to ? (
-                                                                <>
-                                                                    {format(field.value.from, "LLL dd, y")} -{" "}
-                                                                    {format(field.value.to, "LLL dd, y")}
-                                                                </>
+                                                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                                                {field.value?.length ? (
+                                                                    <div className="flex flex-wrap gap-1">
+                                                                        {field.value.length > 3 ? `${field.value.length} días seleccionados` : field.value.map(d => format(d, "d/MM")).join(', ')}
+                                                                    </div>
                                                                 ) : (
-                                                                format(field.value.from, "LLL dd, y")
-                                                                )
-                                                            ) : (
-                                                                <span>Seleccione un rango</span>
-                                                            )}
+                                                                    <span>Seleccione una o más fechas</span>
+                                                                )}
                                                             </Button>
-                                                        </FormControl>
-                                                    </PopoverTrigger>
-                                                    <PopoverContent className="w-auto p-0" align="start">
-                                                        <Calendar
-                                                            initialFocus
-                                                            mode="range"
-                                                            defaultMonth={field.value?.from}
+                                                        </PopoverTrigger>
+                                                        <PopoverContent className="w-auto p-0">
+                                                            <Calendar
+                                                            mode="multiple"
                                                             selected={field.value}
                                                             onSelect={field.onChange}
-                                                            numberOfMonths={2}
-                                                            disabled={(date) => isSunday(date) || dialogMode === 'edit'}
-                                                        />
-                                                    </PopoverContent>
+                                                            disabled={(date) => isSunday(date) || dialogMode === 'view'}
+                                                            />
+                                                        </PopoverContent>
                                                     </Popover>
                                                     <FormMessage />
                                                 </FormItem>
@@ -878,7 +867,7 @@ const ExcedentManager = () => {
     const [excedentDate, setExcedentDate] = useState<Date | undefined>();
     const [excedentHours, setExcedentHours] = useState('');
     
-    const dateRange = watch('dateRange');
+    const selectedDates = watch('selectedDates');
 
     const handleAddExcedent = () => {
         if (!excedentDate || !excedentHours) return;
@@ -895,8 +884,8 @@ const ExcedentManager = () => {
     };
 
     const isDateValid = (date: Date) => {
-        if (!dateRange?.from || !dateRange.to) return false;
-        return isWithinInterval(date, { start: startOfDay(dateRange.from), end: startOfDay(dateRange.to) }) && !isSunday(date);
+        if (!selectedDates || selectedDates.length === 0) return false;
+        return selectedDates.some(d => startOfDay(d).getTime() === startOfDay(date).getTime());
     };
 
     const dayType = excedentDate ? (isSaturday(excedentDate) ? 'Sábado (Diurnas)' : 'L-V (Nocturnas)') : 'Seleccione Fecha';
@@ -909,7 +898,7 @@ const ExcedentManager = () => {
                     <Label>Fecha del Excedente</Label>
                     <Popover>
                         <PopoverTrigger asChild>
-                            <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !excedentDate && "text-muted-foreground")} disabled={!dateRange?.from || !dateRange.to}>
+                            <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !excedentDate && "text-muted-foreground")} disabled={!selectedDates || selectedDates.length === 0}>
                                 <CalendarIcon className="mr-2 h-4 w-4" />
                                 {excedentDate ? format(excedentDate, "PPP", { locale: es }) : <span>Seleccione fecha</span>}
                             </Button>
@@ -921,7 +910,7 @@ const ExcedentManager = () => {
                                 onSelect={setExcedentDate}
                                 disabled={(date) => !isDateValid(date)}
                                 initialFocus
-                                month={dateRange?.from}
+                                month={selectedDates?.[0]}
                             />
                         </PopoverContent>
                     </Popover>

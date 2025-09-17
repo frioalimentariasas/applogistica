@@ -39,6 +39,7 @@ export interface ManualClientOperationData {
     // New fields for bulk operations
     bulkRoles?: any[],
     excedentes?: ExcedentEntry[];
+    selectedDates?: string[]; // For multi-date selection
 }
 
 
@@ -75,8 +76,7 @@ export async function addManualClientOperation(data: ManualClientOperationData):
 export interface BulkOperationData {
     clientName: string;
     concept: string;
-    startDate: string; // ISO string
-    endDate: string;   // ISO string
+    dates: string[]; // Array of ISO date strings
     roles: {
         roleName: string;
         diurnaId: string;
@@ -96,7 +96,7 @@ export async function addBulkManualClientOperation(data: BulkOperationData): Pro
     }
 
     try {
-        const { startDate, endDate, clientName, concept, roles, excedentes, createdBy } = data;
+        const { dates, clientName, concept, roles, excedentes, createdBy } = data;
         
         const allConcepts = await getClientBillingConcepts();
         const conceptConfig = allConcepts.find(c => c.conceptName === concept);
@@ -118,17 +118,13 @@ export async function addBulkManualClientOperation(data: BulkOperationData): Pro
         const dayShiftEndMinutes = timeToMinutes(dayShiftEndTime);
         const excedentesMap = new Map(excedentes.map(e => [e.date, e.hours]));
 
-        const start = new Date(startDate.split('T')[0] + 'T05:00:00.000Z');
-        const end = new Date(endDate.split('T')[0] + 'T05:00:00.000Z');
-
-        const dateList = eachDayOfInterval({ start, end });
-
         const batch = firestore.batch();
         let operationsCount = 0;
 
-        for (const day of dateList) {
-            const dayOfWeek = getDay(day); // Sunday = 0, Saturday = 6
-            if (isSunday(day)) continue; // Skip Sundays
+        for (const dateString of dates) {
+            const day = startOfDay(parseISO(dateString));
+            const dayOfWeek = getDay(day);
+            if (isSunday(day)) continue;
 
             const isSaturday = dayOfWeek === 6;
             const baseStartTimeStr = isSaturday ? saturdayStartTime : weekdayStartTime;
