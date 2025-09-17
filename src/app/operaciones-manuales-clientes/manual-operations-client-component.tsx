@@ -311,15 +311,13 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
              const opDate = op.startDate ? parseISO(op.startDate) : parseISO(op.operationDate);
             form.reset({
                 clientName: op.clientName || '',
-                operationDate: opDate,
+                operationDate: op.operationDate ? parseISO(op.operationDate) : undefined,
                 concept: op.concept,
                 quantity: op.quantity,
                 specificTariffs: op.specificTariffs || [],
                 numeroPersonas: op.numeroPersonas || undefined,
                 details: op.details || {},
-                selectedDates: op.startDate && op.endDate
-                    ? eachDayOfInterval({ start: parseISO(op.startDate), end: parseISO(op.endDate) })
-                    : op.operationDate ? [opDate] : [],
+                selectedDates: op.selectedDates?.map((d: string) => parseISO(d)) || [],
                 bulkRoles: op.bulkRoles || [],
                 excedentes: op.excedentes || [],
             });
@@ -954,3 +952,5 @@ const ExcedentManager = () => {
         </div>
     )
 }
+
+    
