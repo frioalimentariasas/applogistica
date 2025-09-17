@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useEffect, useMemo, useRef, useCallback } from "react";
@@ -339,7 +338,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
   const isSpecialReception = isReception && (watchedTipoPedido === 'INGRESO DE SALDOS' || watchedTipoPedido === 'MAQUILA');
   
   const watchedNombreCliente = form.watch('nombreCliente');
-  const isGrupoFrutelli = !isReception && watchedNombreCliente === 'GRUPO FRUTELLI SAS';
+  const isGrupoFrutelliDespacho = !isReception && watchedNombreCliente === 'GRUPO FRUTELLI SAS';
 
 
   useEffect(() => {
@@ -1033,54 +1032,50 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                       <FormField
                         control={form.control}
                         name="fecha"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Fecha <span className="text-destructive">*</span></FormLabel>
-                            {isAuthorizedEditor || isGrupoFrutelli ? (
-                              <Popover>
-                                <PopoverTrigger asChild>
-                                  <FormControl>
-                                    <Button
-                                      variant={"outline"}
-                                      className={cn(
-                                        "w-full pl-3 text-left font-normal",
-                                        !field.value && "text-muted-foreground"
-                                      )}
-                                    >
-                                      {field.value ? (
-                                        format(field.value, "PPP", { locale: es })
-                                      ) : (
-                                        <span>Seleccione una fecha</span>
-                                      )}
-                                      <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
-                                    </Button>
-                                  </FormControl>
-                                </PopoverTrigger>
-                                <PopoverContent className="w-auto p-0" align="start">
-                                  <Calendar
-                                    mode="single"
-                                    selected={field.value}
-                                    onSelect={field.onChange}
-                                    disabled={
-                                      isGrupoFrutelli
-                                        ? (date) => date > new Date() || date < subDays(new Date(), 1)
-                                        : (date) => date > new Date() || date < new Date("1900-01-01")
-                                    }
-                                    initialFocus
-                                  />
-                                </PopoverContent>
-                              </Popover>
-                            ) : (
-                              <FormControl>
-                                <Input
-                                  disabled
-                                  value={field.value ? format(field.value, "dd/MM/yyyy") : ""}
-                                />
-                              </FormControl>
-                            )}
-                            <FormMessage />
-                          </FormItem>
-                        )}
+                        render={({ field }) => {
+                          const isDatePickerEnabled = isAuthorizedEditor || isGrupoFrutelliDespacho;
+                          const yesterday = subDays(new Date(), 1);
+                          return (
+                            <FormItem>
+                              <FormLabel>Fecha <span className="text-destructive">*</span></FormLabel>
+                              {isDatePickerEnabled ? (
+                                <Popover>
+                                  <PopoverTrigger asChild>
+                                    <FormControl>
+                                      <Button variant="outline" className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}>
+                                        {field.value ? format(field.value, "PPP", { locale: es }) : <span>Seleccione una fecha</span>}
+                                        <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                      </Button>
+                                    </FormControl>
+                                  </PopoverTrigger>
+                                  <PopoverContent className="w-auto p-0" align="start">
+                                    <Calendar
+                                      mode="single"
+                                      selected={field.value}
+                                      onSelect={field.onChange}
+                                      disabled={(date) => {
+                                        if (isAuthorizedEditor) return false; // Admin can select any date
+                                        if (isGrupoFrutelliDespacho) {
+                                          const today = new Date();
+                                          today.setHours(0, 0, 0, 0);
+                                          const yesterday = subDays(today, 1);
+                                          return date.getTime() !== today.getTime() && date.getTime() !== yesterday.getTime();
+                                        }
+                                        return date.toDateString() !== new Date().toDateString(); // Default case
+                                      }}
+                                      initialFocus
+                                    />
+                                  </PopoverContent>
+                                </Popover>
+                              ) : (
+                                <FormControl>
+                                  <Input disabled value={field.value ? format(field.value, "dd/MM/yyyy") : ""} />
+                                </FormControl>
+                              )}
+                              <FormMessage />
+                            </FormItem>
+                          );
+                        }}
                       />
                       <FormField control={form.control} name="horaInicio" render={({ field }) => (
                           <FormItem>
@@ -1892,6 +1887,7 @@ function ProductSelectorDialog({
         </Dialog>
     );
 }
+
 
 
 
