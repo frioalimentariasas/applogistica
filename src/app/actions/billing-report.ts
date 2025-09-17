@@ -79,6 +79,10 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
 
         const clientDocs = submissionsSnapshot.docs.filter(doc => {
             const clientField = doc.data().formData.nombreCliente || doc.data().formData.cliente;
+            const formType = doc.data().formType;
+            if (clientField && clientField.trim().toLowerCase() === 'grupo frutelli sas' && (formType === 'variable-weight-recepcion' || formType === 'variable-weight-reception')) {
+                return false; // Exclude
+            }
             return clientField && clientField.trim().toLowerCase() === criteria.clientName.trim().toLowerCase();
         });
         
@@ -182,16 +186,20 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                     incrementPallets(session, 'despachadas', paletas);
                 });
             } else if (formType === 'variable-weight-recepcion' || formType === 'variable-weight-reception') {
-                const isIngresoSaldosSummary = submission.formData.tipoPedido === 'INGRESO DE SALDOS' && items.some((item: any) => Number(item.paleta) === 0);
-                
-                if (isIngresoSaldosSummary) {
+                const isIngresoSaldos = submission.formData.tipoPedido === 'INGRESO DE SALDOS';
+                const isMaquila = submission.formData.tipoPedido === 'MAQUILA';
+                const isSummaryFormat = items.some((item: any) => Number(item.paleta) === 0);
+
+                if (isIngresoSaldos && isSummaryFormat) {
+                    // For "INGRESO DE SALDOS", only count summarized pallets (paleta 0)
                     items.forEach((item: any) => {
                          if (Number(item.paleta) === 0) {
                             const session = getSessionForProduct(item.codigo, item.descripcion);
                             incrementPallets(session, 'recibidas', Number(item.totalPaletas) || 0);
                         }
                     });
-                } else {
+                } else if (!isIngresoSaldos && !isMaquila) {
+                    // For all other variable weight receptions, count unique physical pallets
                     const palletSessionMap = new Map<string, 'CO' | 'RE' | 'SE' | 'MIXTA'>();
                     
                     items.forEach((item: any) => {
