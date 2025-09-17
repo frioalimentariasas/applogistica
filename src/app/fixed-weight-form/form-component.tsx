@@ -7,7 +7,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useForm, useFieldArray, Controller, useWatch, FormProvider } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
-import { format } from "date-fns";
+import { format, subDays } from "date-fns";
 import { es } from "date-fns/locale";
 import { cn } from "@/lib/utils";
 import { useToast } from "@/hooks/use-toast";
@@ -337,6 +337,9 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
   const watchedAplicaCuadrilla = useWatch({ control: form.control, name: 'aplicaCuadrilla' });
   const watchedObservations = useWatch({ control: form.control, name: 'observaciones' });
   const isSpecialReception = isReception && (watchedTipoPedido === 'INGRESO DE SALDOS' || watchedTipoPedido === 'MAQUILA');
+  
+  const watchedNombreCliente = form.watch('nombreCliente');
+  const isGrupoFrutelli = !isReception && watchedNombreCliente === 'GRUPO FRUTELLI SAS';
 
 
   useEffect(() => {
@@ -1033,7 +1036,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                         render={({ field }) => (
                           <FormItem>
                             <FormLabel>Fecha <span className="text-destructive">*</span></FormLabel>
-                            {isAuthorizedEditor ? (
+                            {isAuthorizedEditor || isGrupoFrutelli ? (
                               <Popover>
                                 <PopoverTrigger asChild>
                                   <FormControl>
@@ -1058,6 +1061,11 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                                     mode="single"
                                     selected={field.value}
                                     onSelect={field.onChange}
+                                    disabled={
+                                      isGrupoFrutelli
+                                        ? (date) => date > new Date() || date < subDays(new Date(), 1)
+                                        : (date) => date > new Date() || date < new Date("1900-01-01")
+                                    }
                                     initialFocus
                                   />
                                 </PopoverContent>
@@ -1884,5 +1892,6 @@ function ProductSelectorDialog({
         </Dialog>
     );
 }
+
 
 
