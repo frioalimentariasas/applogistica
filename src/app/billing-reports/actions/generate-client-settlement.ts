@@ -65,12 +65,12 @@ const findMatchingTariff = (tons: number, concept: ClientBillingConcept): Tariff
     if (!concept.tariffRanges || concept.tariffRanges.length === 0) {
         return undefined;
     }
-    
-    // Find the range that matches the tonnage, regardless of vehicle type first.
-    return concept.tariffRanges.find(range => 
+    // Prioritize finding the correct weight range first.
+    const matchingRange = concept.tariffRanges.find(range => 
         tons >= range.minTons && 
         tons <= range.maxTons
     );
+    return matchingRange;
 };
 
 const getOperationLogisticsType = (isoDateString: string, horaInicio: string, horaFin: string, concept: ClientBillingConcept): "Diurno" | "Nocturno" | "Extra" | "No Aplica" => {
@@ -252,6 +252,26 @@ const calculateWeightForOperation = (op: any): number => {
     return (formData.totalPesoKg ?? formData.totalPesoBrutoKg) || 0;
 };
 
+const calculatePalletsForOperation = (op: any): number => {
+    const { formType, formData } = op;
+    const items = formData.productos || formData.items || formData.destinos?.flatMap((d: any) => d.items) || [];
+
+    if (formType?.startsWith('fixed-weight')) {
+        return (formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.totalPaletas) || Number(p.paletasCompletas) || 0), 0);
+    }
+
+    if (formType?.startsWith('variable-weight')) {
+        const isSummary = items.some((i: any) => Number(i.paleta) === 0);
+        if (isSummary) {
+            return items.reduce((sum: number, i: any) => sum + (Number(i.totalPaletas) || Number(i.paletasCompletas) || 0), 0);
+        }
+        const uniquePallets = new Set(items.map((i: any) => i.paleta).filter(Boolean));
+        return uniquePallets.size;
+    }
+    
+    return 0;
+};
+
 
 export async function generateClientSettlement(criteria: {
   clientName: string;
@@ -340,20 +360,12 @@ export async function generateClientSettlement(criteria: {
         for (const op of applicableOperations) {
              let quantity = 0;
             const weightKg = calculateWeightForOperation(op);
+            const totalPallets = calculatePalletsForOperation(op);
 
             switch (concept.calculationBase) {
                 case 'TONELADAS': quantity = weightKg / 1000; break;
                 case 'KILOGRAMOS': quantity = weightKg; break;
-                case 'CANTIDAD_PALETAS':
-                    const items = op.formData.productos || op.formData.items || op.formData.destinos?.flatMap((d: any) => d.items) || [];
-                    const isSummary = items.some((i: any) => Number(i.paleta) === 0);
-                    if (isSummary) {
-                        quantity = items.reduce((sum: number, i: any) => sum + (Number(i.totalPaletas) || Number(i.paletasCompletas) || 0), 0);
-                    } else {
-                        const uniquePallets = new Set(items.map((i: any) => i.paleta).filter(Boolean));
-                        quantity = uniquePallets.size;
-                    }
-                    break;
+                case 'CANTIDAD_PALETAS': quantity = totalPallets; break;
                 case 'CANTIDAD_CAJAS': quantity = (op.formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.cajas) || 0), 0); break;
                 case 'NUMERO_OPERACIONES': quantity = 1; break;
                 case 'NUMERO_CONTENEDORES': quantity = op.formData.contenedor ? 1 : 0; break;
@@ -387,11 +399,11 @@ export async function generateClientSettlement(criteria: {
                 date: op.formData.fecha,
                 container: op.formData.contenedor || 'N/A',
                 camara,
-                totalPaletas: 0, // Placeholder, can be improved
+                totalPaletas: totalPallets,
                 operacionLogistica,
                 pedidoSislog: op.formData.pedidoSislog,
                 conceptName: concept.conceptName,
-                tipoVehiculo: (concept.conceptName === 'OPERACIÓN CARGUE' || concept.conceptName === 'OPERACIÓN DESCARGUE') ? vehicleTypeForReport : 'N/A',
+                tipoVehiculo: (concept.conceptName === 'OPERACIÓN CARGUE' || concept.conceptName === 'OPERACIÓN DESCARGUE') ? vehicleTypeForReport : 'No Aplica',
                 quantity,
                 unitOfMeasure: concept.unitOfMeasure,
                 unitValue: unitValue,
@@ -414,13 +426,14 @@ export async function generateClientSettlement(criteria: {
             for (const op of relevantOps) {
                 const obs = (op.data.formData.observaciones as any[]).find(o => o.type === concept.associatedObservation);
                 const quantity = Number(obs?.quantity) || 0;
+                 const totalPallets = calculatePalletsForOperation(op.data);
 
                 if (quantity > 0) {
                     settlementRows.push({
                         date: op.data.formData.fecha,
                         container: op.data.formData.contenedor || 'N/A',
                         camara: 'N/A',
-                        totalPaletas: 0,
+                        totalPaletas: totalPallets,
                         operacionLogistica: 'No Aplica',
                         pedidoSislog: op.data.formData.pedidoSislog,
                         conceptName: concept.conceptName,
@@ -677,6 +690,8 @@ const timeToMinutes = (timeStr: string): number => {
 
 
 
+
+    
 
     
 
