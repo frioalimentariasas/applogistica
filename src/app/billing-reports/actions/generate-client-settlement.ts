@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -235,10 +236,10 @@ const calculateWeightForOperation = (op: any): number => {
     const { formType, formData } = op;
 
     if (formType === 'fixed-weight-despacho') {
-        // Prioritize totalPesoBrutoKg, but fallback to summing up net weights if it's not available
         if (formData.totalPesoBrutoKg && Number(formData.totalPesoBrutoKg) > 0) {
             return Number(formData.totalPesoBrutoKg);
         }
+        // Fallback to summing net weights
         return (formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.pesoNetoKg) || 0), 0);
     }
     
@@ -247,7 +248,6 @@ const calculateWeightForOperation = (op: any): number => {
         return allItems.reduce((sum: number, item: any) => sum + (Number(item.pesoNeto) || 0), 0);
     }
     
-    // Fallback to old logic for other types (e.g., receptions)
     return (formData.totalPesoKg ?? formData.totalPesoBrutoKg) || 0;
 };
 
@@ -320,57 +320,13 @@ export async function generateClientSettlement(criteria: {
     
     const settlementRows: ClientSettlementRow[] = [];
     
-    const operationsByDayAndContainer = allOperations
-        .filter(op => op.type === 'form')
-        .reduce((acc, op) => {
-            const date = new Date(op.data.formData.fecha).toISOString().split('T')[0];
-            const container = op.data.formData.contenedor || 'No Aplica';
-            const key = `${date}|${container}`;
-            if (!acc[key]) {
-                acc[key] = [];
-            }
-            acc[key].push(op.data);
-            return acc;
-        }, {} as Record<string, any[]>);
+    const ruleConcepts = selectedConcepts.filter(c => c.calculationType === 'REGLAS');
 
-    for (const key in operationsByDayAndContainer) {
-        const [date, container] = key.split('|');
-        const dailyOperations = operationsByDayAndContainer[key];
-        
-        const allFormItems = dailyOperations.flatMap(op => {
-          if(op.formType.startsWith('fixed')) return op.formData.productos || [];
-          if(op.formData.placas?.length > 0) return op.formData.placas.flatMap((p: any) => p.items || []);
-          if(op.formData.destinos?.length > 0) return op.formData.destinos.flatMap((d: any) => d.items || []);
-          return op.formData.items || [];
-        });
-        
-        let totalPaletas = 0;
-        const uniquePallets = new Set<number>();
-        allFormItems.forEach((item: any) => {
-            if (Number(item.paleta) > 0) {
-                uniquePallets.add(Number(item.paleta));
-            } else if (Number(item.totalPaletas) > 0) {
-                 totalPaletas += Number(item.totalPaletas);
-            } else if (Number(item.paletas) > 0) { // Fallback for older fixed weight forms
-                totalPaletas += Number(item.paletas);
-            }
-        });
-        totalPaletas += uniquePallets.size;
-
-        const firstProductCode = allFormItems[0]?.codigo;
-        const camara = firstProductCode ? articleSessionMap.get(firstProductCode) || 'No Aplica' : 'No Aplica';
-        const pedidoSislog = [...new Set(dailyOperations.map(op => op.formData.pedidoSislog))].join(', ');
-
-        for (const concept of selectedConcepts) {
-            if (concept.calculationType !== 'REGLAS') continue;
-            
-            let quantity = 0;
-            let unitValue = 0;
-            let operacionLogistica: string = 'No Aplica';
-            let vehicleTypeForReport = 'No Aplica';
-            let conceptHandled = false;
-            
-            const applicableOperations = dailyOperations.filter(op => {
+    for (const concept of ruleConcepts) {
+        const applicableOperations = allOperations
+            .filter(op => op.type === 'form')
+            .map(op => op.data)
+            .filter(op => {
                 let opTypeMatch = false;
                 if (concept.filterOperationType === 'ambos') opTypeMatch = true;
                 else if (concept.filterOperationType === 'recepcion' && (op.formType.includes('recepcion') || op.formType.includes('reception'))) opTypeMatch = true;
@@ -379,66 +335,71 @@ export async function generateClientSettlement(criteria: {
                 const prodTypeMatch = concept.filterProductType === 'ambos' || op.formType.includes(concept.filterProductType);
                 return opTypeMatch && prodTypeMatch;
             });
+            
+        for (const op of applicableOperations) {
+             let quantity = 0;
+            const weightKg = calculateWeightForOperation(op);
 
-            if (applicableOperations.length > 0) {
-                switch (concept.calculationBase) {
-                    case 'TONELADAS':
-                        quantity = applicableOperations.reduce((sum, op) => sum + calculateWeightForOperation(op), 0) / 1000;
-                        break;
-                    case 'KILOGRAMOS':
-                        quantity = applicableOperations.reduce((sum, op) => sum + calculateWeightForOperation(op), 0);
-                        break;
-                    case 'CANTIDAD_PALETAS': quantity = totalPaletas; break;
-                    case 'CANTIDAD_CAJAS': quantity = applicableOperations.reduce((sum, op) => sum + (op.formData.productos?.reduce((pSum: number, p: any) => pSum + (Number(p.cajas) || 0), 0) || 0), 0); break;
-                    case 'NUMERO_OPERACIONES': quantity = applicableOperations.length; break;
-                    case 'NUMERO_CONTENEDORES': quantity = 1; break;
-                    default: quantity = 0;
-                }
-
-                if (quantity > 0) {
-                    conceptHandled = true;
-                    if (concept.tariffType === 'UNICA') {
-                        unitValue = concept.value || 0;
-                        operacionLogistica = 'No Aplica';
-                    } else if (concept.tariffType === 'RANGOS') {
-                        const totalWeightKg = applicableOperations.reduce((sum, op) => sum + calculateWeightForOperation(op), 0);
-                        const totalTons = totalWeightKg / 1000;
-                        const vehicleType = container !== 'No Aplica' ? 'CONTENEDOR' : 'TURBO';
-                        vehicleTypeForReport = vehicleType;
-                        
-                        const matchingTariff = findMatchingTariff(totalTons, vehicleType, concept);
-                        
-                        if (matchingTariff) {
-                            const firstOp = applicableOperations[0];
-                            const opLogisticType = getOperationLogisticsType(firstOp.formData.fecha, firstOp.formData.horaInicio, firstOp.formData.horaFin, concept);
-                            unitValue = opLogisticType === 'Diurno' ? matchingTariff.dayTariff : matchingTariff.nightTariff;
-                            operacionLogistica = opLogisticType;
-                        } else {
-                            unitValue = concept.value || 0;
-                            operacionLogistica = 'No Aplica';
-                        }
+            switch (concept.calculationBase) {
+                case 'TONELADAS': quantity = weightKg / 1000; break;
+                case 'KILOGRAMOS': quantity = weightKg; break;
+                case 'CANTIDAD_PALETAS':
+                    const items = op.formData.productos || op.formData.items || op.formData.destinos?.flatMap((d: any) => d.items) || [];
+                    const isSummary = items.some((i: any) => Number(i.paleta) === 0);
+                    if (isSummary) {
+                        quantity = items.reduce((sum: number, i: any) => sum + (Number(i.totalPaletas) || Number(i.paletasCompletas) || 0), 0);
+                    } else {
+                        const uniquePallets = new Set(items.map((i: any) => i.paleta).filter(Boolean));
+                        quantity = uniquePallets.size;
                     }
-                }
+                    break;
+                case 'CANTIDAD_CAJAS': quantity = (op.formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.cajas) || 0), 0); break;
+                case 'NUMERO_OPERACIONES': quantity = 1; break;
+                case 'NUMERO_CONTENEDORES': quantity = op.formData.contenedor ? 1 : 0; break;
             }
 
-            if (conceptHandled && quantity > 0) {
-                settlementRows.push({
-                    date,
-                    container,
-                    camara,
-                    totalPaletas,
-                    operacionLogistica,
-                    pedidoSislog,
-                    conceptName: concept.conceptName,
-                    tipoVehiculo: (concept.conceptName === 'OPERACIÓN CARGUE' || concept.conceptName === 'OPERACIÓN DESCARGUE') ? vehicleTypeForReport : 'No Aplica',
-                    quantity,
-                    unitOfMeasure: concept.unitOfMeasure,
-                    unitValue: unitValue,
-                    totalValue: quantity * unitValue,
-                    horaInicio: 'No Aplica',
-                    horaFin: 'No Aplica',
-                });
+            if (quantity <= 0) continue;
+
+            let unitValue = 0;
+            let operacionLogistica: string = 'No Aplica';
+            let vehicleTypeForReport = 'No Aplica';
+
+            if (concept.tariffType === 'UNICA') {
+                unitValue = concept.value || 0;
+            } else if (concept.tariffType === 'RANGOS') {
+                const totalTons = weightKg / 1000;
+                const vehicleType = op.formData.contenedor && op.formData.contenedor !== 'N/A' ? 'CONTENEDOR' : 'TURBO';
+                vehicleTypeForReport = vehicleType;
+                
+                const matchingTariff = findMatchingTariff(totalTons, vehicleType, concept);
+                
+                if (matchingTariff) {
+                    const opLogisticType = getOperationLogisticsType(op.formData.fecha, op.formData.horaInicio, op.formData.horaFin, concept);
+                    unitValue = opLogisticType === 'Diurno' ? matchingTariff.dayTariff : matchingTariff.nightTariff;
+                    operacionLogistica = opLogisticType;
+                }
             }
+            
+            const allItems = op.formData.productos || op.formData.items || op.formData.placas?.flatMap((p: any) => p.items) || op.formData.destinos?.flatMap((d: any) => d.items) || [];
+            const firstProductCode = allItems[0]?.codigo;
+            const camara = firstProductCode ? articleSessionMap.get(firstProductCode) || 'N/A' : 'N/A';
+
+            settlementRows.push({
+                date: op.formData.fecha,
+                container: op.formData.contenedor || 'N/A',
+                camara,
+                totalPaletas: 0, // Placeholder, can be improved
+                operacionLogistica,
+                pedidoSislog: op.formData.pedidoSislog,
+                conceptName: concept.conceptName,
+                tipoVehiculo: (concept.conceptName === 'OPERACIÓN CARGUE' || concept.conceptName === 'OPERACIÓN DESCARGUE') ? vehicleTypeForReport : 'N/A',
+                quantity,
+                unitOfMeasure: concept.unitOfMeasure,
+                unitValue: unitValue,
+                totalValue: quantity * unitValue,
+                horaInicio: op.formData.horaInicio,
+                horaFin: op.formData.horaFin,
+            });
         }
     }
     
@@ -451,28 +412,26 @@ export async function generateClientSettlement(criteria: {
                 (op.data.formData.observaciones as any[]).some(obs => obs.type === concept.associatedObservation)
             );
             
-            if (relevantOps.length > 0) {
-                const totalQuantity = relevantOps.reduce((sum, op) => {
-                    const obs = (op.data.formData.observaciones as any[]).find(o => o.type === concept.associatedObservation);
-                    return sum + (Number(obs?.quantity) || 0);
-                }, 0);
-                
-                if (totalQuantity > 0) {
+            for (const op of relevantOps) {
+                const obs = (op.data.formData.observaciones as any[]).find(o => o.type === concept.associatedObservation);
+                const quantity = Number(obs?.quantity) || 0;
+
+                if (quantity > 0) {
                     settlementRows.push({
-                        date: startDate,
-                        container: 'No Aplica',
-                        camara: 'No Aplica',
+                        date: op.data.formData.fecha,
+                        container: op.data.formData.contenedor || 'N/A',
+                        camara: 'N/A',
                         totalPaletas: 0,
                         operacionLogistica: 'No Aplica',
-                        pedidoSislog: 'Por Observación',
+                        pedidoSislog: op.data.formData.pedidoSislog,
                         conceptName: concept.conceptName,
                         tipoVehiculo: 'No Aplica',
-                        quantity: totalQuantity,
+                        quantity,
                         unitOfMeasure: concept.unitOfMeasure,
                         unitValue: concept.value || 0,
-                        totalValue: totalQuantity * (concept.value || 0),
-                        horaInicio: 'No Aplica',
-                        horaFin: 'No Aplica',
+                        totalValue: quantity * (concept.value || 0),
+                        horaInicio: op.data.formData.horaInicio,
+                        horaFin: op.data.formData.horaFin,
                     });
                 }
             }
