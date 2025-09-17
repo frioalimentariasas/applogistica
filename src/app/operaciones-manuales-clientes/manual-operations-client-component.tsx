@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -8,7 +7,6 @@ import { useForm, SubmitHandler, useFieldArray, useWatch, FieldErrors, useFormCo
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
 import { format, parseISO, addDays, getDaysInMonth, getDay, isSaturday, isSunday, isWithinInterval, startOfDay } from 'date-fns';
-import { DateRange } from 'react-day-picker';
 import { es } from 'date-fns/locale';
 
 import { addManualClientOperation, updateManualClientOperation, deleteManualClientOperation, addBulkManualClientOperation } from './actions';
@@ -35,7 +33,6 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
-import { DateRangePicker } from '@/components/ui/date-range-picker';
 
 
 const specificTariffEntrySchema = z.object({
@@ -63,7 +60,7 @@ const manualOperationSchema = z.object({
   clientName: z.string().min(1, 'El cliente es obligatorio.'),
   operationDate: z.date({ required_error: 'La fecha es obligatoria.' }).optional(),
   
-  selectedDates: z.array(z.date()).optional(),
+  selectedDates: z.array(z.date()).optional().default([]),
   bulkRoles: z.array(bulkRoleSchema).optional(),
   excedentes: z.array(excedentSchema).optional(),
 
@@ -310,7 +307,6 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         setOpToManage(op || null);
     
         if (op) {
-             const opDate = op.startDate ? parseISO(op.startDate) : parseISO(op.operationDate);
             form.reset({
                 clientName: op.clientName || '',
                 operationDate: op.operationDate ? parseISO(op.operationDate) : undefined,
@@ -319,7 +315,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 specificTariffs: op.specificTariffs || [],
                 numeroPersonas: op.numeroPersonas || undefined,
                 details: op.details || {},
-                selectedDates: op.selectedDates?.map((d: string) => parseISO(d)) || [],
+                selectedDates: (op.selectedDates || []).map((d: string) => parseISO(d)),
                 bulkRoles: op.bulkRoles || [],
                 excedentes: op.excedentes || [],
             });
@@ -608,11 +604,39 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                             <FormField control={form.control} name="selectedDates" render={({ field }) => (
                                                 <FormItem className="flex flex-col">
                                                     <FormLabel>Fechas de Liquidación</FormLabel>
-                                                    <DateRangePicker 
-                                                        value={field.value || []}
-                                                        onChange={field.onChange}
-                                                        disabled={dialogMode === 'view'}
-                                                    />
+                                                    <Popover>
+                                                        <PopoverTrigger asChild>
+                                                            <Button
+                                                            id="date"
+                                                            variant={"outline"}
+                                                            className={cn("w-full justify-start text-left font-normal h-auto min-h-10", !field.value?.length && "text-muted-foreground")}
+                                                            disabled={dialogMode === 'view'}
+                                                            >
+                                                                <CalendarIcon className="mr-2 h-4 w-4" />
+                                                                {field.value?.length > 0 ? (
+                                                                <div className="flex flex-wrap gap-1">
+                                                                    {field.value.length > 2 ? (
+                                                                    `${field.value.length} días seleccionados`
+                                                                    ) : (
+                                                                    field.value.map((date) => format(date, "LLL dd, y", { locale: es })).join(", ")
+                                                                    )}
+                                                                </div>
+                                                                ) : (
+                                                                <span>Seleccione las fechas</span>
+                                                                )}
+                                                            </Button>
+                                                        </PopoverTrigger>
+                                                        <PopoverContent className="w-auto p-0" align="start">
+                                                            <Calendar
+                                                                initialFocus
+                                                                mode="multiple"
+                                                                selected={field.value || []}
+                                                                onSelect={(dates) => field.onChange(dates || [])}
+                                                                numberOfMonths={1}
+                                                                disabled={(date) => isSunday(date) || (dialogMode === 'view')}
+                                                            />
+                                                        </PopoverContent>
+                                                    </Popover>
                                                     <FormMessage />
                                                 </FormItem>
                                             )} />
@@ -934,3 +958,5 @@ const ExcedentManager = () => {
         </div>
     )
 }
+
+    
