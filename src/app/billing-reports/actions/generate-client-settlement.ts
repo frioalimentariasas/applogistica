@@ -235,7 +235,7 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
 const calculateWeightForOperation = (op: any): number => {
     const { formType, formData } = op;
 
-    if (formType === 'fixed-weight-despacho') {
+    if (formType === 'fixed-weight-despacho' || formType === 'fixed-weight-recepcion') {
         const grossWeight = Number(formData.totalPesoBrutoKg);
         if (grossWeight > 0) {
             return grossWeight;
@@ -360,7 +360,11 @@ export async function generateClientSettlement(criteria: {
         for (const op of applicableOperations) {
              let quantity = 0;
             const weightKg = calculateWeightForOperation(op);
-            const totalPallets = calculatePalletsForOperation(op);
+            
+            let totalPallets = 0;
+            if (concept.conceptName === 'OPERACIÓN CARGUE' || concept.conceptName === 'OPERACIÓN DESCARGUE') {
+                totalPallets = calculatePalletsForOperation(op);
+            }
 
             switch (concept.calculationBase) {
                 case 'TONELADAS': quantity = weightKg / 1000; break;
@@ -433,7 +437,7 @@ export async function generateClientSettlement(criteria: {
                         date: op.data.formData.fecha,
                         container: op.data.formData.contenedor || 'N/A',
                         camara: 'N/A',
-                        totalPaletas: totalPallets,
+                        totalPaletas: 0, // Pallets not counted for observations
                         operacionLogistica: 'No Aplica',
                         pedidoSislog: op.data.formData.pedidoSislog,
                         conceptName: concept.conceptName,
