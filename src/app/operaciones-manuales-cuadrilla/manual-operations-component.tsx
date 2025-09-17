@@ -32,6 +32,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription as AlertDialogDesc, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
 
 
 const manualOperationSchema = z.object({
@@ -42,6 +43,7 @@ const manualOperationSchema = z.object({
     plate: z.string().optional(),
     concept: z.string().min(1, 'El concepto es obligatorio.'),
     quantity: z.coerce.number().min(0.001, 'La cantidad debe ser mayor a 0.'),
+    comentarios: z.string().max(200, "Máximo 200 caracteres.").optional(),
 }).refine(data => {
     if (data.concept !== 'APOYO DE MONTACARGAS' && !data.clientName) {
         return false;
@@ -160,6 +162,7 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
                 plate: op.plate || '',
                 concept: op.concept,
                 quantity: op.quantity,
+                comentarios: op.comentarios || '',
             });
         } else {
             form.reset({
@@ -170,6 +173,7 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
                 plate: "",
                 clientName: "",
                 concept: "",
+                comentarios: "",
             });
         }
         setIsDialogOpen(true);
@@ -312,8 +316,8 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
                                             <TableRow key={op.id}>
                                                 <TableCell>{format(new Date(op.operationDate), 'dd/MM/yyyy')}</TableCell>
                                                 <TableCell>{op.concept}</TableCell>
-                                                <TableCell>{op.clientName || 'No Aplica'}</TableCell>
-                                                <TableCell>{op.createdBy?.displayName || 'No Aplica'}</TableCell>
+                                                <TableCell>{op.clientName || 'N/A'}</TableCell>
+                                                <TableCell>{op.createdBy?.displayName || 'N/A'}</TableCell>
                                                 <TableCell className="text-right">
                                                     <Button variant="ghost" size="icon" title="Ver" onClick={() => openDialog('view', op)}>
                                                         <Eye className="h-4 w-4 text-gray-500" />
@@ -377,6 +381,20 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
                                         </div>
                                         <FormField control={form.control} name="plate" render={({ field }) => (<FormItem><FormLabel>Placa (Opcional)</FormLabel><FormControl><Input placeholder="ABC123" {...field} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
                                         <FormField control={form.control} name="quantity" render={({ field }) => (<FormItem><FormLabel>Cantidad</FormLabel><FormControl><Input type="number" step="0.001" placeholder="Ej: 1.5" {...field} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)}/>
+                                        <FormField control={form.control} name="comentarios" render={({ field }) => (
+                                            <FormItem>
+                                                <FormLabel>Comentarios (Opcional)</FormLabel>
+                                                <FormControl>
+                                                    <Textarea
+                                                        placeholder="Añada un comentario sobre la operación..."
+                                                        className="resize-none"
+                                                        {...field}
+                                                        disabled={dialogMode === 'view'}
+                                                    />
+                                                </FormControl>
+                                                <FormMessage />
+                                            </FormItem>
+                                        )} />
                                         <DialogFooter>
                                             <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                                                 {dialogMode === 'view' ? 'Cerrar' : 'Cancelar'}

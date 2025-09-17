@@ -15,6 +15,7 @@ export interface ManualOperationData {
     plate?: string;
     concept: string;
     quantity: number;
+    comentarios?: string; // New optional field
     createdAt?: string; // ISO string for timestamping
     createdBy?: {
         uid: string;
