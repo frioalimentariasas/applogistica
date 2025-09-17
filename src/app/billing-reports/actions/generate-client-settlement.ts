@@ -232,6 +232,16 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
     return sortedConcepts;
 }
 
+const calculateWeightForOperation = (op: any): number => {
+    const { formType, formData } = op;
+    if (formType === 'fixed-weight-despacho') {
+        // Use totalPesoBrutoKg for fixed-weight dispatches
+        return formData.totalPesoBrutoKg || 0;
+    }
+    // Fallback to old logic for other types
+    return (formData.totalPesoKg ?? formData.totalPesoBrutoKg) || 0;
+};
+
 
 export async function generateClientSettlement(criteria: {
   clientName: string;
@@ -362,9 +372,13 @@ export async function generateClientSettlement(criteria: {
             });
 
             if (applicableOperations.length > 0) {
-                 switch (concept.calculationBase) {
-                    case 'TONELADAS': quantity = applicableOperations.reduce((sum, op) => sum + ((op.formData.totalPesoKg ?? op.formData.totalPesoBrutoKg) || 0), 0) / 1000; break;
-                    case 'KILOGRAMOS': quantity = applicableOperations.reduce((sum, op) => sum + ((op.formData.totalPesoKg ?? op.formData.totalPesoBrutoKg) || 0), 0); break;
+                switch (concept.calculationBase) {
+                    case 'TONELADAS':
+                        quantity = applicableOperations.reduce((sum, op) => sum + calculateWeightForOperation(op), 0) / 1000;
+                        break;
+                    case 'KILOGRAMOS':
+                        quantity = applicableOperations.reduce((sum, op) => sum + calculateWeightForOperation(op), 0);
+                        break;
                     case 'CANTIDAD_PALETAS': quantity = totalPaletas; break;
                     case 'CANTIDAD_CAJAS': quantity = applicableOperations.reduce((sum, op) => sum + (op.formData.productos?.reduce((pSum: number, p: any) => pSum + (Number(p.cajas) || 0), 0) || 0), 0); break;
                     case 'NUMERO_OPERACIONES': quantity = applicableOperations.length; break;
@@ -378,7 +392,8 @@ export async function generateClientSettlement(criteria: {
                         unitValue = concept.value || 0;
                         operacionLogistica = 'No Aplica';
                     } else if (concept.tariffType === 'RANGOS') {
-                        const totalTons = applicableOperations.reduce((sum, op) => sum + ((op.formData.totalPesoKg ?? op.formData.totalPesoBrutoKg) || 0), 0) / 1000;
+                        const totalWeightKg = applicableOperations.reduce((sum, op) => sum + calculateWeightForOperation(op), 0);
+                        const totalTons = totalWeightKg / 1000;
                         const vehicleType = container !== 'No Aplica' ? 'CONTENEDOR' : 'TURBO';
                         vehicleTypeForReport = vehicleType;
                         
@@ -684,6 +699,7 @@ const timeToMinutes = (timeStr: string): number => {
     const [hours, minutes] = timeStr.split(':').map(Number);
     return hours * 60 + minutes;
 };
+
 
 
 
