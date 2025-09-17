@@ -632,7 +632,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                         <PopoverContent className="w-auto p-0">
                                                             <Calendar
                                                             mode="multiple"
-                                                            selected={field.value}
+                                                            selected={field.value || []}
                                                             onSelect={field.onChange}
                                                             disabled={(date) => isSunday(date) || dialogMode === 'view'}
                                                             />
