@@ -35,7 +35,7 @@ export async function getConsolidatedMovementReport(
     throw new Error('Se requieren el cliente, la sesión y un rango de fechas.');
   }
 
-  // 1. Get daily movements for ALL sessions
+  // 1. Get daily movements for the specified client, but for ALL sessions
   const billingData = await getBillingReport({
     clientName: criteria.clientName,
     startDate: criteria.startDate,
@@ -90,7 +90,7 @@ export async function getConsolidatedMovementReport(
 
   const consolidatedMap = new Map<string, Omit<ConsolidatedReportRow, 'date'>>();
   
-  // 4. Populate map with movements for the SELECTED session
+  // 4. Populate map with movements for the SELECTED session from the comprehensive billing data
   const recibidasKey = `paletasRecibidas${criteria.sesion}` as keyof typeof billingData[0];
   const despachadasKey = `paletasDespachadas${criteria.sesion}` as keyof typeof billingData[0];
 

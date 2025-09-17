@@ -41,7 +41,7 @@ const serializeTimestamps = (data: any): any => {
 };
 
 export interface BillingReportCriteria {
-  clientName: string;
+  clientName?: string; // Allow fetching for all clients
   startDate: string;
   endDate: string;
   tipoOperacion?: 'recepcion' | 'despacho';
@@ -65,37 +65,32 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
         throw new Error('El servidor no está configurado correctamente.');
     }
 
-    if (!criteria.clientName) {
-        throw new Error('El nombre del cliente es requerido para este reporte.');
-    }
-
     try {
         // Fetch all submissions for the client in the date range
         let submissionsQuery: admin.firestore.Query = firestore.collection('submissions')
             .where('formData.fecha', '>=', new Date(criteria.startDate + 'T00:00:00-05:00'))
             .where('formData.fecha', '<=', new Date(criteria.endDate + 'T23:59:59.999-05:00'));
+        
+        if (criteria.clientName) {
+            // This is less efficient, but necessary because we might need all articles for a client later
+            // and can't do two separate queries easily with the logic.
+        }
 
         const submissionsSnapshot = await submissionsQuery.get();
 
-        const clientDocs = submissionsSnapshot.docs.filter(doc => {
-            const clientField = doc.data().formData.nombreCliente || doc.data().formData.cliente;
-            const formType = doc.data().formType;
-            if (clientField && clientField.trim().toLowerCase() === 'grupo frutelli sas' && (formType === 'variable-weight-recepcion' || formType === 'variable-weight-reception')) {
-                return false; // Exclude
-            }
-            return clientField && clientField.trim().toLowerCase() === criteria.clientName.trim().toLowerCase();
-        });
+        const clientDocs = criteria.clientName 
+            ? submissionsSnapshot.docs.filter(doc => {
+                const clientField = doc.data().formData.nombreCliente || doc.data().formData.cliente;
+                return clientField && clientField.trim().toLowerCase() === criteria.clientName!.trim().toLowerCase();
+            })
+            : submissionsSnapshot.docs;
         
-        // Fetch all articles for the client to create a complete session lookup map
-        const articlesSnapshot = await firestore.collection('articulos')
-            .where('razonSocial', '==', criteria.clientName)
-            .get();
-
+        // Fetch all articles to create a complete session lookup map
+        const articlesSnapshot = await firestore.collection('articulos').get();
         const articleSessionMap = new Map<string, 'CO' | 'RE' | 'SE'>();
         articlesSnapshot.forEach(doc => {
             const article = doc.data() as ArticuloData;
-            // Use a composite key of code and description to ensure uniqueness
-            const key = `${article.codigoProducto}|${article.denominacionArticulo}`.toLowerCase();
+            const key = `${article.razonSocial}|${article.codigoProducto}|${article.denominacionArticulo}`.toLowerCase();
             articleSessionMap.set(key, article.sesion);
         });
 
@@ -110,6 +105,13 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
 
         clientDocs.forEach(doc => {
             const submission = serializeTimestamps(doc.data());
+             const clientName = submission.formData.nombreCliente || submission.formData.cliente;
+
+            if (!clientName) return; // Skip if no client name
+
+            if (clientName === 'GRUPO FRUTELLI SAS' && (submission.formType === 'variable-weight-recepcion' || submission.formType === 'variable-weight-reception')) {
+                return; // Exclude GRUPO FRUTELLI SAS variable weight receptions
+            }
             
             const formIsoDate = submission.formData.fecha;
             if (!formIsoDate || typeof formIsoDate !== 'string') return;
@@ -134,15 +136,11 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                 }
             }
 
-
             if (!dailyDataMap.has(groupingDate)) {
                 dailyDataMap.set(groupingDate, {
-                    paletasRecibidasCO: 0,
-                    paletasDespachadasCO: 0,
-                    paletasRecibidasRE: 0,
-                    paletasDespachadasRE: 0,
-                    paletasRecibidasSE: 0,
-                    paletasDespachadasSE: 0,
+                    paletasRecibidasCO: 0, paletasDespachadasCO: 0,
+                    paletasRecibidasRE: 0, paletasDespachadasRE: 0,
+                    paletasRecibidasSE: 0, paletasDespachadasSE: 0,
                 });
             }
 
@@ -154,7 +152,7 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
 
             const getSessionForProduct = (codigo: string, descripcion: string): 'CO' | 'RE' | 'SE' | null => {
                 if (!codigo || !descripcion) return null;
-                const key = `${codigo}|${descripcion}`.toLowerCase();
+                const key = `${clientName}|${codigo}|${descripcion}`.toLowerCase();
                 return articleSessionMap.get(key) || null;
             };
 
@@ -171,7 +169,6 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                 }
             };
 
-
             if (formType === 'fixed-weight-recepcion' || formType === 'fixed-weight-reception') {
                 productos.forEach((p: any) => {
                     const session = getSessionForProduct(p.codigo, p.descripcion);
@@ -185,21 +182,19 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                     const paletas = (Number(p.paletasCompletas) || 0);
                     incrementPallets(session, 'despachadas', paletas);
                 });
+
             } else if (formType === 'variable-weight-recepcion' || formType === 'variable-weight-reception') {
-                const isIngresoSaldos = submission.formData.tipoPedido === 'INGRESO DE SALDOS';
-                const isMaquila = submission.formData.tipoPedido === 'MAQUILA';
+                // Corrected logic: Always count pallets from variable weight reception regardless of tipoPedido
                 const isSummaryFormat = items.some((item: any) => Number(item.paleta) === 0);
 
-                if (isIngresoSaldos && isSummaryFormat) {
-                    // For "INGRESO DE SALDOS", only count summarized pallets (paleta 0)
-                    items.forEach((item: any) => {
+                if (isSummaryFormat) {
+                     items.forEach((item: any) => {
                          if (Number(item.paleta) === 0) {
                             const session = getSessionForProduct(item.codigo, item.descripcion);
                             incrementPallets(session, 'recibidas', Number(item.totalPaletas) || 0);
                         }
                     });
-                } else if (!isIngresoSaldos && !isMaquila) {
-                    // For all other variable weight receptions, count unique physical pallets
+                } else {
                     const palletSessionMap = new Map<string, 'CO' | 'RE' | 'SE' | 'MIXTA'>();
                     
                     items.forEach((item: any) => {
