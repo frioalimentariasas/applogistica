@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -629,12 +628,11 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                         </PopoverTrigger>
                                                         <PopoverContent className="w-auto p-0">
                                                             <Calendar
-                                                            mode="multiple"
-                                                            selected={field.value || []}
-                                                            onSelect={field.onChange}
-                                                            disabled={(date) => isSunday(date) || dialogMode === 'view'}
-                                                            initialFocus
-                                                            month={field.value?.[0]}
+                                                              mode="multiple"
+                                                              selected={field.value || []}
+                                                              onSelect={field.onChange}
+                                                              disabled={(date) => isSunday(date) || dialogMode === 'view'}
+                                                              initialFocus
                                                             />
                                                         </PopoverContent>
                                                     </Popover>
@@ -955,3 +953,5 @@ const ExcedentManager = () => {
         </div>
     )
 }
+
+    
