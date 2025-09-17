@@ -61,15 +61,15 @@ export interface ClientSettlementResult {
     errorLink?: string;
 }
 
-const findMatchingTariff = (tons: number, vehicleType: 'CONTENEDOR' | 'TURBO', concept: ClientBillingConcept): TariffRange | undefined => {
+const findMatchingTariff = (tons: number, concept: ClientBillingConcept): TariffRange | undefined => {
     if (!concept.tariffRanges || concept.tariffRanges.length === 0) {
         return undefined;
     }
     
+    // Find the range that matches the tonnage, regardless of vehicle type first.
     return concept.tariffRanges.find(range => 
         tons >= range.minTons && 
-        tons <= range.maxTons &&
-        range.vehicleType.toUpperCase() === vehicleType
+        tons <= range.maxTons
     );
 };
 
@@ -236,10 +236,11 @@ const calculateWeightForOperation = (op: any): number => {
     const { formType, formData } = op;
 
     if (formType === 'fixed-weight-despacho') {
-        if (formData.totalPesoBrutoKg && Number(formData.totalPesoBrutoKg) > 0) {
-            return Number(formData.totalPesoBrutoKg);
+        const grossWeight = Number(formData.totalPesoBrutoKg);
+        if (grossWeight > 0) {
+            return grossWeight;
         }
-        // Fallback to summing net weights
+        // Fallback for older forms or missing gross weight
         return (formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.pesoNetoKg) || 0), 0);
     }
     
@@ -368,12 +369,10 @@ export async function generateClientSettlement(criteria: {
                 unitValue = concept.value || 0;
             } else if (concept.tariffType === 'RANGOS') {
                 const totalTons = weightKg / 1000;
-                const vehicleType = op.formData.contenedor && op.formData.contenedor !== 'N/A' ? 'CONTENEDOR' : 'TURBO';
-                vehicleTypeForReport = vehicleType;
-                
-                const matchingTariff = findMatchingTariff(totalTons, vehicleType, concept);
+                const matchingTariff = findMatchingTariff(totalTons, concept);
                 
                 if (matchingTariff) {
+                    vehicleTypeForReport = matchingTariff.vehicleType;
                     const opLogisticType = getOperationLogisticsType(op.formData.fecha, op.formData.horaInicio, op.formData.horaFin, concept);
                     unitValue = opLogisticType === 'Diurno' ? matchingTariff.dayTariff : matchingTariff.nightTariff;
                     operacionLogistica = opLogisticType;
@@ -678,5 +677,7 @@ const timeToMinutes = (timeStr: string): number => {
 
 
 
+
+    
 
     
