@@ -3,10 +3,10 @@
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { useForm, SubmitHandler, useFieldArray, useWatch, FieldErrors, useFormContext } from 'react-hook-form';
+import { useForm, SubmitHandler, useFieldArray, useWatch, FieldErrors, useFormContext, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { format, parseISO, addDays, getDaysInMonth, getDay, isSaturday, isSunday, isWithinInterval, startOfDay } from 'date-fns';
+import { format, parseISO, addDays, getDaysInMonth, getDay, isSaturday, isSunday, isWithinInterval, startOfDay, startOfMonth } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 import { addManualClientOperation, updateManualClientOperation, deleteManualClientOperation, addBulkManualClientOperation } from './actions';
@@ -33,6 +33,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Badge } from '@/components/ui/badge';
 
 
 const specificTariffEntrySchema = z.object({
@@ -601,45 +602,21 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                 {field.value && <FormDescription>Se liquidarán {getDaysInMonth(field.value)} días para el mes de {format(field.value, 'MMMM', {locale: es})}.</FormDescription>}
                                                 <FormMessage /></FormItem> )} />
                                         ) : isBulkMode ? (
-                                            <FormField control={form.control} name="selectedDates" render={({ field }) => (
-                                                <FormItem className="flex flex-col">
-                                                    <FormLabel>Fechas de Liquidación</FormLabel>
-                                                    <Popover>
-                                                        <PopoverTrigger asChild>
-                                                            <Button
-                                                            id="date"
-                                                            variant={"outline"}
-                                                            className={cn("w-full justify-start text-left font-normal h-auto min-h-10", !field.value?.length && "text-muted-foreground")}
-                                                            disabled={dialogMode === 'view'}
-                                                            >
-                                                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                                                {field.value?.length > 0 ? (
-                                                                <div className="flex flex-wrap gap-1">
-                                                                    {field.value.length > 2 ? (
-                                                                    `${field.value.length} días seleccionados`
-                                                                    ) : (
-                                                                    field.value.map((date) => format(date, "LLL dd, y", { locale: es })).join(", ")
-                                                                    )}
-                                                                </div>
-                                                                ) : (
-                                                                <span>Seleccione las fechas</span>
-                                                                )}
-                                                            </Button>
-                                                        </PopoverTrigger>
-                                                        <PopoverContent className="w-auto p-0" align="start">
-                                                            <Calendar
-                                                                initialFocus
-                                                                mode="multiple"
-                                                                selected={field.value || []}
-                                                                onSelect={(dates) => field.onChange(dates || [])}
-                                                                numberOfMonths={1}
-                                                                disabled={(date) => isSunday(date) || (dialogMode === 'view')}
-                                                            />
-                                                        </PopoverContent>
-                                                    </Popover>
+                                           <FormField
+                                              control={form.control}
+                                              name="selectedDates"
+                                              render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Fechas de Operación</FormLabel>
+                                                    <DateMultiSelector 
+                                                        selected={field.value || []} 
+                                                        onSelect={field.onChange} 
+                                                        disabled={dialogMode === 'view'}
+                                                    />
                                                     <FormMessage />
                                                 </FormItem>
-                                            )} />
+                                              )}
+                                            />
                                         ) : (
                                           <FormField control={form.control} name="operationDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha de Operación <span className="text-destructive">*</span></FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={dialogMode === 'view'} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4 opacity-50" />{field.value ? format(field.value, "PPP", { locale: es }) : <span>Seleccione una fecha</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={dialogMode === 'view'} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
                                         )}
@@ -773,6 +750,48 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 </AlertDialog>
 
             </div>
+        </div>
+    );
+}
+
+function DateMultiSelector({ selected, onSelect, disabled }: { selected: Date[], onSelect: (dates: Date[]) => void, disabled?: boolean }) {
+    const [isPickerOpen, setIsPickerOpen] = useState(false);
+    
+    return (
+        <div className="space-y-2">
+            <Button
+                type="button"
+                variant="outline"
+                className="w-full justify-start text-left font-normal"
+                onClick={() => setIsPickerOpen(true)}
+                disabled={disabled}
+            >
+                <CalendarIcon className="mr-2 h-4 w-4" />
+                {selected.length > 0 ? `${selected.length} fecha(s) seleccionada(s)` : 'Seleccionar fechas...'}
+            </Button>
+            {selected.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                    {selected.map(date => (
+                        <Badge key={date.toISOString()} variant="secondary">
+                            {format(date, 'd MMM', { locale: es })}
+                        </Badge>
+                    ))}
+                </div>
+            )}
+            <Dialog open={isPickerOpen} onOpenChange={setIsPickerOpen}>
+                <DialogContent className="max-w-min">
+                    <DialogHeader><DialogTitle>Seleccionar Fechas de Operación</DialogTitle></DialogHeader>
+                    <Calendar
+                        mode="multiple"
+                        selected={selected}
+                        onSelect={(dates) => onSelect(dates || [])}
+                        disabled={disabled}
+                    />
+                    <DialogFooter>
+                        <Button onClick={() => setIsPickerOpen(false)}>Confirmar</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     );
 }
