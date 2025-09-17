@@ -609,8 +609,8 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                 <FormItem>
                                                     <FormLabel>Fechas de Operación</FormLabel>
                                                      <DateMultiSelector 
-                                                        selected={field.value || []} 
-                                                        onSelect={field.onChange} 
+                                                        value={field.value || []} 
+                                                        onChange={field.onChange} 
                                                         disabled={dialogMode === 'view'}
                                                     />
                                                     <FormMessage />
@@ -711,7 +711,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                 </div>
                                                 <FormField control={form.control} name="details.container" render={({ field }) => (<FormItem><FormLabel>Contenedor {showInspectionFields && <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Contenedor" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
                                                 {showInspectionFields && (
-                                                    <FormField control={form.control} name="details.arin" render={({ field }) => (<FormItem><FormLabel>ARIN <span className="text-destructive">*</span></FormLabel><FormControl><Input placeholder="Número de ARIN" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
+                                                    <FormField control={form.control} name="details.arin" render={({ field }) => (<FormItem><FormLabel>ARIN <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Número de ARIN" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
                                                 )}
                                                 <FormField control={form.control} name="details.plate" render={({ field }) => (<FormItem><FormLabel>Placa (Opcional)</FormLabel><FormControl><Input placeholder="ABC123" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
                                                 <FormField control={form.control} name="details.totalPallets" render={({ field }) => (<FormItem><FormLabel>Total Paletas</FormLabel><FormControl><Input type="number" step="1" placeholder="Ej: 10" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value === '' ? null : parseInt(e.target.value, 10))}/></FormControl><FormMessage /></FormItem>)}/>
@@ -754,41 +754,57 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     );
 }
 
-function DateMultiSelector({ selected, onSelect, disabled }: { selected: Date[], onSelect: (dates: Date[]) => void, disabled?: boolean }) {
+function DateMultiSelector({ value, onChange, disabled }: { value: Date[], onChange: (dates: Date[]) => void, disabled?: boolean }) {
     const [isPickerOpen, setIsPickerOpen] = useState(false);
-    
+    const [localDates, setLocalDates] = useState(value || []);
+
+    useEffect(() => {
+        setLocalDates(value || []);
+    }, [value]);
+
+    const handleConfirm = () => {
+        onChange(localDates);
+        setIsPickerOpen(false);
+    };
+
     return (
         <div className="space-y-2">
             <Button
                 type="button"
                 variant="outline"
                 className="w-full justify-start text-left font-normal"
-                onClick={() => setIsPickerOpen(true)}
+                onClick={() => {
+                    setLocalDates(value || []); // Reset local state on open
+                    setIsPickerOpen(true);
+                }}
                 disabled={disabled}
             >
                 <CalendarIcon className="mr-2 h-4 w-4" />
-                {selected.length > 0 ? `${selected.length} fecha(s) seleccionada(s)` : 'Seleccionar fechas...'}
+                {value.length > 0 ? `${value.length} fecha(s) seleccionada(s)` : 'Seleccionar fechas...'}
             </Button>
-            {selected.length > 0 && (
-                <div className="flex flex-wrap gap-1">
-                    {selected.map(date => (
-                        <Badge key={date.toISOString()} variant="secondary">
-                            {format(date, 'd MMM', { locale: es })}
-                        </Badge>
-                    ))}
-                </div>
+            {value.length > 0 && (
+                <ScrollArea className="h-16">
+                    <div className="flex flex-wrap gap-1">
+                        {value.map(date => (
+                            <Badge key={date.toISOString()} variant="secondary">
+                                {format(date, 'd MMM', { locale: es })}
+                            </Badge>
+                        ))}
+                    </div>
+                </ScrollArea>
             )}
             <Dialog open={isPickerOpen} onOpenChange={setIsPickerOpen}>
                 <DialogContent className="max-w-min">
                     <DialogHeader><DialogTitle>Seleccionar Fechas de Operación</DialogTitle></DialogHeader>
                     <Calendar
                         mode="multiple"
-                        selected={selected}
-                        onSelect={(dates) => onSelect(dates || [])}
+                        selected={localDates}
+                        onSelect={(dates) => setLocalDates(dates || [])}
                         disabled={disabled}
                     />
                     <DialogFooter>
-                        <Button onClick={() => setIsPickerOpen(false)}>Confirmar</Button>
+                         <Button variant="ghost" onClick={() => setIsPickerOpen(false)}>Cancelar</Button>
+                        <Button onClick={handleConfirm}>Confirmar</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
@@ -977,6 +993,3 @@ const ExcedentManager = () => {
         </div>
     )
 }
-
-    
-
