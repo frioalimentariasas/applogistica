@@ -85,6 +85,7 @@ export function FixedWeightReport({ formData, userDisplayName, attachments, form
     const totalCajas = formData.productos.reduce((acc: any, p: any) => acc + (Number(p.cajas) || 0), 0);
     const totalPaletasCompletas = formData.productos.reduce((acc: any, p: any) => acc + (Number(p.paletasCompletas) || 0), 0);
     const totalPaletasPicking = formData.productos.reduce((acc: any, p: any) => acc + (Number(p.paletasPicking) || 0), 0);
+    const totalPaletas = formData.productos.reduce((acc: any, p: any) => acc + (Number(p.totalPaletas ?? p.paletas) || 0), 0);
     const totalPesoNetoKg = formData.productos.reduce((acc: any, p: any) => acc + (Number(p.pesoNetoKg) || 0), 0);
 
     const showPesoNetoColumn = formData.productos.some((p: any) => Number(p.pesoNetoKg) > 0);
@@ -140,8 +141,14 @@ export function FixedWeightReport({ formData, userDisplayName, attachments, form
                             <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Código</th>
                             <th style={{ textAlign: 'left', padding: '4px', fontWeight: 'bold' }}>Descripción</th>
                             <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>No. Cajas</th>
-                            <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Pal. Completas</th>
-                            <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Pal. Picking</th>
+                            {isReception ? (
+                                <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Total Paletas</th>
+                            ) : (
+                                <>
+                                    <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Pal. Completas</th>
+                                    <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Pal. Picking</th>
+                                </>
+                            )}
                             {showPesoNetoColumn && <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Peso Neto (kg)</th>}
                             <th style={{ textAlign: 'right', padding: '4px', fontWeight: 'bold' }}>Temperaturas (°C)</th>
                         </tr>
@@ -156,8 +163,14 @@ export function FixedWeightReport({ formData, userDisplayName, attachments, form
                                     <td style={{ padding: '4px' }}>{p.codigo}</td>
                                     <td style={{ padding: '4px' }}>{p.descripcion}</td>
                                     <td style={{ textAlign: 'right', padding: '4px' }}>{p.cajas}</td>
-                                    <td style={{ textAlign: 'right', padding: '4px' }}>{formatPaletas(p.paletasCompletas)}</td>
-                                    <td style={{ textAlign: 'right', padding: '4px' }}>{formatPaletas(p.paletasPicking)}</td>
+                                    {isReception ? (
+                                        <td style={{ textAlign: 'right', padding: '4px' }}>{formatPaletas(p.totalPaletas ?? p.paletas)}</td>
+                                    ) : (
+                                        <>
+                                            <td style={{ textAlign: 'right', padding: '4px' }}>{formatPaletas(p.paletasCompletas)}</td>
+                                            <td style={{ textAlign: 'right', padding: '4px' }}>{formatPaletas(p.paletasPicking)}</td>
+                                        </>
+                                    )}
                                     {showPesoNetoColumn && <td style={{ textAlign: 'right', padding: '4px' }}>{Number(p.pesoNetoKg) > 0 ? Number(p.pesoNetoKg).toFixed(2) : ''}</td>}
                                     <td style={{ textAlign: 'right', padding: '4px' }}>{tempString}</td>
                                 </tr>
@@ -166,8 +179,14 @@ export function FixedWeightReport({ formData, userDisplayName, attachments, form
                          <tr style={{ fontWeight: 'bold', backgroundColor: '#f1f5f9' }}>
                             <td style={{ padding: '4px', textAlign: 'right' }} colSpan={2}>TOTALES:</td>
                             <td style={{ textAlign: 'right', padding: '4px' }}>{totalCajas}</td>
-                            <td style={{ textAlign: 'right', padding: '4px' }}>{formatPaletas(totalPaletasCompletas)}</td>
-                            <td style={{ textAlign: 'right', padding: '4px' }}>{formatPaletas(totalPaletasPicking)}</td>
+                            {isReception ? (
+                                <td style={{ textAlign: 'right', padding: '4px' }}>{formatPaletas(totalPaletas)}</td>
+                            ) : (
+                                <>
+                                    <td style={{ textAlign: 'right', padding: '4px' }}>{formatPaletas(totalPaletasCompletas)}</td>
+                                    <td style={{ textAlign: 'right', padding: '4px' }}>{formatPaletas(totalPaletasPicking)}</td>
+                                </>
+                            )}
                             {showPesoNetoColumn && <td style={{ textAlign: 'right', padding: '4px' }}>{totalPesoNetoKg > 0 ? totalPesoNetoKg.toFixed(2) : ''}</td>}
                             <td style={{ padding: '4px' }}></td>
                         </tr>

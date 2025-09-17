@@ -88,11 +88,11 @@ const productSchema = z.object({
   codigo: z.string().min(1, "El código es requerido."),
   descripcion: z.string().min(1, "La descripción es requerida."),
   cajas: z.coerce.number({required_error: "El No. de cajas es requerido.", invalid_type_error: "El No. de cajas es requerido."}).int().min(0, "El No. de Cajas debe ser 0 o mayor."),
-  paletasCompletas: z.coerce.number({invalid_type_error: "Debe ser numérico"}).int("Debe ser un número entero.").min(0, "No puede ser negativo.").default(0),
-  paletasPicking: z.coerce.number({invalid_type_error: "Debe ser numérico"}).int("Debe ser un número entero.").min(0, "No puede ser negativo.").default(0),
-  totalPaletas: z.coerce.number().optional(), // Campo antiguo para compatibilidad
+  paletasCompletas: z.coerce.number({invalid_type_error: "Debe ser numérico"}).int("Debe ser un número entero.").min(0, "No puede ser negativo.").optional(),
+  paletasPicking: z.coerce.number({invalid_type_error: "Debe ser numérico"}).int("Debe ser un número entero.").min(0, "No puede ser negativo.").optional(),
+  totalPaletas: z.coerce.number({invalid_type_error: "Debe ser numérico"}).int("Debe ser un número entero.").min(0, "No puede ser negativo.").optional(),
   pesoNetoKg: z.coerce.number({ required_error: "El peso neto es requerido.", invalid_type_error: "Peso Neto (kg) debe ser un número."})
-    .min(0, "Peso Neto (kg) debe ser un número no negativo."),
+    .min(0, "El peso neto no puede ser negativo."),
   temperatura1: tempSchema,
   temperatura2: tempSchema,
   temperatura3: tempSchema,
@@ -357,6 +357,10 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
     return (productos || []).reduce((acc, p) => acc + (Number(p.cajas) || 0), 0);
   }, [productos]);
 
+  const totalPaletas = useMemo(() => {
+    return Math.floor((productos || []).reduce((acc, p) => acc + (Number(p.totalPaletas) || 0), 0));
+  }, [productos]);
+
   const totalPaletasCompletas = useMemo(() => {
     return Math.floor((productos || []).reduce((acc, p) => acc + (Number(p.paletasCompletas) || 0), 0));
   }, [productos]);
@@ -414,7 +418,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
         form.reset({
             ...originalDefaultValues,
             productos: [ // Start with one empty product
-                { codigo: '', descripcion: '', cajas: 0, paletasCompletas: 0, paletasPicking: 0, pesoNetoKg: 0, temperatura1: null, temperatura2: null, temperatura3: null }
+                { codigo: '', descripcion: '', cajas: 0, totalPaletas: 0, pesoNetoKg: 0, temperatura1: null, temperatura2: null, temperatura3: null }
             ]
         });
     }
@@ -1146,8 +1150,6 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                 </CardHeader>
                 <CardContent className="space-y-4">
                   {fields.map((item, index) => {
-                      const showLegacyPalletField = item.totalPaletas !== undefined && item.totalPaletas !== null && (item.paletasCompletas === 0 && item.paletasPicking === 0);
-
                       return (
                       <div key={item.id} className="p-4 border rounded-md relative space-y-4">
                           <div className="flex justify-between items-center">
@@ -1198,33 +1200,32 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                                       </FormItem>
                                   )}/>
                                   
-                                    {showLegacyPalletField ? (
-                                        <FormField
-                                            name={`productos.${index}.totalPaletas`}
-                                            render={({ field }) => (
+                                    {isReception ? (
+                                        <FormField control={form.control} name={`productos.${index}.totalPaletas`} render={({ field }) => (
                                             <FormItem>
-                                                <FormLabel>Total Paletas (Dato Anterior)</FormLabel>
-                                                <FormControl><Input disabled value={field.value ?? 0} /></FormControl>
-                                                <FormDescription>Ajuste abajo.</FormDescription>
+                                                <FormLabel>Total Paletas <span className="text-destructive">*</span></FormLabel>
+                                                <FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))} value={field.value ?? ''} /></FormControl>
+                                                <FormMessage />
                                             </FormItem>
-                                            )}
-                                        />
-                                    ) : null}
-
-                                    <FormField control={form.control} name={`productos.${index}.paletasCompletas`} render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Paletas Completas</FormLabel>
-                                            <FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))} value={field.value ?? ''} /></FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}/>
-                                    <FormField control={form.control} name={`productos.${index}.paletasPicking`} render={({ field }) => (
-                                        <FormItem>
-                                            <FormLabel>Paletas Picking</FormLabel>
-                                            <FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))} value={field.value ?? ''} /></FormControl>
-                                            <FormMessage />
-                                        </FormItem>
-                                    )}/>
+                                        )}/>
+                                    ) : (
+                                        <>
+                                            <FormField control={form.control} name={`productos.${index}.paletasCompletas`} render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Paletas Completas</FormLabel>
+                                                    <FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))} value={field.value ?? ''} /></FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}/>
+                                            <FormField control={form.control} name={`productos.${index}.paletasPicking`} render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Paletas Picking</FormLabel>
+                                                    <FormControl><Input type="text" inputMode="numeric" pattern="[0-9]*" min="0" placeholder="0" {...field} onChange={e => field.onChange(e.target.value === '' ? undefined : Number(e.target.value))} value={field.value ?? ''} /></FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}/>
+                                        </>
+                                    )}
                                   
                                   <FormField control={form.control} name={`productos.${index}.pesoNetoKg`} render={({ field }) => (
                                       <FormItem>
@@ -1247,7 +1248,7 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                       </div>
                       )
                   })}
-                  <Button type="button" variant="outline" onClick={() => append({ codigo: '', descripcion: '', cajas: 0, paletasCompletas: 0, paletasPicking: 0, pesoNetoKg: 0, temperatura1: null, temperatura2: null, temperatura3: null })}>
+                  <Button type="button" variant="outline" onClick={() => append({ codigo: '', descripcion: '', cajas: 0, paletasCompletas: 0, paletasPicking: 0, totalPaletas: 0, pesoNetoKg: 0, temperatura1: null, temperatura2: null, temperatura3: null })}>
                       <PlusCircle className="mr-2 h-4 w-4" />
                       Agregar Producto
                   </Button>
@@ -1281,14 +1282,23 @@ export default function FixedWeightFormComponent({ pedidoTypes }: { pedidoTypes:
                           <span className="font-medium text-sm">Totales Cajas</span>
                           <Input className="w-28" disabled value={totalCajas} />
                       </div>
-                    <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm">Totales Pal. Completas</span>
-                        <Input className="w-28" disabled value={totalPaletasCompletas} />
-                    </div>
+                    {isReception ? (
                         <div className="flex items-center gap-2">
-                        <span className="font-medium text-sm">Totales Pal. Picking</span>
-                        <Input className="w-28" disabled value={totalPaletasPicking} />
-                    </div>
+                            <span className="font-medium text-sm">Total Paletas</span>
+                            <Input className="w-28" disabled value={totalPaletas} />
+                        </div>
+                    ) : (
+                        <>
+                            <div className="flex items-center gap-2">
+                                <span className="font-medium text-sm">Totales Pal. Completas</span>
+                                <Input className="w-28" disabled value={totalPaletasCompletas} />
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <span className="font-medium text-sm">Totales Pal. Picking</span>
+                                <Input className="w-28" disabled value={totalPaletasPicking} />
+                            </div>
+                        </>
+                    )}
                       <div className="flex items-center gap-2">
                           <span className="font-medium text-sm">Total Peso Neto (kg)</span>
                           <Input className="w-28" disabled value={totalPesoNetoKg % 1 === 0 ? totalPesoNetoKg : totalPesoNetoKg.toFixed(2)} />
@@ -1874,4 +1884,5 @@ function ProductSelectorDialog({
         </Dialog>
     );
 }
+
 
