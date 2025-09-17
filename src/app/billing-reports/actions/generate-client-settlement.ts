@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -234,11 +233,17 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
 
 const calculateWeightForOperation = (op: any): number => {
     const { formType, formData } = op;
+
     if (formType === 'fixed-weight-despacho') {
-        // Use totalPesoBrutoKg for fixed-weight dispatches
         return formData.totalPesoBrutoKg || 0;
     }
-    // Fallback to old logic for other types
+    
+    if (formType === 'variable-weight-despacho') {
+        const allItems = (formData.destinos?.flatMap((d: any) => d.items) || formData.items) || [];
+        return allItems.reduce((sum: number, item: any) => sum + (Number(item.pesoNeto) || 0), 0);
+    }
+    
+    // Fallback to old logic for other types (e.g., receptions)
     return (formData.totalPesoKg ?? formData.totalPesoBrutoKg) || 0;
 };
 
@@ -709,3 +714,6 @@ const timeToMinutes = (timeStr: string): number => {
 
 
 
+
+
+    
