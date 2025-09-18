@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import * as React from 'react';
@@ -1106,7 +1107,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
         // Hoja de Detalle
         const detailWorksheet = workbook.addWorksheet('Detalle Liquidación');
-
         const headerFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A90C8' } };
         const headerFont: Partial<ExcelJS.Font> = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
         
@@ -1182,6 +1182,39 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
         // Hoja de Resumen
         const summaryWorksheet = workbook.addWorksheet('Resumen Liquidación');
+        
+        const summaryTitleRow = summaryWorksheet.getCell('A2');
+        summaryTitleRow.value = `Liquidación Cliente: ${settlementClient}`;
+        summaryTitleRow.font = { bold: true, size: 16 };
+        summaryWorksheet.mergeCells('A2:E2');
+        summaryTitleRow.alignment = { horizontal: 'center' };
+
+        const summaryPeriodRow = summaryWorksheet.getCell('A3');
+        summaryPeriodRow.value = `Periodo: ${format(settlementDateRange.from, 'dd/MM/yyyy', { locale: es })} - ${format(settlementDateRange.to!, 'dd/MM/yyyy', { locale: es })}`;
+        summaryPeriodRow.font = { bold: true };
+        summaryWorksheet.mergeCells('A3:E3');
+        summaryPeriodRow.alignment = { horizontal: 'center' };
+        summaryWorksheet.addRow([]);
+        
+        const summaryColumns = [
+            { header: 'Fecha', key: 'date', width: 15 },
+            { header: 'Concepto', key: 'concept', width: 50 },
+            { header: 'Total Cantidad', key: 'totalQuantity', width: 20 },
+            { header: 'Unidad', key: 'unitOfMeasure', width: 15 },
+            { header: 'Total Valor', key: 'totalValue', width: 20 },
+        ];
+        
+        summaryWorksheet.columns = summaryColumns;
+        summaryWorksheet.spliceRows(1, 1);
+        
+        const summaryHeaderRow = summaryWorksheet.getRow(5);
+        summaryHeaderRow.values = summaryColumns.map(c => c.header);
+         summaryHeaderRow.eachCell((cell) => {
+            cell.fill = headerFill;
+            cell.font = headerFont;
+            cell.alignment = { horizontal: 'center' };
+        });
+
         const summaryByDayAndConcept = settlementReportData.reduce((acc, row) => {
             const date = format(parseISO(row.date), 'yyyy-MM-dd');
             const concept = `${row.conceptName}${row.subConceptName ? ` - ${row.subConceptName}` : ''}`;
@@ -1199,32 +1232,43 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             acc[key].totalValue += row.totalValue;
             return acc;
         }, {} as Record<string, { date: string; concept: string; totalQuantity: number; totalValue: number; unitOfMeasure: string }>);
-
-        const summaryColumns = [
-            { header: 'Fecha', key: 'date', width: 15 },
-            { header: 'Concepto', key: 'concept', width: 50 },
-            { header: 'Total Cantidad', key: 'totalQuantity', width: 20 },
-            { header: 'Unidad', key: 'unitOfMeasure', width: 15 },
-            { header: 'Total Valor', key: 'totalValue', width: 20 },
-        ];
         
-        summaryWorksheet.columns = summaryColumns;
-        summaryWorksheet.spliceRows(1, 1);
+        const blueFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A90C8' } };
+        const subtotalFont: Partial<ExcelJS.Font> = { bold: true, color: { argb: 'FF000000' } };
+        
+        const groupedByDay = Object.values(summaryByDayAndConcept).reduce((acc, item) => {
+            if (!acc[item.date]) {
+                acc[item.date] = [];
+            }
+            acc[item.date].push(item);
+            return acc;
+        }, {} as Record<string, any[]>);
 
-        const summaryHeaderRow = summaryWorksheet.addRow(summaryColumns.map(c => c.header));
-         summaryHeaderRow.eachCell((cell) => {
-            cell.fill = headerFill;
-            cell.font = headerFont;
-            cell.alignment = { horizontal: 'center' };
-        });
-
-        Object.values(summaryByDayAndConcept).sort((a, b) => a.date.localeCompare(b.date) || a.concept.localeCompare(b.concept)).forEach(item => {
-            const addedRow = summaryWorksheet.addRow({
-                ...item,
-                date: format(parseISO(item.date), 'dd/MM/yyyy'),
+        Object.keys(groupedByDay).sort((a,b) => a.localeCompare(b)).forEach(date => {
+            const items = groupedByDay[date];
+            let dailySubtotal = 0;
+            items.forEach(item => {
+                const addedRow = summaryWorksheet.addRow({
+                    date: format(parseISO(item.date), 'dd/MM/yyyy'),
+                    concept: item.concept,
+                    totalQuantity: item.totalQuantity,
+                    unitOfMeasure: item.unitOfMeasure,
+                    totalValue: item.totalValue
+                });
+                addedRow.getCell('totalQuantity').numFmt = '#,##0.00';
+                addedRow.getCell('totalValue').numFmt = '$ #,##0.00';
+                dailySubtotal += item.totalValue;
             });
-            addedRow.getCell('totalQuantity').numFmt = '#,##0.00';
-            addedRow.getCell('totalValue').numFmt = '$ #,##0.00';
+
+            // Add Daily Subtotal Row
+            const subtotalRow = summaryWorksheet.addRow(['', 'Subtotal Día:', '', '', dailySubtotal]);
+            subtotalRow.font = subtotalFont;
+            subtotalRow.getCell('B').alignment = { horizontal: 'right' };
+            subtotalRow.getCell('E').numFmt = '$ #,##0.00';
+
+            // Add Blue Separator Row
+            const separatorRow = summaryWorksheet.addRow([]);
+            separatorRow.eachCell(cell => cell.fill = blueFill);
         });
 
         const totalGeneral = settlementReportData.reduce((sum, row) => sum + (row.totalValue || 0), 0);
@@ -1233,7 +1277,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         totalSumRow.font = { bold: true, size: 12 };
         totalSumRow.getCell(4).alignment = { horizontal: 'right' };
         totalSumRow.getCell(5).numFmt = '$ #,##0.00';
-
 
         const buffer = await workbook.xlsx.writeBuffer();
         const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
@@ -2414,5 +2457,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         </div>
     );
 }
+
+    
 
     
