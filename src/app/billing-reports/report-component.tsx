@@ -147,7 +147,7 @@ const formatObservaciones = (observaciones: any): string => {
     }).join(', ');
 };
 
-const MAX_DATE_RANGE_DAYS = 31;
+const MAX_DATE_RANGE_DAYS = 62;
 
 
 export default function BillingReportComponent({ clients }: { clients: ClientInfo[] }) {
@@ -1571,7 +1571,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                     <Label className="font-semibold text-base">Consultar inventario Acumulado por Día</Label>
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 items-end mt-2">
                                         <div className="space-y-2">
-                                            <Label>Rango de Fechas (Máx. 31 días)</Label>
+                                            <Label>Rango de Fechas (Máx. 62 días)</Label>
                                             <Popover>
                                                 <PopoverTrigger asChild>
                                                     <Button
@@ -2223,6 +2223,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         </div>
     );
 }
+
+
 
 
 
