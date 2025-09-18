@@ -1110,6 +1110,18 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const headerFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A90C8' } };
         const headerFont: Partial<ExcelJS.Font> = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
         
+        detailWorksheet.addRow([]); // Spacer
+        const titleRow = detailWorksheet.addRow([`Liquidación Cliente: ${settlementClient}`]);
+        titleRow.font = { bold: true, size: 16 };
+        detailWorksheet.mergeCells(2, 1, 2, 16);
+        detailWorksheet.getCell('A2').alignment = { horizontal: 'center' };
+
+        const periodRow = detailWorksheet.addRow([`Periodo: ${format(settlementDateRange.from, 'dd/MM/yyyy', { locale: es })} - ${format(settlementDateRange.to!, 'dd/MM/yyyy', { locale: es })}`]);
+        periodRow.font = { bold: true };
+        detailWorksheet.mergeCells(3, 1, 3, 16);
+        detailWorksheet.getCell('A3').alignment = { horizontal: 'center' };
+        detailWorksheet.addRow([]); // Spacer
+
         const detailColumns = [
             { header: 'Fecha', key: 'date', width: 15 },
             { header: 'Concepto', key: 'conceptName', width: 40 },
@@ -1131,22 +1143,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         
         detailWorksheet.columns = detailColumns;
         detailWorksheet.spliceRows(1, 1);
-
-        detailWorksheet.addRow([]);
-        const titleRow = detailWorksheet.getCell('A2');
-        titleRow.value = `Liquidación Cliente: ${settlementClient}`;
-        titleRow.font = { bold: true, size: 16 };
-        detailWorksheet.mergeCells('A2:P2');
-        titleRow.alignment = { horizontal: 'center' };
-
-        const periodText = `Periodo: ${format(settlementDateRange.from, 'dd/MM/yyyy', { locale: es })} - ${format(settlementDateRange.to!, 'dd/MM/yyyy', { locale: es })}`;
-        const periodRow = detailWorksheet.getCell('A3');
-        periodRow.value = periodText;
-        periodRow.font = { bold: true };
-        detailWorksheet.mergeCells('A3:P3');
-        periodRow.alignment = { horizontal: 'center' };
-        detailWorksheet.addRow([]);
-
+        
         const detailHeaderRow = detailWorksheet.getRow(5);
         detailHeaderRow.values = detailColumns.map(c => c.header);
         detailHeaderRow.eachCell((cell) => {
