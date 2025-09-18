@@ -35,12 +35,16 @@ export function DateMultiSelector({
   const [isPickerOpen, setIsPickerOpen] = React.useState(false)
 
   const handleSelect = (dates: Date[] | undefined) => {
+    // Always ensure we're passing an array to the parent
     onChange(dates || [])
   }
 
   const handleConfirm = () => {
     setIsPickerOpen(false)
   }
+  
+  // Ensure the value passed to the Calendar is always an array
+  const selectedDates = Array.isArray(value) ? value : [];
 
   return (
     <div className="space-y-2">
@@ -52,14 +56,14 @@ export function DateMultiSelector({
         disabled={disabled}
       >
         <CalendarIcon className="mr-2 h-4 w-4" />
-        {value.length > 0
-          ? `${value.length} fecha(s) seleccionada(s)`
+        {selectedDates.length > 0
+          ? `${selectedDates.length} fecha(s) seleccionada(s)`
           : "Seleccionar fechas..."}
       </Button>
-      {value.length > 0 && (
+      {selectedDates.length > 0 && (
         <ScrollArea className="h-16">
           <div className="flex flex-wrap gap-1">
-            {value.map((date) => (
+            {selectedDates.map((date) => (
               <Badge key={date.toISOString()} variant="secondary">
                 {format(date, "d MMM", { locale: es })}
               </Badge>
@@ -74,7 +78,7 @@ export function DateMultiSelector({
           </DialogHeader>
           <Calendar
             mode="multiple"
-            selected={value}
+            selected={selectedDates}
             onSelect={handleSelect}
             disabled={disabled}
             {...calendarProps}

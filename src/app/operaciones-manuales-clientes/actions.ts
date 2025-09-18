@@ -122,9 +122,7 @@ export async function addBulkManualClientOperation(data: BulkOperationData): Pro
         let operationsCount = 0;
 
         for (const dateString of dates) {
-            // Correctly interpret the date string in the server's local timezone (UTC on Firebase)
-            // but ensure the day is preserved as intended by the user in Colombia's timezone (UTC-5)
-            // Adding T05:00:00Z makes the UTC date represent the correct day.
+            // This is the key change. By adding the timezone offset, we ensure the date is interpreted as a local date.
             const localDate = new Date(dateString + 'T05:00:00.000Z');
 
             const dayOfWeek = getDay(localDate);

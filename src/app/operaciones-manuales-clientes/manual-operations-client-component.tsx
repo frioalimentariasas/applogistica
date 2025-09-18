@@ -47,9 +47,8 @@ const bulkRoleSchema = z.object({
   diurnaId: z.string(),
   nocturnaId: z.string(),
   diurnaLabel: z.string(),
-  nocturnaLabel: z.string(),
-  diurnaValue: z.number(),
   nocturnaValue: z.number(),
+  diurnaValue: z.number(),
   numPersonas: z.coerce.number().int().min(0, "Debe ser un número positivo.").default(0),
 });
 
@@ -246,6 +245,9 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         // Reset and clean up date fields based on the concept type
         if (isBulkMode) {
             form.setValue('operationDate', undefined); // Clear single date field for bulk mode
+            if (!form.getValues('selectedDates')) {
+                form.setValue('selectedDates', []);
+            }
         } else {
             form.setValue('selectedDates', []); // Clear multi-date field for single mode
             form.setValue('excedentes', []);
@@ -351,7 +353,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
             let result;
             const isBulk = data.concept === 'TIEMPO EXTRA FRIOAL (FIJO)';
             
-            if (isBulk && data.selectedDates) {
+            if (isBulk && data.selectedDates && data.selectedDates.length > 0) {
                 const bulkData = {
                     clientName: data.clientName,
                     concept: data.concept,
@@ -364,14 +366,19 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 if (!result.success) throw new Error(result.message);
 
             } else {
-                let payload: ManualClientOperationData = {
+                // Ensure operationDate is defined and valid for single operations
+                if(!isBulk && (!data.operationDate || isNaN(data.operationDate.getTime()))){
+                    throw new Error("La fecha de operación es inválida o no está definida.");
+                }
+
+                const payload: ManualClientOperationData = {
                     ...data,
                 };
                 
-                if (data.operationDate instanceof Date && !isNaN(data.operationDate.getTime())) {
+                if (data.operationDate) {
                     payload.operationDate = data.operationDate.toISOString();
                 } else {
-                    delete payload.operationDate; // Don't send invalid or undefined date
+                    delete payload.operationDate;
                 }
 
                 // Remove bulk-specific fields if not a bulk operation
@@ -892,4 +899,3 @@ const ExcedentManager = () => {
         </div>
     )
 }
-
