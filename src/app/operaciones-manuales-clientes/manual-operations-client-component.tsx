@@ -434,10 +434,6 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                             </div>
                              <p className="text-sm text-gray-500">Agregue, edite o elimine operaciones manuales para facturar a clientes.</p>
                         </div>
-                         <Button onClick={() => router.push('/gestion-conceptos-liquidacion-clientes')} className="absolute right-0 top-1/2 -translate-y-1/2">
-                            <DollarSign className="mr-2 h-4 w-4" />
-                            Gestionar Conceptos
-                        </Button>
                     </div>
                 </header>
                 
@@ -610,7 +606,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                 <FormItem>
                                                     <FormLabel>Fechas de Operación</FormLabel>
                                                     <DateMultiSelector 
-                                                        value={field.value || []} 
+                                                        value={field.value} 
                                                         onChange={field.onChange} 
                                                         disabled={dialogMode === 'view'}
                                                     />
@@ -756,47 +752,58 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
 }
 
 function DateMultiSelector({ value, onChange, disabled }: { value: Date[], onChange: (dates: Date[]) => void, disabled?: boolean }) {
-    const [isPickerOpen, setIsPickerOpen] = useState(false);
-    
-    return (
-        <div className="space-y-2">
-            <Button
-                type="button"
-                variant="outline"
-                className="w-full justify-start text-left font-normal"
-                onClick={() => setIsPickerOpen(true)}
-                disabled={disabled}
-            >
-                <CalendarIcon className="mr-2 h-4 w-4" />
-                {value.length > 0 ? `${value.length} fecha(s) seleccionada(s)` : 'Seleccionar fechas...'}
-            </Button>
-            {value.length > 0 && (
-                <ScrollArea className="h-16">
-                    <div className="flex flex-wrap gap-1">
-                        {value.map(date => (
-                            <Badge key={date.toISOString()} variant="secondary">
-                                {format(date, 'd MMM', { locale: es })}
-                            </Badge>
-                        ))}
-                    </div>
-                </ScrollArea>
-            )}
-            <Dialog open={isPickerOpen} onOpenChange={setIsPickerOpen}>
-                <DialogContent className="max-w-min">
-                    <DialogHeader><DialogTitle>Seleccionar Fechas de Operación</DialogTitle></DialogHeader>
-                    <Calendar
-                        mode="multiple"
-                        selected={value || []}
-                        onSelect={(dates) => onChange(dates || [])}
-                        disabled={disabled}
-                    />
-                    <DialogFooter>
-                        <Button variant="ghost" onClick={() => setIsPickerOpen(false)}>Cerrar</Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-        </div>
-    );
+  const [isPickerOpen, setIsPickerOpen] = useState(false);
+  const [localDates, setLocalDates] = useState(value);
+
+  useEffect(() => {
+    setLocalDates(value);
+  }, [value]);
+
+  const handleConfirm = () => {
+    onChange(localDates);
+    setIsPickerOpen(false);
+  };
+  
+  return (
+      <div className="space-y-2">
+          <Button
+              type="button"
+              variant="outline"
+              className="w-full justify-start text-left font-normal"
+              onClick={() => setIsPickerOpen(true)}
+              disabled={disabled}
+          >
+              <CalendarIcon className="mr-2 h-4 w-4" />
+              {localDates.length > 0 ? `${localDates.length} fecha(s) seleccionada(s)` : 'Seleccionar fechas...'}
+          </Button>
+          {localDates.length > 0 && (
+              <ScrollArea className="h-16">
+                  <div className="flex flex-wrap gap-1">
+                      {localDates.map(date => (
+                          <Badge key={date.toISOString()} variant="secondary">
+                              {format(date, 'd MMM', { locale: es })}
+                          </Badge>
+                      ))}
+                  </div>
+              </ScrollArea>
+          )}
+          <Dialog open={isPickerOpen} onOpenChange={setIsPickerOpen}>
+              <DialogContent className="max-w-min">
+                  <DialogHeader><DialogTitle>Seleccionar Fechas de Operación</DialogTitle></DialogHeader>
+                  <Calendar
+                      mode="multiple"
+                      selected={localDates}
+                      onSelect={(dates) => setLocalDates(dates || [])}
+                      disabled={disabled}
+                  />
+                  <DialogFooter>
+                      <Button variant="ghost" onClick={() => setIsPickerOpen(false)}>Cancelar</Button>
+                      <Button onClick={handleConfirm}>Confirmar</Button>
+                  </DialogFooter>
+              </DialogContent>
+          </Dialog>
+      </div>
+  );
 }
 
 function ConceptSelectorDialog({ billingConcepts, onSelect }: { billingConcepts: ClientBillingConcept[], onSelect: (conceptName: string) => void }) {
