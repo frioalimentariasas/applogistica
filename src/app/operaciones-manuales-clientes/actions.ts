@@ -122,8 +122,9 @@ export async function addBulkManualClientOperation(data: BulkOperationData): Pro
         let operationsCount = 0;
 
         for (const dateString of dates) {
-            const userDate = new Date(dateString);
-            const localDate = new Date(userDate.getUTCFullYear(), userDate.getUTCMonth(), userDate.getUTCDate());
+            // Explicitly set the timezone to Colombia's (UTC-5) to avoid any ambiguity or server-side conversion issues.
+            // This ensures that "2025-09-06" is treated as the beginning of that day in Colombia, not in UTC.
+            const localDate = new Date(dateString + 'T00:00:00-05:00');
 
             const dayOfWeek = getDay(localDate);
 
@@ -133,8 +134,8 @@ export async function addBulkManualClientOperation(data: BulkOperationData): Pro
             const baseStartTimeStr = isSaturday ? saturdayStartTime : weekdayStartTime;
             const baseEndTimeStr = isSaturday ? saturdayEndTime : weekdayEndTime;
             
-            const dayString = format(localDate, 'yyyy-MM-dd');
-            const excedentHours = excedentesMap.get(dayString) || 0;
+            const dayStringForMap = format(localDate, 'yyyy-MM-dd');
+            const excedentHours = excedentesMap.get(dayStringForMap) || 0;
             
             const specificTariffsForDay = roles.flatMap(role => {
                 if (role.numPersonas > 0) {
@@ -186,7 +187,7 @@ export async function addBulkManualClientOperation(data: BulkOperationData): Pro
                     details: { startTime: baseStartTimeStr, endTime: baseEndTimeStr },
                     createdAt: new Date().toISOString(),
                     createdBy,
-                    excedentes: excedentesMap.has(dayString) ? [{ date: dayString, hours: excedentHours }] : [],
+                    excedentes: excedentesMap.has(dayStringForMap) ? [{ date: dayStringForMap, hours: excedentHours }] : [],
                 };
                 batch.set(docRef, operationData);
                 operationsCount++;
