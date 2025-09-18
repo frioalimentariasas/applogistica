@@ -1143,16 +1143,17 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             { header: 'Valor Total', key: 'totalValue', width: 20 },
         ];
         
-        detailWorksheet.columns = detailColumns;
         const detailHeaderRow = detailWorksheet.getRow(5);
         detailHeaderRow.values = detailColumns.map(c => c.header);
-        detailHeaderRow.eachCell(cell => {
+        detailHeaderRow.eachCell((cell, colNumber) => {
             cell.fill = headerFill;
             cell.font = headerFont;
+            cell.alignment = { horizontal: 'center' };
+            detailWorksheet.getColumn(colNumber).width = detailColumns[colNumber-1].width;
         });
 
         settlementReportData.forEach(row => {
-            const rowData: any = {
+            const rowData = {
                 date: format(parseISO(row.date), 'dd/MM/yyyy'),
                 conceptName: row.conceptName,
                 subConceptName: row.subConceptName,
@@ -1204,22 +1205,21 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             { header: 'Total Valor', key: 'totalValue', width: 20 },
         ];
         
-        summaryWorksheet.columns = summaryColumns;
-
         const summaryHeaderRow = summaryWorksheet.addRow(summaryColumns.map(c => c.header));
-         summaryHeaderRow.eachCell(cell => {
+         summaryHeaderRow.eachCell((cell, colNumber) => {
             cell.fill = headerFill;
             cell.font = headerFont;
+            cell.alignment = { horizontal: 'center' };
+            summaryWorksheet.getColumn(colNumber).width = summaryColumns[colNumber-1].width;
         });
 
         Object.values(summaryByDayAndConcept).sort((a, b) => a.date.localeCompare(b.date) || a.concept.localeCompare(b.concept)).forEach(item => {
-            summaryWorksheet.addRow({
+            const addedRow = summaryWorksheet.addRow({
                 ...item,
                 date: format(parseISO(item.date), 'dd/MM/yyyy'),
             });
-             const lastRow = summaryWorksheet.lastRow!;
-            lastRow.getCell('totalQuantity').numFmt = '#,##0.00';
-            lastRow.getCell('totalValue').numFmt = '$ #,##0.00';
+            addedRow.getCell('totalQuantity').numFmt = '#,##0.00';
+            addedRow.getCell('totalValue').numFmt = '$ #,##0.00';
         });
 
         const totalGeneral = settlementReportData.reduce((sum, row) => sum + (row.totalValue || 0), 0);
@@ -1466,7 +1466,13 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                     </Button>
                                                 </PopoverTrigger>
                                                 <PopoverContent className="w-auto p-0" align="start">
-                                                    <Calendar initialFocus mode="range" defaultMonth={detailedReportDateRange?.from} selected={detailedReportDateRange} onSelect={setDetailedReportDateRange} numberOfMonths={2} locale={es} disabled={{ after: today, before: sixtyTwoDaysAgo }} />
+                                                    <Calendar initialFocus mode="range" defaultMonth={detailedReportDateRange?.from} selected={detailedReportDateRange} onSelect={(range) => {
+                                                            if (range?.from && range?.to && differenceInDays(range.to, range.from) > MAX_DATE_RANGE_DAYS) {
+                                                                toast({ variant: 'destructive', title: 'Rango muy amplio', description: `Por favor, seleccione un rango de no más de ${MAX_DATE_RANGE_DAYS} días.` });
+                                                            } else {
+                                                                setDetailedReportDateRange(range);
+                                                            }
+                                                        }} numberOfMonths={2} locale={es} disabled={{ after: today, before: sixtyTwoDaysAgo }} />
                                                 </PopoverContent>
                                             </Popover>
                                         </div>
@@ -2082,7 +2088,13 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                 </Button>
                                             </PopoverTrigger>
                                             <PopoverContent className="w-auto p-0" align="start">
-                                                <Calendar initialFocus mode="range" defaultMonth={consolidatedDateRange?.from} selected={consolidatedDateRange} onSelect={setConsolidatedDateRange} numberOfMonths={2} locale={es} disabled={{ after: today, before: sixtyTwoDaysAgo }} />
+                                                <Calendar initialFocus mode="range" defaultMonth={consolidatedDateRange?.from} selected={consolidatedDateRange} onSelect={(range) => {
+                                                            if (range?.from && range?.to && differenceInDays(range.to, range.from) > MAX_DATE_RANGE_DAYS) {
+                                                                toast({ variant: 'destructive', title: 'Rango muy amplio', description: `Por favor, seleccione un rango de no más de ${MAX_DATE_RANGE_DAYS} días.` });
+                                                            } else {
+                                                                setConsolidatedDateRange(range);
+                                                            }
+                                                        }} numberOfMonths={2} locale={es} disabled={{ after: today, before: sixtyTwoDaysAgo }} />
                                             </PopoverContent>
                                         </Popover>
                                     </div>
@@ -2397,6 +2409,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         </div>
     );
 }
+
 
 
 
