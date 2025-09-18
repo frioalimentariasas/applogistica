@@ -1104,8 +1104,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const workbook = new ExcelJS.Workbook();
         workbook.creator = 'Frio Alimentaria App';
         workbook.created = new Date();
-
-        // Hoja de Detalle
+    
+        // --- Hoja de Detalle ---
         const detailWorksheet = workbook.addWorksheet('Detalle Liquidación');
         const headerFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A90C8' } };
         const headerFont: Partial<ExcelJS.Font> = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
@@ -1180,7 +1180,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             addedRow.getCell('quantity').numFmt = '#,##0.00';
         });
 
-        // Hoja de Resumen
+        // --- Hoja de Resumen ---
         const summaryWorksheet = workbook.addWorksheet('Resumen Liquidación');
         
         const summaryColumns = [
@@ -1194,7 +1194,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         summaryWorksheet.columns = summaryColumns;
         summaryWorksheet.spliceRows(1, 1);
 
-        summaryWorksheet.addRow([]);
         const summaryTitleRowCell = summaryWorksheet.getCell('A2');
         summaryTitleRowCell.value = `Liquidación Cliente: ${settlementClient}`;
         summaryTitleRowCell.font = { bold: true, size: 16 };
@@ -1293,31 +1292,38 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
         const margin = 14;
-
-        const addHeader = (pageTitle: string, pageNumber: number, totalPages: number) => {
-            const logoWidth = 60;
-            const aspectRatio = logoDimensions!.width / logoDimensions!.height;
-            const logoHeight = logoWidth / aspectRatio;
-            doc.addImage(logoBase64!, 'PNG', margin, 10, logoWidth, logoHeight);
-            
-            doc.setFontSize(14);
-            doc.setFont('helvetica', 'bold');
-            doc.text("Liquidación de Servicios al Cliente", pageWidth / 2, 20, { align: 'center' });
-            doc.setFontSize(10);
-            doc.setFont('helvetica', 'normal');
-            doc.text(`Cliente: ${settlementClient}`, pageWidth / 2, 28, { align: 'center' });
-            doc.text(`Periodo: ${format(settlementDateRange!.from!, 'dd/MM/yyyy')} - ${format(settlementDateRange!.to!, 'dd/MM/yyyy')}`, pageWidth / 2, 34, { align: 'center' });
-            
-            doc.setFontSize(10);
-            doc.text(pageTitle, margin, 45);
-            
-            doc.setFontSize(8);
-            doc.text(`Página ${pageNumber} de ${totalPages}`, pageWidth - margin, pageHeight - 10, { align: 'right' });
-        };
-        
+    
         let pageNumber = 1;
-        
-        // --- Summary Page ---
+        const totalPages = (doc as any).internal.getNumberOfPages();
+    
+        const addHeaderAndFooter = (pageTitle: string, isSummary: boolean) => {
+            for (let i = 1; i <= (doc as any).internal.getNumberOfPages(); i++) {
+                doc.setPage(i);
+                // Header
+                const logoWidth = 60;
+                const aspectRatio = logoDimensions!.width / logoDimensions!.height;
+                const logoHeight = logoWidth / aspectRatio;
+                doc.addImage(logoBase64!, 'PNG', margin, 10, logoWidth, logoHeight);
+                
+                doc.setFontSize(14);
+                doc.setFont('helvetica', 'bold');
+                doc.text("Liquidación de Servicios al Cliente", pageWidth / 2, 20, { align: 'center' });
+                doc.setFontSize(10);
+                doc.setFont('helvetica', 'normal');
+                doc.text(`Cliente: ${settlementClient}`, pageWidth / 2, 28, { align: 'center' });
+                doc.text(`Periodo: ${format(settlementDateRange!.from!, 'dd/MM/yyyy')} - ${format(settlementDateRange!.to!, 'dd/MM/yyyy')}`, pageWidth / 2, 34, { align: 'center' });
+                
+                doc.setFontSize(10);
+                doc.setFont('helvetica', 'bold');
+                doc.text(pageTitle, margin, 45);
+                
+                // Footer
+                doc.setFontSize(8);
+                doc.text(`Página ${i} de ${totalPages}`, pageWidth - margin, pageHeight - 10, { align: 'right' });
+            }
+        };
+
+        // --- Summary Table ---
         const summaryByDayAndConcept = settlementReportData.reduce((acc, row) => {
             const date = format(parseISO(row.date), 'yyyy-MM-dd');
             const concept = `${row.conceptName}${row.subConceptName ? ` - ${row.subConceptName}` : ''}`;
@@ -1330,18 +1336,37 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             return acc;
         }, {} as Record<string, { date: string; concept: string; totalQuantity: number; totalValue: number; unitOfMeasure: string }>);
 
-        const summaryBody = Object.values(summaryByDayAndConcept)
-            .sort((a, b) => a.date.localeCompare(b.date) || a.concept.localeCompare(b.concept))
-            .map(item => [
-            format(parseISO(item.date), 'dd/MM/yyyy'),
-            item.concept,
-            item.totalQuantity.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-            item.unitOfMeasure,
-            item.totalValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
-        ]);
-        
+        const summaryBody = [];
+        const groupedByDay = Object.values(summaryByDayAndConcept).reduce((acc, item) => {
+            if (!acc[item.date]) acc[item.date] = [];
+            acc[item.date].push(item);
+            return acc;
+        }, {} as Record<string, any[]>);
+    
+        Object.keys(groupedByDay).sort((a,b) => a.localeCompare(b)).forEach(date => {
+            const items = groupedByDay[date];
+            let dailySubtotal = 0;
+            items.forEach(item => {
+                summaryBody.push([
+                    format(parseISO(item.date), 'dd/MM/yyyy'),
+                    item.concept,
+                    item.totalQuantity.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+                    item.unitOfMeasure,
+                    item.totalValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
+                ]);
+                dailySubtotal += item.totalValue;
+            });
+            // Add subtotal row
+            summaryBody.push([
+                { content: `Subtotal Día ${format(parseISO(date), 'dd/MM/yyyy')}:`, colSpan: 4, styles: { halign: 'right', fontStyle: 'bold' } },
+                { content: dailySubtotal.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } }
+            ]);
+             // Add separator row (will be colored in hook)
+            summaryBody.push([{ content: '', colSpan: 5, styles: { fillColor: [26, 144, 200] } }]);
+        });
+
+
         const totalGeneral = settlementReportData.reduce((sum, row) => sum + (row.totalValue || 0), 0);
-        
         const summaryHead = [['Fecha', 'Concepto', 'Total Cantidad', 'Unidad', 'Total Valor']];
         const summaryFoot = [[
             { content: 'TOTAL GENERAL:', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold' } },
@@ -1350,12 +1375,18 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
         autoTable(doc, {
             head: summaryHead, body: summaryBody, foot: summaryFoot,
-            startY: 50, headStyles: { fillColor: [33, 150, 243], fontSize: 8 }, footStyles: { fillColor: [33, 150, 243], textColor: '#ffffff', fontSize: 9 },
+            startY: 50, headStyles: { fillColor: [26, 144, 200], fontSize: 8 }, footStyles: { fillColor: [26, 144, 200], textColor: '#ffffff', fontSize: 9 },
             styles: { fontSize: 7, cellPadding: 1.5 },
             columnStyles: { 2: { halign: 'right' }, 4: { halign: 'right' } },
-            didDrawPage: (data) => addHeader(`Resumen por Día y Concepto`, pageNumber, (doc as any).internal.getNumberOfPages())
+            didDrawPage: (data) => addHeaderAndFooter("Resumen por Día y Concepto", true),
+            didDrawCell: (data) => {
+                // Color the separator rows
+                if (data.row.raw && Array.isArray(data.row.raw) && (data.row.raw as any[]).every(cell => cell.content === '')) {
+                    doc.setFillColor(26, 144, 200);
+                    doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
+                }
+            }
         });
-        pageNumber = (doc as any).internal.getNumberOfPages() + 1;
         
         // --- Detail Page ---
         doc.addPage();
@@ -1381,12 +1412,10 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         autoTable(doc, {
             head: detailHead, body: detailBody,
             startY: 50,
-            headStyles: { fillColor: [33, 150, 243], fontSize: 6 },
+            headStyles: { fillColor: [26, 144, 200], fontSize: 6 },
             styles: { fontSize: 6, cellPadding: 1 },
-            columnStyles: {
-                 11: { halign: 'right' }, 13: { halign: 'right' }, 14: { halign: 'right' }
-            },
-            didDrawPage: (data) => addHeader(`Detalle de Operaciones`, pageNumber + data.pageNumber - 1, (doc as any).internal.getNumberOfPages())
+            columnStyles: { 11: { halign: 'right' }, 13: { halign: 'right' }, 14: { halign: 'right' } },
+            didDrawPage: (data) => addHeaderAndFooter(`Detalle de Operaciones`, false)
         });
         
         const fileName = `Liquidacion_${settlementClient.replace(/\s/g, '_')}_${format(settlementDateRange!.from!, 'yyyy-MM-dd')}_a_${format(settlementDateRange!.to!, 'yyyy-MM-dd')}.pdf`;
@@ -2463,5 +2492,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     
 
 
+
+    
 
     
