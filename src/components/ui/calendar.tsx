@@ -15,6 +15,9 @@ function Calendar({
   showOutsideDays = true,
   ...props
 }: CalendarProps) {
+  // Fix: Ensure that props.selected is always an array to prevent crashes.
+  const safeSelected = Array.isArray(props.selected) ? props.selected : (props.selected ? [props.selected] : []);
+
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
@@ -62,6 +65,8 @@ function Calendar({
         ),
       }}
       {...props}
+      // Use the safeSelected value to guarantee it's always an array
+      selected={props.mode === 'multiple' || props.mode === 'range' ? safeSelected : props.selected}
     />
   )
 }
