@@ -35,6 +35,7 @@ import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
+import { DateMultiSelector } from '@/components/app/date-multi-selector';
 
 
 const specificTariffEntrySchema = z.object({
@@ -203,6 +204,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
 
 
     useEffect(() => {
+        // Reset specific fields based on concept type
         if (selectedConceptInfo?.tariffType !== 'ESPECIFICA') {
             form.setValue('specificTariffs', []);
         } else if (isBulkMode && selectedConceptInfo?.specificTariffs) {
@@ -366,16 +368,17 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 let payload: ManualClientOperationData = {
                     ...data,
                 };
+                
+                if (data.operationDate instanceof Date && !isNaN(data.operationDate.getTime())) {
+                    payload.operationDate = data.operationDate.toISOString();
+                } else {
+                    delete payload.operationDate; // Don't send invalid or undefined date
+                }
+
                 // Remove bulk-specific fields if not a bulk operation
                 delete payload.selectedDates;
                 delete payload.bulkRoles;
                 delete payload.excedentes;
-
-                if (data.operationDate instanceof Date && !isNaN(data.operationDate.getTime())) {
-                    payload.operationDate = data.operationDate.toISOString();
-                } else {
-                    delete payload.operationDate;
-                }
 
                 if (dialogMode === 'edit' && opToManage) {
                     result = await updateManualClientOperation(opToManage.id, payload);
@@ -754,61 +757,6 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
             </div>
         </div>
     );
-}
-
-function DateMultiSelector({ value, onChange, disabled }: { value: Date[], onChange: (dates: Date[]) => void, disabled?: boolean }) {
-  const [isPickerOpen, setIsPickerOpen] = useState(false);
-  const [localDates, setLocalDates] = useState(value);
-
-  useEffect(() => {
-    setLocalDates(value);
-  }, [value]);
-
-  const handleConfirm = () => {
-    onChange(localDates);
-    setIsPickerOpen(false);
-  };
-  
-  return (
-      <div className="space-y-2">
-          <Button
-              type="button"
-              variant="outline"
-              className="w-full justify-start text-left font-normal"
-              onClick={() => setIsPickerOpen(true)}
-              disabled={disabled}
-          >
-              <CalendarIcon className="mr-2 h-4 w-4" />
-              {localDates.length > 0 ? `${localDates.length} fecha(s) seleccionada(s)` : 'Seleccionar fechas...'}
-          </Button>
-          {localDates.length > 0 && (
-              <ScrollArea className="h-16">
-                  <div className="flex flex-wrap gap-1">
-                      {localDates.map(date => (
-                          <Badge key={date.toISOString()} variant="secondary">
-                              {format(date, 'd MMM', { locale: es })}
-                          </Badge>
-                      ))}
-                  </div>
-              </ScrollArea>
-          )}
-          <Dialog open={isPickerOpen} onOpenChange={setIsPickerOpen}>
-              <DialogContent className="max-w-min">
-                  <DialogHeader><DialogTitle>Seleccionar Fechas de Operación</DialogTitle></DialogHeader>
-                  <Calendar
-                      mode="multiple"
-                      selected={localDates}
-                      onSelect={(dates) => setLocalDates(dates || [])}
-                      disabled={disabled}
-                  />
-                  <DialogFooter>
-                      <Button variant="ghost" onClick={() => setIsPickerOpen(false)}>Cancelar</Button>
-                      <Button onClick={handleConfirm}>Confirmar</Button>
-                  </DialogFooter>
-              </DialogContent>
-          </Dialog>
-      </div>
-  );
 }
 
 function ConceptSelectorDialog({ billingConcepts, onSelect }: { billingConcepts: ClientBillingConcept[], onSelect: (conceptName: string) => void }) {
