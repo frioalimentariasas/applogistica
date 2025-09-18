@@ -122,20 +122,20 @@ export async function addBulkManualClientOperation(data: BulkOperationData): Pro
         let operationsCount = 0;
 
         for (const dateString of dates) {
-            // Use startOfDay to avoid timezone issues. The date from the calendar is already in the user's local timezone.
-            const day = startOfDay(new Date(dateString));
-            const dayOfWeek = getDay(day);
+            const utcDate = new Date(dateString);
+            const localDate = new Date(utcDate.getUTCFullYear(), utcDate.getUTCMonth(), utcDate.getUTCDate());
+            
+            const dayOfWeek = getDay(localDate);
 
-            if (isSunday(day)) continue;
+            if (isSunday(localDate)) continue;
 
             const isSaturday = dayOfWeek === 6;
             const baseStartTimeStr = isSaturday ? saturdayStartTime : weekdayStartTime;
             const baseEndTimeStr = isSaturday ? saturdayEndTime : weekdayEndTime;
             
-            const dayString = format(day, 'yyyy-MM-dd');
+            const dayString = format(localDate, 'yyyy-MM-dd');
             const excedentHours = excedentesMap.get(dayString) || 0;
             
-            // This will hold all tariffs for a single day's operation
             const specificTariffsForDay = roles.flatMap(role => {
                 if (role.numPersonas > 0) {
                     const startMinutes = timeToMinutes(baseStartTimeStr);
@@ -156,7 +156,6 @@ export async function addBulkManualClientOperation(data: BulkOperationData): Pro
                         tariffs.push({ 
                             tariffId: role.diurnaId, 
                             quantity: finalDiurnoHours,
-                            // Add extra info for easier reporting if needed
                             role: role.roleName, 
                             numPersonas: role.numPersonas 
                         });
@@ -181,8 +180,8 @@ export async function addBulkManualClientOperation(data: BulkOperationData): Pro
                 const operationData = {
                     clientName,
                     concept,
-                    operationDate: admin.firestore.Timestamp.fromDate(day),
-                    specificTariffs: specificTariffsForDay, // All tariffs for this day in one record
+                    operationDate: admin.firestore.Timestamp.fromDate(localDate),
+                    specificTariffs: specificTariffsForDay,
                     bulkRoles: roles.filter(r => r.numPersonas > 0),
                     details: { startTime: baseStartTimeStr, endTime: baseEndTimeStr },
                     createdAt: new Date().toISOString(),
