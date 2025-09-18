@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -343,8 +342,8 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         setIsSubmitting(true);
         
         try {
-            if (isBulkMode && dialogMode === 'add' && data.selectedDates) {
-                const bulkData = {
+            if (isBulkMode && data.selectedDates) {
+                 const bulkData = {
                     clientName: data.clientName,
                     concept: data.concept,
                     dates: data.selectedDates.map(d => d.toISOString()),
@@ -365,6 +364,10 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                         displayName: displayName || user.email!,
                     }
                 };
+                
+                if (isBulkMode) {
+                    delete payload.operationDate;
+                }
 
                 let result;
                 if (dialogMode === 'edit' && opToManage) {
