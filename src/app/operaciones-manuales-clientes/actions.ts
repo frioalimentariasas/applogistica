@@ -122,8 +122,6 @@ export async function addBulkManualClientOperation(data: BulkOperationData): Pro
         let operationsCount = 0;
 
         for (const dateString of dates) {
-            // Correctly handle the date by creating a new Date object in a way that respects the user's intended date
-            // and avoids timezone shifts when converting to a Firestore Timestamp.
             const userDate = new Date(dateString);
             const localDate = new Date(userDate.getUTCFullYear(), userDate.getUTCMonth(), userDate.getUTCDate());
 
