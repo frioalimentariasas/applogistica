@@ -1143,13 +1143,15 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             { header: 'Valor Total', key: 'totalValue', width: 20 },
         ];
         
+        detailWorksheet.columns = detailColumns;
+        detailWorksheet.spliceRows(1, 1); // This removes the auto-generated header row
+
         const detailHeaderRow = detailWorksheet.getRow(5);
         detailHeaderRow.values = detailColumns.map(c => c.header);
         detailHeaderRow.eachCell((cell, colNumber) => {
             cell.fill = headerFill;
             cell.font = headerFont;
             cell.alignment = { horizontal: 'center' };
-            detailWorksheet.getColumn(colNumber).width = detailColumns[colNumber-1].width;
         });
 
         settlementReportData.forEach(row => {
@@ -1163,7 +1165,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 camara: getSessionName(row.camara),
                 pedidoSislog: row.pedidoSislog,
                 operacionLogistica: row.operacionLogistica,
-                tipoVehiculo: row.tipoVehiculo,
+                tipoVehiculo: (row.conceptName === 'OPERACIÓN CARGUE' || row.conceptName === 'OPERACIÓN DESCARGUE') ? row.tipoVehiculo : 'No Aplica',
                 horaInicio: formatTime12Hour(row.horaInicio),
                 horaFin: formatTime12Hour(row.horaFin),
                 quantity: row.quantity,
@@ -1205,12 +1207,14 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             { header: 'Total Valor', key: 'totalValue', width: 20 },
         ];
         
+        summaryWorksheet.columns = summaryColumns;
+        summaryWorksheet.spliceRows(1, 1);
+
         const summaryHeaderRow = summaryWorksheet.addRow(summaryColumns.map(c => c.header));
          summaryHeaderRow.eachCell((cell, colNumber) => {
             cell.fill = headerFill;
             cell.font = headerFont;
             cell.alignment = { horizontal: 'center' };
-            summaryWorksheet.getColumn(colNumber).width = summaryColumns[colNumber-1].width;
         });
 
         Object.values(summaryByDayAndConcept).sort((a, b) => a.date.localeCompare(b.date) || a.concept.localeCompare(b.concept)).forEach(item => {
@@ -2409,6 +2413,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         </div>
     );
 }
+
 
 
 
