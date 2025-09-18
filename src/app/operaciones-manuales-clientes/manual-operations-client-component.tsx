@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -626,53 +625,6 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                           <FormField control={form.control} name="operationDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha de Operación <span className="text-destructive">*</span></FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={dialogMode === 'view'} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4 opacity-50" />{field.value && field.value instanceof Date && !isNaN(field.value.getTime()) ? format(field.value, "PPP", { locale: es }) : <span>Seleccione una fecha</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={dialogMode === 'view'} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
                                         )}
                                         
-                                        {watchedConcept === 'POSICIONES FIJAS CÁMARA CONGELADOS' && (
-                                            <FormField control={form.control} name="specificTariffs" render={() => (
-                                                <FormItem>
-                                                    <div className="mb-4"><FormLabel className="text-base">Tarifas a Aplicar</FormLabel></div>
-                                                    <div className="space-y-3">
-                                                        {(selectedConceptInfo?.specificTariffs || []).map((tariff: SpecificTariff, index) => {
-                                                            return (
-                                                                <FormField key={tariff.id} control={form.control} name={`specificTariffs`}
-                                                                    render={({ field }) => {
-                                                                        const currentSelection = field.value?.find(v => v.tariffId === tariff.id);
-                                                                        const isSelected = !!currentSelection;
-                                                                        const isExcess = tariff.name.includes("EXCESO");
-                                                                        return (
-                                                                            <div className="flex flex-row items-start space-x-3 space-y-0">
-                                                                                <FormControl>
-                                                                                    <Checkbox checked={isSelected} onCheckedChange={(checked) => {
-                                                                                            const newValue = checked ? [...(field.value || []), { tariffId: tariff.id, quantity: isExcess ? 0 : 1 }] : field.value?.filter((value: any) => value.tariffId !== tariff.id);
-                                                                                            field.onChange(newValue);
-                                                                                        }} disabled={dialogMode === 'view'}/>
-                                                                                </FormControl>
-                                                                                <div className="flex flex-col sm:flex-row justify-between w-full">
-                                                                                    <FormLabel className="font-normal">{tariff.name}</FormLabel>
-                                                                                    {isSelected && isExcess && (
-                                                                                        <FormField control={form.control} name={`specificTariffs.${field.value?.findIndex(v => v.tariffId === tariff.id)}.quantity`}
-                                                                                            render={({ field: qtyField }) => (
-                                                                                                <FormItem>
-                                                                                                    <div className="flex items-center gap-2">
-                                                                                                        <FormLabel className="text-xs">Cant. Exceso:</FormLabel>
-                                                                                                        <FormControl><Input type="number" min="1" step="1" className="h-7 w-24" {...qtyField} disabled={dialogMode === 'view'} /></FormControl>
-                                                                                                    </div>
-                                                                                                    <FormMessage className="text-xs" />
-                                                                                                </FormItem>
-                                                                                            )}
-                                                                                        />
-                                                                                    )}
-                                                                                </div>
-                                                                            </div>
-                                                                        );
-                                                                    }}
-                                                                />
-                                                            );
-                                                        })}
-                                                    </div>
-                                                    <FormMessage />
-                                                </FormItem>
-                                            )}/>
-                                        )}
                                         {selectedConceptInfo?.tariffType === 'ESPECIFICA' && isBulkMode && (
                                             <div className="space-y-4">
                                                 <FormLabel className="text-base">Asignación de Personal</FormLabel>
@@ -940,3 +892,4 @@ const ExcedentManager = () => {
         </div>
     )
 }
+
