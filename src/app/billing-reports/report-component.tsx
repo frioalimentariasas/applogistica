@@ -1143,25 +1143,37 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             { header: 'Valor Total', key: 'totalValue', width: 20 },
         ];
         
-        const detailHeaderRow = detailWorksheet.addRow(detailColumns.map(c => c.header));
+        detailWorksheet.columns = detailColumns;
+        const detailHeaderRow = detailWorksheet.getRow(5);
+        detailHeaderRow.values = detailColumns.map(c => c.header);
         detailHeaderRow.eachCell(cell => {
             cell.fill = headerFill;
             cell.font = headerFont;
         });
 
         settlementReportData.forEach(row => {
-            detailWorksheet.addRow({
-                ...row,
+            const rowData: any = {
                 date: format(parseISO(row.date), 'dd/MM/yyyy'),
+                conceptName: row.conceptName,
+                subConceptName: row.subConceptName,
+                numeroPersonas: row.numeroPersonas,
                 totalPaletas: row.totalPaletas > 0 ? row.totalPaletas : '',
+                container: row.container,
                 camara: getSessionName(row.camara),
+                pedidoSislog: row.pedidoSislog,
+                operacionLogistica: row.operacionLogistica,
+                tipoVehiculo: row.tipoVehiculo,
                 horaInicio: formatTime12Hour(row.horaInicio),
                 horaFin: formatTime12Hour(row.horaFin),
-            });
-            const lastRow = detailWorksheet.lastRow!;
-            lastRow.getCell('unitValue').numFmt = '$ #,##0.00';
-            lastRow.getCell('totalValue').numFmt = '$ #,##0.00';
-            lastRow.getCell('quantity').numFmt = '#,##0.00';
+                quantity: row.quantity,
+                unitOfMeasure: row.unitOfMeasure,
+                unitValue: row.unitValue,
+                totalValue: row.totalValue
+            };
+            const addedRow = detailWorksheet.addRow(rowData);
+            addedRow.getCell('unitValue').numFmt = '$ #,##0.00';
+            addedRow.getCell('totalValue').numFmt = '$ #,##0.00';
+            addedRow.getCell('quantity').numFmt = '#,##0.00';
         });
 
         // Hoja de Resumen
@@ -1191,6 +1203,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             { header: 'Unidad', key: 'unitOfMeasure', width: 15 },
             { header: 'Total Valor', key: 'totalValue', width: 20 },
         ];
+        
+        summaryWorksheet.columns = summaryColumns;
 
         const summaryHeaderRow = summaryWorksheet.addRow(summaryColumns.map(c => c.header));
          summaryHeaderRow.eachCell(cell => {
@@ -2383,6 +2397,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         </div>
     );
 }
+
 
 
 
