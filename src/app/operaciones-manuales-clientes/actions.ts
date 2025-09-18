@@ -122,8 +122,8 @@ export async function addBulkManualClientOperation(data: BulkOperationData): Pro
         let operationsCount = 0;
 
         for (const dateString of dates) {
-            const localDate = new Date(dateString + 'T05:00:00Z'); // Treat as UTC-5 by adding 5 hours to get UTC midnight of that day in CO
-            localDate.setUTCHours(0, 0, 0, 0);
+            const dateParts = dateString.split('-').map(Number);
+            const localDate = new Date(dateParts[0], dateParts[1] - 1, dateParts[2]);
 
             const dayOfWeek = getDay(localDate);
 
