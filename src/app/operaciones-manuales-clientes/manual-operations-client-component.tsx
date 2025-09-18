@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -310,7 +311,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         if (op) {
             form.reset({
                 clientName: op.clientName || '',
-                operationDate: op.operationDate ? parseISO(op.operationDate) : undefined,
+                operationDate: op.operationDate ? parseISO(op.operationDate) : new Date(),
                 concept: op.concept,
                 quantity: op.quantity,
                 specificTariffs: op.specificTariffs || [],
@@ -598,7 +599,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                         />
 
                                         {isFixedMonthlyService ? (
-                                            <FormField control={form.control} name="operationDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha de Liquidación <span className="text-destructive">*</span></FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={dialogMode === 'view'} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "MMMM yyyy", { locale: es }) : <span>Seleccione mes</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={dialogMode === 'view'} initialFocus /></PopoverContent></Popover>
+                                            <FormField control={form.control} name="operationDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha de Liquidación <span className="text-destructive">*</span></FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={dialogMode === 'view'} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "MMMM yyyy", { locale: es }) : <span>Seleccione mes</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => date > new Date()} initialFocus /></PopoverContent></Popover>
                                                 {field.value && <FormDescription>Se liquidarán {getDaysInMonth(field.value)} días para el mes de {format(field.value, 'MMMM', {locale: es})}.</FormDescription>}
                                                 <FormMessage /></FormItem> )} />
                                         ) : isBulkMode ? (
@@ -609,7 +610,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                 <FormItem>
                                                     <FormLabel>Fechas de Operación</FormLabel>
                                                      <DateMultiSelector 
-                                                        value={field.value} 
+                                                        value={field.value || []} 
                                                         onChange={field.onChange} 
                                                         disabled={dialogMode === 'view'}
                                                     />
@@ -756,7 +757,11 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
 
 function DateMultiSelector({ value, onChange, disabled }: { value: Date[], onChange: (dates: Date[]) => void, disabled?: boolean }) {
     const [isPickerOpen, setIsPickerOpen] = useState(false);
-    const [localDates, setLocalDates] = useState(value || []);
+    const [localDates, setLocalDates] = useState<Date[]>(value || []);
+
+    useEffect(() => {
+        setLocalDates(value || []);
+    }, [value]);
 
     const handleConfirm = () => {
         onChange(localDates);
