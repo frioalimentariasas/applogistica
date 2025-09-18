@@ -1110,18 +1110,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const headerFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A90C8' } };
         const headerFont: Partial<ExcelJS.Font> = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
         
-        detailWorksheet.addRow([]); // Spacer
-        const titleRow = detailWorksheet.addRow([`Liquidación Cliente: ${settlementClient}`]);
-        titleRow.font = { bold: true, size: 16 };
-        detailWorksheet.mergeCells(2, 1, 2, 16);
-        detailWorksheet.getCell('A2').alignment = { horizontal: 'center' };
-
-        const periodRow = detailWorksheet.addRow([`Periodo: ${format(settlementDateRange.from, 'dd/MM/yyyy', { locale: es })} - ${format(settlementDateRange.to!, 'dd/MM/yyyy', { locale: es })}`]);
-        periodRow.font = { bold: true };
-        detailWorksheet.mergeCells(3, 1, 3, 16);
-        detailWorksheet.getCell('A3').alignment = { horizontal: 'center' };
-        detailWorksheet.addRow([]); // Spacer
-
         const detailColumns = [
             { header: 'Fecha', key: 'date', width: 15 },
             { header: 'Concepto', key: 'conceptName', width: 40 },
@@ -1140,18 +1128,31 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             { header: 'Valor Unitario', key: 'unitValue', width: 20 },
             { header: 'Valor Total', key: 'totalValue', width: 20 },
         ];
-        
-        detailWorksheet.columns = detailColumns;
-        detailWorksheet.spliceRows(1, 1);
-        
-        const detailHeaderRow = detailWorksheet.getRow(5);
-        detailHeaderRow.values = detailColumns.map(c => c.header);
+
+        // Add headers and titles
+        detailWorksheet.addRow([]);
+        const titleRow = detailWorksheet.addRow([]);
+        titleRow.getCell(1).value = `Liquidación Cliente: ${settlementClient}`;
+        titleRow.font = { bold: true, size: 16 };
+        detailWorksheet.mergeCells(2, 1, 2, detailColumns.length);
+        detailWorksheet.getCell('A2').alignment = { horizontal: 'center' };
+
+        const periodRow = detailWorksheet.addRow([]);
+        periodRow.getCell(1).value = `Periodo: ${format(settlementDateRange.from, 'dd/MM/yyyy', { locale: es })} - ${format(settlementDateRange.to!, 'dd/MM/yyyy', { locale: es })}`;
+        periodRow.font = { bold: true };
+        detailWorksheet.mergeCells(3, 1, 3, detailColumns.length);
+        detailWorksheet.getCell('A3').alignment = { horizontal: 'center' };
+        detailWorksheet.addRow([]);
+
+        const detailHeaderRow = detailWorksheet.addRow(detailColumns.map(c => c.header));
         detailHeaderRow.eachCell((cell) => {
             cell.fill = headerFill;
             cell.font = headerFont;
             cell.alignment = { horizontal: 'center' };
         });
+        detailWorksheet.columns = detailColumns; // Assign after manual header row
 
+        // Add data
         settlementReportData.forEach(row => {
             const rowData = {
                 date: format(parseISO(row.date), 'dd/MM/yyyy'),
@@ -1180,19 +1181,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         // Hoja de Resumen
         const summaryWorksheet = workbook.addWorksheet('Resumen Liquidación');
         
-        const summaryTitleRow = summaryWorksheet.getCell('A2');
-        summaryTitleRow.value = `Liquidación Cliente: ${settlementClient}`;
-        summaryTitleRow.font = { bold: true, size: 16 };
-        summaryWorksheet.mergeCells('A2:E2');
-        summaryTitleRow.alignment = { horizontal: 'center' };
-
-        const summaryPeriodRow = summaryWorksheet.getCell('A3');
-        summaryPeriodRow.value = `Periodo: ${format(settlementDateRange.from, 'dd/MM/yyyy', { locale: es })} - ${format(settlementDateRange.to!, 'dd/MM/yyyy', { locale: es })}`;
-        summaryPeriodRow.font = { bold: true };
-        summaryWorksheet.mergeCells('A3:E3');
-        summaryPeriodRow.alignment = { horizontal: 'center' };
-        summaryWorksheet.addRow([]);
-        
         const summaryColumns = [
             { header: 'Fecha', key: 'date', width: 15 },
             { header: 'Concepto', key: 'concept', width: 50 },
@@ -1200,17 +1188,28 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             { header: 'Unidad', key: 'unitOfMeasure', width: 15 },
             { header: 'Total Valor', key: 'totalValue', width: 20 },
         ];
+
+        summaryWorksheet.addRow([]);
+        const summaryTitleRow = summaryWorksheet.addRow([]);
+        summaryTitleRow.getCell(1).value = `Liquidación Cliente: ${settlementClient}`;
+        summaryTitleRow.font = { bold: true, size: 16 };
+        summaryWorksheet.mergeCells(2, 1, 2, summaryColumns.length);
+        summaryWorksheet.getCell('A2').alignment = { horizontal: 'center' };
+
+        const summaryPeriodRow = summaryWorksheet.addRow([]);
+        summaryPeriodRow.getCell(1).value = `Periodo: ${format(settlementDateRange.from, 'dd/MM/yyyy', { locale: es })} - ${format(settlementDateRange.to!, 'dd/MM/yyyy', { locale: es })}`;
+        summaryPeriodRow.font = { bold: true };
+        summaryWorksheet.mergeCells(3, 1, 3, summaryColumns.length);
+        summaryWorksheet.getCell('A3').alignment = { horizontal: 'center' };
+        summaryWorksheet.addRow([]);
         
-        summaryWorksheet.columns = summaryColumns;
-        summaryWorksheet.spliceRows(1, 1);
-        
-        const summaryHeaderRow = summaryWorksheet.getRow(5);
-        summaryHeaderRow.values = summaryColumns.map(c => c.header);
+        const summaryHeaderRow = summaryWorksheet.addRow(summaryColumns.map(c => c.header));
          summaryHeaderRow.eachCell((cell) => {
             cell.fill = headerFill;
             cell.font = headerFont;
             cell.alignment = { horizontal: 'center' };
         });
+        summaryWorksheet.columns = summaryColumns;
 
         const summaryByDayAndConcept = settlementReportData.reduce((acc, row) => {
             const date = format(parseISO(row.date), 'yyyy-MM-dd');
@@ -2458,3 +2457,4 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     
 
     
+
