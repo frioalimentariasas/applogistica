@@ -122,9 +122,8 @@ export async function addBulkManualClientOperation(data: BulkOperationData): Pro
         let operationsCount = 0;
 
         for (const dateString of dates) {
-            // Explicitly set the timezone to Colombia's (UTC-5) to avoid any ambiguity or server-side conversion issues.
-            // This ensures that "2025-09-06" is treated as the beginning of that day in Colombia, not in UTC.
-            const localDate = new Date(dateString + 'T00:00:00-05:00');
+            const localDate = new Date(dateString + 'T05:00:00Z'); // Treat as UTC-5 by adding 5 hours to get UTC midnight of that day in CO
+            localDate.setUTCHours(0, 0, 0, 0);
 
             const dayOfWeek = getDay(localDate);
 
