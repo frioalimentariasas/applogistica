@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -92,19 +91,7 @@ const manualOperationSchema = z.object({
       if (!data.bulkRoles || data.bulkRoles.every(r => r.numPersonas === 0)) {
            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Debe ingresar al menos una persona en algún rol.", path: ["bulkRoles"] });
       }
-    } else if (isFixedMonthlyService) {
-        if (!data.operationDate) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La fecha de liquidación es obligatoria.", path: ["operationDate"] });
-        }
-        if (isPositionMode && (!data.specificTariffs || data.specificTariffs.length === 0)) {
-            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Debe seleccionar al menos una tarifa.", path: ["specificTariffs"] });
-        } else if (isPositionMode) {
-            const excessTariff = data.specificTariffs?.find(t => t.tariffId.includes('EXCESO'));
-            if (excessTariff && (excessTariff.quantity === undefined || excessTariff.quantity <= 0)) {
-                 ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La cantidad para la tarifa de exceso es requerida.", path: [`specificTariffs.${data.specificTariffs?.indexOf(excessTariff)}.quantity`] });
-            }
-        }
-    } else {
+    } else { // Not bulk mode
        if (!data.operationDate) {
           ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La fecha es obligatoria.", path: ["operationDate"] });
        }
@@ -114,6 +101,17 @@ const manualOperationSchema = z.object({
                 message: "La hora de inicio no puede ser igual a la de fin.",
                 path: ["details", "endTime"],
             });
+        }
+    }
+
+    if (isFixedMonthlyService) {
+        if (isPositionMode && (!data.specificTariffs || data.specificTariffs.length === 0)) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Debe seleccionar al menos una tarifa.", path: ["specificTariffs"] });
+        } else if (isPositionMode) {
+            const excessTariff = data.specificTariffs?.find(t => t.tariffId.includes('EXCESO'));
+            if (excessTariff && (excessTariff.quantity === undefined || excessTariff.quantity <= 0)) {
+                 ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La cantidad para la tarifa de exceso es requerida.", path: [`specificTariffs.${data.specificTariffs?.indexOf(excessTariff)}.quantity`] });
+            }
         }
     }
 
@@ -311,7 +309,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         if (op) {
             form.reset({
                 clientName: op.clientName || '',
-                operationDate: op.operationDate ? new Date(op.operationDate) : new Date(),
+                operationDate: op.operationDate ? new Date(op.operationDate) : undefined,
                 concept: op.concept,
                 quantity: op.quantity,
                 specificTariffs: op.specificTariffs || [],
@@ -341,10 +339,11 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     const onSubmit: SubmitHandler<ManualOperationValues> = async (data) => {
         if (!user) return;
         setIsSubmitting(true);
-        
+    
         try {
+            let result;
             if (isBulkMode && data.selectedDates) {
-                 const bulkData = {
+                const bulkData = {
                     clientName: data.clientName,
                     concept: data.concept,
                     dates: data.selectedDates.map(d => d.toISOString()),
@@ -352,42 +351,42 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                     excedentes: data.excedentes || [],
                     createdBy: { uid: user.uid, displayName: displayName || user.email! }
                 };
-                const result = await addBulkManualClientOperation(bulkData);
+                result = await addBulkManualClientOperation(bulkData);
                 if (!result.success) throw new Error(result.message);
-                toast({ title: 'Éxito', description: result.message });
             } else {
-                let payload: ManualClientOperationData = {
+                const payload: ManualClientOperationData = {
                     ...data,
-                    operationDate: data.operationDate?.toISOString(),
-                    details: data.details || {},
                     createdBy: {
                         uid: user.uid,
                         displayName: displayName || user.email!,
                     }
                 };
-                
-                if (isBulkMode) {
-                    delete payload.operationDate;
+
+                // Ensure operationDate is a valid string or undefined, but not an invalid Date object
+                if (data.operationDate && data.operationDate instanceof Date && !isNaN(data.operationDate.getTime())) {
+                    payload.operationDate = data.operationDate.toISOString();
+                } else if (!isBulkMode) { // Only require operationDate if not bulk mode
+                     throw new Error("La fecha de operación es inválida o no ha sido seleccionada.");
+                } else {
+                    delete payload.operationDate; // Completely remove it for bulk mode
                 }
 
-                let result;
                 if (dialogMode === 'edit' && opToManage) {
                     result = await updateManualClientOperation(opToManage.id, payload as Omit<ManualClientOperationData, 'createdAt' | 'createdBy'>);
                 } else {
                     result = await addManualClientOperation(payload);
                 }
-                
                 if (!result.success) throw new Error(result.message);
-                toast({ title: 'Éxito', description: result.message });
             }
-            
+    
+            toast({ title: 'Éxito', description: result.message });
             setIsDialogOpen(false);
             form.reset();
             const updatedOps = await fetchAllOperations();
             if (searched && selectedDate) {
                 handleSearch(updatedOps);
             }
-
+    
         } catch(error) {
             const errorMessage = error instanceof Error ? error.message : "Error desconocido al guardar.";
             toast({ variant: "destructive", title: "Error", description: errorMessage });
@@ -634,7 +633,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                                             <div className="flex flex-row items-start space-x-3 space-y-0">
                                                                                 <FormControl>
                                                                                     <Checkbox checked={isSelected} onCheckedChange={(checked) => {
-                                                                                            const newValue = checked ? [...(field.value || []), { tariffId: tariff.id, quantity: isExcess ? 0 : 1 }] : field.value?.filter((value) => value.tariffId !== tariff.id);
+                                                                                            const newValue = checked ? [...(field.value || []), { tariffId: tariff.id, quantity: isExcess ? 0 : 1 }] : field.value?.filter((value: any) => value.tariffId !== tariff.id);
                                                                                             field.onChange(newValue);
                                                                                         }} disabled={dialogMode === 'view'}/>
                                                                                 </FormControl>
