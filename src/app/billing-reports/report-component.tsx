@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import * as React from 'react';
@@ -1111,19 +1110,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const headerFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A90C8' } };
         const headerFont: Partial<ExcelJS.Font> = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
         
-        detailWorksheet.addRow([]);
-        const titleRow = detailWorksheet.addRow([`Liquidación Cliente: ${settlementClient}`]);
-        titleRow.font = { bold: true, size: 16 };
-        detailWorksheet.mergeCells(2, 1, 2, 16);
-        titleRow.getCell(1).alignment = { horizontal: 'center' };
-
-        const periodText = `Periodo: ${format(settlementDateRange.from, 'dd/MM/yyyy', { locale: es })} - ${format(settlementDateRange.to!, 'dd/MM/yyyy', { locale: es })}`;
-        const periodRow = detailWorksheet.addRow([periodText]);
-        periodRow.font = { bold: true };
-        detailWorksheet.mergeCells(3, 1, 3, 16);
-        periodRow.getCell(1).alignment = { horizontal: 'center' };
-        detailWorksheet.addRow([]);
-
         const detailColumns = [
             { header: 'Fecha', key: 'date', width: 15 },
             { header: 'Concepto', key: 'conceptName', width: 40 },
@@ -1144,11 +1130,26 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         ];
         
         detailWorksheet.columns = detailColumns;
-        detailWorksheet.spliceRows(1, 1); // This removes the auto-generated header row
+        detailWorksheet.spliceRows(1, 1);
+
+        detailWorksheet.addRow([]);
+        const titleRow = detailWorksheet.getCell('A2');
+        titleRow.value = `Liquidación Cliente: ${settlementClient}`;
+        titleRow.font = { bold: true, size: 16 };
+        detailWorksheet.mergeCells('A2:P2');
+        titleRow.alignment = { horizontal: 'center' };
+
+        const periodText = `Periodo: ${format(settlementDateRange.from, 'dd/MM/yyyy', { locale: es })} - ${format(settlementDateRange.to!, 'dd/MM/yyyy', { locale: es })}`;
+        const periodRow = detailWorksheet.getCell('A3');
+        periodRow.value = periodText;
+        periodRow.font = { bold: true };
+        detailWorksheet.mergeCells('A3:P3');
+        periodRow.alignment = { horizontal: 'center' };
+        detailWorksheet.addRow([]);
 
         const detailHeaderRow = detailWorksheet.getRow(5);
         detailHeaderRow.values = detailColumns.map(c => c.header);
-        detailHeaderRow.eachCell((cell, colNumber) => {
+        detailHeaderRow.eachCell((cell) => {
             cell.fill = headerFill;
             cell.font = headerFont;
             cell.alignment = { horizontal: 'center' };
@@ -1211,7 +1212,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         summaryWorksheet.spliceRows(1, 1);
 
         const summaryHeaderRow = summaryWorksheet.addRow(summaryColumns.map(c => c.header));
-         summaryHeaderRow.eachCell((cell, colNumber) => {
+         summaryHeaderRow.eachCell((cell) => {
             cell.fill = headerFill;
             cell.font = headerFont;
             cell.alignment = { horizontal: 'center' };
@@ -2236,12 +2237,12 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                         <Popover>
                                             <PopoverTrigger asChild><Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !settlementDateRange && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{settlementDateRange?.from ? (settlementDateRange.to ? (<>{format(settlementDateRange.from, "LLL dd, y", { locale: es })} - {format(settlementDateRange.to, "LLL dd, y", { locale: es })}</>) : (format(settlementDateRange.from, "LLL dd, y", { locale: es }))) : (<span>Seleccione un rango</span>)}</Button></PopoverTrigger>
                                             <PopoverContent className="w-auto p-0" align="start"><Calendar initialFocus mode="range" defaultMonth={settlementDateRange?.from} selected={settlementDateRange} onSelect={(range) => {
-                                                            if (range?.from && range?.to && differenceInDays(range.to, range.from) > MAX_DATE_RANGE_DAYS) {
-                                                                toast({ variant: 'destructive', title: 'Rango muy amplio', description: `Por favor, seleccione un rango de no más de ${MAX_DATE_RANGE_DAYS} días.` });
-                                                            } else {
-                                                                setSettlementDateRange(range);
-                                                            }
-                                                        }} numberOfMonths={2} locale={es} disabled={{ after: today, before: sixtyTwoDaysAgo }} /></PopoverContent>
+                                                if (range?.from && range?.to && differenceInDays(range.to, range.from) > MAX_DATE_RANGE_DAYS) {
+                                                    toast({ variant: 'destructive', title: 'Rango muy amplio', description: `Por favor, seleccione un rango de no más de ${MAX_DATE_RANGE_DAYS} días.` });
+                                                } else {
+                                                    setSettlementDateRange(range);
+                                                }
+                                            }} numberOfMonths={2} locale={es} disabled={{ after: today, before: sixtyTwoDaysAgo }} /></PopoverContent>
                                         </Popover>
                                     </div>
                                     <div className="space-y-2">
@@ -2414,13 +2415,4 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     );
 }
 
-
-
-
-
-
-
-
-
-
-
+    
