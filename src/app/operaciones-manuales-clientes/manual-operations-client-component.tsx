@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -240,6 +241,17 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         } else if(showNumeroPersonas) {
              form.setValue('numeroPersonas', form.getValues('numeroPersonas') || 1);
         }
+        
+        // Reset and clean up date fields based on the concept type
+        if (isBulkMode) {
+            form.setValue('operationDate', undefined); // Clear single date field for bulk mode
+        } else {
+            form.setValue('selectedDates', []); // Clear multi-date field for single mode
+            form.setValue('excedentes', []);
+            if (!form.getValues('operationDate')) {
+                 form.setValue('operationDate', new Date()); // Ensure single date field has a value
+            }
+        }
     }, [watchedConcept, selectedConceptInfo, form, isBulkMode, isPositionMode, showNumeroPersonas]);
 
     const fetchAllOperations = useCallback(async () => {
@@ -308,16 +320,10 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     
         if (op) {
             form.reset({
-                clientName: op.clientName || '',
-                operationDate: op.operationDate ? new Date(op.operationDate) : undefined,
-                concept: op.concept,
-                quantity: op.quantity,
-                specificTariffs: op.specificTariffs || [],
-                numeroPersonas: op.numeroPersonas || undefined,
-                details: op.details || {},
+                ...op,
+                operationDate: op.operationDate ? parseISO(op.operationDate) : undefined,
                 selectedDates: (op.selectedDates || []).map((d: string) => parseISO(d)),
-                bulkRoles: op.bulkRoles || [],
-                excedentes: op.excedentes || [],
+                details: op.details || {},
             });
         } else {
             form.reset({
@@ -342,37 +348,37 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     
         try {
             let result;
-            if (isBulkMode && data.selectedDates) {
+            const isBulk = data.concept === 'TIEMPO EXTRA FRIOAL (FIJO)';
+            
+            if (isBulk && data.selectedDates) {
                 const bulkData = {
                     clientName: data.clientName,
                     concept: data.concept,
-                    dates: data.selectedDates.map(d => d.toISOString()),
+                    dates: data.selectedDates.map(d => format(d, 'yyyy-MM-dd')),
                     roles: data.bulkRoles!.filter(r => r.numPersonas > 0),
                     excedentes: data.excedentes || [],
                     createdBy: { uid: user.uid, displayName: displayName || user.email! }
                 };
                 result = await addBulkManualClientOperation(bulkData);
                 if (!result.success) throw new Error(result.message);
-            } else {
-                const payload: ManualClientOperationData = {
-                    ...data,
-                    createdBy: {
-                        uid: user.uid,
-                        displayName: displayName || user.email!,
-                    }
-                };
 
-                // Ensure operationDate is a valid string or undefined, but not an invalid Date object
-                if (data.operationDate && data.operationDate instanceof Date && !isNaN(data.operationDate.getTime())) {
+            } else {
+                let payload: ManualClientOperationData = {
+                    ...data,
+                };
+                // Remove bulk-specific fields if not a bulk operation
+                delete payload.selectedDates;
+                delete payload.bulkRoles;
+                delete payload.excedentes;
+
+                if (data.operationDate instanceof Date && !isNaN(data.operationDate.getTime())) {
                     payload.operationDate = data.operationDate.toISOString();
-                } else if (!isBulkMode) { // Only require operationDate if not bulk mode
-                     throw new Error("La fecha de operación es inválida o no ha sido seleccionada.");
                 } else {
-                    delete payload.operationDate; // Completely remove it for bulk mode
+                    delete payload.operationDate;
                 }
 
                 if (dialogMode === 'edit' && opToManage) {
-                    result = await updateManualClientOperation(opToManage.id, payload as Omit<ManualClientOperationData, 'createdAt' | 'createdBy'>);
+                    result = await updateManualClientOperation(opToManage.id, payload);
                 } else {
                     result = await addManualClientOperation(payload);
                 }
