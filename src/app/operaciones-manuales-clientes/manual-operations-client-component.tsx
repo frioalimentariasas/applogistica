@@ -598,7 +598,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                         />
 
                                         {isFixedMonthlyService ? (
-                                            <FormField control={form.control} name="operationDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha de Liquidación <span className="text-destructive">*</span></FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={dialogMode === 'view'} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "PPP", { locale: es }) : <span>Seleccione fecha</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={dialogMode === 'view'} initialFocus /></PopoverContent></Popover>
+                                            <FormField control={form.control} name="operationDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha de Liquidación <span className="text-destructive">*</span></FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={dialogMode === 'view'} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{field.value ? format(field.value, "MMMM yyyy", { locale: es }) : <span>Seleccione mes</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={dialogMode === 'view'} initialFocus /></PopoverContent></Popover>
                                                 {field.value && <FormDescription>Se liquidarán {getDaysInMonth(field.value)} días para el mes de {format(field.value, 'MMMM', {locale: es})}.</FormDescription>}
                                                 <FormMessage /></FormItem> )} />
                                         ) : isBulkMode ? (
@@ -609,7 +609,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                 <FormItem>
                                                     <FormLabel>Fechas de Operación</FormLabel>
                                                      <DateMultiSelector 
-                                                        value={field.value || []} 
+                                                        value={field.value} 
                                                         onChange={field.onChange} 
                                                         disabled={dialogMode === 'view'}
                                                     />
@@ -758,10 +758,6 @@ function DateMultiSelector({ value, onChange, disabled }: { value: Date[], onCha
     const [isPickerOpen, setIsPickerOpen] = useState(false);
     const [localDates, setLocalDates] = useState(value || []);
 
-    useEffect(() => {
-        setLocalDates(value || []);
-    }, [value]);
-
     const handleConfirm = () => {
         onChange(localDates);
         setIsPickerOpen(false);
@@ -774,7 +770,7 @@ function DateMultiSelector({ value, onChange, disabled }: { value: Date[], onCha
                 variant="outline"
                 className="w-full justify-start text-left font-normal"
                 onClick={() => {
-                    setLocalDates(value || []); // Reset local state on open
+                    setLocalDates(value || []);
                     setIsPickerOpen(true);
                 }}
                 disabled={disabled}
@@ -858,7 +854,7 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any, 
                     <div className="space-y-3">
                         {(selectedConceptInfo?.specificTariffs || []).map((tariff: SpecificTariff) => {
                             return (
-                                <FormField key={tariff.id} control={form.control} name="specificTariffs"
+                                <FormField key={tariff.id} control={form.control} name={`specificTariffs`}
                                     render={({ field }) => {
                                         const currentSelection = field.value?.find((v: any) => v.tariffId === tariff.id);
                                         const isSelected = !!currentSelection;
