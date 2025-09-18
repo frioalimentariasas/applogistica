@@ -1128,29 +1128,31 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             { header: 'Valor Unitario', key: 'unitValue', width: 20 },
             { header: 'Valor Total', key: 'totalValue', width: 20 },
         ];
+        
+        detailWorksheet.columns = detailColumns;
+        detailWorksheet.spliceRows(1, 1);
 
-        // Add headers and titles
+        // Add headers and titles manually
         detailWorksheet.addRow([]);
-        const titleRow = detailWorksheet.addRow([]);
-        titleRow.getCell(1).value = `Liquidación Cliente: ${settlementClient}`;
+        const titleRow = detailWorksheet.getCell('A2');
+        titleRow.value = `Liquidación Cliente: ${settlementClient}`;
         titleRow.font = { bold: true, size: 16 };
         detailWorksheet.mergeCells(2, 1, 2, detailColumns.length);
-        detailWorksheet.getCell('A2').alignment = { horizontal: 'center' };
+        titleRow.alignment = { horizontal: 'center' };
 
-        const periodRow = detailWorksheet.addRow([]);
-        periodRow.getCell(1).value = `Periodo: ${format(settlementDateRange.from, 'dd/MM/yyyy', { locale: es })} - ${format(settlementDateRange.to!, 'dd/MM/yyyy', { locale: es })}`;
+        const periodRow = detailWorksheet.getCell('A3');
+        periodRow.value = `Periodo: ${format(settlementDateRange.from, 'dd/MM/yyyy', { locale: es })} - ${format(settlementDateRange.to!, 'dd/MM/yyyy', { locale: es })}`;
         periodRow.font = { bold: true };
         detailWorksheet.mergeCells(3, 1, 3, detailColumns.length);
-        detailWorksheet.getCell('A3').alignment = { horizontal: 'center' };
+        periodRow.alignment = { horizontal: 'center' };
         detailWorksheet.addRow([]);
-
+        
         const detailHeaderRow = detailWorksheet.addRow(detailColumns.map(c => c.header));
         detailHeaderRow.eachCell((cell) => {
             cell.fill = headerFill;
             cell.font = headerFont;
             cell.alignment = { horizontal: 'center' };
         });
-        detailWorksheet.columns = detailColumns; // Assign after manual header row
 
         // Add data
         settlementReportData.forEach(row => {
@@ -1188,19 +1190,22 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             { header: 'Unidad', key: 'unitOfMeasure', width: 15 },
             { header: 'Total Valor', key: 'totalValue', width: 20 },
         ];
+        
+        summaryWorksheet.columns = summaryColumns;
+        summaryWorksheet.spliceRows(1, 1);
 
         summaryWorksheet.addRow([]);
-        const summaryTitleRow = summaryWorksheet.addRow([]);
-        summaryTitleRow.getCell(1).value = `Liquidación Cliente: ${settlementClient}`;
-        summaryTitleRow.font = { bold: true, size: 16 };
+        const summaryTitleRowCell = summaryWorksheet.getCell('A2');
+        summaryTitleRowCell.value = `Liquidación Cliente: ${settlementClient}`;
+        summaryTitleRowCell.font = { bold: true, size: 16 };
         summaryWorksheet.mergeCells(2, 1, 2, summaryColumns.length);
-        summaryWorksheet.getCell('A2').alignment = { horizontal: 'center' };
+        summaryTitleRowCell.alignment = { horizontal: 'center' };
 
-        const summaryPeriodRow = summaryWorksheet.addRow([]);
-        summaryPeriodRow.getCell(1).value = `Periodo: ${format(settlementDateRange.from, 'dd/MM/yyyy', { locale: es })} - ${format(settlementDateRange.to!, 'dd/MM/yyyy', { locale: es })}`;
-        summaryPeriodRow.font = { bold: true };
+        const summaryPeriodRowCell = summaryWorksheet.getCell('A3');
+        summaryPeriodRowCell.value = `Periodo: ${format(settlementDateRange.from, 'dd/MM/yyyy', { locale: es })} - ${format(settlementDateRange.to!, 'dd/MM/yyyy', { locale: es })}`;
+        summaryPeriodRowCell.font = { bold: true };
         summaryWorksheet.mergeCells(3, 1, 3, summaryColumns.length);
-        summaryWorksheet.getCell('A3').alignment = { horizontal: 'center' };
+        summaryPeriodRowCell.alignment = { horizontal: 'center' };
         summaryWorksheet.addRow([]);
         
         const summaryHeaderRow = summaryWorksheet.addRow(summaryColumns.map(c => c.header));
@@ -1209,7 +1214,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             cell.font = headerFont;
             cell.alignment = { horizontal: 'center' };
         });
-        summaryWorksheet.columns = summaryColumns;
 
         const summaryByDayAndConcept = settlementReportData.reduce((acc, row) => {
             const date = format(parseISO(row.date), 'yyyy-MM-dd');
@@ -2458,3 +2462,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
     
 
+
+
+    
