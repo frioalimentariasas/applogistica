@@ -122,8 +122,10 @@ export async function addBulkManualClientOperation(data: BulkOperationData): Pro
         let operationsCount = 0;
 
         for (const dateString of dates) {
-            const day = startOfDay(parseISO(dateString));
+            // Use startOfDay to avoid timezone issues. The date from the calendar is already in the user's local timezone.
+            const day = startOfDay(new Date(dateString));
             const dayOfWeek = getDay(day);
+
             if (isSunday(day)) continue;
 
             const isSaturday = dayOfWeek === 6;
@@ -132,8 +134,9 @@ export async function addBulkManualClientOperation(data: BulkOperationData): Pro
             
             const dayString = format(day, 'yyyy-MM-dd');
             const excedentHours = excedentesMap.get(dayString) || 0;
-
-            const specificTariffs = roles.flatMap(role => {
+            
+            // This will hold all tariffs for a single day's operation
+            const specificTariffsForDay = roles.flatMap(role => {
                 if (role.numPersonas > 0) {
                     const startMinutes = timeToMinutes(baseStartTimeStr);
                     const endMinutes = timeToMinutes(baseEndTimeStr);
@@ -149,22 +152,37 @@ export async function addBulkManualClientOperation(data: BulkOperationData): Pro
                     const finalNocturnoHours = baseNocturnoHours + (!isSaturday ? excedentHours : 0);
                     
                     const tariffs = [];
-                    if (finalDiurnoHours > 0) tariffs.push({ tariffId: role.diurnaId, quantity: finalDiurnoHours });
-                    if (finalNocturnoHours > 0) tariffs.push({ tariffId: role.nocturnaId, quantity: finalNocturnoHours });
+                    if (finalDiurnoHours > 0) {
+                        tariffs.push({ 
+                            tariffId: role.diurnaId, 
+                            quantity: finalDiurnoHours,
+                            // Add extra info for easier reporting if needed
+                            role: role.roleName, 
+                            numPersonas: role.numPersonas 
+                        });
+                    }
+                    if (finalNocturnoHours > 0) {
+                         tariffs.push({ 
+                            tariffId: role.nocturnaId, 
+                            quantity: finalNocturnoHours,
+                            role: role.roleName,
+                            numPersonas: role.numPersonas
+                        });
+                    }
                     
                     return tariffs;
                 }
                 return [];
-            }).filter(Boolean);
+            }).filter((t): t is { tariffId: string; quantity: number; role: string; numPersonas: number; } => t !== undefined);
 
 
-            if (specificTariffs.length > 0) {
+            if (specificTariffsForDay.length > 0) {
                 const docRef = firestore.collection('manual_client_operations').doc();
                 const operationData = {
                     clientName,
                     concept,
                     operationDate: admin.firestore.Timestamp.fromDate(day),
-                    specificTariffs,
+                    specificTariffs: specificTariffsForDay, // All tariffs for this day in one record
                     bulkRoles: roles.filter(r => r.numPersonas > 0),
                     details: { startTime: baseStartTimeStr, endTime: baseEndTimeStr },
                     createdAt: new Date().toISOString(),
@@ -230,12 +248,12 @@ export async function updateManualClientOperation(id: string, data: Omit<ManualC
                     const finalNocturnoHours = baseNocturnoHours + (!isSaturday ? excedentHours : 0);
                     
                     const tariffs = [];
-                    if (finalDiurnoHours > 0) tariffs.push({ tariffId: role.diurnaId, quantity: finalDiurnoHours });
-                    if (finalNocturnoHours > 0) tariffs.push({ tariffId: role.nocturnaId, quantity: finalNocturnoHours });
+                    if (finalDiurnoHours > 0) tariffs.push({ tariffId: role.diurnaId, quantity: finalDiurnoHours, role: role.roleName, numPersonas: role.numPersonas });
+                    if (finalNocturnoHours > 0) tariffs.push({ tariffId: role.nocturnaId, quantity: finalNocturnoHours, role: role.roleName, numPersonas: role.numPersonas });
                     return tariffs;
                 }
                 return [];
-            }).filter(Boolean);
+            }).filter((t): t is { tariffId: string; quantity: number; role: string; numPersonas: number; } => t !== undefined);
         } else if (data.concept === 'POSICIONES FIJAS CÁMARA CONGELADOS') {
             finalSpecificTariffs = (data.specificTariffs || []).map(tariff => {
                 let quantity = tariff.quantity;
