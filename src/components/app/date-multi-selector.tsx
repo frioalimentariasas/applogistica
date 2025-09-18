@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -32,14 +33,12 @@ export function DateMultiSelector({
   calendarProps,
 }: DateMultiSelectorProps) {
   const [isPickerOpen, setIsPickerOpen] = React.useState(false)
-  const [localDates, setLocalDates] = React.useState(value || [])
 
-  React.useEffect(() => {
-    setLocalDates(value || [])
-  }, [value])
+  const handleSelect = (dates: Date[] | undefined) => {
+    onChange(dates || [])
+  }
 
   const handleConfirm = () => {
-    onChange(localDates)
     setIsPickerOpen(false)
   }
 
@@ -53,14 +52,14 @@ export function DateMultiSelector({
         disabled={disabled}
       >
         <CalendarIcon className="mr-2 h-4 w-4" />
-        {localDates.length > 0
-          ? `${localDates.length} fecha(s) seleccionada(s)`
+        {value.length > 0
+          ? `${value.length} fecha(s) seleccionada(s)`
           : "Seleccionar fechas..."}
       </Button>
-      {localDates.length > 0 && (
+      {value.length > 0 && (
         <ScrollArea className="h-16">
           <div className="flex flex-wrap gap-1">
-            {localDates.map((date) => (
+            {value.map((date) => (
               <Badge key={date.toISOString()} variant="secondary">
                 {format(date, "d MMM", { locale: es })}
               </Badge>
@@ -75,8 +74,8 @@ export function DateMultiSelector({
           </DialogHeader>
           <Calendar
             mode="multiple"
-            selected={localDates}
-            onSelect={(dates) => setLocalDates(dates || [])}
+            selected={value}
+            onSelect={handleSelect}
             disabled={disabled}
             {...calendarProps}
           />
