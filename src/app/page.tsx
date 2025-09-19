@@ -91,7 +91,7 @@ export default function Home() {
 
   const menuItems: { label: string; href: string; icon: React.FC<any>; permission: keyof AppPermissions, group: string }[] = [
     { label: 'Consultar Formatos Guardados', href: '/consultar-formatos', icon: ScrollText, permission: 'canConsultForms', group: 'Operaciones Logísticas' },
-    { label: 'Informe Productividad Operarios', href: '/performance-report', icon: Timer, permission: 'canViewPerformanceReport', group: 'Operaciones Logísticas' },
+    { label: 'Informe Productividad Operarios Frio Alimentaria', href: '/performance-report', icon: Timer, permission: 'canViewPerformanceReport', group: 'Operaciones Logísticas' },
     
     { label: 'Gestión de Conceptos', href: '/gestion-conceptos-liquidacion-clientes', icon: DollarSign, permission: 'canManageClientLiquidationConcepts', group: 'Gestión y Liquidación Clientes' },
     { label: 'Registro de Op. Manuales', href: '/operaciones-manuales-clientes', icon: Edit, permission: 'canManageClientManualOperations', group: 'Gestión y Liquidación Clientes' },
@@ -100,6 +100,7 @@ export default function Home() {
     { label: 'Gestión de Conceptos', href: '/gestion-conceptos-liquidacion-cuadrilla', icon: DollarSign, permission: 'canManageLiquidationConcepts', group: 'Gestión y Liquidación Cuadrilla' },
     { label: 'Registro de operaciones Manuales Cuadrilla', href: '/operaciones-manuales-cuadrilla', icon: Edit, permission: 'canManageManualOperations', group: 'Gestión y Liquidación Cuadrilla' },
     { label: 'Informe de Productividad y Liquidación', href: '/crew-performance-report', icon: TrendingUp, permission: 'canViewCrewPerformanceReport', group: 'Gestión y Liquidación Cuadrilla' },
+    { label: 'Gestión de Estándares', href: '/gestion-estandares-cuadrilla', icon: Settings, permission: 'canManageStandards', group: 'Gestión y Liquidación Cuadrilla' },
 
     { label: 'Gestión de Novedades', href: '/gestion-novedades', icon: ListPlus, permission: 'canManageNovelties', group: 'Gestión de Maestros' },
     { label: 'Gestión de Tipos de Pedido', href: '/gestion-tipos-pedido', icon: ListTodo, permission: 'canManageOrderTypes', group: 'Gestión de Maestros' },
@@ -108,7 +109,6 @@ export default function Home() {
     { label: 'Gestión de Observaciones', href: '/gestion-observaciones', icon: ClipboardList, permission: 'canManageObservations', group: 'Gestión de Maestros' },
 
     { label: 'Gestión de Usuarios', href: '/session-management', icon: ShieldCheck, permission: 'canManageSessions', group: 'Parámetros y Seguridad' },
-    { label: 'Gestión de Estándares', href: '/gestion-estandares-cuadrilla', icon: Settings, permission: 'canManageStandards', group: 'Parámetros y Seguridad' },
   ];
 
   const menuGroups = {
