@@ -4,7 +4,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Image from 'next/image';
-import { FileText, LogOut, Users2, Box, ScrollText, BookCopy, ShieldCheck, Settings, Timer, ArrowRight, ArrowDownCircle, ArrowUpCircle, Boxes, ClipboardList, Users, TrendingUp, DollarSign, ListTodo, FileSpreadsheet, ListPlus, Edit } from 'lucide-react';
+import { FileText, LogOut, Users2, Box, ScrollText, BookCopy, ShieldCheck, Settings, Timer, ArrowRight, ArrowDownCircle, ArrowUpCircle, Boxes, ClipboardList, Users, TrendingUp, DollarSign, ListTodo, FileSpreadsheet, ListPlus, Edit, HardHat, FileCog, Briefcase, Wrench } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -14,7 +14,7 @@ import { FirebaseChecker } from '@/components/app/firebase-checker';
 import { useAuth, type AppPermissions } from '@/hooks/use-auth';
 import { auth } from '@/lib/firebase';
 import { signOut } from 'firebase/auth';
-import { cn } from '@/lib/utils';
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
 
 
 const Logo = () => (
@@ -89,26 +89,43 @@ export default function Home() {
     });
   };
 
-  const menuItems: { label: string; href: string; icon: React.FC<any>; permission: keyof AppPermissions }[] = [
-    { label: 'Consultar Formatos Guardados', href: '/consultar-formatos', icon: ScrollText, permission: 'canConsultForms' },
-    { label: 'Informes para Facturación Clientes', href: '/billing-reports', icon: BookCopy, permission: 'canViewBillingReports' },
-    { label: 'Informe Productividad Operarios Frio Alimentaria', href: '/performance-report', icon: Timer, permission: 'canViewPerformanceReport' },
-    { label: 'Informe de Productividad y Liquidación Cuadrilla', href: '/crew-performance-report', icon: TrendingUp, permission: 'canViewCrewPerformanceReport' },
-    { label: 'Registro de Operaciones Manuales Clientes', href: '/operaciones-manuales-clientes', icon: Edit, permission: 'canManageClientManualOperations' },
-    { label: 'Registro de Operaciones Manuales Cuadrilla', href: '/operaciones-manuales-cuadrilla', icon: Edit, permission: 'canManageManualOperations' },
-    { label: 'Relación de Formatos por Concepto de Liquidación', href: '/reportes-especiales', icon: FileSpreadsheet, permission: 'canViewSpecialReports' },
-    { label: 'Gestión de Novedades', href: '/gestion-novedades', icon: ListPlus, permission: 'canManageNovelties' },
-    { label: 'Gestión de Tipos de Pedido', href: '/gestion-tipos-pedido', icon: ListTodo, permission: 'canManageOrderTypes' },
-    { label: 'Gestión de Conceptos Liquidación Clientes', href: '/gestion-conceptos-liquidacion-clientes', icon: DollarSign, permission: 'canManageClientLiquidationConcepts' },
-    { label: 'Gestión de Conceptos Liquidación Cuadrilla', href: '/gestion-conceptos-liquidacion-cuadrilla', icon: DollarSign, permission: 'canManageLiquidationConcepts' },
-    { label: 'Gestión de Estándares de Productividad Cuadrilla', href: '/gestion-estandares-cuadrilla', icon: Settings, permission: 'canManageStandards' },
-    { label: 'Gestión de Artículos', href: '/gestion-articulos', icon: Box, permission: 'canManageArticles' },
-    { label: 'Gestión de Clientes', href: '/gestion-clientes', icon: Users2, permission: 'canManageClients' },
-    { label: 'Gestión de Observaciones', href: '/gestion-observaciones', icon: ClipboardList, permission: 'canManageObservations' },
-    { label: 'Gestión de Usuarios', href: '/session-management', icon: ShieldCheck, permission: 'canManageSessions' },
+  const menuItems: { label: string; href: string; icon: React.FC<any>; permission: keyof AppPermissions, group: string }[] = [
+    { label: 'Consultar Formatos Guardados', href: '/consultar-formatos', icon: ScrollText, permission: 'canConsultForms', group: 'Operaciones Logísticas' },
+    { label: 'Informe Productividad Operarios', href: '/performance-report', icon: Timer, permission: 'canViewPerformanceReport', group: 'Operaciones Logísticas' },
+    
+    { label: 'Gestión de Conceptos', href: '/gestion-conceptos-liquidacion-clientes', icon: DollarSign, permission: 'canManageClientLiquidationConcepts', group: 'Gestión y Liquidación Clientes' },
+    { label: 'Registro de Op. Manuales', href: '/operaciones-manuales-clientes', icon: Edit, permission: 'canManageClientManualOperations', group: 'Gestión y Liquidación Clientes' },
+    { label: 'Informes de Facturación', href: '/billing-reports', icon: BookCopy, permission: 'canViewBillingReports', group: 'Gestión y Liquidación Clientes' },
+
+    { label: 'Gestión de Conceptos', href: '/gestion-conceptos-liquidacion-cuadrilla', icon: DollarSign, permission: 'canManageLiquidationConcepts', group: 'Gestión y Liquidación Cuadrilla' },
+    { label: 'Registro de Op. Manuales', href: '/operaciones-manuales-cuadrilla', icon: Edit, permission: 'canManageManualOperations', group: 'Gestión y Liquidación Cuadrilla' },
+    { label: 'Informe de Productividad', href: '/crew-performance-report', icon: TrendingUp, permission: 'canViewCrewPerformanceReport', group: 'Gestión y Liquidación Cuadrilla' },
+
+    { label: 'Gestión de Novedades', href: '/gestion-novedades', icon: ListPlus, permission: 'canManageNovelties', group: 'Gestión de Maestros' },
+    { label: 'Gestión de Tipos de Pedido', href: '/gestion-tipos-pedido', icon: ListTodo, permission: 'canManageOrderTypes', group: 'Gestión de Maestros' },
+    { label: 'Gestión de Artículos', href: '/gestion-articulos', icon: Box, permission: 'canManageArticles', group: 'Gestión de Maestros' },
+    { label: 'Gestión de Clientes', href: '/gestion-clientes', icon: Users2, permission: 'canManageClients', group: 'Gestión de Maestros' },
+    { label: 'Gestión de Observaciones', href: '/gestion-observaciones', icon: ClipboardList, permission: 'canManageObservations', group: 'Gestión de Maestros' },
+
+    { label: 'Gestión de Usuarios', href: '/session-management', icon: ShieldCheck, permission: 'canManageSessions', group: 'Parámetros y Seguridad' },
+    { label: 'Gestión de Estándares', href: '/gestion-estandares-cuadrilla', icon: Settings, permission: 'canManageStandards', group: 'Parámetros y Seguridad' },
   ];
 
-  const availableMenuItems = menuItems.filter(item => permissions[item.permission]);
+  const menuGroups = {
+    'Operaciones Logísticas': { icon: FileCog, items: [] as typeof menuItems },
+    'Gestión y Liquidación Clientes': { icon: Briefcase, items: [] as typeof menuItems },
+    'Gestión y Liquidación Cuadrilla': { icon: HardHat, items: [] as typeof menuItems },
+    'Gestión de Maestros': { icon: Wrench, items: [] as typeof menuItems },
+    'Parámetros y Seguridad': { icon: ShieldCheck, items: [] as typeof menuItems },
+  };
+
+  menuItems.forEach(item => {
+    if (permissions[item.permission] && menuGroups[item.group as keyof typeof menuGroups]) {
+      menuGroups[item.group as keyof typeof menuGroups].items.push(item);
+    }
+  });
+
+  const availableMenuGroups = Object.entries(menuGroups).filter(([, group]) => group.items.length > 0);
 
 
   if (loading || !user) {
@@ -191,32 +208,42 @@ export default function Home() {
                 </div>
             )}
 
-            {availableMenuItems.length > 0 && (
+            {availableMenuGroups.length > 0 && (
                 <div>
                     <Card className="w-full">
                         <CardHeader>
                             <CardTitle className="text-lg md:text-xl text-center text-primary">Consultas y Herramientas</CardTitle>
                         </CardHeader>
                         <CardContent>
-                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                                {availableMenuItems.map((item) => (
-                                    <button
-                                        key={item.href}
-                                        onClick={() => router.push(item.href)}
-                                        className="group text-left p-4 rounded-lg border bg-card hover:bg-primary/5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-primary"
-                                    >
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-3">
-                                                <div className="bg-primary/10 p-2 rounded-full">
-                                                    <item.icon className="h-6 w-6 text-primary" />
-                                                </div>
-                                                <span className="font-semibold text-card-foreground">{item.label}</span>
+                            <Accordion type="multiple" className="w-full space-y-2">
+                                {availableMenuGroups.map(([groupName, groupData]) => (
+                                    <AccordionItem value={groupName} key={groupName} className="border-b-0">
+                                        <AccordionTrigger className="bg-muted hover:bg-muted/90 rounded-md px-4 py-3 text-base">
+                                          <div className="flex items-center gap-3">
+                                            <groupData.icon className="h-5 w-5 text-primary"/>
+                                            {groupName}
+                                          </div>
+                                        </AccordionTrigger>
+                                        <AccordionContent className="pt-2">
+                                            <div className="pl-4 pr-1 space-y-2">
+                                                {groupData.items.map((item) => (
+                                                    <button
+                                                        key={item.href}
+                                                        onClick={() => router.push(item.href)}
+                                                        className="group flex w-full items-center justify-between text-left p-3 rounded-lg hover:bg-accent hover:text-accent-foreground transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-primary/50"
+                                                    >
+                                                        <div className="flex items-center gap-3">
+                                                            <item.icon className="h-5 w-5 text-muted-foreground group-hover:text-primary" />
+                                                            <span className="font-medium text-sm text-foreground">{item.label}</span>
+                                                        </div>
+                                                        <ArrowRight className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-transform duration-200" />
+                                                    </button>
+                                                ))}
                                             </div>
-                                            <ArrowRight className="h-5 w-5 text-muted-foreground opacity-0 group-hover:opacity-100 group-hover:translate-x-1 transition-all duration-200" />
-                                        </div>
-                                    </button>
+                                        </AccordionContent>
+                                    </AccordionItem>
                                 ))}
-                            </div>
+                            </Accordion>
                         </CardContent>
                     </Card>
                 </div>
