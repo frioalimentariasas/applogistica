@@ -13,7 +13,7 @@ import { es } from 'date-fns/locale';
 import { addManualClientOperation, updateManualClientOperation, deleteManualClientOperation, addBulkManualClientOperation } from './actions';
 import { getAllManualClientOperations } from '@/app/billing-reports/actions/generate-client-settlement';
 import type { ManualClientOperationData, ExcedentEntry } from './actions';
-import { useToast } from '@/hooks/use-toast';
+import { useToast } from '@/hooks/use-auth';
 import { useAuth } from '@/hooks/use-auth';
 import type { ClientInfo } from '@/app/actions/clients';
 import type { ClientBillingConcept, SpecificTariff } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
@@ -36,6 +36,7 @@ import { Separator } from '@/components/ui/separator';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { DateMultiSelector } from '@/components/app/date-multi-selector';
+import { Textarea } from '@/components/ui/textarea';
 
 
 const specificTariffEntrySchema = z.object({
@@ -71,6 +72,7 @@ const manualOperationSchema = z.object({
   quantity: z.coerce.number().min(0, 'La cantidad debe ser 0 o mayor.').optional(),
   numeroPersonas: z.coerce.number().int().min(1, "Debe ser al menos 1.").optional(),
   numeroPosiciones: z.coerce.number().int().min(1, 'Debe ingresar al menos una posición.').optional(),
+  comentarios: z.string().max(150, "Máximo 150 caracteres.").optional(),
   details: z.object({
       startTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM requerido.').optional().or(z.literal('')),
       endTime: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM requerido.').optional().or(z.literal('')),
@@ -169,6 +171,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
             quantity: 1,
             specificTariffs: [],
             numeroPersonas: 1,
+            comentarios: "",
             details: {
                 startTime: '',
                 endTime: '',
@@ -328,6 +331,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 operationDate: op.operationDate ? parseISO(op.operationDate) : undefined,
                 selectedDates: (op.selectedDates || []).map((d: string) => parseISO(d)),
                 details: op.details || {},
+                comentarios: op.comentarios || '',
             });
         } else {
             form.reset({
@@ -337,6 +341,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 quantity: 1,
                 specificTariffs: [],
                 numeroPersonas: 1,
+                comentarios: "",
                 details: { startTime: '', endTime: '', plate: '', container: '', totalPallets: null, arin: '' },
                 bulkRoles: [],
                 excedentes: [],
@@ -676,13 +681,15 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                 </div>
                                                 <FormField control={form.control} name="details.container" render={({ field }) => (<FormItem><FormLabel>Contenedor {showInspectionFields && <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Contenedor" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
                                                 {showInspectionFields && (
-                                                    <FormField control={form.control} name="details.arin" render={({ field }) => (<FormItem><FormLabel>ARIN <span className="text-destructive">*</span></FormLabel><FormControl><Input placeholder="Número de ARIN" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
+                                                    <FormField control={form.control} name="details.arin" render={({ field }) => (<FormItem><FormLabel>ARIN {showInspectionFields && <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Número de ARIN" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
                                                 )}
                                                 <FormField control={form.control} name="details.plate" render={({ field }) => (<FormItem><FormLabel>Placa (Opcional)</FormLabel><FormControl><Input placeholder="ABC123" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
                                                 <FormField control={form.control} name="details.totalPallets" render={({ field }) => (<FormItem><FormLabel>Total Paletas</FormLabel><FormControl><Input type="number" step="1" placeholder="Ej: 10" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value === '' ? null : parseInt(e.target.value, 10))}/></FormControl><FormMessage /></FormItem>)}/>
                                             </>
                                         )}
                                         
+                                        <FormField control={form.control} name="comentarios" render={({ field }) => (<FormItem><FormLabel>Comentarios</FormLabel><FormControl><Textarea placeholder="Añada un comentario..." {...field} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)}/>
+
                                         <DialogFooter>
                                             <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                                                 {dialogMode === 'view' ? 'Cerrar' : 'Cancelar'}
@@ -900,5 +907,3 @@ const ExcedentManager = () => {
         </div>
     )
 }
-
-    

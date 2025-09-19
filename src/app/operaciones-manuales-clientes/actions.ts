@@ -31,6 +31,7 @@ export interface ManualClientOperationData {
         totalPallets?: number;
         arin?: string;
     },
+    comentarios?: string;
     createdAt?: string; // ISO string for timestamping
     createdBy?: {
         uid: string;
