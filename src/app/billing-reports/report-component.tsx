@@ -1105,53 +1105,57 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         workbook.creator = 'Frio Alimentaria App';
         workbook.created = new Date();
     
-        // --- Hoja de Detalle ---
-        const detailWorksheet = workbook.addWorksheet('Detalle Liquidación');
+        const addHeaderAndTitle = (ws: ExcelJS.Worksheet, title: string) => {
+            const titleRow = ws.getCell('A2');
+            titleRow.value = title;
+            titleRow.font = { bold: true, size: 16 };
+            titleRow.alignment = { horizontal: 'center' };
+    
+            const periodRow = ws.getCell('A3');
+            periodRow.value = `Periodo: ${format(settlementDateRange.from!, 'dd/MM/yyyy', { locale: es })} - ${format(settlementDateRange.to!, 'dd/MM/yyyy', { locale: es })}`;
+            periodRow.font = { bold: true };
+            periodRow.alignment = { horizontal: 'center' };
+        };
+
         const headerFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A90C8' } };
         const headerFont: Partial<ExcelJS.Font> = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
         
+        // --- Hoja de Detalle ---
+        const detailWorksheet = workbook.addWorksheet('Detalle Liquidación');
         const detailColumns = [
-            { header: 'Fecha', key: 'date', width: 15 },
-            { header: 'Concepto', key: 'conceptName', width: 40 },
-            { header: 'Detalle Concepto', key: 'subConceptName', width: 40 },
-            { header: 'No. Personas', key: 'numeroPersonas', width: 15 },
-            { header: 'Total Paletas', key: 'totalPaletas', width: 15 },
-            { header: 'Contenedor', key: 'container', width: 20 },
-            { header: 'Cámara', key: 'camara', width: 20 },
-            { header: 'Pedido SISLOG', key: 'pedidoSislog', width: 20 },
-            { header: 'Op. Logística', key: 'operacionLogistica', width: 15 },
-            { header: 'Tipo Vehículo', key: 'tipoVehiculo', width: 15 },
-            { header: 'H. Inicio', key: 'horaInicio', width: 15 },
-            { header: 'H. Fin', key: 'horaFin', width: 15 },
-            { header: 'Cantidad', key: 'quantity', width: 15 },
-            { header: 'Unidad', key: 'unitOfMeasure', width: 15 },
-            { header: 'Valor Unitario', key: 'unitValue', width: 20 },
-            { header: 'Valor Total', key: 'totalValue', width: 20 },
+            { key: 'date', header: 'Fecha', width: 15 },
+            { key: 'conceptName', header: 'Concepto', width: 40 },
+            { key: 'subConceptName', header: 'Detalle Concepto', width: 40 },
+            { key: 'numeroPersonas', header: 'No. Personas', width: 15 },
+            { key: 'totalPaletas', header: 'Total Paletas', width: 15 },
+            { key: 'container', header: 'Contenedor', width: 20 },
+            { key: 'camara', header: 'Cámara', width: 20 },
+            { key: 'pedidoSislog', header: 'Pedido SISLOG', width: 20 },
+            { key: 'operacionLogistica', header: 'Op. Logística', width: 15 },
+            { key: 'tipoVehiculo', header: 'Tipo Vehículo', width: 15 },
+            { key: 'horaInicio', header: 'H. Inicio', width: 15 },
+            { key: 'horaFin', header: 'H. Fin', width: 15 },
+            { key: 'quantity', header: 'Cantidad', width: 15 },
+            { key: 'unitOfMeasure', header: 'Unidad', width: 15 },
+            { key: 'unitValue', header: 'Valor Unitario', width: 20 },
+            { key: 'totalValue', header: 'Valor Total', width: 20 },
         ];
-        
-        // --- Add headers and titles manually ---
-        detailWorksheet.addRow([]);
-        const titleRow = detailWorksheet.getCell('A2');
-        titleRow.value = `Liquidación Cliente: ${settlementClient}`;
-        titleRow.font = { bold: true, size: 16 };
-        detailWorksheet.mergeCells(2, 1, 2, detailColumns.length);
-        titleRow.alignment = { horizontal: 'center' };
+        detailWorksheet.columns = detailColumns;
+        detailWorksheet.spliceRows(1, 1); // Remove auto-generated header
 
-        const periodRow = detailWorksheet.getCell('A3');
-        periodRow.value = `Periodo: ${format(settlementDateRange.from, 'dd/MM/yyyy', { locale: es })} - ${format(settlementDateRange.to!, 'dd/MM/yyyy', { locale: es })}`;
-        periodRow.font = { bold: true };
+        addHeaderAndTitle(detailWorksheet, `Liquidación Cliente: ${settlementClient}`);
+        detailWorksheet.mergeCells(2, 1, 2, detailColumns.length);
         detailWorksheet.mergeCells(3, 1, 3, detailColumns.length);
-        periodRow.alignment = { horizontal: 'center' };
-        detailWorksheet.addRow([]);
-        
-        const detailHeaderRow = detailWorksheet.addRow(detailColumns.map(c => c.header));
+        detailWorksheet.getRow(4).values = []; // Spacer row
+
+        const detailHeaderRow = detailWorksheet.getRow(5);
+        detailHeaderRow.values = detailColumns.map(c => c.header);
         detailHeaderRow.eachCell((cell) => {
             cell.fill = headerFill;
             cell.font = headerFont;
             cell.alignment = { horizontal: 'center' };
         });
 
-        // --- Add data ---
         settlementReportData.forEach(row => {
             const rowData = {
                 date: format(parseISO(row.date), 'dd/MM/yyyy'),
@@ -1179,30 +1183,24 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
         // --- Hoja de Resumen ---
         const summaryWorksheet = workbook.addWorksheet('Resumen Liquidación');
-        
         const summaryColumns = [
-            { header: 'Fecha', key: 'date', width: 15 },
-            { header: 'Concepto', key: 'concept', width: 50 },
-            { header: 'Total Cantidad', key: 'totalQuantity', width: 20 },
-            { header: 'Unidad', key: 'unitOfMeasure', width: 15 },
-            { header: 'Total Valor', key: 'totalValue', width: 20 },
+            { key: 'date', header: 'Fecha', width: 15 },
+            { key: 'concept', header: 'Concepto', width: 50 },
+            { key: 'totalQuantity', header: 'Total Cantidad', width: 20 },
+            { key: 'unitOfMeasure', header: 'Unidad', width: 15 },
+            { key: 'totalValue', header: 'Total Valor', width: 20 },
         ];
-        
-        const summaryTitleRowCell = summaryWorksheet.getCell('A2');
-        summaryTitleRowCell.value = `Liquidación Cliente: ${settlementClient}`;
-        summaryTitleRowCell.font = { bold: true, size: 16 };
-        summaryWorksheet.mergeCells('A2:E2');
-        summaryTitleRowCell.alignment = { horizontal: 'center' };
+        summaryWorksheet.columns = summaryColumns;
+        summaryWorksheet.spliceRows(1, 1);
 
-        const summaryPeriodRowCell = summaryWorksheet.getCell('A3');
-        summaryPeriodRowCell.value = `Periodo: ${format(settlementDateRange.from, 'dd/MM/yyyy', { locale: es })} - ${format(settlementDateRange.to!, 'dd/MM/yyyy', { locale: es })}`;
-        summaryPeriodRowCell.font = { bold: true };
-        summaryWorksheet.mergeCells('A3:E3');
-        summaryPeriodRowCell.alignment = { horizontal: 'center' };
-        summaryWorksheet.addRow([]);
-        
-        const summaryHeaderRow = summaryWorksheet.addRow(summaryColumns.map(c => c.header));
-         summaryHeaderRow.eachCell((cell) => {
+        addHeaderAndTitle(summaryWorksheet, `Resumen Liquidación Cliente: ${settlementClient}`);
+        summaryWorksheet.mergeCells(2, 1, 2, summaryColumns.length);
+        summaryWorksheet.mergeCells(3, 1, 3, summaryColumns.length);
+        summaryWorksheet.getRow(4).values = [];
+
+        const summaryHeaderRow = summaryWorksheet.getRow(5);
+        summaryHeaderRow.values = summaryColumns.map(c => c.header);
+        summaryHeaderRow.eachCell((cell) => {
             cell.fill = headerFill;
             cell.font = headerFont;
             cell.alignment = { horizontal: 'center' };
@@ -1253,13 +1251,11 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 dailySubtotal += item.totalValue;
             });
 
-            // Add Daily Subtotal Row
             const subtotalRow = summaryWorksheet.addRow(['', 'Subtotal Día:', '', '', dailySubtotal]);
             subtotalRow.font = subtotalFont;
             subtotalRow.getCell('B').alignment = { horizontal: 'right' };
             subtotalRow.getCell('E').numFmt = '$ #,##0.00';
 
-            // Add Blue Separator Row
             const separatorRow = summaryWorksheet.addRow([]);
             separatorRow.eachCell(cell => cell.fill = blueFill);
         });
@@ -1286,9 +1282,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
         const margin = 14;
-        let finalY = 0;
-
-        const addHeader = (pageTitle: string) => {
+    
+        const addHeader = (doc: jsPDF, pageTitle: string) => {
             const logoWidth = 60;
             const aspectRatio = logoDimensions!.width / logoDimensions!.height;
             const logoHeight = logoWidth / aspectRatio;
@@ -1304,20 +1299,18 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             
             doc.setFontSize(12);
             doc.setFont('helvetica', 'bold');
-            doc.text(pageTitle, margin, 45);
+            doc.text(pageTitle, margin, 48); // Position the section title below the main header
         };
         
-        const addFooter = (pageNumber: number, totalPages: number) => {
+        const addFooter = (doc: jsPDF, pageNumber: number, totalPages: number) => {
             doc.setFontSize(8);
             doc.text(`Página ${pageNumber} de ${totalPages}`, pageWidth - margin, pageHeight - 10, { align: 'right' });
         };
-
+    
         // --- Summary Table ---
-        addHeader("Resumen por Día y Concepto");
-        
         const summaryByDayAndConcept = settlementReportData.reduce((acc, row) => {
             const date = format(parseISO(row.date), 'yyyy-MM-dd');
-            const concept = `${row.conceptName}${row.subConceptName ? ` - ${row.subConceptName}` : ''}`;
+            const concept = row.conceptName; // Group by main concept only
             const key = `${date}|${concept}`;
             if (!acc[key]) {
                 acc[key] = { date, concept, totalQuantity: 0, totalValue: 0, unitOfMeasure: row.unitOfMeasure };
@@ -1326,7 +1319,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             acc[key].totalValue += row.totalValue;
             return acc;
         }, {} as Record<string, { date: string; concept: string; totalQuantity: number; totalValue: number; unitOfMeasure: string }>);
-
+    
         const summaryBody: any[] = [];
         const groupedByDay = Object.values(summaryByDayAndConcept).reduce((acc, item) => {
             if (!acc[item.date]) acc[item.date] = [];
@@ -1353,27 +1346,69 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             ]);
             summaryBody.push([{ content: '', colSpan: 5, styles: { cellPadding: 0.5, fillColor: [26, 144, 200] } }]);
         });
-
-
+    
         const totalGeneral = settlementReportData.reduce((sum, row) => sum + (row.totalValue || 0), 0);
         const summaryHead = [['Fecha', 'Concepto', 'Total Cantidad', 'Unidad', 'Total Valor']];
         const summaryFoot = [[
             { content: 'TOTAL GENERAL:', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold' } },
             { content: totalGeneral.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } }
         ]];
+    
+        let finalY = 0;
+        let totalPages = 0;
 
+        // First pass to calculate total pages for the summary
+        const summaryDoc = new jsPDF({ orientation: 'landscape' });
+        autoTable(summaryDoc, {
+            head: summaryHead, body: summaryBody, foot: summaryFoot,
+            startY: 55, // Start after the header
+            didDrawPage: (data) => {
+                addHeader(summaryDoc, "Resumen por Día y Concepto");
+            },
+            didDrawCell: (data) => {
+                if (data.row.raw && Array.isArray(data.row.raw) && (data.row.raw as any[]).every(cell => cell.content === '')) {
+                    summaryDoc.setFillColor(26, 144, 200);
+                    summaryDoc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
+                }
+            }
+        });
+        const summaryPageCount = (summaryDoc as any).internal.getNumberOfPages();
+        
+        // Second pass for detail table
+        const detailDoc = new jsPDF({ orientation: 'landscape' });
+        const detailHead = [['Fecha', 'Concepto', 'Detalle', 'Personas', 'Paletas', 'Cámara', 'Contenedor', 'Pedido', 'Op. Log.', 'H. Inicio', 'H. Fin', 'Cant.', 'Unidad', 'Vlr. Unit.', 'Vlr. Total']];
+        const detailBody = settlementReportData.map(row => [
+            format(parseISO(row.date), 'dd/MM/yy'), row.conceptName, row.subConceptName || '',
+            row.numeroPersonas || '', row.totalPaletas > 0 ? row.totalPaletas : '', getSessionName(row.camara),
+            row.container, row.pedidoSislog, row.operacionLogistica, formatTime12Hour(row.horaInicio),
+            formatTime12Hour(row.horaFin), row.quantity.toLocaleString('es-CO', { minimumFractionDigits: 2 }),
+            row.unitOfMeasure, row.unitValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }),
+            row.totalValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
+        ]);
+        autoTable(detailDoc, {
+            head: detailHead, body: detailBody,
+            startY: 55,
+            didDrawPage: (data) => {
+                addHeader(detailDoc, "Detalle de Operaciones");
+            },
+        });
+        const detailPageCount = (detailDoc as any).internal.getNumberOfPages();
+        totalPages = summaryPageCount + detailPageCount;
+
+
+        // Final rendering pass
         autoTable(doc, {
             head: summaryHead, body: summaryBody, foot: summaryFoot,
-            startY: 50,
-            headStyles: { fillColor: [26, 144, 200], fontSize: 8 }, 
+            startY: 55,
+            headStyles: { fillColor: [26, 144, 200], fontSize: 8 },
             footStyles: { fillColor: [26, 144, 200], textColor: '#ffffff', fontSize: 9 },
             styles: { fontSize: 7, cellPadding: 1.5 },
             columnStyles: { 2: { halign: 'right' }, 4: { halign: 'right' } },
             didDrawPage: (data) => {
-                addHeader("Resumen por Día y Concepto");
-                addFooter(data.pageNumber, data.pageCount);
+                addHeader(doc, "Resumen por Día y Concepto");
+                addFooter(doc, data.pageNumber, totalPages);
             },
-             didDrawCell: (data) => {
+            didDrawCell: (data) => {
                 if (data.row.raw && Array.isArray(data.row.raw) && (data.row.raw as any[]).every(cell => cell.content === '')) {
                     doc.setFillColor(26, 144, 200);
                     doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
@@ -1383,36 +1418,17 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         
         finalY = (doc as any).lastAutoTable.finalY || finalY;
         
-        // --- Detail Page ---
         doc.addPage();
-        const detailHead = [['Fecha', 'Concepto', 'Detalle', 'Personas', 'Paletas', 'Cámara', 'Contenedor', 'Pedido', 'Op. Log.', 'H. Inicio', 'H. Fin', 'Cant.', 'Unidad', 'Vlr. Unit.', 'Vlr. Total']];
-        const detailBody = settlementReportData.map(row => [
-            format(parseISO(row.date), 'dd/MM/yy'),
-            row.conceptName,
-            row.subConceptName || '',
-            row.numeroPersonas || '',
-            row.totalPaletas > 0 ? row.totalPaletas : '',
-            getSessionName(row.camara),
-            row.container,
-            row.pedidoSislog,
-            row.operacionLogistica,
-            formatTime12Hour(row.horaInicio),
-            formatTime12Hour(row.horaFin),
-            row.quantity.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-            row.unitOfMeasure,
-            row.unitValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }),
-            row.totalValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
-        ]);
         
         autoTable(doc, {
             head: detailHead, body: detailBody,
-            startY: 50,
+            startY: 55,
             headStyles: { fillColor: [26, 144, 200], fontSize: 6 },
             styles: { fontSize: 6, cellPadding: 1 },
             columnStyles: { 11: { halign: 'right' }, 13: { halign: 'right' }, 14: { halign: 'right' } },
             didDrawPage: (data) => {
-                addHeader("Detalle de Operaciones");
-                addFooter(data.pageNumber, (doc as any).internal.getNumberOfPages());
+                addHeader(doc, "Detalle de Operaciones");
+                addFooter(doc, data.pageNumber + summaryPageCount -1, totalPages);
             }
         });
         
@@ -2492,5 +2508,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
 
     
+
+    
+
 
     
