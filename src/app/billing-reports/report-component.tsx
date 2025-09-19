@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import * as React from 'react';
@@ -34,7 +35,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, ChevronsUpDown, BookCopy, FileDown, File, Upload, FolderSearch, Trash2, Edit, CheckCircle2, DollarSign, ExternalLink, Edit2, Undo, Info, Pencil, History } from 'lucide-react';
+import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, ChevronsUpDown, BookCopy, FileDown, File, Upload, FolderSearch, Trash2, Edit, CheckCircle2, DollarSign, ExternalLink, Edit2, Undo, Info, Pencil, History, Undo2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
@@ -227,6 +228,10 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const [isSettlementClientDialogOpen, setIsSettlementClientDialogOpen] = useState(false);
     const [settlementClientSearch, setSettlementClientSearch] = useState("");
     const [isSettlementConceptDialogOpen, setIsSettlementConceptDialogOpen] = useState(false);
+    const [rowToEdit, setRowToEdit] = useState<ClientSettlementRow | null>(null);
+    const [isEditSettlementRowOpen, setIsEditSettlementRowOpen] = useState(false);
+    const [originalSettlementData, setOriginalSettlementData] = useState<ClientSettlementRow[]>([]);
+
     
     const [isIndexErrorOpen, setIsIndexErrorOpen] = useState(false);
     const [indexErrorMessage, setIndexErrorMessage] = useState('');
@@ -1070,6 +1075,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         setIsSettlementLoading(true);
         setSettlementSearched(true);
         setSettlementReportData([]);
+        setOriginalSettlementData([]);
         try {
             const result = await generateClientSettlement({
                 clientName: settlementClient,
@@ -1080,7 +1086,9 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             });
             
             if (result.success && result.data) {
-                setSettlementReportData(result.data);
+                const dataWithIds = result.data.map((row, index) => ({...row, uniqueId: `${row.date}-${row.conceptName}-${index}`}));
+                setSettlementReportData(dataWithIds);
+                setOriginalSettlementData(JSON.parse(JSON.stringify(dataWithIds)));
                 if(result.data.length === 0) {
                     toast({ title: "Sin resultados", description: "No se encontraron operaciones para liquidar con los filtros seleccionados." });
                 }
@@ -1102,6 +1110,26 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             }
         } finally {
             setIsSettlementLoading(false);
+        }
+    };
+
+    const handleSaveRowEdit = (updatedRow: ClientSettlementRow) => {
+        setSettlementReportData(prevData =>
+            prevData.map(row =>
+                row.uniqueId === updatedRow.uniqueId
+                    ? { ...updatedRow, isEdited: true }
+                    : row
+            )
+        );
+        setIsEditSettlementRowOpen(false);
+    };
+
+    const handleRestoreRow = (uniqueId: string) => {
+        const originalRow = originalSettlementData.find(row => row.uniqueId === uniqueId);
+        if (originalRow) {
+            setSettlementReportData(prevData =>
+                prevData.map(row => (row.uniqueId === uniqueId ? originalRow : row))
+            );
         }
     };
     
@@ -1286,149 +1314,144 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     };
     
     const handleSettlementExportPDF = () => {
-      if (settlementReportData.length === 0 || !settlementClient || !settlementDateRange?.from || isLogoLoading || !logoBase64 || !logoDimensions) return;
-  
-      const doc = new jsPDF({ orientation: 'landscape' });
-      const pageWidth = doc.internal.pageSize.getWidth();
-      const pageHeight = doc.internal.pageSize.getHeight();
-      const margin = 14;
-      let lastY = 0;
-  
-      const addPageHeader = () => {
-          const logoWidth = 40; 
-          const aspectRatio = logoDimensions!.width / logoDimensions!.height;
-          const logoHeight = logoWidth / aspectRatio;
-          const logoX = (pageWidth - logoWidth) / 2;
-          doc.addImage(logoBase64!, 'PNG', logoX, 10, logoWidth, logoHeight);
-          
-          let currentY = 10 + logoHeight + 4;
-          doc.setFontSize(14);
-          doc.setFont('helvetica', 'bold');
-          doc.text("Liquidación de Servicios al Cliente", pageWidth / 2, currentY, { align: 'center' });
-          
-          currentY += 6;
-          doc.setFontSize(10);
-          doc.setFont('helvetica', 'normal');
-          doc.text(`Cliente: ${settlementClient}`, pageWidth / 2, currentY, { align: 'center' });
-          
-          currentY += 5;
-          doc.text(`Periodo: ${format(settlementDateRange!.from!, 'dd/MM/yyyy')} - ${format(settlementDateRange!.to!, 'dd/MM/yyyy')}`, pageWidth / 2, currentY, { align: 'center' });
-          
-          return currentY + 8;
-      };
+        if (settlementReportData.length === 0 || !settlementClient || !settlementDateRange?.from || isLogoLoading || !logoBase64 || !logoDimensions) return;
+    
+        const doc = new jsPDF({ orientation: 'landscape' });
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const margin = 14;
+        let lastY = 0;
+    
+        const addHeader = () => {
+            const logoWidth = 30; // Reduced logo size
+            const aspectRatio = logoDimensions!.width / logoDimensions!.height;
+            const logoHeight = logoWidth / aspectRatio;
+            doc.addImage(logoBase64!, 'PNG', (pageWidth - logoWidth) / 2, 10, logoWidth, logoHeight);
+    
+            let currentY = 10 + logoHeight + 6;
+            doc.setFontSize(14);
+            doc.setFont('helvetica', 'bold');
+            doc.text("Liquidación de Servicios al Cliente", pageWidth / 2, currentY, { align: 'center' });
+    
+            currentY += 6;
+            doc.setFontSize(10);
+            doc.setFont('helvetica', 'normal');
+            doc.text(`Cliente: ${settlementClient}`, pageWidth / 2, currentY, { align: 'center' });
+    
+            currentY += 5;
+            doc.text(`Periodo: ${format(settlementDateRange!.from!, 'dd/MM/yyyy')} - ${format(settlementDateRange!.to!, 'dd/MM/yyyy')}`, pageWidth / 2, currentY, { align: 'center' });
+    
+            return currentY + 10;
+        };
+    
+        lastY = addHeader();
+    
+        // --- Summary Table ---
+        const summaryByDayAndConcept = settlementReportData.reduce((acc, row) => {
+            const date = format(parseISO(row.date), 'yyyy-MM-dd');
+            const concept = row.conceptName;
+            const key = `${date}|${concept}`;
+            if (!acc[key]) {
+                acc[key] = { date, concept, totalQuantity: 0, totalValue: 0, unitOfMeasure: row.unitOfMeasure };
+            }
+            acc[key].totalQuantity += row.quantity;
+            acc[key].totalValue += row.totalValue;
+            return acc;
+        }, {} as Record<string, { date: string; concept: string; totalQuantity: number; totalValue: number; unitOfMeasure: string }>);
+    
+        const summaryBody: any[] = [];
+        const groupedByDay = Object.values(summaryByDayAndConcept).reduce((acc, item) => {
+            if (!acc[item.date]) acc[item.date] = [];
+            acc[item.date].push(item);
+            return acc;
+        }, {} as Record<string, any[]>);
+    
+        Object.keys(groupedByDay).sort((a,b) => a.localeCompare(b)).forEach(date => {
+            const items = groupedByDay[date];
+            let dailySubtotal = 0;
+            items.forEach(item => {
+                summaryBody.push([
+                    format(parseISO(item.date), 'dd/MM/yyyy'),
+                    item.concept,
+                    item.totalQuantity.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+                    item.unitOfMeasure,
+                    item.totalValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
+                ]);
+                dailySubtotal += item.totalValue;
+            });
+            summaryBody.push([
+                { content: `Subtotal Día ${format(parseISO(date), 'dd/MM/yyyy')}:`, colSpan: 4, styles: { halign: 'right', fontStyle: 'bold' } },
+                { content: dailySubtotal.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } }
+            ]);
+        });
+    
+        const totalGeneralSummary = Object.values(summaryByDayAndConcept).reduce((sum, item) => sum + (item.totalValue || 0), 0);
+        
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text("Resumen por Día y Concepto", pageWidth / 2, lastY, { align: 'center' });
+        lastY += 8;
 
-      const addTableTitle = (title: string, yPos: number) => {
-          doc.setFontSize(12);
-          doc.setFont('helvetica', 'bold');
-          doc.text(title, pageWidth / 2, yPos, { align: 'center' });
-          return yPos + 8;
-      };
-      
-      // --- Summary Table ---
-      const summaryByDayAndConcept = settlementReportData.reduce((acc, row) => {
-          const date = format(parseISO(row.date), 'yyyy-MM-dd');
-          const concept = row.conceptName;
-          const key = `${date}|${concept}`;
-          if (!acc[key]) {
-              acc[key] = { date, concept, totalQuantity: 0, totalValue: 0, unitOfMeasure: row.unitOfMeasure };
-          }
-          acc[key].totalQuantity += row.quantity;
-          acc[key].totalValue += row.totalValue;
-          return acc;
-      }, {} as Record<string, { date: string; concept: string; totalQuantity: number; totalValue: number; unitOfMeasure: string }>);
-  
-      const summaryBody: any[] = [];
-      const groupedByDay = Object.values(summaryByDayAndConcept).reduce((acc, item) => {
-          if (!acc[item.date]) acc[item.date] = [];
-          acc[item.date].push(item);
-          return acc;
-      }, {} as Record<string, any[]>);
-  
-      Object.keys(groupedByDay).sort((a,b) => a.localeCompare(b)).forEach(date => {
-          const items = groupedByDay[date];
-          let dailySubtotal = 0;
-          items.forEach(item => {
-              summaryBody.push([
-                  format(parseISO(item.date), 'dd/MM/yyyy'),
-                  item.concept,
-                  item.totalQuantity.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-                  item.unitOfMeasure,
-                  item.totalValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
-              ]);
-              dailySubtotal += item.totalValue;
-          });
-          summaryBody.push([
-              { content: `Subtotal Día ${format(parseISO(date), 'dd/MM/yyyy')}:`, colSpan: 4, styles: { halign: 'right', fontStyle: 'bold' } },
-              { content: dailySubtotal.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } }
-          ]);
-          summaryBody.push([{ content: '', colSpan: 5, styles: { cellPadding: 0.5, fillColor: [219, 229, 241] } }]);
-      });
-  
-      const totalGeneralSummary = Object.values(summaryByDayAndConcept).reduce((sum, item) => sum + (item.totalValue || 0), 0);
-      const summaryHead = [['Fecha', 'Concepto', 'Total Cantidad', 'Unidad', 'Total Valor']];
-      
-      doc.autoTable({
-          head: summaryHead,
-          body: summaryBody,
-          startY: addTableTitle("Resumen por Día y Concepto", addPageHeader()),
-          pageBreak: 'auto',
-          didDrawPage: (data) => {
-              if (data.pageNumber > 1) { addPageHeader(); }
-          },
-          theme: 'grid',
-          headStyles: { fillColor: [26, 144, 200], fontSize: 8 },
-          styles: { fontSize: 7, cellPadding: 1.5 },
-          columnStyles: { 2: { halign: 'right' }, 4: { halign: 'right' } },
-          didParseCell: (data) => {
-              if (data.row.raw && Array.isArray(data.row.raw) && (data.row.raw as any[]).every(cell => cell.content === '')) {
-                  const cell = data.cell;
-                  cell.styles.fillColor = [219, 229, 241];
-              }
-          },
-          foot: [[
-              { content: 'TOTAL GENERAL RESUMEN:', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } },
-              { content: totalGeneralSummary.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } }
-          ]],
-          footStyles: { fontStyle: 'bold' }
-      });
-      lastY = (doc as any).lastAutoTable.finalY || lastY;
-      
-      // --- Detail Table ---
-      doc.addPage();
-      lastY = addTableTitle("Detalle de Operaciones", addPageHeader());
-      
-      const detailHead = [['Fecha', 'Concepto', 'Detalle', 'Personas', 'Paletas', 'Cámara', 'Contenedor', 'Pedido', 'Op. Log.', 'H. Inicio', 'H. Fin', 'Cant.', 'Unidad', 'Vlr. Unit.', 'Vlr. Total']];
-      const detailBody = settlementReportData.map(row => [
-          format(parseISO(row.date), 'dd/MM/yy'), row.conceptName, row.subConceptName || '',
-          row.numeroPersonas || '', row.totalPaletas > 0 ? row.totalPaletas : '', getSessionName(row.camara),
-          row.container, row.pedidoSislog, row.operacionLogistica, formatTime12Hour(row.horaInicio),
-          formatTime12Hour(row.horaFin), row.quantity.toLocaleString('es-CO', { minimumFractionDigits: 2 }),
-          row.unitOfMeasure, row.unitValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }),
-          row.totalValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
-      ]);
-      const totalGeneralDetail = settlementReportData.reduce((sum, row) => sum + row.totalValue, 0);
-      
-      doc.autoTable({
-          head: detailHead,
-          body: detailBody,
-          startY: lastY,
-          pageBreak: 'auto',
-          didDrawPage: (data) => {
-              if (data.pageNumber > 1) { addPageHeader(); }
-          },
-          headStyles: { fillColor: [26, 144, 200], fontSize: 6 },
-          styles: { fontSize: 6, cellPadding: 1 },
-          columnStyles: { 11: { halign: 'right' }, 13: { halign: 'right' }, 14: { halign: 'right' } },
-           foot: [[
-              { content: 'TOTAL GENERAL DETALLE:', colSpan: 14, styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } },
-              { content: totalGeneralDetail.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } }
-          ]],
-          footStyles: { fontStyle: 'bold' }
-      });
-      
-      const fileName = `Liquidacion_${settlementClient.replace(/\s/g, '_')}_${format(settlementDateRange!.from!, 'yyyy-MM-dd')}_a_${format(settlementDateRange!.to!, 'yyyy-MM-dd')}.pdf`;
-      doc.save(fileName);
-  };
+        autoTable(doc, {
+            head: [['Fecha', 'Concepto', 'Total Cantidad', 'Unidad', 'Total Valor']],
+            body: summaryBody,
+            foot: [[
+                { content: 'TOTAL GENERAL RESUMEN:', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } },
+                { content: totalGeneralSummary.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } }
+            ]],
+            startY: lastY,
+            pageBreak: 'auto',
+            didDrawPage: (data) => {
+                if (data.pageNumber > 1) { addHeader(); }
+            },
+            theme: 'grid',
+            headStyles: { fillColor: [26, 144, 200], fontSize: 8 },
+            styles: { fontSize: 7, cellPadding: 1.5 },
+            columnStyles: { 2: { halign: 'right' }, 4: { halign: 'right' } },
+            footStyles: { fontStyle: 'bold' }
+        });
+        lastY = (doc as any).lastAutoTable.finalY + 15;
+    
+        // --- Detail Table ---
+        doc.addPage();
+        lastY = addHeader();
+        
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text("Detalle de Operaciones", pageWidth / 2, lastY, { align: 'center' });
+        lastY += 8;
+
+        const detailBody = settlementReportData.map(row => [
+            format(parseISO(row.date), 'dd/MM/yy'),
+            row.conceptName + (row.subConceptName ? ` (${row.subConceptName})` : ''),
+            row.numeroPersonas || '', row.totalPaletas > 0 ? row.totalPaletas : '', getSessionName(row.camara),
+            row.container, row.pedidoSislog, row.operacionLogistica, row.tipoVehiculo, formatTime12Hour(row.horaInicio),
+            formatTime12Hour(row.horaFin), row.quantity.toLocaleString('es-CO', { minimumFractionDigits: 2 }),
+            row.unitOfMeasure, row.unitValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }),
+            row.totalValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
+        ]);
+        const totalGeneralDetail = settlementReportData.reduce((sum, row) => sum + row.totalValue, 0);
+    
+        autoTable(doc, {
+            head: [['Fecha', 'Concepto / Detalle', 'Personas', 'Paletas', 'Cámara', 'Contenedor', 'Pedido', 'Op. Log.', 'T. Vehículo', 'H. Inicio', 'H. Fin', 'Cant.', 'Unidad', 'Vlr. Unit.', 'Vlr. Total']],
+            body: detailBody,
+            foot: [[
+                { content: 'TOTAL GENERAL DETALLE:', colSpan: 14, styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } },
+                { content: totalGeneralDetail.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } }
+            ]],
+            startY: lastY,
+            pageBreak: 'auto',
+            didDrawPage: (data) => {
+                if (data.pageNumber > 1) { addHeader(); }
+            },
+            headStyles: { fillColor: [26, 144, 200], fontSize: 6 },
+            styles: { fontSize: 6, cellPadding: 1 },
+            columnStyles: { 11: { halign: 'right' }, 13: { halign: 'right' }, 14: { halign: 'right' } },
+            footStyles: { fontStyle: 'bold' }
+        });
+    
+        const fileName = `Liquidacion_${settlementClient.replace(/\s/g, '_')}_${format(settlementDateRange!.from!, 'yyyy-MM-dd')}_a_${format(settlementDateRange!.to!, 'yyyy-MM-dd')}.pdf`;
+        doc.save(fileName);
+    };
 
     const getTipoPedidoButtonText = () => {
         if (detailedReportTipoPedido.length === 0) return "Todos";
@@ -2394,20 +2417,21 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                     <TableHead className="text-xs p-2">Unidad</TableHead>
                                                     <TableHead className="text-right text-xs p-2">Valor Unitario</TableHead>
                                                     <TableHead className="text-right text-xs p-2">Valor Total</TableHead>
+                                                    <TableHead className="text-right text-xs p-2">Acciones</TableHead>
                                                 </TableRow>
                                             </TableHeader>
                                             <TableBody>
                                                 {isSettlementLoading ? (
-                                                    Array.from({length: 3}).map((_, i) => <TableRow key={i}><TableCell colSpan={15}><Skeleton className="h-8 w-full"/></TableCell></TableRow>)
+                                                    Array.from({length: 3}).map((_, i) => <TableRow key={i}><TableCell colSpan={16}><Skeleton className="h-8 w-full"/></TableCell></TableRow>)
                                                 ) : settlementGroupedData && Object.keys(settlementGroupedData).length > 0 ? (
                                                     <>
                                                         {Object.keys(settlementGroupedData).map(conceptName => (
                                                             <React.Fragment key={conceptName}>
                                                                 <TableRow className="bg-muted hover:bg-muted">
-                                                                    <TableCell colSpan={15} className="font-bold text-primary text-sm p-2">{conceptName}</TableCell>
+                                                                    <TableCell colSpan={16} className="font-bold text-primary text-sm p-2">{conceptName}</TableCell>
                                                                 </TableRow>
-                                                                {settlementGroupedData[conceptName].rows.map((row, i) => (
-                                                                    <TableRow key={`${row.date}-${row.conceptName}-${i}`}>
+                                                                {settlementGroupedData[conceptName].rows.map((row) => (
+                                                                    <TableRow key={row.uniqueId}>
                                                                         <TableCell className="text-xs p-2">{format(parseISO(row.date), 'dd/MM/yyyy', { locale: es })}</TableCell>
                                                                         <TableCell className="text-xs p-2 whitespace-normal">{row.subConceptName}</TableCell>
                                                                         <TableCell className="text-xs p-2">{row.numeroPersonas || ''}</TableCell>
@@ -2423,11 +2447,21 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                         <TableCell className="text-xs p-2">{row.unitOfMeasure}</TableCell>
                                                                         <TableCell className="text-right text-xs p-2">{row.unitValue.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
                                                                         <TableCell className="text-right font-bold text-xs p-2">{row.totalValue.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
+                                                                        <TableCell className="text-right p-1">
+                                                                            {row.isEdited ? (
+                                                                                <Button variant="ghost" size="sm" onClick={() => handleRestoreRow(row.uniqueId)}>
+                                                                                    <Undo2 className="mr-2 h-4 w-4" /> Restaurar
+                                                                                </Button>
+                                                                            ) : (
+                                                                                <Button variant="ghost" size="icon" onClick={() => { setRowToEdit(row); setIsEditSettlementRowOpen(true); }}>
+                                                                                    <Edit2 className="h-4 w-4" />
+                                                                                </Button>
+                                                                            )}
+                                                                        </TableCell>
                                                                     </TableRow>
                                                                 ))}
                                                                 <TableRow className="bg-secondary hover:bg-secondary/80 font-bold">
-                                                                    <TableCell colSpan={12} className="text-right text-xs p-2">SUBTOTAL {conceptName}:</TableCell>
-                                                                    <TableCell className="text-xs p-2">{settlementGroupedData[conceptName].subtotalCantidad.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
+                                                                    <TableCell colSpan={13} className="text-right text-xs p-2">SUBTOTAL {conceptName}:</TableCell>
                                                                     <TableCell colSpan={1} className="text-xs p-2"></TableCell>
                                                                     <TableCell className="text-right text-xs p-2" colSpan={2}>{settlementGroupedData[conceptName].subtotalValor.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
                                                                 </TableRow>
@@ -2435,11 +2469,11 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                         ))}
                                                         <TableRow className="bg-primary hover:bg-primary text-primary-foreground font-bold text-base">
                                                             <TableCell colSpan={14} className="text-right p-2">TOTAL GENERAL:</TableCell>
-                                                            <TableCell className="text-right p-2">{settlementTotalGeneral.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
+                                                            <TableCell className="text-right p-2" colSpan={2}>{settlementTotalGeneral.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
                                                         </TableRow>
                                                     </>
                                                 ) : (
-                                                    <TableRow><TableCell colSpan={15} className="h-24 text-center">No se encontraron datos para liquidar.</TableCell></TableRow>
+                                                    <TableRow><TableCell colSpan={16} className="h-24 text-center">No se encontraron datos para liquidar.</TableCell></TableRow>
                                                 )}
                                             </TableBody>
                                         </Table>
@@ -2490,7 +2524,67 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 onOpenChange={setIsIndexErrorOpen}
                 errorMessage={indexErrorMessage}
             />
+            {rowToEdit && <EditSettlementRowDialog isOpen={isEditSettlementRowOpen} onOpenChange={setIsEditSettlementRowOpen} row={rowToEdit} onSave={handleSaveRowEdit} />}
         </div>
+    );
+}
+
+function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen: boolean; onOpenChange: (open: boolean) => void; row: ClientSettlementRow; onSave: (updatedRow: ClientSettlementRow) => void; }) {
+    const [editedRow, setEditedRow] = useState<ClientSettlementRow>(row);
+
+    useEffect(() => {
+        setEditedRow(row);
+    }, [row]);
+
+    const handleSave = () => {
+        const newTotal = (editedRow.quantity || 0) * (editedRow.unitValue || 0);
+        onSave({ ...editedRow, totalValue: newTotal });
+    };
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+        const { name, value } = e.target;
+        setEditedRow(prev => ({ ...prev, [name]: name === 'quantity' || name === 'unitValue' ? parseFloat(value) : value }));
+    };
+
+    return (
+        <Dialog open={isOpen} onOpenChange={onOpenChange}>
+            <DialogContent>
+                <DialogHeader>
+                    <DialogTitle>Editar Liquidación Manualmente</DialogTitle>
+                    <DialogDescription>Ajuste los valores para este registro. El cambio solo se aplicará a esta liquidación.</DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4 py-4">
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label>Concepto</Label>
+                            <Input value={editedRow.conceptName} disabled />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="tipoVehiculo">Tipo Vehículo</Label>
+                            <Input id="tipoVehiculo" name="tipoVehiculo" value={editedRow.tipoVehiculo} onChange={handleChange} />
+                        </div>
+                    </div>
+                     <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="quantity">Cantidad</Label>
+                            <Input id="quantity" name="quantity" type="number" value={editedRow.quantity} onChange={handleChange} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="unitValue">Valor Unitario</Label>
+                            <Input id="unitValue" name="unitValue" type="number" value={editedRow.unitValue} onChange={handleChange} />
+                        </div>
+                    </div>
+                     <div className="space-y-2">
+                        <Label>Comentarios de justificación</Label>
+                        <Textarea placeholder="Opcional: explique por qué se realizó este cambio manual." />
+                    </div>
+                </div>
+                <DialogFooter>
+                    <Button variant="outline" onClick={() => onOpenChange(false)}>Cancelar</Button>
+                    <Button onClick={handleSave}>Guardar Cambios</Button>
+                </DialogFooter>
+            </DialogContent>
+        </Dialog>
     );
 }
 
