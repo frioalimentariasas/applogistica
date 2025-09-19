@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -666,8 +667,25 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                         {selectedConceptInfo?.tariffType === 'ESPECIFICA' && !isBulkMode && !isPositionMode && (
                                              <TariffSelector form={form} selectedConceptInfo={selectedConceptInfo} dialogMode={dialogMode} />
                                         )}
-                                        {selectedConceptInfo?.tariffType === 'UNICA' && !isFixedMonthlyService && (
-                                             <FormField control={form.control} name="quantity" render={({ field }) => (<FormItem><FormLabel>Cantidad</FormLabel><FormControl><Input type="number" step="0.01" placeholder="Ej: 1.5" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)}/>
+                                        
+                                        {selectedConceptInfo?.unitOfMeasure && selectedConceptInfo.tariffType === 'UNICA' && !isFixedMonthlyService && (
+                                            <>
+                                                <FormItem>
+                                                    <FormLabel>Unidad de Medida</FormLabel>
+                                                    <Input disabled value={selectedConceptInfo.unitOfMeasure} />
+                                                </FormItem>
+                                                <FormField
+                                                    control={form.control}
+                                                    name="quantity"
+                                                    render={({ field }) => (
+                                                        <FormItem>
+                                                            <FormLabel>Cantidad</FormLabel>
+                                                            <FormControl><Input type="number" step="0.01" placeholder="Ej: 1.5" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl>
+                                                            <FormMessage />
+                                                        </FormItem>
+                                                    )}
+                                                />
+                                            </>
                                         )}
                                         
                                         {(showAdvancedFields || dialogMode === 'view') && (
