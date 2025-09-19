@@ -24,5 +24,5 @@ if (firebaseConfig.projectId && firebaseConfig.apiKey) {
   storage = getStorage(app);
   db = getFirestore(app);
 }
-
 export { app, auth, storage, db };
+
