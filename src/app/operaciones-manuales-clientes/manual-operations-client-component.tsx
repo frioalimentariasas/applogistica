@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -13,7 +12,7 @@ import { es } from 'date-fns/locale';
 import { addManualClientOperation, updateManualClientOperation, deleteManualClientOperation, addBulkManualClientOperation } from './actions';
 import { getAllManualClientOperations } from '@/app/billing-reports/actions/generate-client-settlement';
 import type { ManualClientOperationData, ExcedentEntry } from './actions';
-import { useToast } from '@/hooks/use-auth';
+import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import type { ClientInfo } from '@/app/actions/clients';
 import type { ClientBillingConcept, SpecificTariff } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
@@ -668,7 +667,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                              <TariffSelector form={form} selectedConceptInfo={selectedConceptInfo} dialogMode={dialogMode} />
                                         )}
                                         {selectedConceptInfo?.tariffType === 'UNICA' && !isFixedMonthlyService && (
-                                             <FormField control={form.control} name="quantity" render={({ field }) => (<FormItem><FormLabel>Cantidad</FormLabel><FormControl><Input type="number" step="0.01" placeholder="Ej: 1.5" {...field} value={field.value ?? ''} disabled={dialogMode === 'view' || selectedConceptInfo?.conceptName === 'INSPECCIÓN ZFPC'} /></FormControl><FormMessage /></FormItem>)}/>
+                                             <FormField control={form.control} name="quantity" render={({ field }) => (<FormItem><FormLabel>Cantidad</FormLabel><FormControl><Input type="number" step="0.01" placeholder="Ej: 1.5" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)}/>
                                         )}
                                         
                                         {(showAdvancedFields || dialogMode === 'view') && (
@@ -792,7 +791,7 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any, 
                                                                 <FormItem>
                                                                     <div className="flex items-center gap-2">
                                                                         <FormLabel className="text-xs">Cant:</FormLabel>
-                                                                        <FormControl><Input type="number" step="0.1" className="h-7 w-24" {...qtyField} disabled={dialogMode === 'view'} /></FormControl>
+                                                                        <FormControl><Input type="number" step="0.1" className="h-7 w-24" {...qtyField} disabled={dialogMode === 'view' || tariff.name.includes("600") || tariff.name.includes("200") } /></FormControl>
                                                                     </div>
                                                                     <FormMessage className="text-xs" />
                                                                 </FormItem>
@@ -907,3 +906,5 @@ const ExcedentManager = () => {
         </div>
     )
 }
+
+    
