@@ -1,3 +1,4 @@
+
 "use client";
 
 import * as React from 'react';
@@ -33,7 +34,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, ChevronsUpDown, BookCopy, FileDown, File, Upload, FolderSearch, Trash2, Edit, CheckCircle2, DollarSign, ExternalLink, Edit2, Undo, Info } from 'lucide-react';
+import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, ChevronsUpDown, BookCopy, FileDown, File, Upload, FolderSearch, Trash2, Edit, CheckCircle2, DollarSign, ExternalLink, Edit2, Undo, Info, Pencil, History } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
@@ -1285,166 +1286,149 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     };
     
     const handleSettlementExportPDF = () => {
-        if (settlementReportData.length === 0 || !settlementClient || !settlementDateRange?.from || isLogoLoading || !logoBase64 || !logoDimensions) return;
-    
-        const doc = new jsPDF({ orientation: 'landscape' });
-        const pageWidth = doc.internal.pageSize.getWidth();
-        const margin = 14;
-        let lastY = 0;
-    
-        const addHeader = () => {
-            const logoWidth = 40; 
-            const aspectRatio = logoDimensions!.width / logoDimensions!.height;
-            const logoHeight = logoWidth / aspectRatio;
-            const logoX = (pageWidth - logoWidth) / 2;
-            doc.addImage(logoBase64!, 'PNG', logoX, 10, logoWidth, logoHeight);
-            
-            let currentY = 10 + logoHeight + 8;
-            doc.setFontSize(14);
-            doc.setFont('helvetica', 'bold');
-            doc.text("Liquidación de Servicios al Cliente", pageWidth / 2, currentY, { align: 'center' });
-            
-            currentY += 6;
-            doc.setFontSize(10);
-            doc.setFont('helvetica', 'normal');
-            doc.text(`Cliente: ${settlementClient}`, pageWidth / 2, currentY, { align: 'center' });
-            
-            currentY += 5;
-            doc.text(`Periodo: ${format(settlementDateRange!.from!, 'dd/MM/yyyy')} - ${format(settlementDateRange!.to!, 'dd/MM/yyyy')}`, pageWidth / 2, currentY, { align: 'center' });
-            
-            return currentY + 5; 
-        };
-        
-        lastY = addHeader();
+      if (settlementReportData.length === 0 || !settlementClient || !settlementDateRange?.from || isLogoLoading || !logoBase64 || !logoDimensions) return;
+  
+      const doc = new jsPDF({ orientation: 'landscape' });
+      const pageWidth = doc.internal.pageSize.getWidth();
+      const pageHeight = doc.internal.pageSize.getHeight();
+      const margin = 14;
+      let lastY = 0;
+  
+      const addPageHeader = () => {
+          const logoWidth = 40; 
+          const aspectRatio = logoDimensions!.width / logoDimensions!.height;
+          const logoHeight = logoWidth / aspectRatio;
+          const logoX = (pageWidth - logoWidth) / 2;
+          doc.addImage(logoBase64!, 'PNG', logoX, 10, logoWidth, logoHeight);
+          
+          let currentY = 10 + logoHeight + 4;
+          doc.setFontSize(14);
+          doc.setFont('helvetica', 'bold');
+          doc.text("Liquidación de Servicios al Cliente", pageWidth / 2, currentY, { align: 'center' });
+          
+          currentY += 6;
+          doc.setFontSize(10);
+          doc.setFont('helvetica', 'normal');
+          doc.text(`Cliente: ${settlementClient}`, pageWidth / 2, currentY, { align: 'center' });
+          
+          currentY += 5;
+          doc.text(`Periodo: ${format(settlementDateRange!.from!, 'dd/MM/yyyy')} - ${format(settlementDateRange!.to!, 'dd/MM/yyyy')}`, pageWidth / 2, currentY, { align: 'center' });
+          
+          return currentY + 8;
+      };
 
-        const addTableTitle = (title: string, y: number) => {
-            const newY = y + 10;
-            doc.setFontSize(12);
-            doc.setFont('helvetica', 'bold');
-            doc.text(title, pageWidth / 2, newY, { align: 'center' });
-            return newY + 8;
-        };
-        
-        // --- Summary Table ---
-        lastY = addTableTitle("Resumen por Día y Concepto", lastY);
-        const summaryByDayAndConcept = settlementReportData.reduce((acc, row) => {
-            const date = format(parseISO(row.date), 'yyyy-MM-dd');
-            const concept = row.conceptName;
-            const key = `${date}|${concept}`;
-            if (!acc[key]) {
-                acc[key] = { date, concept, totalQuantity: 0, totalValue: 0, unitOfMeasure: row.unitOfMeasure };
-            }
-            acc[key].totalQuantity += row.quantity;
-            acc[key].totalValue += row.totalValue;
-            return acc;
-        }, {} as Record<string, { date: string; concept: string; totalQuantity: number; totalValue: number; unitOfMeasure: string }>);
-    
-        const summaryBody: any[] = [];
-        const groupedByDay = Object.values(summaryByDayAndConcept).reduce((acc, item) => {
-            if (!acc[item.date]) acc[item.date] = [];
-            acc[item.date].push(item);
-            return acc;
-        }, {} as Record<string, any[]>);
-    
-        Object.keys(groupedByDay).sort((a,b) => a.localeCompare(b)).forEach(date => {
-            const items = groupedByDay[date];
-            let dailySubtotal = 0;
-            items.forEach(item => {
-                summaryBody.push([
-                    format(parseISO(item.date), 'dd/MM/yyyy'),
-                    item.concept,
-                    item.totalQuantity.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-                    item.unitOfMeasure,
-                    item.totalValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
-                ]);
-                dailySubtotal += item.totalValue;
-            });
-            summaryBody.push([
-                { content: `Subtotal Día ${format(parseISO(date), 'dd/MM/yyyy')}:`, colSpan: 4, styles: { halign: 'right', fontStyle: 'bold' } },
-                { content: dailySubtotal.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } }
-            ]);
-            summaryBody.push([{ content: '', colSpan: 5, styles: { cellPadding: 0.5, fillColor: [219, 229, 241] } }]);
-        });
-    
-        const totalGeneralSummary = Object.values(summaryByDayAndConcept).reduce((sum, item) => sum + (item.totalValue || 0), 0);
-        const summaryHead = [['Fecha', 'Concepto', 'Total Cantidad', 'Unidad', 'Total Valor']];
-        
-        autoTable(doc, {
-            head: summaryHead,
-            body: summaryBody,
-            startY: lastY,
-            pageBreak: 'auto',
-            didDrawPage: (data) => {
-                if (data.pageNumber > 1) { lastY = addHeader(); }
-            },
-            theme: 'grid',
-            headStyles: { fillColor: [26, 144, 200], fontSize: 8 },
-            styles: { fontSize: 7, cellPadding: 1.5 },
-            columnStyles: { 2: { halign: 'right' }, 4: { halign: 'right' } },
-            didParseCell: (data) => {
-                if (data.row.raw && Array.isArray(data.row.raw) && (data.row.raw as any[]).every(cell => cell.content === '')) {
-                    doc.setFillColor(219, 229, 241);
-                    doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
-                }
-            },
-        });
-        lastY = (doc as any).lastAutoTable.finalY || lastY;
-        
-        const summaryFoot = [[
-            { content: 'TOTAL GENERAL RESUMEN:', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold' } },
-            { content: totalGeneralSummary.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } }
-        ]];
-        autoTable(doc, {
-            body: summaryFoot,
-            startY: lastY,
-            theme: 'grid',
-            styles: { fillColor: [26, 144, 200], textColor: '#ffffff', fontStyle: 'bold' }
-        });
-        lastY = (doc as any).lastAutoTable.finalY || lastY;
-        
-        // --- Detail Table ---
-        if (lastY + 30 > doc.internal.pageSize.getHeight()) doc.addPage();
-        lastY = addTableTitle("Detalle de Operaciones", lastY);
-        
-        const detailHead = [['Fecha', 'Concepto', 'Detalle', 'Personas', 'Paletas', 'Cámara', 'Contenedor', 'Pedido', 'Op. Log.', 'H. Inicio', 'H. Fin', 'Cant.', 'Unidad', 'Vlr. Unit.', 'Vlr. Total']];
-        const detailBody = settlementReportData.map(row => [
-            format(parseISO(row.date), 'dd/MM/yy'), row.conceptName, row.subConceptName || '',
-            row.numeroPersonas || '', row.totalPaletas > 0 ? row.totalPaletas : '', getSessionName(row.camara),
-            row.container, row.pedidoSislog, row.operacionLogistica, formatTime12Hour(row.horaInicio),
-            formatTime12Hour(row.horaFin), row.quantity.toLocaleString('es-CO', { minimumFractionDigits: 2 }),
-            row.unitOfMeasure, row.unitValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }),
-            row.totalValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
-        ]);
-        const totalGeneralDetail = settlementReportData.reduce((sum, row) => sum + row.totalValue, 0);
-        
-        autoTable(doc, {
-            head: detailHead,
-            body: detailBody,
-            startY: lastY,
-            pageBreak: 'auto',
-            didDrawPage: (data) => {
-                if (data.pageNumber > 1) { lastY = addHeader(); }
-            },
-            headStyles: { fillColor: [26, 144, 200], fontSize: 6 },
-            styles: { fontSize: 6, cellPadding: 1 },
-            columnStyles: { 11: { halign: 'right' }, 13: { halign: 'right' }, 14: { halign: 'right' } },
-        });
-        lastY = (doc as any).lastAutoTable.finalY || lastY;
-
-        const detailFoot = [[
-             { content: 'TOTAL GENERAL DETALLE:', colSpan: 14, styles: { halign: 'right', fontStyle: 'bold' } },
-             { content: totalGeneralDetail.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } }
-        ]];
-        autoTable(doc, {
-            body: detailFoot,
-            startY: lastY,
-            theme: 'grid',
-            styles: { fillColor: [26, 144, 200], textColor: '#ffffff', fontStyle: 'bold' }
-        });
-        
-        const fileName = `Liquidacion_${settlementClient.replace(/\s/g, '_')}_${format(settlementDateRange!.from!, 'yyyy-MM-dd')}_a_${format(settlementDateRange!.to!, 'yyyy-MM-dd')}.pdf`;
-        doc.save(fileName);
-    };
+      const addTableTitle = (title: string, yPos: number) => {
+          doc.setFontSize(12);
+          doc.setFont('helvetica', 'bold');
+          doc.text(title, pageWidth / 2, yPos, { align: 'center' });
+          return yPos + 8;
+      };
+      
+      // --- Summary Table ---
+      const summaryByDayAndConcept = settlementReportData.reduce((acc, row) => {
+          const date = format(parseISO(row.date), 'yyyy-MM-dd');
+          const concept = row.conceptName;
+          const key = `${date}|${concept}`;
+          if (!acc[key]) {
+              acc[key] = { date, concept, totalQuantity: 0, totalValue: 0, unitOfMeasure: row.unitOfMeasure };
+          }
+          acc[key].totalQuantity += row.quantity;
+          acc[key].totalValue += row.totalValue;
+          return acc;
+      }, {} as Record<string, { date: string; concept: string; totalQuantity: number; totalValue: number; unitOfMeasure: string }>);
+  
+      const summaryBody: any[] = [];
+      const groupedByDay = Object.values(summaryByDayAndConcept).reduce((acc, item) => {
+          if (!acc[item.date]) acc[item.date] = [];
+          acc[item.date].push(item);
+          return acc;
+      }, {} as Record<string, any[]>);
+  
+      Object.keys(groupedByDay).sort((a,b) => a.localeCompare(b)).forEach(date => {
+          const items = groupedByDay[date];
+          let dailySubtotal = 0;
+          items.forEach(item => {
+              summaryBody.push([
+                  format(parseISO(item.date), 'dd/MM/yyyy'),
+                  item.concept,
+                  item.totalQuantity.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+                  item.unitOfMeasure,
+                  item.totalValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
+              ]);
+              dailySubtotal += item.totalValue;
+          });
+          summaryBody.push([
+              { content: `Subtotal Día ${format(parseISO(date), 'dd/MM/yyyy')}:`, colSpan: 4, styles: { halign: 'right', fontStyle: 'bold' } },
+              { content: dailySubtotal.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } }
+          ]);
+          summaryBody.push([{ content: '', colSpan: 5, styles: { cellPadding: 0.5, fillColor: [219, 229, 241] } }]);
+      });
+  
+      const totalGeneralSummary = Object.values(summaryByDayAndConcept).reduce((sum, item) => sum + (item.totalValue || 0), 0);
+      const summaryHead = [['Fecha', 'Concepto', 'Total Cantidad', 'Unidad', 'Total Valor']];
+      
+      doc.autoTable({
+          head: summaryHead,
+          body: summaryBody,
+          startY: addTableTitle("Resumen por Día y Concepto", addPageHeader()),
+          pageBreak: 'auto',
+          didDrawPage: (data) => {
+              if (data.pageNumber > 1) { addPageHeader(); }
+          },
+          theme: 'grid',
+          headStyles: { fillColor: [26, 144, 200], fontSize: 8 },
+          styles: { fontSize: 7, cellPadding: 1.5 },
+          columnStyles: { 2: { halign: 'right' }, 4: { halign: 'right' } },
+          didParseCell: (data) => {
+              if (data.row.raw && Array.isArray(data.row.raw) && (data.row.raw as any[]).every(cell => cell.content === '')) {
+                  const cell = data.cell;
+                  cell.styles.fillColor = [219, 229, 241];
+              }
+          },
+          foot: [[
+              { content: 'TOTAL GENERAL RESUMEN:', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } },
+              { content: totalGeneralSummary.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } }
+          ]],
+          footStyles: { fontStyle: 'bold' }
+      });
+      lastY = (doc as any).lastAutoTable.finalY || lastY;
+      
+      // --- Detail Table ---
+      doc.addPage();
+      lastY = addTableTitle("Detalle de Operaciones", addPageHeader());
+      
+      const detailHead = [['Fecha', 'Concepto', 'Detalle', 'Personas', 'Paletas', 'Cámara', 'Contenedor', 'Pedido', 'Op. Log.', 'H. Inicio', 'H. Fin', 'Cant.', 'Unidad', 'Vlr. Unit.', 'Vlr. Total']];
+      const detailBody = settlementReportData.map(row => [
+          format(parseISO(row.date), 'dd/MM/yy'), row.conceptName, row.subConceptName || '',
+          row.numeroPersonas || '', row.totalPaletas > 0 ? row.totalPaletas : '', getSessionName(row.camara),
+          row.container, row.pedidoSislog, row.operacionLogistica, formatTime12Hour(row.horaInicio),
+          formatTime12Hour(row.horaFin), row.quantity.toLocaleString('es-CO', { minimumFractionDigits: 2 }),
+          row.unitOfMeasure, row.unitValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }),
+          row.totalValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
+      ]);
+      const totalGeneralDetail = settlementReportData.reduce((sum, row) => sum + row.totalValue, 0);
+      
+      doc.autoTable({
+          head: detailHead,
+          body: detailBody,
+          startY: lastY,
+          pageBreak: 'auto',
+          didDrawPage: (data) => {
+              if (data.pageNumber > 1) { addPageHeader(); }
+          },
+          headStyles: { fillColor: [26, 144, 200], fontSize: 6 },
+          styles: { fontSize: 6, cellPadding: 1 },
+          columnStyles: { 11: { halign: 'right' }, 13: { halign: 'right' }, 14: { halign: 'right' } },
+           foot: [[
+              { content: 'TOTAL GENERAL DETALLE:', colSpan: 14, styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } },
+              { content: totalGeneralDetail.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } }
+          ]],
+          footStyles: { fontStyle: 'bold' }
+      });
+      
+      const fileName = `Liquidacion_${settlementClient.replace(/\s/g, '_')}_${format(settlementDateRange!.from!, 'yyyy-MM-dd')}_a_${format(settlementDateRange!.to!, 'yyyy-MM-dd')}.pdf`;
+      doc.save(fileName);
+  };
 
     const getTipoPedidoButtonText = () => {
         if (detailedReportTipoPedido.length === 0) return "Todos";
@@ -2343,8 +2327,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                     </div>
                                     <div className="space-y-2">
                                         <Label>Conceptos a Liquidar</Label>
-                                        <Dialog open={isSettlementConceptDialogOpen} onOpenChange={setIsSettlementConceptDialogOpen}>
-                                            <DialogTrigger asChild><Button variant="outline" className="w-full justify-between" disabled={!settlementClient || !settlementDateRange}><span className="truncate">{selectedConcepts.length === 0 ? "Seleccionar conceptos..." : `${selectedConcepts.length} seleccionados`}</span>{isLoadingAvailableConcepts ? <Loader2 className="ml-2 h-4 w-4 shrink-0 animate-spin" /> : <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50"/>}</Button></DialogTrigger>
+                                        <Dialog open={isSettlementConceptDialogOpen} onOpenChange={setIsSettlementConceptDialogOpen}><DialogTrigger asChild><Button variant="outline" className="w-full justify-between" disabled={!settlementClient || !settlementDateRange}><span className="truncate">{selectedConcepts.length === 0 ? "Seleccionar conceptos..." : `${selectedConcepts.length} seleccionados`}</span>{isLoadingAvailableConcepts ? <Loader2 className="ml-2 h-4 w-4 shrink-0 animate-spin" /> : <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50"/>}</Button></DialogTrigger>
                                             <DialogContent><DialogHeader><DialogTitle>Seleccionar Conceptos</DialogTitle><DialogDescription>Marque los conceptos que desea incluir en la liquidación.</DialogDescription></DialogHeader>
                                                 <ScrollArea className="h-72 mt-4"><div className="space-y-2 pr-4">
                                                     {isLoadingAvailableConcepts ? (
@@ -2510,3 +2493,4 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         </div>
     );
 }
+
