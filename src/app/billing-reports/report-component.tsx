@@ -1319,33 +1319,32 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const doc = new jsPDF({ orientation: 'landscape' });
         const pageWidth = doc.internal.pageSize.getWidth();
         const margin = 14;
-        let lastY = 0;
     
-        const addHeader = () => {
-            const logoWidth = 30; // Reduced logo size
+        const addHeader = (docInstance: jsPDF, pageTitle: string) => {
+            const logoWidth = 30;
             const aspectRatio = logoDimensions!.width / logoDimensions!.height;
             const logoHeight = logoWidth / aspectRatio;
-            doc.addImage(logoBase64!, 'PNG', (pageWidth - logoWidth) / 2, 10, logoWidth, logoHeight);
+            docInstance.addImage(logoBase64!, 'PNG', (pageWidth - logoWidth) / 2, 10, logoWidth, logoHeight);
     
             let currentY = 10 + logoHeight + 6;
-            doc.setFontSize(14);
-            doc.setFont('helvetica', 'bold');
-            doc.text("Liquidación de Servicios al Cliente", pageWidth / 2, currentY, { align: 'center' });
+            docInstance.setFontSize(14);
+            docInstance.setFont('helvetica', 'bold');
+            docInstance.text(pageTitle, pageWidth / 2, currentY, { align: 'center' });
     
             currentY += 6;
-            doc.setFontSize(10);
-            doc.setFont('helvetica', 'normal');
-            doc.text(`Cliente: ${settlementClient}`, pageWidth / 2, currentY, { align: 'center' });
+            docInstance.setFontSize(10);
+            docInstance.setFont('helvetica', 'normal');
+            docInstance.text(`Cliente: ${settlementClient}`, pageWidth / 2, currentY, { align: 'center' });
     
             currentY += 5;
-            doc.text(`Periodo: ${format(settlementDateRange!.from!, 'dd/MM/yyyy')} - ${format(settlementDateRange!.to!, 'dd/MM/yyyy')}`, pageWidth / 2, currentY, { align: 'center' });
+            docInstance.text(`Periodo: ${format(settlementDateRange!.from!, 'dd/MM/yyyy')} - ${format(settlementDateRange!.to!, 'dd/MM/yyyy')}`, pageWidth / 2, currentY, { align: 'center' });
     
             return currentY + 10;
         };
     
-        lastY = addHeader();
+        // --- Summary Page ---
+        let lastY = addHeader(doc, "Resumen de Liquidación");
     
-        // --- Summary Table ---
         const summaryByDayAndConcept = settlementReportData.reduce((acc, row) => {
             const date = format(parseISO(row.date), 'yyyy-MM-dd');
             const concept = row.conceptName;
@@ -1385,11 +1384,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         });
     
         const totalGeneralSummary = Object.values(summaryByDayAndConcept).reduce((sum, item) => sum + (item.totalValue || 0), 0);
-        
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'bold');
-        doc.text("Resumen por Día y Concepto", pageWidth / 2, lastY, { align: 'center' });
-        lastY += 8;
 
         autoTable(doc, {
             head: [['Fecha', 'Concepto', 'Total Cantidad', 'Unidad', 'Total Valor']],
@@ -1400,26 +1394,17 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             ]],
             startY: lastY,
             pageBreak: 'auto',
-            didDrawPage: (data) => {
-                if (data.pageNumber > 1) { addHeader(); }
-            },
             theme: 'grid',
             headStyles: { fillColor: [26, 144, 200], fontSize: 8 },
             styles: { fontSize: 7, cellPadding: 1.5 },
             columnStyles: { 2: { halign: 'right' }, 4: { halign: 'right' } },
             footStyles: { fontStyle: 'bold' }
         });
-        lastY = (doc as any).lastAutoTable.finalY + 15;
-    
-        // --- Detail Table ---
-        doc.addPage();
-        lastY = addHeader();
-        
-        doc.setFontSize(12);
-        doc.setFont('helvetica', 'bold');
-        doc.text("Detalle de Operaciones", pageWidth / 2, lastY, { align: 'center' });
-        lastY += 8;
 
+        // --- Detail Page ---
+        doc.addPage();
+        lastY = addHeader(doc, "Detalle de Operaciones");
+    
         const detailBody = settlementReportData.map(row => [
             format(parseISO(row.date), 'dd/MM/yy'),
             row.conceptName + (row.subConceptName ? ` (${row.subConceptName})` : ''),
@@ -1440,9 +1425,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             ]],
             startY: lastY,
             pageBreak: 'auto',
-            didDrawPage: (data) => {
-                if (data.pageNumber > 1) { addHeader(); }
-            },
             headStyles: { fillColor: [26, 144, 200], fontSize: 6 },
             styles: { fontSize: 6, cellPadding: 1 },
             columnStyles: { 11: { halign: 'right' }, 13: { halign: 'right' }, 14: { halign: 'right' } },
@@ -2431,7 +2413,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                     <TableCell colSpan={16} className="font-bold text-primary text-sm p-2">{conceptName}</TableCell>
                                                                 </TableRow>
                                                                 {settlementGroupedData[conceptName].rows.map((row) => (
-                                                                    <TableRow key={row.uniqueId}>
+                                                                    <TableRow key={row.uniqueId} data-state={row.isEdited ? "edited" : ""}>
                                                                         <TableCell className="text-xs p-2">{format(parseISO(row.date), 'dd/MM/yyyy', { locale: es })}</TableCell>
                                                                         <TableCell className="text-xs p-2 whitespace-normal">{row.subConceptName}</TableCell>
                                                                         <TableCell className="text-xs p-2">{row.numeroPersonas || ''}</TableCell>
@@ -2546,33 +2528,59 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
         setEditedRow(prev => ({ ...prev, [name]: name === 'quantity' || name === 'unitValue' ? parseFloat(value) : value }));
     };
 
+    const handleSelectChange = (name: keyof ClientSettlementRow, value: string) => {
+        setEditedRow(prev => ({ ...prev, [name]: value }));
+    }
+
     return (
         <Dialog open={isOpen} onOpenChange={onOpenChange}>
-            <DialogContent>
+            <DialogContent className="sm:max-w-lg">
                 <DialogHeader>
                     <DialogTitle>Editar Liquidación Manualmente</DialogTitle>
                     <DialogDescription>Ajuste los valores para este registro. El cambio solo se aplicará a esta liquidación.</DialogDescription>
                 </DialogHeader>
-                <div className="space-y-4 py-4">
+                <div className="space-y-4 py-4 max-h-[60vh] overflow-y-auto px-2">
                     <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
                             <Label>Concepto</Label>
                             <Input value={editedRow.conceptName} disabled />
                         </div>
+                         <div className="space-y-2">
+                            <Label htmlFor="operacionLogistica">Op. Logística</Label>
+                             <Select name="operacionLogistica" value={editedRow.operacionLogistica} onValueChange={(value) => handleSelectChange('operacionLogistica', value)}>
+                                <SelectTrigger><SelectValue/></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="Diurno">Diurno</SelectItem>
+                                    <SelectItem value="Nocturno">Nocturno</SelectItem>
+                                    <SelectItem value="Extra">Extra</SelectItem>
+                                    <SelectItem value="No Aplica">No Aplica</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
-                            <Label htmlFor="tipoVehiculo">Tipo Vehículo</Label>
-                            <Input id="tipoVehiculo" name="tipoVehiculo" value={editedRow.tipoVehiculo} onChange={handleChange} />
+                            <Label htmlFor="horaInicio">H. Inicio</Label>
+                            <Input id="horaInicio" name="horaInicio" type="time" value={editedRow.horaInicio} onChange={handleChange} />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="horaFin">H. Fin</Label>
+                            <Input id="horaFin" name="horaFin" type="time" value={editedRow.horaFin} onChange={handleChange} />
                         </div>
                     </div>
                      <div className="grid grid-cols-2 gap-4">
                         <div className="space-y-2">
+                            <Label htmlFor="tipoVehiculo">Tipo Vehículo</Label>
+                            <Input id="tipoVehiculo" name="tipoVehiculo" value={editedRow.tipoVehiculo} onChange={handleChange} />
+                        </div>
+                        <div className="space-y-2">
                             <Label htmlFor="quantity">Cantidad</Label>
                             <Input id="quantity" name="quantity" type="number" value={editedRow.quantity} onChange={handleChange} />
                         </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="unitValue">Valor Unitario</Label>
-                            <Input id="unitValue" name="unitValue" type="number" value={editedRow.unitValue} onChange={handleChange} />
-                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="unitValue">Valor Unitario</Label>
+                        <Input id="unitValue" name="unitValue" type="number" value={editedRow.unitValue} onChange={handleChange} />
                     </div>
                      <div className="space-y-2">
                         <Label>Comentarios de justificación</Label>
@@ -2587,4 +2595,3 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
         </Dialog>
     );
 }
-
