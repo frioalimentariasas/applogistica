@@ -410,8 +410,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
         const totalDuration = detailedReportData.reduce((acc, row) => acc + (row.duracionMinutos || 0), 0);
         const totalGeneralPesoKg = detailedReportData.reduce((acc, row) => acc + (row.totalPesoKg || 0), 0);
-
-        worksheet.columns = [
+        
+        const detailColumns = [
             { header: 'Fecha', key: 'fecha', width: 12 },
             { header: 'Op. Logística', key: 'opLogistica', width: 15 },
             { header: 'Duración', key: 'duracion', width: 12 },
@@ -432,6 +432,12 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             { header: 'Total Paletas', key: 'totalPaletas', width: 15 },
             { header: 'Observaciones', key: 'observaciones', width: 40 },
         ];
+        
+        worksheet.columns = detailColumns;
+        worksheet.spliceRows(1,1); // Remove the header row automatically created
+
+        worksheet.addRow(detailColumns.map(c => c.header));
+        worksheet.getRow(1).font = { bold: true };
 
         detailedReportData.forEach(row => {
             worksheet.addRow({
@@ -1106,16 +1112,15 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         workbook.created = new Date();
     
         const addHeaderAndTitle = (ws: ExcelJS.Worksheet, columns: any[]) => {
-            const title = `Liquidación Cliente: ${settlementClient}`;
-            const period = `Periodo: ${format(settlementDateRange.from!, 'dd/MM/yyyy', { locale: es })} - ${format(settlementDateRange.to!, 'dd/MM/yyyy', { locale: es })}`;
-            
-            ws.addRow([title]).font = { bold: true, size: 16 };
-            ws.getCell('A1').alignment = { horizontal: 'center' };
+            ws.getCell('A1').value = `Liquidación Cliente: ${settlementClient}`;
+            ws.getCell('A1').font = { bold: true, size: 16 };
             ws.mergeCells(1, 1, 1, columns.length);
+            ws.getCell('A1').alignment = { horizontal: 'center' };
             
-            ws.addRow([period]).font = { bold: true };
-            ws.getCell('A2').alignment = { horizontal: 'center' };
+            ws.getCell('A2').value = `Periodo: ${format(settlementDateRange.from!, 'dd/MM/yyyy', { locale: es })} - ${format(settlementDateRange.to!, 'dd/MM/yyyy', { locale: es })}`;
+            ws.getCell('A2').font = { bold: true };
             ws.mergeCells(2, 1, 2, columns.length);
+            ws.getCell('A2').alignment = { horizontal: 'center' };
             
             ws.addRow([]); // Spacer
         };
@@ -1144,9 +1149,11 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             { header: 'Valor Total', key: 'totalValue', width: 20 },
         ];
         addHeaderAndTitle(detailWorksheet, detailColumns);
-        
+
         detailWorksheet.columns = detailColumns;
-        const detailHeaderRow = detailWorksheet.getRow(4);
+        detailWorksheet.spliceRows(1,1); // Remove the header row automatically created
+
+        const detailHeaderRow = detailWorksheet.getRow(3);
         detailHeaderRow.values = detailColumns.map(c => c.header);
         detailHeaderRow.eachCell((cell) => {
             cell.fill = headerFill;
@@ -1191,7 +1198,9 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         addHeaderAndTitle(summaryWorksheet, summaryColumns);
 
         summaryWorksheet.columns = summaryColumns;
-        const summaryHeaderRow = summaryWorksheet.getRow(4);
+        summaryWorksheet.spliceRows(1,1);
+        
+        const summaryHeaderRow = summaryWorksheet.getRow(3);
         summaryHeaderRow.values = summaryColumns.map(c => c.header);
         summaryHeaderRow.eachCell((cell) => {
             cell.fill = headerFill;
@@ -1278,8 +1287,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const margin = 14;
         let lastY = 0;
     
-        const addHeader = (docInstance: jsPDF, pageNumber: number, totalPages: number) => {
-            const logoWidth = 60;
+        const addPageHeader = (docInstance: jsPDF) => {
+            const logoWidth = 50; 
             const aspectRatio = logoDimensions!.width / logoDimensions!.height;
             const logoHeight = logoWidth / aspectRatio;
             const logoX = (pageWidth - logoWidth) / 2;
@@ -1294,11 +1303,16 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             docInstance.text(`Cliente: ${settlementClient}`, pageWidth / 2, 10 + logoHeight + 14, { align: 'center' });
             docInstance.text(`Periodo: ${format(settlementDateRange!.from!, 'dd/MM/yyyy')} - ${format(settlementDateRange!.to!, 'dd/MM/yyyy')}`, pageWidth / 2, 10 + logoHeight + 19, { align: 'center' });
             
-            // Footer
-            docInstance.setFontSize(8);
-            docInstance.text(`Página ${pageNumber} de ${totalPages}`, pageWidth - margin, docInstance.internal.pageSize.getHeight() - 10, { align: 'right' });
+            return 10 + logoHeight + 25; // Return the Y position after the header
         };
         
+        lastY = addPageHeader(doc);
+
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text("Resumen por Día y Concepto", pageWidth / 2, lastY + 10, { align: 'center' });
+        lastY += 15;
+
         // --- Summary Table ---
         const summaryByDayAndConcept = settlementReportData.reduce((acc, row) => {
             const date = format(parseISO(row.date), 'yyyy-MM-dd');
@@ -1339,32 +1353,19 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             summaryBody.push([{ content: '', colSpan: 5, styles: { cellPadding: 0.5, fillColor: [26, 144, 200] } }]);
         });
     
-        const totalGeneral = settlementReportData.reduce((sum, row) => sum + (row.totalValue || 0), 0);
+        const totalGeneralSummary = settlementReportData.reduce((sum, row) => sum + (row.totalValue || 0), 0);
         const summaryHead = [['Fecha', 'Concepto', 'Total Cantidad', 'Unidad', 'Total Valor']];
         const summaryFoot = [[
             { content: 'TOTAL GENERAL:', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold' } },
-            { content: totalGeneral.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } }
+            { content: totalGeneralSummary.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } }
         ]];
         
-        let finalY = 0;
-        let pageNumber = 1;
-    
-        const totalPages = (doc as any).internal.getNumberOfPages();
-        for (let i = 1; i <= totalPages; i++) {
-            doc.setPage(i);
-            addHeader(doc, i, totalPages);
-        }
-        
-        // --- Draw Summary Table ---
         autoTable(doc, {
             head: summaryHead,
             body: summaryBody,
             foot: summaryFoot,
-            startY: 55,
+            startY: lastY,
             pageBreak: 'auto',
-            didDrawPage: (data) => {
-                addHeader(doc, data.pageNumber, totalPages);
-            },
             headStyles: { fillColor: [26, 144, 200], fontSize: 8 },
             footStyles: { fillColor: [26, 144, 200], textColor: '#ffffff', fontSize: 9 },
             styles: { fontSize: 7, cellPadding: 1.5 },
@@ -1374,12 +1375,20 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                     doc.setFillColor(26, 144, 200);
                     doc.rect(data.cell.x, data.cell.y, data.cell.width, data.cell.height, 'F');
                 }
+            },
+            didDrawPage: (data) => {
+                lastY = addPageHeader(doc);
             }
         });
         
-        finalY = (doc as any).lastAutoTable.finalY || 0;
-        
+        lastY = (doc as any).lastAutoTable.finalY || lastY;
         doc.addPage();
+        lastY = addPageHeader(doc);
+
+        doc.setFontSize(12);
+        doc.setFont('helvetica', 'bold');
+        doc.text("Detalle de Operaciones", pageWidth / 2, lastY + 10, { align: 'center' });
+        lastY += 15;
         
         const detailHead = [['Fecha', 'Concepto', 'Detalle', 'Personas', 'Paletas', 'Cámara', 'Contenedor', 'Pedido', 'Op. Log.', 'H. Inicio', 'H. Fin', 'Cant.', 'Unidad', 'Vlr. Unit.', 'Vlr. Total']];
         const detailBody = settlementReportData.map(row => [
@@ -1390,18 +1399,24 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             row.unitOfMeasure, row.unitValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }),
             row.totalValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
         ]);
+        const totalGeneralDetail = settlementReportData.reduce((sum, row) => sum + row.totalValue, 0);
+        const detailFoot = [[
+             { content: 'TOTAL GENERAL:', colSpan: 14, styles: { halign: 'right', fontStyle: 'bold' } },
+             { content: totalGeneralDetail.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } }
+        ]];
         
-        // --- Draw Detail Table ---
         autoTable(doc, {
             head: detailHead,
             body: detailBody,
-            startY: 55,
+            foot: detailFoot,
+            startY: lastY,
             pageBreak: 'auto',
             headStyles: { fillColor: [26, 144, 200], fontSize: 6 },
+            footStyles: { fillColor: [26, 144, 200], textColor: '#ffffff', fontSize: 9 },
             styles: { fontSize: 6, cellPadding: 1 },
             columnStyles: { 11: { halign: 'right' }, 13: { halign: 'right' }, 14: { halign: 'right' } },
             didDrawPage: (data) => {
-                addHeader(doc, data.pageNumber, totalPages);
+                 addPageHeader(doc);
             }
         });
         
@@ -2486,4 +2501,5 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
 
     
+
 
