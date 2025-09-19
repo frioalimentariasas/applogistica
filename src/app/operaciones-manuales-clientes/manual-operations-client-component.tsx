@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -662,7 +663,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                              <TariffSelector form={form} selectedConceptInfo={selectedConceptInfo} dialogMode={dialogMode} />
                                         )}
                                         {selectedConceptInfo?.tariffType === 'UNICA' && !isFixedMonthlyService && (
-                                             <FormField control={form.control} name="quantity" render={({ field }) => (<FormItem><FormLabel>Cantidad</FormLabel><FormControl><Input type="number" step="0.01" placeholder="Ej: 1.5" {...field} value={field.value ?? ''} disabled={dialogMode === 'view' || watchedConcept === 'INSPECCIÓN ZFPC'} /></FormControl><FormMessage /></FormItem>)}/>
+                                             <FormField control={form.control} name="quantity" render={({ field }) => (<FormItem><FormLabel>Cantidad</FormLabel><FormControl><Input type="number" step="0.01" placeholder="Ej: 1.5" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)}/>
                                         )}
                                         
                                         {(showAdvancedFields || dialogMode === 'view') && (
@@ -899,3 +900,4 @@ const ExcedentManager = () => {
         </div>
     )
 }
+
