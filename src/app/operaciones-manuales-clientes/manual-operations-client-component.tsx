@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -506,7 +505,8 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                     return null;
                 }
                 
-                return differenceInHours(endDateTime, startDateTime, { roundingMethod: 'ceil' });
+                const diffMinutes = differenceInMinutes(endDateTime, startDateTime);
+                return diffMinutes / 60;
 
             } catch(e) {
                  console.error("Error calculating electric connection duration:", e);
@@ -785,14 +785,14 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                     <Clock className="h-4 w-4 !text-sky-600" />
                                                     <AlertTitle className="text-sky-700">Duración Calculada</AlertTitle>
                                                     <FormDescription>
-                                                        <span className="font-bold">{calculatedElectricConnectionHours.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} horas</span>. Este valor se ha asignado a la cantidad.
+                                                        <span className="font-bold">{calculatedElectricConnectionHours.toLocaleString('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} horas</span>. Este valor se ha asignado a la cantidad.
                                                     </FormDescription>
                                                 </Alert>
                                             )}
                                              <FormField control={form.control} name="quantity" render={({ field }) => (
                                                 <FormItem>
                                                     <FormLabel>Cantidad (Horas)</FormLabel>
-                                                    <FormControl><Input type="number" step="0.01" placeholder="0.00" {...field} value={field.value ?? ''} disabled /></FormControl>
+                                                    <FormControl><Input type="number" step="0.1" placeholder="0.0" {...field} value={field.value ?? ''} disabled /></FormControl>
                                                     <FormMessage />
                                                 </FormItem>
                                             )}/>
