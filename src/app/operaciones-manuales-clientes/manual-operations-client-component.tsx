@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -6,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useForm, SubmitHandler, useFieldArray, useWatch, FieldErrors, useFormContext, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { format, parseISO, addDays, getDaysInMonth, getDay, isSaturday, isSunday, isWithinInterval, startOfDay, startOfMonth, differenceInMinutes, parse } from 'date-fns';
+import { format, parseISO, addDays, getDaysInMonth, getDay, isSaturday, isSunday, isWithinInterval, startOfDay, startOfMonth, differenceInMinutes, parse, differenceInHours } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 import { addManualClientOperation, updateManualClientOperation, deleteManualClientOperation, addBulkManualClientOperation } from './actions';
@@ -80,11 +81,16 @@ const manualOperationSchema = z.object({
       container: z.string().optional(),
       totalPallets: z.coerce.number().int().min(0, 'Debe ser un número positivo.').optional().nullable(),
       arin: z.string().optional(),
+      fechaArribo: z.date().optional(),
+      horaArribo: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM requerido.').optional().or(z.literal('')),
+      fechaSalida: z.date().optional(),
+      horaSalida: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM requerido.').optional().or(z.literal('')),
   }).optional(),
 }).superRefine((data, ctx) => {
     const isBulkMode = data.concept === 'TIEMPO EXTRA FRIOAL (FIJO)';
     const isPositionMode = data.concept === 'POSICIONES FIJAS CÁMARA CONGELADOS';
     const isFixedMonthlyService = isPositionMode || data.concept === 'IN-HOUSE INSPECTOR ZFPC' || data.concept === 'ALQUILER IMPRESORA ETIQUETADO';
+    const isElectricConnection = data.concept === 'CONEXIÓN ELÉCTRICA CONTENEDOR';
 
 
     if (isBulkMode) {
@@ -94,7 +100,13 @@ const manualOperationSchema = z.object({
       if (!data.bulkRoles || data.bulkRoles.every(r => r.numPersonas === 0)) {
            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Debe ingresar al menos una persona en algún rol.", path: ["bulkRoles"] });
       }
-    } else { // Not bulk mode
+    } else if (isElectricConnection) {
+        if (!data.details?.fechaArribo) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La fecha de arribo es obligatoria.", path: ["details.fechaArribo"] });
+        if (!data.details?.horaArribo) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La hora de arribo es obligatoria.", path: ["details.horaArribo"] });
+        if (!data.details?.fechaSalida) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La fecha de salida es obligatoria.", path: ["details.fechaSalida"] });
+        if (!data.details?.horaSalida) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La hora de salida es obligatoria.", path: ["details.horaSalida"] });
+    }
+    else { // Not bulk mode
        if (!data.operationDate) {
           ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La fecha es obligatoria.", path: ["operationDate"] });
        }
@@ -179,6 +191,10 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 container: '',
                 totalPallets: null,
                 arin: '',
+                fechaArribo: undefined,
+                horaArribo: '',
+                fechaSalida: undefined,
+                horaSalida: '',
             },
             bulkRoles: [],
             excedentes: [],
@@ -199,6 +215,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     const watchedConcept = form.watch('concept');
     const watchedOperationDate = form.watch('operationDate');
     const watchedTimes = form.watch(['details.startTime', 'details.endTime']);
+    const watchedElectricConnectionDates = form.watch(['details.fechaArribo', 'details.horaArribo', 'details.fechaSalida', 'details.horaSalida']);
     const selectedConceptInfo = useMemo(() => billingConcepts.find(c => c.conceptName === watchedConcept), [watchedConcept, billingConcepts]);
     
     const isBulkMode = watchedConcept === 'TIEMPO EXTRA FRIOAL (FIJO)';
@@ -332,7 +349,11 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 ...op,
                 operationDate: op.operationDate ? parseISO(op.operationDate) : undefined,
                 selectedDates: (op.selectedDates || []).map((d: string) => parseISO(d)),
-                details: op.details || {},
+                details: {
+                    ...op.details,
+                    fechaArribo: op.details?.fechaArribo ? parseISO(op.details.fechaArribo) : undefined,
+                    fechaSalida: op.details?.fechaSalida ? parseISO(op.details.fechaSalida) : undefined,
+                },
                 comentarios: op.comentarios || '',
             });
         } else {
@@ -381,6 +402,11 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
 
                 const payload: ManualClientOperationData = {
                     ...data,
+                    details: {
+                        ...data.details,
+                        fechaArribo: data.details?.fechaArribo ? data.details.fechaArribo.toISOString() : undefined,
+                        fechaSalida: data.details?.fechaSalida ? data.details.fechaSalida.toISOString() : undefined,
+                    }
                 };
                 
                 if (data.operationDate) {
@@ -435,7 +461,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         setIsDeleting(false);
     };
 
-    const handleCaptureTime = (fieldName: 'details.startTime' | 'details.endTime') => {
+    const handleCaptureTime = (fieldName: 'details.startTime' | 'details.endTime' | 'details.horaArribo' | 'details.horaSalida') => {
         const now = new Date();
         const hours = String(now.getHours()).padStart(2, '0');
         const minutes = String(now.getMinutes()).padStart(2, '0');
@@ -468,6 +494,33 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         }
         return null;
     }, [watchedTimes]);
+    
+    const calculatedElectricConnectionHours = useMemo(() => {
+        const [fechaArribo, horaArribo, fechaSalida, horaSalida] = watchedElectricConnectionDates;
+        if (fechaArribo && horaArribo && fechaSalida && horaSalida) {
+            try {
+                const startDateTime = parse(`${format(fechaArribo, 'yyyy-MM-dd')} ${horaArribo}`, 'yyyy-MM-dd HH:mm', new Date());
+                const endDateTime = parse(`${format(fechaSalida, 'yyyy-MM-dd')} ${horaSalida}`, 'yyyy-MM-dd HH:mm', new Date());
+
+                if (isNaN(startDateTime.getTime()) || isNaN(endDateTime.getTime()) || endDateTime < startDateTime) {
+                    return null;
+                }
+                
+                return differenceInHours(endDateTime, startDateTime, { roundingMethod: 'ceil' });
+
+            } catch(e) {
+                 console.error("Error calculating electric connection duration:", e);
+                return null;
+            }
+        }
+        return null;
+    }, [watchedElectricConnectionDates]);
+
+    useEffect(() => {
+        if(watchedConcept === 'CONEXIÓN ELÉCTRICA CONTENEDOR' && calculatedElectricConnectionHours !== null) {
+            form.setValue('quantity', calculatedElectricConnectionHours);
+        }
+    }, [watchedConcept, calculatedElectricConnectionHours, form]);
 
     return (
         <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
@@ -662,7 +715,18 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                               )}
                                             />
                                         ) : (
-                                          <FormField control={form.control} name="operationDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha de Operación <span className="text-destructive">*</span></FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={dialogMode === 'view'} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4 opacity-50" />{field.value && field.value instanceof Date && !isNaN(field.value.getTime()) ? format(field.value, "PPP", { locale: es }) : <span>Seleccione una fecha</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={dialogMode === 'view'} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
+                                            <>
+                                            {watchedConcept === 'CONEXIÓN ELÉCTRICA CONTENEDOR' ? (
+                                                <div className="grid grid-cols-2 gap-4">
+                                                    <FormField control={form.control} name="details.fechaArribo" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha Arribo</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={dialogMode === 'view'} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4 opacity-50" />{field.value ? format(field.value, "PPP", { locale: es }) : <span>Seleccione</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={dialogMode === 'view'} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
+                                                    <FormField control={form.control} name="details.horaArribo" render={({ field }) => (<FormItem><FormLabel>Hora Arribo</FormLabel><div className="flex items-center gap-2"><FormControl><Input type="time" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} className="flex-grow" /></FormControl>{dialogMode !== 'view' && (<Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('details.horaArribo')}><Clock className="h-4 w-4" /></Button>)}</div><FormMessage /></FormItem>)} />
+                                                    <FormField control={form.control} name="details.fechaSalida" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha Salida</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={dialogMode === 'view'} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4 opacity-50" />{field.value ? format(field.value, "PPP", { locale: es }) : <span>Seleccione</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => { const fechaArribo = form.getValues('details.fechaArribo'); return fechaArribo ? date < fechaArribo : false; }} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
+                                                    <FormField control={form.control} name="details.horaSalida" render={({ field }) => (<FormItem><FormLabel>Hora Salida</FormLabel><div className="flex items-center gap-2"><FormControl><Input type="time" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} className="flex-grow" /></FormControl>{dialogMode !== 'view' && (<Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('details.horaSalida')}><Clock className="h-4 w-4" /></Button>)}</div><FormMessage /></FormItem>)} />
+                                                </div>
+                                            ) : (
+                                                <FormField control={form.control} name="operationDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha de Operación <span className="text-destructive">*</span></FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={dialogMode === 'view'} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4 opacity-50" />{field.value && field.value instanceof Date && !isNaN(field.value.getTime()) ? format(field.value, "PPP", { locale: es }) : <span>Seleccione una fecha</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={dialogMode === 'view'} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
+                                            )}
+                                            </>
                                         )}
                                         
                                         {selectedConceptInfo?.tariffType === 'ESPECIFICA' && isBulkMode && (
@@ -714,6 +778,26 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                 />
                                             </>
                                         )}
+                                         {watchedConcept === 'CONEXIÓN ELÉCTRICA CONTENEDOR' && (
+                                            <>
+                                            {calculatedElectricConnectionHours !== null && (
+                                                 <Alert variant="default" className="border-sky-500 bg-sky-50 text-sky-800">
+                                                    <Clock className="h-4 w-4 !text-sky-600" />
+                                                    <AlertTitle className="text-sky-700">Duración Calculada</AlertTitle>
+                                                    <FormDescription>
+                                                        <span className="font-bold">{calculatedElectricConnectionHours.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} horas</span>. Este valor se ha asignado a la cantidad.
+                                                    </FormDescription>
+                                                </Alert>
+                                            )}
+                                             <FormField control={form.control} name="quantity" render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>Cantidad (Horas)</FormLabel>
+                                                    <FormControl><Input type="number" step="0.01" placeholder="0.00" {...field} value={field.value ?? ''} disabled /></FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}/>
+                                            </>
+                                        )}
                                         
                                         {(showAdvancedFields || dialogMode === 'view') && (
                                             <>
@@ -725,11 +809,11 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                 </div>
 
                                                 {watchedConcept === 'INSPECCIÓN ZFPC' && calculatedDuration && (
-                                                    <Alert variant="default" className="border-sky-500 bg-sky-50 text-sky-800">
+                                                     <Alert variant="default" className="border-sky-500 bg-sky-50 text-sky-800">
                                                         <Clock className="h-4 w-4 !text-sky-600" />
                                                         <AlertTitle className="text-sky-700">Duración Calculada</AlertTitle>
                                                         <FormDescription>
-                                                            <span className="font-bold">{calculatedDuration.hours.toFixed(2)} horas</span> ({calculatedDuration.minutes} minutos). Use este valor como guía para la cantidad.
+                                                            <span className="font-bold">{calculatedDuration.hours.toFixed(2)} horas</span> ({calculatedDuration.minutes} minutos).
                                                         </FormDescription>
                                                     </Alert>
                                                 )}

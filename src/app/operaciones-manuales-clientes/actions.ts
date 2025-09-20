@@ -30,6 +30,10 @@ export interface ManualClientOperationData {
         container?: string;
         totalPallets?: number;
         arin?: string;
+        fechaArribo?: string; // ISO string
+        horaArribo?: string; // HH:mm
+        fechaSalida?: string; // ISO string
+        horaSalida?: string; // HH:mm
     },
     comentarios?: string;
     createdAt?: string; // ISO string for timestamping
