@@ -380,18 +380,34 @@ export async function generateClientSettlement(criteria: {
             let unitValue = 0;
             let operacionLogistica: string = 'No Aplica';
             let vehicleTypeForReport = 'No Aplica';
+            let unitOfMeasureForReport = concept.unitOfMeasure;
 
             if (concept.tariffType === 'UNICA') {
                 unitValue = concept.value || 0;
             } else if (concept.tariffType === 'RANGOS') {
                 const totalTons = weightKg / 1000;
-                const matchingTariff = findMatchingTariff(totalTons, concept);
                 
-                if (matchingTariff) {
-                    vehicleTypeForReport = matchingTariff.vehicleType;
-                    const opLogisticType = getOperationLogisticsType(op.formData.fecha, op.formData.horaInicio, op.formData.horaFin, concept);
-                    unitValue = opLogisticType === 'Diurno' ? matchingTariff.dayTariff : matchingTariff.nightTariff;
-                    operacionLogistica = opLogisticType;
+                // Special Case for ATLANTIC FS
+                if (clientName === 'ATLANTIC FS S.A.S.' && concept.conceptName === 'OPERACIÓN DESCARGUE') {
+                    const matchingTariff = concept.tariffRanges?.find(r => r.vehicleType === 'CONTENEDOR');
+                     if (matchingTariff) {
+                        vehicleTypeForReport = matchingTariff.vehicleType;
+                        unitOfMeasureForReport = 'CONTENEDOR' as any; // Override unit of measure
+                        unitValue = matchingTariff.dayTariff; // Assuming day tariff for this special case
+                        operacionLogistica = 'No Aplica';
+                    }
+                } else {
+                    const matchingTariff = findMatchingTariff(totalTons, concept);
+                    if (matchingTariff) {
+                        vehicleTypeForReport = matchingTariff.vehicleType;
+                        // For these concepts, the unit of measure is the vehicle type itself
+                        if (concept.conceptName === 'OPERACIÓN CARGUE' || concept.conceptName === 'OPERACIÓN DESCARGUE') {
+                            unitOfMeasureForReport = vehicleTypeForReport as any;
+                        }
+                        const opLogisticType = getOperationLogisticsType(op.formData.fecha, op.formData.horaInicio, op.formData.horaFin, concept);
+                        unitValue = opLogisticType === 'Diurno' ? matchingTariff.dayTariff : matchingTariff.nightTariff;
+                        operacionLogistica = opLogisticType;
+                    }
                 }
             }
             
@@ -409,7 +425,7 @@ export async function generateClientSettlement(criteria: {
                 conceptName: concept.conceptName,
                 tipoVehiculo: (concept.conceptName === 'OPERACIÓN CARGUE' || concept.conceptName === 'OPERACIÓN DESCARGUE') ? vehicleTypeForReport : 'No Aplica',
                 quantity,
-                unitOfMeasure: concept.unitOfMeasure,
+                unitOfMeasure: unitOfMeasureForReport,
                 unitValue: unitValue,
                 totalValue: quantity * unitValue,
                 horaInicio: op.formData.horaInicio,
@@ -583,8 +599,8 @@ export async function generateClientSettlement(criteria: {
                                         unitOfMeasure: specificTariff.unit,
                                         unitValue: specificTariff.value || 0,
                                         totalValue: totalValue,
-                                        horaInicio: opData.details?.startTime || 'No Aplica',
-                                        horaFin: opData.details?.endTime || 'No Aplica',
+                                        horaInicio: opData.details?.startTime || 'N/A',
+                                        horaFin: opData.details?.endTime || 'N/A',
                                         numeroPersonas: opData.numeroPersonas || undefined,
                                     });
                                 }
@@ -614,8 +630,8 @@ export async function generateClientSettlement(criteria: {
                             unitOfMeasure: concept.unitOfMeasure,
                             unitValue: concept.value || 0,
                             totalValue: totalValue,
-                            horaInicio: opData.details?.startTime || 'No Aplica',
-                            horaFin: opData.details?.endTime || 'No Aplica',
+                            horaInicio: opData.details?.startTime || 'N/A',
+                            horaFin: opData.details?.endTime || 'N/A',
                         });
                     }
                 }
