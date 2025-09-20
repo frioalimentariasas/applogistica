@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -7,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { useForm, SubmitHandler, useFieldArray, useWatch, FieldErrors, useFormContext, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { format, parseISO, addDays, getDaysInMonth, getDay, isSaturday, isSunday, isWithinInterval, startOfDay, startOfMonth } from 'date-fns';
+import { format, parseISO, addDays, getDaysInMonth, getDay, isSaturday, isSunday, isWithinInterval, startOfDay, startOfMonth, differenceInMinutes, parse } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 import { addManualClientOperation, updateManualClientOperation, deleteManualClientOperation, addBulkManualClientOperation } from './actions';
@@ -37,6 +36,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { DateMultiSelector } from '@/components/app/date-multi-selector';
 import { Textarea } from '@/components/ui/textarea';
+import { Alert, AlertTitle } from '@/components/ui/alert';
 
 
 const specificTariffEntrySchema = z.object({
@@ -198,6 +198,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     const watchedClient = form.watch('clientName');
     const watchedConcept = form.watch('concept');
     const watchedOperationDate = form.watch('operationDate');
+    const watchedTimes = form.watch(['details.startTime', 'details.endTime']);
     const selectedConceptInfo = useMemo(() => billingConcepts.find(c => c.conceptName === watchedConcept), [watchedConcept, billingConcepts]);
     
     const isBulkMode = watchedConcept === 'TIEMPO EXTRA FRIOAL (FIJO)';
@@ -443,6 +444,25 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
 
     const showAdvancedFields = ['INSPECCIÓN ZFPC', 'TIEMPO EXTRA ZFPC'].includes(watchedConcept);
     const showInspectionFields = watchedConcept === 'INSPECCIÓN ZFPC';
+
+    const calculatedDuration = useMemo(() => {
+        const [startTime, endTime] = watchedTimes;
+        if (startTime && endTime) {
+            try {
+                const start = parse(startTime, 'HH:mm', new Date());
+                let end = parse(endTime, 'HH:mm', new Date());
+                if (end < start) {
+                    end = addDays(end, 1);
+                }
+                const minutes = differenceInMinutes(end, start);
+                const hours = minutes / 60;
+                return { hours, minutes };
+            } catch (e) {
+                return null;
+            }
+        }
+        return null;
+    }, [watchedTimes]);
 
     return (
         <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
@@ -698,9 +718,20 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                     <FormField control={form.control} name="details.startTime" render={({ field }) => (<FormItem><FormLabel>Hora Inicio</FormLabel><div className="flex items-center gap-2"><FormControl><Input type="time" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} className="flex-grow" /></FormControl>{dialogMode !== 'view' && (<Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('details.startTime')}><Clock className="h-4 w-4" /></Button>)}</div><FormMessage /></FormItem>)} />
                                                     <FormField control={form.control} name="details.endTime" render={({ field }) => (<FormItem><FormLabel>Hora Fin</FormLabel><div className="flex items-center gap-2"><FormControl><Input type="time" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} className="flex-grow" /></FormControl>{dialogMode !== 'view' && (<Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('details.endTime')}><Clock className="h-4 w-4" /></Button>)}</div><FormMessage /></FormItem>)} />
                                                 </div>
+
+                                                {watchedConcept === 'INSPECCIÓN ZFPC' && calculatedDuration && (
+                                                    <Alert variant="default" className="border-sky-500 bg-sky-50 text-sky-800">
+                                                        <Clock className="h-4 w-4 !text-sky-600" />
+                                                        <AlertTitle className="text-sky-700">Duración Calculada</AlertTitle>
+                                                        <FormDescription>
+                                                            <span className="font-bold">{calculatedDuration.hours.toFixed(2)} horas</span> ({calculatedDuration.minutes} minutos). Use este valor como guía para la cantidad.
+                                                        </FormDescription>
+                                                    </Alert>
+                                                )}
+
                                                 <FormField control={form.control} name="details.container" render={({ field }) => (<FormItem><FormLabel>Contenedor {showInspectionFields && <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Contenedor" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
                                                 {showInspectionFields && (
-                                                    <FormField control={form.control} name="details.arin" render={({ field }) => (<FormItem><FormLabel>ARIN {showInspectionFields && <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Número de ARIN" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
+                                                    <FormField control={form.control} name="details.arin" render={({ field }) => (<FormItem><FormLabel>ARIN <span className="text-destructive">*</span></FormLabel><FormControl><Input placeholder="Número de ARIN" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
                                                 )}
                                                 <FormField control={form.control} name="details.plate" render={({ field }) => (<FormItem><FormLabel>Placa (Opcional)</FormLabel><FormControl><Input placeholder="ABC123" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
                                                 <FormField control={form.control} name="details.totalPallets" render={({ field }) => (<FormItem><FormLabel>Total Paletas</FormLabel><FormControl><Input type="number" step="1" placeholder="Ej: 10" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value === '' ? null : parseInt(e.target.value, 10))}/></FormControl><FormMessage /></FormItem>)}/>
