@@ -449,15 +449,20 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         const [startTime, endTime] = watchedTimes;
         if (startTime && endTime) {
             try {
+                // We need to provide a base date to parse, but we only care about the time part.
                 const start = parse(startTime, 'HH:mm', new Date());
                 let end = parse(endTime, 'HH:mm', new Date());
+                
+                // Handle overnight operations
                 if (end < start) {
                     end = addDays(end, 1);
                 }
+                
                 const minutes = differenceInMinutes(end, start);
                 const hours = minutes / 60;
                 return { hours, minutes };
             } catch (e) {
+                console.error("Error calculating duration:", e);
                 return null;
             }
         }
@@ -702,7 +707,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                     render={({ field }) => (
                                                         <FormItem>
                                                             <FormLabel>Cantidad</FormLabel>
-                                                            <FormControl><Input type="number" step="0.01" placeholder="Ej: 1.5" {...field} value={field.value ?? ''} disabled={dialogMode === 'view' || watchedConcept === 'INSPECCIÓN ZFPC'} /></FormControl>
+                                                            <FormControl><Input type="number" step="0.01" placeholder="Ej: 1.5" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl>
                                                             <FormMessage />
                                                         </FormItem>
                                                     )}
@@ -731,7 +736,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
 
                                                 <FormField control={form.control} name="details.container" render={({ field }) => (<FormItem><FormLabel>Contenedor {showInspectionFields && <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Contenedor" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
                                                 {showInspectionFields && (
-                                                    <FormField control={form.control} name="details.arin" render={({ field }) => (<FormItem><FormLabel>ARIN <span className="text-destructive">*</span></FormLabel><FormControl><Input placeholder="Número de ARIN" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
+                                                    <FormField control={form.control} name="details.arin" render={({ field }) => (<FormItem><FormLabel>ARIN <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Número de ARIN" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
                                                 )}
                                                 <FormField control={form.control} name="details.plate" render={({ field }) => (<FormItem><FormLabel>Placa (Opcional)</FormLabel><FormControl><Input placeholder="ABC123" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
                                                 <FormField control={form.control} name="details.totalPallets" render={({ field }) => (<FormItem><FormLabel>Total Paletas</FormLabel><FormControl><Input type="number" step="1" placeholder="Ej: 10" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value === '' ? null : parseInt(e.target.value, 10))}/></FormControl><FormMessage /></FormItem>)}/>
