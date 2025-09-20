@@ -387,20 +387,18 @@ export async function generateClientSettlement(criteria: {
             } else if (concept.tariffType === 'RANGOS') {
                 const totalTons = weightKg / 1000;
                 
-                // Special Case for ATLANTIC FS
                 if (clientName === 'ATLANTIC FS S.A.S.' && concept.conceptName === 'OPERACIÓN DESCARGUE') {
                     const matchingTariff = concept.tariffRanges?.find(r => r.vehicleType === 'CONTENEDOR');
                      if (matchingTariff) {
                         vehicleTypeForReport = matchingTariff.vehicleType;
                         unitOfMeasureForReport = 'CONTENEDOR' as any; // Override unit of measure
-                        unitValue = matchingTariff.dayTariff; // Assuming day tariff for this special case
-                        operacionLogistica = 'No Aplica';
+                        operacionLogistica = getOperationLogisticsType(op.formData.fecha, op.formData.horaInicio, op.formData.horaFin, concept);
+                        unitValue = operacionLogistica === 'Diurno' ? matchingTariff.dayTariff : matchingTariff.nightTariff;
                     }
                 } else {
                     const matchingTariff = findMatchingTariff(totalTons, concept);
                     if (matchingTariff) {
                         vehicleTypeForReport = matchingTariff.vehicleType;
-                        // For these concepts, the unit of measure is the vehicle type itself
                         if (concept.conceptName === 'OPERACIÓN CARGUE' || concept.conceptName === 'OPERACIÓN DESCARGUE') {
                             unitOfMeasureForReport = vehicleTypeForReport as any;
                         }
@@ -716,3 +714,4 @@ const timeToMinutes = (timeStr: string): number => {
     
 
     
+
