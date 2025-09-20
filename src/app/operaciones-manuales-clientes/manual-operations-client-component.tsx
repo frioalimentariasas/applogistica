@@ -195,6 +195,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         name: "excedentes"
     });
     
+    const watchedClient = form.watch('clientName');
     const watchedConcept = form.watch('concept');
     const watchedOperationDate = form.watch('operationDate');
     const selectedConceptInfo = useMemo(() => billingConcepts.find(c => c.conceptName === watchedConcept), [watchedConcept, billingConcepts]);
@@ -592,7 +593,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                         <Button
                                                         variant="outline"
                                                         role="combobox"
-                                                        disabled={dialogMode === 'view'}
+                                                        disabled={dialogMode === 'view' || !watchedClient}
                                                         className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
                                                         >
                                                         {field.value || "Seleccione un concepto"}
@@ -606,6 +607,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                         </DialogHeader>
                                                         <ConceptSelectorDialog
                                                             billingConcepts={billingConcepts}
+                                                            selectedClient={watchedClient}
                                                             onSelect={(conceptName) => {
                                                                 form.setValue("concept", conceptName);
                                                                 setConceptDialogOpen(false);
@@ -680,7 +682,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                     render={({ field }) => (
                                                         <FormItem>
                                                             <FormLabel>Cantidad</FormLabel>
-                                                            <FormControl><Input type="number" step="0.01" placeholder="Ej: 1.5" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl>
+                                                            <FormControl><Input type="number" step="0.01" placeholder="Ej: 1.5" {...field} value={field.value ?? ''} disabled={dialogMode === 'view' || watchedConcept === 'INSPECCIÓN ZFPC'} /></FormControl>
                                                             <FormMessage />
                                                         </FormItem>
                                                     )}
@@ -743,13 +745,28 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     );
 }
 
-function ConceptSelectorDialog({ billingConcepts, onSelect }: { billingConcepts: ClientBillingConcept[], onSelect: (conceptName: string) => void }) {
+function ConceptSelectorDialog({ billingConcepts, selectedClient, onSelect }: { billingConcepts: ClientBillingConcept[], selectedClient: string, onSelect: (conceptName: string) => void }) {
     const [search, setSearch] = useState('');
+    
     const filteredConcepts = useMemo(() => {
         const manualConcepts = billingConcepts.filter(c => c.calculationType === 'MANUAL');
-        if (!search) return manualConcepts;
-        return manualConcepts.filter(c => c.conceptName.toLowerCase().includes(search.toLowerCase()));
-    }, [search, billingConcepts]);
+        
+        // Prioritize client-specific concepts
+        const clientSpecific = manualConcepts.filter(c => c.clientNames.includes(selectedClient));
+        // Then get global concepts, excluding any that have a client-specific version already found
+        const global = manualConcepts.filter(c => 
+            c.clientNames.includes('TODOS (Cualquier Cliente)') && 
+            !clientSpecific.some(sc => sc.conceptName === c.conceptName)
+        );
+        
+        let displayConcepts = [...clientSpecific, ...global];
+        
+        if (search) {
+            displayConcepts = displayConcepts.filter(c => c.conceptName.toLowerCase().includes(search.toLowerCase()));
+        }
+
+        return displayConcepts.sort((a,b) => a.conceptName.localeCompare(b.conceptName));
+    }, [search, billingConcepts, selectedClient]);
 
     return (
         <div className="p-4">
@@ -772,7 +789,7 @@ function ConceptSelectorDialog({ billingConcepts, onSelect }: { billingConcepts:
                         </Button>
                     ))}
                     {filteredConcepts.length === 0 && (
-                        <p className="text-center text-sm text-muted-foreground">No se encontraron conceptos.</p>
+                        <p className="text-center text-sm text-muted-foreground">No se encontraron conceptos para este cliente.</p>
                     )}
                 </div>
             </ScrollArea>
@@ -924,5 +941,3 @@ const ExcedentManager = () => {
         </div>
     )
 }
-
-    

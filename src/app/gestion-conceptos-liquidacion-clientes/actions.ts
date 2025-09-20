@@ -94,7 +94,18 @@ export async function addClientBillingConcept(data: Omit<ClientBillingConcept, '
   if (!firestore) return { success: false, message: 'Error de configuración del servidor.' };
   
   try {
-    const docRef = await firestore.collection('client_billing_concepts').add(data);
+    const conceptsRef = firestore.collection('client_billing_concepts');
+    const querySnapshot = await conceptsRef
+      .where('conceptName', '==', data.conceptName)
+      .where('clientNames', 'array-contains-any', data.clientNames)
+      .get();
+      
+    if (!querySnapshot.empty) {
+      const conflictingClient = querySnapshot.docs[0].data().clientNames.find((c: string) => data.clientNames.includes(c));
+      return { success: false, message: `El concepto "${data.conceptName}" ya tiene una configuración para el cliente "${conflictingClient}". Edite el concepto existente en lugar de crear uno nuevo.` };
+    }
+
+    const docRef = await conceptsRef.add(data);
     revalidatePath('/gestion-conceptos-liquidacion-clientes');
     return { success: true, message: 'Concepto de cliente agregado con éxito.', newConcept: { id: docRef.id, ...data } };
   } catch (error) {
@@ -108,6 +119,20 @@ export async function updateClientBillingConcept(id: string, data: Omit<ClientBi
   if (!firestore) return { success: false, message: 'Error de configuración del servidor.' };
   
   try {
+     const conceptsRef = firestore.collection('client_billing_concepts');
+    const querySnapshot = await conceptsRef
+      .where('conceptName', '==', data.conceptName)
+      .where('clientNames', 'array-contains-any', data.clientNames)
+      .get();
+
+    // Find if there's a conflicting document that is not the one we are editing
+    const conflictingDoc = querySnapshot.docs.find(doc => doc.id !== id);
+
+    if (conflictingDoc) {
+      const conflictingClient = conflictingDoc.data().clientNames.find((c: string) => data.clientNames.includes(c));
+      return { success: false, message: `El concepto "${data.conceptName}" ya tiene una configuración para el cliente "${conflictingClient}". No se puede duplicar.` };
+    }
+
     await firestore.collection('client_billing_concepts').doc(id).update(data);
     revalidatePath('/gestion-conceptos-liquidacion-clientes');
     return { success: true, message: 'Concepto de cliente actualizado con éxito.' };
