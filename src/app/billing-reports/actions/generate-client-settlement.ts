@@ -272,6 +272,18 @@ const calculatePalletsForOperation = (op: any): number => {
     return 0;
 };
 
+const formatTime12Hour = (timeStr: string | undefined): string => {
+    if (!timeStr) return '';
+    if (!timeStr.includes(':')) return timeStr;
+
+    const [hours, minutes] = timeStr.split(':');
+    let h = parseInt(hours, 10);
+    const ampm = h >= 12 ? 'PM' : 'AM';
+    h = h % 12;
+    h = h ? h : 12; // the hour '0' should be '12'
+    return `${h.toString()}:${minutes.padStart(2, '0')} ${ampm}`;
+};
+
 
 export async function generateClientSettlement(criteria: {
   clientName: string;
@@ -482,10 +494,10 @@ export async function generateClientSettlement(criteria: {
                     if (concept.conceptName === 'CONEXIÓN ELÉCTRICA CONTENEDOR') {
                         const { fechaArribo, horaArribo, fechaSalida, horaSalida } = opData.details || {};
                         if (fechaArribo && horaArribo) {
-                            horaInicio = `${format(parseISO(fechaArribo), 'dd/MM/yyyy')} ${horaArribo}`;
+                            horaInicio = `${format(parseISO(fechaArribo), 'dd/MM/yyyy')} ${formatTime12Hour(horaArribo)}`;
                         }
                         if (fechaSalida && horaSalida) {
-                            horaFin = `${format(parseISO(fechaSalida), 'dd/MM/yyyy')} ${horaSalida}`;
+                             horaFin = `${format(parseISO(fechaSalida), 'dd/MM/yyyy')} ${formatTime12Hour(horaSalida)}`;
                         }
                     }
 
