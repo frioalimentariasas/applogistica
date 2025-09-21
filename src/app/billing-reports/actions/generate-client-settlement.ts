@@ -386,13 +386,13 @@ export async function generateClientSettlement(criteria: {
                 unitValue = concept.value || 0;
             } else if (concept.tariffType === 'RANGOS') {
                 const totalTons = weightKg / 1000;
+                operacionLogistica = getOperationLogisticsType(op.formData.fecha, op.formData.horaInicio, op.formData.horaFin, concept);
                 
                 if (clientName === 'ATLANTIC FS S.A.S.' && concept.conceptName === 'OPERACIÓN DESCARGUE') {
                     const matchingTariff = concept.tariffRanges?.find(r => r.vehicleType === 'CONTENEDOR');
                      if (matchingTariff) {
                         vehicleTypeForReport = matchingTariff.vehicleType;
                         unitOfMeasureForReport = 'CONTENEDOR' as any; // Override unit of measure
-                        operacionLogistica = getOperationLogisticsType(op.formData.fecha, op.formData.horaInicio, op.formData.horaFin, concept);
                         unitValue = operacionLogistica === 'Diurno' ? matchingTariff.dayTariff : matchingTariff.nightTariff;
                     }
                 } else {
@@ -402,9 +402,7 @@ export async function generateClientSettlement(criteria: {
                         if (concept.conceptName === 'OPERACIÓN CARGUE' || concept.conceptName === 'OPERACIÓN DESCARGUE') {
                             unitOfMeasureForReport = vehicleTypeForReport as any;
                         }
-                        const opLogisticType = getOperationLogisticsType(op.formData.fecha, op.formData.horaInicio, op.formData.horaFin, concept);
-                        unitValue = opLogisticType === 'Diurno' ? matchingTariff.dayTariff : matchingTariff.nightTariff;
-                        operacionLogistica = opLogisticType;
+                        unitValue = operacionLogistica === 'Diurno' ? matchingTariff.dayTariff : matchingTariff.nightTariff;
                     }
                 }
             }
@@ -477,6 +475,19 @@ export async function generateClientSettlement(criteria: {
                 const concept = manualConcepts.find(c => c.conceptName === opData.concept);
                 if (concept) {
                     const date = opData.operationDate ? new Date(opData.operationDate).toISOString().split('T')[0] : startDate;
+                    
+                    let horaInicio = opData.details?.startTime || 'N/A';
+                    let horaFin = opData.details?.endTime || 'N/A';
+
+                    if (concept.conceptName === 'CONEXIÓN ELÉCTRICA CONTENEDOR') {
+                        const { fechaArribo, horaArribo, fechaSalida, horaSalida } = opData.details || {};
+                        if (fechaArribo && horaArribo) {
+                            horaInicio = `${format(parseISO(fechaArribo), 'dd/MM/yyyy')} ${horaArribo}`;
+                        }
+                        if (fechaSalida && horaSalida) {
+                            horaFin = `${format(parseISO(fechaSalida), 'dd/MM/yyyy')} ${horaSalida}`;
+                        }
+                    }
 
                     if (concept.conceptName === 'TIEMPO EXTRA FRIOAL (FIJO)' && Array.isArray(opData.bulkRoles)) {
                          const excedentesMap = new Map((opData.excedentes || []).map((e: any) => [e.date, e.hours]));
@@ -597,8 +608,8 @@ export async function generateClientSettlement(criteria: {
                                         unitOfMeasure: specificTariff.unit,
                                         unitValue: specificTariff.value || 0,
                                         totalValue: totalValue,
-                                        horaInicio: opData.details?.startTime || 'N/A',
-                                        horaFin: opData.details?.endTime || 'N/A',
+                                        horaInicio: horaInicio,
+                                        horaFin: horaFin,
                                         numeroPersonas: opData.numeroPersonas || undefined,
                                     });
                                 }
@@ -628,8 +639,8 @@ export async function generateClientSettlement(criteria: {
                             unitOfMeasure: concept.unitOfMeasure,
                             unitValue: concept.value || 0,
                             totalValue: totalValue,
-                            horaInicio: opData.details?.startTime || 'N/A',
-                            horaFin: opData.details?.endTime || 'N/A',
+                            horaInicio: horaInicio,
+                            horaFin: horaFin,
                         });
                     }
                 }
@@ -697,21 +708,3 @@ const timeToMinutes = (timeStr: string): number => {
     const [hours, minutes] = timeStr.split(':').map(Number);
     return hours * 60 + minutes;
 };
-
-
-
-
-
-
-
-
-
-
-
-
-    
-
-    
-
-    
-

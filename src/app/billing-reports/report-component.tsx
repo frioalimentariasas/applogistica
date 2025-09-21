@@ -111,25 +111,25 @@ const getImageAsBase64Client = async (url: string): Promise<string> => {
     }
 };
 
-const formatTime12Hour = (time24: string | undefined): string => {
-    if (!time24) return 'No Aplica';
+const formatTime12Hour = (timeStr: string | undefined): string => {
+    if (!timeStr) return 'No Aplica';
 
-    if (time24.includes(' ')) { // Already formatted with date, e.g., "13/09/2025 06:50 PM"
-        const parts = time24.split(' ');
-        if (parts.length > 2) { // e.g. "13/09/2025 06:50 PM"
-             return `${parts[0]} ${parts[1]} ${parts[2]}`;
-        }
-        return time24;
+    // Check if it's already a formatted date-time string
+    // e.g., "13/09/2025 06:50 PM"
+    const dateTimeParts = timeStr.split(' ');
+    if (dateTimeParts.length > 2 && (dateTimeParts[2] === 'AM' || dateTimeParts[2] === 'PM')) {
+        return timeStr;
     }
     
-    if (!time24.includes(':')) return 'No Aplica';
+    // Handle HH:mm format
+    if (!timeStr.includes(':')) return 'No Aplica';
 
-    const [hours, minutes] = time24.split(':');
+    const [hours, minutes] = timeStr.split(':');
     let h = parseInt(hours, 10);
     const ampm = h >= 12 ? 'PM' : 'AM';
     h = h % 12;
     h = h ? h : 12; // the hour '0' should be '12'
-    return `${h}:${minutes} ${ampm}`;
+    return `${h.toString().padStart(2, '0')}:${minutes} ${ampm}`;
 };
 
 const formatDuration = (totalMinutes: number | null): string => {
