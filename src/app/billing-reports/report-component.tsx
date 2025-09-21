@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import * as React from 'react';
@@ -1151,6 +1150,14 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         workbook.creator = 'Frio Alimentaria App';
         workbook.created = new Date();
     
+        const conceptOrder = [
+            'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'FMM DE INGRESO ZFPC', 'ARIN DE INGRESO ZFPC', 'FMM DE SALIDA ZFPC',
+            'ARIN DE SALIDA ZFPC', 'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
+            'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'ESTIBA MADERA RECICLADA',
+            'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA ZFPC',
+            'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO',
+        ];
+
         const addHeaderAndTitle = (ws: ExcelJS.Worksheet, columns: any[]) => {
             ws.getCell('A1').value = `Liquidación Cliente: ${settlementClient}`;
             ws.getCell('A1').font = { bold: true, size: 16 };
@@ -1197,48 +1204,78 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             cell.alignment = { horizontal: 'center' };
         });
 
-        settlementReportData.forEach(row => {
-            const rowData = {
-                date: format(parseISO(row.date), 'dd/MM/yyyy'),
-                conceptName: row.conceptName,
-                subConceptName: row.subConceptName,
-                numeroPersonas: row.numeroPersonas,
-                totalPaletas: row.totalPaletas > 0 ? row.totalPaletas : '',
-                container: row.container,
-                camara: getSessionName(row.camara),
-                pedidoSislog: row.pedidoSislog,
-                operacionLogistica: row.operacionLogistica,
-                tipoVehiculo: (row.conceptName === 'OPERACIÓN CARGUE' || row.conceptName === 'OPERACIÓN DESCARGUE') ? row.tipoVehiculo : 'No Aplica',
-                horaInicio: formatTime12Hour(row.horaInicio),
-                horaFin: formatTime12Hour(row.horaFin),
-                quantity: row.quantity,
-                unitOfMeasure: row.unitOfMeasure,
-                unitValue: row.unitValue,
-                totalValue: row.totalValue
-            };
-            const addedRow = detailWorksheet.addRow(rowData);
-            addedRow.getCell('unitValue').numFmt = '$ #,##0.00';
-            addedRow.getCell('totalValue').numFmt = '$ #,##0.00';
-            addedRow.getCell('quantity').numFmt = '#,##0.00';
+        const groupedByDay = settlementReportData.reduce((acc, row) => {
+            const date = format(parseISO(row.date), 'yyyy-MM-dd');
+            if (!acc[date]) {
+                acc[date] = [];
+            }
+            acc[date].push(row);
+            return acc;
+        }, {} as Record<string, ClientSettlementRow[]>);
+
+        const sortedDates = Object.keys(groupedByDay).sort((a, b) => a.localeCompare(b));
+
+        sortedDates.forEach(date => {
+            const rowsForDay = groupedByDay[date];
+            rowsForDay.sort((a,b) => {
+                const indexA = conceptOrder.indexOf(a.conceptName);
+                const indexB = conceptOrder.indexOf(b.conceptName);
+                return (indexA === -1 ? Infinity : indexA) - (indexB === -1 ? Infinity : indexB);
+            });
+            let dailySubtotal = 0;
+
+            rowsForDay.forEach(row => {
+                detailWorksheet.addRow({
+                    date: format(parseISO(row.date), 'dd/MM/yyyy'),
+                    conceptName: row.conceptName,
+                    subConceptName: row.subConceptName,
+                    numeroPersonas: row.numeroPersonas,
+                    totalPaletas: row.totalPaletas > 0 ? row.totalPaletas : '',
+                    container: row.container,
+                    camara: getSessionName(row.camara),
+                    pedidoSislog: row.pedidoSislog,
+                    operacionLogistica: row.operacionLogistica,
+                    tipoVehiculo: (row.conceptName === 'OPERACIÓN CARGUE' || row.conceptName === 'OPERACIÓN DESCARGUE') ? row.tipoVehiculo : 'No Aplica',
+                    horaInicio: formatTime12Hour(row.horaInicio),
+                    horaFin: formatTime12Hour(row.horaFin),
+                    quantity: row.quantity,
+                    unitOfMeasure: row.unitOfMeasure,
+                    unitValue: row.unitValue,
+                    totalValue: row.totalValue
+                }).eachCell(cell => {
+                    const colKey = (cell.col - 1);
+                    if (['quantity', 'unitValue', 'totalValue'].includes(detailColumns[colKey]?.key)) {
+                        cell.numFmt = detailColumns[colKey].key === 'quantity' ? '#,##0.00' : '$ #,##0.00';
+                    }
+                });
+                dailySubtotal += row.totalValue;
+            });
+            const subtotalRow = detailWorksheet.addRow([]);
+            subtotalRow.getCell(15).value = `Subtotal Día ${format(parseISO(date), 'dd/MM/yyyy')}:`;
+            subtotalRow.getCell(15).font = { bold: true };
+            subtotalRow.getCell(15).alignment = { horizontal: 'right' };
+            subtotalRow.getCell(16).value = dailySubtotal;
+            subtotalRow.getCell(16).numFmt = '$ #,##0.00';
+            subtotalRow.getCell(16).font = { bold: true };
+            subtotalRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDDEBF7' }};
         });
-        
-        const totalGeneralDetail = settlementReportData.reduce((sum, row) => sum + (row.totalValue || 0), 0);
+
         detailWorksheet.addRow([]);
         const totalDetailRow = detailWorksheet.addRow([]);
         const totalDetailLabelCell = totalDetailRow.getCell(15);
-        totalDetailLabelCell.value = 'TOTAL GENERAL DETALLE:';
-        totalDetailLabelCell.font = { bold: true };
+        totalDetailLabelCell.value = 'TOTAL GENERAL:';
+        totalDetailLabelCell.font = { bold: true, size: 12 };
         totalDetailLabelCell.alignment = { horizontal: 'right' };
         const totalDetailValueCell = totalDetailRow.getCell(16);
-        totalDetailValueCell.value = totalGeneralDetail;
+        totalDetailValueCell.value = settlementTotalGeneral;
         totalDetailValueCell.numFmt = '$ #,##0.00';
-        totalDetailValueCell.font = { bold: true };
+        totalDetailValueCell.font = { bold: true, size: 12 };
+        totalDetailRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFC5E0B3' }};
 
 
         // --- Hoja de Resumen ---
         const summaryWorksheet = workbook.addWorksheet('Resumen Liquidación');
         const summaryColumns = [
-            { header: 'Fecha', key: 'date', width: 15 },
             { header: 'Concepto', key: 'concept', width: 50 },
             { header: 'Total Cantidad', key: 'totalQuantity', width: 20 },
             { header: 'Unidad', key: 'unitOfMeasure', width: 15 },
@@ -1253,67 +1290,49 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             cell.alignment = { horizontal: 'center' };
         });
 
-        const summaryByDayAndConcept = settlementReportData.reduce((acc, row) => {
-            const date = format(parseISO(row.date), 'yyyy-MM-dd');
-            const concept = row.conceptName;
-            const key = `${date}|${concept}`;
+        const summaryByConcept = settlementReportData.reduce((acc, row) => {
+            const concept = row.conceptName + (row.subConceptName ? ` (${row.subConceptName})` : '');
+            const key = concept;
             if (!acc[key]) {
                 acc[key] = {
-                    date,
-                    concept,
+                    concept: key,
                     totalQuantity: 0,
                     totalValue: 0,
                     unitOfMeasure: row.unitOfMeasure,
+                    order: conceptOrder.indexOf(row.conceptName)
                 };
             }
             acc[key].totalQuantity += row.quantity;
             acc[key].totalValue += row.totalValue;
             return acc;
-        }, {} as Record<string, { date: string; concept: string; totalQuantity: number; totalValue: number; unitOfMeasure: string }>);
+        }, {} as Record<string, { concept: string; totalQuantity: number; totalValue: number; unitOfMeasure: string; order: number; }>);
         
-        const blueFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDDEBF7' } };
-        const subtotalFont: Partial<ExcelJS.Font> = { bold: true, color: { argb: 'FF000000' } };
-        
-        const groupedByDay = Object.values(summaryByDayAndConcept).reduce((acc, item) => {
-            if (!acc[item.date]) {
-                acc[item.date] = [];
-            }
-            acc[item.date].push(item);
-            return acc;
-        }, {} as Record<string, any[]>);
-
-        Object.keys(groupedByDay).sort((a,b) => a.localeCompare(b)).forEach(date => {
-            const items = groupedByDay[date];
-            let dailySubtotal = 0;
-            items.forEach(item => {
-                const addedRow = summaryWorksheet.addRow({
-                    date: format(parseISO(item.date), 'dd/MM/yyyy'),
-                    concept: item.concept,
-                    totalQuantity: item.totalQuantity,
-                    unitOfMeasure: item.unitOfMeasure,
-                    totalValue: item.totalValue
-                });
-                addedRow.getCell('totalQuantity').numFmt = '#,##0.00';
-                addedRow.getCell('totalValue').numFmt = '$ #,##0.00';
-                dailySubtotal += item.totalValue;
-            });
-
-            const subtotalRow = summaryWorksheet.addRow(['', 'Subtotal Día:', '', '', dailySubtotal]);
-            subtotalRow.font = subtotalFont;
-            subtotalRow.getCell('B').alignment = { horizontal: 'right' };
-            subtotalRow.getCell('E').numFmt = '$ #,##0.00';
-
-            const separatorRow = summaryWorksheet.addRow([]);
-            separatorRow.eachCell(cell => cell.fill = blueFill);
-            separatorRow.height = 3;
+        const sortedSummary = Object.values(summaryByConcept).sort((a,b) => {
+            const orderA = a.order === -1 ? Infinity : a.order;
+            const orderB = b.order === -1 ? Infinity : b.order;
+            if (orderA !== orderB) return orderA - orderB;
+            return a.concept.localeCompare(b.concept);
         });
 
-        const totalGeneral = settlementReportData.reduce((sum, row) => sum + (row.totalValue || 0), 0);
+        sortedSummary.forEach(item => {
+            const addedRow = summaryWorksheet.addRow({
+                concept: item.concept,
+                totalQuantity: item.totalQuantity,
+                unitOfMeasure: item.unitOfMeasure,
+                totalValue: item.totalValue
+            });
+            addedRow.getCell('totalQuantity').numFmt = '#,##0.00';
+            addedRow.getCell('totalValue').numFmt = '$ #,##0.00';
+        });
+
         summaryWorksheet.addRow([]);
-        const totalSumRow = summaryWorksheet.addRow(['', '', '', 'TOTAL GENERAL:', totalGeneral]);
-        totalSumRow.font = { bold: true, size: 12 };
-        totalSumRow.getCell(4).alignment = { horizontal: 'right' };
-        totalSumRow.getCell(5).numFmt = '$ #,##0.00';
+        const totalSumRow = summaryWorksheet.addRow([]);
+        totalSumRow.getCell(3).value = 'TOTAL GENERAL:';
+        totalSumRow.getCell(3).font = { bold: true, size: 12 };
+        totalSumRow.getCell(3).alignment = { horizontal: 'right' };
+        totalSumRow.getCell(4).value = settlementTotalGeneral;
+        totalSumRow.getCell(4).numFmt = '$ #,##0.00';
+        totalSumRow.getCell(4).font = { bold: true, size: 12 };
 
         const buffer = await workbook.xlsx.writeBuffer();
         const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
@@ -1330,6 +1349,14 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const doc = new jsPDF({ orientation: 'landscape' });
         const pageWidth = doc.internal.pageSize.getWidth();
         const margin = 14;
+
+        const conceptOrder = [
+            'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'FMM DE INGRESO ZFPC', 'ARIN DE INGRESO ZFPC', 'FMM DE SALIDA ZFPC',
+            'ARIN DE SALIDA ZFPC', 'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
+            'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'ESTIBA MADERA RECICLADA',
+            'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA ZFPC',
+            'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO',
+        ];
     
         const addHeader = (docInstance: jsPDF, pageTitle: string) => {
             const logoWidth = 30;
@@ -1356,89 +1383,97 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         // --- Summary Page ---
         let lastY = addHeader(doc, "Resumen de Liquidación");
     
-        const summaryByDayAndConcept = settlementReportData.reduce((acc, row) => {
-            const date = format(parseISO(row.date), 'yyyy-MM-dd');
-            const concept = row.conceptName;
-            const key = `${date}|${concept}`;
+        const summaryByConcept = settlementReportData.reduce((acc, row) => {
+            const concept = row.conceptName + (row.subConceptName ? ` (${row.subConceptName})` : '');
+            const key = concept;
             if (!acc[key]) {
-                acc[key] = { date, concept, totalQuantity: 0, totalValue: 0, unitOfMeasure: row.unitOfMeasure };
+                acc[key] = { concept, totalQuantity: 0, totalValue: 0, unitOfMeasure: row.unitOfMeasure, order: conceptOrder.indexOf(row.conceptName) };
             }
             acc[key].totalQuantity += row.quantity;
             acc[key].totalValue += row.totalValue;
             return acc;
-        }, {} as Record<string, { date: string; concept: string; totalQuantity: number; totalValue: number; unitOfMeasure: string }>);
+        }, {} as Record<string, { concept: string; totalQuantity: number; totalValue: number; unitOfMeasure: string; order: number }>);
     
-        const summaryBody: any[] = [];
-        const groupedByDay = Object.values(summaryByDayAndConcept).reduce((acc, item) => {
-            if (!acc[item.date]) acc[item.date] = [];
-            acc[item.date].push(item);
-            return acc;
-        }, {} as Record<string, any[]>);
-    
-        Object.keys(groupedByDay).sort((a,b) => a.localeCompare(b)).forEach(date => {
-            const items = groupedByDay[date];
-            let dailySubtotal = 0;
-            items.forEach(item => {
-                summaryBody.push([
-                    format(parseISO(item.date), 'dd/MM/yyyy'),
-                    item.concept,
-                    item.totalQuantity.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
-                    item.unitOfMeasure,
-                    item.totalValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
-                ]);
-                dailySubtotal += item.totalValue;
-            });
-            summaryBody.push([
-                { content: `Subtotal Día ${format(parseISO(date), 'dd/MM/yyyy')}:`, colSpan: 4, styles: { halign: 'right', fontStyle: 'bold' } },
-                { content: dailySubtotal.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } }
-            ]);
+        const sortedSummary = Object.values(summaryByConcept).sort((a, b) => {
+            const orderA = a.order === -1 ? Infinity : a.order;
+            const orderB = b.order === -1 ? Infinity : b.order;
+            if (orderA !== orderB) return orderA - orderB;
+            return a.concept.localeCompare(b.concept);
         });
-    
-        const totalGeneralSummary = Object.values(summaryByDayAndConcept).reduce((sum, item) => sum + (item.totalValue || 0), 0);
 
         autoTable(doc, {
-            head: [['Fecha', 'Concepto', 'Total Cantidad', 'Unidad', 'Total Valor']],
-            body: summaryBody,
+            head: [['Concepto', 'Total Cantidad', 'Unidad', 'Total Valor']],
+            body: sortedSummary.map(item => [
+                item.concept,
+                item.totalQuantity.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
+                item.unitOfMeasure,
+                item.totalValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
+            ]),
             foot: [[
-                { content: 'TOTAL GENERAL RESUMEN:', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } },
-                { content: totalGeneralSummary.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } }
+                { content: 'TOTAL GENERAL:', colSpan: 3, styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } },
+                { content: settlementTotalGeneral.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } }
             ]],
             startY: lastY,
             pageBreak: 'auto',
             theme: 'grid',
             headStyles: { fillColor: [26, 144, 200], fontSize: 8 },
             styles: { fontSize: 7, cellPadding: 1.5 },
-            columnStyles: { 2: { halign: 'right' }, 4: { halign: 'right' } },
+            columnStyles: { 1: { halign: 'right' }, 3: { halign: 'right' } },
             footStyles: { fontStyle: 'bold' }
         });
 
         // --- Detail Page ---
         doc.addPage();
         lastY = addHeader(doc, "Detalle de Operaciones");
+
+        const groupedByDay = settlementReportData.reduce((acc, row) => {
+            const date = format(parseISO(row.date), 'yyyy-MM-dd');
+            if (!acc[date]) acc[date] = [];
+            acc[date].push(row);
+            return acc;
+        }, {} as Record<string, ClientSettlementRow[]>);
     
-        const detailBody = settlementReportData.map(row => [
-            format(parseISO(row.date), 'dd/MM/yy'),
-            row.conceptName + (row.subConceptName ? ` (${row.subConceptName})` : ''),
-            row.numeroPersonas || '', row.totalPaletas > 0 ? row.totalPaletas : '', getSessionName(row.camara),
-            row.container, row.pedidoSislog, row.operacionLogistica, row.tipoVehiculo, formatTime12Hour(row.horaInicio),
-            formatTime12Hour(row.horaFin), row.quantity.toLocaleString('es-CO', { minimumFractionDigits: 2 }),
-            row.unitOfMeasure, row.unitValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }),
-            row.totalValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
-        ]);
-        const totalGeneralDetail = settlementReportData.reduce((sum, row) => sum + row.totalValue, 0);
+        const detailBody: any[] = [];
+        Object.keys(groupedByDay).sort((a, b) => a.localeCompare(b)).forEach(date => {
+            detailBody.push([{ content: `Fecha: ${format(parseISO(date), 'PPP', { locale: es })}`, colSpan: 15, styles: { fontStyle: 'bold', fillColor: '#dceaf5', textColor: '#000' } }]);
+            
+            const rowsForDay = groupedByDay[date];
+            rowsForDay.sort((a,b) => {
+                const indexA = conceptOrder.indexOf(a.conceptName);
+                const indexB = conceptOrder.indexOf(b.conceptName);
+                return (indexA === -1 ? Infinity : indexA) - (indexB === -1 ? Infinity : b.order);
+            });
+            let dailySubtotal = 0;
+
+            rowsForDay.forEach(row => {
+                detailBody.push([
+                    row.conceptName + (row.subConceptName ? ` (${row.subConceptName})` : ''),
+                    row.numeroPersonas || '', row.totalPaletas > 0 ? row.totalPaletas : '', getSessionName(row.camara),
+                    row.container, row.pedidoSislog, row.operacionLogistica, row.tipoVehiculo, formatTime12Hour(row.horaInicio),
+                    formatTime12Hour(row.horaFin), row.quantity.toLocaleString('es-CO', { minimumFractionDigits: 2 }),
+                    row.unitOfMeasure, row.unitValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }),
+                    row.totalValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
+                ]);
+                dailySubtotal += row.totalValue;
+            });
+            detailBody.push([
+                { content: `Subtotal Día:`, colSpan: 13, styles: { halign: 'right', fontStyle: 'bold' } },
+                { content: dailySubtotal.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } }
+            ]);
+        });
     
         autoTable(doc, {
-            head: [['Fecha', 'Concepto / Detalle', 'Personas', 'Paletas', 'Cámara', 'Contenedor', 'Pedido', 'Op. Log.', 'T. Vehículo', 'H. Inicio', 'H. Fin', 'Cant.', 'Unidad', 'Vlr. Unit.', 'Vlr. Total']],
+            head: [['Concepto / Detalle', 'Pers.', 'Pal.', 'Cámara', 'Contenedor', 'Pedido', 'Op. Log.', 'T. Vehículo', 'H. Inicio', 'H. Fin', 'Cant.', 'Unidad', 'Vlr. Unit.', 'Vlr. Total']],
             body: detailBody,
             foot: [[
-                { content: 'TOTAL GENERAL DETALLE:', colSpan: 14, styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } },
-                { content: totalGeneralDetail.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } }
+                { content: 'TOTAL GENERAL:', colSpan: 13, styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } },
+                { content: settlementTotalGeneral.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } }
             ]],
             startY: lastY,
             pageBreak: 'auto',
-            headStyles: { fillColor: [26, 144, 200], fontSize: 6 },
+            headStyles: { fillColor: [26, 144, 200], fontSize: 6, cellPadding: 1 },
             styles: { fontSize: 6, cellPadding: 1 },
-            columnStyles: { 11: { halign: 'right' }, 13: { halign: 'right' }, 14: { halign: 'right' } },
+            columnStyles: { 10: { halign: 'right' }, 12: { halign: 'right' }, 13: { halign: 'right' } },
             footStyles: { fontStyle: 'bold' }
         });
     
@@ -2331,7 +2366,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                     <div className="space-y-2">
                                         <Label>Rango de Fechas</Label>
                                         <Popover>
-                                            <PopoverTrigger asChild><Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !settlementDateRange && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{settlementDateRange?.from ? (settlementDateRange.to ? (<>{format(settlementDateRange.from, "LLL dd, y", { locale: es })} - {format(settlementDateRange.to, "LLL dd, y", { locale: es })}</>) : (format(settlementDateRange.from, "LLL dd, y", { locale: es }))) : (<span>Seleccione un rango</span>)}</Button></PopoverTrigger>
+                                            <PopoverTrigger asChild><Button variant={"outline"} className={cn("w-full justify-between text-left font-normal", !settlementDateRange && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4" />{settlementDateRange?.from ? (settlementDateRange.to ? (<>{format(settlementDateRange.from, "LLL dd, y", { locale: es })} - {format(settlementDateRange.to, "LLL dd, y", { locale: es })}</>) : (format(settlementDateRange.from, "LLL dd, y", { locale: es }))) : (<span>Seleccione un rango</span>)}</Button></PopoverTrigger>
                                             <PopoverContent className="w-auto p-0" align="start"><Calendar initialFocus mode="range" defaultMonth={settlementDateRange?.from} selected={settlementDateRange} onSelect={(range) => {
                                                 if (range?.from && range?.to && differenceInDays(range.to, range.from) > MAX_DATE_RANGE_DAYS) {
                                                     toast({ variant: 'destructive', title: 'Rango muy amplio', description: `Por favor, seleccione un rango de no más de ${MAX_DATE_RANGE_DAYS} días.` });
