@@ -1144,8 +1144,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     };
     
     const handleSettlementExportExcel = async () => {
-        if(settlementReportData.length === 0 || !settlementClient || !settlementDateRange?.from) return;
-        
+        if (settlementReportData.length === 0 || !settlementClient || !settlementDateRange?.from) return;
+    
         const workbook = new ExcelJS.Workbook();
         workbook.creator = 'Frio Alimentaria App';
         workbook.created = new Date();
@@ -1157,24 +1157,87 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA ZFPC',
             'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO',
         ];
-
+    
         const addHeaderAndTitle = (ws: ExcelJS.Worksheet, columns: any[]) => {
             ws.getCell('A1').value = `Liquidación Cliente: ${settlementClient}`;
             ws.getCell('A1').font = { bold: true, size: 16 };
             ws.mergeCells(1, 1, 1, columns.length);
             ws.getCell('A1').alignment = { horizontal: 'center' };
-            
+    
             ws.getCell('A2').value = `Periodo: ${format(settlementDateRange.from!, 'dd/MM/yyyy', { locale: es })} - ${format(settlementDateRange.to!, 'dd/MM/yyyy', { locale: es })}`;
             ws.getCell('A2').font = { bold: true };
             ws.mergeCells(2, 1, 2, columns.length);
             ws.getCell('A2').alignment = { horizontal: 'center' };
-            
+    
             ws.addRow([]); // Spacer
         };
-
+    
         const headerFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A90C8' } };
         const headerFont: Partial<ExcelJS.Font> = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
-        
+    
+        // --- Hoja de Resumen ---
+        const summaryWorksheet = workbook.addWorksheet('Resumen Liquidación');
+        const summaryColumns = [
+            { header: 'Item', key: 'item', width: 10 },
+            { header: 'Concepto', key: 'concept', width: 50 },
+            { header: 'Total Cantidad', key: 'totalQuantity', width: 20 },
+            { header: 'Unidad', key: 'unitOfMeasure', width: 15 },
+            { header: 'Total Valor', key: 'totalValue', width: 20 },
+        ];
+        addHeaderAndTitle(summaryWorksheet, summaryColumns);
+    
+        const summaryHeaderRow = summaryWorksheet.addRow(summaryColumns.map(c => c.header));
+        summaryHeaderRow.eachCell((cell) => {
+            cell.fill = headerFill;
+            cell.font = headerFont;
+            cell.alignment = { horizontal: 'center' };
+        });
+    
+        const summaryByConcept = settlementReportData.reduce((acc, row) => {
+            const concept = row.conceptName + (row.subConceptName ? ` (${row.subConceptName})` : '');
+            const key = concept;
+            if (!acc[key]) {
+                acc[key] = {
+                    concept: key,
+                    totalQuantity: 0,
+                    totalValue: 0,
+                    unitOfMeasure: row.unitOfMeasure,
+                    order: conceptOrder.indexOf(row.conceptName)
+                };
+            }
+            acc[key].totalQuantity += row.quantity;
+            acc[key].totalValue += row.totalValue;
+            return acc;
+        }, {} as Record<string, { concept: string; totalQuantity: number; totalValue: number; unitOfMeasure: string; order: number; }>);
+    
+        const sortedSummary = Object.values(summaryByConcept).sort((a, b) => {
+            const orderA = a.order === -1 ? Infinity : a.order;
+            const orderB = b.order === -1 ? Infinity : b.order;
+            if (orderA !== orderB) return orderA - orderB;
+            return a.concept.localeCompare(b.concept);
+        });
+    
+        sortedSummary.forEach((item, index) => {
+            const addedRow = summaryWorksheet.addRow({
+                item: index + 1,
+                concept: item.concept,
+                totalQuantity: item.totalQuantity,
+                unitOfMeasure: item.unitOfMeasure,
+                totalValue: item.totalValue
+            });
+            addedRow.getCell('totalQuantity').numFmt = '#,##0.00';
+            addedRow.getCell('totalValue').numFmt = '$ #,##0.00';
+        });
+    
+        summaryWorksheet.addRow([]);
+        const totalSumRow = summaryWorksheet.addRow([]);
+        totalSumRow.getCell(4).value = 'TOTAL GENERAL:';
+        totalSumRow.getCell(4).font = { bold: true, size: 12 };
+        totalSumRow.getCell(4).alignment = { horizontal: 'right' };
+        totalSumRow.getCell(5).value = settlementTotalGeneral;
+        totalSumRow.getCell(5).numFmt = '$ #,##0.00';
+        totalSumRow.getCell(5).font = { bold: true, size: 12 };
+    
         // --- Hoja de Detalle ---
         const detailWorksheet = workbook.addWorksheet('Detalle Liquidación');
         const detailColumns = [
@@ -1196,36 +1259,43 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             { header: 'Valor Total', key: 'totalValue', width: 20 },
         ];
         addHeaderAndTitle(detailWorksheet, detailColumns);
-
+    
         const detailHeaderRow = detailWorksheet.addRow(detailColumns.map(c => c.header));
         detailHeaderRow.eachCell((cell) => {
             cell.fill = headerFill;
             cell.font = headerFont;
             cell.alignment = { horizontal: 'center' };
         });
-
-        const groupedByDay = settlementReportData.reduce((acc, row) => {
-            const date = format(parseISO(row.date), 'yyyy-MM-dd');
-            if (!acc[date]) {
-                acc[date] = [];
+    
+        const groupedByConcept = settlementReportData.reduce((acc, row) => {
+            const conceptKey = row.conceptName;
+            if (!acc[conceptKey]) {
+                acc[conceptKey] = { rows: [], subtotalValor: 0, order: conceptOrder.indexOf(conceptKey) };
             }
-            acc[date].push(row);
+            acc[conceptKey].rows.push(row);
+            acc[conceptKey].subtotalValor += row.totalValue;
             return acc;
-        }, {} as Record<string, ClientSettlementRow[]>);
+        }, {} as Record<string, { rows: ClientSettlementRow[], subtotalValor: number, order: number }>);
+    
+        const sortedConceptKeys = Object.keys(groupedByConcept).sort((a, b) => {
+            const orderA = groupedByConcept[a].order === -1 ? Infinity : groupedByConcept[a].order;
+            const orderB = groupedByConcept[b].order === -1 ? Infinity : b.order;
+            if (orderA !== orderB) return orderA - orderB;
+            return a.localeCompare(b);
+        });
+    
+        sortedConceptKeys.forEach(conceptName => {
+            const group = groupedByConcept[conceptName];
+            const sortedRowsForConcept = group.rows.sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+            
+            const conceptHeaderRow = detailWorksheet.addRow([]);
+            const cell = conceptHeaderRow.getCell(1);
+            cell.value = conceptName;
+            cell.font = { bold: true, color: { argb: 'FF1A90C8' }, size: 12 };
+            detailWorksheet.mergeCells(conceptHeaderRow.number, 1, conceptHeaderRow.number, detailColumns.length);
 
-        const sortedDates = Object.keys(groupedByDay).sort((a, b) => a.localeCompare(b));
-
-        sortedDates.forEach(date => {
-            const rowsForDay = groupedByDay[date];
-            rowsForDay.sort((a,b) => {
-                const indexA = conceptOrder.indexOf(a.conceptName);
-                const indexB = conceptOrder.indexOf(b.conceptName);
-                return (indexA === -1 ? Infinity : indexA) - (indexB === -1 ? Infinity : indexB);
-            });
-            let dailySubtotal = 0;
-
-            rowsForDay.forEach(row => {
-                detailWorksheet.addRow({
+            sortedRowsForConcept.forEach(row => {
+                 detailWorksheet.addRow({
                     date: format(parseISO(row.date), 'dd/MM/yyyy'),
                     conceptName: row.conceptName,
                     subConceptName: row.subConceptName,
@@ -1248,18 +1318,18 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                         cell.numFmt = detailColumns[colKey].key === 'quantity' ? '#,##0.00' : '$ #,##0.00';
                     }
                 });
-                dailySubtotal += row.totalValue;
             });
+    
             const subtotalRow = detailWorksheet.addRow([]);
-            subtotalRow.getCell(15).value = `Subtotal Día ${format(parseISO(date), 'dd/MM/yyyy')}:`;
+            subtotalRow.getCell(15).value = `Subtotal ${conceptName}:`;
             subtotalRow.getCell(15).font = { bold: true };
             subtotalRow.getCell(15).alignment = { horizontal: 'right' };
-            subtotalRow.getCell(16).value = dailySubtotal;
+            subtotalRow.getCell(16).value = group.subtotalValor;
             subtotalRow.getCell(16).numFmt = '$ #,##0.00';
             subtotalRow.getCell(16).font = { bold: true };
-            subtotalRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDDEBF7' }};
+            subtotalRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDDEBF7' } };
         });
-
+    
         detailWorksheet.addRow([]);
         const totalDetailRow = detailWorksheet.addRow([]);
         const totalDetailLabelCell = totalDetailRow.getCell(15);
@@ -1270,70 +1340,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         totalDetailValueCell.value = settlementTotalGeneral;
         totalDetailValueCell.numFmt = '$ #,##0.00';
         totalDetailValueCell.font = { bold: true, size: 12 };
-        totalDetailRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFC5E0B3' }};
-
-
-        // --- Hoja de Resumen ---
-        const summaryWorksheet = workbook.addWorksheet('Resumen Liquidación');
-        const summaryColumns = [
-            { header: 'Concepto', key: 'concept', width: 50 },
-            { header: 'Total Cantidad', key: 'totalQuantity', width: 20 },
-            { header: 'Unidad', key: 'unitOfMeasure', width: 15 },
-            { header: 'Total Valor', key: 'totalValue', width: 20 },
-        ];
-        addHeaderAndTitle(summaryWorksheet, summaryColumns);
-        
-        const summaryHeaderRow = summaryWorksheet.addRow(summaryColumns.map(c => c.header));
-        summaryHeaderRow.eachCell((cell) => {
-            cell.fill = headerFill;
-            cell.font = headerFont;
-            cell.alignment = { horizontal: 'center' };
-        });
-
-        const summaryByConcept = settlementReportData.reduce((acc, row) => {
-            const concept = row.conceptName + (row.subConceptName ? ` (${row.subConceptName})` : '');
-            const key = concept;
-            if (!acc[key]) {
-                acc[key] = {
-                    concept: key,
-                    totalQuantity: 0,
-                    totalValue: 0,
-                    unitOfMeasure: row.unitOfMeasure,
-                    order: conceptOrder.indexOf(row.conceptName)
-                };
-            }
-            acc[key].totalQuantity += row.quantity;
-            acc[key].totalValue += row.totalValue;
-            return acc;
-        }, {} as Record<string, { concept: string; totalQuantity: number; totalValue: number; unitOfMeasure: string; order: number; }>);
-        
-        const sortedSummary = Object.values(summaryByConcept).sort((a,b) => {
-            const orderA = a.order === -1 ? Infinity : a.order;
-            const orderB = b.order === -1 ? Infinity : b.order;
-            if (orderA !== orderB) return orderA - orderB;
-            return a.concept.localeCompare(b.concept);
-        });
-
-        sortedSummary.forEach(item => {
-            const addedRow = summaryWorksheet.addRow({
-                concept: item.concept,
-                totalQuantity: item.totalQuantity,
-                unitOfMeasure: item.unitOfMeasure,
-                totalValue: item.totalValue
-            });
-            addedRow.getCell('totalQuantity').numFmt = '#,##0.00';
-            addedRow.getCell('totalValue').numFmt = '$ #,##0.00';
-        });
-
-        summaryWorksheet.addRow([]);
-        const totalSumRow = summaryWorksheet.addRow([]);
-        totalSumRow.getCell(3).value = 'TOTAL GENERAL:';
-        totalSumRow.getCell(3).font = { bold: true, size: 12 };
-        totalSumRow.getCell(3).alignment = { horizontal: 'right' };
-        totalSumRow.getCell(4).value = settlementTotalGeneral;
-        totalSumRow.getCell(4).numFmt = '$ #,##0.00';
-        totalSumRow.getCell(4).font = { bold: true, size: 12 };
-
+        totalDetailRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFC5E0B3' } };
+    
         const buffer = await workbook.xlsx.writeBuffer();
         const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
         const link = document.createElement("a");
@@ -1402,15 +1410,16 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         });
 
         autoTable(doc, {
-            head: [['Concepto', 'Total Cantidad', 'Unidad', 'Total Valor']],
-            body: sortedSummary.map(item => [
+            head: [['Item', 'Concepto', 'Total Cantidad', 'Unidad', 'Total Valor']],
+            body: sortedSummary.map((item, index) => [
+                index + 1,
                 item.concept,
                 item.totalQuantity.toLocaleString('es-CO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
                 item.unitOfMeasure,
                 item.totalValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
             ]),
             foot: [[
-                { content: 'TOTAL GENERAL:', colSpan: 3, styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } },
+                { content: 'TOTAL GENERAL:', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } },
                 { content: settlementTotalGeneral.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } }
             ]],
             startY: lastY,
@@ -1418,7 +1427,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             theme: 'grid',
             headStyles: { fillColor: [26, 144, 200], fontSize: 8 },
             styles: { fontSize: 7, cellPadding: 1.5 },
-            columnStyles: { 1: { halign: 'right' }, 3: { halign: 'right' } },
+            columnStyles: { 0: { cellWidth: 10 }, 2: { halign: 'right' }, 4: { halign: 'right' } },
             footStyles: { fontStyle: 'bold' }
         });
 
@@ -1426,54 +1435,55 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         doc.addPage();
         lastY = addHeader(doc, "Detalle de Operaciones");
 
-        const groupedByDay = settlementReportData.reduce((acc, row) => {
-            const date = format(parseISO(row.date), 'yyyy-MM-dd');
-            if (!acc[date]) acc[date] = [];
-            acc[date].push(row);
+        const groupedByConcept = settlementReportData.reduce((acc, row) => {
+            const conceptKey = row.conceptName;
+            if (!acc[conceptKey]) {
+                acc[conceptKey] = { rows: [], subtotalValor: 0, order: conceptOrder.indexOf(conceptKey) };
+            }
+            acc[conceptKey].rows.push(row);
+            acc[conceptKey].subtotalValor += row.totalValue;
             return acc;
-        }, {} as Record<string, ClientSettlementRow[]>);
+        }, {} as Record<string, { rows: ClientSettlementRow[], subtotalValor: number, order: number }>);
     
-        const detailBody: any[] = [];
-        Object.keys(groupedByDay).sort((a, b) => a.localeCompare(b)).forEach(date => {
-            detailBody.push([{ content: `Fecha: ${format(parseISO(date), 'PPP', { locale: es })}`, colSpan: 15, styles: { fontStyle: 'bold', fillColor: '#dceaf5', textColor: '#000' } }]);
-            
-            const rowsForDay = groupedByDay[date];
-            rowsForDay.sort((a,b) => {
-                const indexA = conceptOrder.indexOf(a.conceptName);
-                const indexB = conceptOrder.indexOf(b.conceptName);
-                return (indexA === -1 ? Infinity : indexA) - (indexB === -1 ? Infinity : b.order);
-            });
-            let dailySubtotal = 0;
+        const sortedConceptKeys = Object.keys(groupedByConcept).sort((a, b) => {
+            const orderA = groupedByConcept[a].order === -1 ? Infinity : a.order;
+            const orderB = groupedByConcept[b].order === -1 ? Infinity : b.order;
+            if (orderA !== orderB) return orderA - orderB;
+            return a.localeCompare(b);
+        });
 
-            rowsForDay.forEach(row => {
-                detailBody.push([
-                    row.conceptName + (row.subConceptName ? ` (${row.subConceptName})` : ''),
-                    row.numeroPersonas || '', row.totalPaletas > 0 ? row.totalPaletas : '', getSessionName(row.camara),
+        const detailBody: any[] = [];
+        sortedConceptKeys.forEach(conceptName => {
+             detailBody.push([{ content: conceptName, colSpan: 15, styles: { fontStyle: 'bold', fillColor: '#dceaf5', textColor: '#000' } }]);
+             const sortedRows = groupedByConcept[conceptName].rows.sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+             sortedRows.forEach(row => {
+                 detailBody.push([
+                    format(parseISO(row.date), 'dd/MM/yyyy'),
+                    row.subConceptName || '', row.numeroPersonas || '', row.totalPaletas > 0 ? row.totalPaletas : '', getSessionName(row.camara),
                     row.container, row.pedidoSislog, row.operacionLogistica, row.tipoVehiculo, formatTime12Hour(row.horaInicio),
                     formatTime12Hour(row.horaFin), row.quantity.toLocaleString('es-CO', { minimumFractionDigits: 2 }),
                     row.unitOfMeasure, row.unitValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }),
                     row.totalValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
                 ]);
-                dailySubtotal += row.totalValue;
-            });
-            detailBody.push([
-                { content: `Subtotal Día:`, colSpan: 13, styles: { halign: 'right', fontStyle: 'bold' } },
-                { content: dailySubtotal.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } }
+             });
+             detailBody.push([
+                { content: `Subtotal ${conceptName}:`, colSpan: 14, styles: { halign: 'right', fontStyle: 'bold' } },
+                { content: groupedByConcept[conceptName].subtotalValor.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } }
             ]);
         });
     
         autoTable(doc, {
-            head: [['Concepto / Detalle', 'Pers.', 'Pal.', 'Cámara', 'Contenedor', 'Pedido', 'Op. Log.', 'T. Vehículo', 'H. Inicio', 'H. Fin', 'Cant.', 'Unidad', 'Vlr. Unit.', 'Vlr. Total']],
+            head: [['Fecha', 'Detalle', 'Pers.', 'Pal.', 'Cámara', 'Contenedor', 'Pedido', 'Op. Log.', 'T. Vehículo', 'H. Inicio', 'H. Fin', 'Cant.', 'Unidad', 'Vlr. Unit.', 'Vlr. Total']],
             body: detailBody,
             foot: [[
-                { content: 'TOTAL GENERAL:', colSpan: 13, styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } },
+                { content: 'TOTAL GENERAL:', colSpan: 14, styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } },
                 { content: settlementTotalGeneral.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } }
             ]],
             startY: lastY,
             pageBreak: 'auto',
             headStyles: { fillColor: [26, 144, 200], fontSize: 6, cellPadding: 1 },
             styles: { fontSize: 6, cellPadding: 1 },
-            columnStyles: { 10: { halign: 'right' }, 12: { halign: 'right' }, 13: { halign: 'right' } },
+            columnStyles: { 11: { halign: 'right' }, 13: { halign: 'right' }, 14: { halign: 'right' } },
             footStyles: { fontStyle: 'bold' }
         });
     
