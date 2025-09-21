@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -16,7 +15,7 @@ import type { ManualOperationData } from '@/app/crew-performance-report/actions'
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
 import type { ClientInfo } from '@/app/actions/clients';
-import type { BillingConcept } from '@/app/gestion-conceptos-liquidacion/actions';
+import type { BillingConcept } from '@/app/gestion-conceptos-liquidacion-cuadrilla/actions';
 
 import { Button, buttonVariants } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
@@ -92,14 +91,17 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
     });
     
     const watchedConcept = form.watch('concept');
+    const selectedConceptInfo = useMemo(() => billingConcepts.find(c => c.conceptName === watchedConcept), [watchedConcept, billingConcepts]);
 
     const fetchAllOperations = useCallback(async () => {
         setIsLoading(true);
         try {
             const data = await getAllManualOperations();
             setAllOperations(data);
+            return data; // Devuelve los datos para que handleSearch pueda usarlos
         } catch (error) {
             toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar las operaciones.' });
+            return []; // Devuelve un array vacío en caso de error
         } finally {
             setIsLoading(false);
         }
@@ -109,7 +111,7 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
         fetchAllOperations();
     }, [fetchAllOperations]);
     
-    const handleSearch = () => {
+    const handleSearch = (operations: any[]) => {
         if (!selectedDate) {
             toast({
                 variant: 'destructive',
@@ -119,7 +121,7 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
             return;
         }
 
-        let results = allOperations;
+        let results = operations;
 
         results = results.filter(op => format(new Date(op.operationDate), 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd'));
 
@@ -204,8 +206,10 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
             toast({ title: 'Éxito', description: result.message });
             setIsDialogOpen(false);
             form.reset();
-            await fetchAllOperations();
-            handleSearch();
+            const updatedOps = await fetchAllOperations();
+            if (searched && selectedDate) {
+                 handleSearch(updatedOps);
+            }
         } else {
             toast({ variant: "destructive", title: "Error", description: result.message });
         }
@@ -218,8 +222,10 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
         const result = await deleteManualOperation(opToDelete.id);
         if (result.success) {
             toast({ title: 'Éxito', description: result.message });
-            await fetchAllOperations();
-            handleSearch();
+            const updatedOps = await fetchAllOperations();
+            if (searched && selectedDate) {
+                handleSearch(updatedOps);
+            }
         } else {
             toast({ variant: 'destructive', title: 'Error', description: result.message });
         }
@@ -286,7 +292,7 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
                                 <Select value={selectedConcept} onValueChange={setSelectedConcept}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Todos los Conceptos</SelectItem>{[...new Set(allOperations.map(op => op.concept))].sort((a,b) => a.localeCompare(b)).map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select>
                             </div>
                             <div className="flex items-end gap-2 xl:col-span-2">
-                                <Button onClick={handleSearch} disabled={!selectedDate || isLoading} className="w-full">
+                                <Button onClick={() => handleSearch(allOperations)} disabled={!selectedDate || isLoading} className="w-full">
                                     <Search className="mr-2 h-4 w-4" />
                                     Consultar
                                 </Button>
@@ -380,7 +386,20 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
                                             <FormField control={form.control} name="endTime" render={({ field }) => (<FormItem><FormLabel>Hora Fin</FormLabel><div className="flex items-center gap-2"><FormControl><Input type="time" {...field} disabled={dialogMode === 'view'} className="flex-grow" /></FormControl>{dialogMode !== 'view' && (<Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('endTime')}><Clock className="h-4 w-4" /></Button>)}</div><FormMessage /></FormItem>)} />
                                         </div>
                                         <FormField control={form.control} name="plate" render={({ field }) => (<FormItem><FormLabel>Placa (Opcional)</FormLabel><FormControl><Input placeholder="ABC123" {...field} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
-                                        <FormField control={form.control} name="quantity" render={({ field }) => (<FormItem><FormLabel>Cantidad</FormLabel><FormControl><Input type="number" step="0.001" placeholder="Ej: 1.5" {...field} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)}/>
+                                        <FormField
+                                            control={form.control}
+                                            name="quantity"
+                                            render={({ field }) => (
+                                                <FormItem>
+                                                    <FormLabel>
+                                                        Cantidad
+                                                        {selectedConceptInfo && <span className="text-muted-foreground ml-2">({selectedConceptInfo.unitOfMeasure})</span>}
+                                                    </FormLabel>
+                                                    <FormControl><Input type="number" step="0.001" placeholder="Ej: 1.5" {...field} disabled={dialogMode === 'view'} /></FormControl>
+                                                    <FormMessage />
+                                                </FormItem>
+                                            )}
+                                        />
                                         <FormField control={form.control} name="comentarios" render={({ field }) => (
                                             <FormItem>
                                                 <FormLabel>Comentarios (Opcional)</FormLabel>
@@ -430,3 +449,5 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
         </div>
     );
 }
+
+    
