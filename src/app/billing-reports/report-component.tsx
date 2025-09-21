@@ -1159,23 +1159,23 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO',
         ];
     
-        const addHeaderAndTitle = (ws: ExcelJS.Worksheet, title: string, columns: any[]) => {
+        const addHeaderAndTitle = (ws: ExcelJS.Worksheet, title: string) => {
             const titleRow = ws.addRow([title]);
             titleRow.font = { bold: true, size: 16 };
-            ws.mergeCells(1, 1, 1, columns.length > 0 ? columns.length : 1);
-            titleRow.getCell(1).alignment = { horizontal: 'center' };
+            titleRow.alignment = { horizontal: 'center' };
+            ws.mergeCells(titleRow.number, 1, titleRow.number, 16);
 
             const clientRow = ws.addRow([`Cliente: ${settlementClient}`]);
             clientRow.font = { bold: true };
-            ws.mergeCells(2, 1, 2, columns.length > 0 ? columns.length : 1);
-            clientRow.getCell(1).alignment = { horizontal: 'center' };
+            clientRow.alignment = { horizontal: 'center' };
+            ws.mergeCells(clientRow.number, 1, clientRow.number, 16);
     
             if (settlementDateRange?.from && settlementDateRange.to) {
                 const periodText = `Periodo: ${format(settlementDateRange.from, 'dd/MM/yyyy', { locale: es })} - ${format(settlementDateRange.to, 'dd/MM/yyyy', { locale: es })}`;
                 const periodRow = ws.addRow([periodText]);
                 periodRow.font = { bold: true };
-                ws.mergeCells(3, 1, 3, columns.length > 0 ? columns.length : 1);
-                periodRow.getCell(1).alignment = { horizontal: 'center' };
+                periodRow.alignment = { horizontal: 'center' };
+                ws.mergeCells(periodRow.number, 1, periodRow.number, 16);
             }
             ws.addRow([]); // Spacer
         };
@@ -1185,18 +1185,19 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     
         // --- Hoja de Resumen ---
         const summaryWorksheet = workbook.addWorksheet('Resumen Liquidación');
+        addHeaderAndTitle(summaryWorksheet, "Resumen de Liquidación");
+
         const summaryColumns = [
             { header: 'Item', key: 'item', width: 10 },
             { header: 'Concepto', key: 'concept', width: 50 },
             { header: 'Total Cantidad', key: 'totalQuantity', width: 20 },
             { header: 'Unidad', key: 'unitOfMeasure', width: 15 },
+            { header: 'Valor Unitario', key: 'unitValue', width: 20 },
             { header: 'Total Valor', key: 'totalValue', width: 20 },
         ];
-        addHeaderAndTitle(summaryWorksheet, "Resumen de Liquidación", summaryColumns);
         summaryWorksheet.columns = summaryColumns;
 
-        const summaryHeaderRow = summaryWorksheet.getRow(5);
-        summaryHeaderRow.values = summaryColumns.map(c => c.header);
+        const summaryHeaderRow = summaryWorksheet.addRow(summaryColumns.map(c => c.header));
         summaryHeaderRow.eachCell((cell) => {
             cell.fill = headerFill;
             cell.font = headerFont;
@@ -1212,13 +1213,19 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                     totalQuantity: 0,
                     totalValue: 0,
                     unitOfMeasure: row.unitOfMeasure,
+                    unitValue: row.unitValue, // Store the unit value
                     order: conceptOrder.indexOf(row.conceptName)
                 };
             }
             acc[key].totalQuantity += row.quantity;
             acc[key].totalValue += row.totalValue;
+            // Handle cases where unit value might differ (e.g., specific tariffs)
+            if (acc[key].unitValue !== row.unitValue) {
+                // Mark as "Varios" if different unit values exist for the same concept
+                (acc[key].unitValue as any) = 'Varios';
+            }
             return acc;
-        }, {} as Record<string, { concept: string; totalQuantity: number; totalValue: number; unitOfMeasure: string; order: number; }>);
+        }, {} as Record<string, { concept: string; totalQuantity: number; totalValue: number; unitOfMeasure: string; unitValue: number | 'Varios'; order: number; }>);
     
         const sortedSummary = Object.values(summaryByConcept).sort((a, b) => {
             const orderA = a.order === -1 ? Infinity : a.order;
@@ -1233,26 +1240,31 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 concept: item.concept,
                 totalQuantity: item.totalQuantity,
                 unitOfMeasure: item.unitOfMeasure,
-                totalValue: item.totalValue
+                unitValue: item.unitValue,
+                totalValue: item.totalValue,
             });
-            addedRow.getCell(3).numFmt = '#,##0.00';
-            addedRow.getCell(5).numFmt = '$ #,##0.00';
+            addedRow.getCell('totalQuantity').numFmt = '#,##0.00';
+            if (typeof item.unitValue === 'number') {
+                addedRow.getCell('unitValue').numFmt = '$ #,##0.00';
+            }
+            addedRow.getCell('totalValue').numFmt = '$ #,##0.00';
         });
     
         summaryWorksheet.addRow([]);
         const totalSumRow = summaryWorksheet.addRow([]);
-        totalSumRow.getCell(4).value = 'TOTAL GENERAL:';
-        totalSumRow.getCell(4).font = { bold: true, size: 12 };
-        totalSumRow.getCell(4).alignment = { horizontal: 'right' };
-        totalSumRow.getCell(5).value = settlementTotalGeneral;
-        totalSumRow.getCell(5).numFmt = '$ #,##0.00';
+        totalSumRow.getCell(5).value = 'TOTAL GENERAL:';
         totalSumRow.getCell(5).font = { bold: true, size: 12 };
+        totalSumRow.getCell(5).alignment = { horizontal: 'right' };
+        totalSumRow.getCell(6).value = settlementTotalGeneral;
+        totalSumRow.getCell(6).numFmt = '$ #,##0.00';
+        totalSumRow.getCell(6).font = { bold: true, size: 12 };
     
         // --- Hoja de Detalle ---
         const detailWorksheet = workbook.addWorksheet('Detalle Liquidación');
+        addHeaderAndTitle(detailWorksheet, "Detalle de Operaciones");
+        
         const detailColumns = [
             { header: 'Fecha', key: 'date', width: 15 },
-            { header: 'Concepto', key: 'conceptName', width: 40 },
             { header: 'Detalle Concepto', key: 'subConceptName', width: 40 },
             { header: 'No. Personas', key: 'numeroPersonas', width: 15 },
             { header: 'Total Paletas', key: 'totalPaletas', width: 15 },
@@ -1268,11 +1280,9 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             { header: 'Valor Unitario', key: 'unitValue', width: 20 },
             { header: 'Valor Total', key: 'totalValue', width: 20 },
         ];
-        addHeaderAndTitle(detailWorksheet, "Detalle de Operaciones", detailColumns);
         detailWorksheet.columns = detailColumns;
 
-        const detailHeaderRow = detailWorksheet.getRow(5);
-        detailHeaderRow.values = detailColumns.map(c => c.header);
+        const detailHeaderRow = detailWorksheet.addRow(detailColumns.map(c => c.header));
         detailHeaderRow.eachCell((cell) => {
             cell.fill = headerFill;
             cell.font = headerFont;
@@ -1309,7 +1319,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             sortedRowsForConcept.forEach(row => {
                  detailWorksheet.addRow({
                     date: format(parseISO(row.date), 'dd/MM/yyyy'),
-                    conceptName: row.conceptName,
                     subConceptName: row.subConceptName,
                     numeroPersonas: row.numeroPersonas,
                     totalPaletas: row.totalPaletas > 0 ? row.totalPaletas : '',
@@ -1324,34 +1333,31 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                     unitOfMeasure: row.unitOfMeasure,
                     unitValue: row.unitValue,
                     totalValue: row.totalValue
-                }).eachCell(cell => {
-                    const colKeyIndex = cell.col -1;
-                    if(colKeyIndex < detailColumns.length) {
-                        const colKey = detailColumns[colKeyIndex].key;
-                        if (['quantity', 'unitValue', 'totalValue'].includes(colKey)) {
-                            cell.numFmt = colKey === 'quantity' ? '#,##0.00' : '$ #,##0.00';
-                        }
+                }).eachCell((cell, colNumber) => {
+                    const colKey = detailColumns[colNumber - 1].key;
+                    if (['quantity', 'unitValue', 'totalValue'].includes(colKey)) {
+                        cell.numFmt = colKey === 'quantity' ? '#,##0.00' : '$ #,##0.00';
                     }
                 });
             });
     
             const subtotalRow = detailWorksheet.addRow([]);
-            subtotalRow.getCell(15).value = `Subtotal ${conceptName}:`;
+            subtotalRow.getCell(14).value = `Subtotal ${conceptName}:`;
+            subtotalRow.getCell(14).font = { bold: true };
+            subtotalRow.getCell(14).alignment = { horizontal: 'right' };
+            subtotalRow.getCell(15).value = group.subtotalValor;
+            subtotalRow.getCell(15).numFmt = '$ #,##0.00';
             subtotalRow.getCell(15).font = { bold: true };
-            subtotalRow.getCell(15).alignment = { horizontal: 'right' };
-            subtotalRow.getCell(16).value = group.subtotalValor;
-            subtotalRow.getCell(16).numFmt = '$ #,##0.00';
-            subtotalRow.getCell(16).font = { bold: true };
             subtotalRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDDEBF7' } };
         });
     
         detailWorksheet.addRow([]);
         const totalDetailRow = detailWorksheet.addRow([]);
-        const totalDetailLabelCell = totalDetailRow.getCell(15);
+        const totalDetailLabelCell = totalDetailRow.getCell(14);
         totalDetailLabelCell.value = 'TOTAL GENERAL:';
         totalDetailLabelCell.font = { bold: true, size: 12 };
         totalDetailLabelCell.alignment = { horizontal: 'right' };
-        const totalDetailValueCell = totalDetailRow.getCell(16);
+        const totalDetailValueCell = totalDetailRow.getCell(15);
         totalDetailValueCell.value = settlementTotalGeneral;
         totalDetailValueCell.numFmt = '$ #,##0.00';
         totalDetailValueCell.font = { bold: true, size: 12 };
@@ -1461,7 +1467,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         }, {} as Record<string, { rows: ClientSettlementRow[], subtotalValor: number, order: number }>);
     
         const sortedConceptKeys = Object.keys(groupedByConcept).sort((a, b) => {
-            const orderA = groupedByConcept[a].order === -1 ? Infinity : groupedByConcept[a].order;
+            const orderA = groupedByConcept[a].order === -1 ? Infinity : a.order;
             const orderB = groupedByConcept[b].order === -1 ? Infinity : b.order;
             if (orderA !== orderB) return orderA - orderB;
             return a.localeCompare(b);
@@ -1576,7 +1582,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
             <div className="max-w-screen-2xl mx-auto">
                 <header className="mb-8">
-                    <div className="relative flex items-center justify-center text-center">
+                    <div className="relative flex items-center justify-center">
                          <Button 
                             variant="ghost" 
                             size="icon" 
@@ -1586,7 +1592,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                         >
                             <ArrowLeft className="mr-2 h-4 w-4" />
                         </Button>
-                        <div>
+                        <div className="text-center">
                             <div className="flex items-center justify-center gap-2">
                                 <BookCopy className="h-8 w-8 text-primary" />
                                 <h1 className="text-2xl font-bold text-primary">Informes para Facturación Clientes</h1>
@@ -2669,4 +2675,5 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 
     
 
+    
     
