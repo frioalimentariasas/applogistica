@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -805,7 +806,10 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                 name="quantity"
                                                 render={({ field }) => (
                                                     <FormItem>
-                                                        <FormLabel>Cantidad {isElectricConnection ? "(Horas)" : ""}</FormLabel>
+                                                        <FormLabel>
+                                                            Cantidad
+                                                            {selectedConceptInfo && <span className="text-muted-foreground ml-2">({selectedConceptInfo.unitOfMeasure})</span>}
+                                                        </FormLabel>
                                                         <FormControl><Input type="number" step="0.1" placeholder="Ej: 1.5" {...field} value={field.value ?? ''} disabled={dialogMode === 'view' || isElectricConnection} /></FormControl>
                                                         <FormMessage />
                                                     </FormItem>
@@ -1063,6 +1067,8 @@ const ExcedentManager = () => {
         </div>
     )
 }
+
+    
 
     
 
