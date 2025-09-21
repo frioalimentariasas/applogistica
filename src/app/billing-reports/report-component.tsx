@@ -112,7 +112,18 @@ const getImageAsBase64Client = async (url: string): Promise<string> => {
 };
 
 const formatTime12Hour = (time24: string | undefined): string => {
-    if (!time24 || !time24.includes(':')) return 'No Aplica';
+    if (!time24) return 'No Aplica';
+
+    if (time24.includes(' ')) { // Already formatted with date, e.g., "13/09/2025 06:50 PM"
+        const parts = time24.split(' ');
+        if (parts.length > 2) { // e.g. "13/09/2025 06:50 PM"
+             return `${parts[0]} ${parts[1]} ${parts[2]}`;
+        }
+        return time24;
+    }
+    
+    if (!time24.includes(':')) return 'No Aplica';
+
     const [hours, minutes] = time24.split(':');
     let h = parseInt(hours, 10);
     const ampm = h >= 12 ? 'PM' : 'AM';
@@ -512,7 +523,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         doc.text('Frio Alimentaria SAS Nit: 900736914-0', pageWidth / 2, titleY + 8, { align: 'center' });
 
         const head = [[
-            'Fecha', 'Op. Log.', 'Duración', 'Cliente', 'Tipo Op.', 'Tipo Pedido', 'Cámara', 'Empaque', 'No. Pedido', 'Op. Cuadrilla', 'No. Ops', 'Total Cant.', 'Total Paletas', 'Total Peso (kg)', 'Observaciones'
+            'Fecha', 'Op. Logística', 'Duración', 'Cliente', 'Tipo Op.', 'Tipo Pedido', 'Cámara', 'Empaque', 'No. Pedido', 'Op. Cuadrilla', 'No. Ops', 'Total Cantidad', 'Total Paletas', 'Total Peso (kg)', 'Observaciones'
         ]];
         
         const body = detailedReportData.map(row => [
@@ -1170,8 +1181,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             { header: 'Pedido SISLOG', key: 'pedidoSislog', width: 20 },
             { header: 'Op. Logística', key: 'operacionLogistica', width: 15 },
             { header: 'Tipo Vehículo', key: 'tipoVehiculo', width: 15 },
-            { header: 'H. Inicio', key: 'horaInicio', width: 15 },
-            { header: 'H. Fin', key: 'horaFin', width: 15 },
+            { header: 'H. Inicio', key: 'horaInicio', width: 20 },
+            { header: 'H. Fin', key: 'horaFin', width: 20 },
             { header: 'Cantidad', key: 'quantity', width: 15 },
             { header: 'Unidad', key: 'unitOfMeasure', width: 15 },
             { header: 'Valor Unitario', key: 'unitValue', width: 20 },
@@ -2595,3 +2606,5 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
         </Dialog>
     );
 }
+
+    
