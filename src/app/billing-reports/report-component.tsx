@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import * as React from 'react';
@@ -1185,7 +1186,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             { header: 'Total Valor', key: 'totalValue', width: 20 },
         ];
         addHeaderAndTitle(summaryWorksheet, summaryColumns);
-    
+        summaryWorksheet.columns = summaryColumns;
+
         const summaryHeaderRow = summaryWorksheet.addRow(summaryColumns.map(c => c.header));
         summaryHeaderRow.eachCell((cell) => {
             cell.fill = headerFill;
@@ -1225,8 +1227,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 unitOfMeasure: item.unitOfMeasure,
                 totalValue: item.totalValue
             });
-            addedRow.getCell('totalQuantity').numFmt = '#,##0.00';
-            addedRow.getCell('totalValue').numFmt = '$ #,##0.00';
+            addedRow.getCell(3).numFmt = '#,##0.00';
+            addedRow.getCell(5).numFmt = '$ #,##0.00';
         });
     
         summaryWorksheet.addRow([]);
@@ -1259,7 +1261,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             { header: 'Valor Total', key: 'totalValue', width: 20 },
         ];
         addHeaderAndTitle(detailWorksheet, detailColumns);
-    
+        detailWorksheet.columns = detailColumns;
+
         const detailHeaderRow = detailWorksheet.addRow(detailColumns.map(c => c.header));
         detailHeaderRow.eachCell((cell) => {
             cell.fill = headerFill;
@@ -1278,7 +1281,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         }, {} as Record<string, { rows: ClientSettlementRow[], subtotalValor: number, order: number }>);
     
         const sortedConceptKeys = Object.keys(groupedByConcept).sort((a, b) => {
-            const orderA = groupedByConcept[a].order === -1 ? Infinity : groupedByConcept[a].order;
+            const orderA = groupedByConcept[a].order === -1 ? Infinity : a.order;
             const orderB = groupedByConcept[b].order === -1 ? Infinity : b.order;
             if (orderA !== orderB) return orderA - orderB;
             return a.localeCompare(b);
@@ -2651,5 +2654,7 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
         </Dialog>
     );
 }
+
+    
 
     
