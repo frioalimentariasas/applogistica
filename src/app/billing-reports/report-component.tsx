@@ -1159,17 +1159,24 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO',
         ];
     
-        const addHeaderAndTitle = (ws: ExcelJS.Worksheet, columns: any[]) => {
-            ws.getCell('A1').value = `Liquidación Cliente: ${settlementClient}`;
-            ws.getCell('A1').font = { bold: true, size: 16 };
-            ws.mergeCells(1, 1, 1, columns.length);
-            ws.getCell('A1').alignment = { horizontal: 'center' };
+        const addHeaderAndTitle = (ws: ExcelJS.Worksheet, title: string, columns: any[]) => {
+            const titleRow = ws.addRow([title]);
+            titleRow.font = { bold: true, size: 16 };
+            ws.mergeCells(1, 1, 1, columns.length > 0 ? columns.length : 1);
+            titleRow.getCell(1).alignment = { horizontal: 'center' };
+
+            const clientRow = ws.addRow([`Cliente: ${settlementClient}`]);
+            clientRow.font = { bold: true };
+            ws.mergeCells(2, 1, 2, columns.length > 0 ? columns.length : 1);
+            clientRow.getCell(1).alignment = { horizontal: 'center' };
     
-            ws.getCell('A2').value = `Periodo: ${format(settlementDateRange.from!, 'dd/MM/yyyy', { locale: es })} - ${format(settlementDateRange.to!, 'dd/MM/yyyy', { locale: es })}`;
-            ws.getCell('A2').font = { bold: true };
-            ws.mergeCells(2, 1, 2, columns.length);
-            ws.getCell('A2').alignment = { horizontal: 'center' };
-    
+            if (settlementDateRange?.from && settlementDateRange.to) {
+                const periodText = `Periodo: ${format(settlementDateRange.from, 'dd/MM/yyyy', { locale: es })} - ${format(settlementDateRange.to, 'dd/MM/yyyy', { locale: es })}`;
+                const periodRow = ws.addRow([periodText]);
+                periodRow.font = { bold: true };
+                ws.mergeCells(3, 1, 3, columns.length > 0 ? columns.length : 1);
+                periodRow.getCell(1).alignment = { horizontal: 'center' };
+            }
             ws.addRow([]); // Spacer
         };
     
@@ -1185,10 +1192,11 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             { header: 'Unidad', key: 'unitOfMeasure', width: 15 },
             { header: 'Total Valor', key: 'totalValue', width: 20 },
         ];
-        addHeaderAndTitle(summaryWorksheet, summaryColumns);
+        addHeaderAndTitle(summaryWorksheet, "Resumen de Liquidación", summaryColumns);
         summaryWorksheet.columns = summaryColumns;
 
-        const summaryHeaderRow = summaryWorksheet.addRow(summaryColumns.map(c => c.header));
+        const summaryHeaderRow = summaryWorksheet.getRow(5);
+        summaryHeaderRow.values = summaryColumns.map(c => c.header);
         summaryHeaderRow.eachCell((cell) => {
             cell.fill = headerFill;
             cell.font = headerFont;
@@ -1260,10 +1268,11 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             { header: 'Valor Unitario', key: 'unitValue', width: 20 },
             { header: 'Valor Total', key: 'totalValue', width: 20 },
         ];
-        addHeaderAndTitle(detailWorksheet, detailColumns);
+        addHeaderAndTitle(detailWorksheet, "Detalle de Operaciones", detailColumns);
         detailWorksheet.columns = detailColumns;
 
-        const detailHeaderRow = detailWorksheet.addRow(detailColumns.map(c => c.header));
+        const detailHeaderRow = detailWorksheet.getRow(5);
+        detailHeaderRow.values = detailColumns.map(c => c.header);
         detailHeaderRow.eachCell((cell) => {
             cell.fill = headerFill;
             cell.font = headerFont;
@@ -1281,8 +1290,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         }, {} as Record<string, { rows: ClientSettlementRow[], subtotalValor: number, order: number }>);
     
         const sortedConceptKeys = Object.keys(groupedByConcept).sort((a, b) => {
-            const orderA = groupedByConcept[a].order === -1 ? Infinity : a.order;
-            const orderB = groupedByConcept[b].order === -1 ? Infinity : b.order;
+            const orderA = groupedByConcept[a].order === -1 ? Infinity : groupedByConcept[a].order;
+            const orderB = groupedByConcept[b].order === -1 ? Infinity : groupedByConcept[b].order;
             if (orderA !== orderB) return orderA - orderB;
             return a.localeCompare(b);
         });
@@ -1316,9 +1325,12 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                     unitValue: row.unitValue,
                     totalValue: row.totalValue
                 }).eachCell(cell => {
-                    const colKey = (cell.col - 1);
-                    if (['quantity', 'unitValue', 'totalValue'].includes(detailColumns[colKey]?.key)) {
-                        cell.numFmt = detailColumns[colKey].key === 'quantity' ? '#,##0.00' : '$ #,##0.00';
+                    const colKeyIndex = cell.col -1;
+                    if(colKeyIndex < detailColumns.length) {
+                        const colKey = detailColumns[colKeyIndex].key;
+                        if (['quantity', 'unitValue', 'totalValue'].includes(colKey)) {
+                            cell.numFmt = colKey === 'quantity' ? '#,##0.00' : '$ #,##0.00';
+                        }
                     }
                 });
             });
@@ -1449,7 +1461,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         }, {} as Record<string, { rows: ClientSettlementRow[], subtotalValor: number, order: number }>);
     
         const sortedConceptKeys = Object.keys(groupedByConcept).sort((a, b) => {
-            const orderA = groupedByConcept[a].order === -1 ? Infinity : a.order;
+            const orderA = groupedByConcept[a].order === -1 ? Infinity : groupedByConcept[a].order;
             const orderB = groupedByConcept[b].order === -1 ? Infinity : b.order;
             if (orderA !== orderB) return orderA - orderB;
             return a.localeCompare(b);
