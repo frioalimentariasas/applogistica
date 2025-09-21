@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -118,6 +117,9 @@ const manualOperationSchema = z.object({
         if (!data.details?.horaArribo) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La hora de arribo es obligatoria.", path: ["details.horaArribo"] });
         if (!data.details?.fechaSalida) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La fecha de salida es obligatoria.", path: ["details.fechaSalida"] });
         if (!data.details?.horaSalida) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La hora de salida es obligatoria.", path: ["details.horaSalida"] });
+        if (!data.details?.container?.trim()) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El contenedor es obligatorio para este concepto.", path: ["details", "container"] });
+        }
     }
 
     if (isFixedMonthlyService) {
@@ -513,7 +515,8 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 }
                 
                 const diffMinutes = differenceInMinutes(endDateTime, startDateTime);
-                return parseFloat((diffMinutes / 60).toFixed(1));
+                const hours = parseFloat((diffMinutes / 60).toFixed(1));
+                return hours;
 
             } catch(e) {
                  console.error("Error calculating electric connection duration:", e);
@@ -524,8 +527,9 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     }, [watchedElectricConnectionDates]);
 
     useEffect(() => {
-        if(isInspection && calculatedDuration?.hours !== undefined) {
-            form.setValue('quantity', parseFloat(calculatedDuration.hours.toFixed(1)));
+        if (isInspection && calculatedDuration?.hours !== undefined) {
+            const roundedHours = parseFloat(calculatedDuration.hours.toFixed(1));
+            form.setValue('quantity', roundedHours);
         }
         if(isElectricConnection && calculatedElectricConnectionHours !== null) {
             form.setValue('quantity', calculatedElectricConnectionHours);
@@ -740,15 +744,17 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                             )}
                                             </>
                                         )}
-                                        
+
                                         {isElectricConnection ? (
                                             <FormField control={form.control} name="operationDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha de Liquidación (para búsqueda) <span className="text-destructive">*</span></FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={dialogMode === 'view'} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4 opacity-50" />{field.value && field.value instanceof Date && !isNaN(field.value.getTime()) ? format(field.value, "PPP", { locale: es }) : <span>Seleccione una fecha</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={dialogMode === 'view'} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
-                                        ) : (isInspection && calculatedDuration) ? (
+                                        ) : null}
+
+                                        {isInspection && calculatedDuration ? (
                                              <Alert variant="default" className="border-sky-500 bg-sky-50 text-sky-800">
                                                 <Clock className="h-4 w-4 !text-sky-600" />
                                                 <AlertTitle className="text-sky-700">Duración Calculada</AlertTitle>
                                                 <FormDescription>
-                                                    <span className="font-bold">{calculatedDuration.hours.toFixed(1)} horas</span> ({calculatedDuration.minutes} minutos). Este valor se ha asignado a la cantidad.
+                                                    <span className="font-bold">{calculatedDuration.hours.toFixed(1)} horas</span> ({calculatedDuration.minutes} minutos).
                                                 </FormDescription>
                                             </Alert>
                                         ) : null}
@@ -793,7 +799,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                              <TariffSelector form={form} selectedConceptInfo={selectedConceptInfo} dialogMode={dialogMode} />
                                         )}
                                         
-                                        {selectedConceptInfo?.unitOfMeasure && (selectedConceptInfo.tariffType === 'UNICA' || isInspection) && !isFixedMonthlyService && (
+                                        {selectedConceptInfo?.unitOfMeasure && (selectedConceptInfo.tariffType === 'UNICA' || isInspection || isElectricConnection) && !isFixedMonthlyService && (
                                             <FormField
                                                 control={form.control}
                                                 name="quantity"
@@ -807,7 +813,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                             />
                                         )}
                                         
-                                        {showAdvancedFields || dialogMode === 'view' ? (
+                                        {showAdvancedFields || dialogMode === 'view' || isElectricConnection ? (
                                             <>
                                                 <Separator />
                                                 <p className="text-sm font-medium text-muted-foreground">Detalles Adicionales</p>
@@ -816,7 +822,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                     <FormField control={form.control} name="details.endTime" render={({ field }) => (<FormItem><FormLabel>Hora Fin</FormLabel><div className="flex items-center gap-2"><FormControl><Input type="time" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} className="flex-grow" /></FormControl>{dialogMode !== 'view' && (<Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('details.endTime')}><Clock className="h-4 w-4" /></Button>)}</div><FormMessage /></FormItem>)} />
                                                 </div>
 
-                                                <FormField control={form.control} name="details.container" render={({ field }) => (<FormItem><FormLabel>Contenedor {showInspectionFields && <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Contenedor" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
+                                                <FormField control={form.control} name="details.container" render={({ field }) => (<FormItem><FormLabel>Contenedor {(showInspectionFields || isElectricConnection) && <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Contenedor" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
                                                 {showInspectionFields && (
                                                     <FormField control={form.control} name="details.arin" render={({ field }) => (<FormItem><FormLabel>ARIN <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Número de ARIN" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
                                                 )}
@@ -1057,5 +1063,7 @@ const ExcedentManager = () => {
         </div>
     )
 }
+
+    
 
     
