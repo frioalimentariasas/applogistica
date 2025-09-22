@@ -1,5 +1,4 @@
 
-
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -385,23 +384,34 @@ export async function generateClientSettlement(criteria: {
             .filter(op => op.type === 'form')
             .map(op => op.data)
             .filter(op => {
-                
                 let opTypeMatch = false;
-                if (concept.filterOperationType === 'ambos') opTypeMatch = true;
-                else if (concept.filterOperationType === 'recepcion' && (op.formType.includes('recepcion') || op.formType.includes('reception'))) opTypeMatch = true;
-                else if (concept.filterOperationType === 'despacho' && op.formType.includes('despacho')) opTypeMatch = true;
-
-                // Special exclusion for GRUPO FRUTELLI SAS. This check is after opTypeMatch.
-                if (
-                    clientName === 'GRUPO FRUTELLI SAS' && 
-                    concept.filterOperationType === 'recepcion' && 
-                    (op.formType === 'variable-weight-recepcion' || op.formType === 'variable-weight-reception')
-                ) {
-                    return false; // Specifically exclude this combination from generating a settlement row.
+                if (concept.filterOperationType === 'ambos') {
+                    opTypeMatch = true;
+                } else if (concept.filterOperationType === 'recepcion' && (op.formType.includes('recepcion') || op.formType.includes('reception'))) {
+                    opTypeMatch = true;
+                } else if (concept.filterOperationType === 'despacho' && op.formType.includes('despacho')) {
+                    opTypeMatch = true;
                 }
 
-                const prodTypeMatch = concept.filterProductType === 'ambos' || (op.formType.includes('fixed-weight') && concept.filterProductType === 'fijo') || (op.formType.includes('variable-weight') && concept.filterProductType === 'variable');
+                // Corrected product type matching logic
+                let prodTypeMatch = false;
+                if (concept.filterProductType === 'ambos') {
+                    prodTypeMatch = true;
+                } else if (concept.filterProductType === 'fijo' && op.formType.includes('fixed-weight')) {
+                    prodTypeMatch = true;
+                } else if (concept.filterProductType === 'variable' && op.formType.includes('variable-weight')) {
+                    prodTypeMatch = true;
+                }
                 
+                // Exclude GRUPO FRUTELLI SAS for variable weight reception concepts
+                if (
+                    clientName === 'GRUPO FRUTELLI SAS' && 
+                    concept.filterOperationType === 'recepcion' &&
+                    (op.formType === 'variable-weight-recepcion' || op.formType === 'variable-weight-reception')
+                ) {
+                    return false;
+                }
+
                 return opTypeMatch && prodTypeMatch;
             });
             
