@@ -2626,7 +2626,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
 function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen: boolean; onOpenChange: (open: boolean) => void; row: ClientSettlementRow; onSave: (updatedRow: ClientSettlementRow) => void; }) {
     const [editedRow, setEditedRow] = useState<ClientSettlementRow>(row);
-    const unitOfMeasureOptions = ['TONELADA', 'PALETA', 'ESTIBA', 'UNIDAD', 'CAJA', 'SACO', 'CANASTILLA', 'HORA', 'DIA', 'VIAJE', 'MES', 'CONTENEDOR', 'HORA EXTRA DIURNA', 'HORA EXTRA NOCTURNA', 'HORA EXTRA DIURNA DOMINGO Y FESTIVO', 'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO', 'POSICION/DIA', 'POSICIONES', 'TIPO VEHÍCULO'];
+    const unitOfMeasureOptions = ['TONELADA', 'PALETA', 'ESTIBA', 'UNIDAD', 'CAJA', 'SACO', 'CANASTILLA', 'HORA', 'DIA', 'VIAJE', 'MES', 'CONTENEDOR', 'HORA EXTRA DIURNA', 'HORA EXTRA NOCTURNA', 'HORA EXTRA DIURNA DOMINGO Y FESTIVO', 'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO', 'POSICION/DIA', 'POSICIONES', 'TIPO VEHÍCULO', 'TRACTOMULA'];
 
     useEffect(() => {
         setEditedRow(row);
@@ -2727,4 +2727,5 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 
     
     
+
 
