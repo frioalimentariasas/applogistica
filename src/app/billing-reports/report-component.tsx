@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import * as React from 'react';
@@ -1159,9 +1160,10 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         ];
     
         const addHeaderAndTitle = (ws: ExcelJS.Worksheet, title: string) => {
+            ws.addRow([]);
             const titleRow = ws.addRow([title]);
             titleRow.font = { bold: true, size: 16 };
-            ws.mergeCells(titleRow.number, 1, titleRow.number, 16);
+            ws.mergeCells(2, 1, 2, 16);
             titleRow.getCell(1).alignment = { horizontal: 'center' };
 
             const clientRow = ws.addRow([`Cliente: ${settlementClient}`]);
@@ -1184,6 +1186,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     
         // --- Hoja de Resumen ---
         const summaryWorksheet = workbook.addWorksheet('Resumen Liquidación');
+        addHeaderAndTitle(summaryWorksheet, "Resumen Liquidación");
         const summaryColumns = [
             { header: 'Item', key: 'item', width: 10 },
             { header: 'Concepto', key: 'concept', width: 50 },
@@ -1192,10 +1195,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             { header: 'Valor Unitario', key: 'unitValue', width: 20 },
             { header: 'Valor Total', key: 'totalValue', width: 20 },
         ];
+        
         summaryWorksheet.columns = summaryColumns;
-        summaryWorksheet.spliceRows(1, 1);
-        addHeaderAndTitle(summaryWorksheet, "Resumen Liquidación");
-
         const summaryHeaderRow = summaryWorksheet.addRow(summaryColumns.map(c => c.header));
         summaryHeaderRow.eachCell((cell) => {
             cell.fill = headerFill;
@@ -1257,6 +1258,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     
         // --- Hoja de Detalle ---
         const detailWorksheet = workbook.addWorksheet('Detalle Liquidación');
+        addHeaderAndTitle(detailWorksheet, "Detalle Liquidación");
         const detailColumns = [
             { header: 'Fecha', key: 'date', width: 15 },
             { header: 'Detalle Concepto', key: 'subConceptName', width: 40 },
@@ -1275,8 +1277,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             { header: 'Valor Total', key: 'totalValue', width: 20 },
         ];
         detailWorksheet.columns = detailColumns;
-        detailWorksheet.spliceRows(1, 1);
-        addHeaderAndTitle(detailWorksheet, "Detalle Liquidación");
         
         const detailHeaderRow = detailWorksheet.addRow(detailColumns.map(c => c.header));
         detailHeaderRow.eachCell((cell) => {
@@ -1297,7 +1297,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     
         const sortedConceptKeys = Object.keys(groupedByConcept).sort((a, b) => {
             const orderA = groupedByConcept[a].order === -1 ? Infinity : groupedByConcept[a].order;
-            const orderB = groupedByConcept[b].order === -1 ? Infinity : orderB;
+            const orderB = groupedByConcept[b].order === -1 ? Infinity : groupedByConcept[b].order;
             if (orderA !== orderB) return orderA - orderB;
             return a.localeCompare(b);
         });
@@ -1471,7 +1471,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         }, {} as Record<string, { rows: ClientSettlementRow[], subtotalValor: number, order: number }>);
     
         const sortedConceptKeys = Object.keys(groupedByConcept).sort((a, b) => {
-            const orderA = groupedByConcept[a].order === -1 ? Infinity : a.order;
+            const orderA = groupedByConcept[a].order === -1 ? Infinity : groupedByConcept[a].order;
             const orderB = groupedByConcept[b].order === -1 ? Infinity : b.order;
             if (orderA !== orderB) return orderA - orderB;
             return a.localeCompare(b);
@@ -2676,5 +2676,7 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
         </Dialog>
     );
 }
+
+    
 
     
