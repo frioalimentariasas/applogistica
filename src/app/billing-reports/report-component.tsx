@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import * as React from 'react';
@@ -1158,19 +1159,23 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO',
         ];
 
-        const addHeaderAndTitle = (ws: ExcelJS.Worksheet, title: string) => {
+        const addHeaderAndTitle = (ws: ExcelJS.Worksheet, title: string, columns: any[]) => {
+            ws.addRow([]); // Spacer row
             const titleRow = ws.addRow([title]);
             titleRow.font = { bold: true, size: 16 };
+            ws.mergeCells(2, 1, 2, columns.length);
             titleRow.getCell(1).alignment = { horizontal: 'center' };
         
             const clientRow = ws.addRow([`Cliente: ${settlementClient}`]);
             clientRow.font = { bold: true };
+            ws.mergeCells(3, 1, 3, columns.length);
             clientRow.getCell(1).alignment = { horizontal: 'center' };
         
             if (settlementDateRange?.from && settlementDateRange.to) {
                 const periodText = `Periodo: ${format(settlementDateRange.from, 'dd/MM/yyyy', { locale: es })} - ${format(settlementDateRange.to, 'dd/MM/yyyy', { locale: es })}`;
                 const periodRow = ws.addRow([periodText]);
                 periodRow.font = { bold: true };
+                ws.mergeCells(4, 1, 4, columns.length);
                 periodRow.getCell(1).alignment = { horizontal: 'center' };
             }
             ws.addRow([]); // Spacer
@@ -1181,18 +1186,34 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     
         // --- Hoja de Resumen ---
         const summaryWorksheet = workbook.addWorksheet('Resumen Liquidación');
-        addHeaderAndTitle(summaryWorksheet, "Resumen Liquidación");
-        // We know this sheet has 16 columns from the detail sheet, so we merge based on that.
-        summaryWorksheet.mergeCells('A1:P1'); // Title
-        summaryWorksheet.mergeCells('A2:P2'); // Client
-        if (settlementDateRange?.from) summaryWorksheet.mergeCells('A3:P3'); // Period
+        
+        const summaryColumns = [
+            { header: 'Item', key: 'item', width: 10 },
+            { header: 'Concepto', key: 'concept', width: 50 },
+            { header: 'Total Cantidad', key: 'totalQuantity', width: 20 },
+            { header: 'Unidad', key: 'unitOfMeasure', width: 15 },
+            { header: 'Valor Unitario', key: 'unitValue', width: 20 },
+            { header: 'Valor Total', key: 'totalValue', width: 20 },
+        ];
+        
+        addHeaderAndTitle(summaryWorksheet, "Resumen Liquidación", summaryColumns);
+        summaryWorksheet.columns = summaryColumns;
+        summaryWorksheet.getRow(1).hidden = true;
+
+        const summaryHeaderRow = summaryWorksheet.getRow(6); // Start table headers at row 6
+        summaryHeaderRow.values = summaryColumns.map(c => c.header);
+        summaryHeaderRow.eachCell((cell) => {
+            cell.fill = headerFill;
+            cell.font = headerFont;
+            cell.alignment = { horizontal: 'center' };
+        });
 
         const summaryByConcept = settlementReportData.reduce((acc, row) => {
             let conceptKey: string;
             let conceptName: string;
             let unitOfMeasure: string;
 
-            if (row.conceptName === 'OPERACIÓN CARGUE' || row.conceptName === 'OPERACIÓN DESCARGUE') {
+            if ((row.conceptName === 'OPERACIÓN CARGUE' || row.conceptName === 'OPERACIÓN DESCARGUE') && row.operacionLogistica !== 'No Aplica') {
                 conceptName = `${row.conceptName} (${row.operacionLogistica})`;
                 unitOfMeasure = row.tipoVehiculo;
                 conceptKey = `${row.conceptName}-${row.operacionLogistica}-${unitOfMeasure}`;
@@ -1230,26 +1251,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             return a.concept.localeCompare(b.concept);
         });
 
-        const summaryColumns = [
-            { header: 'Item', key: 'item', width: 10 },
-            { header: 'Concepto', key: 'concept', width: 50 },
-            { header: 'Total Cantidad', key: 'totalQuantity', width: 20 },
-            { header: 'Unidad', key: 'unitOfMeasure', width: 15 },
-            { header: 'Valor Unitario', key: 'unitValue', width: 20 },
-            { header: 'Valor Total', key: 'totalValue', width: 20 },
-        ];
-        
-        summaryWorksheet.columns = summaryColumns;
-        summaryWorksheet.getRow(1).hidden = true;
-
-        const summaryHeaderRow = summaryWorksheet.getRow(5); // Start table headers at row 5
-        summaryHeaderRow.values = summaryColumns.map(c => c.header);
-        summaryHeaderRow.eachCell((cell) => {
-            cell.fill = headerFill;
-            cell.font = headerFont;
-            cell.alignment = { horizontal: 'center' };
-        });
-
         sortedSummary.forEach((item, index) => {
             const addedRow = summaryWorksheet.addRow({
                 item: index + 1,
@@ -1275,13 +1276,10 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     
         // --- Hoja de Detalle ---
         const detailWorksheet = workbook.addWorksheet('Detalle Liquidación');
-        addHeaderAndTitle(detailWorksheet, "Detalle Liquidación");
-        detailWorksheet.mergeCells('A1:P1'); // Title
-        detailWorksheet.mergeCells('A2:P2'); // Client
-        if (settlementDateRange?.from) detailWorksheet.mergeCells('A3:P3'); // Period
         
         const detailColumns = [
             { header: 'Fecha', key: 'date', width: 15 },
+            { header: 'Concepto', key: 'conceptName', width: 40 },
             { header: 'Detalle Concepto', key: 'subConceptName', width: 40 },
             { header: 'No. Personas', key: 'numeroPersonas', width: 15 },
             { header: 'Total Paletas', key: 'totalPaletas', width: 15 },
@@ -1297,10 +1295,12 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             { header: 'Valor Unitario', key: 'unitValue', width: 20 },
             { header: 'Valor Total', key: 'totalValue', width: 20 },
         ];
+
+        addHeaderAndTitle(detailWorksheet, "Detalle Liquidación", detailColumns);
         detailWorksheet.columns = detailColumns;
         detailWorksheet.getRow(1).hidden = true;
         
-        const detailHeaderRow = detailWorksheet.getRow(5); // Start table headers at row 5
+        const detailHeaderRow = detailWorksheet.getRow(6); // Start table headers at row 6
         detailHeaderRow.values = detailColumns.map(c => c.header);
         detailHeaderRow.eachCell((cell) => {
             cell.fill = headerFill;
@@ -1329,15 +1329,10 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             const group = groupedByConcept[conceptName];
             const sortedRowsForConcept = group.rows.sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
             
-            const conceptHeaderRow = detailWorksheet.addRow([]);
-            const cell = conceptHeaderRow.getCell(1);
-            cell.value = conceptName;
-            cell.font = { bold: true, color: { argb: 'FF1A90C8' }, size: 12 };
-            detailWorksheet.mergeCells(conceptHeaderRow.number, 1, conceptHeaderRow.number, detailColumns.length);
-
             sortedRowsForConcept.forEach(row => {
                  detailWorksheet.addRow({
                     date: format(parseISO(row.date), 'dd/MM/yyyy'),
+                    conceptName: row.conceptName,
                     subConceptName: row.subConceptName,
                     numeroPersonas: row.numeroPersonas,
                     totalPaletas: row.totalPaletas > 0 ? row.totalPaletas : '',
@@ -1361,22 +1356,22 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             });
     
             const subtotalRow = detailWorksheet.addRow([]);
-            subtotalRow.getCell(14).value = `Subtotal ${conceptName}:`;
-            subtotalRow.getCell(14).font = { bold: true };
-            subtotalRow.getCell(14).alignment = { horizontal: 'right' };
-            subtotalRow.getCell(15).value = group.subtotalValor;
-            subtotalRow.getCell(15).numFmt = '$ #,##0.00';
+            subtotalRow.getCell(15).value = `Subtotal ${conceptName}:`;
             subtotalRow.getCell(15).font = { bold: true };
+            subtotalRow.getCell(15).alignment = { horizontal: 'right' };
+            subtotalRow.getCell(16).value = group.subtotalValor;
+            subtotalRow.getCell(16).numFmt = '$ #,##0.00';
+            subtotalRow.getCell(16).font = { bold: true };
             subtotalRow.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFDDEBF7' } };
         });
     
         detailWorksheet.addRow([]);
         const totalDetailRow = detailWorksheet.addRow([]);
-        const totalDetailLabelCell = totalDetailRow.getCell(14);
+        const totalDetailLabelCell = totalDetailRow.getCell(15);
         totalDetailLabelCell.value = 'TOTAL GENERAL:';
         totalDetailLabelCell.font = { bold: true, size: 12 };
         totalDetailLabelCell.alignment = { horizontal: 'right' };
-        const totalDetailValueCell = totalDetailRow.getCell(15);
+        const totalDetailValueCell = totalDetailRow.getCell(16);
         totalDetailValueCell.value = settlementTotalGeneral;
         totalDetailValueCell.numFmt = '$ #,##0.00';
         totalDetailValueCell.font = { bold: true, size: 12 };
@@ -1436,7 +1431,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             let conceptKey: string;
             let unitOfMeasure: string;
 
-            if (row.conceptName === 'OPERACIÓN CARGUE' || row.conceptName === 'OPERACIÓN DESCARGUE') {
+            if ((row.conceptName === 'OPERACIÓN CARGUE' || row.conceptName === 'OPERACIÓN DESCARGUE') && row.operacionLogistica !== 'No Aplica') {
                 conceptName = `${row.conceptName} (${row.operacionLogistica})`;
                 unitOfMeasure = row.tipoVehiculo;
                 conceptKey = `${row.conceptName}-${row.operacionLogistica}-${unitOfMeasure}`;
@@ -1580,7 +1575,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     
     const settlementGroupedData = useMemo(() => {
         const conceptOrder = [
-            'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'FMM DE INGRESO ZFPC', 'ARIN DE INGRESO ZFPC', 'FMM DE SALIDA ZFPC',
+            'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'ALISTAMIENTO POR UNIDAD', 'FMM DE INGRESO ZFPC', 'ARIN DE INGRESO ZFPC', 'FMM DE SALIDA ZFPC',
             'ARIN DE SALIDA ZFPC', 'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
             'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'ESTIBA MADERA RECICLADA',
             'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA ZFPC',
@@ -2727,4 +2722,7 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
         </Dialog>
     );
 }
+    
+
+
     

@@ -78,7 +78,7 @@ const getOperationLogisticsType = (isoDateString: string, horaInicio: string, ho
         return "No Aplica";
     }
 
-    const specialConcepts = ["FMM DE INGRESO", "ARIN DE INGRESO", "FMM DE SALIDA", "ARIN DE SALIDA", "REESTIBADO"];
+    const specialConcepts = ["FMM DE INGRESO", "ARIN DE INGRESO", "FMM DE SALIDA", "ARIN DE SALIDA", "REESTIBADO", "ALISTAMIENTO POR UNIDAD"];
     if (specialConcepts.includes(concept.conceptName.toUpperCase())) {
       return "No Aplica";
     }
@@ -245,7 +245,16 @@ const calculateWeightForOperation = (op: any): number => {
         return allItems.reduce((sum: number, item: any) => sum + (Number(item.pesoNeto) || 0), 0);
     }
     
-    return (formData.totalPesoKg ?? formData.totalPesoBrutoKg) || 0;
+    if (formType === 'variable-weight-recepcion' || formType === 'variable-weight-reception') {
+        const allItems = (formData.placas?.flatMap((p: any) => p.items) || formData.items) || [];
+        const isSummaryFormat = allItems.some((p: any) => Number(p.paleta) === 0);
+        if (isSummaryFormat) {
+            return allItems.reduce((sum: number, item: any) => sum + (Number(item.totalPesoNeto) || 0), 0);
+        }
+        return allItems.reduce((sum: number, item: any) => sum + (Number(item.pesoNeto) || 0), 0);
+    }
+
+    return 0;
 };
 
 const calculatePalletsForOperation = (op: any): number => {
@@ -270,13 +279,13 @@ const calculatePalletsForOperation = (op: any): number => {
 
 const calculateUnitsForOperation = (op: any): number => {
   const { formType, formData } = op;
-  const items = formData.productos || formData.items || formData.destinos?.flatMap((d: any) => d.items) || [];
-
+  
   if (formType?.startsWith('fixed-weight')) {
       return (formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.cajas) || 0), 0);
   }
 
   if (formType?.startsWith('variable-weight')) {
+      const items = formData.items || formData.destinos?.flatMap((d: any) => d.items) || [];
       const isSummary = items.some((i: any) => Number(i.paleta) === 0);
       if (isSummary) {
           return items.reduce((sum: number, i: any) => sum + (Number(i.totalCantidad) || 0), 0);
@@ -376,6 +385,15 @@ export async function generateClientSettlement(criteria: {
             .filter(op => op.type === 'form')
             .map(op => op.data)
             .filter(op => {
+                // Special exclusion logic for GRUPO FRUTELLI SAS
+                if (
+                    clientName === 'GRUPO FRUTELLI SAS' && 
+                    (op.formType === 'variable-weight-recepcion' || op.formType === 'variable-weight-reception') &&
+                    concept.filterOperationType === 'recepcion'
+                ) {
+                    return false;
+                }
+
                 let opTypeMatch = false;
                 if (concept.filterOperationType === 'ambos') opTypeMatch = true;
                 else if (concept.filterOperationType === 'recepcion' && (op.formType.includes('recepcion') || op.formType.includes('reception'))) opTypeMatch = true;
@@ -386,20 +404,11 @@ export async function generateClientSettlement(criteria: {
             });
             
         for (const op of applicableOperations) {
-             // Special exclusion for GRUPO FRUTELLI SAS - do not generate a charge for variable weight reception
-            if (
-                clientName === 'GRUPO FRUTELLI SAS' && 
-                (op.formType === 'variable-weight-recepcion' || op.formType === 'variable-weight-reception') &&
-                concept.filterOperationType === 'recepcion'
-            ) {
-                continue;
-            }
-
             let quantity = 0;
             const weightKg = calculateWeightForOperation(op);
             
             let totalPallets = 0;
-            if (concept.conceptName === 'OPERACIÓN CARGUE' || concept.conceptName === 'OPERACIÓN DESCARGUE') {
+            if (concept.conceptName === 'OPERACIÓN CARGUE' || concept.conceptName === 'OPERACIÓN DESCARGUE' || concept.calculationBase === 'CANTIDAD_PALETAS') {
                 totalPallets = calculatePalletsForOperation(op);
             }
 
@@ -688,6 +697,7 @@ export async function generateClientSettlement(criteria: {
     const conceptOrder = [
         'OPERACIÓN DESCARGUE',
         'OPERACIÓN CARGUE',
+        'ALISTAMIENTO POR UNIDAD',
         'FMM DE INGRESO ZFPC',
         'ARIN DE INGRESO ZFPC',
         'FMM DE SALIDA ZFPC',
@@ -745,3 +755,5 @@ const timeToMinutes = (timeStr: string): number => {
     const [hours, minutes] = timeStr.split(':').map(Number);
     return hours * 60 + minutes;
 };
+
+    
