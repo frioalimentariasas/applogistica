@@ -176,10 +176,6 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
 
     const clientSubmissions = submissionsSnapshot.docs.filter(doc => {
         const docClientName = doc.data().formData?.cliente || doc.data().formData?.nombreCliente;
-        const formType = doc.data().formType;
-        if (docClientName === 'GRUPO FRUTELLI SAS' && (formType === 'variable-weight-recepcion' || formType === 'variable-weight-reception')) {
-            return false;
-        }
         return docClientName === clientName;
     });
     
@@ -235,7 +231,7 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
 const calculateWeightForOperation = (op: any): number => {
     const { formType, formData } = op;
 
-    if (formType === 'fixed-weight-despacho' || formType === 'fixed-weight-recepcion') {
+    if (formType === 'fixed-weight-despacho' || formType === 'fixed-weight-recepcion' || formType === 'fixed-weight-reception') {
         const grossWeight = Number(formData.totalPesoBrutoKg);
         if (grossWeight > 0) {
             return grossWeight;
@@ -272,16 +268,44 @@ const calculatePalletsForOperation = (op: any): number => {
     return 0;
 };
 
+const calculateUnitsForOperation = (op: any): number => {
+  const { formType, formData } = op;
+  const items = formData.productos || formData.items || formData.destinos?.flatMap((d: any) => d.items) || [];
+
+  if (formType?.startsWith('fixed-weight')) {
+      return (formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.cajas) || 0), 0);
+  }
+
+  if (formType?.startsWith('variable-weight')) {
+      const isSummary = items.some((i: any) => Number(i.paleta) === 0);
+      if (isSummary) {
+          return items.reduce((sum: number, i: any) => sum + (Number(i.totalCantidad) || 0), 0);
+      }
+      return items.reduce((sum: number, i: any) => sum + (Number(i.cantidadPorPaleta) || 0), 0);
+  }
+
+  return 0;
+};
+
 const formatTime12Hour = (timeStr: string | undefined): string => {
-    if (!timeStr) return '';
-    if (!timeStr.includes(':')) return timeStr;
+    if (!timeStr) return 'No Aplica';
+
+    // Check if it's already a formatted date-time string
+    // e.g., "13/09/2025 06:50 PM"
+    const dateTimeParts = timeStr.split(' ');
+    if (dateTimeParts.length > 2 && (dateTimeParts[2] === 'AM' || dateTimeParts[2] === 'PM')) {
+        return timeStr;
+    }
+    
+    // Handle HH:mm format
+    if (!timeStr.includes(':')) return 'No Aplica';
 
     const [hours, minutes] = timeStr.split(':');
     let h = parseInt(hours, 10);
     const ampm = h >= 12 ? 'PM' : 'AM';
     h = h % 12;
     h = h ? h : 12; // the hour '0' should be '12'
-    return `${h.toString()}:${minutes.padStart(2, '0')} ${ampm}`;
+    return `${h.toString().padStart(2, '0')}:${minutes} ${ampm}`;
 };
 
 
@@ -324,14 +348,6 @@ export async function generateClientSettlement(criteria: {
     submissionsSnapshot.docs.forEach(doc => {
         const data = serializeTimestamps(doc.data());
         const docClientName = data.formData?.cliente || data.formData?.nombreCliente;
-        const formType = data.formType;
-
-        if (
-            docClientName === 'GRUPO FRUTELLI SAS' && 
-            (formType === 'variable-weight-recepcion' || formType === 'variable-weight-reception')
-        ) {
-            return; // Exclude this specific case
-        }
         
         if (docClientName === clientName) {
             if (containerNumber && data.formData.contenedor !== containerNumber) {
@@ -370,7 +386,16 @@ export async function generateClientSettlement(criteria: {
             });
             
         for (const op of applicableOperations) {
-             let quantity = 0;
+             // Special exclusion for GRUPO FRUTELLI SAS - do not generate a charge for variable weight reception
+            if (
+                clientName === 'GRUPO FRUTELLI SAS' && 
+                (op.formType === 'variable-weight-recepcion' || op.formType === 'variable-weight-reception') &&
+                concept.filterOperationType === 'recepcion'
+            ) {
+                continue;
+            }
+
+            let quantity = 0;
             const weightKg = calculateWeightForOperation(op);
             
             let totalPallets = 0;
@@ -382,7 +407,7 @@ export async function generateClientSettlement(criteria: {
                 case 'TONELADAS': quantity = weightKg / 1000; break;
                 case 'KILOGRAMOS': quantity = weightKg; break;
                 case 'CANTIDAD_PALETAS': quantity = totalPallets; break;
-                case 'CANTIDAD_CAJAS': quantity = (op.formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.cajas) || 0), 0); break;
+                case 'CANTIDAD_CAJAS': quantity = calculateUnitsForOperation(op); break;
                 case 'NUMERO_OPERACIONES': quantity = 1; break;
                 case 'NUMERO_CONTENEDORES': quantity = op.formData.contenedor ? 1 : 0; break;
             }
