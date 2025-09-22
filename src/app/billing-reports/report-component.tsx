@@ -1185,44 +1185,39 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     
         // --- Hoja de Resumen ---
         const summaryWorksheet = workbook.addWorksheet('Resumen Liquidación');
-        const summaryColumns = [
-            { header: 'Item', key: 'item', width: 10 },
-            { header: 'Concepto', key: 'concept', width: 50 },
-            { header: 'Total Cantidad', key: 'totalQuantity', width: 20 },
-            { header: 'Unidad', key: 'unitOfMeasure', width: 15 },
-            { header: 'Valor Unitario', key: 'unitValue', width: 20 },
-            { header: 'Valor Total', key: 'totalValue', width: 20 },
-        ];
-        
-        summaryWorksheet.columns = summaryColumns;
-        summaryWorksheet.getRow(1).hidden = true;
         addHeaderAndTitle(summaryWorksheet, "Resumen Liquidación");
 
-        const summaryHeaderRow = summaryWorksheet.addRow(summaryColumns.map(c => c.header));
-        summaryHeaderRow.eachCell((cell) => {
-            cell.fill = headerFill;
-            cell.font = headerFont;
-            cell.alignment = { horizontal: 'center' };
-        });
-
         const summaryByConcept = settlementReportData.reduce((acc, row) => {
-            const conceptName = row.conceptName + (row.subConceptName ? ` (${row.subConceptName})` : '');
-            const unit = (row.conceptName === 'OPERACIÓN CARGUE' || row.conceptName === 'OPERACIÓN DESCARGUE') ? row.tipoVehiculo : row.unitOfMeasure;
-            const key = `${conceptName} - ${unit}`;
-        
-            if (!acc[key]) {
-                acc[key] = {
+            let conceptKey: string;
+            let conceptName: string;
+            
+            if (row.conceptName === 'OPERACIÓN CARGUE' || row.conceptName === 'OPERACIÓN DESCARGUE') {
+                // For CARGUE/DESCARGUE, group by shift (operacionLogistica)
+                conceptName = `${row.conceptName} (${row.operacionLogistica})`;
+                conceptKey = `${row.conceptName}-${row.operacionLogistica}-${row.unitOfMeasure}`;
+            } else if (row.conceptName === 'TIEMPO EXTRA FRIOAL (FIJO)') {
+                // For TIEMPO EXTRA, consolidate into a single parent concept
+                conceptName = row.conceptName;
+                conceptKey = row.conceptName;
+            } else {
+                // For all other concepts, group by name and sub-name if it exists
+                conceptName = row.conceptName + (row.subConceptName ? ` (${row.subConceptName})` : '');
+                conceptKey = `${row.conceptName}-${row.subConceptName || ''}-${row.unitOfMeasure}`;
+            }
+
+            if (!acc[conceptKey]) {
+                acc[conceptKey] = {
                     concept: conceptName,
                     totalQuantity: 0,
                     totalValue: 0,
-                    unitOfMeasure: unit,
+                    unitOfMeasure: row.unitOfMeasure,
                     unitValue: row.unitValue,
                     order: conceptOrder.indexOf(row.conceptName),
                 };
             }
             
-            acc[key].totalQuantity += row.quantity;
-            acc[key].totalValue += row.totalValue;
+            acc[conceptKey].totalQuantity += row.quantity;
+            acc[conceptKey].totalValue += row.totalValue;
             
             return acc;
         }, {} as Record<string, { concept: string; totalQuantity: number; totalValue: number; unitOfMeasure: string; unitValue: number; order: number; }>);
@@ -1233,7 +1228,25 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             if (orderA !== orderB) return orderA - orderB;
             return a.concept.localeCompare(b.concept);
         });
-    
+
+        const summaryColumns = [
+            { header: 'Item', key: 'item', width: 10 },
+            { header: 'Concepto', key: 'concept', width: 50 },
+            { header: 'Total Cantidad', key: 'totalQuantity', width: 20 },
+            { header: 'Unidad', key: 'unitOfMeasure', width: 15 },
+            { header: 'Valor Unitario', key: 'unitValue', width: 20 },
+            { header: 'Valor Total', key: 'totalValue', width: 20 },
+        ];
+        
+        summaryWorksheet.columns = summaryColumns;
+        const summaryHeaderRow = summaryWorksheet.getRow(5); // Adjust row number
+        summaryHeaderRow.values = summaryColumns.map(c => c.header);
+        summaryHeaderRow.eachCell((cell) => {
+            cell.fill = headerFill;
+            cell.font = headerFont;
+            cell.alignment = { horizontal: 'center' };
+        });
+
         sortedSummary.forEach((item, index) => {
             const addedRow = summaryWorksheet.addRow({
                 item: index + 1,
@@ -1259,6 +1272,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     
         // --- Hoja de Detalle ---
         const detailWorksheet = workbook.addWorksheet('Detalle Liquidación');
+        addHeaderAndTitle(detailWorksheet, "Detalle Liquidación");
+        
         const detailColumns = [
             { header: 'Fecha', key: 'date', width: 15 },
             { header: 'Detalle Concepto', key: 'subConceptName', width: 40 },
@@ -1277,11 +1292,9 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             { header: 'Valor Total', key: 'totalValue', width: 20 },
         ];
         detailWorksheet.columns = detailColumns;
-        detailWorksheet.getRow(1).hidden = true;
         
-        addHeaderAndTitle(detailWorksheet, "Detalle Liquidación");
-        
-        const detailHeaderRow = detailWorksheet.addRow(detailColumns.map(c => c.header));
+        const detailHeaderRow = detailWorksheet.getRow(5); // Adjust row number
+        detailHeaderRow.values = detailColumns.map(c => c.header);
         detailHeaderRow.eachCell((cell) => {
             cell.fill = headerFill;
             cell.font = headerFont;
@@ -1475,7 +1488,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     
         const sortedConceptKeys = Object.keys(groupedByConcept).sort((a, b) => {
             const orderA = groupedByConcept[a].order === -1 ? Infinity : groupedByConcept[a].order;
-            const orderB = groupedByConcept[b].order === -1 ? Infinity : orderB;
+            const orderB = groupedByConcept[b].order === -1 ? Infinity : groupedByConcept[b].order;
             if (orderA !== orderB) return orderA - orderB;
             return a.localeCompare(b);
         });
