@@ -1152,7 +1152,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         workbook.created = new Date();
     
         const conceptOrder = [
-            'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'FMM DE INGRESO ZFPC', 'ARIN DE INGRESO ZFPC', 'FMM DE SALIDA ZFPC',
+            'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'ALISTAMIENTO POR UNIDAD', 'FMM DE INGRESO ZFPC', 'ARIN DE INGRESO ZFPC', 'FMM DE SALIDA ZFPC',
             'ARIN DE SALIDA ZFPC', 'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
             'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'ESTIBA MADERA RECICLADA',
             'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA ZFPC',
@@ -1196,9 +1196,10 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             { header: 'Valor Total', key: 'totalValue', width: 20 },
         ];
         
-        addHeaderAndTitle(summaryWorksheet, "Resumen Liquidación", summaryColumns);
         summaryWorksheet.columns = summaryColumns;
         summaryWorksheet.getRow(1).hidden = true;
+
+        addHeaderAndTitle(summaryWorksheet, "Resumen Liquidación", summaryColumns);
 
         const summaryHeaderRow = summaryWorksheet.getRow(6); // Start table headers at row 6
         summaryHeaderRow.values = summaryColumns.map(c => c.header);
@@ -1219,7 +1220,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 conceptKey = `${row.conceptName}-${row.operacionLogistica}-${unitOfMeasure}`;
             } else if (row.conceptName === 'TIEMPO EXTRA FRIOAL (FIJO)') {
                 conceptName = row.conceptName;
-                unitOfMeasure = row.unitOfMeasure;
+                unitOfMeasure = 'HORA';
                 conceptKey = row.conceptName; // Consolidate all under one key
             } else {
                 conceptName = row.conceptName + (row.subConceptName ? ` (${row.subConceptName})` : '');
@@ -1296,9 +1297,10 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             { header: 'Valor Total', key: 'totalValue', width: 20 },
         ];
 
-        addHeaderAndTitle(detailWorksheet, "Detalle Liquidación", detailColumns);
         detailWorksheet.columns = detailColumns;
         detailWorksheet.getRow(1).hidden = true;
+        
+        addHeaderAndTitle(detailWorksheet, "Detalle Liquidación", detailColumns);
         
         const detailHeaderRow = detailWorksheet.getRow(6); // Start table headers at row 6
         detailHeaderRow.values = detailColumns.map(c => c.header);
@@ -1394,7 +1396,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const margin = 14;
 
         const conceptOrder = [
-            'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'FMM DE INGRESO ZFPC', 'ARIN DE INGRESO ZFPC', 'FMM DE SALIDA ZFPC',
+            'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'ALISTAMIENTO POR UNIDAD', 'FMM DE INGRESO ZFPC', 'ARIN DE INGRESO ZFPC', 'FMM DE SALIDA ZFPC',
             'ARIN DE SALIDA ZFPC', 'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
             'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'ESTIBA MADERA RECICLADA',
             'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA ZFPC',

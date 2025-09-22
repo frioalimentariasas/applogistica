@@ -403,19 +403,24 @@ export async function generateClientSettlement(criteria: {
                     prodTypeMatch = true;
                 }
                 
-                // Exclude GRUPO FRUTELLI SAS for variable weight reception concepts
-                if (
-                    clientName === 'GRUPO FRUTELLI SAS' && 
-                    concept.filterOperationType === 'recepcion' &&
-                    (op.formType === 'variable-weight-recepcion' || op.formType === 'variable-weight-reception')
-                ) {
-                    return false;
-                }
+                // This check was incorrect and has been removed from here.
+                // It should be applied when generating the final rows, not during filtering.
+                // if (clientName === 'GRUPO FRUTELLI SAS' && (op.formType === 'variable-weight-recepcion' || op.formType === 'variable-weight-reception')) {
+                //    return false;
+                // }
 
                 return opTypeMatch && prodTypeMatch;
             });
             
         for (const op of applicableOperations) {
+            // Apply GRUPO FRUTELLI SAS exclusion here, before adding to the settlement rows.
+            if (
+                clientName === 'GRUPO FRUTELLI SAS' && 
+                (op.formType === 'variable-weight-recepcion' || op.formType === 'variable-weight-reception')
+            ) {
+                continue; 
+            }
+
             let quantity = 0;
             const weightKg = calculateWeightForOperation(op);
             
