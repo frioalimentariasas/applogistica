@@ -1162,8 +1162,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const addHeaderAndTitle = (ws: ExcelJS.Worksheet, title: string) => {
             const titleRow = ws.addRow([title]);
             titleRow.font = { bold: true, size: 16 };
-            titleRow.alignment = { horizontal: 'center' };
-            ws.mergeCells(titleRow.number, 1, titleRow.number, 16);
+            ws.mergeCells(2, 1, 2, 16);
+            titleRow.getCell(1).alignment = { horizontal: 'center' };
 
             const clientRow = ws.addRow([`Cliente: ${settlementClient}`]);
             clientRow.font = { bold: true };
@@ -1174,7 +1174,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 const periodText = `Periodo: ${format(settlementDateRange.from, 'dd/MM/yyyy', { locale: es })} - ${format(settlementDateRange.to, 'dd/MM/yyyy', { locale: es })}`;
                 const periodRow = ws.addRow([periodText]);
                 periodRow.font = { bold: true };
-                periodRow.alignment = { horizontal: 'center' };
+                periodRow.getCell(1).alignment = { horizontal: 'center' };
                 ws.mergeCells(periodRow.number, 1, periodRow.number, 16);
             }
             ws.addRow([]); // Spacer
@@ -1185,7 +1185,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     
         // --- Hoja de Resumen ---
         const summaryWorksheet = workbook.addWorksheet('Resumen Liquidación');
-        addHeaderAndTitle(summaryWorksheet, "Resumen de Liquidación");
+        addHeaderAndTitle(summaryWorksheet, "Resumen Liquidación");
 
         const summaryColumns = [
             { header: 'Item', key: 'item', width: 10 },
@@ -1193,7 +1193,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             { header: 'Total Cantidad', key: 'totalQuantity', width: 20 },
             { header: 'Unidad', key: 'unitOfMeasure', width: 15 },
             { header: 'Valor Unitario', key: 'unitValue', width: 20 },
-            { header: 'Total Valor', key: 'totalValue', width: 20 },
+            { header: 'Valor Total', key: 'totalValue', width: 20 },
         ];
         summaryWorksheet.columns = summaryColumns;
 
@@ -1203,29 +1203,28 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             cell.font = headerFont;
             cell.alignment = { horizontal: 'center' };
         });
-    
+
         const summaryByConcept = settlementReportData.reduce((acc, row) => {
-            const concept = row.conceptName + (row.subConceptName ? ` (${row.subConceptName})` : '');
-            const key = concept;
+            const conceptName = row.conceptName + (row.subConceptName ? ` (${row.subConceptName})` : '');
+            const unit = (row.conceptName === 'OPERACIÓN CARGUE' || row.conceptName === 'OPERACIÓN DESCARGUE') ? row.tipoVehiculo : row.unitOfMeasure;
+            const key = `${conceptName} - ${unit}`;
+        
             if (!acc[key]) {
                 acc[key] = {
-                    concept: key,
+                    concept: conceptName,
                     totalQuantity: 0,
                     totalValue: 0,
-                    unitOfMeasure: row.unitOfMeasure,
-                    unitValue: row.unitValue, // Store the unit value
-                    order: conceptOrder.indexOf(row.conceptName)
+                    unitOfMeasure: unit,
+                    unitValue: row.unitValue,
+                    order: conceptOrder.indexOf(row.conceptName),
                 };
             }
+            
             acc[key].totalQuantity += row.quantity;
             acc[key].totalValue += row.totalValue;
-            // Handle cases where unit value might differ (e.g., specific tariffs)
-            if (acc[key].unitValue !== row.unitValue) {
-                // Mark as "Varios" if different unit values exist for the same concept
-                (acc[key].unitValue as any) = 'Varios';
-            }
+            
             return acc;
-        }, {} as Record<string, { concept: string; totalQuantity: number; totalValue: number; unitOfMeasure: string; unitValue: number | 'Varios'; order: number; }>);
+        }, {} as Record<string, { concept: string; totalQuantity: number; totalValue: number; unitOfMeasure: string; unitValue: number; order: number; }>);
     
         const sortedSummary = Object.values(summaryByConcept).sort((a, b) => {
             const orderA = a.order === -1 ? Infinity : a.order;
@@ -1244,9 +1243,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 totalValue: item.totalValue,
             });
             addedRow.getCell('totalQuantity').numFmt = '#,##0.00';
-            if (typeof item.unitValue === 'number') {
-                addedRow.getCell('unitValue').numFmt = '$ #,##0.00';
-            }
+            addedRow.getCell('unitValue').numFmt = '$ #,##0.00';
             addedRow.getCell('totalValue').numFmt = '$ #,##0.00';
         });
     
@@ -1261,7 +1258,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     
         // --- Hoja de Detalle ---
         const detailWorksheet = workbook.addWorksheet('Detalle Liquidación');
-        addHeaderAndTitle(detailWorksheet, "Detalle de Operaciones");
+        addHeaderAndTitle(detailWorksheet, "Detalle Liquidación");
         
         const detailColumns = [
             { header: 'Fecha', key: 'date', width: 15 },
@@ -1413,15 +1410,23 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         let lastY = addHeader(doc, "Resumen de Liquidación");
     
         const summaryByConcept = settlementReportData.reduce((acc, row) => {
-            const concept = row.conceptName + (row.subConceptName ? ` (${row.subConceptName})` : '');
-            const key = concept;
+            const conceptName = row.conceptName + (row.subConceptName ? ` (${row.subConceptName})` : '');
+            const unit = (row.conceptName === 'OPERACIÓN CARGUE' || row.conceptName === 'OPERACIÓN DESCARGUE') ? row.tipoVehiculo : row.unitOfMeasure;
+            const key = `${conceptName} - ${unit}`;
+        
             if (!acc[key]) {
-                acc[key] = { concept, totalQuantity: 0, totalValue: 0, unitOfMeasure: row.unitOfMeasure, order: conceptOrder.indexOf(row.conceptName) };
+                acc[key] = { 
+                    concept: conceptName, 
+                    totalQuantity: 0, 
+                    totalValue: 0, 
+                    unitOfMeasure: unit, 
+                    order: conceptOrder.indexOf(row.conceptName) 
+                };
             }
             acc[key].totalQuantity += row.quantity;
             acc[key].totalValue += row.totalValue;
             return acc;
-        }, {} as Record<string, { concept: string; totalQuantity: number; totalValue: number; unitOfMeasure: string; order: number }>);
+        }, {} as Record<string, { concept: string; totalQuantity: number; totalValue: number; unitOfMeasure: string; order: number; }>);
     
         const sortedSummary = Object.values(summaryByConcept).sort((a, b) => {
             const orderA = a.order === -1 ? Infinity : a.order;
@@ -1467,8 +1472,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         }, {} as Record<string, { rows: ClientSettlementRow[], subtotalValor: number, order: number }>);
     
         const sortedConceptKeys = Object.keys(groupedByConcept).sort((a, b) => {
-            const orderA = groupedByConcept[a].order === -1 ? Infinity : a.order;
-            const orderB = groupedByConcept[b].order === -1 ? Infinity : b.order;
+            const orderA = groupedByConcept[a].order === -1 ? Infinity : groupedByConcept[a].order;
+            const orderB = groupedByConcept[b].order === -1 ? Infinity : groupedByConcept[b].order;
             if (orderA !== orderB) return orderA - orderB;
             return a.localeCompare(b);
         });
@@ -2676,4 +2681,6 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
     
 
     
+    
+
     
