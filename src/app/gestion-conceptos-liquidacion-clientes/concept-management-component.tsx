@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import * as React from 'react';
@@ -586,6 +585,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                         )}
                     />
                     <FormField control={editForm.control} name="unitOfMeasure" render={({ field }) => (<FormItem><FormLabel>Unidad de Medida (Para Reporte)</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione una unidad" /></SelectTrigger></FormControl><SelectContent>{unitOfMeasureOptions.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</SelectContent></Select><FormMessage /></FormItem>)}/>
+
                     <Separator />
                      <FormField control={editForm.control} name="calculationType" render={({ field }) => (
                         <FormItem className="space-y-3">
@@ -830,3 +830,4 @@ function ClientMultiSelectDialog({
     </Dialog>
   );
 }
+
