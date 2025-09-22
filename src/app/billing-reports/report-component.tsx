@@ -1160,26 +1160,27 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         ];
 
         const addHeaderAndTitle = (ws: ExcelJS.Worksheet, title: string) => {
-            const titleRow = ws.addRow([title]);
+            ws.addRow([]); // Fila 1 vacía
+            const titleRow = ws.addRow([title]); // Fila 2 para el título
             titleRow.font = { bold: true, size: 16 };
-            titleRow.alignment = { horizontal: 'center' };
+            titleRow.getCell(1).alignment = { horizontal: 'center' };
             ws.mergeCells(titleRow.number, 1, titleRow.number, 16);
-
-            const clientRow = ws.addRow([`Cliente: ${settlementClient}`]);
+        
+            const clientRow = ws.addRow([`Cliente: ${settlementClient}`]); // Fila 3
             clientRow.font = { bold: true };
-            clientRow.alignment = { horizontal: 'center' };
+            clientRow.getCell(1).alignment = { horizontal: 'center' };
             ws.mergeCells(clientRow.number, 1, clientRow.number, 16);
-    
+        
             if (settlementDateRange?.from && settlementDateRange.to) {
                 const periodText = `Periodo: ${format(settlementDateRange.from, 'dd/MM/yyyy', { locale: es })} - ${format(settlementDateRange.to, 'dd/MM/yyyy', { locale: es })}`;
-                const periodRow = ws.addRow([periodText]);
+                const periodRow = ws.addRow([periodText]); // Fila 4
                 periodRow.font = { bold: true };
-                periodRow.alignment = { horizontal: 'center' };
+                periodRow.getCell(1).alignment = { horizontal: 'center' };
                 ws.mergeCells(periodRow.number, 1, periodRow.number, 16);
             }
-            ws.addRow([]); // Spacer
+            ws.addRow([]); // Fila 5 vacía (espaciador)
         };
-    
+
         const headerFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A90C8' } };
         const headerFont: Partial<ExcelJS.Font> = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
     
@@ -1190,19 +1191,20 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const summaryByConcept = settlementReportData.reduce((acc, row) => {
             let conceptKey: string;
             let conceptName: string;
-            
+            let unitOfMeasure: string;
+
             if (row.conceptName === 'OPERACIÓN CARGUE' || row.conceptName === 'OPERACIÓN DESCARGUE') {
-                // For CARGUE/DESCARGUE, group by shift (operacionLogistica)
                 conceptName = `${row.conceptName} (${row.operacionLogistica})`;
-                conceptKey = `${row.conceptName}-${row.operacionLogistica}-${row.unitOfMeasure}`;
+                unitOfMeasure = row.tipoVehiculo;
+                conceptKey = `${row.conceptName}-${row.operacionLogistica}-${unitOfMeasure}`;
             } else if (row.conceptName === 'TIEMPO EXTRA FRIOAL (FIJO)') {
-                // For TIEMPO EXTRA, consolidate into a single parent concept
                 conceptName = row.conceptName;
-                conceptKey = row.conceptName;
+                unitOfMeasure = row.unitOfMeasure;
+                conceptKey = row.conceptName; // Consolidate all under one key
             } else {
-                // For all other concepts, group by name and sub-name if it exists
                 conceptName = row.conceptName + (row.subConceptName ? ` (${row.subConceptName})` : '');
-                conceptKey = `${row.conceptName}-${row.subConceptName || ''}-${row.unitOfMeasure}`;
+                unitOfMeasure = row.unitOfMeasure;
+                conceptKey = `${row.conceptName}-${row.subConceptName || ''}-${unitOfMeasure}`;
             }
 
             if (!acc[conceptKey]) {
@@ -1210,7 +1212,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                     concept: conceptName,
                     totalQuantity: 0,
                     totalValue: 0,
-                    unitOfMeasure: row.unitOfMeasure,
+                    unitOfMeasure: unitOfMeasure,
                     unitValue: row.unitValue,
                     order: conceptOrder.indexOf(row.conceptName),
                 };
@@ -1239,7 +1241,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         ];
         
         summaryWorksheet.columns = summaryColumns;
-        const summaryHeaderRow = summaryWorksheet.getRow(5); // Adjust row number
+        const summaryHeaderRow = summaryWorksheet.getRow(6); // Start table headers at row 6
         summaryHeaderRow.values = summaryColumns.map(c => c.header);
         summaryHeaderRow.eachCell((cell) => {
             cell.fill = headerFill;
@@ -1293,7 +1295,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         ];
         detailWorksheet.columns = detailColumns;
         
-        const detailHeaderRow = detailWorksheet.getRow(5); // Adjust row number
+        const detailHeaderRow = detailWorksheet.getRow(6); // Start table headers at row 6
         detailHeaderRow.values = detailColumns.map(c => c.header);
         detailHeaderRow.eachCell((cell) => {
             cell.fill = headerFill;
@@ -1425,21 +1427,35 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         let lastY = addHeader(doc, "Resumen de Liquidación");
     
         const summaryByConcept = settlementReportData.reduce((acc, row) => {
-            const conceptName = row.conceptName + (row.subConceptName ? ` (${row.subConceptName})` : '');
-            const unit = (row.conceptName === 'OPERACIÓN CARGUE' || row.conceptName === 'OPERACIÓN DESCARGUE') ? row.tipoVehiculo : row.unitOfMeasure;
-            const key = `${conceptName} - ${unit}`;
-        
-            if (!acc[key]) {
-                acc[key] = { 
+             let conceptName: string;
+            let conceptKey: string;
+            let unitOfMeasure: string;
+
+            if (row.conceptName === 'OPERACIÓN CARGUE' || row.conceptName === 'OPERACIÓN DESCARGUE') {
+                conceptName = `${row.conceptName} (${row.operacionLogistica})`;
+                unitOfMeasure = row.tipoVehiculo;
+                conceptKey = `${row.conceptName}-${row.operacionLogistica}-${unitOfMeasure}`;
+            } else if (row.conceptName === 'TIEMPO EXTRA FRIOAL (FIJO)') {
+                conceptName = row.conceptName;
+                unitOfMeasure = row.unitOfMeasure;
+                conceptKey = row.conceptName; // Consolidate
+            } else {
+                conceptName = row.conceptName + (row.subConceptName ? ` (${row.subConceptName})` : '');
+                unitOfMeasure = row.unitOfMeasure;
+                conceptKey = `${row.conceptName}-${row.subConceptName || ''}-${unitOfMeasure}`;
+            }
+
+            if (!acc[conceptKey]) {
+                acc[conceptKey] = { 
                     concept: conceptName, 
                     totalQuantity: 0, 
                     totalValue: 0, 
-                    unitOfMeasure: unit, 
+                    unitOfMeasure: unitOfMeasure, 
                     order: conceptOrder.indexOf(row.conceptName) 
                 };
             }
-            acc[key].totalQuantity += row.quantity;
-            acc[key].totalValue += row.totalValue;
+            acc[conceptKey].totalQuantity += row.quantity;
+            acc[conceptKey].totalValue += row.totalValue;
             return acc;
         }, {} as Record<string, { concept: string; totalQuantity: number; totalValue: number; unitOfMeasure: string; order: number; }>);
     
@@ -2610,6 +2626,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
 function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen: boolean; onOpenChange: (open: boolean) => void; row: ClientSettlementRow; onSave: (updatedRow: ClientSettlementRow) => void; }) {
     const [editedRow, setEditedRow] = useState<ClientSettlementRow>(row);
+    const unitOfMeasureOptions = ['TONELADA', 'PALETA', 'ESTIBA', 'UNIDAD', 'CAJA', 'SACO', 'CANASTILLA', 'HORA', 'DIA', 'VIAJE', 'MES', 'CONTENEDOR', 'HORA EXTRA DIURNA', 'HORA EXTRA NOCTURNA', 'HORA EXTRA DIURNA DOMINGO Y FESTIVO', 'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO', 'POSICION/DIA', 'POSICIONES', 'TIPO VEHÍCULO'];
 
     useEffect(() => {
         setEditedRow(row);
@@ -2675,9 +2692,22 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
                             <Input id="quantity" name="quantity" type="number" value={editedRow.quantity} onChange={handleChange} />
                         </div>
                     </div>
-                    <div className="space-y-2">
-                        <Label htmlFor="unitValue">Valor Unitario</Label>
-                        <Input id="unitValue" name="unitValue" type="number" value={editedRow.unitValue} onChange={handleChange} />
+                    <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="unitOfMeasure">Unidad</Label>
+                             <Select name="unitOfMeasure" value={editedRow.unitOfMeasure} onValueChange={(value) => handleSelectChange('unitOfMeasure', value)}>
+                                <SelectTrigger><SelectValue/></SelectTrigger>
+                                <SelectContent>
+                                    {unitOfMeasureOptions.map(option => (
+                                        <SelectItem key={option} value={option}>{option}</SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="unitValue">Valor Unitario</Label>
+                            <Input id="unitValue" name="unitValue" type="number" value={editedRow.unitValue} onChange={handleChange} />
+                        </div>
                     </div>
                      <div className="space-y-2">
                         <Label>Comentarios de justificación</Label>
@@ -2697,3 +2727,4 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 
     
     
+
