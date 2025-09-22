@@ -385,21 +385,23 @@ export async function generateClientSettlement(criteria: {
             .filter(op => op.type === 'form')
             .map(op => op.data)
             .filter(op => {
-                // Special exclusion logic for GRUPO FRUTELLI SAS
-                if (
-                    clientName === 'GRUPO FRUTELLI SAS' && 
-                    (op.formType === 'variable-weight-recepcion' || op.formType === 'variable-weight-reception') &&
-                    concept.filterOperationType === 'recepcion'
-                ) {
-                    return false;
-                }
-
+                
                 let opTypeMatch = false;
                 if (concept.filterOperationType === 'ambos') opTypeMatch = true;
                 else if (concept.filterOperationType === 'recepcion' && (op.formType.includes('recepcion') || op.formType.includes('reception'))) opTypeMatch = true;
                 else if (concept.filterOperationType === 'despacho' && op.formType.includes('despacho')) opTypeMatch = true;
+
+                // Special exclusion for GRUPO FRUTELLI SAS. This check is after opTypeMatch.
+                if (
+                    clientName === 'GRUPO FRUTELLI SAS' && 
+                    concept.filterOperationType === 'recepcion' && 
+                    (op.formType === 'variable-weight-recepcion' || op.formType === 'variable-weight-reception')
+                ) {
+                    return false; // Specifically exclude this combination from generating a settlement row.
+                }
+
+                const prodTypeMatch = concept.filterProductType === 'ambos' || (op.formType.includes('fixed-weight') && concept.filterProductType === 'fijo') || (op.formType.includes('variable-weight') && concept.filterProductType === 'variable');
                 
-                const prodTypeMatch = concept.filterProductType === 'ambos' || op.formType.includes(concept.filterProductType);
                 return opTypeMatch && prodTypeMatch;
             });
             
