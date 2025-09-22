@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import * as React from 'react';
@@ -451,10 +450,10 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         ];
         
         worksheet.columns = detailColumns;
-        worksheet.spliceRows(1,1); // Remove the header row automatically created
+        worksheet.getRow(1).hidden = true; // Oculta la fila de encabezados generada automáticamente
 
         worksheet.addRow(detailColumns.map(c => c.header));
-        worksheet.getRow(1).font = { bold: true };
+        worksheet.getRow(2).font = { bold: true };
 
         detailedReportData.forEach(row => {
             worksheet.addRow({
@@ -1160,25 +1159,21 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         ];
 
         const addHeaderAndTitle = (ws: ExcelJS.Worksheet, title: string) => {
-            ws.addRow([]); // Fila 1 vacía
-            const titleRow = ws.addRow([title]); // Fila 2 para el título
+            const titleRow = ws.addRow([title]);
             titleRow.font = { bold: true, size: 16 };
             titleRow.getCell(1).alignment = { horizontal: 'center' };
-            ws.mergeCells(titleRow.number, 1, titleRow.number, 16);
         
-            const clientRow = ws.addRow([`Cliente: ${settlementClient}`]); // Fila 3
+            const clientRow = ws.addRow([`Cliente: ${settlementClient}`]);
             clientRow.font = { bold: true };
             clientRow.getCell(1).alignment = { horizontal: 'center' };
-            ws.mergeCells(clientRow.number, 1, clientRow.number, 16);
         
             if (settlementDateRange?.from && settlementDateRange.to) {
                 const periodText = `Periodo: ${format(settlementDateRange.from, 'dd/MM/yyyy', { locale: es })} - ${format(settlementDateRange.to, 'dd/MM/yyyy', { locale: es })}`;
-                const periodRow = ws.addRow([periodText]); // Fila 4
+                const periodRow = ws.addRow([periodText]);
                 periodRow.font = { bold: true };
                 periodRow.getCell(1).alignment = { horizontal: 'center' };
-                ws.mergeCells(periodRow.number, 1, periodRow.number, 16);
             }
-            ws.addRow([]); // Fila 5 vacía (espaciador)
+            ws.addRow([]); // Spacer
         };
 
         const headerFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A90C8' } };
@@ -1187,6 +1182,10 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         // --- Hoja de Resumen ---
         const summaryWorksheet = workbook.addWorksheet('Resumen Liquidación');
         addHeaderAndTitle(summaryWorksheet, "Resumen Liquidación");
+        // We know this sheet has 16 columns from the detail sheet, so we merge based on that.
+        summaryWorksheet.mergeCells('A1:P1'); // Title
+        summaryWorksheet.mergeCells('A2:P2'); // Client
+        if (settlementDateRange?.from) summaryWorksheet.mergeCells('A3:P3'); // Period
 
         const summaryByConcept = settlementReportData.reduce((acc, row) => {
             let conceptKey: string;
@@ -1241,7 +1240,9 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         ];
         
         summaryWorksheet.columns = summaryColumns;
-        const summaryHeaderRow = summaryWorksheet.getRow(6); // Start table headers at row 6
+        summaryWorksheet.getRow(1).hidden = true;
+
+        const summaryHeaderRow = summaryWorksheet.getRow(5); // Start table headers at row 5
         summaryHeaderRow.values = summaryColumns.map(c => c.header);
         summaryHeaderRow.eachCell((cell) => {
             cell.fill = headerFill;
@@ -1275,6 +1276,9 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         // --- Hoja de Detalle ---
         const detailWorksheet = workbook.addWorksheet('Detalle Liquidación');
         addHeaderAndTitle(detailWorksheet, "Detalle Liquidación");
+        detailWorksheet.mergeCells('A1:P1'); // Title
+        detailWorksheet.mergeCells('A2:P2'); // Client
+        if (settlementDateRange?.from) detailWorksheet.mergeCells('A3:P3'); // Period
         
         const detailColumns = [
             { header: 'Fecha', key: 'date', width: 15 },
@@ -1294,8 +1298,9 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             { header: 'Valor Total', key: 'totalValue', width: 20 },
         ];
         detailWorksheet.columns = detailColumns;
+        detailWorksheet.getRow(1).hidden = true;
         
-        const detailHeaderRow = detailWorksheet.getRow(6); // Start table headers at row 6
+        const detailHeaderRow = detailWorksheet.getRow(5); // Start table headers at row 5
         detailHeaderRow.values = detailColumns.map(c => c.header);
         detailHeaderRow.eachCell((cell) => {
             cell.fill = headerFill;
@@ -1504,7 +1509,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     
         const sortedConceptKeys = Object.keys(groupedByConcept).sort((a, b) => {
             const orderA = groupedByConcept[a].order === -1 ? Infinity : groupedByConcept[a].order;
-            const orderB = groupedByConcept[b].order === -1 ? Infinity : groupedByConcept[b].order;
+            const orderB = groupedByConcept[b].order === -1 ? Infinity : b.order;
             if (orderA !== orderB) return orderA - orderB;
             return a.localeCompare(b);
         });
@@ -2722,10 +2727,4 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
         </Dialog>
     );
 }
-
     
-
-    
-    
-
-
