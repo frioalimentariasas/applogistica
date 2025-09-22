@@ -253,21 +253,18 @@ export async function getDetailedReport(criteria: DetailedReportCriteria): Promi
 
     // To avoid full collection scans, we require a date range.
     if (criteria.startDate && criteria.endDate) {
-        const serverQueryStartDate = new Date(criteria.startDate);
-        serverQueryStartDate.setDate(serverQueryStartDate.getDate());
+        const serverQueryStartDate = new Date(criteria.startDate + 'T00:00:00-05:00');
+        const serverQueryEndDate = new Date(criteria.endDate + 'T23:59:59.999-05:00');
         
-        const serverQueryEndDate = new Date(criteria.endDate);
-        serverQueryEndDate.setDate(serverQueryEndDate.getDate() + 1);
-        
-        query = query.where('createdAt', '>=', serverQueryStartDate.toISOString().split('T')[0])
-                     .where('createdAt', '<', serverQueryEndDate.toISOString().split('T')[0]);
+        query = query.where('formData.fecha', '>=', serverQueryStartDate)
+                     .where('formData.fecha', '<=', serverQueryEndDate);
     } else {
         throw new Error('Se requiere un rango de fechas para generar este informe.');
     }
     
     try {
         const [submissionsSnapshot, articlesSnapshot] = await Promise.all([
-            query.get(),
+            query.orderBy('formData.fecha', 'asc').get(),
             firestore.collection('articulos').get()
         ]);
         
@@ -293,16 +290,7 @@ export async function getDetailedReport(criteria: DetailedReportCriteria): Promi
             return !isFrutelliRecepcionVariable;
         });
 
-        const dateFilteredSubmissions = allSubmissions.filter(submission => {
-            const formIsoDate = submission.formData?.fecha;
-            if (!formIsoDate || typeof formIsoDate !== 'string') {
-                return false;
-            }
-            const formDatePart = getLocalGroupingDate(formIsoDate);
-            return formDatePart >= criteria.startDate! && formDatePart <= criteria.endDate!;
-        });
-
-        let results = dateFilteredSubmissions.map(submission => {
+        let results = allSubmissions.map(submission => {
             const { id, formType, formData } = submission;
 
             const totalPaletas = calculateTotalPallets(formType, formData);
@@ -392,9 +380,6 @@ export async function getDetailedReport(criteria: DetailedReportCriteria): Promi
         if (criteria.tipoPedido && criteria.tipoPedido.length > 0) {
             results = results.filter(row => criteria.tipoPedido!.includes(row.tipoPedido));
         }
-
-
-        results.sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime());
 
         return results;
 
