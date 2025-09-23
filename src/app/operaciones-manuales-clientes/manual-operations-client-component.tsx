@@ -244,6 +244,8 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     const showNumeroPersonas = selectedConceptInfo?.tariffType === 'ESPECIFICA' && !isBulkMode && !isPositionMode;
     const isFmmZfpc = watchedConcept === 'FMM ZFPC';
     const isFmmConcept = watchedConcept === 'FMM DE INGRESO ZFPC' || watchedConcept === 'FMM DE SALIDA ZFPC';
+    const showAdvancedFields = ['INSPECCIÓN ZFPC', 'TIEMPO EXTRA ZFPC'].includes(watchedConcept);
+    const showInspectionFields = isInspection;
 
 
     useEffect(() => {
@@ -494,9 +496,6 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         const minutes = String(now.getMinutes()).padStart(2, '0');
         form.setValue(fieldName, `${hours}:${minutes}`, { shouldValidate: true });
     };
-
-    const showAdvancedFields = ['INSPECCIÓN ZFPC', 'TIEMPO EXTRA ZFPC'].includes(watchedConcept);
-    const showTimeExtraFields = watchedConcept === 'TIEMPO EXTRA FRIOAL';
 
     const calculatedDuration = useMemo(() => {
         const [startTime, endTime] = watchedTimes;
@@ -850,7 +849,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
 
                                                 <FormField control={form.control} name="details.container" render={({ field }) => (<FormItem><FormLabel>Contenedor {(showAdvancedFields || isElectricConnection) && <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Contenedor" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
                                                 {showInspectionFields && (
-                                                    <FormField control={form.control} name="details.arin" render={({ field }) => (<FormItem><FormLabel>ARIN <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Número de ARIN" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
+                                                     <FormField control={form.control} name="details.arin" render={({ field }) => (<FormItem><FormLabel>ARIN <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Número de ARIN" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
                                                 )}
                                                 
                                                  {isFmmConcept && (
@@ -1117,3 +1116,5 @@ const ExcedentManager = () => {
         </div>
     )
 }
+
+    
