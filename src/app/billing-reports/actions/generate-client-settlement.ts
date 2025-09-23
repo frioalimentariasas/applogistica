@@ -74,7 +74,7 @@ const findMatchingTariff = (tons: number, concept: ClientBillingConcept): Tariff
 };
 
 const getOperationLogisticsType = (isoDateString: string, horaInicio: string, horaFin: string, concept: ClientBillingConcept): "Diurno" | "Nocturno" | "Extra" | "No Aplica" => {
-    const specialConcepts = ["FMM DE INGRESO", "ARIN DE INGRESO", "FMM DE SALIDA", "ARIN DE SALIDA", "REESTIBADO", "ALISTAMIENTO POR UNIDAD", "FMM DE INGRESO ZFPC", "FMM DE SALIDA ZFPC"];
+    const specialConcepts = ["FMM DE INGRESO", "ARIN DE INGRESO", "FMM DE SALIDA", "ARIN DE SALIDA", "REESTIBADO", "ALISTAMIENTO POR UNIDAD", "FMM DE INGRESO ZFPC", "FMM DE SALIDA ZFPC", "FMM ZFPC"];
     if (specialConcepts.includes(concept.conceptName.toUpperCase())) {
       return "No Aplica";
     }
@@ -402,9 +402,13 @@ export async function generateClientSettlement(criteria: {
                 else if (concept.filterOperationType === 'despacho' && op.formType.includes('despacho')) opTypeMatch = true;
 
                 let prodTypeMatch = false;
-                if (concept.filterProductType === 'ambos') prodTypeMatch = true;
-                else if (concept.filterProductType === 'fijo' && op.formType.includes('fixed-weight')) prodTypeMatch = true;
-                else if (concept.filterProductType === 'variable' && op.formType.includes('variable-weight')) prodTypeMatch = true;
+                if (concept.filterProductType === 'ambos') {
+                    prodTypeMatch = true;
+                } else if (concept.filterProductType === 'fijo' && op.formType.includes('fixed-weight')) {
+                    prodTypeMatch = true;
+                } else if (concept.filterProductType === 'variable' && op.formType.includes('variable-weight')) {
+                    prodTypeMatch = true;
+                }
                 
                 return opTypeMatch && prodTypeMatch;
             });
@@ -687,8 +691,8 @@ export async function generateClientSettlement(criteria: {
                          }
 
                          let operacionLogistica = 'No Aplica';
-                         if (opData.details?.opLogistica) {
-                            operacionLogistica = `${opData.details.opLogistica} - #${opData.details.fmmNumber || ''}`;
+                         if (opData.details?.opLogistica && opData.details?.fmmNumber) {
+                            operacionLogistica = `${opData.details.opLogistica} - #${opData.details.fmmNumber}`;
                          }
 
                          settlementRows.push({
@@ -714,7 +718,7 @@ export async function generateClientSettlement(criteria: {
     }
     
     const conceptOrder = [
-        'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'ALISTAMIENTO POR UNIDAD', 'FMM DE INGRESO ZFPC', 'ARIN DE INGRESO ZFPC', 'FMM DE SALIDA ZFPC',
+        'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'ALISTAMIENTO POR UNIDAD', 'FMM DE INGRESO ZFPC', 'ARIN DE INGRESO ZFPC', 'FMM DE SALIDA ZFPC', 'FMM ZFPC',
         'ARIN DE SALIDA ZFPC', 'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
         'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'ESTIBA MADERA RECICLADA',
         'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA ZFPC',
@@ -760,3 +764,4 @@ const timeToMinutes = (timeStr: string): number => {
     const [hours, minutes] = timeStr.split(':').map(Number);
     return hours * 60 + minutes;
 };
+

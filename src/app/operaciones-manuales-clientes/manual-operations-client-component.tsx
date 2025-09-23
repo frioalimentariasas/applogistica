@@ -93,6 +93,7 @@ const manualOperationSchema = z.object({
     const isPositionMode = data.concept === 'POSICIONES FIJAS CÁMARA CONGELADOS';
     const isFixedMonthlyService = isPositionMode || data.concept === 'IN-HOUSE INSPECTOR ZFPC' || data.concept === 'ALQUILER IMPRESORA ETIQUETADO';
     const isElectricConnection = data.concept === 'CONEXIÓN ELÉCTRICA CONTENEDOR';
+    const isFmmZfpc = data.concept === 'FMM ZFPC';
 
 
     if (isBulkMode) {
@@ -134,6 +135,12 @@ const manualOperationSchema = z.object({
                  ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La cantidad para la tarifa de exceso es requerida.", path: [`specificTariffs.${data.specificTariffs?.indexOf(excessTariff)}.quantity`] });
             }
         }
+    }
+    
+    if (isFmmZfpc) {
+      if (!data.details?.opLogistica) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La Op. Logística es obligatoria.", path: ["details.opLogistica"] });
+      if (!data.details?.fmmNumber?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El # FMM es obligatorio.", path: ["details.fmmNumber"] });
+      if (!data.details?.plate?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La Placa es obligatoria.", path: ["details.plate"] });
     }
 
     const specialConcepts = ['INSPECCIÓN ZFPC', 'TIEMPO EXTRA ZFPC', 'FMM DE INGRESO ZFPC', 'FMM DE SALIDA ZFPC'];
@@ -197,10 +204,6 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 container: '',
                 totalPallets: null,
                 arin: '',
-                fechaArribo: undefined,
-                horaArribo: '',
-                fechaSalida: undefined,
-                horaSalida: '',
                 opLogistica: undefined,
                 fmmNumber: '',
             },
@@ -233,6 +236,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     const isInspection = watchedConcept === 'INSPECCIÓN ZFPC';
     const isFixedMonthlyService = isPositionMode || watchedConcept === 'IN-HOUSE INSPECTOR ZFPC' || watchedConcept === 'ALQUILER IMPRESORA ETIQUETADO';
     const showNumeroPersonas = selectedConceptInfo?.tariffType === 'ESPECIFICA' && !isBulkMode && !isPositionMode;
+    const isFmmZfpc = watchedConcept === 'FMM ZFPC';
     const isFmmConcept = watchedConcept === 'FMM DE INGRESO ZFPC' || watchedConcept === 'FMM DE SALIDA ZFPC';
 
 
@@ -823,7 +827,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                             />
                                         )}
                                         
-                                        {showAdvancedFields || dialogMode === 'view' || isElectricConnection || isFmmConcept ? (
+                                        {showAdvancedFields || dialogMode === 'view' || isElectricConnection || isFmmConcept || isFmmZfpc ? (
                                             <>
                                                 <Separator />
                                                 <p className="text-sm font-medium text-muted-foreground">Detalles Adicionales</p>
@@ -837,7 +841,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                     <FormField control={form.control} name="details.arin" render={({ field }) => (<FormItem><FormLabel>ARIN <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Número de ARIN" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
                                                 )}
                                                 
-                                                 {isFmmConcept && (
+                                                 {(isFmmConcept || isFmmZfpc) && (
                                                     <>
                                                         <FormField control={form.control} name="details.opLogistica" render={({ field }) => (
                                                             <FormItem>
@@ -1087,3 +1091,4 @@ const ExcedentManager = () => {
         </div>
     )
 }
+
