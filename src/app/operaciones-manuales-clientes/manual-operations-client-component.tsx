@@ -246,6 +246,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     const isFmmConcept = watchedConcept === 'FMM DE INGRESO ZFPC' || watchedConcept === 'FMM DE SALIDA ZFPC';
     const showAdvancedFields = ['INSPECCIÓN ZFPC', 'TIEMPO EXTRA ZFPC'].includes(watchedConcept);
     const showInspectionFields = isInspection;
+    const showTimeExtraFields = ['TIEMPO EXTRA ZFPC', 'TIEMPO EXTRA FRIOAL'].includes(watchedConcept);
 
 
     useEffect(() => {
@@ -316,10 +317,10 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         try {
             const data = await getAllManualClientOperations();
             setAllOperations(data);
-            return data;
+            return data; // Devuelve los datos para que handleSearch pueda usarlos
         } catch (error) {
             toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar las operaciones.' });
-            return [];
+            return []; // Devuelve un array vacío en caso de error
         } finally {
             setIsLoading(false);
         }
@@ -836,7 +837,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                             />
                                         )}
                                         
-                                        {(showAdvancedFields || dialogMode === 'view' || isElectricConnection || isFmmConcept || isFmmZfpc || isTimeExtraMode) && !isFmmZfpc && (
+                                        {(showAdvancedFields || dialogMode === 'view' || isElectricConnection || isFmmConcept || isFmmZfpc || showTimeExtraFields) && !isFmmZfpc && (
                                             <>
                                                 <Separator />
                                                 <p className="text-sm font-medium text-muted-foreground">Detalles Adicionales</p>
@@ -880,7 +881,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                     </FormItem>
                                                 )} />
                                                 <FormField control={form.control} name="details.fmmNumber" render={({ field }) => (<FormItem><FormLabel># FMM <span className="text-destructive">*</span></FormLabel><FormControl><Input placeholder="Número de FMM" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
-                                                <FormField control={form.control} name="details.plate" render={({ field }) => (<FormItem><FormLabel>Placa <span className="text-destructive">*</span></FormLabel><FormControl><Input placeholder="Placa del vehículo" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
+                                                <FormField control={form.control} name="details.plate" render={({ field }) => (<FormItem><FormLabel>Placa <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Placa del vehículo" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
                                             </>
                                         )}
                                         
@@ -1116,5 +1117,3 @@ const ExcedentManager = () => {
         </div>
     )
 }
-
-    
