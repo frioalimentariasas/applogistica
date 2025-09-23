@@ -1175,7 +1175,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 const periodText = `Periodo: ${format(settlementDateRange.from, 'dd/MM/yyyy', { locale: es })} - ${format(settlementDateRange.to, 'dd/MM/yyyy', { locale: es })}`;
                 const periodRow = ws.addRow([periodText]);
                 periodRow.font = { bold: true };
-                ws.mergeCells(4, 1, 4, columns.length);
+                ws.mergeCells(ws.rowCount, 1, ws.rowCount, columns.length);
                 periodRow.getCell(1).alignment = { horizontal: 'center' };
             }
             ws.addRow([]); // Spacer
@@ -1322,7 +1322,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     
         const sortedConceptKeys = Object.keys(groupedByConcept).sort((a, b) => {
             const orderA = groupedByConcept[a].order === -1 ? Infinity : groupedByConcept[a].order;
-            const orderB = groupedByConcept[b].order === -1 ? Infinity : groupedByConcept[b].order;
+            const orderB = groupedByConcept[b].order === -1 ? Infinity : b.order;
             if (orderA !== orderB) return orderA - orderB;
             return a.localeCompare(b);
         });
@@ -2730,4 +2730,5 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 
 
     
+
 
