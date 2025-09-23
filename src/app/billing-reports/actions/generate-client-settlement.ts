@@ -175,8 +175,10 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
         .get();
 
     const clientSubmissions = submissionsSnapshot.docs.filter(doc => {
-        const docClientName = doc.data().formData?.cliente || doc.data().formData?.nombreCliente;
-        return docClientName === clientName;
+        const docData = doc.data();
+        const docClientName = docData.formData?.cliente || docData.formData?.nombreCliente;
+        const pedidoSislog = docData.formData?.pedidoSislog;
+        return docClientName === clientName && pedidoSislog !== '1';
     });
     
     // Process form-based concepts
@@ -188,16 +190,20 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
         conceptsForClient.forEach(concept => {
             if (concept.calculationType === 'REGLAS') {
                 let opTypeMatch = false;
-                if (concept.filterOperationType === 'ambos') opTypeMatch = true;
-                else if (concept.filterOperationType === 'recepcion' && (submission.formType.includes('recepcion') || submission.formType.includes('reception'))) opTypeMatch = true;
-                else if (concept.filterOperationType === 'despacho' && submission.formType.includes('despacho')) opTypeMatch = true;
-                
+                if (concept.filterOperationType === 'ambos') {
+                    opTypeMatch = true;
+                } else if (concept.filterOperationType === 'recepcion' && (submission.formType.includes('recepcion') || submission.formType.includes('reception'))) {
+                    opTypeMatch = true;
+                } else if (concept.filterOperationType === 'despacho' && submission.formType.includes('despacho')) {
+                    opTypeMatch = true;
+                }
+
                 let prodTypeMatch = false;
+                const formProductType = submission.formType.includes('fixed-weight') ? 'fijo' : (submission.formType.includes('variable-weight') ? 'variable' : null);
+                
                 if (concept.filterProductType === 'ambos') {
                     prodTypeMatch = true;
-                } else if (concept.filterProductType === 'fijo' && submission.formType.includes('fixed-weight')) {
-                    prodTypeMatch = true;
-                } else if (concept.filterProductType === 'variable' && submission.formType.includes('variable-weight')) {
+                } else if (concept.filterProductType === formProductType) {
                     prodTypeMatch = true;
                 }
 
@@ -332,7 +338,6 @@ export async function generateClientSettlement(criteria: {
   endDate: string;
   conceptIds: string[];
   containerNumber?: string;
-  operationType?: 'recepcion' | 'despacho';
 }): Promise<ClientSettlementResult> {
   if (!firestore) {
     return { success: false, error: 'El servidor no está configurado correctamente.' };
@@ -366,8 +371,9 @@ export async function generateClientSettlement(criteria: {
     submissionsSnapshot.docs.forEach(doc => {
         const data = serializeTimestamps(doc.data());
         const docClientName = data.formData?.cliente || data.formData?.nombreCliente;
+        const pedidoSislog = data.formData?.pedidoSislog;
         
-        if (docClientName === clientName) {
+        if (docClientName === clientName && pedidoSislog !== '1') {
             if (containerNumber && data.formData.contenedor !== containerNumber) {
                 return;
             }
@@ -403,12 +409,11 @@ export async function generateClientSettlement(criteria: {
                     opTypeMatch = true;
                 }
                 
+                const formProductType = op.formType.includes('fixed-weight') ? 'fijo' : (op.formType.includes('variable-weight') ? 'variable' : null);
                 let prodTypeMatch = false;
                 if (concept.filterProductType === 'ambos') {
                     prodTypeMatch = true;
-                } else if (concept.filterProductType === 'fijo' && op.formType.includes('fixed-weight')) {
-                    prodTypeMatch = true;
-                } else if (concept.filterProductType === 'variable' && op.formType.includes('variable-weight')) {
+                } else if (concept.filterProductType === formProductType) {
                     prodTypeMatch = true;
                 }
                 
