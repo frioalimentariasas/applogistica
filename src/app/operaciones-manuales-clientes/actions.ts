@@ -34,6 +34,8 @@ export interface ManualClientOperationData {
         horaArribo?: string; // HH:mm
         fechaSalida?: string; // ISO string
         horaSalida?: string; // HH:mm
+        opLogistica?: 'CARGUE' | 'DESCARGUE';
+        fmmNumber?: string;
     },
     comentarios?: string;
     createdAt?: string; // ISO string for timestamping

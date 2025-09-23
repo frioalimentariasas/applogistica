@@ -74,17 +74,13 @@ const findMatchingTariff = (tons: number, concept: ClientBillingConcept): Tariff
 };
 
 const getOperationLogisticsType = (isoDateString: string, horaInicio: string, horaFin: string, concept: ClientBillingConcept): "Diurno" | "Nocturno" | "Extra" | "No Aplica" => {
-    if (concept.calculationType !== 'REGLAS') {
-        return "No Aplica";
-    }
-
-    const specialConcepts = ["FMM DE INGRESO", "ARIN DE INGRESO", "FMM DE SALIDA", "ARIN DE SALIDA", "REESTIBADO", "ALISTAMIENTO POR UNIDAD"];
+    const specialConcepts = ["FMM DE INGRESO", "ARIN DE INGRESO", "FMM DE SALIDA", "ARIN DE SALIDA", "REESTIBADO", "ALISTAMIENTO POR UNIDAD", "FMM DE INGRESO ZFPC", "FMM DE SALIDA ZFPC"];
     if (specialConcepts.includes(concept.conceptName.toUpperCase())) {
       return "No Aplica";
     }
-    
-    if (!isoDateString || !horaInicio || !horaFin || concept.tariffType !== 'RANGOS' || !concept.dayShiftStart || !concept.dayShiftEnd) {
-      return "No Aplica";
+
+    if (concept.calculationType !== 'REGLAS' || concept.tariffType !== 'RANGOS' || !isoDateString || !horaInicio || !horaFin || !concept.dayShiftStart || !concept.dayShiftEnd) {
+        return "No Aplica";
     }
 
     try {
@@ -199,11 +195,11 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
                 }
 
                 let prodTypeMatch = false;
-                const formProductType = submission.formType.includes('fixed-weight') ? 'fijo' : (submission.formType.includes('variable-weight') ? 'variable' : null);
-                
                 if (concept.filterProductType === 'ambos') {
                     prodTypeMatch = true;
-                } else if (concept.filterProductType === formProductType) {
+                } else if (concept.filterProductType === 'fijo' && submission.formType.includes('fixed-weight')) {
+                    prodTypeMatch = true;
+                } else if (concept.filterProductType === 'variable' && submission.formType.includes('variable-weight')) {
                     prodTypeMatch = true;
                 }
 
@@ -401,21 +397,14 @@ export async function generateClientSettlement(criteria: {
             .map(op => op.data)
             .filter(op => {
                 let opTypeMatch = false;
-                if (concept.filterOperationType === 'ambos') {
-                    opTypeMatch = true;
-                } else if (concept.filterOperationType === 'recepcion' && (op.formType.includes('recepcion') || op.formType.includes('reception'))) {
-                    opTypeMatch = true;
-                } else if (concept.filterOperationType === 'despacho' && op.formType.includes('despacho')) {
-                    opTypeMatch = true;
-                }
-                
-                const formProductType = op.formType.includes('fixed-weight') ? 'fijo' : (op.formType.includes('variable-weight') ? 'variable' : null);
+                if (concept.filterOperationType === 'ambos') opTypeMatch = true;
+                else if (concept.filterOperationType === 'recepcion' && (op.formType.includes('recepcion') || op.formType.includes('reception'))) opTypeMatch = true;
+                else if (concept.filterOperationType === 'despacho' && op.formType.includes('despacho')) opTypeMatch = true;
+
                 let prodTypeMatch = false;
-                if (concept.filterProductType === 'ambos') {
-                    prodTypeMatch = true;
-                } else if (concept.filterProductType === formProductType) {
-                    prodTypeMatch = true;
-                }
+                if (concept.filterProductType === 'ambos') prodTypeMatch = true;
+                else if (concept.filterProductType === 'fijo' && op.formType.includes('fixed-weight')) prodTypeMatch = true;
+                else if (concept.filterProductType === 'variable' && op.formType.includes('variable-weight')) prodTypeMatch = true;
                 
                 return opTypeMatch && prodTypeMatch;
             });
@@ -697,15 +686,20 @@ export async function generateClientSettlement(criteria: {
                             totalValue = numDias * (concept.value || 0);
                          }
 
+                         let operacionLogistica = 'No Aplica';
+                         if (opData.details?.opLogistica) {
+                            operacionLogistica = `${opData.details.opLogistica} - #${opData.details.fmmNumber || ''}`;
+                         }
+
                          settlementRows.push({
                             date,
                             container: opData.details?.container || 'No Aplica',
                             totalPaletas: opData.details?.totalPallets || 0,
                             camara: 'No Aplica',
-                            operacionLogistica: 'No Aplica',
+                            operacionLogistica,
                             pedidoSislog: 'No Aplica',
                             conceptName: concept.conceptName,
-                            tipoVehiculo: 'No Aplica',
+                            tipoVehiculo: opData.details?.plate || 'No Aplica',
                             quantity: quantityForCalc,
                             unitOfMeasure: concept.unitOfMeasure,
                             unitValue: concept.value || 0,
@@ -720,25 +714,11 @@ export async function generateClientSettlement(criteria: {
     }
     
     const conceptOrder = [
-        'OPERACIÓN DESCARGUE',
-        'OPERACIÓN CARGUE',
-        'ALISTAMIENTO POR UNIDAD',
-        'FMM DE INGRESO ZFPC',
-        'ARIN DE INGRESO ZFPC',
-        'FMM DE SALIDA ZFPC',
-        'ARIN DE SALIDA ZFPC',
-        'REESTIBADO',
-        'TOMA DE PESOS POR ETIQUETA HRS',
-        'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
-        'MOVIMIENTO SALIDA PRODUCTOS PALLET',
-        'CONEXIÓN ELÉCTRICA CONTENEDOR',
-        'ESTIBA MADERA RECICLADA',
-        'POSICIONES FIJAS CÁMARA CONGELADOS',
-        'INSPECCIÓN ZFPC',
-        'TIEMPO EXTRA FRIOAL (FIJO)',
-        'TIEMPO EXTRA ZFPC',
-        'IN-HOUSE INSPECTOR ZFPC',
-        'ALQUILER IMPRESORA ETIQUETADO',
+        'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'ALISTAMIENTO POR UNIDAD', 'FMM DE INGRESO ZFPC', 'ARIN DE INGRESO ZFPC', 'FMM DE SALIDA ZFPC',
+        'ARIN DE SALIDA ZFPC', 'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
+        'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'ESTIBA MADERA RECICLADA',
+        'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA ZFPC',
+        'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO',
     ];
     
     settlementRows.sort((a, b) => {
@@ -780,8 +760,3 @@ const timeToMinutes = (timeStr: string): number => {
     const [hours, minutes] = timeStr.split(':').map(Number);
     return hours * 60 + minutes;
 };
-
-    
-
-
-  

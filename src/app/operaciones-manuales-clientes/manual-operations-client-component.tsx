@@ -85,6 +85,8 @@ const manualOperationSchema = z.object({
       horaArribo: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM requerido.').optional().or(z.literal('')),
       fechaSalida: z.date().optional(),
       horaSalida: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM requerido.').optional().or(z.literal('')),
+      opLogistica: z.enum(['CARGUE', 'DESCARGUE']).optional(),
+      fmmNumber: z.string().optional(),
   }).optional(),
 }).superRefine((data, ctx) => {
     const isBulkMode = data.concept === 'TIEMPO EXTRA FRIOAL (FIJO)';
@@ -134,7 +136,7 @@ const manualOperationSchema = z.object({
         }
     }
 
-    const specialConcepts = ['INSPECCIÓN ZFPC', 'TIEMPO EXTRA ZFPC'];
+    const specialConcepts = ['INSPECCIÓN ZFPC', 'TIEMPO EXTRA ZFPC', 'FMM DE INGRESO ZFPC', 'FMM DE SALIDA ZFPC'];
     if (specialConcepts.includes(data.concept)) {
         if (!data.details?.container?.trim()) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El contenedor es obligatorio para este concepto.", path: ["details", "container"] });
@@ -199,6 +201,8 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 horaArribo: '',
                 fechaSalida: undefined,
                 horaSalida: '',
+                opLogistica: undefined,
+                fmmNumber: '',
             },
             bulkRoles: [],
             excedentes: [],
@@ -229,6 +233,8 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     const isInspection = watchedConcept === 'INSPECCIÓN ZFPC';
     const isFixedMonthlyService = isPositionMode || watchedConcept === 'IN-HOUSE INSPECTOR ZFPC' || watchedConcept === 'ALQUILER IMPRESORA ETIQUETADO';
     const showNumeroPersonas = selectedConceptInfo?.tariffType === 'ESPECIFICA' && !isBulkMode && !isPositionMode;
+    const isFmmConcept = watchedConcept === 'FMM DE INGRESO ZFPC' || watchedConcept === 'FMM DE SALIDA ZFPC';
+
 
     useEffect(() => {
         if (isElectricConnection && watchedFechaArribo) {
@@ -378,7 +384,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 specificTariffs: [],
                 numeroPersonas: 1,
                 comentarios: "",
-                details: { startTime: '', endTime: '', plate: '', container: '', totalPallets: null, arin: '' },
+                details: { startTime: '', endTime: '', plate: '', container: '', totalPallets: null, arin: '', opLogistica: undefined, fmmNumber: '' },
                 bulkRoles: [],
                 excedentes: [],
                 selectedDates: [],
@@ -817,7 +823,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                             />
                                         )}
                                         
-                                        {showAdvancedFields || dialogMode === 'view' || isElectricConnection ? (
+                                        {showAdvancedFields || dialogMode === 'view' || isElectricConnection || isFmmConcept ? (
                                             <>
                                                 <Separator />
                                                 <p className="text-sm font-medium text-muted-foreground">Detalles Adicionales</p>
@@ -830,7 +836,21 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                 {showInspectionFields && (
                                                     <FormField control={form.control} name="details.arin" render={({ field }) => (<FormItem><FormLabel>ARIN <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Número de ARIN" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
                                                 )}
-                                                <FormField control={form.control} name="details.plate" render={({ field }) => (<FormItem><FormLabel>Placa (Opcional)</FormLabel><FormControl><Input placeholder="ABC123" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
+                                                
+                                                 {isFmmConcept && (
+                                                    <>
+                                                        <FormField control={form.control} name="details.opLogistica" render={({ field }) => (
+                                                            <FormItem>
+                                                                <FormLabel>Op. Logística <span className="text-destructive">*</span></FormLabel>
+                                                                <Select onValueChange={field.onChange} value={field.value} disabled={dialogMode === 'view'}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione una opción" /></SelectTrigger></FormControl><SelectContent><SelectItem value="CARGUE">CARGUE</SelectItem><SelectItem value="DESCARGUE">DESCARGUE</SelectItem></SelectContent></Select>
+                                                                <FormMessage />
+                                                            </FormItem>
+                                                        )} />
+                                                        <FormField control={form.control} name="details.fmmNumber" render={({ field }) => (<FormItem><FormLabel># FMM <span className="text-destructive">*</span></FormLabel><FormControl><Input placeholder="Número de FMM" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
+                                                        <FormField control={form.control} name="details.plate" render={({ field }) => (<FormItem><FormLabel>Placa <span className="text-destructive">*</span></FormLabel><FormControl><Input placeholder="Placa del vehículo" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
+                                                    </>
+                                                )}
+
                                                 <FormField control={form.control} name="details.totalPallets" render={({ field }) => (<FormItem><FormLabel>Total Paletas</FormLabel><FormControl><Input type="number" step="1" placeholder="Ej: 10" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value === '' ? null : parseInt(e.target.value, 10))}/></FormControl><FormMessage /></FormItem>)}/>
                                             </>
                                         ): null}
@@ -1067,9 +1087,3 @@ const ExcedentManager = () => {
         </div>
     )
 }
-
-    
-
-    
-
-    
