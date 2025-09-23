@@ -109,7 +109,7 @@ const conceptSchema = z.object({
     if (data.tariffType === 'ESPECIFICA' && (!data.specificTariffs || data.specificTariffs.length === 0)) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Debe definir al menos una tarifa específica.", path: ["specificTariffs"] });
     }
-    if (data.conceptName === 'TIEMPO EXTRA FRIOAL (FIJO)') {
+    if (data.conceptName === 'TIEMPO EXTRA FRIOAL (FIJO)' || data.conceptName === 'TIEMPO EXTRA FRIOAL') {
         if (!data.fixedTimeConfig?.weekdayStartTime) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Hora de inicio L-V requerida.", path: ["fixedTimeConfig.weekdayStartTime"] });
         if (!data.fixedTimeConfig?.weekdayEndTime) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Hora de fin L-V requerida.", path: ["fixedTimeConfig.weekdayEndTime"] });
         if (!data.fixedTimeConfig?.saturdayStartTime) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Hora de inicio Sáb. requerida.", path: ["fixedTimeConfig.saturdayStartTime"] });
@@ -470,7 +470,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                                 
                                 {watchedAddTariffType === 'ESPECIFICA' && (
                                     <div className='space-y-4 p-4 border rounded-md bg-muted/20'>
-                                        {watchedAddConceptName === 'TIEMPO EXTRA FRIOAL (FIJO)' ? (
+                                        {watchedAddConceptName === 'TIEMPO EXTRA FRIOAL (FIJO)' || watchedAddConceptName === 'TIEMPO EXTRA FRIOAL' ? (
                                             <div className="space-y-4">
                                                 <FormLabel>Configuración de Horarios Fijos</FormLabel>
                                                 <div className="grid grid-cols-2 gap-4">
@@ -710,7 +710,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                     )}
                     {watchedEditTariffType === 'ESPECIFICA' && (
                          <div className='space-y-4 p-4 border rounded-md bg-muted/20'>
-                            {watchedEditConceptName === 'TIEMPO EXTRA FRIOAL (FIJO)' && (
+                            {watchedEditConceptName === 'TIEMPO EXTRA FRIOAL (FIJO)' || watchedEditConceptName === 'TIEMPO EXTRA FRIOAL' ? (
                                 <div className="space-y-4 mb-4 pb-4 border-b">
                                     <FormLabel>Configuración de Horarios Fijos</FormLabel>
                                     <div className="grid grid-cols-2 gap-4">
@@ -721,7 +721,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                                     </div>
                                     <FormField control={editForm.control} name="fixedTimeConfig.dayShiftEndTime" render={({ field }) => (<FormItem><FormLabel>Hora Fin Turno Diurno</FormLabel><FormControl><Input type="time" {...field} /></FormControl><FormDescription>Para calcular horas nocturnas.</FormDescription><FormMessage /></FormItem>)} />
                                 </div>
-                            )}
+                            ) : null}
                             <FormLabel>Tarifas Específicas</FormLabel>
                             <ScrollArea className="h-40 pr-4">
                             <div className="space-y-4">
@@ -865,6 +865,7 @@ function ClientMultiSelectDialog({
     </Dialog>
   );
 }
+
 
 
 
