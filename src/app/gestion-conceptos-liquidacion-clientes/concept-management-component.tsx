@@ -14,7 +14,7 @@ import { addClientBillingConcept, updateClientBillingConcept, deleteMultipleClie
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
-import { ArrowLeft, Loader2, PlusCircle, Edit, Trash2, ShieldAlert, DollarSign, ChevronsUpDown, Check, Info, Calculator, ListChecks } from 'lucide-react';
+import { ArrowLeft, Loader2, PlusCircle, Edit, Trash2, ShieldAlert, DollarSign, ChevronsUpDown, Check, Info, Calculator, ListChecks, Search } from 'lucide-react';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
@@ -133,12 +133,37 @@ const AccessDenied = () => (
     </div>
 );
 
+const addFormDefaultValues: ConceptFormValues = {
+  conceptName: '',
+  clientNames: [],
+  unitOfMeasure: undefined,
+  calculationType: 'REGLAS',
+  calculationBase: undefined,
+  filterOperationType: 'ambos',
+  filterProductType: 'ambos',
+  associatedObservation: undefined,
+  tariffType: 'UNICA',
+  value: 0,
+  dayShiftStart: '07:00',
+  dayShiftEnd: '19:00',
+  tariffRanges: [],
+  specificTariffs: [],
+  fixedTimeConfig: {
+    weekdayStartTime: "17:00",
+    weekdayEndTime: "22:00",
+    saturdayStartTime: "12:00",
+    saturdayEndTime: "17:00",
+    dayShiftEndTime: "19:00",
+  },
+};
+
 export default function ConceptManagementClientComponent({ initialClients, initialConcepts, standardObservations }: { initialClients: ClientInfo[], initialConcepts: ClientBillingConcept[], standardObservations: StandardObservation[] }) {
   const router = useRouter();
   const { toast } = useToast();
   const { permissions, loading: authLoading } = useAuth();
   
   const [concepts, setConcepts] = useState<ClientBillingConcept[]>(initialConcepts);
+  const [searchTerm, setSearchTerm] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [conceptToEdit, setConceptToEdit] = useState<ClientBillingConcept | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -148,29 +173,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
   
   const addForm = useForm<ConceptFormValues>({
     resolver: zodResolver(conceptSchema),
-    defaultValues: {
-      conceptName: '',
-      clientNames: [],
-      unitOfMeasure: undefined,
-      calculationType: 'REGLAS',
-      calculationBase: undefined,
-      filterOperationType: 'ambos',
-      filterProductType: 'ambos',
-      associatedObservation: undefined,
-      tariffType: 'UNICA',
-      value: 0,
-      dayShiftStart: '07:00',
-      dayShiftEnd: '19:00',
-      tariffRanges: [],
-      specificTariffs: [],
-      fixedTimeConfig: {
-        weekdayStartTime: "17:00",
-        weekdayEndTime: "22:00",
-        saturdayStartTime: "12:00",
-        saturdayEndTime: "17:00",
-        dayShiftEndTime: "19:00",
-      },
-    },
+    defaultValues: addFormDefaultValues,
   });
 
   const { fields: addFields, append: addAppend, remove: addRemove } = useFieldArray({ control: addForm.control, name: "tariffRanges" });
@@ -197,8 +200,8 @@ export default function ConceptManagementClientComponent({ initialClients, initi
     const result = await addClientBillingConcept(data as Omit<ClientBillingConcept, 'id'>);
     if (result.success && result.newConcept) {
       toast({ title: 'Éxito', description: result.message });
-      setConcepts(prev => [...prev, result.newConcept!]);
-      addForm.reset();
+      setConcepts(prev => [...prev, result.newConcept!].sort((a,b) => a.conceptName.localeCompare(b.conceptName)));
+      addForm.reset(addFormDefaultValues);
     } else {
       toast({ variant: 'destructive', title: 'Error', description: result.message });
     }
@@ -261,32 +264,34 @@ export default function ConceptManagementClientComponent({ initialClients, initi
     setSelectedIds(newSet);
   };
   
-  const sortedConcepts = useMemo(() => {
+  const sortedAndFilteredConcepts = useMemo(() => {
     const order: Record<string, number> = {
         'REGLAS': 1,
         'OBSERVACION': 2,
         'MANUAL': 3,
     };
 
-    return [...concepts].sort((a, b) => {
-        const orderA = order[a.calculationType] ?? 99;
-        const orderB = order[b.calculationType] ?? 99;
+    return concepts
+        .filter(c => c.conceptName.toLowerCase().includes(searchTerm.toLowerCase()))
+        .sort((a, b) => {
+            const orderA = order[a.calculationType] ?? 99;
+            const orderB = order[b.calculationType] ?? 99;
 
-        if (orderA !== orderB) {
-            return orderA - orderB;
-        }
-        return a.conceptName.localeCompare(b.conceptName);
-    });
-  }, [concepts]);
+            if (orderA !== orderB) {
+                return orderA - orderB;
+            }
+            return a.conceptName.localeCompare(b.conceptName);
+        });
+  }, [concepts, searchTerm]);
 
   const isAllSelected = useMemo(() => {
-    if (sortedConcepts.length === 0) return false;
-    return sortedConcepts.every(s => selectedIds.has(s.id));
-  }, [selectedIds, sortedConcepts]);
+    if (sortedAndFilteredConcepts.length === 0) return false;
+    return sortedAndFilteredConcepts.every(s => selectedIds.has(s.id));
+  }, [selectedIds, sortedAndFilteredConcepts]);
   
   const handleSelectAll = (checked: boolean) => {
     if (checked) {
-      setSelectedIds(new Set(sortedConcepts.map(s => s.id)));
+      setSelectedIds(new Set(sortedAndFilteredConcepts.map(s => s.id)));
     } else {
       setSelectedIds(new Set());
     }
@@ -495,14 +500,26 @@ export default function ConceptManagementClientComponent({ initialClients, initi
             <div className="lg:col-span-2">
               <Card>
                 <CardHeader>
-                    <div className="flex justify-between items-center">
-                        <CardTitle>Conceptos de Cliente Actuales</CardTitle>
+                    <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                        <div>
+                            <CardTitle>Conceptos de Cliente Actuales</CardTitle>
+                            <CardDescription>Conceptos existentes para facturación de servicios.</CardDescription>
+                        </div>
                         {selectedIds.size > 0 && (
                             <Button onClick={() => setIsConfirmBulkDeleteOpen(true)} variant="destructive" size="sm" disabled={isBulkDeleting}>
                                 <Trash2 className="mr-2 h-4 w-4" />
                                 Eliminar ({selectedIds.size})
                             </Button>
                         )}
+                    </div>
+                     <div className="relative mt-4">
+                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                        <Input
+                            placeholder="Buscar por nombre de concepto..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="pl-8"
+                        />
                     </div>
                 </CardHeader>
                 <CardContent>
@@ -519,8 +536,8 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {sortedConcepts.length > 0 ? (
-                                        sortedConcepts.map((c) => (
+                                    {sortedAndFilteredConcepts.length > 0 ? (
+                                        sortedAndFilteredConcepts.map((c) => (
                                         <TableRow key={c.id} data-state={selectedIds.has(c.id) && "selected"}>
                                             <TableCell><Checkbox checked={selectedIds.has(c.id)} onCheckedChange={(checked) => handleRowSelect(c.id, checked === true)} /></TableCell>
                                             <TableCell>
@@ -547,7 +564,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                                         </TableRow>
                                         ))
                                     ) : (
-                                        <TableRow><TableCell colSpan={5} className="h-24 text-center">No hay conceptos de cliente definidos.</TableCell></TableRow>
+                                        <TableRow><TableCell colSpan={5} className="h-24 text-center">No hay conceptos que coincidan con la búsqueda.</TableCell></TableRow>
                                     )}
                                 </TableBody>
                             </Table>
@@ -830,5 +847,6 @@ function ClientMultiSelectDialog({
     </Dialog>
   );
 }
+
 
 
