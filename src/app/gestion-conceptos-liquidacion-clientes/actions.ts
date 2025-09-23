@@ -32,7 +32,7 @@ export interface ClientBillingConcept {
   id: string;
   conceptName: string;
   clientNames: string[];
-  unitOfMeasure: 'TONELADA' | 'PALETA' | 'ESTIBA' | 'UNIDAD' | 'CAJA' | 'SACO' | 'CANASTILLA' | 'HORA' | 'DIA' | 'VIAJE' | 'MES' | 'CONTENEDOR' | 'HORA EXTRA DIURNA' | 'HORA EXTRA NOCTURNA' | 'HORA EXTRA DIURNA DOMINGO Y FESTIVO' | 'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO' | 'POSICION/DIA' | 'POSICIONES' | 'TIPO VEHÍCULO';
+  unitOfMeasure: 'KILOGRAMOS' | 'TONELADA' | 'PALETA' | 'ESTIBA' | 'UNIDAD' | 'CAJA' | 'SACO' | 'CANASTILLA' | 'HORA' | 'DIA' | 'VIAJE' | 'MES' | 'CONTENEDOR' | 'HORA EXTRA DIURNA' | 'HORA EXTRA NOCTURNA' | 'HORA EXTRA DIURNA DOMINGO Y FESTIVO' | 'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO' | 'POSICION/DIA' | 'POSICIONES' | 'TIPO VEHÍCULO' | 'TRACTOMULA';
   
   calculationType: 'REGLAS' | 'OBSERVACION' | 'MANUAL';
 
@@ -40,7 +40,7 @@ export interface ClientBillingConcept {
   calculationBase?: 'TONELADAS' | 'KILOGRAMOS' | 'CANTIDAD_PALETAS' | 'CANTIDAD_CAJAS' | 'NUMERO_OPERACIONES' | 'NUMERO_CONTENEDORES';
   filterOperationType?: 'recepcion' | 'despacho' | 'ambos';
   filterProductType?: 'fijo' | 'variable' | 'ambos';
-
+  
   // For 'OBSERVACION'
   associatedObservation?: string;
 
