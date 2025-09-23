@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -191,7 +192,15 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
                 else if (concept.filterOperationType === 'recepcion' && (submission.formType.includes('recepcion') || submission.formType.includes('reception'))) opTypeMatch = true;
                 else if (concept.filterOperationType === 'despacho' && submission.formType.includes('despacho')) opTypeMatch = true;
                 
-                const prodTypeMatch = concept.filterProductType === 'ambos' || submission.formType.includes(concept.filterProductType);
+                let prodTypeMatch = false;
+                if (concept.filterProductType === 'ambos') {
+                    prodTypeMatch = true;
+                } else if (concept.filterProductType === 'fijo' && submission.formType.includes('fixed-weight')) {
+                    prodTypeMatch = true;
+                } else if (concept.filterProductType === 'variable' && submission.formType.includes('variable-weight')) {
+                    prodTypeMatch = true;
+                }
+
                 if (opTypeMatch && prodTypeMatch) {
                     if (!applicableConcepts.has(concept.id)) {
                         applicableConcepts.set(concept.id, concept);
@@ -323,6 +332,7 @@ export async function generateClientSettlement(criteria: {
   endDate: string;
   conceptIds: string[];
   containerNumber?: string;
+  operationType?: 'recepcion' | 'despacho';
 }): Promise<ClientSettlementResult> {
   if (!firestore) {
     return { success: false, error: 'El servidor no está configurado correctamente.' };
@@ -392,8 +402,7 @@ export async function generateClientSettlement(criteria: {
                 } else if (concept.filterOperationType === 'despacho' && op.formType.includes('despacho')) {
                     opTypeMatch = true;
                 }
-
-                // Corrected product type matching logic
+                
                 let prodTypeMatch = false;
                 if (concept.filterProductType === 'ambos') {
                     prodTypeMatch = true;
@@ -403,12 +412,6 @@ export async function generateClientSettlement(criteria: {
                     prodTypeMatch = true;
                 }
                 
-                // This check was incorrect and has been removed from here.
-                // It should be applied when generating the final rows, not during filtering.
-                // if (clientName === 'GRUPO FRUTELLI SAS' && (op.formType === 'variable-weight-recepcion' || op.formType === 'variable-weight-reception')) {
-                //    return false;
-                // }
-
                 return opTypeMatch && prodTypeMatch;
             });
             
@@ -774,3 +777,6 @@ const timeToMinutes = (timeStr: string): number => {
 };
 
     
+
+
+  
