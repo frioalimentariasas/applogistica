@@ -652,7 +652,7 @@ export async function generateClientSettlement(criteria: {
                                 const isHourly = specificTariff.unit.includes('HORA');
                                 
                                 if (isHourly) {
-                                    totalValue = (appliedTariff.quantity || 0) * (specificTariff.value || 0);
+                                    totalValue = (opData.quantity || 0) * (specificTariff.value || 0);
                                 } else {
                                     totalValue = (specificTariff.value || 0) * (opData.numeroPersonas || 1);
                                 }
@@ -668,7 +668,7 @@ export async function generateClientSettlement(criteria: {
                                         conceptName: concept.conceptName,
                                         subConceptName: specificTariff.name,
                                         tipoVehiculo: 'No Aplica',
-                                        quantity: appliedTariff.quantity,
+                                        quantity: opData.quantity,
                                         unitOfMeasure: specificTariff.unit,
                                         unitValue: specificTariff.value || 0,
                                         totalValue: totalValue,
@@ -721,7 +721,7 @@ export async function generateClientSettlement(criteria: {
         'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'ALISTAMIENTO POR UNIDAD', 'FMM DE INGRESO ZFPC', 'ARIN DE INGRESO ZFPC', 'FMM DE SALIDA ZFPC', 'FMM ZFPC',
         'ARIN DE SALIDA ZFPC', 'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
         'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'ESTIBA MADERA RECICLADA',
-        'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA ZFPC',
+        'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA ZFPC', 'TIEMPO EXTRA FRIOAL',
         'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO',
     ];
     
@@ -764,4 +764,3 @@ const timeToMinutes = (timeStr: string): number => {
     const [hours, minutes] = timeStr.split(':').map(Number);
     return hours * 60 + minutes;
 };
-

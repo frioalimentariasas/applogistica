@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -88,6 +89,7 @@ const manualOperationSchema = z.object({
   }).optional(),
 }).superRefine((data, ctx) => {
     const isBulkMode = data.concept === 'TIEMPO EXTRA FRIOAL (FIJO)';
+    const isTimeExtraMode = data.concept === 'TIEMPO EXTRA FRIOAL';
     const isPositionMode = data.concept === 'POSICIONES FIJAS CÁMARA CONGELADOS';
     const isFixedMonthlyService = isPositionMode || data.concept === 'IN-HOUSE INSPECTOR ZFPC' || data.concept === 'ALQUILER IMPRESORA ETIQUETADO';
     const isElectricConnection = data.concept === 'CONEXIÓN ELÉCTRICA CONTENEDOR';
@@ -112,6 +114,11 @@ const manualOperationSchema = z.object({
                 path: ["details", "endTime"],
             });
         }
+    }
+    
+    if (isTimeExtraMode) {
+      if (!data.details?.startTime) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La hora de inicio es requerida.", path: ["details.startTime"] });
+      if (!data.details?.endTime) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La hora de fin es requerida.", path: ["details.endTime"] });
     }
 
     if (isElectricConnection) {
@@ -229,6 +236,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     const selectedConceptInfo = useMemo(() => billingConcepts.find(c => c.conceptName === watchedConcept), [watchedConcept, billingConcepts]);
     
     const isBulkMode = watchedConcept === 'TIEMPO EXTRA FRIOAL (FIJO)';
+    const isTimeExtraMode = watchedConcept === 'TIEMPO EXTRA FRIOAL';
     const isPositionMode = watchedConcept === 'POSICIONES FIJAS CÁMARA CONGELADOS';
     const isElectricConnection = watchedConcept === 'CONEXIÓN ELÉCTRICA CONTENEDOR';
     const isInspection = watchedConcept === 'INSPECCIÓN ZFPC';
@@ -488,6 +496,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     };
 
     const showAdvancedFields = ['INSPECCIÓN ZFPC', 'TIEMPO EXTRA ZFPC'].includes(watchedConcept);
+    const showTimeExtraFields = watchedConcept === 'TIEMPO EXTRA FRIOAL';
 
     const calculatedDuration = useMemo(() => {
         const [startTime, endTime] = watchedTimes;
@@ -542,7 +551,11 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         if(isElectricConnection && calculatedElectricConnectionHours !== null) {
             form.setValue('quantity', calculatedElectricConnectionHours);
         }
-    }, [isInspection, calculatedDuration, isElectricConnection, calculatedElectricConnectionHours, form]);
+        if (isTimeExtraMode && calculatedDuration?.hours !== undefined) {
+          const roundedHours = parseFloat(calculatedDuration.hours.toFixed(2));
+          form.setValue('quantity', roundedHours);
+        }
+    }, [isInspection, calculatedDuration, isElectricConnection, calculatedElectricConnectionHours, isTimeExtraMode, form]);
 
     return (
         <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
@@ -757,12 +770,12 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                             <FormField control={form.control} name="operationDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha de Liquidación (para búsqueda) <span className="text-destructive">*</span></FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={dialogMode === 'view'} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4 opacity-50" />{field.value && field.value instanceof Date && !isNaN(field.value.getTime()) ? format(field.value, "PPP", { locale: es }) : <span>Seleccione una fecha</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={dialogMode === 'view'} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
                                         ) : null}
 
-                                        {isInspection && calculatedDuration ? (
+                                        {(isInspection || isTimeExtraMode) && calculatedDuration ? (
                                              <Alert variant="default" className="border-sky-500 bg-sky-50 text-sky-800">
                                                 <Clock className="h-4 w-4 !text-sky-600" />
                                                 <AlertTitle className="text-sky-700">Duración Calculada</AlertTitle>
                                                 <FormDescription>
-                                                    <span className="font-bold">{calculatedDuration.hours.toFixed(1)} horas</span> ({calculatedDuration.minutes} minutos).
+                                                    <span className="font-bold">{isTimeExtraMode ? calculatedDuration.hours.toFixed(2) : calculatedDuration.hours.toFixed(1)} horas</span> ({calculatedDuration.minutes} minutos).
                                                 </FormDescription>
                                             </Alert>
                                         ) : null}
@@ -807,7 +820,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                              <TariffSelector form={form} selectedConceptInfo={selectedConceptInfo} dialogMode={dialogMode} />
                                         )}
                                         
-                                        {selectedConceptInfo?.unitOfMeasure && (selectedConceptInfo.tariffType === 'UNICA' || isInspection || isElectricConnection) && !isFixedMonthlyService && (
+                                        {selectedConceptInfo?.unitOfMeasure && (selectedConceptInfo.tariffType === 'UNICA' || isInspection || isElectricConnection || isTimeExtraMode) && !isFixedMonthlyService && (
                                             <FormField
                                                 control={form.control}
                                                 name="quantity"
@@ -817,21 +830,23 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                             Cantidad
                                                             {selectedConceptInfo && <span className="text-muted-foreground ml-2">({selectedConceptInfo.unitOfMeasure})</span>}
                                                         </FormLabel>
-                                                        <FormControl><Input type="number" step="0.1" placeholder="Ej: 1.5" {...field} value={field.value ?? ''} disabled={dialogMode === 'view' || isElectricConnection} /></FormControl>
+                                                        <FormControl><Input type="number" step="0.01" placeholder="Ej: 1.5" {...field} value={field.value ?? ''} disabled={dialogMode === 'view' || isElectricConnection || isInspection || isTimeExtraMode} /></FormControl>
                                                         <FormMessage />
                                                     </FormItem>
                                                 )}
                                             />
                                         )}
                                         
-                                        {(showAdvancedFields || dialogMode === 'view' || isElectricConnection || isFmmConcept || isFmmZfpc) && !isFmmZfpc && (
+                                        {(showAdvancedFields || dialogMode === 'view' || isElectricConnection || isFmmConcept || isFmmZfpc || isTimeExtraMode) && !isFmmZfpc && (
                                             <>
                                                 <Separator />
                                                 <p className="text-sm font-medium text-muted-foreground">Detalles Adicionales</p>
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    <FormField control={form.control} name="details.startTime" render={({ field }) => (<FormItem><FormLabel>Hora Inicio</FormLabel><div className="flex items-center gap-2"><FormControl><Input type="time" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} className="flex-grow" /></FormControl>{dialogMode !== 'view' && (<Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('details.startTime')}><Clock className="h-4 w-4" /></Button>)}</div><FormMessage /></FormItem>)} />
-                                                    <FormField control={form.control} name="details.endTime" render={({ field }) => (<FormItem><FormLabel>Hora Fin</FormLabel><div className="flex items-center gap-2"><FormControl><Input type="time" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} className="flex-grow" /></FormControl>{dialogMode !== 'view' && (<Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('details.endTime')}><Clock className="h-4 w-4" /></Button>)}</div><FormMessage /></FormItem>)} />
-                                                </div>
+                                                {(showTimeExtraFields || (dialogMode === 'view' && opToManage?.details?.startTime)) && (
+                                                    <div className="grid grid-cols-2 gap-4">
+                                                        <FormField control={form.control} name="details.startTime" render={({ field }) => (<FormItem><FormLabel>Hora Inicio</FormLabel><div className="flex items-center gap-2"><FormControl><Input type="time" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} className="flex-grow" /></FormControl>{dialogMode !== 'view' && (<Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('details.startTime')}><Clock className="h-4 w-4" /></Button>)}</div><FormMessage /></FormItem>)} />
+                                                        <FormField control={form.control} name="details.endTime" render={({ field }) => (<FormItem><FormLabel>Hora Fin</FormLabel><div className="flex items-center gap-2"><FormControl><Input type="time" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} className="flex-grow" /></FormControl>{dialogMode !== 'view' && (<Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('details.endTime')}><Clock className="h-4 w-4" /></Button>)}</div><FormMessage /></FormItem>)} />
+                                                    </div>
+                                                )}
 
                                                 <FormField control={form.control} name="details.container" render={({ field }) => (<FormItem><FormLabel>Contenedor {(showAdvancedFields || isElectricConnection) && <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Contenedor" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
                                                 {showInspectionFields && (
