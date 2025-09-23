@@ -164,6 +164,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
   
   const [concepts, setConcepts] = useState<ClientBillingConcept[]>(initialConcepts);
   const [searchTerm, setSearchTerm] = useState('');
+  const [clientFilter, setClientFilter] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [conceptToEdit, setConceptToEdit] = useState<ClientBillingConcept | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -272,7 +273,20 @@ export default function ConceptManagementClientComponent({ initialClients, initi
     };
 
     return concepts
-        .filter(c => c.conceptName.toLowerCase().includes(searchTerm.toLowerCase()))
+        .filter(c => {
+            const nameMatch = c.conceptName.toLowerCase().includes(searchTerm.toLowerCase());
+            if (!nameMatch) return false;
+            
+            if (clientFilter.length > 0) {
+              const appliesToAll = c.clientNames.includes('TODOS (Cualquier Cliente)');
+              const appliesToSelected = c.clientNames.some(cn => clientFilter.includes(cn));
+              if (!appliesToAll && !appliesToSelected) {
+                  return false;
+              }
+            }
+
+            return true;
+        })
         .sort((a, b) => {
             const orderA = order[a.calculationType] ?? 99;
             const orderB = order[b.calculationType] ?? 99;
@@ -282,7 +296,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
             }
             return a.conceptName.localeCompare(b.conceptName);
         });
-  }, [concepts, searchTerm]);
+  }, [concepts, searchTerm, clientFilter]);
 
   const isAllSelected = useMemo(() => {
     if (sortedAndFilteredConcepts.length === 0) return false;
@@ -512,13 +526,17 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                             </Button>
                         )}
                     </div>
-                     <div className="relative mt-4">
-                        <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
                         <Input
                             placeholder="Buscar por nombre de concepto..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
-                            className="pl-8"
+                        />
+                        <ClientMultiSelectDialog
+                            options={initialClients.map(c => ({ value: c.razonSocial, label: c.razonSocial }))}
+                            selected={clientFilter}
+                            onChange={setClientFilter}
+                            placeholder="Filtrar por cliente..."
                         />
                     </div>
                 </CardHeader>
@@ -847,6 +865,8 @@ function ClientMultiSelectDialog({
     </Dialog>
   );
 }
+
+
 
 
 
