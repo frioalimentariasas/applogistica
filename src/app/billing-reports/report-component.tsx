@@ -2700,9 +2700,11 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
                              <Select name="unitOfMeasure" value={editedRow.unitOfMeasure} onValueChange={(value) => handleSelectChange('unitOfMeasure', value)}>
                                 <SelectTrigger><SelectValue/></SelectTrigger>
                                 <SelectContent>
+                                    <ScrollArea className="h-48">
                                     {unitOfMeasureOptions.map(option => (
                                         <SelectItem key={option} value={option}>{option}</SelectItem>
                                     ))}
+                                    </ScrollArea>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -2728,3 +2730,4 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 
 
     
+
