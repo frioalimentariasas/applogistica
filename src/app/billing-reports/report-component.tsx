@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import * as React from 'react';
@@ -1160,25 +1159,24 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         ];
     
         const addHeaderAndTitle = (ws: ExcelJS.Worksheet, title: string, columns: any[]) => {
-            ws.addRow([]); // Fila 1
-            const titleRow = ws.addRow([title]); // Fila 2
+            const titleRow = ws.addRow([title]);
             titleRow.font = { bold: true, size: 16 };
-            ws.mergeCells(2, 1, 2, columns.length);
+            ws.mergeCells(1, 1, 1, columns.length);
             titleRow.getCell(1).alignment = { horizontal: 'center' };
         
-            const clientRow = ws.addRow([`Cliente: ${settlementClient}`]); // Fila 3
+            const clientRow = ws.addRow([`Cliente: ${settlementClient}`]);
             clientRow.font = { bold: true };
-            ws.mergeCells(3, 1, 3, columns.length);
+            ws.mergeCells(2, 1, 2, columns.length);
             clientRow.getCell(1).alignment = { horizontal: 'center' };
         
             if (settlementDateRange?.from && settlementDateRange.to) {
                 const periodText = `Periodo: ${format(settlementDateRange.from, 'dd/MM/yyyy', { locale: es })} - ${format(settlementDateRange.to, 'dd/MM/yyyy', { locale: es })}`;
-                const periodRow = ws.addRow([periodText]); // Fila 4
+                const periodRow = ws.addRow([periodText]);
                 periodRow.font = { bold: true };
-                ws.mergeCells(4, 1, 4, columns.length);
+                ws.mergeCells(3, 1, 3, columns.length);
                 periodRow.getCell(1).alignment = { horizontal: 'center' };
             }
-            ws.addRow([]); // Fila 5
+            ws.addRow([]); // Spacer row
         };
     
         const headerFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A90C8' } };
@@ -1196,17 +1194,17 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             { header: 'Valor Total', key: 'totalValue', width: 20 },
         ];
         
-        summaryWorksheet.columns = summaryColumns;
-    
         addHeaderAndTitle(summaryWorksheet, "Resumen Liquidación", summaryColumns);
     
-        const summaryHeaderRow = summaryWorksheet.getRow(6);
+        const summaryHeaderRow = summaryWorksheet.getRow(5);
         summaryHeaderRow.values = summaryColumns.map(c => c.header);
         summaryHeaderRow.eachCell((cell) => {
             cell.fill = headerFill;
             cell.font = headerFont;
             cell.alignment = { horizontal: 'center' };
         });
+        
+        summaryWorksheet.columns = summaryColumns;
     
         const summaryByConcept = settlementReportData.reduce((acc, row) => {
             let conceptKey: string;
@@ -1300,17 +1298,17 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             { header: 'Valor Total', key: 'totalValue', width: 20 },
         ];
     
-        detailWorksheet.columns = detailColumns;
-        
         addHeaderAndTitle(detailWorksheet, "Detalle Liquidación", detailColumns);
         
-        const detailHeaderRow = detailWorksheet.getRow(6);
+        const detailHeaderRow = detailWorksheet.getRow(5);
         detailHeaderRow.values = detailColumns.map(c => c.header);
         detailHeaderRow.eachCell((cell) => {
             cell.fill = headerFill;
             cell.font = headerFont;
             cell.alignment = { horizontal: 'center' };
         });
+
+        detailWorksheet.columns = detailColumns;
     
         const groupedByConcept = settlementReportData.reduce((acc, row) => {
             const conceptKey = row.conceptName;
@@ -2764,3 +2762,6 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 
     
 
+
+
+    
