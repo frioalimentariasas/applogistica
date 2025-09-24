@@ -195,20 +195,23 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
             const hasApplicableOperation = clientSubmissions.some(doc => {
                 const submission = serializeTimestamps(doc.data());
                 
-                let opTypeMatch = false;
-                if (concept.filterOperationType === 'ambos') opTypeMatch = true;
-                else if (concept.filterOperationType === 'recepcion' && (submission.formType.includes('recepcion') || submission.formType.includes('reception'))) opTypeMatch = true;
-                else if (concept.filterOperationType === 'despacho' && submission.formType.includes('despacho')) opTypeMatch = true;
+                const isRecepcion = submission.formType.includes('recepcion') || submission.formType.includes('reception');
+                const isDespacho = submission.formType.includes('despacho');
+
+                if (concept.conceptName.includes('ENTRADA') && !isRecepcion) return false;
+                if (concept.conceptName.includes('SALIDA') && !isDespacho) return false;
+
+                const opTypeMatch = concept.filterOperationType === 'ambos' ||
+                                    (concept.filterOperationType === 'recepcion' && isRecepcion) ||
+                                    (concept.filterOperationType === 'despacho' && isDespacho);
                 if (!opTypeMatch) return false;
                 
-                let prodTypeMatch = false;
-                if (concept.filterProductType === 'ambos') {
-                    prodTypeMatch = true;
-                } else if (concept.filterProductType === 'fijo' && submission.formType.includes('fixed-weight')) {
-                    prodTypeMatch = true;
-                } else if (concept.filterProductType === 'variable' && submission.formType.includes('variable-weight')) {
-                    prodTypeMatch = true;
-                }
+                const isFixed = submission.formType.includes('fixed-weight');
+                const isVariable = submission.formType.includes('variable-weight');
+
+                const prodTypeMatch = concept.filterProductType === 'ambos' ||
+                                      (concept.filterProductType === 'fijo' && isFixed) ||
+                                      (concept.filterProductType === 'variable' && isVariable);
                 if (!prodTypeMatch) return false;
 
                 const pedidoType = submission.formData?.tipoPedido;
@@ -221,37 +224,20 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
                 const items = submission.formData?.items || submission.formData?.productos || submission.formData?.destinos?.flatMap((d: any) => d.items) || submission.formData?.placas?.flatMap((p: any) => p.items) || [];
                 if (items.length === 0) return false;
 
-                const hasItemInSession = items.some((item: any) => {
-                    const itemSesion = articleSessionMap.get(item.codigo);
-                    return !concept.filterSesion || concept.filterSesion === 'AMBOS' || itemSesion === concept.filterSesion;
-                });
+                if (concept.filterSesion && concept.filterSesion !== 'AMBOS') {
+                    const hasItemInSession = items.some((item: any) => {
+                        const itemSesion = articleSessionMap.get(item.codigo);
+                        return itemSesion === concept.filterSesion;
+                    });
+                    if (!hasItemInSession) return false;
+                }
                 
-                if (!hasItemInSession) return false;
-
                 return true;
             });
-            
-            const isMovementConcept = concept.conceptName.includes('MOVIMIENTO ENTRADA') || concept.conceptName.includes('MOVIMIENTO SALIDA');
 
-            if (hasApplicableOperation && !isMovementConcept) {
+            if (hasApplicableOperation) {
                  if (!applicableConcepts.has(concept.id)) {
                     applicableConcepts.set(concept.id, concept);
-                }
-            } else if (isMovementConcept) {
-                const hasMatchingMovement = clientSubmissions.some(doc => {
-                     const submission = serializeTimestamps(doc.data());
-                     const isRecepcion = submission.formType.includes('recepcion') || submission.formType.includes('reception');
-                     const isDespacho = submission.formType.includes('despacho');
-
-                     if (concept.conceptName.includes('ENTRADA') && isRecepcion) return true;
-                     if (concept.conceptName.includes('SALIDA') && isDespacho) return true;
-
-                     return false;
-                });
-                 if (hasMatchingMovement) {
-                    if (!applicableConcepts.has(concept.id)) {
-                        applicableConcepts.set(concept.id, concept);
-                    }
                 }
             }
 
@@ -540,27 +526,28 @@ export async function generateClientSettlement(criteria: {
             .filter(op => op.type === 'form')
             .map(op => op.data)
             .filter(op => {
-                let opTypeMatch = false;
-                if (concept.filterOperationType === 'ambos') opTypeMatch = true;
-                else if (concept.filterOperationType === 'recepcion' && (op.formType.includes('recepcion') || op.formType.includes('reception'))) opTypeMatch = true;
-                else if (concept.filterOperationType === 'despacho' && op.formType.includes('despacho')) opTypeMatch = true;
+                // Operation Type Filter
+                const isRecepcion = op.formType.includes('recepcion') || op.formType.includes('reception');
+                const isDespacho = op.formType.includes('despacho');
+                const opTypeMatch = concept.filterOperationType === 'ambos' ||
+                                    (concept.filterOperationType === 'recepcion' && isRecepcion) ||
+                                    (concept.filterOperationType === 'despacho' && isDespacho);
+                if (!opTypeMatch) return false;
 
-                let prodTypeMatch = false;
-                if (concept.filterProductType === 'ambos') {
-                    prodTypeMatch = true;
-                } else if (concept.filterProductType === 'fijo' && op.formType.includes('fixed-weight')) {
-                    prodTypeMatch = true;
-                } else if (concept.filterProductType === 'variable' && op.formType.includes('variable-weight')) {
-                    prodTypeMatch = true;
-                }
+                // Product Type Filter
+                const isFixed = op.formType.includes('fixed-weight');
+                const isVariable = op.formType.includes('variable-weight');
+                const prodTypeMatch = concept.filterProductType === 'ambos' ||
+                                      (concept.filterProductType === 'fijo' && isFixed) ||
+                                      (concept.filterProductType === 'variable' && isVariable);
+                if (!prodTypeMatch) return false;
                 
+                // Pedido Type Filter
                 const pedidoType = op.formData?.tipoPedido;
-                let pedidoTypeMatch = true;
-                if (concept.filterPedidoTypes && concept.filterPedidoTypes.length > 0) {
-                    pedidoTypeMatch = pedidoType && concept.filterPedidoTypes.includes(pedidoType);
-                }
-
-                return opTypeMatch && prodTypeMatch && pedidoTypeMatch;
+                const pedidoTypeMatch = !concept.filterPedidoTypes || concept.filterPedidoTypes.length === 0 || (pedidoType && concept.filterPedidoTypes.includes(pedidoType));
+                if (!pedidoTypeMatch) return false;
+                
+                return true;
             });
 
             
