@@ -178,6 +178,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
   const [concepts, setConcepts] = useState<ClientBillingConcept[]>(initialConcepts);
   const [searchTerm, setSearchTerm] = useState('');
   const [clientFilter, setClientFilter] = useState<string[]>([]);
+  const [calculationTypeFilter, setCalculationTypeFilter] = useState('all');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [conceptToEdit, setConceptToEdit] = useState<ClientBillingConcept | null>(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -289,6 +290,10 @@ export default function ConceptManagementClientComponent({ initialClients, initi
               }
             }
 
+            if (calculationTypeFilter !== 'all' && c.calculationType !== calculationTypeFilter) {
+                return false;
+            }
+
             return true;
         })
         .sort((a, b) => {
@@ -300,7 +305,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
             }
             return a.conceptName.localeCompare(b.conceptName);
         });
-  }, [concepts, searchTerm, clientFilter]);
+  }, [concepts, searchTerm, clientFilter, calculationTypeFilter]);
 
   const isAllSelected = useMemo(() => {
     if (sortedAndFilteredConcepts.length === 0) return false;
@@ -386,7 +391,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                             </Button>
                         )}
                     </div>
-                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                     <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-4">
                         <Input
                             placeholder="Buscar por nombre de concepto..."
                             value={searchTerm}
@@ -398,6 +403,16 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                             onChange={setClientFilter}
                             placeholder="Filtrar por cliente..."
                         />
+                        <Select value={calculationTypeFilter} onValueChange={setCalculationTypeFilter}>
+                            <SelectTrigger><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">Todos los Tipos</SelectItem>
+                                <SelectItem value="REGLAS">Por Reglas</SelectItem>
+                                <SelectItem value="OBSERVACION">Por Observación</SelectItem>
+                                <SelectItem value="MANUAL">Op. Manual</SelectItem>
+                                <SelectItem value="SALDO_INVENTARIO">Saldo Inventario</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
                 </CardHeader>
                 <CardContent>
