@@ -41,6 +41,7 @@ export interface ClientBillingConcept {
   filterOperationType?: 'recepcion' | 'despacho' | 'ambos';
   filterProductType?: 'fijo' | 'variable' | 'ambos';
   filterSesion?: 'CO' | 'RE' | 'SE' | 'AMBOS';
+  filterPedidoTypes?: string[];
   
   // For 'OBSERVACION'
   associatedObservation?: string;
@@ -77,7 +78,8 @@ export async function getClientBillingConcepts(): Promise<ClientBillingConcept[]
         calculationBase: data.calculationBase,
         filterOperationType: data.filterOperationType,
         filterProductType: data.filterProductType,
-        filterSesion: data.filterSesion, // Make sure to fetch this new field
+        filterSesion: data.filterSesion,
+        filterPedidoTypes: data.filterPedidoTypes || [],
         associatedObservation: data.associatedObservation,
         inventorySource: data.inventorySource,
         inventorySesion: data.inventorySesion,
