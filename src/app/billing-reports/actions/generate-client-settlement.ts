@@ -210,14 +210,12 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
                 }
                 if (!prodTypeMatch) return false;
                 
-                if (concept.filterSesion && concept.filterSesion !== 'AMBOS') {
-                    const items = submission.formData?.items || submission.formData?.productos || submission.formData?.destinos?.flatMap((d: any) => d.items) || submission.formData?.placas?.flatMap((p: any) => p.items) || [];
-                    const hasItemInSession = items.some((item: any) => {
-                        const itemSesion = articleSessionMap.get(item.codigo);
-                        return itemSesion === concept.filterSesion;
-                    });
-                    if (!hasItemInSession) return false;
-                }
+                const items = submission.formData?.items || submission.formData?.productos || submission.formData?.destinos?.flatMap((d: any) => d.items) || submission.formData?.placas?.flatMap((p: any) => p.items) || [];
+                const hasItemInSession = items.some((item: any) => {
+                    const itemSesion = articleSessionMap.get(item.codigo);
+                    return !concept.filterSesion || concept.filterSesion === 'AMBOS' || itemSesion === concept.filterSesion;
+                });
+                if (!hasItemInSession && items.length > 0) return false;
 
                 return true; // All filters matched for this submission
             });
@@ -312,6 +310,7 @@ const calculateWeightForOperation = (
 ): number => {
     const { formType, formData } = op;
     const items = getFilteredItems(op, sessionFilter, articleSessionMap);
+    if (items.length === 0) return 0;
 
     if (formType === 'fixed-weight-despacho' || formType === 'fixed-weight-recepcion' || formType === 'fixed-weight-reception') {
         if (!sessionFilter || sessionFilter === 'AMBOS') {
@@ -340,6 +339,7 @@ const calculatePalletsForOperation = (
 ): number => {
     const { formType, formData } = op;
     const items = getFilteredItems(op, sessionFilter, articleSessionMap);
+    if (items.length === 0) return 0;
 
     if (formType?.startsWith('fixed-weight')) {
         return items.reduce((sum: number, p: any) => sum + (Number(p.totalPaletas) || Number(p.paletasCompletas) || 0), 0);
@@ -364,6 +364,7 @@ const calculateUnitsForOperation = (
 ): number => {
   const { formType } = op;
   const items = getFilteredItems(op, sessionFilter, articleSessionMap);
+  if (items.length === 0) return 0;
   
   if (formType?.startsWith('fixed-weight')) {
       return items.reduce((sum: number, p: any) => sum + (Number(p.cajas) || 0), 0);
@@ -915,6 +916,7 @@ const timeToMinutes = (timeStr: string): number => {
     
 
     
+
 
 
 
