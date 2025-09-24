@@ -88,7 +88,7 @@ const manualOperationSchema = z.object({
       fmmNumber: z.string().optional(),
   }).optional(),
 }).superRefine((data, ctx) => {
-    const isBulkMode = data.concept === 'TIEMPO EXTRA FRIOAL (FIJO)' || data.concept === 'ALQUILER DE ÁREA PARA EMPAQUE/DIA';
+    const isBulkMode = data.concept === 'TIEMPO EXTRA FRIOAL (FIJO)' || data.concept === 'ALQUILER DE ÁREA PARA EMPAQUE/DIA' || data.concept === 'SERVICIO APOYO JORNAL';
     const isTimeExtraMode = data.concept === 'TIEMPO EXTRA FRIOAL';
     const isPositionMode = data.concept === 'POSICIONES FIJAS CÁMARA CONGELADOS';
     const isFixedMonthlyService = isPositionMode || data.concept === 'IN-HOUSE INSPECTOR ZFPC' || data.concept === 'ALQUILER IMPRESORA ETIQUETADO';
@@ -235,7 +235,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
 
     const selectedConceptInfo = useMemo(() => billingConcepts.find(c => c.conceptName === watchedConcept), [watchedConcept, billingConcepts]);
     
-    const isBulkMode = watchedConcept === 'TIEMPO EXTRA FRIOAL (FIJO)' || watchedConcept === 'ALQUILER DE ÁREA PARA EMPAQUE/DIA';
+    const isBulkMode = watchedConcept === 'TIEMPO EXTRA FRIOAL (FIJO)' || watchedConcept === 'ALQUILER DE ÁREA PARA EMPAQUE/DIA' || watchedConcept === 'SERVICIO APOYO JORNAL';
     const isTimeExtraMode = watchedConcept === 'TIEMPO EXTRA FRIOAL';
     const isPositionMode = watchedConcept === 'POSICIONES FIJAS CÁMARA CONGELADOS';
     const isElectricConnection = watchedConcept === 'CONEXIÓN ELÉCTRICA CONTENEDOR';
@@ -412,12 +412,10 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     
         try {
             let result;
-            const isBulkTime = data.concept === 'TIEMPO EXTRA FRIOAL (FIJO)';
-            const isBulkRent = data.concept === 'ALQUILER DE ÁREA PARA EMPAQUE/DIA';
-            const isBulk = isBulkTime || isBulkRent;
+            const isBulk = isBulkMode;
             
             if (isBulk && data.selectedDates && data.selectedDates.length > 0) {
-                if (isBulkTime) {
+                if (data.concept === 'TIEMPO EXTRA FRIOAL (FIJO)') {
                     const bulkData = {
                         clientName: data.clientName,
                         concept: data.concept,
@@ -427,7 +425,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                         createdBy: { uid: user.uid, displayName: displayName || user.email! }
                     };
                     result = await addBulkManualClientOperation(bulkData);
-                } else { // isBulkRent
+                } else { // isBulkRent or isServicioApoyo
                     const simpleBulkData = {
                         clientName: data.clientName,
                         concept: data.concept,
@@ -1132,3 +1130,5 @@ const ExcedentManager = () => {
         </div>
     )
 }
+
+    
