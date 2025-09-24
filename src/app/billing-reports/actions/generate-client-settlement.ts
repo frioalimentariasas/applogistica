@@ -243,31 +243,44 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
     );
     
     if (inventoryConcepts.length > 0) {
-        const inventorySnapshot = await firestore.collection('dailyInventories')
-            .where(admin.firestore.FieldPath.documentId(), '>=', startDate)
-            .where(admin.firestore.FieldPath.documentId(), '<=', endDate)
-            .get();
+        // Fetch necessary data once
+        const [inventorySnapshot, clientArticlesSnapshot] = await Promise.all([
+            firestore.collection('dailyInventories')
+                .where(admin.firestore.FieldPath.documentId(), '>=', startDate)
+                .where(admin.firestore.FieldPath.documentId(), '<=', endDate)
+                .get(),
+            firestore.collection('articulos').where('razonSocial', '==', clientName).get()
+        ]);
         
+        const articleSessionMap = new Map<string, string>();
+        clientArticlesSnapshot.forEach(doc => {
+            const article = doc.data() as ArticuloData;
+            articleSessionMap.set(article.codigoProducto, article.sesion);
+        });
+
         for (const concept of inventoryConcepts) {
             if (!concept.inventorySesion) continue;
+            
+            const targetSesion = concept.inventorySesion;
 
+            // Check for movements in the target session
             const hasMovementsInSession = clientSubmissions.some(doc => {
-                 const items = doc.data().formData?.items || doc.data().formData?.productos || [];
-                 // This part needs a way to map an item to a session. 
-                 // Assuming articles have a session property. This needs the full articles list.
-                 return items.length > 0; // Simplified for now
+                const items = doc.data().formData?.items || doc.data().formData?.productos || [];
+                return items.some((item: any) => {
+                    const itemSesion = articleSessionMap.get(item.codigo);
+                    return itemSesion === targetSesion;
+                });
             });
             
+            // Check for inventory in the target session
             const hasInventoryInSession = inventorySnapshot.docs.some(doc => {
                 const data = doc.data().data;
                 return Array.isArray(data) && data.some(row => 
                     row.PROPIETARIO === clientName && 
-                    String(row.SE).trim().toUpperCase() === concept.inventorySesion
+                    String(row.SE).trim().toUpperCase() === targetSesion
                 );
             });
 
-            // If there's inventory for that specific session OR movements (which we can't check by session yet)
-            // we add the concept. This is a refined check.
             if (hasInventoryInSession || hasMovementsInSession) {
                  if (!applicableConcepts.has(concept.id)) {
                     applicableConcepts.set(concept.id, concept);
@@ -841,6 +854,7 @@ const timeToMinutes = (timeStr: string): number => {
     const [hours, minutes] = timeStr.split(':').map(Number);
     return hours * 60 + minutes;
 };
+
 
 
 
