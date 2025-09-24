@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useMemo } from 'react';
@@ -37,6 +36,7 @@ import { Separator } from '@/components/ui/separator';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Badge } from '@/components/ui/badge';
 import type { StandardObservation } from '@/app/gestion-observaciones/actions';
+import type { PedidoType } from '@/app/gestion-tipos-pedido/actions';
 
 
 const tariffRangeSchema = z.object({
@@ -78,6 +78,7 @@ const conceptSchema = z.object({
   filterOperationType: z.enum(['recepcion', 'despacho', 'ambos']).optional(),
   filterProductType: z.enum(['fijo', 'variable', 'ambos']).optional(),
   filterSesion: z.enum(['CO', 'RE', 'SE', 'AMBOS']).optional(),
+  filterPedidoTypes: z.array(z.string()).optional(),
   
   // Observation Rule (for OBSERVACION)
   associatedObservation: z.string().optional(),
@@ -152,6 +153,7 @@ const addFormDefaultValues: ConceptFormValues = {
   filterOperationType: 'ambos',
   filterProductType: 'ambos',
   filterSesion: 'AMBOS',
+  filterPedidoTypes: [],
   associatedObservation: undefined,
   inventorySource: undefined,
   inventorySesion: undefined,
@@ -170,7 +172,7 @@ const addFormDefaultValues: ConceptFormValues = {
   },
 };
 
-export default function ConceptManagementClientComponent({ initialClients, initialConcepts, standardObservations }: { initialClients: ClientInfo[], initialConcepts: ClientBillingConcept[], standardObservations: StandardObservation[] }) {
+export default function ConceptManagementClientComponent({ initialClients, initialConcepts, standardObservations, pedidoTypes }: { initialClients: ClientInfo[], initialConcepts: ClientBillingConcept[], standardObservations: StandardObservation[], pedidoTypes: PedidoType[] }) {
   const router = useRouter();
   const { toast } = useToast();
   const { permissions, loading: authLoading } = useAuth();
@@ -253,6 +255,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
         specificTariffs: concept.specificTariffs || [],
         calculationType: concept.calculationType || 'REGLAS',
         filterSesion: concept.filterSesion || 'AMBOS',
+        filterPedidoTypes: concept.filterPedidoTypes || [],
         fixedTimeConfig: concept.fixedTimeConfig || {
             weekdayStartTime: "17:00",
             weekdayEndTime: "22:00",
@@ -366,7 +369,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                     <CardContent>
                         <Form {...addForm}>
                             <form onSubmit={addForm.handleSubmit(onAddSubmit)} className="space-y-4">
-                                <ConceptFormBody form={addForm} clientOptions={clientOptions} standardObservations={standardObservations} unitOfMeasureOptions={unitOfMeasureOptions} specificUnitOptions={specificUnitOptions} />
+                                <ConceptFormBody form={addForm} clientOptions={clientOptions} standardObservations={standardObservations} pedidoTypes={pedidoTypes} unitOfMeasureOptions={unitOfMeasureOptions} specificUnitOptions={specificUnitOptions} />
                                 <Button type="submit" disabled={isSubmitting} className="w-full">
                                     {isSubmitting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PlusCircle className="mr-2 h-4 w-4" />}
                                     Guardar Concepto
@@ -477,7 +480,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
             <div className="p-4">
             <Form {...editForm}>
                 <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4 pt-4">
-                     <ConceptFormBody form={editForm} clientOptions={clientOptions} standardObservations={standardObservations} unitOfMeasureOptions={unitOfMeasureOptions} specificUnitOptions={specificUnitOptions} isEditMode={true}/>
+                     <ConceptFormBody form={editForm} clientOptions={clientOptions} standardObservations={standardObservations} pedidoTypes={pedidoTypes} unitOfMeasureOptions={unitOfMeasureOptions} specificUnitOptions={specificUnitOptions} isEditMode={true}/>
                     <DialogFooter className="pt-4">
                         <Button type="button" variant="outline" onClick={() => setConceptToEdit(null)}>Cancelar</Button>
                         <Button type="submit" disabled={isEditing}>{isEditing && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}Guardar Cambios</Button>
@@ -604,7 +607,67 @@ function ClientMultiSelectDialog({
   );
 }
 
-function ConceptFormBody({ form, clientOptions, standardObservations, unitOfMeasureOptions, specificUnitOptions, isEditMode = false }: { form: any, clientOptions: any[], standardObservations: any[], unitOfMeasureOptions: string[], specificUnitOptions: string[], isEditMode?: boolean }) {
+function PedidoTypeMultiSelect({
+  options,
+  selected,
+  onChange,
+  placeholder,
+}: {
+  options: { value: string; label: string }[];
+  selected: string[];
+  onChange: (selected: string[]) => void;
+  placeholder: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
+
+  const filteredOptions = useMemo(() => {
+    if (!search) return options;
+    return options.filter((o) =>
+      o.label.toLowerCase().includes(search.toLowerCase())
+    );
+  }, [search, options]);
+
+  const getButtonLabel = () => {
+    if (selected.length === 0) return placeholder;
+    if (selected.length === 1) return selected[0];
+    if (selected.length === options.length) return "Todos los tipos";
+    return `${selected.length} tipos seleccionados`;
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" className="w-full justify-between text-left font-normal">
+          <span className="truncate">{getButtonLabel()}</span>
+          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="p-0">
+        <DialogHeader className="p-6 pb-2"><DialogTitle>Seleccionar Tipos de Pedido</DialogTitle></DialogHeader>
+        <div className="p-6 pt-0">
+          <Input placeholder="Buscar tipo..." value={search} onChange={(e) => setSearch(e.target.value)} className="mb-4" />
+          <ScrollArea className="h-60"><div className="space-y-1 pr-4">
+            <div className="flex items-center space-x-2 p-2 rounded-md hover:bg-accent">
+              <Checkbox id="select-all-pedidos" checked={selected.length === options.length} onCheckedChange={(checked) => onChange(checked ? options.map(o => o.value) : [])} />
+              <Label htmlFor="select-all-pedidos" className="w-full cursor-pointer font-semibold">Seleccionar Todos</Label>
+            </div>
+            {filteredOptions.map((option) => (
+              <div key={option.value} className="flex items-center space-x-2 p-2 rounded-md hover:bg-accent">
+                <Checkbox id={`pedido-${option.value}`} checked={selected.includes(option.value)} onCheckedChange={(checked) => onChange(checked ? [...selected, option.value] : selected.filter(s => s !== option.value))} />
+                <Label htmlFor={`pedido-${option.value}`} className="w-full cursor-pointer">{option.label}</Label>
+              </div>
+            ))}
+          </div></ScrollArea>
+        </div>
+        <DialogFooter className="p-6 pt-0"><Button onClick={() => setOpen(false)}>Cerrar</Button></DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+
+function ConceptFormBody({ form, clientOptions, standardObservations, pedidoTypes, unitOfMeasureOptions, specificUnitOptions, isEditMode = false }: { form: any, clientOptions: any[], standardObservations: any[], pedidoTypes: PedidoType[], unitOfMeasureOptions: string[], specificUnitOptions: string[], isEditMode?: boolean }) {
     const { fields: tariffRangesFields, append: appendTariffRange, remove: removeTariffRange } = useFieldArray({ control: form.control, name: "tariffRanges" });
     const { fields: specificTariffsFields, append: appendSpecificTariff, remove: removeSpecificTariff } = useFieldArray({ control: form.control, name: "specificTariffs" });
 
@@ -641,6 +704,22 @@ function ConceptFormBody({ form, clientOptions, standardObservations, unitOfMeas
                     <FormField control={form.control} name="filterOperationType" render={({ field }) => (<FormItem><FormLabel>Filtrar por Tipo de Operación</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="ambos">Ambos (Recepción y Despacho)</SelectItem><SelectItem value="recepcion">Recepción</SelectItem><SelectItem value="despacho">Despacho</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
                     <FormField control={form.control} name="filterProductType" render={({ field }) => (<FormItem><FormLabel>Filtrar por Tipo de Producto</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="ambos">Ambos (Peso Fijo y Variable)</SelectItem><SelectItem value="fijo">Peso Fijo</SelectItem><SelectItem value="variable">Peso Variable</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
                     <FormField control={form.control} name="filterSesion" render={({ field }) => (<FormItem><FormLabel>Filtrar por Sesión (Cámara)</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="AMBOS">Ambos (Cualquier Sesión)</SelectItem><SelectItem value="CO">Congelados (CO)</SelectItem><SelectItem value="RE">Refrigerado (RE)</SelectItem><SelectItem value="SE">Seco (SE)</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
+                    <FormField
+                      control={form.control}
+                      name="filterPedidoTypes"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Filtrar por Tipos de Pedido (Opcional)</FormLabel>
+                          <PedidoTypeMultiSelect
+                            options={pedidoTypes.map((pt) => ({ value: pt.name, label: pt.name }))}
+                            selected={field.value || []}
+                            onChange={field.onChange}
+                            placeholder="Todos los tipos de pedido"
+                          />
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
                 </div>
             )}
             {watchedCalculationType === 'OBSERVACION' && (
