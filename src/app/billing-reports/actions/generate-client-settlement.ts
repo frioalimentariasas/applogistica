@@ -200,16 +200,19 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
                 else if (concept.filterOperationType === 'recepcion' && (submission.formType.includes('recepcion') || submission.formType.includes('reception'))) opTypeMatch = true;
                 else if (concept.filterOperationType === 'despacho' && submission.formType.includes('despacho')) opTypeMatch = true;
                 if (!opTypeMatch) return false;
-
+                
                 let prodTypeMatch = false;
-                if (concept.filterProductType === 'ambos') {
-                    prodTypeMatch = true;
-                } else if (concept.filterProductType === 'fijo' && submission.formType.includes('fixed-weight')) {
-                    prodTypeMatch = true;
-                } else if (concept.filterProductType === 'variable' && submission.formType.includes('variable-weight')) {
-                    prodTypeMatch = true;
-                }
+                if (concept.filterProductType === 'ambos') prodTypeMatch = true;
+                else if (concept.filterProductType === 'fijo' && submission.formType.includes('fixed-weight')) prodTypeMatch = true;
+                else if (concept.filterProductType === 'variable' && submission.formType.includes('variable-weight')) prodTypeMatch = true;
                 if (!prodTypeMatch) return false;
+
+                const pedidoType = submission.formData?.tipoPedido;
+                if (concept.filterPedidoTypes && concept.filterPedidoTypes.length > 0) {
+                    if (!pedidoType || !concept.filterPedidoTypes.includes(pedidoType)) {
+                        return false;
+                    }
+                }
                 
                 const items = submission.formData?.items || submission.formData?.productos || submission.formData?.destinos?.flatMap((d: any) => d.items) || submission.formData?.placas?.flatMap((p: any) => p.items) || [];
                 const hasItemInSession = items.some((item: any) => {
@@ -218,7 +221,7 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
                 });
                 if (!hasItemInSession && items.length > 0) return false;
 
-                return true; // All filters matched for this submission
+                return true;
             });
 
             if (hasApplicableOperation) {
@@ -298,6 +301,7 @@ const getFilteredItems = (
     }
 
     return allItems.filter((item: any) => {
+        if (!item || !item.codigo) return false;
         const itemSession = articleSessionMap.get(item.codigo);
         return itemSession === sessionFilter;
     });
@@ -524,7 +528,13 @@ export async function generateClientSettlement(criteria: {
                     prodTypeMatch = true;
                 }
                 
-                return opTypeMatch && prodTypeMatch;
+                const pedidoType = op.formData?.tipoPedido;
+                let pedidoTypeMatch = true;
+                if (concept.filterPedidoTypes && concept.filterPedidoTypes.length > 0) {
+                    pedidoTypeMatch = pedidoType && concept.filterPedidoTypes.includes(pedidoType);
+                }
+
+                return opTypeMatch && prodTypeMatch && pedidoTypeMatch;
             });
 
             
@@ -928,6 +938,7 @@ const timeToMinutes = (timeStr: string): number => {
     
 
     
+
 
 
 
