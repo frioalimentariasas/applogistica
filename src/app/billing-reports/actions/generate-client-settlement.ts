@@ -53,6 +53,8 @@ export interface ClientSettlementRow {
   horaInicio?: string;
   horaFin?: string;
   numeroPersonas?: number;
+  uniqueId?: string;
+  isEdited?: boolean;
 }
 
 export interface ClientSettlementResult {
@@ -239,11 +241,28 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
         (c.clientNames.includes(clientName) || c.clientNames.includes('TODOS (Cualquier Cliente)')) &&
         c.calculationType === 'SALDO_INVENTARIO'
     );
-    inventoryConcepts.forEach(concept => {
-        if (!applicableConcepts.has(concept.id)) {
-            applicableConcepts.set(concept.id, concept);
+    
+    if (inventoryConcepts.length > 0) {
+        // Check if there is any inventory or movement data in the range to justify showing these concepts
+        const inventorySnapshot = await firestore.collection('dailyInventories')
+            .where(admin.firestore.FieldPath.documentId(), '>=', startDate)
+            .where(admin.firestore.FieldPath.documentId(), '<=', endDate)
+            .get();
+        
+        const hasAnyMovement = clientSubmissions.length > 0;
+        const hasInventoryDataForClient = inventorySnapshot.docs.some(doc => {
+            const data = doc.data().data;
+            return Array.isArray(data) && data.some(row => row.PROPIETARIO === clientName);
+        });
+
+        if (hasAnyMovement || hasInventoryDataForClient) {
+            inventoryConcepts.forEach(concept => {
+                if (!applicableConcepts.has(concept.id)) {
+                    applicableConcepts.set(concept.id, concept);
+                }
+            });
         }
-    });
+    }
     
     const sortedConcepts = Array.from(applicableConcepts.values());
     sortedConcepts.sort((a, b) => a.conceptName.localeCompare(b.conceptName));
@@ -768,7 +787,7 @@ export async function generateClientSettlement(criteria: {
         'ARIN DE SALIDA ZFPC', 'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
         'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'ESTIBA MADERA RECICLADA',
         'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA ZFPC', 'TIEMPO EXTRA FRIOAL',
-        'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO',
+        'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO', 'ALMACENAMIENTO PRODUCTOS CONGELADOS -PALLET/DIA (-18°C A -25°C)', 'ALMACENAMIENTO PRODUCTOS REFRIGERADOS -PALLET/DIA (0°C A 4ºC'
     ];
     
     settlementRows.sort((a, b) => {
@@ -810,4 +829,5 @@ const timeToMinutes = (timeStr: string): number => {
     const [hours, minutes] = timeStr.split(':').map(Number);
     return hours * 60 + minutes;
 };
+
 
