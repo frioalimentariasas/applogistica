@@ -191,7 +191,7 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
 
     for (const concept of conceptsForClient) {
         if (concept.calculationType === 'REGLAS') {
-             const hasApplicableOperation = clientSubmissions.some(doc => {
+            const hasApplicableOperation = clientSubmissions.some(doc => {
                 const submission = serializeTimestamps(doc.data());
                 
                 let opTypeMatch = false;
@@ -201,9 +201,13 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
                 if (!opTypeMatch) return false;
 
                 let prodTypeMatch = false;
-                if (concept.filterProductType === 'ambos') prodTypeMatch = true;
-                else if (concept.filterProductType === 'fijo' && submission.formType.includes('fixed-weight')) prodTypeMatch = true;
-                else if (concept.filterProductType === 'variable' && submission.formType.includes('variable-weight')) prodTypeMatch = true;
+                if (concept.filterProductType === 'ambos') {
+                    prodTypeMatch = true;
+                } else if (concept.filterProductType === 'fijo' && submission.formType.includes('fixed-weight')) {
+                    prodTypeMatch = true;
+                } else if (concept.filterProductType === 'variable' && submission.formType.includes('variable-weight')) {
+                    prodTypeMatch = true;
+                }
                 if (!prodTypeMatch) return false;
                 
                 if (concept.filterSesion && concept.filterSesion !== 'AMBOS') {
@@ -462,6 +466,40 @@ export async function generateClientSettlement(criteria: {
     const ruleConcepts = selectedConcepts.filter(c => c.calculationType === 'REGLAS');
 
     for (const concept of ruleConcepts) {
+        // Special case for AVICOLA EL MADROÑO S.A.
+        if (concept.conceptName === 'MOVIMIENTO SALIDA PRODUCTOS - PALLET' && clientName === 'AVICOLA EL MADROÑO S.A.') {
+            const maquilaReceptions = allOperations
+                .filter(op => op.type === 'form' && op.data.formType.includes('reception') && op.data.formData.tipoPedido === 'MAQUILA')
+                .map(op => op.data);
+
+            const palletsByDate = maquilaReceptions.reduce((acc, op) => {
+                const date = op.formData.fecha.split('T')[0];
+                const pallets = Number(op.formData.salidaPaletasMaquilaSE) || 0;
+                if (pallets > 0) {
+                    acc[date] = (acc[date] || 0) + pallets;
+                }
+                return acc;
+            }, {} as Record<string, number>);
+
+            for (const [date, totalPallets] of Object.entries(palletsByDate)) {
+                 settlementRows.push({
+                    date: date,
+                    container: 'N/A',
+                    camara: 'SE',
+                    totalPaletas,
+                    operacionLogistica: 'MAQUILA SALIDA (SECO)',
+                    pedidoSislog: 'Varios',
+                    conceptName: concept.conceptName,
+                    tipoVehiculo: 'No Aplica',
+                    quantity: totalPallets,
+                    unitOfMeasure: 'PALETA',
+                    unitValue: concept.value || 0,
+                    totalValue: totalPallets * (concept.value || 0),
+                });
+            }
+            continue; // Skip normal processing for this concept
+        }
+            
         const applicableOperations = allOperations
             .filter(op => op.type === 'form')
             .map(op => op.data)
@@ -483,32 +521,6 @@ export async function generateClientSettlement(criteria: {
                 return opTypeMatch && prodTypeMatch;
             });
 
-        // Special case for AVICOLA EL MADROÑO S.A.
-        if (concept.conceptName === 'MOVIMIENTO SALIDA PRODUCTOS - PALLET' && clientName === 'AVICOLA EL MADROÑO S.A.') {
-            const maquilaReceptions = allOperations
-                .filter(op => op.type === 'form' && op.data.formType.includes('reception') && op.data.formData.tipoPedido === 'MAQUILA')
-                .map(op => op.data);
-
-            const totalPalletsMaquilaSE = maquilaReceptions.reduce((sum, op) => sum + (Number(op.formData.salidaPaletasMaquilaSE) || 0), 0);
-
-            if (totalPalletsMaquilaSE > 0) {
-                 settlementRows.push({
-                    date: endDate, // Use end date for summary concepts
-                    container: 'N/A',
-                    camara: 'SE',
-                    totalPaletas: totalPalletsMaquilaSE,
-                    operacionLogistica: 'MAQUILA SALIDA (SECO)',
-                    pedidoSislog: 'Varios',
-                    conceptName: concept.conceptName,
-                    tipoVehiculo: 'No Aplica',
-                    quantity: totalPalletsMaquilaSE,
-                    unitOfMeasure: 'PALETA',
-                    unitValue: concept.value || 0,
-                    totalValue: totalPalletsMaquilaSE * (concept.value || 0),
-                });
-            }
-            continue; // Skip normal processing for this concept
-        }
             
         for (const op of applicableOperations) {
             if (
@@ -903,5 +915,6 @@ const timeToMinutes = (timeStr: string): number => {
     
 
     
+
 
 
