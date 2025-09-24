@@ -470,7 +470,6 @@ export async function generateClientSettlement(criteria: {
             });
             
         for (const op of applicableOperations) {
-            // Apply GRUPO FRUTELLI SAS exclusion here, before adding to the settlement rows.
             if (
                 clientName === 'GRUPO FRUTELLI SAS' && 
                 (op.formType === 'variable-weight-recepcion' || op.formType === 'variable-weight-reception')

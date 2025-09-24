@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo } from 'react';
@@ -53,7 +54,7 @@ const specificTariffSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1, "El nombre es requerido."),
   value: z.coerce.number({ invalid_type_error: "Debe ser un número."}).min(0, "Debe ser >= 0"),
-  unit: z.enum(['HORA', 'UNIDAD', 'DIA', 'VIAJE', 'ALIMENTACION', 'TRANSPORTE', 'HORA EXTRA DIURNA', 'HORA EXTRA NOCTURNA', 'HORA EXTRA DIURNA DOMINGO Y FESTIVO', 'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO', 'TRANSPORTE EXTRAORDINARIO', 'TRANSPORTE DOMINICAL Y FESTIVO', 'POSICION/DIA', 'POSICIONES/MES', 'TRACTOMULA'], { required_error: 'Debe seleccionar una unidad.' }),
+  unit: z.enum(['HORA', 'UNIDAD', 'DIA', 'VIAJE', 'ALIMENTACION', 'TRANSPORTE', 'HORA EXTRA DIURNA', 'HORA EXTRA NOCTURNA', 'HORA EXTRA DIURNA DOMINGO Y FESTIVO', 'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO', 'TRANSPORTE EXTRAORDINARIO', 'TRANSPORTE DOMINICAL Y FESTIVO', 'POSICION/DIA', 'POSICIONES/MES'], { required_error: 'Debe seleccionar una unidad.' }),
 });
 
 const fixedTimeConfigSchema = z.object({
@@ -76,6 +77,7 @@ const conceptSchema = z.object({
   calculationBase: z.enum(['TONELADAS', 'KILOGRAMOS', 'CANTIDAD_PALETAS', 'CANTIDAD_CAJAS', 'NUMERO_OPERACIONES', 'NUMERO_CONTENEDORES']).optional(),
   filterOperationType: z.enum(['recepcion', 'despacho', 'ambos']).optional(),
   filterProductType: z.enum(['fijo', 'variable', 'ambos']).optional(),
+  filterSesion: z.enum(['CO', 'RE', 'SE', 'AMBOS']).optional(),
   
   // Observation Rule (for OBSERVACION)
   associatedObservation: z.string().optional(),
@@ -97,6 +99,7 @@ const conceptSchema = z.object({
         if (!data.calculationBase) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La base de cálculo es requerida.", path: ["calculationBase"] });
         if (!data.filterOperationType) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El tipo de operación es requerido.", path: ["filterOperationType"] });
         if (!data.filterProductType) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El tipo de producto es requerido.", path: ["filterProductType"] });
+        if (!data.filterSesion) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La sesión es requerida.", path: ["filterSesion"] });
     }
     if (data.calculationType === 'OBSERVACION' && !data.associatedObservation) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Debe seleccionar una observación asociada.", path: ["associatedObservation"] });
@@ -148,6 +151,7 @@ const addFormDefaultValues: ConceptFormValues = {
   calculationBase: undefined,
   filterOperationType: 'ambos',
   filterProductType: 'ambos',
+  filterSesion: 'AMBOS',
   associatedObservation: undefined,
   inventorySource: undefined,
   inventorySesion: undefined,
@@ -185,19 +189,8 @@ export default function ConceptManagementClientComponent({ initialClients, initi
     resolver: zodResolver(conceptSchema),
     defaultValues: addFormDefaultValues,
   });
-
-  const { fields: addFields, append: addAppend, remove: addRemove } = useFieldArray({ control: addForm.control, name: "tariffRanges" });
-  const { fields: addSpecificFields, append: addSpecificAppend, remove: addSpecificRemove } = useFieldArray({ control: addForm.control, name: "specificTariffs" });
-  const watchedAddTariffType = useWatch({ control: addForm.control, name: "tariffType" });
-  const watchedAddCalculationType = useWatch({ control: addForm.control, name: "calculationType" });
-  const watchedAddConceptName = useWatch({ control: addForm.control, name: "conceptName" });
   
   const editForm = useForm<ConceptFormValues>({ resolver: zodResolver(conceptSchema) });
-  const { fields: editFields, append: editAppend, remove: editRemove } = useFieldArray({ control: editForm.control, name: "tariffRanges" });
-  const { fields: editSpecificFields, append: editSpecificAppend, remove: editSpecificRemove } = useFieldArray({ control: editForm.control, name: "specificTariffs" });
-  const watchedEditTariffType = useWatch({ control: editForm.control, name: "tariffType" });
-  const watchedEditCalculationType = useWatch({ control: editForm.control, name: "calculationType" });
-  const watchedEditConceptName = useWatch({ control: editForm.control, name: "conceptName" });
 
 
   const clientOptions: ClientInfo[] = useMemo(() => [
@@ -258,6 +251,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
         tariffRanges: concept.tariffRanges || [],
         specificTariffs: concept.specificTariffs || [],
         calculationType: concept.calculationType || 'REGLAS',
+        filterSesion: concept.filterSesion || 'AMBOS',
         fixedTimeConfig: concept.fixedTimeConfig || {
             weekdayStartTime: "17:00",
             weekdayEndTime: "22:00",
@@ -337,7 +331,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
   }
 
   const unitOfMeasureOptions = ['KILOGRAMOS', 'TONELADA', 'PALETA', 'ESTIBA', 'UNIDAD', 'CAJA', 'SACO', 'CANASTILLA', 'HORA', 'DIA', 'VIAJE', 'MES', 'CONTENEDOR', 'HORA EXTRA DIURNA', 'HORA EXTRA NOCTURNA', 'HORA EXTRA DIURNA DOMINGO Y FESTIVO', 'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO', 'POSICION/DIA', 'POSICIONES', 'TIPO VEHÍCULO', 'TRACTOMULA'];
-  const specificUnitOptions = ['HORA', 'UNIDAD', 'DIA', 'VIAJE', 'ALIMENTACION', 'TRANSPORTE', 'HORA EXTRA DIURNA', 'HORA EXTRA NOCTURNA', 'HORA EXTRA DIURNA DOMINGO Y FESTIVO', 'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO', 'TRANSPORTE EXTRAORDINARIO', 'TRANSPORTE DOMINICAL Y FESTIVO', 'POSICION/DIA', 'POSICIONES/MES', 'TRACTOMULA'];
+  const specificUnitOptions = ['HORA', 'UNIDAD', 'DIA', 'VIAJE', 'ALIMENTACION', 'TRANSPORTE', 'HORA EXTRA DIURNA', 'HORA EXTRA NOCTURNA', 'HORA EXTRA DIURNA DOMINGO Y FESTIVO', 'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO', 'TRANSPORTE EXTRAORDINARIO', 'TRANSPORTE DOMINICAL Y FESTIVO', 'POSICION/DIA', 'POSICIONES/MES'];
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
@@ -631,6 +625,7 @@ function ConceptFormBody({ form, clientOptions, standardObservations, unitOfMeas
                     <FormField control={form.control} name="calculationBase" render={({ field }) => (<FormItem><FormLabel>Calcular Usando</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione una base..." /></SelectTrigger></FormControl><SelectContent><SelectItem value="TONELADAS">TONELADAS</SelectItem><SelectItem value="KILOGRAMOS">KILOGRAMOS</SelectItem><SelectItem value="CANTIDAD_PALETAS">CANTIDAD DE PALETAS</SelectItem><SelectItem value="CANTIDAD_CAJAS">CANTIDAD DE CAJAS/UNIDADES</SelectItem><SelectItem value="NUMERO_OPERACIONES">NÚMERO DE OPERACIONES</SelectItem><SelectItem value="NUMERO_CONTENEDORES">NÚMERO DE CONTENEDORES</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
                     <FormField control={form.control} name="filterOperationType" render={({ field }) => (<FormItem><FormLabel>Filtrar por Tipo de Operación</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="ambos">Ambos (Recepción y Despacho)</SelectItem><SelectItem value="recepcion">Recepción</SelectItem><SelectItem value="despacho">Despacho</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
                     <FormField control={form.control} name="filterProductType" render={({ field }) => (<FormItem><FormLabel>Filtrar por Tipo de Producto</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="ambos">Ambos (Peso Fijo y Variable)</SelectItem><SelectItem value="fijo">Peso Fijo</SelectItem><SelectItem value="variable">Peso Variable</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
+                    <FormField control={form.control} name="filterSesion" render={({ field }) => (<FormItem><FormLabel>Filtrar por Sesión (Cámara)</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="AMBOS">Ambos (Cualquier Sesión)</SelectItem><SelectItem value="CO">Congelados (CO)</SelectItem><SelectItem value="RE">Refrigerado (RE)</SelectItem><SelectItem value="SE">Seco (SE)</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
                 </div>
             )}
             {watchedCalculationType === 'OBSERVACION' && (

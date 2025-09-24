@@ -40,6 +40,7 @@ export interface ClientBillingConcept {
   calculationBase?: 'TONELADAS' | 'KILOGRAMOS' | 'CANTIDAD_PALETAS' | 'CANTIDAD_CAJAS' | 'NUMERO_OPERACIONES' | 'NUMERO_CONTENEDORES';
   filterOperationType?: 'recepcion' | 'despacho' | 'ambos';
   filterProductType?: 'fijo' | 'variable' | 'ambos';
+  filterSesion?: 'CO' | 'RE' | 'SE' | 'AMBOS';
   
   // For 'OBSERVACION'
   associatedObservation?: string;
@@ -76,6 +77,7 @@ export async function getClientBillingConcepts(): Promise<ClientBillingConcept[]
         calculationBase: data.calculationBase,
         filterOperationType: data.filterOperationType,
         filterProductType: data.filterProductType,
+        filterSesion: data.filterSesion, // Make sure to fetch this new field
         associatedObservation: data.associatedObservation,
         inventorySource: data.inventorySource,
         inventorySesion: data.inventorySesion,
