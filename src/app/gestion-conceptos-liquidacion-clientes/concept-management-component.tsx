@@ -212,7 +212,11 @@ export default function ConceptManagementClientComponent({ initialClients, initi
     if (result.success && result.newConcept) {
       toast({ title: 'Éxito', description: result.message });
       setConcepts(prev => [...prev, result.newConcept!].sort((a,b) => a.conceptName.localeCompare(b.conceptName)));
-      addForm.reset(addFormDefaultValues);
+      addForm.reset({
+        ...addFormDefaultValues,
+        tariffRanges: [], // Explicitly clear array fields
+        specificTariffs: [],
+      });
     } else {
       toast({ variant: 'destructive', title: 'Error', description: result.message });
     }
