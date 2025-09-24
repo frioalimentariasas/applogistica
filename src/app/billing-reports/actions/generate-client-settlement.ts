@@ -198,9 +198,6 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
                 const isRecepcion = submission.formType.includes('recepcion') || submission.formType.includes('reception');
                 const isDespacho = submission.formType.includes('despacho');
 
-                if (concept.conceptName.includes('ENTRADA') && !isRecepcion) return false;
-                if (concept.conceptName.includes('SALIDA') && !isDespacho) return false;
-
                 const opTypeMatch = concept.filterOperationType === 'ambos' ||
                                     (concept.filterOperationType === 'recepcion' && isRecepcion) ||
                                     (concept.filterOperationType === 'despacho' && isDespacho);
@@ -526,15 +523,13 @@ export async function generateClientSettlement(criteria: {
             .filter(op => op.type === 'form')
             .map(op => op.data)
             .filter(op => {
-                // Operation Type Filter
-                const isRecepcion = op.formType.includes('recepcion') || op.formType.includes('reception');
+                 const isRecepcion = op.formType.includes('recepcion') || op.formType.includes('reception');
                 const isDespacho = op.formType.includes('despacho');
                 const opTypeMatch = concept.filterOperationType === 'ambos' ||
                                     (concept.filterOperationType === 'recepcion' && isRecepcion) ||
                                     (concept.filterOperationType === 'despacho' && isDespacho);
                 if (!opTypeMatch) return false;
 
-                // Product Type Filter
                 const isFixed = op.formType.includes('fixed-weight');
                 const isVariable = op.formType.includes('variable-weight');
                 const prodTypeMatch = concept.filterProductType === 'ambos' ||
@@ -542,10 +537,14 @@ export async function generateClientSettlement(criteria: {
                                       (concept.filterProductType === 'variable' && isVariable);
                 if (!prodTypeMatch) return false;
                 
-                // Pedido Type Filter
                 const pedidoType = op.formData?.tipoPedido;
                 const pedidoTypeMatch = !concept.filterPedidoTypes || concept.filterPedidoTypes.length === 0 || (pedidoType && concept.filterPedidoTypes.includes(pedidoType));
                 if (!pedidoTypeMatch) return false;
+
+                if (concept.filterSesion && concept.filterSesion !== 'AMBOS') {
+                    const items = getFilteredItems(op, concept.filterSesion, articleSessionMap);
+                    if (items.length === 0) return false;
+                }
                 
                 return true;
             });
@@ -951,3 +950,4 @@ const timeToMinutes = (timeStr: string): number => {
     
 
     
+
