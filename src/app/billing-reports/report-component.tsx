@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import * as React from 'react';
@@ -1159,26 +1160,35 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         ];
     
         const addHeaderAndTitle = (ws: ExcelJS.Worksheet, title: string, columns: any[]) => {
-            const titleRow = ws.addRow([title]);
-            titleRow.font = { bold: true, size: 16 };
-            ws.mergeCells(1, 1, 1, columns.length);
-            titleRow.getCell(1).alignment = { horizontal: 'center' };
+            const headerRowNumber = 5;
+            ws.columns = columns.map(c => ({ key: c.key, width: c.width }));
+            ws.getRow(1).hidden = true;
         
-            const clientRow = ws.addRow([`Cliente: ${settlementClient}`]);
-            clientRow.font = { bold: true };
+            // Add title at row 2, merge, and center
+            const titleRow = ws.getRow(2);
+            titleRow.getCell(1).value = title;
+            titleRow.font = { bold: true, size: 16 };
+            titleRow.getCell(1).alignment = { horizontal: 'center' };
             ws.mergeCells(2, 1, 2, columns.length);
+        
+            // Add client at row 3, merge, and center
+            const clientRow = ws.getRow(3);
+            clientRow.getCell(1).value = `Cliente: ${settlementClient}`;
+            clientRow.font = { bold: true };
             clientRow.getCell(1).alignment = { horizontal: 'center' };
+            ws.mergeCells(3, 1, 3, columns.length);
         
             if (settlementDateRange?.from && settlementDateRange.to) {
+                // Add period at row 4, merge, and center
                 const periodText = `Periodo: ${format(settlementDateRange.from, 'dd/MM/yyyy', { locale: es })} - ${format(settlementDateRange.to, 'dd/MM/yyyy', { locale: es })}`;
-                const periodRow = ws.addRow([periodText]);
+                const periodRow = ws.getRow(4);
+                periodRow.getCell(1).value = periodText;
                 periodRow.font = { bold: true };
-                ws.mergeCells(3, 1, 3, columns.length);
                 periodRow.getCell(1).alignment = { horizontal: 'center' };
+                ws.mergeCells(4, 1, 4, columns.length);
             }
-            ws.addRow([]); // Spacer row
         };
-    
+
         const headerFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A90C8' } };
         const headerFont: Partial<ExcelJS.Font> = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
     
@@ -1204,8 +1214,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             cell.alignment = { horizontal: 'center' };
         });
         
-        summaryWorksheet.columns = summaryColumns;
-    
         const summaryByConcept = settlementReportData.reduce((acc, row) => {
             let conceptKey: string;
             let conceptName: string;
@@ -1308,8 +1316,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             cell.alignment = { horizontal: 'center' };
         });
 
-        detailWorksheet.columns = detailColumns;
-    
         const groupedByConcept = settlementReportData.reduce((acc, row) => {
             const conceptKey = row.conceptName;
             if (!acc[conceptKey]) {
@@ -1373,12 +1379,12 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     
         detailWorksheet.addRow([]);
         const totalDetailRow = detailWorksheet.addRow([]);
-        const totalGeneralCantidad = settlementReportData.reduce((sum, row) => sum + row.quantity, 0);
+        const totalGeneralDetalleCantidad = settlementReportData.reduce((sum, row) => sum + row.quantity, 0);
 
         totalDetailRow.getCell('conceptName').value = 'TOTAL GENERAL:';
         totalDetailRow.getCell('conceptName').font = { bold: true, size: 12 };
         totalDetailRow.getCell('conceptName').alignment = { horizontal: 'right' };
-        totalDetailRow.getCell('quantity').value = totalGeneralCantidad;
+        totalDetailRow.getCell('quantity').value = totalGeneralDetalleCantidad;
         totalDetailRow.getCell('quantity').numFmt = '#,##0.00';
         totalDetailRow.getCell('quantity').font = { bold: true, size: 12 };
         totalDetailRow.getCell('totalValue').value = settlementTotalGeneral;
