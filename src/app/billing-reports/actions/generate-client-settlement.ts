@@ -180,87 +180,70 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
         return docClientName === clientName && pedidoSislog !== '1';
     });
     
-    // Process form-based concepts
-    clientSubmissions.forEach(doc => {
-        const submission = serializeTimestamps(doc.data());
-        const formData = submission.formData;
-        const conceptsForClient = allConcepts.filter(c => c.clientNames.includes(clientName) || c.clientNames.includes('TODOS (Cualquier Cliente)'));
+    const conceptsForClient = allConcepts.filter(c => c.clientNames.includes(clientName) || c.clientNames.includes('TODOS (Cualquier Cliente)'));
 
-        conceptsForClient.forEach(concept => {
-            if (concept.calculationType === 'REGLAS') {
+    for (const concept of conceptsForClient) {
+        if (concept.calculationType === 'REGLAS') {
+             // Special pre-check for movement concepts
+            if (concept.conceptName.includes('MOVIMIENTO')) {
+                const isSalida = concept.conceptName.includes('SALIDA');
+                const hasMovements = clientSubmissions.some(doc => {
+                    const formType = doc.data().formType as string;
+                    return isSalida 
+                        ? formType.includes('despacho') 
+                        : (formType.includes('recepcion') || formType.includes('reception'));
+                });
+                if (!hasMovements) continue; // Skip if no relevant movements
+            }
+
+            for (const doc of clientSubmissions) {
+                const submission = serializeTimestamps(doc.data());
                 let opTypeMatch = false;
-                if (concept.filterOperationType === 'ambos') {
-                    opTypeMatch = true;
-                } else if (concept.filterOperationType === 'recepcion' && (submission.formType.includes('recepcion') || submission.formType.includes('reception'))) {
-                    opTypeMatch = true;
-                } else if (concept.filterOperationType === 'despacho' && submission.formType.includes('despacho')) {
-                    opTypeMatch = true;
-                }
+                if (concept.filterOperationType === 'ambos') opTypeMatch = true;
+                else if (concept.filterOperationType === 'recepcion' && (submission.formType.includes('recepcion') || submission.formType.includes('reception'))) opTypeMatch = true;
+                else if (concept.filterOperationType === 'despacho' && submission.formType.includes('despacho')) opTypeMatch = true;
 
                 let prodTypeMatch = false;
-                if (concept.filterProductType === 'ambos') {
-                    prodTypeMatch = true;
-                } else if (concept.filterProductType === 'fijo' && submission.formType.includes('fixed-weight')) {
-                    prodTypeMatch = true;
-                } else if (concept.filterProductType === 'variable' && submission.formType.includes('variable-weight')) {
-                    prodTypeMatch = true;
-                }
+                if (concept.filterProductType === 'ambos') prodTypeMatch = true;
+                else if (concept.filterProductType === 'fijo' && submission.formType.includes('fixed-weight')) prodTypeMatch = true;
+                else if (concept.filterProductType === 'variable' && submission.formType.includes('variable-weight')) prodTypeMatch = true;
 
-                if (opTypeMatch && prodTypeMatch) {
-                    if (!applicableConcepts.has(concept.id)) {
-                        applicableConcepts.set(concept.id, concept);
-                    }
+                if (opTypeMatch && prodTypeMatch && !applicableConcepts.has(concept.id)) {
+                    applicableConcepts.set(concept.id, concept);
+                    break; // Move to next concept once one match is found
                 }
-            } else if (concept.calculationType === 'OBSERVACION') {
-                 if (Array.isArray(formData.observaciones) && formData.observaciones.some((obs: any) => obs.type === concept.associatedObservation)) {
+            }
+        } else if (concept.calculationType === 'OBSERVACION') {
+            for (const doc of clientSubmissions) {
+                const formData = doc.data().formData;
+                if (Array.isArray(formData.observaciones) && formData.observaciones.some((obs: any) => obs.type === concept.associatedObservation)) {
                      if (!applicableConcepts.has(concept.id)) {
                         applicableConcepts.set(concept.id, concept);
                     }
-                 }
+                    break;
+                }
             }
-        });
-    });
-
-    // Process manual-based concepts
-    manualOpsSnapshot.docs.forEach(doc => {
-        const opData = doc.data();
-        if (opData.clientName === clientName) { // Filter by client here
-            const conceptsForClient = allConcepts.filter(c => c.clientNames.includes(clientName) || c.clientNames.includes('TODOS (Cualquier Cliente)'));
-            conceptsForClient.forEach(concept => {
-                if (concept.calculationType === 'MANUAL' && concept.conceptName === opData.concept) {
+        } else if (concept.calculationType === 'MANUAL') {
+             for (const doc of manualOpsSnapshot.docs) {
+                const opData = doc.data();
+                if (opData.clientName === clientName && concept.conceptName === opData.concept) {
                     if (!applicableConcepts.has(concept.id)) {
                         applicableConcepts.set(concept.id, concept);
                     }
+                    break;
                 }
-            });
-        }
-    });
-
-    // Process inventory-based concepts
-    const inventoryConcepts = allConcepts.filter(c => 
-        (c.clientNames.includes(clientName) || c.clientNames.includes('TODOS (Cualquier Cliente)')) &&
-        c.calculationType === 'SALDO_INVENTARIO'
-    );
-    
-    if (inventoryConcepts.length > 0) {
-        const [inventorySnapshot, clientArticlesSnapshot] = await Promise.all([
-            firestore.collection('dailyInventories')
-                .where(admin.firestore.FieldPath.documentId(), '>=', startDate)
-                .where(admin.firestore.FieldPath.documentId(), '<=', endDate)
-                .get(),
-            firestore.collection('articulos').where('razonSocial', '==', clientName).get()
-        ]);
-        
-        const articleSessionMap = new Map<string, string>();
-        clientArticlesSnapshot.forEach(doc => {
-            const article = doc.data() as ArticuloData;
-            articleSessionMap.set(article.codigoProducto, article.sesion);
-        });
-
-        for (const concept of inventoryConcepts) {
+            }
+        } else if (concept.calculationType === 'SALDO_INVENTARIO') {
             if (!concept.inventorySesion) continue;
             
             const targetSesion = concept.inventorySesion;
+
+             const clientArticlesSnapshot = await firestore.collection('articulos').where('razonSocial', '==', clientName).get();
+            const articleSessionMap = new Map<string, string>();
+            clientArticlesSnapshot.forEach(doc => {
+                const article = doc.data() as ArticuloData;
+                articleSessionMap.set(article.codigoProducto, article.sesion);
+            });
 
             const hasMovementsInSession = clientSubmissions.some(doc => {
                 const submissionData = doc.data().formData;
@@ -271,6 +254,11 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
                 });
             });
             
+             const inventorySnapshot = await firestore.collection('dailyInventories')
+                .where(admin.firestore.FieldPath.documentId(), '>=', startDate)
+                .where(admin.firestore.FieldPath.documentId(), '<=', endDate)
+                .get();
+
             const hasInventoryInSession = inventorySnapshot.docs.some(doc => {
                 const data = doc.data().data;
                 return Array.isArray(data) && data.some(row => 
