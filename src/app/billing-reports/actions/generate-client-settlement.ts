@@ -202,9 +202,13 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
                 if (!opTypeMatch) return false;
                 
                 let prodTypeMatch = false;
-                if (concept.filterProductType === 'ambos') prodTypeMatch = true;
-                else if (concept.filterProductType === 'fijo' && submission.formType.includes('fixed-weight')) prodTypeMatch = true;
-                else if (concept.filterProductType === 'variable' && submission.formType.includes('variable-weight')) prodTypeMatch = true;
+                if (concept.filterProductType === 'ambos') {
+                    prodTypeMatch = true;
+                } else if (concept.filterProductType === 'fijo' && submission.formType.includes('fixed-weight')) {
+                    prodTypeMatch = true;
+                } else if (concept.filterProductType === 'variable' && submission.formType.includes('variable-weight')) {
+                    prodTypeMatch = true;
+                }
                 if (!prodTypeMatch) return false;
 
                 const pedidoType = submission.formData?.tipoPedido;
@@ -215,20 +219,42 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
                 }
                 
                 const items = submission.formData?.items || submission.formData?.productos || submission.formData?.destinos?.flatMap((d: any) => d.items) || submission.formData?.placas?.flatMap((p: any) => p.items) || [];
+                if (items.length === 0) return false;
+
                 const hasItemInSession = items.some((item: any) => {
                     const itemSesion = articleSessionMap.get(item.codigo);
                     return !concept.filterSesion || concept.filterSesion === 'AMBOS' || itemSesion === concept.filterSesion;
                 });
-                if (!hasItemInSession && items.length > 0) return false;
+                
+                if (!hasItemInSession) return false;
 
                 return true;
             });
+            
+            const isMovementConcept = concept.conceptName.includes('MOVIMIENTO ENTRADA') || concept.conceptName.includes('MOVIMIENTO SALIDA');
 
-            if (hasApplicableOperation) {
-                if (!applicableConcepts.has(concept.id)) {
+            if (hasApplicableOperation && !isMovementConcept) {
+                 if (!applicableConcepts.has(concept.id)) {
                     applicableConcepts.set(concept.id, concept);
                 }
+            } else if (isMovementConcept) {
+                const hasMatchingMovement = clientSubmissions.some(doc => {
+                     const submission = serializeTimestamps(doc.data());
+                     const isRecepcion = submission.formType.includes('recepcion') || submission.formType.includes('reception');
+                     const isDespacho = submission.formType.includes('despacho');
+
+                     if (concept.conceptName.includes('ENTRADA') && isRecepcion) return true;
+                     if (concept.conceptName.includes('SALIDA') && isDespacho) return true;
+
+                     return false;
+                });
+                 if (hasMatchingMovement) {
+                    if (!applicableConcepts.has(concept.id)) {
+                        applicableConcepts.set(concept.id, concept);
+                    }
+                }
             }
+
         } else if (concept.calculationType === 'OBSERVACION') {
             for (const doc of clientSubmissions) {
                 const formData = doc.data().formData;
@@ -342,24 +368,24 @@ const calculatePalletsForOperation = (
     sessionFilter: 'CO' | 'RE' | 'SE' | 'AMBOS' | undefined,
     articleSessionMap: Map<string, string>
 ): number => {
-    const { formType } = op;
-    const items = getFilteredItems(op, sessionFilter, articleSessionMap);
-    if (items.length === 0) return 0;
+  const { formType } = op;
+  const items = getFilteredItems(op, sessionFilter, articleSessionMap);
+  if (items.length === 0) return 0;
   
-    if (formType?.startsWith('fixed-weight')) {
-        return items.reduce((sum: number, p: any) => sum + (Number(p.totalPaletas) || Number(p.paletasCompletas) || 0), 0);
-    }
+  if (formType?.startsWith('fixed-weight')) {
+      return items.reduce((sum: number, p: any) => sum + (Number(p.totalPaletas) || Number(p.paletasCompletas) || 0), 0);
+  }
 
-    if (formType?.startsWith('variable-weight')) {
-        const isSummary = items.some((i: any) => Number(i.paleta) === 0);
-        if (isSummary) {
-            return items.reduce((sum: number, i: any) => sum + (Number(i.totalPaletas) || Number(i.paletasCompletas) || 0), 0);
-        }
-        const uniquePallets = new Set(items.map((i: any) => i.paleta).filter(Boolean));
-        return uniquePallets.size;
-    }
-    
-    return 0;
+  if (formType?.startsWith('variable-weight')) {
+      const isSummary = items.some((i: any) => Number(i.paleta) === 0);
+      if (isSummary) {
+          return items.reduce((sum: number, i: any) => sum + (Number(i.totalPaletas) || Number(i.paletasCompletas) || 0), 0);
+      }
+      const uniquePallets = new Set(items.map((i: any) => i.paleta).filter(Boolean));
+      return uniquePallets.size;
+  }
+  
+  return 0;
 };
 
 const calculateUnitsForOperation = (
@@ -938,10 +964,3 @@ const timeToMinutes = (timeStr: string): number => {
     
 
     
-
-
-
-
-
-
-
