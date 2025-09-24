@@ -191,7 +191,7 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
 
     for (const concept of conceptsForClient) {
         if (concept.calculationType === 'REGLAS') {
-            const hasApplicableOperation = clientSubmissions.some(doc => {
+             const hasApplicableOperation = clientSubmissions.some(doc => {
                 const submission = serializeTimestamps(doc.data());
                 
                 let opTypeMatch = false;
@@ -482,6 +482,33 @@ export async function generateClientSettlement(criteria: {
                 
                 return opTypeMatch && prodTypeMatch;
             });
+
+        // Special case for AVICOLA EL MADROÑO S.A.
+        if (concept.conceptName === 'MOVIMIENTO SALIDA PRODUCTOS - PALLET' && clientName === 'AVICOLA EL MADROÑO S.A.') {
+            const maquilaReceptions = allOperations
+                .filter(op => op.type === 'form' && op.data.formType.includes('reception') && op.data.formData.tipoPedido === 'MAQUILA')
+                .map(op => op.data);
+
+            const totalPalletsMaquilaSE = maquilaReceptions.reduce((sum, op) => sum + (Number(op.formData.salidaPaletasMaquilaSE) || 0), 0);
+
+            if (totalPalletsMaquilaSE > 0) {
+                 settlementRows.push({
+                    date: endDate, // Use end date for summary concepts
+                    container: 'N/A',
+                    camara: 'SE',
+                    totalPaletas: totalPalletsMaquilaSE,
+                    operacionLogistica: 'MAQUILA SALIDA (SECO)',
+                    pedidoSislog: 'Varios',
+                    conceptName: concept.conceptName,
+                    tipoVehiculo: 'No Aplica',
+                    quantity: totalPalletsMaquilaSE,
+                    unitOfMeasure: 'PALETA',
+                    unitValue: concept.value || 0,
+                    totalValue: totalPalletsMaquilaSE * (concept.value || 0),
+                });
+            }
+            continue; // Skip normal processing for this concept
+        }
             
         for (const op of applicableOperations) {
             if (
@@ -876,4 +903,5 @@ const timeToMinutes = (timeStr: string): number => {
     
 
     
+
 
