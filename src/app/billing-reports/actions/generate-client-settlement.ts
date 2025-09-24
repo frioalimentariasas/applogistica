@@ -243,7 +243,6 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
     );
     
     if (inventoryConcepts.length > 0) {
-        // Fetch necessary data once
         const [inventorySnapshot, clientArticlesSnapshot] = await Promise.all([
             firestore.collection('dailyInventories')
                 .where(admin.firestore.FieldPath.documentId(), '>=', startDate)
@@ -263,16 +262,15 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
             
             const targetSesion = concept.inventorySesion;
 
-            // Check for movements in the target session
             const hasMovementsInSession = clientSubmissions.some(doc => {
-                const items = doc.data().formData?.items || doc.data().formData?.productos || [];
+                const submissionData = doc.data().formData;
+                const items = submissionData?.items || submissionData?.productos || submissionData?.destinos?.flatMap((d: any) => d.items) || submissionData?.placas?.flatMap((p: any) => p.items) || [];
                 return items.some((item: any) => {
                     const itemSesion = articleSessionMap.get(item.codigo);
                     return itemSesion === targetSesion;
                 });
             });
             
-            // Check for inventory in the target session
             const hasInventoryInSession = inventorySnapshot.docs.some(doc => {
                 const data = doc.data().data;
                 return Array.isArray(data) && data.some(row => 
@@ -294,41 +292,62 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
     return sortedConcepts;
 }
 
-const calculateWeightForOperation = (op: any): number => {
+const getFilteredItems = (
+    op: any,
+    sessionFilter: 'CO' | 'RE' | 'SE' | 'AMBOS' | undefined,
+    articleSessionMap: Map<string, string>
+): any[] => {
+    const allItems = op.formData.productos || op.formData.items || op.formData.destinos?.flatMap((d: any) => d.items) || op.formData.placas?.flatMap((p: any) => p.items) || [];
+
+    if (!sessionFilter || sessionFilter === 'AMBOS') {
+        return allItems;
+    }
+
+    return allItems.filter((item: any) => {
+        const itemSession = articleSessionMap.get(item.codigo);
+        return itemSession === sessionFilter;
+    });
+};
+
+
+const calculateWeightForOperation = (
+    op: any,
+    sessionFilter: 'CO' | 'RE' | 'SE' | 'AMBOS' | undefined,
+    articleSessionMap: Map<string, string>
+): number => {
     const { formType, formData } = op;
+    const items = getFilteredItems(op, sessionFilter, articleSessionMap);
 
     if (formType === 'fixed-weight-despacho' || formType === 'fixed-weight-recepcion' || formType === 'fixed-weight-reception') {
-        const grossWeight = Number(formData.totalPesoBrutoKg);
-        if (grossWeight > 0) {
-            return grossWeight;
+        if (!sessionFilter || sessionFilter === 'AMBOS') {
+            const grossWeight = Number(formData.totalPesoBrutoKg);
+            if (grossWeight > 0) return grossWeight;
         }
-        // Fallback for older forms or missing gross weight
-        return (formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.pesoNetoKg) || 0), 0);
+        // If filtered by session, we must calculate from items
+        return items.reduce((sum: number, p: any) => sum + (Number(p.pesoNetoKg) || 0), 0);
     }
     
-    if (formType === 'variable-weight-despacho') {
-        const allItems = (formData.destinos?.flatMap((d: any) => d.items) || formData.items) || [];
-        return allItems.reduce((sum: number, item: any) => sum + (Number(item.pesoNeto) || 0), 0);
-    }
-    
-    if (formType === 'variable-weight-recepcion' || formType === 'variable-weight-reception') {
-        const allItems = (formData.placas?.flatMap((p: any) => p.items) || formData.items) || [];
-        const isSummaryFormat = allItems.some((p: any) => Number(p.paleta) === 0);
+    if (formType === 'variable-weight-despacho' || formType === 'variable-weight-recepcion' || formType === 'variable-weight-reception') {
+        const isSummaryFormat = items.some((p: any) => Number(p.paleta) === 0);
         if (isSummaryFormat) {
-            return allItems.reduce((sum: number, item: any) => sum + (Number(item.totalPesoNeto) || 0), 0);
+            return items.reduce((sum: number, item: any) => sum + (Number(item.totalPesoNeto) || 0), 0);
         }
-        return allItems.reduce((sum: number, item: any) => sum + (Number(item.pesoNeto) || 0), 0);
+        return items.reduce((sum: number, item: any) => sum + (Number(item.pesoNeto) || 0), 0);
     }
 
     return 0;
 };
 
-const calculatePalletsForOperation = (op: any): number => {
+const calculatePalletsForOperation = (
+    op: any,
+    sessionFilter: 'CO' | 'RE' | 'SE' | 'AMBOS' | undefined,
+    articleSessionMap: Map<string, string>
+): number => {
     const { formType, formData } = op;
-    const items = formData.productos || formData.items || formData.destinos?.flatMap((d: any) => d.items) || [];
+    const items = getFilteredItems(op, sessionFilter, articleSessionMap);
 
     if (formType?.startsWith('fixed-weight')) {
-        return (formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.totalPaletas) || Number(p.paletasCompletas) || 0), 0);
+        return items.reduce((sum: number, p: any) => sum + (Number(p.totalPaletas) || Number(p.paletasCompletas) || 0), 0);
     }
 
     if (formType?.startsWith('variable-weight')) {
@@ -343,15 +362,19 @@ const calculatePalletsForOperation = (op: any): number => {
     return 0;
 };
 
-const calculateUnitsForOperation = (op: any): number => {
-  const { formType, formData } = op;
+const calculateUnitsForOperation = (
+    op: any,
+    sessionFilter: 'CO' | 'RE' | 'SE' | 'AMBOS' | undefined,
+    articleSessionMap: Map<string, string>
+): number => {
+  const { formType } = op;
+  const items = getFilteredItems(op, sessionFilter, articleSessionMap);
   
   if (formType?.startsWith('fixed-weight')) {
-      return (formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.cajas) || 0), 0);
+      return items.reduce((sum: number, p: any) => sum + (Number(p.cajas) || 0), 0);
   }
 
   if (formType?.startsWith('variable-weight')) {
-      const items = formData.items || formData.destinos?.flatMap((d: any) => d.items) || [];
       const isSummary = items.some((i: any) => Number(i.paleta) === 0);
       if (isSummary) {
           return items.reduce((sum: number, i: any) => sum + (Number(i.totalCantidad) || 0), 0);
@@ -478,18 +501,18 @@ export async function generateClientSettlement(criteria: {
             }
 
             let quantity = 0;
-            const weightKg = calculateWeightForOperation(op);
-            
+            const weightKg = calculateWeightForOperation(op, concept.filterSesion, articleSessionMap);
             let totalPallets = 0;
-            if (concept.conceptName === 'OPERACIÓN CARGUE' || concept.conceptName === 'OPERACIÓN DESCARGUE' || concept.calculationBase === 'CANTIDAD_PALETAS') {
-                totalPallets = calculatePalletsForOperation(op);
-            }
 
+            if (concept.conceptName === 'OPERACIÓN CARGUE' || concept.conceptName === 'OPERACIÓN DESCARGUE' || concept.calculationBase === 'CANTIDAD_PALETAS') {
+                totalPallets = calculatePalletsForOperation(op, concept.filterSesion, articleSessionMap);
+            }
+            
             switch (concept.calculationBase) {
                 case 'TONELADAS': quantity = weightKg / 1000; break;
                 case 'KILOGRAMOS': quantity = weightKg; break;
                 case 'CANTIDAD_PALETAS': quantity = totalPallets; break;
-                case 'CANTIDAD_CAJAS': quantity = calculateUnitsForOperation(op); break;
+                case 'CANTIDAD_CAJAS': quantity = calculateUnitsForOperation(op, concept.filterSesion, articleSessionMap); break;
                 case 'NUMERO_OPERACIONES': quantity = 1; break;
                 case 'NUMERO_CONTENEDORES': quantity = op.formData.contenedor ? 1 : 0; break;
             }
@@ -526,8 +549,8 @@ export async function generateClientSettlement(criteria: {
                 }
             }
             
-            const allItems = op.formData.productos || op.formData.items || op.formData.placas?.flatMap((p: any) => p.items) || op.formData.destinos?.flatMap((d: any) => d.items) || [];
-            const firstProductCode = allItems[0]?.codigo;
+            const filteredItems = getFilteredItems(op, concept.filterSesion, articleSessionMap);
+            const firstProductCode = filteredItems[0]?.codigo;
             const camara = firstProductCode ? articleSessionMap.get(firstProductCode) || 'N/A' : 'N/A';
 
             settlementRows.push({
@@ -561,7 +584,7 @@ export async function generateClientSettlement(criteria: {
             for (const op of relevantOps) {
                 const obs = (op.data.formData.observaciones as any[]).find(o => o.type === concept.associatedObservation);
                 const quantity = Number(obs?.quantity) || 0;
-                 const totalPallets = calculatePalletsForOperation(op.data);
+                 const totalPallets = calculatePalletsForOperation(op.data, undefined, articleSessionMap);
 
                 if (quantity > 0) {
                     settlementRows.push({
@@ -858,5 +881,7 @@ const timeToMinutes = (timeStr: string): number => {
 
 
 
+
+    
 
     
