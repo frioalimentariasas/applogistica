@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import * as React from 'react';
@@ -1160,7 +1159,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         ];
 
         const addHeaderAndTitle = (ws: ExcelJS.Worksheet, title: string, columns: any[]) => {
-            ws.addRow([]); // Spacer row
+            ws.addRow([]);
             const titleRow = ws.addRow([title]);
             titleRow.font = { bold: true, size: 16 };
             ws.mergeCells(2, 1, 2, columns.length);
@@ -1178,7 +1177,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 ws.mergeCells(ws.rowCount, 1, ws.rowCount, columns.length);
                 periodRow.getCell(1).alignment = { horizontal: 'center' };
             }
-            ws.addRow([]); // Spacer
+            ws.addRow([]);
         };
 
         const headerFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A90C8' } };
@@ -2735,3 +2734,6 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 
 
 
+
+
+    
