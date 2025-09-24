@@ -34,7 +34,7 @@ export interface ClientBillingConcept {
   clientNames: string[];
   unitOfMeasure: 'KILOGRAMOS' | 'TONELADA' | 'PALETA' | 'ESTIBA' | 'UNIDAD' | 'CAJA' | 'SACO' | 'CANASTILLA' | 'HORA' | 'DIA' | 'VIAJE' | 'MES' | 'CONTENEDOR' | 'HORA EXTRA DIURNA' | 'HORA EXTRA NOCTURNA' | 'HORA EXTRA DIURNA DOMINGO Y FESTIVO' | 'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO' | 'POSICION/DIA' | 'POSICIONES' | 'TIPO VEHÍCULO' | 'TRACTOMULA';
   
-  calculationType: 'REGLAS' | 'OBSERVACION' | 'MANUAL';
+  calculationType: 'REGLAS' | 'OBSERVACION' | 'MANUAL' | 'SALDO_INVENTARIO';
 
   // For 'REGLAS'
   calculationBase?: 'TONELADAS' | 'KILOGRAMOS' | 'CANTIDAD_PALETAS' | 'CANTIDAD_CAJAS' | 'NUMERO_OPERACIONES' | 'NUMERO_CONTENEDORES';
@@ -43,6 +43,10 @@ export interface ClientBillingConcept {
   
   // For 'OBSERVACION'
   associatedObservation?: string;
+
+  // For 'SALDO_INVENTARIO'
+  inventorySource?: 'POSICIONES_ALMACENADAS';
+  inventorySesion?: 'CO' | 'RE' | 'SE';
 
   // Tariff Rules
   tariffType: 'UNICA' | 'RANGOS' | 'ESPECIFICA';
@@ -73,6 +77,8 @@ export async function getClientBillingConcepts(): Promise<ClientBillingConcept[]
         filterOperationType: data.filterOperationType,
         filterProductType: data.filterProductType,
         associatedObservation: data.associatedObservation,
+        inventorySource: data.inventorySource,
+        inventorySesion: data.inventorySesion,
 
         tariffType: data.tariffType || 'UNICA',
         value: data.value,

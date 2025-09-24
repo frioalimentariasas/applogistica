@@ -71,7 +71,7 @@ const conceptSchema = z.object({
   clientNames: z.array(z.string()).min(1, { message: 'Debe seleccionar al menos un cliente.' }),
   unitOfMeasure: z.enum(['KILOGRAMOS', 'TONELADA', 'PALETA', 'ESTIBA', 'UNIDAD', 'CAJA', 'SACO', 'CANASTILLA', 'HORA', 'DIA', 'VIAJE', 'MES', 'CONTENEDOR', 'HORA EXTRA DIURNA', 'HORA EXTRA NOCTURNA', 'HORA EXTRA DIURNA DOMINGO Y FESTIVO', 'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO', 'POSICION/DIA', 'POSICIONES', 'TIPO VEHÍCULO', 'TRACTOMULA'], { required_error: 'Debe seleccionar una unidad de medida.'}),
   
-  calculationType: z.enum(['REGLAS', 'OBSERVACION', 'MANUAL'], { required_error: 'Debe seleccionar un tipo de cálculo.' }),
+  calculationType: z.enum(['REGLAS', 'OBSERVACION', 'MANUAL', 'SALDO_INVENTARIO'], { required_error: 'Debe seleccionar un tipo de cálculo.' }),
   
   // Calculation Rules (for REGLAS)
   calculationBase: z.enum(['TONELADAS', 'KILOGRAMOS', 'CANTIDAD_PALETAS', 'CANTIDAD_CAJAS', 'NUMERO_OPERACIONES', 'NUMERO_CONTENEDORES']).optional(),
@@ -80,6 +80,10 @@ const conceptSchema = z.object({
   
   // Observation Rule (for OBSERVACION)
   associatedObservation: z.string().optional(),
+
+  // Inventory Rule (for SALDO_INVENTARIO)
+  inventorySource: z.enum(['POSICIONES_ALMACENADAS']).optional(),
+  inventorySesion: z.enum(['CO', 'RE', 'SE']).optional(),
 
   // Tariff Rules
   tariffType: z.enum(['UNICA', 'RANGOS', 'ESPECIFICA'], { required_error: "Debe seleccionar un tipo de tarifa."}),
@@ -97,6 +101,10 @@ const conceptSchema = z.object({
     }
     if (data.calculationType === 'OBSERVACION' && !data.associatedObservation) {
         ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Debe seleccionar una observación asociada.", path: ["associatedObservation"] });
+    }
+     if (data.calculationType === 'SALDO_INVENTARIO') {
+        if (!data.inventorySource) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La fuente del dato es requerida.", path: ["inventorySource"] });
+        if (!data.inventorySesion) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La sesión es requerida.", path: ["inventorySesion"] });
     }
 
     if (data.tariffType === 'UNICA' && (data.value === undefined || data.value === null)) {
@@ -142,6 +150,8 @@ const addFormDefaultValues: ConceptFormValues = {
   filterOperationType: 'ambos',
   filterProductType: 'ambos',
   associatedObservation: undefined,
+  inventorySource: undefined,
+  inventorySesion: undefined,
   tariffType: 'UNICA',
   value: 0,
   dayShiftStart: '07:00',
@@ -270,6 +280,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
         'REGLAS': 1,
         'OBSERVACION': 2,
         'MANUAL': 3,
+        'SALDO_INVENTARIO': 4,
     };
 
     return concepts
@@ -385,6 +396,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                                                 <FormItem className="flex items-center space-x-2"><RadioGroupItem value="REGLAS" id="add-reglas" /><Label htmlFor="add-reglas">Por Reglas</Label></FormItem>
                                                 <FormItem className="flex items-center space-x-2"><RadioGroupItem value="OBSERVACION" id="add-obs" /><Label htmlFor="add-obs">Por Observación</Label></FormItem>
                                                 <FormItem className="flex items-center space-x-2"><RadioGroupItem value="MANUAL" id="add-manual" /><Label htmlFor="add-manual">Op. Manual</Label></FormItem>
+                                                <FormItem className="flex items-center space-x-2"><RadioGroupItem value="SALDO_INVENTARIO" id="add-saldo" /><Label htmlFor="add-saldo">Saldo Inventario</Label></FormItem>
                                             </RadioGroup>
                                         </FormControl>
                                         <FormMessage />
@@ -403,6 +415,13 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                                         <FormField control={addForm.control} name="associatedObservation" render={({ field }) => (<FormItem><FormLabel>Observación Asociada</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione una observación..." /></SelectTrigger></FormControl><SelectContent>{standardObservations.map(obs => <SelectItem key={obs.id} value={obs.name}>{obs.name}</SelectItem>)}</SelectContent></Select><FormDescription>El sistema buscará esta observación en los formularios.</FormDescription><FormMessage /></FormItem>)}/>
                                     </div>
                                 )}
+                                {watchedAddCalculationType === 'SALDO_INVENTARIO' && (
+                                     <div className='space-y-4 p-4 border rounded-md bg-muted/20'>
+                                        <FormField control={addForm.control} name="inventorySource" render={({ field }) => (<FormItem><FormLabel>Fuente del Dato</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione fuente..." /></SelectTrigger></FormControl><SelectContent><SelectItem value="POSICIONES_ALMACENADAS">Posiciones Almacenadas (Consolidado)</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
+                                        <FormField control={addForm.control} name="inventorySesion" render={({ field }) => (<FormItem><FormLabel>Sesión de Inventario</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione sesión..." /></SelectTrigger></FormControl><SelectContent><SelectItem value="CO">Congelado (CO)</SelectItem><SelectItem value="RE">Refrigerado (RE)</SelectItem><SelectItem value="SE">Seco (SE)</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
+                                    </div>
+                                )}
+
 
                                 <Separator />
 
@@ -565,8 +584,8 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                                                 </div>
                                             </TableCell>
                                             <TableCell>
-                                                <Badge variant={c.calculationType === 'OBSERVACION' ? "default" : c.calculationType === 'MANUAL' ? 'destructive' : "secondary"}>
-                                                    {c.calculationType === 'OBSERVACION' ? `OBS: ${c.associatedObservation}` : c.calculationType || 'REGLAS'}
+                                                <Badge variant={c.calculationType === 'OBSERVACION' ? "default" : c.calculationType === 'MANUAL' ? 'destructive' : c.calculationType === 'SALDO_INVENTARIO' ? 'outline' : "secondary"}>
+                                                    {c.calculationType === 'OBSERVACION' ? `OBS: ${c.associatedObservation}` : c.calculationType?.replace('_', ' ') || 'REGLAS'}
                                                 </Badge>
                                             </TableCell>
                                             <TableCell>
@@ -630,6 +649,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                                     <FormItem className="flex items-center space-x-2"><RadioGroupItem value="REGLAS" id="edit-reglas" /><Label htmlFor="edit-reglas">Por Reglas</Label></FormItem>
                                     <FormItem className="flex items-center space-x-2"><RadioGroupItem value="OBSERVACION" id="edit-obs" /><Label htmlFor="edit-obs">Por Observación</Label></FormItem>
                                     <FormItem className="flex items-center space-x-2"><RadioGroupItem value="MANUAL" id="edit-manual" /><Label htmlFor="edit-manual">Op. Manual</Label></FormItem>
+                                    <FormItem className="flex items-center space-x-2"><RadioGroupItem value="SALDO_INVENTARIO" id="edit-saldo" /><Label htmlFor="edit-saldo">Saldo Inventario</Label></FormItem>
                                 </RadioGroup>
                             </FormControl>
                             <FormMessage />
@@ -646,6 +666,12 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                     {watchedEditCalculationType === 'OBSERVACION' && (
                             <div className='space-y-4 p-4 border rounded-md bg-muted/20'>
                             <FormField control={editForm.control} name="associatedObservation" render={({ field }) => (<FormItem><FormLabel>Observación Asociada</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione una observación..." /></SelectTrigger></FormControl><SelectContent>{standardObservations.map(obs => <SelectItem key={obs.id} value={obs.name}>{obs.name}</SelectItem>)}</SelectContent></Select><FormDescription>El sistema buscará esta observación en los formularios.</FormDescription><FormMessage /></FormItem>)}/>
+                        </div>
+                    )}
+                     {watchedEditCalculationType === 'SALDO_INVENTARIO' && (
+                        <div className='space-y-4 p-4 border rounded-md bg-muted/20'>
+                            <FormField control={editForm.control} name="inventorySource" render={({ field }) => (<FormItem><FormLabel>Fuente del Dato</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione fuente..." /></SelectTrigger></FormControl><SelectContent><SelectItem value="POSICIONES_ALMACENADAS">Posiciones Almacenadas (Consolidado)</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
+                            <FormField control={editForm.control} name="inventorySesion" render={({ field }) => (<FormItem><FormLabel>Sesión de Inventario</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione sesión..." /></SelectTrigger></FormControl><SelectContent><SelectItem value="CO">Congelado (CO)</SelectItem><SelectItem value="RE">Refrigerado (RE)</SelectItem><SelectItem value="SE">Seco (SE)</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
                         </div>
                     )}
                     <Separator />
@@ -865,6 +891,7 @@ function ClientMultiSelectDialog({
     </Dialog>
   );
 }
+
 
 
 
