@@ -8,6 +8,7 @@ import { getClientBillingConcepts } from '@/app/gestion-conceptos-liquidacion-cl
 import admin from 'firebase-admin';
 import { startOfDay, endOfDay, parseISO, differenceInHours, getDaysInMonth, getDay, format, addMinutes, addHours } from 'date-fns';
 import type { ArticuloData } from '@/app/actions/articulos';
+import { getConsolidatedMovementReport } from '@/app/actions/consolidated-movement-report';
 
 
 export async function getAllManualClientOperations(): Promise<any[]> {
@@ -230,6 +231,17 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
                     }
                 }
             });
+        }
+    });
+
+    // Process inventory-based concepts
+    const inventoryConcepts = allConcepts.filter(c => 
+        (c.clientNames.includes(clientName) || c.clientNames.includes('TODOS (Cualquier Cliente)')) &&
+        c.calculationType === 'SALDO_INVENTARIO'
+    );
+    inventoryConcepts.forEach(concept => {
+        if (!applicableConcepts.has(concept.id)) {
+            applicableConcepts.set(concept.id, concept);
         }
     });
     
@@ -717,6 +729,40 @@ export async function generateClientSettlement(criteria: {
         }
     }
     
+    const inventoryConcepts = selectedConcepts.filter(c => c.calculationType === 'SALDO_INVENTARIO');
+
+    for (const concept of inventoryConcepts) {
+        if (!concept.inventorySource || !concept.inventorySesion || !concept.value) continue;
+
+        if (concept.inventorySource === 'POSICIONES_ALMACENADAS') {
+            const consolidatedReport = await getConsolidatedMovementReport({
+                clientName: clientName,
+                startDate: startDate,
+                endDate: endDate,
+                sesion: concept.inventorySesion,
+            });
+
+            for (const dayData of consolidatedReport) {
+                if (dayData.posicionesAlmacenadas > 0) {
+                    settlementRows.push({
+                        date: dayData.date,
+                        container: 'N/A',
+                        camara: concept.inventorySesion,
+                        totalPaletas: dayData.posicionesAlmacenadas,
+                        operacionLogistica: 'ALMACENAMIENTO',
+                        pedidoSislog: 'N/A',
+                        conceptName: concept.conceptName,
+                        tipoVehiculo: 'No Aplica',
+                        quantity: dayData.posicionesAlmacenadas,
+                        unitOfMeasure: concept.unitOfMeasure,
+                        unitValue: concept.value,
+                        totalValue: dayData.posicionesAlmacenadas * concept.value,
+                    });
+                }
+            }
+        }
+    }
+
     const conceptOrder = [
         'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'ALISTAMIENTO POR UNIDAD', 'FMM DE INGRESO ZFPC', 'ARIN DE INGRESO ZFPC', 'FMM DE SALIDA ZFPC', 'FMM ZFPC',
         'ARIN DE SALIDA ZFPC', 'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
@@ -764,3 +810,4 @@ const timeToMinutes = (timeStr: string): number => {
     const [hours, minutes] = timeStr.split(':').map(Number);
     return hours * 60 + minutes;
 };
+
