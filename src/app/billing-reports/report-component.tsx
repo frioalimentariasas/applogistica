@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import * as React from 'react';
@@ -1159,15 +1160,15 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         ];
     
         const addHeaderAndTitle = (ws: ExcelJS.Worksheet, title: string, columns: any[]) => {
-            ws.addRow([]);
+            const titleRowNumber = ws.rowCount + 2;
             const titleRow = ws.addRow([title]);
             titleRow.font = { bold: true, size: 16 };
-            ws.mergeCells(2, 1, 2, columns.length);
+            ws.mergeCells(titleRowNumber, 1, titleRowNumber, columns.length);
             titleRow.getCell(1).alignment = { horizontal: 'center' };
         
             const clientRow = ws.addRow([`Cliente: ${settlementClient}`]);
             clientRow.font = { bold: true };
-            ws.mergeCells(clientRow.number, 1, clientRow.number, columns.length);
+            ws.mergeCells(ws.rowCount, 1, ws.rowCount, columns.length);
             clientRow.getCell(1).alignment = { horizontal: 'center' };
         
             if (settlementDateRange?.from && settlementDateRange.to) {
@@ -1200,7 +1201,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     
         addHeaderAndTitle(summaryWorksheet, "Resumen Liquidación", summaryColumns);
     
-        const summaryHeaderRow = summaryWorksheet.getRow(6);
+        const summaryHeaderRow = summaryWorksheet.getRow(summaryWorksheet.rowCount + 1);
         summaryHeaderRow.values = summaryColumns.map(c => c.header);
         summaryHeaderRow.eachCell((cell) => {
             cell.fill = headerFill;
@@ -1305,7 +1306,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         
         addHeaderAndTitle(detailWorksheet, "Detalle Liquidación", detailColumns);
         
-        const detailHeaderRow = detailWorksheet.getRow(6);
+        const detailHeaderRow = detailWorksheet.getRow(detailWorksheet.rowCount + 1);
         detailHeaderRow.values = detailColumns.map(c => c.header);
         detailHeaderRow.eachCell((cell) => {
             cell.fill = headerFill;
@@ -2567,7 +2568,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                         <TableCell className="text-right font-bold text-xs p-2">{row.totalValue.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
                                                                         <TableCell className="text-right p-1">
                                                                             {row.isEdited ? (
-                                                                                <Button variant="ghost" size="sm" onClick={() => handleRestoreRow(row.uniqueId)}>
+                                                                                <Button variant="ghost" size="sm" onClick={() => handleRestoreRow(row.uniqueId!)}>
                                                                                     <Undo2 className="mr-2 h-4 w-4" /> Restaurar
                                                                                 </Button>
                                                                             ) : (
