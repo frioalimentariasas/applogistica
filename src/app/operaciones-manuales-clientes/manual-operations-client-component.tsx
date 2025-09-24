@@ -9,7 +9,7 @@ import * as z from 'zod';
 import { format, parseISO, addDays, getDaysInMonth, getDay, isSaturday, isSunday, isWithinInterval, startOfDay, startOfMonth, differenceInMinutes, parse, differenceInHours } from 'date-fns';
 import { es } from 'date-fns/locale';
 
-import { addManualClientOperation, updateManualClientOperation, deleteManualClientOperation, addBulkManualClientOperation } from './actions';
+import { addManualClientOperation, updateManualClientOperation, deleteManualClientOperation, addBulkManualClientOperation, addBulkSimpleOperation } from './actions';
 import { getAllManualClientOperations } from '@/app/billing-reports/actions/generate-client-settlement';
 import type { ManualClientOperationData, ExcedentEntry } from './actions';
 import { useToast } from '@/hooks/use-toast';
@@ -88,7 +88,7 @@ const manualOperationSchema = z.object({
       fmmNumber: z.string().optional(),
   }).optional(),
 }).superRefine((data, ctx) => {
-    const isBulkMode = data.concept === 'TIEMPO EXTRA FRIOAL (FIJO)';
+    const isBulkMode = data.concept === 'TIEMPO EXTRA FRIOAL (FIJO)' || data.concept === 'ALQUILER DE ÁREA PARA EMPAQUE/DIA';
     const isTimeExtraMode = data.concept === 'TIEMPO EXTRA FRIOAL';
     const isPositionMode = data.concept === 'POSICIONES FIJAS CÁMARA CONGELADOS';
     const isFixedMonthlyService = isPositionMode || data.concept === 'IN-HOUSE INSPECTOR ZFPC' || data.concept === 'ALQUILER IMPRESORA ETIQUETADO';
@@ -100,7 +100,7 @@ const manualOperationSchema = z.object({
       if (!data.selectedDates || data.selectedDates.length === 0) {
           ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Debe seleccionar al menos una fecha.", path: ["selectedDates"] });
       }
-      if (!data.bulkRoles || data.bulkRoles.every(r => r.numPersonas === 0)) {
+      if (data.concept === 'TIEMPO EXTRA FRIOAL (FIJO)' && (!data.bulkRoles || data.bulkRoles.every(r => r.numPersonas === 0))) {
            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Debe ingresar al menos una persona en algún rol.", path: ["bulkRoles"] });
       }
     } else { // Not bulk mode
@@ -235,7 +235,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
 
     const selectedConceptInfo = useMemo(() => billingConcepts.find(c => c.conceptName === watchedConcept), [watchedConcept, billingConcepts]);
     
-    const isBulkMode = watchedConcept === 'TIEMPO EXTRA FRIOAL (FIJO)';
+    const isBulkMode = watchedConcept === 'TIEMPO EXTRA FRIOAL (FIJO)' || watchedConcept === 'ALQUILER DE ÁREA PARA EMPAQUE/DIA';
     const isTimeExtraMode = watchedConcept === 'TIEMPO EXTRA FRIOAL';
     const isPositionMode = watchedConcept === 'POSICIONES FIJAS CÁMARA CONGELADOS';
     const isElectricConnection = watchedConcept === 'CONEXIÓN ELÉCTRICA CONTENEDOR';
@@ -260,7 +260,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         // Reset specific fields based on concept type
         if (selectedConceptInfo?.tariffType !== 'ESPECIFICA') {
             form.setValue('specificTariffs', []);
-        } else if (isBulkMode && selectedConceptInfo?.specificTariffs) {
+        } else if (watchedConcept === 'TIEMPO EXTRA FRIOAL (FIJO)' && selectedConceptInfo?.specificTariffs) {
             const roles = [
                 { role: "SUPERVISOR", diurna: "HORA EXTRA DIURNA", nocturna: "HORA EXTRA NOCTURNA" },
                 { role: "MONTACARGUISTA TRILATERAL", diurna: "HORA EXTRA DIURNA", nocturna: "HORA EXTRA NOCTURNA" },
@@ -412,18 +412,33 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     
         try {
             let result;
-            const isBulk = data.concept === 'TIEMPO EXTRA FRIOAL (FIJO)';
+            const isBulkTime = data.concept === 'TIEMPO EXTRA FRIOAL (FIJO)';
+            const isBulkRent = data.concept === 'ALQUILER DE ÁREA PARA EMPAQUE/DIA';
+            const isBulk = isBulkTime || isBulkRent;
             
             if (isBulk && data.selectedDates && data.selectedDates.length > 0) {
-                const bulkData = {
-                    clientName: data.clientName,
-                    concept: data.concept,
-                    dates: data.selectedDates.map(d => format(d, 'yyyy-MM-dd')),
-                    roles: data.bulkRoles!.filter(r => r.numPersonas > 0),
-                    excedentes: data.excedentes || [],
-                    createdBy: { uid: user.uid, displayName: displayName || user.email! }
-                };
-                result = await addBulkManualClientOperation(bulkData);
+                if (isBulkTime) {
+                    const bulkData = {
+                        clientName: data.clientName,
+                        concept: data.concept,
+                        dates: data.selectedDates.map(d => format(d, 'yyyy-MM-dd')),
+                        roles: data.bulkRoles!.filter(r => r.numPersonas > 0),
+                        excedentes: data.excedentes || [],
+                        createdBy: { uid: user.uid, displayName: displayName || user.email! }
+                    };
+                    result = await addBulkManualClientOperation(bulkData);
+                } else { // isBulkRent
+                    const simpleBulkData = {
+                        clientName: data.clientName,
+                        concept: data.concept,
+                        dates: data.selectedDates.map(d => format(d, 'yyyy-MM-dd')),
+                        quantity: data.quantity!,
+                        details: data.details,
+                        comentarios: data.comentarios,
+                        createdBy: { uid: user.uid, displayName: displayName || user.email! }
+                    };
+                    result = await addBulkSimpleOperation(simpleBulkData);
+                }
                 if (!result.success) throw new Error(result.message);
 
             } else {
@@ -790,7 +805,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                             </Alert>
                                         )}
                                         
-                                        {selectedConceptInfo?.tariffType === 'ESPECIFICA' && isBulkMode && (
+                                        {selectedConceptInfo?.tariffType === 'ESPECIFICA' && watchedConcept === 'TIEMPO EXTRA FRIOAL (FIJO)' && (
                                             <div className="space-y-4">
                                                 <FormLabel className="text-base">Asignación de Personal</FormLabel>
                                                 {bulkRoleFields.map((field, index) => (

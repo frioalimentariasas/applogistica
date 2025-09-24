@@ -216,6 +216,58 @@ export async function addBulkManualClientOperation(data: BulkOperationData): Pro
     }
 }
 
+export interface SimpleBulkOperationData {
+    clientName: string;
+    concept: string;
+    dates: string[];
+    quantity: number;
+    details?: any;
+    comentarios?: string;
+    createdBy: {
+        uid: string;
+        displayName: string;
+    }
+}
+
+export async function addBulkSimpleOperation(data: SimpleBulkOperationData): Promise<{ success: boolean; message: string; count: number }> {
+    if (!firestore) {
+        return { success: false, message: 'El servidor no está configurado correctamente.', count: 0 };
+    }
+
+    try {
+        const { dates, ...restOfData } = data;
+        const batch = firestore.batch();
+        let operationsCount = 0;
+        
+        for (const dateString of dates) {
+            const localDate = new Date(dateString + 'T05:00:00.000Z');
+            const docRef = firestore.collection('manual_client_operations').doc();
+            
+            const operationData = {
+                ...restOfData,
+                operationDate: admin.firestore.Timestamp.fromDate(localDate),
+                createdAt: new Date().toISOString(),
+            };
+            batch.set(docRef, operationData);
+            operationsCount++;
+        }
+
+        if (operationsCount > 0) {
+            await batch.commit();
+        }
+
+        revalidatePath('/billing-reports');
+        revalidatePath('/operaciones-manuales-clientes');
+        
+        return { success: true, message: `Se crearon ${operationsCount} registros con éxito.`, count: operationsCount };
+
+    } catch (error) {
+        console.error('Error al agregar operaciones en lote:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Ocurrió un error desconocido.';
+        return { success: false, message: `Error del servidor: ${errorMessage}`, count: 0 };
+    }
+}
+
 
 export async function updateManualClientOperation(id: string, data: Omit<ManualClientOperationData, 'createdAt' | 'createdBy'>): Promise<{ success: boolean; message: string }> {
     if (!firestore) {
@@ -313,4 +365,3 @@ export async function deleteManualClientOperation(id: string): Promise<{ success
         return { success: false, message: `Error del servidor: ${errorMessage}` };
     }
 }
-
