@@ -172,6 +172,13 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
         .where('operationDate', '>=', serverQueryStartDate)
         .where('operationDate', '<=', serverQueryEndDate)
         .get();
+        
+    const clientArticlesSnapshot = await firestore.collection('articulos').where('razonSocial', '==', clientName).get();
+    const articleSessionMap = new Map<string, string>();
+    clientArticlesSnapshot.forEach(doc => {
+        const article = doc.data() as ArticuloData;
+        articleSessionMap.set(article.codigoProducto, article.sesion);
+    });
 
     const clientSubmissions = submissionsSnapshot.docs.filter(doc => {
         const docData = doc.data();
@@ -184,33 +191,36 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
 
     for (const concept of conceptsForClient) {
         if (concept.calculationType === 'REGLAS') {
-             // Special pre-check for movement concepts
-            if (concept.conceptName.includes('MOVIMIENTO')) {
-                const isSalida = concept.conceptName.includes('SALIDA');
-                const hasMovements = clientSubmissions.some(doc => {
-                    const formType = doc.data().formType as string;
-                    return isSalida 
-                        ? formType.includes('despacho') 
-                        : (formType.includes('recepcion') || formType.includes('reception'));
-                });
-                if (!hasMovements) continue; // Skip if no relevant movements
-            }
-
-            for (const doc of clientSubmissions) {
+            const hasApplicableOperation = clientSubmissions.some(doc => {
                 const submission = serializeTimestamps(doc.data());
+                
                 let opTypeMatch = false;
                 if (concept.filterOperationType === 'ambos') opTypeMatch = true;
                 else if (concept.filterOperationType === 'recepcion' && (submission.formType.includes('recepcion') || submission.formType.includes('reception'))) opTypeMatch = true;
                 else if (concept.filterOperationType === 'despacho' && submission.formType.includes('despacho')) opTypeMatch = true;
+                if (!opTypeMatch) return false;
 
                 let prodTypeMatch = false;
                 if (concept.filterProductType === 'ambos') prodTypeMatch = true;
                 else if (concept.filterProductType === 'fijo' && submission.formType.includes('fixed-weight')) prodTypeMatch = true;
                 else if (concept.filterProductType === 'variable' && submission.formType.includes('variable-weight')) prodTypeMatch = true;
+                if (!prodTypeMatch) return false;
+                
+                if (concept.filterSesion && concept.filterSesion !== 'AMBOS') {
+                    const items = submission.formData?.items || submission.formData?.productos || submission.formData?.destinos?.flatMap((d: any) => d.items) || submission.formData?.placas?.flatMap((p: any) => p.items) || [];
+                    const hasItemInSession = items.some((item: any) => {
+                        const itemSesion = articleSessionMap.get(item.codigo);
+                        return itemSesion === concept.filterSesion;
+                    });
+                    if (!hasItemInSession) return false;
+                }
 
-                if (opTypeMatch && prodTypeMatch && !applicableConcepts.has(concept.id)) {
+                return true; // All filters matched for this submission
+            });
+
+            if (hasApplicableOperation) {
+                if (!applicableConcepts.has(concept.id)) {
                     applicableConcepts.set(concept.id, concept);
-                    break; // Move to next concept once one match is found
                 }
             }
         } else if (concept.calculationType === 'OBSERVACION') {
@@ -237,13 +247,6 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
             if (!concept.inventorySesion) continue;
             
             const targetSesion = concept.inventorySesion;
-
-             const clientArticlesSnapshot = await firestore.collection('articulos').where('razonSocial', '==', clientName).get();
-            const articleSessionMap = new Map<string, string>();
-            clientArticlesSnapshot.forEach(doc => {
-                const article = doc.data() as ArticuloData;
-                articleSessionMap.set(article.codigoProducto, article.sesion);
-            });
 
             const hasMovementsInSession = clientSubmissions.some(doc => {
                 const submissionData = doc.data().formData;
@@ -873,3 +876,4 @@ const timeToMinutes = (timeStr: string): number => {
     
 
     
+
