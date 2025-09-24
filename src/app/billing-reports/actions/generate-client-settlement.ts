@@ -337,10 +337,10 @@ const calculatePalletsForOperation = (
     sessionFilter: 'CO' | 'RE' | 'SE' | 'AMBOS' | undefined,
     articleSessionMap: Map<string, string>
 ): number => {
-    const { formType, formData } = op;
+    const { formType } = op;
     const items = getFilteredItems(op, sessionFilter, articleSessionMap);
     if (items.length === 0) return 0;
-
+  
     if (formType?.startsWith('fixed-weight')) {
         return items.reduce((sum: number, p: any) => sum + (Number(p.totalPaletas) || Number(p.paletasCompletas) || 0), 0);
     }
@@ -482,20 +482,20 @@ export async function generateClientSettlement(criteria: {
                 return acc;
             }, {} as Record<string, number>);
 
-            for (const [date, totalPallets] of Object.entries(palletsByDate)) {
+            for (const [date, totalPalletsForDay] of Object.entries(palletsByDate)) {
                  settlementRows.push({
                     date: date,
                     container: 'N/A',
                     camara: 'SE',
-                    totalPaletas,
+                    totalPaletas: totalPalletsForDay,
                     operacionLogistica: 'MAQUILA SALIDA (SECO)',
                     pedidoSislog: 'Varios',
                     conceptName: concept.conceptName,
                     tipoVehiculo: 'No Aplica',
-                    quantity: totalPallets,
+                    quantity: totalPalletsForDay,
                     unitOfMeasure: 'PALETA',
                     unitValue: concept.value || 0,
-                    totalValue: totalPallets * (concept.value || 0),
+                    totalValue: totalPalletsForDay * (concept.value || 0),
                 });
             }
             continue; // Skip normal processing for this concept
@@ -615,14 +615,13 @@ export async function generateClientSettlement(criteria: {
             for (const op of relevantOps) {
                 const obs = (op.data.formData.observaciones as any[]).find(o => o.type === concept.associatedObservation);
                 const quantity = Number(obs?.quantity) || 0;
-                 const totalPallets = calculatePalletsForOperation(op.data, undefined, articleSessionMap);
 
                 if (quantity > 0) {
                     settlementRows.push({
                         date: op.data.formData.fecha,
                         container: op.data.formData.contenedor || 'N/A',
                         camara: 'N/A',
-                        totalPaletas: 0, // Pallets not counted for observations
+                        totalPaletas: 0, 
                         operacionLogistica: 'No Aplica',
                         pedidoSislog: op.data.formData.pedidoSislog,
                         conceptName: concept.conceptName,
@@ -916,6 +915,7 @@ const timeToMinutes = (timeStr: string): number => {
     
 
     
+
 
 
 
