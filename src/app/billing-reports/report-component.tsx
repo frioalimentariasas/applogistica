@@ -1168,7 +1168,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         
             const clientRow = ws.addRow([`Cliente: ${settlementClient}`]);
             clientRow.font = { bold: true };
-            ws.mergeCells(3, 1, 3, columns.length);
+            ws.mergeCells(clientRow.number, 1, clientRow.number, columns.length);
             clientRow.getCell(1).alignment = { horizontal: 'center' };
         
             if (settlementDateRange?.from && settlementDateRange.to) {
@@ -1505,7 +1505,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         }, {} as Record<string, { rows: ClientSettlementRow[], subtotalValor: number, order: number }>);
     
         const sortedConceptKeys = Object.keys(groupedByConcept).sort((a, b) => {
-            const orderA = groupedByConcept[a].order === -1 ? Infinity : groupedByConcept[a].order;
+            const orderA = groupedByConcept[a].order === -1 ? Infinity : a.order;
             const orderB = groupedByConcept[b].order === -1 ? Infinity : b.order;
             if (orderA !== orderB) return orderA - orderB;
             return a.localeCompare(b);
@@ -2730,6 +2730,8 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 
 
     
+
+
 
 
 
