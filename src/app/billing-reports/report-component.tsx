@@ -1160,10 +1160,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         ];
     
         const addHeaderAndTitle = (ws: ExcelJS.Worksheet, title: string, columns: any[]) => {
-            const headerRowNumber = 5;
-            ws.columns = columns.map(c => ({ key: c.key, width: c.width }));
-            ws.getRow(1).hidden = true;
-        
             // Add title at row 2, merge, and center
             const titleRow = ws.getRow(2);
             titleRow.getCell(1).value = title;
@@ -1204,6 +1200,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             { header: 'Valor Total', key: 'totalValue', width: 20 },
         ];
         
+        summaryWorksheet.columns = summaryColumns.map(c => ({ key: c.key, width: c.width }));
+        summaryWorksheet.getRow(1).hidden = true; // Ocultar la fila de encabezados generada automáticamente
         addHeaderAndTitle(summaryWorksheet, "Resumen Liquidación", summaryColumns);
     
         const summaryHeaderRow = summaryWorksheet.getRow(5);
@@ -1293,6 +1291,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             { header: 'Detalle Concepto', key: 'subConceptName', width: 40 },
             { header: 'No. Personas', key: 'numeroPersonas', width: 15 },
             { header: 'Total Paletas', key: 'totalPaletas', width: 15 },
+            { header: 'Placa', key: 'placa', width: 15 },
             { header: 'Contenedor', key: 'container', width: 20 },
             { header: 'Cámara', key: 'camara', width: 20 },
             { header: 'Pedido SISLOG', key: 'pedidoSislog', width: 20 },
@@ -1306,6 +1305,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             { header: 'Valor Total', key: 'totalValue', width: 20 },
         ];
     
+        detailWorksheet.columns = detailColumns.map(c => ({ key: c.key, width: c.width }));
+        detailWorksheet.getRow(1).hidden = true;
         addHeaderAndTitle(detailWorksheet, "Detalle Liquidación", detailColumns);
         
         const detailHeaderRow = detailWorksheet.getRow(5);
@@ -1345,6 +1346,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                     subConceptName: row.subConceptName,
                     numeroPersonas: row.numeroPersonas,
                     totalPaletas: row.totalPaletas > 0 ? row.totalPaletas : '',
+                    placa: row.placa,
                     container: row.container,
                     camara: getSessionName(row.camara),
                     pedidoSislog: row.pedidoSislog,
@@ -1533,20 +1535,20 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
         const detailBody: any[] = [];
         sortedConceptKeys.forEach(conceptName => {
-             detailBody.push([{ content: conceptName, colSpan: 15, styles: { fontStyle: 'bold', fillColor: '#dceaf5', textColor: '#000' } }]);
+             detailBody.push([{ content: conceptName, colSpan: 16, styles: { fontStyle: 'bold', fillColor: '#dceaf5', textColor: '#000' } }]);
              const sortedRows = groupedByConcept[conceptName].rows.sort((a,b) => new Date(a.date).getTime() - new Date(b.date).getTime());
              sortedRows.forEach(row => {
                  detailBody.push([
                     format(parseISO(row.date), 'dd/MM/yyyy'),
                     row.subConceptName || '', row.numeroPersonas || '', row.totalPaletas > 0 ? row.totalPaletas : '', getSessionName(row.camara),
-                    row.container, row.pedidoSislog, row.operacionLogistica, row.tipoVehiculo, formatTime12Hour(row.horaInicio),
+                    row.placa, row.container, row.pedidoSislog, row.operacionLogistica, row.tipoVehiculo, formatTime12Hour(row.horaInicio),
                     formatTime12Hour(row.horaFin), row.quantity.toLocaleString('es-CO', { minimumFractionDigits: 2 }),
                     row.unitOfMeasure, row.unitValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }),
                     row.totalValue.toLocaleString('es-CO', { style: 'currency', currency: 'COP' })
                 ]);
              });
              detailBody.push([
-                { content: `Subtotal ${conceptName}:`, colSpan: 11, styles: { halign: 'right', fontStyle: 'bold' } },
+                { content: `Subtotal ${conceptName}:`, colSpan: 12, styles: { halign: 'right', fontStyle: 'bold' } },
                 { content: groupedByConcept[conceptName].subtotalCantidad.toLocaleString('es-CO', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold' } },
                 { content: '', colSpan: 2 },
                 { content: groupedByConcept[conceptName].subtotalValor.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold' } }
@@ -1554,10 +1556,10 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         });
     
         autoTable(doc, {
-            head: [['Fecha', 'Detalle', 'Pers.', 'Pal.', 'Cámara', 'Contenedor', 'Pedido', 'Op. Log.', 'T. Vehículo', 'H. Inicio', 'H. Fin', 'Cant.', 'Unidad', 'Vlr. Unit.', 'Vlr. Total']],
+            head: [['Fecha', 'Detalle', 'Pers.', 'Pal.', 'Cámara', 'Placa', 'Contenedor', 'Pedido', 'Op. Log.', 'T. Vehículo', 'H. Inicio', 'H. Fin', 'Cant.', 'Unidad', 'Vlr. Unit.', 'Vlr. Total']],
             body: detailBody,
             foot: [[
-                { content: 'TOTAL GENERAL:', colSpan: 11, styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } },
+                { content: 'TOTAL GENERAL:', colSpan: 12, styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } },
                 { content: totalGeneralQuantity.toLocaleString('es-CO', { minimumFractionDigits: 2 }), styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } },
                 { content: '', colSpan: 2, styles: {fillColor: [26, 144, 200]} },
                 { content: settlementTotalGeneral.toLocaleString('es-CO', { style: 'currency', currency: 'COP' }), styles: { halign: 'right', fontStyle: 'bold', fillColor: [26, 144, 200], textColor: '#ffffff' } }
@@ -1566,7 +1568,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             pageBreak: 'auto',
             headStyles: { fillColor: [26, 144, 200], fontSize: 6, cellPadding: 1 },
             styles: { fontSize: 6, cellPadding: 1 },
-            columnStyles: { 11: { halign: 'right' }, 13: { halign: 'right' }, 14: { halign: 'right' } },
+            columnStyles: { 12: { halign: 'right' }, 14: { halign: 'right' }, 15: { halign: 'right' } },
             footStyles: { fontStyle: 'bold' }
         });
     
@@ -2527,6 +2529,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                     <TableHead className="text-xs p-2">Concepto</TableHead>
                                                     <TableHead className="text-xs p-2">No. Personas</TableHead>
                                                     <TableHead className="text-xs p-2">Total Paletas</TableHead>
+                                                    <TableHead className="text-xs p-2">Placa</TableHead>
                                                     <TableHead className="text-xs p-2">Cámara</TableHead>
                                                     <TableHead className="text-xs p-2">Contenedor</TableHead>
                                                     <TableHead className="text-xs p-2">Pedido SISLOG</TableHead>
@@ -2543,13 +2546,13 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                             </TableHeader>
                                             <TableBody>
                                                 {isSettlementLoading ? (
-                                                    Array.from({length: 3}).map((_, i) => <TableRow key={i}><TableCell colSpan={16}><Skeleton className="h-8 w-full"/></TableCell></TableRow>)
+                                                    Array.from({length: 3}).map((_, i) => <TableRow key={i}><TableCell colSpan={17}><Skeleton className="h-8 w-full"/></TableCell></TableRow>)
                                                 ) : settlementGroupedData && Object.keys(settlementGroupedData).length > 0 ? (
                                                     <>
                                                         {Object.keys(settlementGroupedData).map(conceptName => (
                                                             <React.Fragment key={conceptName}>
                                                                 <TableRow className="bg-muted hover:bg-muted">
-                                                                    <TableCell colSpan={16} className="font-bold text-primary text-sm p-2">{conceptName}</TableCell>
+                                                                    <TableCell colSpan={17} className="font-bold text-primary text-sm p-2">{conceptName}</TableCell>
                                                                 </TableRow>
                                                                 {settlementGroupedData[conceptName].rows.map((row) => (
                                                                     <TableRow key={row.uniqueId} data-state={row.isEdited ? "edited" : ""}>
@@ -2557,6 +2560,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                         <TableCell className="text-xs p-2 whitespace-normal">{row.subConceptName}</TableCell>
                                                                         <TableCell className="text-xs p-2">{row.numeroPersonas || ''}</TableCell>
                                                                         <TableCell className="text-xs p-2">{row.totalPaletas > 0 ? row.totalPaletas : ''}</TableCell>
+                                                                        <TableCell className="text-xs p-2">{row.placa}</TableCell>
                                                                         <TableCell className="text-xs p-2">{getSessionName(row.camara)}</TableCell>
                                                                         <TableCell className="text-xs p-2">{row.container}</TableCell>
                                                                         <TableCell className="text-xs p-2">{row.pedidoSislog}</TableCell>
@@ -2582,7 +2586,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                     </TableRow>
                                                                 ))}
                                                                 <TableRow className="bg-secondary hover:bg-secondary/80 font-bold">
-                                                                    <TableCell colSpan={11} className="text-right text-xs p-2">SUBTOTAL {conceptName}:</TableCell>
+                                                                    <TableCell colSpan={12} className="text-right text-xs p-2">SUBTOTAL {conceptName}:</TableCell>
                                                                     <TableCell className="text-xs p-2 text-right">{settlementGroupedData[conceptName].subtotalCantidad.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
                                                                     <TableCell colSpan={2} className="text-xs p-2"></TableCell>
                                                                     <TableCell className="text-right text-xs p-2" colSpan={2}>{settlementGroupedData[conceptName].subtotalValor.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
@@ -2590,14 +2594,14 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                             </React.Fragment>
                                                         ))}
                                                         <TableRow className="bg-primary hover:bg-primary text-primary-foreground font-bold text-base">
-                                                            <TableCell colSpan={11} className="text-right p-2">TOTAL GENERAL:</TableCell>
+                                                            <TableCell colSpan={12} className="text-right p-2">TOTAL GENERAL:</TableCell>
                                                             <TableCell className="text-right p-2">{settlementReportData.reduce((sum, row) => sum + row.quantity, 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
                                                             <TableCell colSpan={2}></TableCell>
                                                             <TableCell className="text-right p-2" colSpan={2}>{settlementTotalGeneral.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
                                                         </TableRow>
                                                     </>
                                                 ) : (
-                                                    <TableRow><TableCell colSpan={16} className="h-24 text-center">No se encontraron datos para liquidar.</TableCell></TableRow>
+                                                    <TableRow><TableCell colSpan={17} className="h-24 text-center">No se encontraron datos para liquidar.</TableCell></TableRow>
                                                 )}
                                             </TableBody>
                                         </Table>
@@ -2771,3 +2775,4 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 
 
     
+

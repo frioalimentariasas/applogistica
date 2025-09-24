@@ -39,6 +39,7 @@ export async function getAllManualClientOperations(): Promise<any[]> {
 export interface ClientSettlementRow {
   date: string;
   totalPaletas: number;
+  placa: string;
   container: string;
   camara: string;
   operacionLogistica: string;
@@ -477,25 +478,29 @@ export async function generateClientSettlement(criteria: {
                 const date = op.formData.fecha.split('T')[0];
                 const pallets = Number(op.formData.salidaPaletasMaquilaSE) || 0;
                 if (pallets > 0) {
-                    acc[date] = (acc[date] || 0) + pallets;
+                    if (!acc[date]) {
+                        acc[date] = { total: 0, placa: op.formData.placa || 'N/A' };
+                    }
+                    acc[date].total += pallets;
                 }
                 return acc;
-            }, {} as Record<string, number>);
+            }, {} as Record<string, { total: number, placa: string }>);
 
-            for (const [date, totalPalletsForDay] of Object.entries(palletsByDate)) {
+            for (const [date, data] of Object.entries(palletsByDate)) {
                  settlementRows.push({
                     date: date,
+                    placa: data.placa,
                     container: 'N/A',
                     camara: 'SE',
-                    totalPaletas: totalPalletsForDay,
+                    totalPaletas: data.total,
                     operacionLogistica: 'MAQUILA SALIDA (SECO)',
                     pedidoSislog: 'Varios',
                     conceptName: concept.conceptName,
                     tipoVehiculo: 'No Aplica',
-                    quantity: totalPalletsForDay,
+                    quantity: data.total,
                     unitOfMeasure: 'PALETA',
                     unitValue: concept.value || 0,
-                    totalValue: totalPalletsForDay * (concept.value || 0),
+                    totalValue: data.total * (concept.value || 0),
                 });
             }
             continue; // Skip normal processing for this concept
@@ -586,6 +591,7 @@ export async function generateClientSettlement(criteria: {
 
             settlementRows.push({
                 date: op.formData.fecha,
+                placa: op.formData.placa || 'N/A',
                 container: op.formData.contenedor || 'N/A',
                 camara,
                 totalPaletas: totalPallets,
@@ -619,6 +625,7 @@ export async function generateClientSettlement(criteria: {
                 if (quantity > 0) {
                     settlementRows.push({
                         date: op.data.formData.fecha,
+                        placa: op.data.formData.placa || 'N/A',
                         container: op.data.formData.contenedor || 'N/A',
                         camara: 'N/A',
                         totalPaletas: 0, 
@@ -681,6 +688,7 @@ export async function generateClientSettlement(criteria: {
                                             date, 
                                             conceptName: concept.conceptName,
                                             subConceptName: diurnaTariff.name,
+                                            placa: opData.details?.plate || 'No Aplica',
                                             container: opData.details?.container || 'No Aplica',
                                             totalPaletas: opData.details?.totalPallets || 0,
                                             camara: 'No Aplica', operacionLogistica: 'No Aplica', pedidoSislog: 'Fijo Mensual', tipoVehiculo: 'No Aplica',
@@ -707,6 +715,7 @@ export async function generateClientSettlement(criteria: {
                                             date, 
                                             conceptName: concept.conceptName,
                                             subConceptName: nocturnaTariff.name,
+                                            placa: opData.details?.plate || 'No Aplica',
                                             container: opData.details?.container || 'No Aplica',
                                             totalPaletas: opData.details?.totalPallets || 0,
                                             camara: 'No Aplica', operacionLogistica: 'No Aplica', pedidoSislog: 'Fijo Mensual', tipoVehiculo: 'No Aplica',
@@ -733,6 +742,7 @@ export async function generateClientSettlement(criteria: {
                                 if (quantityForCalc > 0) {
                                     settlementRows.push({
                                         date,
+                                        placa: opData.details?.plate || 'No Aplica',
                                         container: opData.details?.container || 'No Aplica',
                                         totalPaletas: opData.details?.totalPallets || 0,
                                         camara: 'Congelados',
@@ -768,6 +778,7 @@ export async function generateClientSettlement(criteria: {
                                 if (totalValue > 0) {
                                     settlementRows.push({
                                         date,
+                                        placa: opData.details?.plate || 'No Aplica',
                                         container: opData.details?.container || 'No Aplica',
                                         totalPaletas: opData.details?.totalPallets || 0,
                                         camara: 'No Aplica',
@@ -805,6 +816,7 @@ export async function generateClientSettlement(criteria: {
 
                          settlementRows.push({
                             date,
+                            placa: opData.details?.plate || 'No Aplica',
                             container: opData.details?.container || 'No Aplica',
                             totalPaletas: opData.details?.totalPallets || 0,
                             camara: 'No Aplica',
@@ -842,6 +854,7 @@ export async function generateClientSettlement(criteria: {
                 if (dayData.posicionesAlmacenadas > 0) {
                     settlementRows.push({
                         date: dayData.date,
+                        placa: 'N/A',
                         container: 'N/A',
                         camara: concept.inventorySesion,
                         totalPaletas: dayData.posicionesAlmacenadas,
@@ -863,7 +876,7 @@ export async function generateClientSettlement(criteria: {
         'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'ALISTAMIENTO POR UNIDAD', 'FMM DE INGRESO ZFPC', 'ARIN DE INGRESO ZFPC', 'FMM DE SALIDA ZFPC', 'FMM ZFPC',
         'ARIN DE SALIDA ZFPC', 'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
         'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'ESTIBA MADERA RECICLADA',
-        'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA ZFPC', 'TIEMPO EXTRA FRIOAL',
+        'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA ZFPC',
         'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO', 'ALMACENAMIENTO PRODUCTOS CONGELADOS -PALLET/DIA (-18°C A -25°C)', 'ALMACENAMIENTO PRODUCTOS REFRIGERADOS -PALLET/DIA (0°C A 4ºC'
     ];
     
@@ -915,6 +928,7 @@ const timeToMinutes = (timeStr: string): number => {
     
 
     
+
 
 
 
