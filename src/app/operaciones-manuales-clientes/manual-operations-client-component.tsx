@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -86,6 +87,8 @@ const manualOperationSchema = z.object({
       horaSalida: z.string().regex(/^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$/, 'Formato HH:MM requerido.').optional().or(z.literal('')),
       opLogistica: z.enum(['CARGUE', 'DESCARGUE']).optional(),
       fmmNumber: z.string().optional(),
+      pedidoSislog: z.string().optional(),
+      noDocumento: z.string().max(20, "Máximo 20 caracteres.").optional(),
   }).optional(),
 }).superRefine((data, ctx) => {
     const isBulkMode = data.concept === 'TIEMPO EXTRA FRIOAL (FIJO)' || data.concept === 'ALQUILER DE ÁREA PARA EMPAQUE/DIA' || data.concept === 'SERVICIO APOYO JORNAL';
@@ -211,6 +214,8 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 arin: '',
                 opLogistica: undefined,
                 fmmNumber: '',
+                pedidoSislog: '',
+                noDocumento: '',
             },
             bulkRoles: [],
             excedentes: [],
@@ -241,7 +246,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     const isElectricConnection = watchedConcept === 'CONEXIÓN ELÉCTRICA CONTENEDOR';
     const isInspection = watchedConcept === 'INSPECCIÓN ZFPC';
     const isFixedMonthlyService = isPositionMode || watchedConcept === 'IN-HOUSE INSPECTOR ZFPC' || watchedConcept === 'ALQUILER IMPRESORA ETIQUETADO';
-    const showNumeroPersonas = selectedConceptInfo?.tariffType === 'ESPECIFICA' && !isBulkMode && !isPositionMode;
+    const showNumeroPersonas = selectedConceptInfo?.tariffType === 'ESPECIFICA' && !isBulkMode && !isPositionMode && watchedConcept !== 'TIEMPO EXTRA ZFPC' && watchedConcept !== 'SERVICIO DE TUNEL DE CONGELACION RAPIDA';
     const isFmmZfpc = watchedConcept === 'FMM ZFPC';
     const isFmmConcept = watchedConcept === 'FMM DE INGRESO ZFPC' || watchedConcept === 'FMM DE SALIDA ZFPC';
     const showAdvancedFields = ['INSPECCIÓN ZFPC', 'TIEMPO EXTRA ZFPC'].includes(watchedConcept);
@@ -331,19 +336,23 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     }, [fetchAllOperations]);
     
     const handleSearch = useCallback((operations: any[]) => {
-        if (!selectedDate) {
+        if (!dateRange || !dateRange.from || !dateRange.to) {
             toast({
                 variant: 'destructive',
-                title: 'Fecha Requerida',
-                description: 'Por favor, seleccione una fecha para realizar la consulta.'
+                title: 'Rango de Fecha Requerido',
+                description: 'Por favor, seleccione un rango de fechas para la consulta.'
             });
             return;
         }
 
         let results = operations;
+
+        const start = startOfDay(dateRange.from);
+        const end = endOfDay(dateRange.to);
+        
         results = results.filter(op => {
             const opDate = op.startDate ? new Date(op.startDate) : parseISO(op.operationDate);
-            return format(opDate, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd');
+            return isWithinInterval(opDate, { start, end });
         });
 
         if (selectedClient !== 'all') {
@@ -353,6 +362,8 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
             results = results.filter(op => op.concept === selectedConcept);
         }
         
+        results.sort((a, b) => new Date(a.operationDate).getTime() - new Date(b.operationDate).getTime());
+
         setSearched(true);
         setFilteredOperations(results);
         
@@ -362,10 +373,10 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 description: "No se encontraron operaciones con los filtros seleccionados."
             });
         }
-    }, [selectedClient, selectedConcept, selectedDate, toast]);
+    }, [selectedClient, selectedConcept, dateRange, toast]);
     
     const handleClearFilters = () => {
-        setSelectedDate(undefined);
+        setDateRange(undefined);
         setSelectedClient('all');
         setSelectedConcept('all');
         setFilteredOperations([]);
@@ -397,7 +408,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 specificTariffs: [],
                 numeroPersonas: 1,
                 comentarios: "",
-                details: { startTime: '', endTime: '', plate: '', container: '', totalPallets: null, arin: '', opLogistica: undefined, fmmNumber: '' },
+                details: { startTime: '', endTime: '', plate: '', container: '', totalPallets: null, arin: '', opLogistica: undefined, fmmNumber: '', pedidoSislog: '', noDocumento: '' },
                 bulkRoles: [],
                 excedentes: [],
                 selectedDates: [],
@@ -480,7 +491,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
             setIsDialogOpen(false);
             form.reset();
             const updatedOps = await fetchAllOperations();
-            if (searched && selectedDate) {
+            if (searched && dateRange) {
                 handleSearch(updatedOps);
             }
     
@@ -499,7 +510,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         if (result.success) {
             toast({ title: 'Éxito', description: result.message });
             const updatedOps = await fetchAllOperations();
-             if (searched && selectedDate) {
+             if (searched && dateRange) {
                 handleSearch(updatedOps);
             }
         } else {
@@ -607,15 +618,26 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                     <CardContent>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 items-end mb-6 p-4 border rounded-lg bg-muted/50">
                              <div className="space-y-2">
-                                <Label>Fecha <span className="text-destructive">*</span></Label>
+                                <Label>Rango de Fechas <span className="text-destructive">*</span></Label>
                                 <Popover>
                                     <PopoverTrigger asChild>
-                                        <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !selectedDate && "text-muted-foreground")}>
+                                        <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !dateRange && "text-muted-foreground")}>
                                             <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {selectedDate ? format(selectedDate, "PPP", { locale: es }) : <span>Seleccione una fecha</span>}
+                                            {dateRange?.from ? (
+                                                dateRange.to ? (
+                                                <>
+                                                    {format(dateRange.from, "LLL dd, y", { locale: es })} -{" "}
+                                                    {format(dateRange.to, "LLL dd, y", { locale: es })}
+                                                </>
+                                                ) : (
+                                                format(dateRange.from, "LLL dd, y", { locale: es })
+                                                )
+                                            ) : (
+                                                <span>Seleccione un rango</span>
+                                            )}
                                         </Button>
                                     </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={selectedDate} onSelect={setSelectedDate} initialFocus /></PopoverContent>
+                                    <PopoverContent className="w-auto p-0"><Calendar mode="range" selected={dateRange} onSelect={setDateRange} initialFocus numberOfMonths={2} /></PopoverContent>
                                 </Popover>
                             </div>
                              <div className="space-y-2">
@@ -627,7 +649,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                 <Select value={selectedConcept} onValueChange={setSelectedConcept}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Todos los Conceptos</SelectItem>{billingConcepts.filter(c => c.calculationType === 'MANUAL' || c.conceptName === "MOVIMIENTO ENTRADA PRODUCTOS - PALLET" || c.conceptName === "MOVIMIENTO SALIDA PRODUCTOS - PALLET").map(c => <SelectItem key={c.id} value={c.conceptName}>{c.conceptName}</SelectItem>)}</SelectContent></Select>
                             </div>
                             <div className="flex items-end gap-2 xl:col-span-2">
-                                <Button onClick={() => handleSearch(allOperations)} disabled={!selectedDate || isLoading} className="w-full">
+                                <Button onClick={() => handleSearch(allOperations)} disabled={!dateRange || isLoading} className="w-full">
                                     <Search className="mr-2 h-4 w-4" />
                                     Consultar
                                 </Button>
@@ -855,7 +877,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                             />
                                         )}
                                         
-                                        {(showAdvancedFields || dialogMode === 'view' || isElectricConnection || isFmmConcept || isFmmZfpc || showTimeExtraFields) && !isFmmZfpc && (
+                                        {(showAdvancedFields || dialogMode === 'view' || isElectricConnection || isFmmZfpc || isFmmConcept || showTimeExtraFields) && !isFmmZfpc && (
                                             <>
                                                 <Separator />
                                                 <p className="text-sm font-medium text-muted-foreground">Detalles Adicionales</p>
@@ -883,8 +905,16 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                         <FormField control={form.control} name="details.fmmNumber" render={({ field }) => (<FormItem><FormLabel># FMM</FormLabel><FormControl><Input placeholder="Número de FMM" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
                                                     </>
                                                 )}
-
+                                                
                                                 <FormField control={form.control} name="details.totalPallets" render={({ field }) => (<FormItem><FormLabel>Total Paletas</FormLabel><FormControl><Input type="number" step="1" placeholder="Ej: 10" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value === '' ? null : parseInt(e.target.value, 10))}/></FormControl><FormMessage /></FormItem>)}/>
+                                            
+                                                {(watchedConcept === 'SERVICIO DE TUNEL DE CONGELACION RAPIDA') && (
+                                                    <>
+                                                        <FormField control={form.control} name="details.pedidoSislog" render={({ field }) => (<FormItem><FormLabel>Pedido Sislog</FormLabel><FormControl><Input placeholder="Pedido Sislog" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
+                                                        <FormField control={form.control} name="details.plate" render={({ field }) => (<FormItem><FormLabel>Placa</FormLabel><FormControl><Input placeholder="Placa" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
+                                                        <FormField control={form.control} name="details.noDocumento" render={({ field }) => (<FormItem><FormLabel>No. Documento</FormLabel><FormControl><Input placeholder="No. Documento (máx. 20)" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} maxLength={20} /></FormControl><FormMessage /></FormItem>)} />
+                                                    </>
+                                                )}
                                             </>
                                         )}
                                         {isFmmZfpc && (
@@ -1139,8 +1169,3 @@ const ExcedentManager = () => {
         </div>
     )
 }
-
-    
-
-    
-

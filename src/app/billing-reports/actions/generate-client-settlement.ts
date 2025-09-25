@@ -814,15 +814,9 @@ export async function generateClientSettlement(criteria: {
                     opData.specificTariffs.forEach((appliedTariff: { tariffId: string, quantity: number }) => {
                         const specificTariff = concept.specificTariffs?.find(t => t.id === appliedTariff.tariffId);
                         if (specificTariff) {
-                            let totalValue: number;
-                            const isHourly = specificTariff.unit.includes('HORA');
+                            const quantityForCalc = opData.quantity || appliedTariff.quantity || 0;
+                            let totalValue = quantityForCalc * (specificTariff.value || 0) * (opData.numeroPersonas || 1);
                             
-                            if (isHourly) {
-                                totalValue = (opData.quantity || 0) * (specificTariff.value || 0);
-                            } else {
-                                totalValue = (specificTariff.value || 0) * (opData.numeroPersonas || 1);
-                            }
-
                             if (totalValue > 0) {
                                 settlementRows.push({
                                     date,
@@ -831,12 +825,12 @@ export async function generateClientSettlement(criteria: {
                                     totalPaletas: opData.details?.totalPallets || 0,
                                     camara: 'No Aplica',
                                     operacionLogistica: 'No Aplica',
-                                    pedidoSislog: 'No Aplica',
+                                    pedidoSislog: opData.details?.pedidoSislog || 'No Aplica',
                                     conceptName: concept.conceptName,
                                     subConceptName: specificTariff.name,
                                     tipoVehiculo: 'No Aplica',
-                                    quantity: opData.quantity,
-                                    unitOfMeasure: specificTariff.unit,
+                                    quantity: quantityForCalc,
+                                    unitOfMeasure: concept.unitOfMeasure, // Main concept unit
                                     unitValue: specificTariff.value || 0,
                                     totalValue: totalValue,
                                     horaInicio: horaInicio,
@@ -848,6 +842,11 @@ export async function generateClientSettlement(criteria: {
                     });
                 } else if (concept.tariffType === 'UNICA') {
                      let quantityForCalc = opData.quantity || 0;
+                     
+                     if (concept.conceptName === 'SERVICIO DE TUNEL DE CONGELACION RAPIDA') {
+                         quantityForCalc = opData.quantity
+                     }
+
                      let totalValue = quantityForCalc * (concept.value || 0);
                      
                      if(concept.conceptName === 'IN-HOUSE INSPECTOR ZFPC' || concept.conceptName === 'ALQUILER IMPRESORA ETIQUETADO') {
@@ -861,15 +860,18 @@ export async function generateClientSettlement(criteria: {
                      if (opData.details?.opLogistica && opData.details?.fmmNumber) {
                         operacionLogistica = `${opData.details.opLogistica} - #${opData.details.fmmNumber}`;
                      }
+                     
+                     const noDocumento = opData.details?.noDocumento;
+                     const containerValue = noDocumento || opData.details?.container || 'No Aplica';
 
                      settlementRows.push({
                         date,
                         placa: opData.details?.plate || 'No Aplica',
-                        container: opData.details?.container || 'No Aplica',
+                        container: containerValue,
                         totalPaletas: opData.details?.totalPallets || 0,
                         camara: 'No Aplica',
                         operacionLogistica,
-                        pedidoSislog: 'No Aplica',
+                        pedidoSislog: opData.details?.pedidoSislog || 'No Aplica',
                         conceptName: concept.conceptName,
                         tipoVehiculo: opData.details?.plate || 'No Aplica',
                         quantity: quantityForCalc,
@@ -966,23 +968,3 @@ const timeToMinutes = (timeStr: string): number => {
     const [hours, minutes] = timeStr.split(':').map(Number);
     return hours * 60 + minutes;
 };
-
-
-
-
-
-
-    
-
-    
-
-
-
-
-
-
-
-
-
-
-    
