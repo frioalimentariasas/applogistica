@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -274,7 +275,7 @@ export async function updateManualClientOperation(id: string, data: Omit<ManualC
     }
 
     try {
-        const { details, operationDate, startDate, endDate, ...restOfData } = data;
+        const { details, operationDate, startDate, endDate, createdBy, ...restOfData } = data;
         let finalSpecificTariffs: { tariffId: string; quantity: number }[] = [];
 
         if (data.concept === 'TIEMPO EXTRA FRIOAL (FIJO)') {
