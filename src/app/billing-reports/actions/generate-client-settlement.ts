@@ -9,6 +9,7 @@ import admin from 'firebase-admin';
 import { startOfDay, endOfDay, parseISO, differenceInHours, getDaysInMonth, getDay, format, addMinutes, addHours } from 'date-fns';
 import type { ArticuloData } from '@/app/actions/articulos';
 import { getConsolidatedMovementReport } from '@/app/actions/consolidated-movement-report';
+import { processTunelCongelacionData } from '@/lib/report-utils';
 
 
 export async function getAllManualClientOperations(): Promise<any[]> {
@@ -348,10 +349,9 @@ const calculatePalletsForOperation = (
   const items = getFilteredItems(op, sessionFilter, articleSessionMap);
   if (items.length === 0) return 0;
 
-  if(formData.tipoPedido === 'TUNEL DE CONGELACIÓN' && formData.recepcionPorPlaca) {
-      const allPlacaItems = (formData.placas || []).flatMap((p: any) => p.items || []);
-      const uniquePallets = new Set(allPlacaItems.map((i: any) => i.paleta).filter(Boolean));
-      return uniquePallets.size;
+  if (formData.tipoPedido === 'TUNEL DE CONGELACIÓN' && formData.recepcionPorPlaca) {
+      const { totalGeneralPaletas } = processTunelCongelacionData(formData);
+      return totalGeneralPaletas;
   }
   
   if (formType?.startsWith('fixed-weight')) {
@@ -480,43 +480,6 @@ export async function generateClientSettlement(criteria: {
     const ruleConcepts = selectedConcepts.filter(c => c.calculationType === 'REGLAS');
 
     for (const concept of ruleConcepts) {
-        // Special case for AVICOLA EL MADROÑO S.A.
-        if (concept.conceptName === 'MOVIMIENTO SALIDA PRODUCTOS - PALLET' && clientName === 'AVICOLA EL MADROÑO S.A.') {
-            const maquilaReceptions = allOperations
-                .filter(op => op.type === 'form' && op.data.formType.includes('reception') && op.data.formData.tipoPedido === 'MAQUILA')
-                .map(op => op.data);
-
-            const palletsByDate = maquilaReceptions.reduce((acc, op) => {
-                const date = op.formData.fecha.split('T')[0];
-                const pallets = Number(op.formData.salidaPaletasMaquilaSE) || 0;
-                if (pallets > 0) {
-                    if (!acc[date]) {
-                        acc[date] = { total: 0, placa: op.formData.placa || 'N/A' };
-                    }
-                    acc[date].total += pallets;
-                }
-                return acc;
-            }, {} as Record<string, { total: number, placa: string }>);
-
-            for (const [date, data] of Object.entries(palletsByDate)) {
-                 settlementRows.push({
-                    date: date,
-                    placa: data.placa,
-                    container: 'N/A',
-                    camara: 'SE',
-                    totalPaletas: data.total,
-                    operacionLogistica: 'MAQUILA SALIDA (SECO)',
-                    pedidoSislog: 'Varios',
-                    conceptName: concept.conceptName,
-                    tipoVehiculo: 'No Aplica',
-                    quantity: data.total,
-                    unitOfMeasure: 'PALETA',
-                    unitValue: concept.value || 0,
-                    totalValue: data.total * (concept.value || 0),
-                });
-            }
-            continue; // Skip normal processing for this concept
-        }
             
         const applicableOperations = allOperations
             .filter(op => op.type === 'form')
@@ -557,11 +520,7 @@ export async function generateClientSettlement(criteria: {
 
             let quantity = 0;
             const weightKg = calculateWeightForOperation(op, concept.filterSesion, articleSessionMap);
-            let totalPallets = 0;
-
-            if (concept.conceptName === 'OPERACIÓN CARGUE' || concept.conceptName === 'OPERACIÓN DESCARGUE' || concept.calculationBase === 'CANTIDAD_PALETAS') {
-                totalPallets = calculatePalletsForOperation(op, concept.filterSesion, articleSessionMap);
-            }
+            let totalPallets = calculatePalletsForOperation(op, concept.filterSesion, articleSessionMap);
             
             switch (concept.calculationBase) {
                 case 'TONELADAS': quantity = weightKg / 1000; break;
@@ -947,6 +906,7 @@ const timeToMinutes = (timeStr: string): number => {
     
 
     
+
 
 
 

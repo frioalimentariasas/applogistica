@@ -166,8 +166,18 @@ const calculateTotalPallets = (formType: string, formData: any): number => {
 
         if (isTunelCongelacion) {
             const allPlacaItems = (formData.placas || []).flatMap((p: any) => p?.items || []);
-            const uniquePallets = new Set(allPlacaItems.map((i: any) => i.paleta).filter(Boolean));
-            return uniquePallets.size;
+            const groupedByProduct = allPlacaItems.reduce((acc: any, item: any) => {
+                 if (!item?.descripcion) return acc;
+                 if (!acc[item.descripcion]) {
+                    acc[item.descripcion] = new Set();
+                 }
+                 if(item.paleta && !isNaN(Number(item.paleta)) && Number(item.paleta) > 0) {
+                    acc[item.descripcion].add(item.paleta);
+                 }
+                 return acc;
+            }, {});
+
+            return Object.values(groupedByProduct).reduce((sum: number, palletSet: any) => sum + palletSet.size, 0);
         }
 
         const allItems = (formData.items || [])
