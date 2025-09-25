@@ -4,7 +4,7 @@ import { firestore } from '@/lib/firebase-admin';
 import type { ClientBillingConcept, TariffRange, SpecificTariff } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 import { getClientBillingConcepts } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 import admin from 'firebase-admin';
-import { startOfDay, endOfDay, parseISO, differenceInHours, getDaysInMonth, getDay, format, addMinutes, addHours, differenceInMinutes } from 'date-fns';
+import { startOfDay, endOfDay, parseISO, differenceInHours, getDaysInMonth, getDay, format, addMinutes, addHours, differenceInMinutes, parse } from 'date-fns';
 import type { ArticuloData } from '@/app/actions/articulos';
 import { getConsolidatedMovementReport } from '@/app/actions/consolidated-movement-report';
 import { processTunelCongelacionData } from '@/lib/report-utils';
@@ -812,21 +812,24 @@ export async function generateClientSettlement(criteria: {
                     opData.specificTariffs.forEach((appliedTariff: { tariffId: string, quantity: number }) => {
                         const specificTariff = concept.specificTariffs?.find(t => t.id === appliedTariff.tariffId);
                         if (specificTariff) {
-                            let quantityForCalc = 0;
-                            if (concept.conceptName === 'TIEMPO EXTRA FRIOAL') {
-                                const start = opData.details?.startTime;
-                                const end = opData.details?.endTime;
-                                if (start && end) {
-                                    const diffMinutes = differenceInMinutes(parse(end, 'HH:mm', new Date()), parse(start, 'HH:mm', new Date()));
-                                    quantityForCalc = diffMinutes / 60;
-                                }
-                            } else {
-                                quantityForCalc = appliedTariff.quantity || 0;
-                            }
-
+                            const quantityForCalc = appliedTariff.quantity || 0;
                             const totalValue = quantityForCalc * (specificTariff.value || 0);
                             
                             if (totalValue > 0) {
+                                let finalQuantity = quantityForCalc;
+                                let finalTotalValue = totalValue;
+                                
+                                if (concept.conceptName === 'TIEMPO EXTRA FRIOAL') {
+                                    const start = opData.details?.startTime;
+                                    const end = opData.details?.endTime;
+                                    if (start && end) {
+                                        const diffMinutes = differenceInMinutes(parse(end, 'HH:mm', new Date()), parse(start, 'HH:mm', new Date()));
+                                        const hours = parseFloat((diffMinutes / 60).toFixed(2));
+                                        finalQuantity = hours;
+                                        finalTotalValue = finalQuantity * quantityForCalc * (specificTariff.value || 0); // quantityForCalc is numPersonas here
+                                    }
+                                }
+                                
                                 settlementRows.push({
                                     date,
                                     placa: opData.details?.plate || 'No Aplica',
@@ -838,30 +841,24 @@ export async function generateClientSettlement(criteria: {
                                     conceptName: concept.conceptName,
                                     subConceptName: specificTariff.name,
                                     tipoVehiculo: 'No Aplica',
-                                    quantity: quantityForCalc,
+                                    quantity: finalQuantity,
                                     unitOfMeasure: concept.unitOfMeasure, // Main concept unit
                                     unitValue: specificTariff.value || 0,
-                                    totalValue: totalValue,
+                                    totalValue: finalTotalValue,
                                     horaInicio: horaInicio,
                                     horaFin: horaFin,
-                                    numeroPersonas: appliedTariff.quantity || undefined,
+                                    numeroPersonas: concept.conceptName === 'TIEMPO EXTRA FRIOAL' ? quantityForCalc : (opData.numeroPersonas || undefined),
                                 });
                             }
                         }
                     });
                 } else if (concept.tariffType === 'UNICA') {
-                     let quantityForCalc = opData.quantity || 0;
-
-                     if (concept.conceptName === 'SERVICIO DE TUNEL DE CONGELACION RAPIDA') {
-                         quantityForCalc = opData.quantity;
-                     }
-
+                     const quantityForCalc = opData.quantity || 0;
                      let totalValue = quantityForCalc * (concept.value || 0);
                      
                      if(concept.conceptName === 'IN-HOUSE INSPECTOR ZFPC' || concept.conceptName === 'ALQUILER IMPRESORA ETIQUETADO') {
                         const operationDate = parseISO(opData.operationDate);
                         const numDias = getDaysInMonth(operationDate);
-                        quantityForCalc = numDias; // The quantity is the number of days in the month
                         totalValue = numDias * (concept.value || 0);
                      }
 
@@ -883,7 +880,7 @@ export async function generateClientSettlement(criteria: {
                         pedidoSislog: opData.details?.pedidoSislog || 'No Aplica',
                         conceptName: concept.conceptName,
                         tipoVehiculo: opData.details?.plate || 'No Aplica',
-                        quantity: quantityForCalc,
+                        quantity: opData.quantity,
                         unitOfMeasure: concept.unitOfMeasure,
                         unitValue: concept.value || 0,
                         totalValue: totalValue,
