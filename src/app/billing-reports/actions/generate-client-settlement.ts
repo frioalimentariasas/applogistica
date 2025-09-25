@@ -498,7 +498,7 @@ export async function generateClientSettlement(criteria: {
 
         for (const op of canastasOps) {
             const opData = op.data;
-            const totalTons = opData.quantity;
+            const totalTons = opData.quantity; // Quantity from manual crew op is TONS for this case
             
             const matchingTariff = findMatchingTariff(totalTons, operacionCargueConcept);
             if (matchingTariff) {
@@ -568,6 +568,8 @@ export async function generateClientSettlement(criteria: {
             }
 
             let quantity = 0;
+            let totalPallets = 0;
+            
             // START: Special Logic for "MOVIMIENTO SALIDA PRODUCTOS - PALLET"
             if (clientName === 'AVICOLA EL MADROÑO S.A.' && concept.conceptName === 'MOVIMIENTO SALIDA PRODUCTOS - PALLET') {
                 if (
@@ -575,12 +577,13 @@ export async function generateClientSettlement(criteria: {
                     op.formData.tipoPedido === 'MAQUILA'
                 ) {
                     quantity = Number(op.formData.salidaPaletasMaquilaSE) || 0;
+                    totalPallets = quantity; // For this specific case, totalPallets is the same as the quantity to be liquidated.
                 } else {
                     quantity = 0; // Don't count for any other form type for this specific concept
                 }
             } else { // Regular calculation logic
                 const weightKg = calculateWeightForOperation(op, concept.filterSesion, articleSessionMap);
-                let totalPallets = calculatePalletsForOperation(op, concept.filterSesion, articleSessionMap);
+                totalPallets = calculatePalletsForOperation(op, concept.filterSesion, articleSessionMap);
                 
                 switch (concept.calculationBase) {
                     case 'TONELADAS': quantity = weightKg / 1000; break;
@@ -599,8 +602,7 @@ export async function generateClientSettlement(criteria: {
             let operacionLogistica: string = 'No Aplica';
             let vehicleTypeForReport = 'No Aplica';
             let unitOfMeasureForReport = concept.unitOfMeasure;
-            let totalPallets = calculatePalletsForOperation(op, concept.filterSesion, articleSessionMap);
-
+            
             if (concept.tariffType === 'UNICA') {
                 unitValue = concept.value || 0;
             } else if (concept.tariffType === 'RANGOS') {
@@ -915,7 +917,7 @@ export async function generateClientSettlement(criteria: {
     }
 
     const conceptOrder = [
-        'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'ALISTAMIENTO POR UNIDAD', 'FMM DE INGRESO ZFPC', 'ARIN DE INGRESO ZFPC', 'FMM DE SALIDA ZFPC', 'FMM ZFPC',
+        'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'ALISTAMIENTO POR UNIDAD', 'FMM DE INGRESO ZFPC', 'ARIN DE INGRESO ZFPC', 'FMM DE SALIDA ZFPC',
         'ARIN DE SALIDA ZFPC', 'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
         'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'ESTIBA MADERA RECICLADA',
         'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA ZFPC',
@@ -970,6 +972,7 @@ const timeToMinutes = (timeStr: string): number => {
     
 
     
+
 
 
 
