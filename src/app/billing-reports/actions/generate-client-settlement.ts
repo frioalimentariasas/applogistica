@@ -498,28 +498,31 @@ export async function generateClientSettlement(criteria: {
 
         for (const op of canastasOps) {
             const opData = op.data;
-            const weightKg = calculateWeightForOperation({ formType: '', formData: {} }, undefined, articleSessionMap);
-            const totalTons = weightKg / 1000;
+            const totalTons = opData.quantity; // Tons are in quantity for this manual op
+            
             const matchingTariff = findMatchingTariff(totalTons, operacionCargueConcept);
-            const unitValue = matchingTariff?.dayTariff || operacionCargueConcept.value || 0;
+            if (matchingTariff) {
+                const operacionLogistica = getOperationLogisticsType(opData.operationDate, opData.startTime, opData.endTime, operacionCargueConcept);
+                const unitValue = operacionLogistica === 'Diurno' ? matchingTariff.dayTariff : matchingTariff.nightTariff;
 
-            settlementRows.push({
-                date: opData.operationDate,
-                placa: opData.plate || 'Manual',
-                container: 'No Aplica',
-                camara: 'No Aplica',
-                totalPaletas: 0,
-                operacionLogistica: 'No Aplica',
-                pedidoSislog: 'Manual',
-                conceptName: 'OPERACIÓN CARGUE (CANASTAS MANUALES)',
-                tipoVehiculo: 'No Aplica',
-                quantity: opData.quantity,
-                unitOfMeasure: 'CANASTILLA', // Assuming unit is CANASTILLA
-                unitValue: unitValue,
-                totalValue: opData.quantity * unitValue,
-                horaInicio: opData.startTime,
-                horaFin: opData.endTime,
-            });
+                settlementRows.push({
+                    date: opData.operationDate,
+                    placa: opData.plate || 'Manual',
+                    container: 'No Aplica',
+                    camara: 'No Aplica',
+                    totalPaletas: 0,
+                    operacionLogistica: operacionLogistica,
+                    pedidoSislog: 'Manual',
+                    conceptName: 'OPERACIÓN CARGUE (CANASTAS MANUALES)',
+                    tipoVehiculo: matchingTariff.vehicleType,
+                    quantity: 1,
+                    unitOfMeasure: matchingTariff.vehicleType,
+                    unitValue: unitValue,
+                    totalValue: unitValue, // Quantity is 1, so total is the unit value
+                    horaInicio: opData.startTime,
+                    horaFin: opData.endTime,
+                });
+            }
         }
     }
     
@@ -952,6 +955,7 @@ const timeToMinutes = (timeStr: string): number => {
     
 
     
+
 
 
 
