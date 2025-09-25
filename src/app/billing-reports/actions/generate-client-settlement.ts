@@ -1,12 +1,10 @@
-
-
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
 import type { ClientBillingConcept, TariffRange, SpecificTariff } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 import { getClientBillingConcepts } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 import admin from 'firebase-admin';
-import { startOfDay, endOfDay, parseISO, differenceInHours, getDaysInMonth, getDay, format, addMinutes, addHours } from 'date-fns';
+import { startOfDay, endOfDay, parseISO, differenceInHours, getDaysInMonth, getDay, format, addMinutes, addHours, differenceInMinutes } from 'date-fns';
 import type { ArticuloData } from '@/app/actions/articulos';
 import { getConsolidatedMovementReport } from '@/app/actions/consolidated-movement-report';
 import { processTunelCongelacionData } from '@/lib/report-utils';
@@ -520,7 +518,7 @@ export async function generateClientSettlement(criteria: {
                     unitValue: unitValue,
                     totalValue: unitValue,
                     horaInicio: opData.startTime,
-                    horaFin: opData.endTime,
+                    horaFin: op.data.endTime,
                 });
             }
         }
@@ -814,8 +812,19 @@ export async function generateClientSettlement(criteria: {
                     opData.specificTariffs.forEach((appliedTariff: { tariffId: string, quantity: number }) => {
                         const specificTariff = concept.specificTariffs?.find(t => t.id === appliedTariff.tariffId);
                         if (specificTariff) {
-                            const quantityForCalc = opData.quantity || appliedTariff.quantity || 0;
-                            let totalValue = quantityForCalc * (specificTariff.value || 0) * (opData.numeroPersonas || 1);
+                            let quantityForCalc = 0;
+                            if (concept.conceptName === 'TIEMPO EXTRA FRIOAL') {
+                                const start = opData.details?.startTime;
+                                const end = opData.details?.endTime;
+                                if (start && end) {
+                                    const diffMinutes = differenceInMinutes(parse(end, 'HH:mm', new Date()), parse(start, 'HH:mm', new Date()));
+                                    quantityForCalc = diffMinutes / 60;
+                                }
+                            } else {
+                                quantityForCalc = appliedTariff.quantity || 0;
+                            }
+
+                            const totalValue = quantityForCalc * (specificTariff.value || 0);
                             
                             if (totalValue > 0) {
                                 settlementRows.push({
@@ -835,16 +844,16 @@ export async function generateClientSettlement(criteria: {
                                     totalValue: totalValue,
                                     horaInicio: horaInicio,
                                     horaFin: horaFin,
-                                    numeroPersonas: opData.numeroPersonas || undefined,
+                                    numeroPersonas: appliedTariff.quantity || undefined,
                                 });
                             }
                         }
                     });
                 } else if (concept.tariffType === 'UNICA') {
                      let quantityForCalc = opData.quantity || 0;
-                     
+
                      if (concept.conceptName === 'SERVICIO DE TUNEL DE CONGELACION RAPIDA') {
-                         quantityForCalc = opData.quantity
+                         quantityForCalc = opData.quantity;
                      }
 
                      let totalValue = quantityForCalc * (concept.value || 0);

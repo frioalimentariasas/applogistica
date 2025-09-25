@@ -1,5 +1,3 @@
-
-
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -248,7 +246,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     const isElectricConnection = watchedConcept === 'CONEXIÓN ELÉCTRICA CONTENEDOR';
     const isInspection = watchedConcept === 'INSPECCIÓN ZFPC';
     const isFixedMonthlyService = isPositionMode || watchedConcept === 'IN-HOUSE INSPECTOR ZFPC' || watchedConcept === 'ALQUILER IMPRESORA ETIQUETADO';
-    const showNumeroPersonas = selectedConceptInfo?.tariffType === 'ESPECIFICA' && !isBulkMode && !isPositionMode && watchedConcept !== 'TIEMPO EXTRA ZFPC' && watchedConcept !== 'SERVICIO DE TUNEL DE CONGELACION RAPIDA';
+    const showNumeroPersonas = selectedConceptInfo?.tariffType === 'ESPECIFICA' && !isBulkMode && !isPositionMode && !['TIEMPO EXTRA ZFPC', 'SERVICIO DE TUNEL DE CONGELACION RAPIDA'].includes(watchedConcept);
     const isFmmZfpc = watchedConcept === 'FMM ZFPC';
     const isFmmConcept = watchedConcept === 'FMM DE INGRESO ZFPC' || watchedConcept === 'FMM DE SALIDA ZFPC';
     const showAdvancedFields = ['INSPECCIÓN ZFPC', 'TIEMPO EXTRA ZFPC', 'SERVICIO DE TUNEL DE CONGELACION RAPIDA'].includes(watchedConcept);
@@ -1028,6 +1026,8 @@ function ConceptSelectorDialog({ billingConcepts, selectedClient, onSelect }: { 
 }
 
 function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any, selectedConceptInfo: ClientBillingConcept | undefined, dialogMode: DialogMode }) {
+    const isTimeExtraFrioal = selectedConceptInfo?.conceptName === 'TIEMPO EXTRA FRIOAL';
+
     return (
         <FormField
             control={form.control}
@@ -1054,7 +1054,7 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any, 
                                                             checked={isSelected}
                                                             onCheckedChange={(checked) => {
                                                                 const newValue = checked
-                                                                    ? [...(field.value || []), { tariffId: tariff.id, quantity: tariff.name.includes('600') ? 600 : (tariff.name.includes('200') ? 200 : 1) }]
+                                                                    ? [...(field.value || []), { tariffId: tariff.id, quantity: isTimeExtraFrioal ? 1 : 1 }]
                                                                     : (field.value || []).filter((value: any) => value.tariffId !== tariff.id);
                                                                 field.onChange(newValue);
                                                             }}
@@ -1071,15 +1071,15 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any, 
                                                                     <FormItem>
                                                                         <div className="flex items-center gap-2">
                                                                             <FormLabel className="text-xs">
-                                                                                Cant. ({selectedConceptInfo.unitOfMeasure}):
+                                                                                {isTimeExtraFrioal ? 'No. Personas:' : `Cant. (${selectedConceptInfo.unitOfMeasure}):`}
                                                                             </FormLabel>
                                                                             <FormControl>
                                                                                 <Input
                                                                                     type="number"
-                                                                                    step="0.1"
+                                                                                    step={isTimeExtraFrioal ? "1" : "0.1"}
                                                                                     className="h-7 w-24"
                                                                                     {...qtyField}
-                                                                                    disabled={dialogMode === 'view' || tariff.name.includes("600") || tariff.name.includes("200")}
+                                                                                    disabled={dialogMode === 'view'}
                                                                                 />
                                                                             </FormControl>
                                                                         </div>
