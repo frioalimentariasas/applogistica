@@ -153,7 +153,7 @@ const manualOperationSchema = z.object({
       if (!data.details?.plate?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La Placa es obligatoria.", path: ["details.plate"] });
     }
 
-    const specialConcepts = ['INSPECCIÓN ZFPC', 'TIEMPO EXTRA ZFPC', 'FMM DE INGRESO ZFPC', 'FMM DE SALIDA ZFPC', 'SERVICIO DE TUNEL DE CONGELACION RAPIDA'];
+    const specialConcepts = ['INSPECCIÓN ZFPC', 'TIEMPO EXTRA ZFPC', 'SERVICIO DE TUNEL DE CONGELACION RAPIDA'];
     if (specialConcepts.includes(data.concept)) {
         if (!data.details?.container?.trim()) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El contenedor es obligatorio para este concepto.", path: ["details", "container"] });
@@ -858,7 +858,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                 <ExcedentManager />
                                             </div>
                                         )}
-                                        {selectedConceptInfo?.tariffType === 'ESPECIFICA' && !isBulkMode && !isPositionMode && (
+                                        {selectedConceptInfo?.tariffType === 'ESPECIFICA' && !isBulkMode && (
                                              <TariffSelector form={form} selectedConceptInfo={selectedConceptInfo} dialogMode={dialogMode} />
                                         )}
                                         
@@ -1029,54 +1029,78 @@ function ConceptSelectorDialog({ billingConcepts, selectedClient, onSelect }: { 
 
 function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any, selectedConceptInfo: ClientBillingConcept | undefined, dialogMode: DialogMode }) {
     return (
-        <FormField control={form.control} name="specificTariffs" render={() => (
-            <FormItem>
-                <div className="mb-4"><FormLabel className="text-base">Tarifas a Aplicar</FormLabel></div>
-                <ScrollArea className="h-40 border rounded-md p-2">
-                    <div className="space-y-3">
-                        {(selectedConceptInfo?.specificTariffs || []).map((tariff: SpecificTariff) => {
-                            return (
-                                <FormField key={tariff.id} control={form.control} name={`specificTariffs`}
-                                    render={({ field }) => {
-                                        const currentSelection = field.value?.find((v: any) => v.tariffId === tariff.id);
-                                        const isSelected = !!currentSelection;
-                                        return (
-                                            <div className="flex flex-row items-start space-x-3 space-y-0">
-                                                <FormControl>
-                                                    <Checkbox checked={isSelected} onCheckedChange={(checked) => {
-                                                            const newValue = checked ? [...(field.value || []), { tariffId: tariff.id, quantity: 1 }] : field.value?.filter((value: any) => value.tariffId !== tariff.id);
-                                                            field.onChange(newValue);
-                                                        }} disabled={dialogMode === 'view'}/>
-                                                </FormControl>
-                                                <div className="flex flex-col sm:flex-row justify-between w-full">
-                                                    <FormLabel className="font-normal">{tariff.name}</FormLabel>
-                                                    {isSelected && (
-                                                        <FormField control={form.control} name={`specificTariffs.${field.value?.findIndex((v: any) => v.tariffId === tariff.id)}.quantity`}
-                                                            render={({ field: qtyField }) => (
-                                                                <FormItem>
-                                                                    <div className="flex items-center gap-2">
-                                                                        <FormLabel className="text-xs">
-                                                                            Cant: ({selectedConceptInfo.unitOfMeasure})
-                                                                        </FormLabel>
-                                                                        <FormControl><Input type="number" step="0.1" className="h-7 w-24" {...qtyField} disabled={dialogMode === 'view' || tariff.name.includes("600") || tariff.name.includes("200") } /></FormControl>
-                                                                    </div>
-                                                                    <FormMessage className="text-xs" />
-                                                                </FormItem>
-                                                            )}
+        <FormField
+            control={form.control}
+            name="specificTariffs"
+            render={() => (
+                <FormItem>
+                    <div className="mb-4"><FormLabel className="text-base">Tarifas a Aplicar</FormLabel></div>
+                    <ScrollArea className="h-40 border rounded-md p-2">
+                        <div className="space-y-3">
+                            {(selectedConceptInfo?.specificTariffs || []).map((tariff: SpecificTariff) => {
+                                const fieldName = `specificTariffs`;
+                                return (
+                                    <Controller
+                                        key={tariff.id}
+                                        name={fieldName}
+                                        control={form.control}
+                                        render={({ field }) => {
+                                            const currentSelection = (field.value || []).find((v: any) => v.tariffId === tariff.id);
+                                            const isSelected = !!currentSelection;
+                                            return (
+                                                <div className="flex flex-row items-start space-x-3 space-y-0">
+                                                    <FormControl>
+                                                        <Checkbox
+                                                            checked={isSelected}
+                                                            onCheckedChange={(checked) => {
+                                                                const newValue = checked
+                                                                    ? [...(field.value || []), { tariffId: tariff.id, quantity: tariff.name.includes('600') ? 600 : (tariff.name.includes('200') ? 200 : 1) }]
+                                                                    : (field.value || []).filter((value: any) => value.tariffId !== tariff.id);
+                                                                field.onChange(newValue);
+                                                            }}
+                                                            disabled={dialogMode === 'view'}
                                                         />
-                                                    )}
+                                                    </FormControl>
+                                                    <div className="flex flex-col sm:flex-row justify-between w-full">
+                                                        <FormLabel className="font-normal">{tariff.name} ({tariff.value.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 })})</FormLabel>
+                                                        {isSelected && (
+                                                            <FormField
+                                                                control={form.control}
+                                                                name={`specificTariffs.${(field.value || []).findIndex((v: any) => v.tariffId === tariff.id)}.quantity`}
+                                                                render={({ field: qtyField }) => (
+                                                                    <FormItem>
+                                                                        <div className="flex items-center gap-2">
+                                                                            <FormLabel className="text-xs">
+                                                                                Cant. ({selectedConceptInfo.unitOfMeasure}):
+                                                                            </FormLabel>
+                                                                            <FormControl>
+                                                                                <Input
+                                                                                    type="number"
+                                                                                    step="0.1"
+                                                                                    className="h-7 w-24"
+                                                                                    {...qtyField}
+                                                                                    disabled={dialogMode === 'view' || tariff.name.includes("600") || tariff.name.includes("200")}
+                                                                                />
+                                                                            </FormControl>
+                                                                        </div>
+                                                                        <FormMessage className="text-xs" />
+                                                                    </FormItem>
+                                                                )}
+                                                            />
+                                                        )}
+                                                    </div>
                                                 </div>
-                                            </div>
-                                        );
-                                    }}
-                                />
-                            );
-                        })}
-                    </div>
-                </ScrollArea>
-                <FormMessage />
-            </FormItem>
-        )}/>
+                                            );
+                                        }}
+                                    />
+                                );
+                            })}
+                        </div>
+                    </ScrollArea>
+                    <FormMessage />
+                </FormItem>
+            )}
+        />
     );
 }
 
