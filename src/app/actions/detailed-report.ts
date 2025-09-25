@@ -159,9 +159,17 @@ export interface DetailedReportRow {
 const calculateTotalPallets = (formType: string, formData: any): number => {
     if (formType.startsWith('fixed-weight-')) {
         return (formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.totalPaletas ?? p.paletas) || 0), 0);
-    } 
-    
+    }
+
     if (formType.startsWith('variable-weight-')) {
+        const isTunelCongelacion = formData.tipoPedido === 'TUNEL DE CONGELACIÓN' && formData.recepcionPorPlaca;
+
+        if (isTunelCongelacion) {
+            const allPlacaItems = (formData.placas || []).flatMap((p: any) => p?.items || []);
+            const uniquePallets = new Set(allPlacaItems.map((i: any) => i.paleta).filter(Boolean));
+            return uniquePallets.size;
+        }
+
         const allItems = (formData.items || [])
             .concat((formData.destinos || []).flatMap((d: any) => d?.items || []))
             .concat((formData.placas || []).flatMap((p: any) => p?.items || []));

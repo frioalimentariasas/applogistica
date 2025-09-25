@@ -344,9 +344,15 @@ const calculatePalletsForOperation = (
     sessionFilter: 'CO' | 'RE' | 'SE' | 'AMBOS' | undefined,
     articleSessionMap: Map<string, string>
 ): number => {
-  const { formType } = op;
+  const { formType, formData } = op;
   const items = getFilteredItems(op, sessionFilter, articleSessionMap);
   if (items.length === 0) return 0;
+
+  if(formData.tipoPedido === 'TUNEL DE CONGELACIÓN' && formData.recepcionPorPlaca) {
+      const allPlacaItems = (formData.placas || []).flatMap((p: any) => p.items || []);
+      const uniquePallets = new Set(allPlacaItems.map((i: any) => i.paleta).filter(Boolean));
+      return uniquePallets.size;
+  }
   
   if (formType?.startsWith('fixed-weight')) {
       return items.reduce((sum: number, p: any) => sum + (Number(p.totalPaletas) || Number(p.paletasCompletas) || 0), 0);
@@ -941,5 +947,6 @@ const timeToMinutes = (timeStr: string): number => {
     
 
     
+
 
 
