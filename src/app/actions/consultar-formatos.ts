@@ -108,7 +108,7 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
                          .where('createdAt', '<=', endDate);
         }
 
-        const snapshot = await query.orderBy('formData.fecha', 'desc').get();
+        const snapshot = await query.orderBy('formData.fecha', 'asc').get();
 
         let results = snapshot.docs.map(doc => {
             const data = doc.data();
