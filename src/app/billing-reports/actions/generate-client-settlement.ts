@@ -218,16 +218,9 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
                     }
                 }
                 
-                const items = submission.formData?.items || submission.formData?.productos || submission.formData?.destinos?.flatMap((d: any) => d.items) || submission.formData?.placas?.flatMap((p: any) => p.items) || [];
+                const items = getFilteredItems(submission, concept.filterSesion, articleSessionMap);
                 if (items.length === 0) return false;
 
-                if (concept.filterSesion && concept.filterSesion !== 'AMBOS') {
-                    const hasItemInSession = items.some((item: any) => {
-                        const itemSesion = articleSessionMap.get(item.codigo);
-                        return itemSesion === concept.filterSesion;
-                    });
-                    if (!hasItemInSession) return false;
-                }
                 
                 return true;
             });
@@ -265,11 +258,8 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
 
             const hasMovementsInSession = clientSubmissions.some(doc => {
                 const submissionData = doc.data().formData;
-                const items = submissionData?.items || submissionData?.productos || submissionData?.destinos?.flatMap((d: any) => d.items) || submissionData?.placas?.flatMap((p: any) => p.items) || [];
-                return items.some((item: any) => {
-                    const itemSesion = articleSessionMap.get(item.codigo);
-                    return itemSesion === targetSesion;
-                });
+                const items = getFilteredItems({formData: submissionData}, targetSesion, articleSessionMap);
+                return items.length > 0;
             });
             
              const inventorySnapshot = await firestore.collection('dailyInventories')
@@ -303,7 +293,10 @@ const getFilteredItems = (
     sessionFilter: 'CO' | 'RE' | 'SE' | 'AMBOS' | undefined,
     articleSessionMap: Map<string, string>
 ): any[] => {
-    const allItems = op.formData.productos || op.formData.items || op.formData.destinos?.flatMap((d: any) => d.items) || op.formData.placas?.flatMap((p: any) => p.items) || [];
+    const allItems = (op.formData.productos || [])
+        .concat(op.formData.items || [])
+        .concat((op.formData.destinos || []).flatMap((d: any) => d.items || []))
+        .concat((op.formData.placas || []).flatMap((p: any) => p.items || []));
 
     if (!sessionFilter || sessionFilter === 'AMBOS') {
         return allItems;
@@ -523,7 +516,7 @@ export async function generateClientSettlement(criteria: {
             .filter(op => op.type === 'form')
             .map(op => op.data)
             .filter(op => {
-                 const isRecepcion = op.formType.includes('recepcion') || op.formType.includes('reception');
+                const isRecepcion = op.formType.includes('recepcion') || op.formType.includes('reception');
                 const isDespacho = op.formType.includes('despacho');
                 const opTypeMatch = concept.filterOperationType === 'ambos' ||
                                     (concept.filterOperationType === 'recepcion' && isRecepcion) ||
@@ -541,10 +534,8 @@ export async function generateClientSettlement(criteria: {
                 const pedidoTypeMatch = !concept.filterPedidoTypes || concept.filterPedidoTypes.length === 0 || (pedidoType && concept.filterPedidoTypes.includes(pedidoType));
                 if (!pedidoTypeMatch) return false;
 
-                if (concept.filterSesion && concept.filterSesion !== 'AMBOS') {
-                    const items = getFilteredItems(op, concept.filterSesion, articleSessionMap);
-                    if (items.length === 0) return false;
-                }
+                const items = getFilteredItems(op, concept.filterSesion, articleSessionMap);
+                if (items.length === 0) return false;
                 
                 return true;
             });
@@ -950,4 +941,5 @@ const timeToMinutes = (timeStr: string): number => {
     
 
     
+
 
