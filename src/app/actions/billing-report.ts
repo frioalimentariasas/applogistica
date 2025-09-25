@@ -179,7 +179,7 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
             } else if (formType === 'fixed-weight-despacho') {
                 productos.forEach((p: any) => {
                     const session = getSessionForProduct(p.codigo, p.descripcion);
-                    const paletas = (Number(p.paletasCompletas) || 0) + (Number(p.paletasPicking) || 0);
+                    const paletas = Number(p.paletasCompletas) || 0; // Only count complete pallets for dispatch
                     incrementPallets(session, 'despachadas', paletas);
                 });
 
@@ -239,7 +239,7 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
                      allItems.forEach((item: any) => {
                          if (item && Number(item.paleta) === 0) {
                             const session = getSessionForProduct(item.codigo, item.descripcion);
-                            const paletas = (Number(item.paletasCompletas) || 0) + (Number(item.paletasPicking) || 0);
+                            const paletas = (Number(item.paletasCompletas) || 0); // Only count complete pallets for dispatch
                             incrementPallets(session, 'despachadas', paletas);
                          }
                     });
