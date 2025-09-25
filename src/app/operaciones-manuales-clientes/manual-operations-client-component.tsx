@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -415,26 +414,28 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
             let result;
             const isBulk = isBulkMode;
             
+            const commonPayload = {
+                clientName: data.clientName,
+                concept: data.concept,
+                details: data.details,
+                comentarios: data.comentarios,
+                createdBy: { uid: user.uid, displayName: displayName || user.email! }
+            };
+
             if (isBulk && data.selectedDates && data.selectedDates.length > 0) {
                 if (data.concept === 'TIEMPO EXTRA FRIOAL (FIJO)') {
                     const bulkData = {
-                        clientName: data.clientName,
-                        concept: data.concept,
+                        ...commonPayload,
                         dates: data.selectedDates.map(d => format(d, 'yyyy-MM-dd')),
                         roles: data.bulkRoles!.filter(r => r.numPersonas > 0),
                         excedentes: data.excedentes || [],
-                        createdBy: { uid: user.uid, displayName: displayName || user.email! }
                     };
                     result = await addBulkManualClientOperation(bulkData);
                 } else { // isBulkRent or isServicioApoyo
                     const simpleBulkData = {
-                        clientName: data.clientName,
-                        concept: data.concept,
+                        ...commonPayload,
                         dates: data.selectedDates.map(d => format(d, 'yyyy-MM-dd')),
                         quantity: data.quantity!,
-                        details: data.details,
-                        comentarios: data.comentarios,
-                        createdBy: { uid: user.uid, displayName: displayName || user.email! }
                     };
                     result = await addBulkSimpleOperation(simpleBulkData);
                 }
@@ -463,6 +464,9 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 delete payload.selectedDates;
                 delete payload.bulkRoles;
                 delete payload.excedentes;
+                
+                payload.createdBy = commonPayload.createdBy;
+
 
                 if (dialogMode === 'edit' && opToManage) {
                     result = await updateManualClientOperation(opToManage.id, payload);
@@ -620,7 +624,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                             </div>
                              <div className="space-y-2">
                                 <Label>Concepto</Label>
-                                <Select value={selectedConcept} onValueChange={setSelectedConcept}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Todos los Conceptos</SelectItem>{billingConcepts.filter(c => c.calculationType === 'MANUAL').map(c => <SelectItem key={c.id} value={c.conceptName}>{c.conceptName}</SelectItem>)}</SelectContent></Select>
+                                <Select value={selectedConcept} onValueChange={setSelectedConcept}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Todos los Conceptos</SelectItem>{billingConcepts.filter(c => c.calculationType === 'MANUAL' || c.conceptName === "MOVIMIENTO ENTRADA PRODUCTOS - PALLET" || c.conceptName === "MOVIMIENTO SALIDA PRODUCTOS - PALLET").map(c => <SelectItem key={c.id} value={c.conceptName}>{c.conceptName}</SelectItem>)}</SelectContent></Select>
                             </div>
                             <div className="flex items-end gap-2 xl:col-span-2">
                                 <Button onClick={() => handleSearch(allOperations)} disabled={!selectedDate || isLoading} className="w-full">
@@ -1139,3 +1143,4 @@ const ExcedentManager = () => {
     
 
     
+
