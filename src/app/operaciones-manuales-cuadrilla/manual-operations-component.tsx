@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { format, parseISO, startOfDay, endOfDay, differenceInDays, isWithinInterval } from 'date-fns';
+import { format, parseISO, startOfDay, endOfDay, isWithinInterval } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { DateRange } from 'react-day-picker';
 
@@ -77,7 +77,7 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
     const [isLoading, setIsLoading] = useState(true);
     const [searched, setSearched] = useState(false);
     
-    const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+    const [dateRange, setDateRange] = useState<DateRange | undefined>();
     const [selectedClient, setSelectedClient] = useState<string>('all');
     const [selectedConcept, setSelectedConcept] = useState<string>('all');
 
@@ -140,6 +140,8 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
             results = results.filter(op => op.concept === selectedConcept);
         }
         
+        results.sort((a, b) => new Date(a.operationDate).getTime() - new Date(b.operationDate).getTime());
+
         setSearched(true);
         setFilteredOperations(results);
         
@@ -214,10 +216,8 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
             toast({ title: 'Éxito', description: result.message });
             setIsDialogOpen(false);
             form.reset();
-            const updatedOps = await fetchAllOperations();
-            if (searched && dateRange) {
-                handleSearch();
-            }
+            await fetchAllOperations();
+            handleSearch();
         } else {
             toast({ variant: "destructive", title: "Error", description: result.message });
         }
@@ -311,7 +311,7 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
                                 <Select value={selectedConcept} onValueChange={setSelectedConcept}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Todos los Conceptos</SelectItem>{[...new Set(allOperations.map(op => op.concept))].sort((a,b) => a.localeCompare(b)).map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select>
                             </div>
                             <div className="flex items-end gap-2 xl:col-span-2">
-                                <Button onClick={() => handleSearch()} disabled={!dateRange || isLoading} className="w-full">
+                                <Button onClick={handleSearch} disabled={!dateRange || isLoading} className="w-full">
                                     <Search className="mr-2 h-4 w-4" />
                                     Consultar
                                 </Button>
