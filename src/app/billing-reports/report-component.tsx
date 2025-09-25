@@ -1513,7 +1513,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
         // --- Detail Page ---
         doc.addPage();
-        lastY = addHeader(doc, "Detalle de Operaciones");
+        lastY = addHeader(doc, "Detalle de Liquidación");
 
         const groupedByConcept = settlementReportData.reduce((acc, row) => {
             const conceptKey = row.conceptName;

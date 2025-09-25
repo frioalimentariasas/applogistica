@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from 'react';
@@ -6,8 +7,9 @@ import { useRouter } from 'next/navigation';
 import { useForm, SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, startOfDay, endOfDay, differenceInDays, isWithinInterval } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { DateRange } from 'react-day-picker';
 
 import { addManualOperation, updateManualOperation, deleteManualOperation } from './actions';
 import { getAllManualOperations } from '@/app/crew-performance-report/actions';
@@ -75,7 +77,7 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
     const [isLoading, setIsLoading] = useState(true);
     const [searched, setSearched] = useState(false);
     
-    const [selectedDate, setSelectedDate] = useState<Date | undefined>();
+    const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
     const [selectedClient, setSelectedClient] = useState<string>('all');
     const [selectedConcept, setSelectedConcept] = useState<string>('all');
 
@@ -98,10 +100,10 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
         try {
             const data = await getAllManualOperations();
             setAllOperations(data);
-            return data; // Devuelve los datos para que handleSearch pueda usarlos
+            return data;
         } catch (error) {
             toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar las operaciones.' });
-            return []; // Devuelve un array vacío en caso de error
+            return [];
         } finally {
             setIsLoading(false);
         }
@@ -111,19 +113,25 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
         fetchAllOperations();
     }, [fetchAllOperations]);
     
-    const handleSearch = (operations: any[]) => {
-        if (!selectedDate) {
+    const handleSearch = () => {
+        if (!dateRange || !dateRange.from || !dateRange.to) {
             toast({
                 variant: 'destructive',
-                title: 'Fecha Requerida',
-                description: 'Por favor, seleccione una fecha para realizar la consulta.'
+                title: 'Rango de Fecha Requerido',
+                description: 'Por favor, seleccione un rango de fechas para la consulta.'
             });
             return;
         }
 
-        let results = operations;
+        let results = allOperations;
 
-        results = results.filter(op => format(new Date(op.operationDate), 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd'));
+        const start = startOfDay(dateRange.from);
+        const end = endOfDay(dateRange.to);
+
+        results = results.filter(op => {
+            const opDate = new Date(op.operationDate);
+            return isWithinInterval(opDate, { start, end });
+        });
 
         if (selectedClient !== 'all') {
             results = results.filter(op => op.clientName === selectedClient);
@@ -144,7 +152,7 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
     };
     
     const handleClearFilters = () => {
-        setSelectedDate(undefined);
+        setDateRange(undefined);
         setSelectedClient('all');
         setSelectedConcept('all');
         setFilteredOperations([]);
@@ -207,8 +215,8 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
             setIsDialogOpen(false);
             form.reset();
             const updatedOps = await fetchAllOperations();
-            if (searched && selectedDate) {
-                 handleSearch(updatedOps);
+            if (searched && dateRange) {
+                handleSearch();
             }
         } else {
             toast({ variant: "destructive", title: "Error", description: result.message });
@@ -223,8 +231,8 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
         if (result.success) {
             toast({ title: 'Éxito', description: result.message });
             const updatedOps = await fetchAllOperations();
-            if (searched && selectedDate) {
-                handleSearch(updatedOps);
+            if (searched && dateRange) {
+                handleSearch();
             }
         } else {
             toast({ variant: 'destructive', title: 'Error', description: result.message });
@@ -272,15 +280,26 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
                     <CardContent>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 items-end mb-6 p-4 border rounded-lg bg-muted/50">
                              <div className="space-y-2">
-                                <Label>Fecha <span className="text-destructive">*</span></Label>
+                                <Label>Rango de Fechas <span className="text-destructive">*</span></Label>
                                 <Popover>
                                     <PopoverTrigger asChild>
-                                        <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !selectedDate && "text-muted-foreground")}>
+                                        <Button variant={"outline"} className={cn("w-full justify-start text-left font-normal", !dateRange && "text-muted-foreground")}>
                                             <CalendarIcon className="mr-2 h-4 w-4" />
-                                            {selectedDate ? format(selectedDate, "PPP", { locale: es }) : <span>Seleccione una fecha</span>}
+                                            {dateRange?.from ? (
+                                                dateRange.to ? (
+                                                <>
+                                                    {format(dateRange.from, "LLL dd, y", { locale: es })} -{" "}
+                                                    {format(dateRange.to, "LLL dd, y", { locale: es })}
+                                                </>
+                                                ) : (
+                                                format(dateRange.from, "LLL dd, y", { locale: es })
+                                                )
+                                            ) : (
+                                                <span>Seleccione un rango</span>
+                                            )}
                                         </Button>
                                     </PopoverTrigger>
-                                    <PopoverContent className="w-auto p-0"><Calendar mode="single" selected={selectedDate} onSelect={setSelectedDate} initialFocus /></PopoverContent>
+                                    <PopoverContent className="w-auto p-0"><Calendar mode="range" selected={dateRange} onSelect={setDateRange} initialFocus numberOfMonths={2} /></PopoverContent>
                                 </Popover>
                             </div>
                              <div className="space-y-2">
@@ -292,7 +311,7 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
                                 <Select value={selectedConcept} onValueChange={setSelectedConcept}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Todos los Conceptos</SelectItem>{[...new Set(allOperations.map(op => op.concept))].sort((a,b) => a.localeCompare(b)).map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select>
                             </div>
                             <div className="flex items-end gap-2 xl:col-span-2">
-                                <Button onClick={() => handleSearch(allOperations)} disabled={!selectedDate || isLoading} className="w-full">
+                                <Button onClick={() => handleSearch()} disabled={!dateRange || isLoading} className="w-full">
                                     <Search className="mr-2 h-4 w-4" />
                                     Consultar
                                 </Button>
@@ -449,5 +468,3 @@ export default function ManualOperationsComponent({ clients, billingConcepts }: 
         </div>
     );
 }
-
-    
