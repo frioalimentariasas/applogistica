@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -939,8 +940,12 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
 function ConceptSelectorDialog({ billingConcepts, selectedClient, onSelect }: { billingConcepts: ClientBillingConcept[], selectedClient: string, onSelect: (conceptName: string) => void }) {
     const [search, setSearch] = useState('');
     
+    const specialConcepts = ["MOVIMIENTO ENTRADA PRODUCTOS - PALLET", "MOVIMIENTO SALIDA PRODUCTOS - PALLET"];
+
     const filteredConcepts = useMemo(() => {
-        const manualConcepts = billingConcepts.filter(c => c.calculationType === 'MANUAL');
+        const manualConcepts = billingConcepts.filter(c => 
+            c.calculationType === 'MANUAL' || specialConcepts.includes(c.conceptName)
+        );
         
         const clientSpecific = manualConcepts.filter(c => c.clientNames.includes(selectedClient));
         const global = manualConcepts.filter(c => 
@@ -1130,5 +1135,7 @@ const ExcedentManager = () => {
         </div>
     )
 }
+
+    
 
     
