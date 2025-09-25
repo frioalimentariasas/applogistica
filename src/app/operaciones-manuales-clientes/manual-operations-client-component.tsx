@@ -7,8 +7,10 @@ import { useRouter } from 'next/navigation';
 import { useForm, SubmitHandler, useFieldArray, useWatch, FieldErrors, useFormContext, Controller } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import * as z from 'zod';
-import { format, parseISO, addDays, getDaysInMonth, getDay, isSaturday, isSunday, isWithinInterval, startOfDay, startOfMonth, differenceInMinutes, parse, differenceInHours } from 'date-fns';
+import { format, parseISO, addDays, getDaysInMonth, getDay, isSaturday, isSunday, isWithinInterval, startOfDay, endOfDay, differenceInMinutes, parse, differenceInHours } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { DateRange } from 'react-day-picker';
+
 
 import { addManualClientOperation, updateManualClientOperation, deleteManualClientOperation, addBulkManualClientOperation, addBulkSimpleOperation } from './actions';
 import { getAllManualClientOperations } from '@/app/billing-reports/actions/generate-client-settlement';
@@ -151,7 +153,7 @@ const manualOperationSchema = z.object({
       if (!data.details?.plate?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La Placa es obligatoria.", path: ["details.plate"] });
     }
 
-    const specialConcepts = ['INSPECCIÓN ZFPC', 'TIEMPO EXTRA ZFPC', 'FMM DE INGRESO ZFPC', 'FMM DE SALIDA ZFPC'];
+    const specialConcepts = ['INSPECCIÓN ZFPC', 'TIEMPO EXTRA ZFPC', 'FMM DE INGRESO ZFPC', 'FMM DE SALIDA ZFPC', 'SERVICIO DE TUNEL DE CONGELACION RAPIDA'];
     if (specialConcepts.includes(data.concept)) {
         if (!data.details?.container?.trim()) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El contenedor es obligatorio para este concepto.", path: ["details", "container"] });
@@ -183,7 +185,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     const [isLoading, setIsLoading] = useState(true);
     const [searched, setSearched] = useState(false);
     
-    const [selectedDate, setSelectedDate] = useState<Date | undefined>();
+    const [dateRange, setDateRange] = useState<DateRange | undefined>();
     const [selectedClient, setSelectedClient] = useState<string>('all');
     const [selectedConcept, setSelectedConcept] = useState<string>('all');
 
@@ -249,7 +251,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     const showNumeroPersonas = selectedConceptInfo?.tariffType === 'ESPECIFICA' && !isBulkMode && !isPositionMode && watchedConcept !== 'TIEMPO EXTRA ZFPC' && watchedConcept !== 'SERVICIO DE TUNEL DE CONGELACION RAPIDA';
     const isFmmZfpc = watchedConcept === 'FMM ZFPC';
     const isFmmConcept = watchedConcept === 'FMM DE INGRESO ZFPC' || watchedConcept === 'FMM DE SALIDA ZFPC';
-    const showAdvancedFields = ['INSPECCIÓN ZFPC', 'TIEMPO EXTRA ZFPC'].includes(watchedConcept);
+    const showAdvancedFields = ['INSPECCIÓN ZFPC', 'TIEMPO EXTRA ZFPC', 'SERVICIO DE TUNEL DE CONGELACION RAPIDA'].includes(watchedConcept);
     const showInspectionFields = isInspection;
     const showTimeExtraFields = ['TIEMPO EXTRA ZFPC', 'TIEMPO EXTRA FRIOAL'].includes(watchedConcept);
 
@@ -877,7 +879,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                             />
                                         )}
                                         
-                                        {(showAdvancedFields || dialogMode === 'view' || isElectricConnection || isFmmZfpc || isFmmConcept || showTimeExtraFields) && !isFmmZfpc && (
+                                        {(showAdvancedFields || dialogMode === 'view' || isElectricConnection || isFmmZfpc || isFmmConcept || showTimeExtraFields) && (
                                             <>
                                                 <Separator />
                                                 <p className="text-sm font-medium text-muted-foreground">Detalles Adicionales</p>
@@ -1053,7 +1055,9 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any, 
                                                             render={({ field: qtyField }) => (
                                                                 <FormItem>
                                                                     <div className="flex items-center gap-2">
-                                                                        <FormLabel className="text-xs">Cant:</FormLabel>
+                                                                        <FormLabel className="text-xs">
+                                                                            Cant: ({selectedConceptInfo.unitOfMeasure})
+                                                                        </FormLabel>
                                                                         <FormControl><Input type="number" step="0.1" className="h-7 w-24" {...qtyField} disabled={dialogMode === 'view' || tariff.name.includes("600") || tariff.name.includes("200") } /></FormControl>
                                                                     </div>
                                                                     <FormMessage className="text-xs" />
