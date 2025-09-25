@@ -150,8 +150,8 @@ const serializeTimestamps = (data: any): any => {
 
 // Simplified operation structure for processing
 interface BasicOperation {
-    type: 'form' | 'manual';
-    data: any; // formData for forms, document data for manual
+    type: 'form' | 'manual' | 'crew_manual';
+    data: any;
 }
 
 export async function findApplicableConcepts(clientName: string, startDate: string, endDate: string): Promise<ClientBillingConcept[]> {
@@ -436,11 +436,17 @@ export async function generateClientSettlement(criteria: {
     const serverQueryStartDate = startOfDay(parseISO(startDate));
     const serverQueryEndDate = endOfDay(parseISO(endDate));
 
-    const [allConcepts, articlesSnapshot, submissionsSnapshot, manualOpsSnapshot] = await Promise.all([
+    const [allConcepts, articlesSnapshot, submissionsSnapshot, manualOpsSnapshot, crewManualOpsSnapshot] = await Promise.all([
         getClientBillingConcepts(),
         firestore.collection('articulos').where('razonSocial', '==', clientName).get(),
         firestore.collection('submissions').where('formData.fecha', '>=', serverQueryStartDate).where('formData.fecha', '<=', serverQueryEndDate).get(),
-        firestore.collection('manual_client_operations').where('operationDate', '>=', serverQueryStartDate).where('operationDate', '<=', serverQueryEndDate).get()
+        firestore.collection('manual_client_operations').where('operationDate', '>=', serverQueryStartDate).where('operationDate', '<=', serverQueryEndDate).get(),
+        // New query for crew manual operations
+        firestore.collection('manual_operations')
+            .where('operationDate', '>=', serverQueryStartDate)
+            .where('operationDate', '<=', serverQueryEndDate)
+            .where('clientName', '==', clientName)
+            .get(),
     ]);
     
     const articleSessionMap = new Map<string, string>();
@@ -474,8 +480,48 @@ export async function generateClientSettlement(criteria: {
             allOperations.push({ type: 'manual', data });
         }
     });
+
+    crewManualOpsSnapshot.docs.forEach(doc => {
+        const data = serializeTimestamps(doc.data());
+        allOperations.push({ type: 'crew_manual', data });
+    });
     
     const settlementRows: ClientSettlementRow[] = [];
+    
+    // --- Logic for CARGUE DE CANASTAS (AVICOLA EL MADROÑO S.A.) ---
+    const operacionCargueConcept = selectedConcepts.find(c => c.conceptName === 'OPERACIÓN CARGUE');
+    if (clientName === 'AVICOLA EL MADROÑO S.A.' && operacionCargueConcept) {
+        const canastasOps = allOperations.filter(op => 
+            op.type === 'crew_manual' && 
+            op.data.concept === 'CARGUE DE CANASTAS'
+        );
+
+        for (const op of canastasOps) {
+            const opData = op.data;
+            const weightKg = calculateWeightForOperation({ formType: '', formData: {} }, undefined, articleSessionMap);
+            const totalTons = weightKg / 1000;
+            const matchingTariff = findMatchingTariff(totalTons, operacionCargueConcept);
+            const unitValue = matchingTariff?.dayTariff || operacionCargueConcept.value || 0;
+
+            settlementRows.push({
+                date: opData.operationDate,
+                placa: opData.plate || 'Manual',
+                container: 'No Aplica',
+                camara: 'No Aplica',
+                totalPaletas: 0,
+                operacionLogistica: 'No Aplica',
+                pedidoSislog: 'Manual',
+                conceptName: 'OPERACIÓN CARGUE (CANASTAS MANUALES)',
+                tipoVehiculo: 'No Aplica',
+                quantity: opData.quantity,
+                unitOfMeasure: 'CANASTILLA', // Assuming unit is CANASTILLA
+                unitValue: unitValue,
+                totalValue: opData.quantity * unitValue,
+                horaInicio: opData.startTime,
+                horaFin: opData.endTime,
+            });
+        }
+    }
     
     const ruleConcepts = selectedConcepts.filter(c => c.calculationType === 'REGLAS');
 
@@ -906,6 +952,7 @@ const timeToMinutes = (timeStr: string): number => {
     
 
     
+
 
 
 
