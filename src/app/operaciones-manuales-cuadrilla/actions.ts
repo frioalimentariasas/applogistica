@@ -34,17 +34,20 @@ export async function addManualOperation(data: ManualOperationData): Promise<{ s
 }
 
 
-export async function updateManualOperation(id: string, data: Omit<ManualOperationData, 'createdAt'>): Promise<{ success: boolean; message: string }> {
+export async function updateManualOperation(id: string, data: Omit<ManualOperationData, 'createdAt' | 'createdBy'>): Promise<{ success: boolean; message: string }> {
     if (!firestore) {
         return { success: false, message: 'El servidor no está configurado correctamente.' };
     }
 
     try {
         const docRef = firestore.collection('manual_operations').doc(id);
+        const { createdBy, ...updateData } = data; // Exclude createdBy from the update payload
+        
         const operationWithTimestamp = {
-            ...data,
+            ...updateData,
             operationDate: admin.firestore.Timestamp.fromDate(new Date(data.operationDate)),
         };
+
         await docRef.update(operationWithTimestamp);
         
         revalidatePath('/crew-performance-report');
