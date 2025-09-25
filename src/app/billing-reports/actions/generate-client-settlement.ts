@@ -498,7 +498,7 @@ export async function generateClientSettlement(criteria: {
 
         for (const op of canastasOps) {
             const opData = op.data;
-            const totalTons = opData.quantity; // Tons are in quantity for this manual op
+            const totalTons = opData.quantity;
             
             const matchingTariff = findMatchingTariff(totalTons, operacionCargueConcept);
             if (matchingTariff) {
@@ -515,10 +515,10 @@ export async function generateClientSettlement(criteria: {
                     pedidoSislog: 'Manual',
                     conceptName: 'OPERACIÓN CARGUE (CANASTAS MANUALES)',
                     tipoVehiculo: matchingTariff.vehicleType,
-                    quantity: 1,
-                    unitOfMeasure: matchingTariff.vehicleType,
+                    quantity: 1, // Quantity is always 1 for this special case
+                    unitOfMeasure: matchingTariff.vehicleType, // Unit of measure is the vehicle type
                     unitValue: unitValue,
-                    totalValue: unitValue, // Quantity is 1, so total is the unit value
+                    totalValue: unitValue, // Total value is the unit value because quantity is 1
                     horaInicio: opData.startTime,
                     horaFin: opData.endTime,
                 });
@@ -568,17 +568,30 @@ export async function generateClientSettlement(criteria: {
             }
 
             let quantity = 0;
-            const weightKg = calculateWeightForOperation(op, concept.filterSesion, articleSessionMap);
-            let totalPallets = calculatePalletsForOperation(op, concept.filterSesion, articleSessionMap);
-            
-            switch (concept.calculationBase) {
-                case 'TONELADAS': quantity = weightKg / 1000; break;
-                case 'KILOGRAMOS': quantity = weightKg; break;
-                case 'CANTIDAD_PALETAS': quantity = totalPallets; break;
-                case 'CANTIDAD_CAJAS': quantity = calculateUnitsForOperation(op, concept.filterSesion, articleSessionMap); break;
-                case 'NUMERO_OPERACIONES': quantity = 1; break;
-                case 'NUMERO_CONTENEDORES': quantity = op.formData.contenedor ? 1 : 0; break;
+            // START: Special Logic for "MOVIMIENTO SALIDA PRODUCTOS - PALLET"
+            if (clientName === 'AVICOLA EL MADROÑO S.A.' && concept.conceptName === 'MOVIMIENTO SALIDA PRODUCTOS - PALLET') {
+                if (
+                    (op.formType === 'variable-weight-reception' || op.formType === 'variable-weight-recepcion') &&
+                    op.formData.tipoPedido === 'MAQUILA'
+                ) {
+                    quantity = Number(op.formData.salidaPaletasMaquilaSE) || 0;
+                } else {
+                    quantity = 0; // Don't count for any other form type for this specific concept
+                }
+            } else { // Regular calculation logic
+                const weightKg = calculateWeightForOperation(op, concept.filterSesion, articleSessionMap);
+                let totalPallets = calculatePalletsForOperation(op, concept.filterSesion, articleSessionMap);
+                
+                switch (concept.calculationBase) {
+                    case 'TONELADAS': quantity = weightKg / 1000; break;
+                    case 'KILOGRAMOS': quantity = weightKg; break;
+                    case 'CANTIDAD_PALETAS': quantity = totalPallets; break;
+                    case 'CANTIDAD_CAJAS': quantity = calculateUnitsForOperation(op, concept.filterSesion, articleSessionMap); break;
+                    case 'NUMERO_OPERACIONES': quantity = 1; break;
+                    case 'NUMERO_CONTENEDORES': quantity = op.formData.contenedor ? 1 : 0; break;
+                }
             }
+            // END: Special Logic
 
             if (quantity <= 0) continue;
 
@@ -586,10 +599,12 @@ export async function generateClientSettlement(criteria: {
             let operacionLogistica: string = 'No Aplica';
             let vehicleTypeForReport = 'No Aplica';
             let unitOfMeasureForReport = concept.unitOfMeasure;
+            let totalPallets = calculatePalletsForOperation(op, concept.filterSesion, articleSessionMap);
 
             if (concept.tariffType === 'UNICA') {
                 unitValue = concept.value || 0;
             } else if (concept.tariffType === 'RANGOS') {
+                const weightKg = calculateWeightForOperation(op, concept.filterSesion, articleSessionMap);
                 const totalTons = weightKg / 1000;
                 operacionLogistica = getOperationLogisticsType(op.formData.fecha, op.formData.horaInicio, op.formData.horaFin, concept);
                 
@@ -955,6 +970,7 @@ const timeToMinutes = (timeStr: string): number => {
     
 
     
+
 
 
 
