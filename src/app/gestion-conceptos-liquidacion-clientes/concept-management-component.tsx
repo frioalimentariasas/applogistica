@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useMemo } from 'react';
@@ -435,7 +434,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
                                 <TableBody>
                                     {sortedAndFilteredConcepts.length > 0 ? (
                                         sortedAndFilteredConcepts.map((c) => (
-                                        <TableRow key={c.id} data-state={selectedIds.has(s.id) && "selected"}>
+                                        <TableRow key={c.id} data-state={selectedIds.has(c.id) && "selected"}>
                                             <TableCell><Checkbox checked={selectedIds.has(c.id)} onCheckedChange={(checked) => handleRowSelect(c.id, checked === true)} /></TableCell>
                                             <TableCell>
                                                 <div className="font-medium">{c.conceptName}</div>
