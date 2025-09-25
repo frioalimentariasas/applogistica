@@ -157,36 +157,21 @@ export interface DetailedReportRow {
 }
 
 const calculateTotalPallets = (formType: string, formData: any): number => {
+    const allItems = (formData.items || [])
+        .concat((formData.destinos || []).flatMap((d: any) => d?.items || []))
+        .concat((formData.placas || []).flatMap((p: any) => p?.items || []));
+
     if (formType.startsWith('fixed-weight-')) {
         return (formData.productos || []).reduce((sum: number, p: any) => sum + (Number(p.totalPaletas ?? p.paletas) || 0), 0);
     }
-
+    
     if (formType.startsWith('variable-weight-')) {
-        const isTunelCongelacion = formData.tipoPedido === 'TUNEL DE CONGELACIÓN' && formData.recepcionPorPlaca;
+        const isSummaryFormat = allItems.some((p: any) => p && Number(p.paleta) === 0);
 
-        if (isTunelCongelacion) {
-            const allPlacaItems = (formData.placas || []).flatMap((p: any) => p?.items || []);
-            const groupedByProduct = allPlacaItems.reduce((acc: any, item: any) => {
-                 if (!item?.descripcion) return acc;
-                 if (!acc[item.descripcion]) {
-                    acc[item.descripcion] = new Set();
-                 }
-                 if(item.paleta && !isNaN(Number(item.paleta)) && Number(item.paleta) > 0) {
-                    acc[item.descripcion].add(item.paleta);
-                 }
-                 return acc;
-            }, {});
-
-            return Object.values(groupedByProduct).reduce((sum: number, palletSet: any) => sum + palletSet.size, 0);
-        }
-
-        const allItems = (formData.items || [])
-            .concat((formData.destinos || []).flatMap((d: any) => d?.items || []))
-            .concat((formData.placas || []).flatMap((p: any) => p?.items || []));
-        
-        const isSummaryFormat = allItems.some((p: any) => Number(p.paleta) === 0);
-        
         if (isSummaryFormat) {
+            if (formType.includes('despacho')) {
+                return allItems.reduce((sum: number, p: any) => sum + (Number(p.paletasCompletas) || 0) + (Number(p.paletasPicking) || 0), 0);
+            }
             return allItems.reduce((sum: number, p: any) => sum + (Number(p.totalPaletas) || 0), 0);
         }
         

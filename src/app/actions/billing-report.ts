@@ -179,7 +179,7 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
             } else if (formType === 'fixed-weight-despacho') {
                 productos.forEach((p: any) => {
                     const session = getSessionForProduct(p.codigo, p.descripcion);
-                    const paletas = (Number(p.paletasCompletas) || 0);
+                    const paletas = (Number(p.paletasCompletas) || 0) + (Number(p.paletasPicking) || 0);
                     incrementPallets(session, 'despachadas', paletas);
                 });
 
@@ -233,13 +233,13 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
             } else if (formType === 'variable-weight-despacho') {
                 const isByDestination = submission.formData.despachoPorDestino === true;
                 const allItems = isByDestination ? destinos.flatMap((d: any) => d.items) : items;
-                const isSummaryFormat = allItems.some((item: any) => Number(item.paleta) === 0);
+                const isSummaryFormat = allItems.some((item: any) => item && Number(item.paleta) === 0);
 
                 if (isSummaryFormat) {
                      allItems.forEach((item: any) => {
                          if (Number(item.paleta) === 0) {
                             const session = getSessionForProduct(item.codigo, item.descripcion);
-                            const paletas = Number(item.paletasCompletas || 0);
+                            const paletas = (Number(item.paletasCompletas) || 0) + (Number(item.paletasPicking) || 0);
                             incrementPallets(session, 'despachadas', paletas);
                          }
                     });
