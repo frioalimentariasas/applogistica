@@ -1,3 +1,4 @@
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -590,6 +591,13 @@ export async function generateClientSettlement(criteria: {
                     case 'CANTIDAD_CAJAS': quantity = calculateUnitsForOperation(op, concept.filterSesion, articleSessionMap); break;
                     case 'NUMERO_OPERACIONES': quantity = 1; break;
                     case 'NUMERO_CONTENEDORES': quantity = op.formData.contenedor ? 1 : 0; break;
+                    case 'PALETAS_SALIDA_MAQUILA':
+                        if (op.formType === 'variable-weight-reception' && op.formData.tipoPedido === 'MAQUILA') {
+                            quantity = Number(op.formData.salidaPaletasMaquilaCO) || 0;
+                        } else {
+                            quantity = 0;
+                        }
+                        break;
                 }
             }
             // END: Special Logic

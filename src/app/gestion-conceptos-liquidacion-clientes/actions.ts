@@ -37,7 +37,7 @@ export interface ClientBillingConcept {
   calculationType: 'REGLAS' | 'OBSERVACION' | 'MANUAL' | 'SALDO_INVENTARIO';
 
   // For 'REGLAS'
-  calculationBase?: 'TONELADAS' | 'KILOGRAMOS' | 'CANTIDAD_PALETAS' | 'CANTIDAD_CAJAS' | 'NUMERO_OPERACIONES' | 'NUMERO_CONTENEDORES';
+  calculationBase?: 'TONELADAS' | 'KILOGRAMOS' | 'CANTIDAD_PALETAS' | 'CANTIDAD_CAJAS' | 'NUMERO_OPERACIONES' | 'NUMERO_CONTENEDORES' | 'PALETAS_SALIDA_MAQUILA';
   filterOperationType?: 'recepcion' | 'despacho' | 'ambos';
   filterProductType?: 'fijo' | 'variable' | 'ambos';
   filterSesion?: 'CO' | 'RE' | 'SE' | 'AMBOS';
