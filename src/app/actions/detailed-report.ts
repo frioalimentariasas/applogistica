@@ -168,14 +168,30 @@ const calculateTotalPallets = (formType: string, formData: any): number => {
     if (formType.startsWith('variable-weight-')) {
         const isSummaryFormat = allItems.some((p: any) => p && Number(p.paleta) === 0);
 
-        if (isSummaryFormat) {
-            if (formType.includes('despacho')) {
-                return allItems.reduce((sum: number, p: any) => sum + (Number(p.paletasCompletas) || 0) + (Number(p.paletasPicking) || 0), 0);
+        if (formType.includes('despacho')) {
+            if (isSummaryFormat) {
+                // Sum only complete pallets from summary rows for dispatch
+                return allItems.reduce((sum: number, p: any) => sum + (Number(p.paletasCompletas) || 0), 0);
             }
+            // Count unique non-picking pallets for detailed dispatch
+            const uniquePallets = new Set<number>();
+            allItems.forEach((item: any) => {
+                if (item && !item.esPicking) {
+                    const paletaNum = Number(item.paleta);
+                    if (!isNaN(paletaNum) && paletaNum > 0) {
+                        uniquePallets.add(paletaNum);
+                    }
+                }
+            });
+            return uniquePallets.size;
+        }
+        
+        // --- Recepcion Logic ---
+        if (isSummaryFormat) {
             return allItems.reduce((sum: number, p: any) => sum + (Number(p.totalPaletas) || 0), 0);
         }
         
-        // For detailed reception and dispatch (by pallet), count unique pallets.
+        // For detailed reception (by pallet), count unique pallets.
         const uniquePallets = new Set<number>();
         allItems.forEach((item: any) => {
             const paletaNum = Number(item.paleta);
@@ -395,3 +411,5 @@ export async function getDetailedReport(criteria: DetailedReportCriteria): Promi
         throw new Error('No se pudo generar el reporte detallado.');
     }
 }
+
+    

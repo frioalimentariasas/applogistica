@@ -237,7 +237,7 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
 
                 if (isSummaryFormat) {
                      allItems.forEach((item: any) => {
-                         if (Number(item.paleta) === 0) {
+                         if (item && Number(item.paleta) === 0) {
                             const session = getSessionForProduct(item.codigo, item.descripcion);
                             const paletas = (Number(item.paletasCompletas) || 0) + (Number(item.paletasPicking) || 0);
                             incrementPallets(session, 'despachadas', paletas);
@@ -290,3 +290,5 @@ export async function getBillingReport(criteria: BillingReportCriteria): Promise
         throw new Error('No se pudo generar el reporte de facturación.');
     }
 }
+
+    
