@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -708,7 +709,15 @@ function ConceptFormBody({ form, clientOptions, standardObservations, pedidoType
             
             {watchedCalculationType === 'REGLAS' && (
                 <div className='space-y-4 p-4 border rounded-md bg-muted/20'>
-                    <FormField control={form.control} name="calculationBase" render={({ field }) => (<FormItem><FormLabel>Calcular Usando</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione una base..." /></SelectTrigger></FormControl><SelectContent><SelectItem value="TONELADAS">TONELADAS</SelectItem><SelectItem value="KILOGRAMOS">KILOGRAMOS</SelectItem><SelectItem value="CANTIDAD_PALETAS">CANTIDAD DE PALETAS</SelectItem><SelectItem value="PALETAS_SALIDA_MAQUILA">PALETAS SALIDA MAQUILA</SelectItem><SelectItem value="CANTIDAD_CAJAS">CANTIDAD DE CAJAS/UNIDADES</SelectItem><SelectItem value="NUMERO_OPERACIONES">NÚMERO DE OPERACIONES</SelectItem><SelectItem value="NUMERO_CONTENEDORES">NÚMERO DE CONTENEDORES</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
+                    <FormField control={form.control} name="calculationBase" render={({ field }) => (<FormItem><FormLabel>Calcular Usando</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione una base..." /></SelectTrigger></FormControl><SelectContent>
+                        <SelectItem value="TONELADAS">TONELADAS</SelectItem>
+                        <SelectItem value="KILOGRAMOS">KILOGRAMOS</SelectItem>
+                        <SelectItem value="CANTIDAD_PALETAS">CANTIDAD DE PALETAS</SelectItem>
+                        <SelectItem value="PALETAS_SALIDA_MAQUILA">PALETAS SALIDA MAQUILA</SelectItem>
+                        <SelectItem value="CANTIDAD_CAJAS">CANTIDAD DE CAJAS/UNIDADES</SelectItem>
+                        <SelectItem value="NUMERO_OPERACIONES">NÚMERO DE OPERACIONES</SelectItem>
+                        <SelectItem value="NUMERO_CONTENEDORES">NÚMERO DE CONTENEDORES</SelectItem>
+                    </SelectContent></Select><FormMessage /></FormItem>)}/>
                     <FormField control={form.control} name="filterOperationType" render={({ field }) => (<FormItem><FormLabel>Filtrar por Tipo de Operación</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="ambos">Ambos (Recepción y Despacho)</SelectItem><SelectItem value="recepcion">Recepción</SelectItem><SelectItem value="despacho">Despacho</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
                     <FormField control={form.control} name="filterProductType" render={({ field }) => (<FormItem><FormLabel>Filtrar por Tipo de Producto</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="ambos">Ambos (Peso Fijo y Variable)</SelectItem><SelectItem value="fijo">Peso Fijo</SelectItem><SelectItem value="variable">Peso Variable</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
                     <FormField control={form.control} name="filterSesion" render={({ field }) => (<FormItem><FormLabel>Filtrar por Sesión (Cámara)</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><SelectItem value="AMBOS">Ambos (Cualquier Sesión)</SelectItem><SelectItem value="CO">Congelados (CO)</SelectItem><SelectItem value="RE">Refrigerado (RE)</SelectItem><SelectItem value="SE">Seco (SE)</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
@@ -818,3 +827,4 @@ function ConceptFormBody({ form, clientOptions, standardObservations, pedidoType
         </div>
     );
 }
+
