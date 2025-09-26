@@ -361,7 +361,11 @@ const calculatePalletsForOperation = (
   if (formType?.startsWith('variable-weight')) {
       const isSummary = items.some((i: any) => Number(i.paleta) === 0);
       if (isSummary) {
-          return items.reduce((sum: number, i: any) => sum + (Number(i.paletasCompletas) || 0), 0);
+          // For dispatch, the total pallets is a dedicated field when by destination
+          if (formType.includes('despacho') && formData.despachoPorDestino) {
+              return Number(formData.totalPaletasDespacho) || 0;
+          }
+          return items.reduce((sum: number, i: any) => sum + (Number(i.totalPaletas) || Number(i.paletasCompletas) || 0), 0);
       }
       const uniquePallets = new Set(items.filter(i => !i.esPicking).map((i: any) => i.paleta).filter(Boolean));
       return uniquePallets.size;
@@ -582,9 +586,7 @@ export async function generateClientSettlement(criteria: {
                 case 'NUMERO_CONTENEDORES': quantity = op.formData.contenedor ? 1 : 0; break;
                 case 'PALETAS_SALIDA_MAQUILA':
                     if ((op.formType === 'variable-weight-reception' || op.formType === 'variable-weight-recepcion') && op.formData.tipoPedido === 'MAQUILA') {
-                        quantity = (Number(op.formData.salidaPaletasMaquilaCO) || 0) + 
-                                   (Number(op.formData.salidaPaletasMaquilaRE) || 0) +
-                                   (Number(op.formData.salidaPaletasMaquilaSE) || 0);
+                        quantity = Number(op.formData.salidaPaletasMaquilaCO) || 0;
                         totalPallets = quantity; // Override totalPallets for this specific case
                     } else {
                         quantity = 0;
@@ -993,6 +995,7 @@ const timeToMinutes = (timeStr: string): number => {
     const [hours, minutes] = timeStr.split(':').map(Number);
     return hours * 60 + minutes;
 };
+
 
 
 
