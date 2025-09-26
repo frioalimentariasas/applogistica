@@ -584,9 +584,17 @@ export async function generateClientSettlement(criteria: {
                 case 'CANTIDAD_CAJAS': quantity = calculateUnitsForOperation(op, concept.filterSesion, articleSessionMap); break;
                 case 'NUMERO_OPERACIONES': quantity = 1; break;
                 case 'NUMERO_CONTENEDORES': quantity = op.formData.contenedor ? 1 : 0; break;
-                case 'PALETAS_SALIDA_MAQUILA':
+                case 'PALETAS_SALIDA_MAQUILA_CONGELADOS':
                     if ((op.formType === 'variable-weight-reception' || op.formType === 'variable-weight-recepcion') && op.formData.tipoPedido === 'MAQUILA') {
                         quantity = Number(op.formData.salidaPaletasMaquilaCO) || 0;
+                        totalPallets = quantity; // Override totalPallets for this specific case
+                    } else {
+                        quantity = 0;
+                    }
+                    break;
+                case 'PALETAS_SALIDA_MAQUILA_SECO':
+                    if ((op.formType === 'variable-weight-reception' || op.formType === 'variable-weight-recepcion') && op.formData.tipoPedido === 'MAQUILA') {
+                        quantity = Number(op.formData.salidaPaletasMaquilaSE) || 0;
                         totalPallets = quantity; // Override totalPallets for this specific case
                     } else {
                         quantity = 0;
@@ -995,6 +1003,7 @@ const timeToMinutes = (timeStr: string): number => {
     const [hours, minutes] = timeStr.split(':').map(Number);
     return hours * 60 + minutes;
 };
+
 
 
 

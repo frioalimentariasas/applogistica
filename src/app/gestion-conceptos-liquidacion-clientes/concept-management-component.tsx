@@ -83,7 +83,7 @@ const conceptSchema = z.object({
   calculationType: z.enum(['REGLAS', 'OBSERVACION', 'MANUAL', 'SALDO_INVENTARIO'], { required_error: 'Debe seleccionar un tipo de cálculo.' }),
   
   // Calculation Rules (for REGLAS)
-  calculationBase: z.enum(['TONELADAS', 'KILOGRAMOS', 'CANTIDAD_PALETAS', 'CANTIDAD_CAJAS', 'NUMERO_OPERACIONES', 'NUMERO_CONTENEDORES', 'PALETAS_SALIDA_MAQUILA', 'PALETAS_SALIDA_MAQUILA_SECO', 'CANTIDAD_SACOS_MAQUILA']).optional(),
+  calculationBase: z.enum(['TONELADAS', 'KILOGRAMOS', 'CANTIDAD_PALETAS', 'CANTIDAD_CAJAS', 'NUMERO_OPERACIONES', 'NUMERO_CONTENEDORES', 'PALETAS_SALIDA_MAQUILA_CONGELADOS', 'PALETAS_SALIDA_MAQUILA_SECO', 'CANTIDAD_SACOS_MAQUILA']).optional(),
   filterOperationType: z.enum(['recepcion', 'despacho', 'ambos']).optional(),
   filterProductType: z.enum(['fijo', 'variable', 'ambos']).optional(),
   filterSesion: z.enum(['CO', 'RE', 'SE', 'AMBOS']).optional(),
@@ -713,7 +713,8 @@ function ConceptFormBody({ form, clientOptions, standardObservations, pedidoType
                         <SelectItem value="TONELADAS">TONELADAS</SelectItem>
                         <SelectItem value="KILOGRAMOS">KILOGRAMOS</SelectItem>
                         <SelectItem value="CANTIDAD_PALETAS">CANTIDAD DE PALETAS</SelectItem>
-                        <SelectItem value="PALETAS_SALIDA_MAQUILA">PALETAS SALIDA MAQUILA (CONGELADOS)</SelectItem>
+                        <SelectItem value="PALETAS_SALIDA_MAQUILA_CONGELADOS">PALETAS SALIDA MAQUILA (CONGELADOS)</SelectItem>
+                        <SelectItem value="PALETAS_SALIDA_MAQUILA_SECO">PALETAS SALIDA MAQUILA (SECO)</SelectItem>
                         <SelectItem value="CANTIDAD_SACOS_MAQUILA">CANTIDAD SACOS MAQUILA</SelectItem>
                         <SelectItem value="CANTIDAD_CAJAS">CANTIDAD DE CAJAS/UNIDADES</SelectItem>
                         <SelectItem value="NUMERO_OPERACIONES">NÚMERO DE OPERACIONES</SelectItem>
