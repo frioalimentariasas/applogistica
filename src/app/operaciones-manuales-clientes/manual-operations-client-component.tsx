@@ -1197,5 +1197,3 @@ const ExcedentManager = () => {
         </div>
     )
 }
-
-    
