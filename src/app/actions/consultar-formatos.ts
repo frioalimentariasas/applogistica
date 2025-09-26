@@ -87,7 +87,9 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
             query = query.where('formData.tipoPedido', '==', criteria.tipoPedido);
         }
         
-        if (isOperario && !criteria.searchDateStart && !criteria.searchDateEnd) {
+        const isSearchByUniqueId = !!criteria.pedidoSislog || !!criteria.placa;
+
+        if (isOperario && !isSearchByUniqueId && !criteria.searchDateStart && !criteria.searchDateEnd) {
              const endDate = new Date();
              const startDate = subDays(endDate, 7);
              query = query.where('userId', '==', criteria.requestingUser!.id)
@@ -97,17 +99,24 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
         } else if (criteria.searchDateStart && criteria.searchDateEnd) {
             const startDate = new Date(criteria.searchDateStart + 'T00:00:00-05:00');
             const endDate = new Date(criteria.searchDateEnd + 'T23:59:59.999-05:00');
-            query = query.where('formData.fecha', '>=', startDate).where('formData.fecha', '<=', endDate).orderBy('formData.fecha', 'desc');
+            query = query.where('formData.fecha', '>=', startDate).where('formData.fecha', '<=', endDate);
         } else if (criteria.searchDateStart) {
             const startDate = new Date(criteria.searchDateStart + 'T00:00:00-05:00');
-            query = query.where('formData.fecha', '>=', startDate).orderBy('formData.fecha', 'desc');
+            query = query.where('formData.fecha', '>=', startDate);
         } else if (criteria.searchDateEnd) {
             const endDate = new Date(criteria.searchDateEnd + 'T23:59:59.999-05:00');
-            query = query.where('formData.fecha', '<=', endDate).orderBy('formData.fecha', 'desc');
-        } else {
+            query = query.where('formData.fecha', '<=', endDate);
+        } else if (!isSearchByUniqueId) {
              const endDate = new Date();
              const startDate = subDays(endDate, 7);
              query = query.where('createdAt', '>=', startDate).orderBy('createdAt', 'desc');
+        }
+
+        // Apply a default sort order if none has been applied yet.
+        // The check for `_query.orderBy.length` is a stand-in as we can't directly inspect applied orders.
+        // A better check might be needed if orderBy is applied in more complex ways.
+        if (query.orderBy === undefined || query.orderBy.length === 0) {
+            query = query.orderBy('formData.fecha', 'desc');
         }
 
 
@@ -255,5 +264,3 @@ export async function deleteSubmission(submissionId: string): Promise<{ success:
         return { success: false, message: 'No se pudo eliminar el formulario.' };
     }
 }
-
-    
