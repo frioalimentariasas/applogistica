@@ -588,7 +588,7 @@ export async function generateClientSettlement(criteria: {
                     }
                     break;
                 case 'CANTIDAD_SACOS_MAQUILA':
-                    if ((op.formType === 'variable-weight-reception' || op.formType === 'variable-weight-recepcion') && op.formData.tipoPedido === 'MAQUILA' && op.formData.tipoEmpaqueMaquila === 'EMPAQUE DE SACOS') {
+                    if ((op.formType === 'variable-weight-reception' || op.formType === 'variable-weight-recepcion') && op.formData.tipoPedido === 'MAQUILA' && op.formData.tipoEmpaqueMaquila === 'SACO') {
                         quantity = calculateUnitsForOperation(op, concept.filterSesion, articleSessionMap);
                     } else {
                         quantity = 0;
@@ -813,17 +813,19 @@ export async function generateClientSettlement(criteria: {
                     opData.specificTariffs.forEach((appliedTariff: { tariffId: string, quantity: number }) => {
                         const specificTariff = concept.specificTariffs?.find(t => t.id === appliedTariff.tariffId);
                         if (specificTariff) {
-                            const numPersonas = appliedTariff.quantity || opData.numeroPersonas || 0; // The quantity field is numPersonas for this case
+                            const numPersonas = concept.conceptName === 'TIEMPO EXTRA FRIOAL' ? appliedTariff.quantity : opData.numeroPersonas || 0;
                             const start = opData.details?.startTime;
                             const end = opData.details?.endTime;
-                            let quantityForCalc = numPersonas;
-                            let totalValue = quantityForCalc * (specificTariff.value || 0);
+                            let quantityForCalc = opData.quantity || numPersonas;
+                            let totalValue = 0;
 
                             if (concept.conceptName === 'TIEMPO EXTRA FRIOAL' && start && end) {
                                 const diffMinutes = differenceInMinutes(parse(end, 'HH:mm', new Date()), parse(start, 'HH:mm', new Date()));
                                 const hours = parseFloat((diffMinutes / 60).toFixed(2));
                                 quantityForCalc = hours;
                                 totalValue = quantityForCalc * numPersonas * (specificTariff.value || 0);
+                            } else {
+                                totalValue = quantityForCalc * (specificTariff.value || 0);
                             }
                             
                             if (totalValue > 0) {
@@ -928,10 +930,12 @@ export async function generateClientSettlement(criteria: {
         'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'ALISTAMIENTO POR UNIDAD', 'FMM DE INGRESO ZFPC', 'ARIN DE INGRESO ZFPC', 'FMM DE SALIDA ZFPC',
         'ARIN DE SALIDA ZFPC', 'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
         'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'ESTIBA MADERA RECICLADA',
-        'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA ZFPC',
+        'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 'TIEMPO EXTRA ZFPC',
         'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO', 'ALMACENAMIENTO PRODUCTOS CONGELADOS -PALLET/DIA (-18°C A -25°C)', 'ALMACENAMIENTO PRODUCTOS REFRIGERADOS -PALLET/DIA (0°C A 4ºC'
     ];
     
+    const roleOrder = ['SUPERVISOR', 'MONTACARGUISTA TRILATERAL', 'MONTACARGUISTA NORMAL', 'OPERARIO'];
+
     settlementRows.sort((a, b) => {
         const dateA = new Date(a.date).getTime();
         const dateB = new Date(b.date).getTime();
@@ -944,6 +948,21 @@ export async function generateClientSettlement(criteria: {
 
         if (orderA !== orderB) return orderA - orderB;
 
+        if (a.conceptName === 'TIEMPO EXTRA FRIOAL (FIJO)' && b.conceptName === 'TIEMPO EXTRA FRIOAL (FIJO)') {
+            const subConceptA = a.subConceptName || '';
+            const subConceptB = b.subConceptName || '';
+
+            const roleA = roleOrder.find(role => subConceptA.includes(role));
+            const roleB = roleOrder.find(role => subConceptB.includes(role));
+            
+            const roleIndexA = roleA ? roleOrder.indexOf(roleA) : Infinity;
+            const roleIndexB = roleB ? roleOrder.indexOf(roleB) : Infinity;
+
+            if (roleIndexA !== roleIndexB) {
+                return roleIndexA - roleIndexB;
+            }
+        }
+        
         return (a.subConceptName || '').localeCompare(b.subConceptName || '');
     });
     
@@ -971,3 +990,4 @@ const timeToMinutes = (timeStr: string): number => {
     const [hours, minutes] = timeStr.split(':').map(Number);
     return hours * 60 + minutes;
 };
+
