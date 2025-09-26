@@ -575,12 +575,11 @@ export async function generateClientSettlement(criteria: {
             let totalPallets = 0;
             
             const weightKg = calculateWeightForOperation(op, concept.filterSesion, articleSessionMap);
-            totalPallets = calculatePalletsForOperation(op, concept.filterSesion, articleSessionMap);
             
             switch (concept.calculationBase) {
                 case 'TONELADAS': quantity = weightKg / 1000; break;
                 case 'KILOGRAMOS': quantity = weightKg; break;
-                case 'CANTIDAD_PALETAS': quantity = totalPallets; break;
+                case 'CANTIDAD_PALETAS': quantity = calculatePalletsForOperation(op, concept.filterSesion, articleSessionMap); break;
                 case 'CANTIDAD_CAJAS': quantity = calculateUnitsForOperation(op, concept.filterSesion, articleSessionMap); break;
                 case 'NUMERO_OPERACIONES': quantity = 1; break;
                 case 'NUMERO_CONTENEDORES': quantity = op.formData.contenedor ? 1 : 0; break;
@@ -593,9 +592,9 @@ export async function generateClientSettlement(criteria: {
                     }
                     break;
                 case 'PALETAS_SALIDA_MAQUILA_SECO':
-                    if ((op.formType === 'variable-weight-reception' || op.formType === 'variable-weight-recepcion') && op.formData.tipoPedido === 'MAQUILA') {
+                     if ((op.formType === 'variable-weight-reception' || op.formType === 'variable-weight-recepcion') && op.formData.tipoPedido === 'MAQUILA') {
                         quantity = Number(op.formData.salidaPaletasMaquilaSE) || 0;
-                        totalPallets = quantity; // Override totalPallets for this specific case
+                        totalPallets = quantity;
                     } else {
                         quantity = 0;
                     }
@@ -610,6 +609,10 @@ export async function generateClientSettlement(criteria: {
             }
             
             if (quantity <= 0) continue;
+
+            if (concept.calculationBase !== 'PALETAS_SALIDA_MAQUILA_CONGELADOS' && concept.calculationBase !== 'PALETAS_SALIDA_MAQUILA_SECO') {
+                totalPallets = calculatePalletsForOperation(op, concept.filterSesion, articleSessionMap);
+            }
 
             let unitValue = 0;
             let operacionLogistica: string = 'No Aplica';
@@ -832,7 +835,7 @@ export async function generateClientSettlement(criteria: {
                             let quantityForCalc;
                             let totalValue = 0;
 
-                            if (opData.concept === 'SERVICIO DE TUNEL DE CONGELACION RAPIDA') {
+                            if (opData.concept === 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA') {
                                 quantityForCalc = appliedTariff.quantity || 0;
                             } else if (concept.conceptName === 'TIEMPO EXTRA FRIOAL' && start && end) {
                                 const diffMinutes = differenceInMinutes(parse(end, 'HH:mm', new Date()), parse(start, 'HH:mm', new Date()));
@@ -946,11 +949,11 @@ export async function generateClientSettlement(criteria: {
     }
 
     const conceptOrder = [
-        'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'ALISTAMIENTO POR UNIDAD', 'FMM DE INGRESO ZFPC', 'ARIN DE INGRESO ZFPC', 'FMM DE SALIDA ZFPC',
+        'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'OPERACIÓN CARGUE (CANASTILLAS)', 'ALISTAMIENTO POR UNIDAD', 'FMM DE INGRESO ZFPC', 'ARIN DE INGRESO ZFPC', 'FMM DE SALIDA ZFPC',
         'ARIN DE SALIDA ZFPC', 'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
         'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'ESTIBA MADERA RECICLADA',
-        'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 'TIEMPO EXTRA ZFPC',
-        'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO', 'ALMACENAMIENTO PRODUCTOS CONGELADOS -PALLET/DIA (-18°C A -25°C)', 'ALMACENAMIENTO PRODUCTOS REFRIGERADOS -PALLET/DIA (0°C A 4ºC', 'SERVICIO DE TUNEL DE CONGELACION RAPIDA'
+        'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA ZFPC',
+        'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO', 'ALMACENAMIENTO PRODUCTOS CONGELADOS -PALLET/DIA (-18°C A -25°C)', 'ALMACENAMIENTO PRODUCTOS REFRIGERADOS -PALLET/DIA (0°C A 4ºC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA'
     ];
     
     const roleOrder = ['SUPERVISOR', 'MONTACARGUISTA TRILATERAL', 'MONTACARGUISTA NORMAL', 'OPERARIO'];
@@ -961,7 +964,6 @@ export async function generateClientSettlement(criteria: {
         if (dateA !== dateB) return dateA - dateB;
 
         const getSortOrder = (conceptName: string) => {
-            if (conceptName === 'OPERACIÓN CARGUE (CANASTILLAS)') return conceptOrder.indexOf('OPERACIÓN CARGUE') + 0.5; // Special case
             const index = conceptOrder.indexOf(conceptName);
             return index === -1 ? Infinity : index;
         };

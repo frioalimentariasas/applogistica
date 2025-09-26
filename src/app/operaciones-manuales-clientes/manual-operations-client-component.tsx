@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -152,7 +153,7 @@ const manualOperationSchema = z.object({
       if (!data.details?.plate?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La Placa es obligatoria.", path: ["details.plate"] });
     }
 
-    const specialConcepts = ['INSPECCIÓN ZFPC', 'TIEMPO EXTRA ZFPC', 'SERVICIO DE TUNEL DE CONGELACION RAPIDA'];
+    const specialConcepts = ['INSPECCIÓN ZFPC', 'TIEMPO EXTRA ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA'];
     if (specialConcepts.includes(data.concept)) {
         if (!data.details?.container?.trim()) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El contenedor es obligatorio para este concepto.", path: ["details", "container"] });
@@ -247,10 +248,10 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     const isElectricConnection = watchedConcept === 'CONEXIÓN ELÉCTRICA CONTENEDOR';
     const isInspection = watchedConcept === 'INSPECCIÓN ZFPC';
     const isFixedMonthlyService = isPositionMode || watchedConcept === 'IN-HOUSE INSPECTOR ZFPC' || watchedConcept === 'ALQUILER IMPRESORA ETIQUETADO';
-    const showNumeroPersonas = selectedConceptInfo?.tariffType === 'ESPECIFICA' && !isBulkMode && !isPositionMode && !['TIEMPO EXTRA ZFPC', 'SERVICIO DE TUNEL DE CONGELACION RAPIDA', 'INSPECCIÓN ZFPC'].includes(watchedConcept);
+    const showNumeroPersonas = selectedConceptInfo?.tariffType === 'ESPECIFICA' && !isBulkMode && !isPositionMode && !['TIEMPO EXTRA ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA', 'INSPECCIÓN ZFPC'].includes(watchedConcept);
     const isFmmZfpc = watchedConcept === 'FMM ZFPC';
     const isFmmConcept = watchedConcept === 'FMM DE INGRESO ZFPC' || watchedConcept === 'FMM DE SALIDA ZFPC';
-    const showAdvancedFields = ['INSPECCIÓN ZFPC', 'TIEMPO EXTRA ZFPC', 'SERVICIO DE TUNEL DE CONGELACION RAPIDA'].includes(watchedConcept);
+    const showAdvancedFields = ['INSPECCIÓN ZFPC', 'TIEMPO EXTRA ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA'].includes(watchedConcept);
     const showInspectionFields = isInspection;
     const showTimeExtraFields = ['TIEMPO EXTRA ZFPC', 'TIEMPO EXTRA FRIOAL', 'INSPECCIÓN ZFPC'].includes(watchedConcept);
 
@@ -642,7 +643,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                             </div>
                              <div className="space-y-2">
                                 <Label>Concepto</Label>
-                                <Select value={selectedConcept} onValueChange={setSelectedConcept}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Todos los Conceptos</SelectItem>{billingConcepts.filter(c => c.calculationType === 'MANUAL' || c.conceptName === "MOVIMIENTO ENTRADA PRODUCTOS - PALLET" || c.conceptName === "MOVIMIENTO SALIDA PRODUCTOS - PALLET").map(c => <SelectItem key={c.id} value={c.conceptName}>{c.conceptName}</SelectItem>)}</SelectContent></Select>
+                                <Select value={selectedConcept} onValueChange={setSelectedConcept}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">Todos los Conceptos</SelectItem>{[...new Set(allOperations.map(op => op.concept))].sort((a,b) => a.localeCompare(b)).map(c => <SelectItem key={c} value={c}>{c}</SelectItem>)}</SelectContent></Select>
                             </div>
                             <div className="flex items-end gap-2 xl:col-span-2">
                                 <Button onClick={() => handleSearch(allOperations)} disabled={!dateRange || isLoading} className="w-full">
@@ -905,7 +906,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                 
                                                 <FormField control={form.control} name="details.totalPallets" render={({ field }) => (<FormItem><FormLabel>Total Paletas</FormLabel><FormControl><Input type="number" step="1" placeholder="Ej: 10" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value === '' ? null : parseInt(e.target.value, 10))}/></FormControl><FormMessage /></FormItem>)}/>
                                             
-                                                {(watchedConcept === 'SERVICIO DE TUNEL DE CONGELACION RAPIDA') && (
+                                                {(watchedConcept === 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA') && (
                                                     <>
                                                         <FormField control={form.control} name="details.pedidoSislog" render={({ field }) => (<FormItem><FormLabel>Pedido Sislog</FormLabel><FormControl><Input placeholder="Pedido Sislog" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
                                                         <FormField control={form.control} name="details.plate" render={({ field }) => (<FormItem><FormLabel>Placa</FormLabel><FormControl><Input placeholder="Placa" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
@@ -1194,4 +1195,3 @@ const ExcedentManager = () => {
         </div>
     )
 }
-
