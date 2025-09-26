@@ -829,15 +829,21 @@ export async function generateClientSettlement(criteria: {
                             const numPersonas = concept.conceptName === 'TIEMPO EXTRA FRIOAL' ? appliedTariff.quantity : opData.numeroPersonas || 0;
                             const start = opData.details?.startTime;
                             const end = opData.details?.endTime;
-                            let quantityForCalc = opData.quantity || numPersonas;
+                            let quantityForCalc;
                             let totalValue = 0;
 
-                            if (concept.conceptName === 'TIEMPO EXTRA FRIOAL' && start && end) {
+                            if (opData.concept === 'SERVICIO DE TUNEL DE CONGELACION RAPIDA') {
+                                quantityForCalc = appliedTariff.quantity || 0;
+                            } else if (concept.conceptName === 'TIEMPO EXTRA FRIOAL' && start && end) {
                                 const diffMinutes = differenceInMinutes(parse(end, 'HH:mm', new Date()), parse(start, 'HH:mm', new Date()));
                                 const hours = parseFloat((diffMinutes / 60).toFixed(2));
                                 quantityForCalc = hours;
                                 totalValue = quantityForCalc * numPersonas * (specificTariff.value || 0);
                             } else {
+                                quantityForCalc = opData.quantity || numPersonas;
+                            }
+                            
+                            if (totalValue === 0) { // Calculate totalValue if not already set
                                 totalValue = quantityForCalc * (specificTariff.value || 0);
                             }
                             
@@ -940,11 +946,11 @@ export async function generateClientSettlement(criteria: {
     }
 
     const conceptOrder = [
-        'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'OPERACIÓN CARGUE (CANASTILLAS)', 'ALISTAMIENTO POR UNIDAD', 'FMM DE INGRESO ZFPC', 'ARIN DE INGRESO ZFPC', 'FMM DE SALIDA ZFPC',
+        'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'ALISTAMIENTO POR UNIDAD', 'FMM DE INGRESO ZFPC', 'ARIN DE INGRESO ZFPC', 'FMM DE SALIDA ZFPC',
         'ARIN DE SALIDA ZFPC', 'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
         'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'ESTIBA MADERA RECICLADA',
-        'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA ZFPC',
-        'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO', 'ALMACENAMIENTO PRODUCTOS CONGELADOS -PALLET/DIA (-18°C A -25°C)', 'ALMACENAMIENTO PRODUCTOS REFRIGERADOS -PALLET/DIA (0°C A 4ºC'
+        'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 'TIEMPO EXTRA ZFPC',
+        'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO', 'ALMACENAMIENTO PRODUCTOS CONGELADOS -PALLET/DIA (-18°C A -25°C)', 'ALMACENAMIENTO PRODUCTOS REFRIGERADOS -PALLET/DIA (0°C A 4ºC', 'SERVICIO DE TUNEL DE CONGELACION RAPIDA'
     ];
     
     const roleOrder = ['SUPERVISOR', 'MONTACARGUISTA TRILATERAL', 'MONTACARGUISTA NORMAL', 'OPERARIO'];
@@ -955,8 +961,8 @@ export async function generateClientSettlement(criteria: {
         if (dateA !== dateB) return dateA - dateB;
 
         const getSortOrder = (conceptName: string) => {
-            const index = conceptOrder.indexOf(conceptName);
             if (conceptName === 'OPERACIÓN CARGUE (CANASTILLAS)') return conceptOrder.indexOf('OPERACIÓN CARGUE') + 0.5; // Special case
+            const index = conceptOrder.indexOf(conceptName);
             return index === -1 ? Infinity : index;
         };
 
