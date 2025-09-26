@@ -585,18 +585,18 @@ export async function generateClientSettlement(criteria: {
                 case 'PALETAS_SALIDA_MAQUILA_CONGELADOS':
                     if ((op.formType === 'variable-weight-reception' || op.formType === 'variable-weight-recepcion') && op.formData.tipoPedido === 'MAQUILA') {
                         quantity = Number(op.formData.salidaPaletasMaquilaCO) || 0;
-                        totalPallets = quantity; // Override totalPallets for this specific case
                     } else {
                         quantity = 0;
                     }
+                    totalPallets = quantity; // Ensure totalPallets reflects the calculated quantity
                     break;
                 case 'PALETAS_SALIDA_MAQUILA_SECO':
                      if ((op.formType === 'variable-weight-reception' || op.formType === 'variable-weight-recepcion') && op.formData.tipoPedido === 'MAQUILA') {
                         quantity = Number(op.formData.salidaPaletasMaquilaSE) || 0;
-                        totalPallets = quantity;
                     } else {
                         quantity = 0;
                     }
+                    totalPallets = quantity; // Ensure totalPallets reflects the calculated quantity
                     break;
                 case 'CANTIDAD_SACOS_MAQUILA':
                     if ((op.formType.includes('reception') || op.formType.includes('recepcion')) && op.formData.tipoPedido === 'MAQUILA' && op.formData.tipoEmpaqueMaquila === 'EMPAQUE DE SACOS') {
