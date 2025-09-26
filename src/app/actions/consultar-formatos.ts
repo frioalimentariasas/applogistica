@@ -72,43 +72,35 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
         const isOperario = criteria.requestingUser && operarioEmails.includes(criteria.requestingUser.email);
         
         // --- QUERY BUILDING ---
-        if (isOperario) {
-            query = query.where('userId', '==', criteria.requestingUser!.id);
-        }
+        // To avoid complex composite indexes, we'll filter by date first, which is the most common and selective filter.
+        // Other filters will be applied in-memory.
 
-        if (criteria.pedidoSislog) {
-            query = query.where('formData.pedidoSislog', '==', criteria.pedidoSislog);
-        }
-        if (criteria.nombreCliente) {
-             // Firestore does not support multiple inequality filters.
-             // Client name will be filtered in-memory if other field-based filters are used.
-            if (!criteria.searchDateStart && !criteria.searchDateEnd && !criteria.placa && !criteria.pedidoSislog) {
-                query = query.where('formData.nombreCliente', '==', criteria.nombreCliente);
-            }
-        }
-         if (criteria.placa) {
-            query = query.where('formData.placa', '==', criteria.placa);
-        }
-
-        if (criteria.searchDateStart) {
+        if (criteria.searchDateStart && criteria.searchDateEnd) {
+            const startDate = new Date(criteria.searchDateStart + 'T00:00:00-05:00');
+            const endDate = new Date(criteria.searchDateEnd + 'T23:59:59.999-05:00');
+            query = query.where('formData.fecha', '>=', startDate).where('formData.fecha', '<=', endDate);
+        } else if (criteria.searchDateStart) {
             const startDate = new Date(criteria.searchDateStart + 'T00:00:00-05:00');
             query = query.where('formData.fecha', '>=', startDate);
-        }
-        if (criteria.searchDateEnd) {
+        } else if (criteria.searchDateEnd) {
             const endDate = new Date(criteria.searchDateEnd + 'T23:59:59.999-05:00');
             query = query.where('formData.fecha', '<=', endDate);
-        }
-        
-        const hasSpecificFilters = criteria.pedidoSislog || criteria.placa || criteria.searchDateStart || criteria.searchDateEnd || criteria.nombreCliente;
-        // Default to last 7 days ONLY if no other filters are applied and user is not operario
-        if (!isOperario && !hasSpecificFilters) {
+        } else if (isOperario) {
+            // If operario is searching without a date, limit to last 7 days by default on their creations
             const endDate = new Date();
             const startDate = subDays(endDate, 7);
-            query = query.where('createdAt', '>=', startDate)
+            query = query.where('userId', '==', criteria.requestingUser!.id)
+                         .where('createdAt', '>=', startDate)
                          .where('createdAt', '<=', endDate);
+        } else {
+            // Default for non-operarios without any filters: last 7 days
+            const endDate = new Date();
+            const startDate = subDays(endDate, 7);
+            query = query.where('createdAt', '>=', startDate).where('createdAt', '<=', endDate);
         }
 
-        const snapshot = await query.orderBy('formData.fecha', 'asc').get();
+
+        const snapshot = await query.orderBy('formData.fecha', 'desc').get();
 
         let results = snapshot.docs.map(doc => {
             const data = doc.data();
@@ -121,21 +113,20 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
         });
 
         // --- IN-MEMORY FILTERING for criteria that couldn't be added to the query ---
-        if (isOperario && !hasSpecificFilters) {
-            const endDate = new Date();
-            const startDate = subDays(endDate, 7);
-            results = results.filter(sub => {
-                const subDate = new Date(sub.createdAt);
-                return subDate >= startDate && subDate <= endDate;
-            });
+        
+        if (criteria.pedidoSislog) {
+            results = results.filter(sub => sub.formData.pedidoSislog === criteria.pedidoSislog);
         }
-
-        // Apply client name filter in-memory if it was skipped in the query build
-        if (criteria.nombreCliente && (criteria.searchDateStart || criteria.searchDateEnd || criteria.placa || criteria.pedidoSislog)) {
+        
+        if (criteria.nombreCliente) {
             results = results.filter(sub => {
                 const clientName = sub.formData.nombreCliente || sub.formData.cliente;
                 return clientName && clientName === criteria.nombreCliente;
             });
+        }
+        
+        if (criteria.placa) {
+            results = results.filter(sub => sub.formData.placa === criteria.placa);
         }
         
         if (criteria.operationType) {
@@ -159,9 +150,11 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
         }
 
         if (criteria.tipoPedido) {
-            results = results.filter(sub => {
-                return sub.formData.tipoPedido === criteria.tipoPedido;
-            });
+            results = results.filter(sub => sub.formData.tipoPedido === criteria.tipoPedido);
+        }
+        
+        if (isOperario) {
+            results = results.filter(sub => sub.userId === criteria.requestingUser!.id);
         }
         
         return results;

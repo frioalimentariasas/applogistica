@@ -5,7 +5,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { DateRange } from 'react-day-picker';
-import { format, parseISO, startOfDay, endOfDay } from 'date-fns';
+import { format, parseISO, startOfDay, endOfDay, subDays } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 import { searchSubmissions, SubmissionResult, SearchCriteria, deleteSubmission } from '@/app/actions/consultar-formatos';
@@ -31,6 +31,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
+import { IndexCreationDialog } from '@/components/app/index-creation-dialog';
 
 
 const ResultsSkeleton = () => (
@@ -108,6 +109,9 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
     const [pedidoTypes, setPedidoTypes] = useState<PedidoType[]>([]);
     const [isTipoPedidoDialogOpen, setIsTipoPedidoDialogOpen] = useState(false);
     const [tipoPedidoSearch, setTipoPedidoSearch] = useState('');
+    
+    const [isIndexErrorOpen, setIsIndexErrorOpen] = useState(false);
+    const [indexErrorMessage, setIndexErrorMessage] = useState('');
 
     useEffect(() => {
         getPedidoTypes().then(setPedidoTypes);
@@ -147,12 +151,17 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
         } catch (error) {
             console.error('Error en la búsqueda desde el cliente:', error);
             const errorMessage = error instanceof Error ? error.message : "Ocurrió un error desconocido.";
-            toast({
-                variant: 'destructive',
-                title: 'Error en la búsqueda',
-                description: errorMessage,
-                duration: 9000,
-            });
+            if (typeof errorMessage === 'string' && (errorMessage.includes('requires an index') || errorMessage.includes('needs an index'))) {
+                setIndexErrorMessage(errorMessage);
+                setIsIndexErrorOpen(true);
+            } else {
+                 toast({
+                    variant: 'destructive',
+                    title: 'Error en la búsqueda',
+                    description: errorMessage,
+                    duration: 9000,
+                });
+            }
         } finally {
             setIsLoading(false);
         }
@@ -683,6 +692,11 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
                     </AlertDialogFooter>
                 </AlertDialogContent>
             </AlertDialog>
+             <IndexCreationDialog 
+                isOpen={isIndexErrorOpen}
+                onOpenChange={setIsIndexErrorOpen}
+                errorMessage={indexErrorMessage}
+            />
         </div>
     );
 }
