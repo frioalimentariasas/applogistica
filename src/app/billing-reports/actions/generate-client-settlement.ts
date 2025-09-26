@@ -254,30 +254,19 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
             }
         } else if (concept.calculationType === 'SALDO_INVENTARIO') {
             if (!concept.inventorySesion) continue;
-            
             const targetSesion = concept.inventorySesion;
 
-            const hasMovementsInSession = clientSubmissions.some(doc => {
-                const submissionData = doc.data().formData;
-                const items = getFilteredItems({formData: submissionData}, targetSesion, articleSessionMap);
-                return items.length > 0;
-            });
-            
-             const inventorySnapshot = await firestore.collection('dailyInventories')
-                .where(admin.firestore.FieldPath.documentId(), '>=', startDate)
-                .where(admin.firestore.FieldPath.documentId(), '<=', endDate)
-                .get();
-
-            const hasInventoryInSession = inventorySnapshot.docs.some(doc => {
-                const data = doc.data().data;
-                return Array.isArray(data) && data.some(row => 
-                    row.PROPIETARIO === clientName && 
-                    String(row.SE).trim().toUpperCase() === targetSesion
-                );
+            const consolidatedReportForConcept = await getConsolidatedMovementReport({
+                clientName: clientName,
+                startDate: startDate,
+                endDate: endDate,
+                sesion: targetSesion,
             });
 
-            if (hasInventoryInSession || hasMovementsInSession) {
-                 if (!applicableConcepts.has(concept.id)) {
+            const hasBalanceInPeriod = consolidatedReportForConcept.some(day => day.posicionesAlmacenadas > 0);
+
+            if (hasBalanceInPeriod) {
+                if (!applicableConcepts.has(concept.id)) {
                     applicableConcepts.set(concept.id, concept);
                 }
             }
@@ -1022,4 +1011,5 @@ const timeToMinutes = (timeStr: string): number => {
 
 
   
+
 
