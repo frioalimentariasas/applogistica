@@ -492,7 +492,6 @@ export async function generateClientSettlement(criteria: {
     
     const settlementRows: ClientSettlementRow[] = [];
     
-    // --- Logic for CARGUE DE CANASTAS (AVICOLA EL MADROÑO S.A.) ---
     const operacionCargueConcept = selectedConcepts.find(c => c.conceptName === 'OPERACIÓN CARGUE');
     if (clientName === 'AVICOLA EL MADROÑO S.A.' && operacionCargueConcept) {
         const canastasOps = allOperations.filter(op => 
@@ -835,7 +834,7 @@ export async function generateClientSettlement(criteria: {
                             let quantityForCalc;
                             let totalValue = 0;
 
-                            if (opData.concept === 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA') {
+                            if (concept.conceptName === 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA') {
                                 quantityForCalc = appliedTariff.quantity || 0;
                             } else if (concept.conceptName === 'TIEMPO EXTRA FRIOAL' && start && end) {
                                 const diffMinutes = differenceInMinutes(parse(end, 'HH:mm', new Date()), parse(start, 'HH:mm', new Date()));
