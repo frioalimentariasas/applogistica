@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -251,8 +252,8 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     const isFmmZfpc = watchedConcept === 'FMM ZFPC';
     const isFmmConcept = watchedConcept === 'FMM DE INGRESO ZFPC' || watchedConcept === 'FMM DE SALIDA ZFPC';
     const showAdvancedFields = ['INSPECCIÓN ZFPC', 'TIEMPO EXTRA ZFPC'].includes(watchedConcept);
-    const showInspectionFields = isInspection;
     const showTimeExtraFields = ['TIEMPO EXTRA ZFPC', 'TIEMPO EXTRA FRIOAL', 'INSPECCIÓN ZFPC'].includes(watchedConcept);
+    const showTunelCongelacionFields = watchedConcept === 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA';
 
 
     useEffect(() => {
@@ -874,7 +875,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                             />
                                         )}
                                         
-                                        {(showAdvancedFields || dialogMode === 'view' || isElectricConnection || isFmmZfpc || isFmmConcept || showTimeExtraFields) && (
+                                        {(showAdvancedFields || dialogMode === 'view' || isElectricConnection || isFmmZfpc || isFmmConcept || showTimeExtraFields || showTunelCongelacionFields) && (
                                             <>
                                                 <Separator />
                                                 <p className="text-sm font-medium text-muted-foreground">Detalles Adicionales</p>
@@ -886,8 +887,9 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                 )}
 
                                                 {watchedConcept !== 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA' && (
-                                                    <FormField control={form.control} name="details.container" render={({ field }) => (<FormItem><FormLabel>Contenedor {(showAdvancedFields || isElectricConnection) && <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Contenedor" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
+                                                     <FormField control={form.control} name="details.container" render={({ field }) => (<FormItem><FormLabel>Contenedor {(showAdvancedFields || isElectricConnection) && <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Contenedor" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
                                                 )}
+
                                                 {showInspectionFields && (
                                                      <FormField control={form.control} name="details.arin" render={({ field }) => (<FormItem><FormLabel>ARIN <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Número de ARIN" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
                                                 )}
@@ -907,7 +909,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                 
                                                 <FormField control={form.control} name="details.totalPallets" render={({ field }) => (<FormItem><FormLabel>Total Paletas</FormLabel><FormControl><Input type="number" step="1" placeholder="Ej: 10" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value === '' ? null : parseInt(e.target.value, 10))}/></FormControl><FormMessage /></FormItem>)}/>
                                             
-                                                {(watchedConcept === 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA') && (
+                                                {showTunelCongelacionFields && (
                                                     <>
                                                         <FormField control={form.control} name="details.pedidoSislog" render={({ field }) => (<FormItem><FormLabel>Pedido Sislog</FormLabel><FormControl><Input placeholder="Pedido Sislog" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
                                                         <FormField control={form.control} name="details.plate" render={({ field }) => (<FormItem><FormLabel>Placa</FormLabel><FormControl><Input placeholder="Placa" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
@@ -1196,5 +1198,3 @@ const ExcedentManager = () => {
         </div>
     )
 }
-
-    
