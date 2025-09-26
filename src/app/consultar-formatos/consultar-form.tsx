@@ -700,3 +700,5 @@ export default function ConsultarFormatosComponent({ clients }: { clients: Clien
         </div>
     );
 }
+
+    

@@ -71,36 +71,47 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
         let query: admin.firestore.Query = firestore.collection('submissions');
         const isOperario = criteria.requestingUser && operarioEmails.includes(criteria.requestingUser.email);
         
-        // --- QUERY BUILDING ---
-        // To avoid complex composite indexes, we'll filter by date first, which is the most common and selective filter.
-        // Other filters will be applied in-memory.
+        if (criteria.pedidoSislog) {
+            query = query.where('formData.pedidoSislog', '==', criteria.pedidoSislog);
+        }
 
-        if (criteria.searchDateStart && criteria.searchDateEnd) {
+        if (criteria.nombreCliente) {
+            query = query.where('formData.nombreCliente', '==', criteria.nombreCliente);
+        }
+        
+        if (criteria.placa) {
+            query = query.where('formData.placa', '==', criteria.placa);
+        }
+
+        if (criteria.tipoPedido) {
+            query = query.where('formData.tipoPedido', '==', criteria.tipoPedido);
+        }
+        
+        if (isOperario && !criteria.searchDateStart && !criteria.searchDateEnd) {
+             const endDate = new Date();
+             const startDate = subDays(endDate, 7);
+             query = query.where('userId', '==', criteria.requestingUser!.id)
+                          .where('createdAt', '>=', startDate)
+                          .where('createdAt', '<=', endDate)
+                          .orderBy('createdAt', 'desc');
+        } else if (criteria.searchDateStart && criteria.searchDateEnd) {
             const startDate = new Date(criteria.searchDateStart + 'T00:00:00-05:00');
             const endDate = new Date(criteria.searchDateEnd + 'T23:59:59.999-05:00');
-            query = query.where('formData.fecha', '>=', startDate).where('formData.fecha', '<=', endDate);
+            query = query.where('formData.fecha', '>=', startDate).where('formData.fecha', '<=', endDate).orderBy('formData.fecha', 'desc');
         } else if (criteria.searchDateStart) {
             const startDate = new Date(criteria.searchDateStart + 'T00:00:00-05:00');
-            query = query.where('formData.fecha', '>=', startDate);
+            query = query.where('formData.fecha', '>=', startDate).orderBy('formData.fecha', 'desc');
         } else if (criteria.searchDateEnd) {
             const endDate = new Date(criteria.searchDateEnd + 'T23:59:59.999-05:00');
-            query = query.where('formData.fecha', '<=', endDate);
-        } else if (isOperario) {
-            // If operario is searching without a date, limit to last 7 days by default on their creations
-            const endDate = new Date();
-            const startDate = subDays(endDate, 7);
-            query = query.where('userId', '==', criteria.requestingUser!.id)
-                         .where('createdAt', '>=', startDate)
-                         .where('createdAt', '<=', endDate);
+            query = query.where('formData.fecha', '<=', endDate).orderBy('formData.fecha', 'desc');
         } else {
-            // Default for non-operarios without any filters: last 7 days
-            const endDate = new Date();
-            const startDate = subDays(endDate, 7);
-            query = query.where('createdAt', '>=', startDate).where('createdAt', '<=', endDate);
+             const endDate = new Date();
+             const startDate = subDays(endDate, 7);
+             query = query.where('createdAt', '>=', startDate).orderBy('createdAt', 'desc');
         }
 
 
-        const snapshot = await query.orderBy('formData.fecha', 'desc').get();
+        const snapshot = await query.get();
 
         let results = snapshot.docs.map(doc => {
             const data = doc.data();
@@ -113,21 +124,6 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
         });
 
         // --- IN-MEMORY FILTERING for criteria that couldn't be added to the query ---
-        
-        if (criteria.pedidoSislog) {
-            results = results.filter(sub => sub.formData.pedidoSislog === criteria.pedidoSislog);
-        }
-        
-        if (criteria.nombreCliente) {
-            results = results.filter(sub => {
-                const clientName = sub.formData.nombreCliente || sub.formData.cliente;
-                return clientName && clientName === criteria.nombreCliente;
-            });
-        }
-        
-        if (criteria.placa) {
-            results = results.filter(sub => sub.formData.placa === criteria.placa);
-        }
         
         if (criteria.operationType) {
             results = results.filter(sub => {
@@ -147,10 +143,6 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
             } else if (criteria.productType === 'variable') {
                 results = results.filter(sub => sub.formType.includes('variable-weight'));
             }
-        }
-
-        if (criteria.tipoPedido) {
-            results = results.filter(sub => sub.formData.tipoPedido === criteria.tipoPedido);
         }
         
         if (isOperario) {
@@ -263,3 +255,5 @@ export async function deleteSubmission(submissionId: string): Promise<{ success:
         return { success: false, message: 'No se pudo eliminar el formulario.' };
     }
 }
+
+    
