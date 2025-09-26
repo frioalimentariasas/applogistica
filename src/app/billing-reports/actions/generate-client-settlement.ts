@@ -517,7 +517,7 @@ export async function generateClientSettlement(criteria: {
                     totalPaletas: 0,
                     operacionLogistica: operacionLogistica,
                     pedidoSislog: 'Manual',
-                    conceptName: 'OPERACIÓN CARGUE (CANASTAS MANUALES)',
+                    conceptName: 'OPERACIÓN CARGUE (CANASTILLAS)',
                     tipoVehiculo: matchingTariff.vehicleType,
                     quantity: 1,
                     unitOfMeasure: matchingTariff.vehicleType,
@@ -940,7 +940,7 @@ export async function generateClientSettlement(criteria: {
     }
 
     const conceptOrder = [
-        'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'ALISTAMIENTO POR UNIDAD', 'FMM DE INGRESO ZFPC', 'ARIN DE INGRESO ZFPC', 'FMM DE SALIDA ZFPC',
+        'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'OPERACIÓN CARGUE (CANASTILLAS)', 'ALISTAMIENTO POR UNIDAD', 'FMM DE INGRESO ZFPC', 'ARIN DE INGRESO ZFPC', 'FMM DE SALIDA ZFPC',
         'ARIN DE SALIDA ZFPC', 'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
         'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'ESTIBA MADERA RECICLADA',
         'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA ZFPC',
@@ -954,10 +954,14 @@ export async function generateClientSettlement(criteria: {
         const dateB = new Date(b.date).getTime();
         if (dateA !== dateB) return dateA - dateB;
 
-        const indexA = conceptOrder.indexOf(a.conceptName);
-        const indexB = conceptOrder.indexOf(b.conceptName);
-        const orderA = indexA === -1 ? Infinity : indexA;
-        const orderB = indexB === -1 ? Infinity : indexB;
+        const getSortOrder = (conceptName: string) => {
+            const index = conceptOrder.indexOf(conceptName);
+            if (conceptName === 'OPERACIÓN CARGUE (CANASTILLAS)') return conceptOrder.indexOf('OPERACIÓN CARGUE') + 0.5; // Special case
+            return index === -1 ? Infinity : index;
+        };
+
+        const orderA = getSortOrder(a.conceptName);
+        const orderB = getSortOrder(b.conceptName);
 
         if (orderA !== orderB) return orderA - orderB;
 
@@ -1008,3 +1012,6 @@ const timeToMinutes = (timeStr: string): number => {
 
 
 
+
+
+  
