@@ -63,7 +63,7 @@ const specificTariffSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1, "El nombre es requerido."),
   value: z.coerce.number({ invalid_type_error: "Debe ser un número."}).min(0, "Debe ser >= 0"),
-  unit: z.enum(['HORA', 'UNIDAD', 'DIA', 'VIAJE', 'ALIMENTACION', 'TRANSPORTE', 'HORA EXTRA DIURNA', 'HORA EXTRA NOCTURNA', 'HORA EXTRA DIURNA DOMINGO Y FESTIVO', 'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO', 'TRANSPORTE EXTRAORDINARIO', 'TRANSPORTE DOMINICAL Y FESTIVO', 'POSICION/DIA', 'POSICIONES/MES', 'KILOGRAMOS'], { required_error: 'Debe seleccionar una unidad.' }),
+  unit: z.enum(['HORA', 'UNIDAD', 'DIA', 'VIAJE', 'ALIMENTACION', 'TRANSPORTE', 'HORA EXTRA DIURNA', 'HORA EXTRA NOCTURNA', 'HORA EXTRA DIURNA DOMINGO Y FESTIVO', 'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO', 'TRANSPORTE EXTRAORDINARIO', 'TRANSPORTE DOMINICAL Y FESTIVO', 'POSICION/DIA', 'POSICIONES/MES'], { required_error: 'Debe seleccionar una unidad.' }),
 });
 
 const fixedTimeConfigSchema = z.object({
@@ -83,7 +83,7 @@ const conceptSchema = z.object({
   calculationType: z.enum(['REGLAS', 'OBSERVACION', 'MANUAL', 'SALDO_INVENTARIO'], { required_error: 'Debe seleccionar un tipo de cálculo.' }),
   
   // Calculation Rules (for REGLAS)
-  calculationBase: z.enum(['TONELADAS', 'KILOGRAMOS', 'CANTIDAD_PALETAS', 'CANTIDAD_CAJAS', 'NUMERO_OPERACIONES', 'NUMERO_CONTENEDORES', 'PALETAS_SALIDA_MAQUILA']).optional(),
+  calculationBase: z.enum(['TONELADAS', 'KILOGRAMOS', 'CANTIDAD_PALETAS', 'CANTIDAD_CAJAS', 'NUMERO_OPERACIONES', 'NUMERO_CONTENEDORES', 'PALETAS_SALIDA_MAQUILA', 'CANTIDAD_SACOS_MAQUILA']).optional(),
   filterOperationType: z.enum(['recepcion', 'despacho', 'ambos']).optional(),
   filterProductType: z.enum(['fijo', 'variable', 'ambos']).optional(),
   filterSesion: z.enum(['CO', 'RE', 'SE', 'AMBOS']).optional(),
@@ -348,7 +348,7 @@ export default function ConceptManagementClientComponent({ initialClients, initi
   }
 
   const unitOfMeasureOptions = ['KILOGRAMOS', 'TONELADA', 'PALETA', 'ESTIBA', 'UNIDAD', 'CAJA', 'SACO', 'CANASTILLA', 'HORA', 'DIA', 'VIAJE', 'MES', 'CONTENEDOR', 'HORA EXTRA DIURNA', 'HORA EXTRA NOCTURNA', 'HORA EXTRA DIURNA DOMINGO Y FESTIVO', 'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO', 'POSICION/DIA', 'POSICIONES', 'TIPO VEHÍCULO', 'TRACTOMULA'];
-  const specificUnitOptions = ['HORA', 'UNIDAD', 'DIA', 'VIAJE', 'ALIMENTACION', 'TRANSPORTE', 'HORA EXTRA DIURNA', 'HORA EXTRA NOCTURNA', 'HORA EXTRA DIURNA DOMINGO Y FESTIVO', 'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO', 'TRANSPORTE EXTRAORDINARIO', 'TRANSPORTE DOMINICAL Y FESTIVO', 'POSICION/DIA', 'POSICIONES/MES', 'KILOGRAMOS'];
+  const specificUnitOptions = ['HORA', 'UNIDAD', 'DIA', 'VIAJE', 'ALIMENTACION', 'TRANSPORTE', 'HORA EXTRA DIURNA', 'HORA EXTRA NOCTURNA', 'HORA EXTRA DIURNA DOMINGO Y FESTIVO', 'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO', 'TRANSPORTE EXTRAORDINARIO', 'TRANSPORTE DOMINICAL Y FESTIVO', 'POSICION/DIA', 'POSICIONES/MES'];
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
@@ -714,6 +714,7 @@ function ConceptFormBody({ form, clientOptions, standardObservations, pedidoType
                         <SelectItem value="KILOGRAMOS">KILOGRAMOS</SelectItem>
                         <SelectItem value="CANTIDAD_PALETAS">CANTIDAD DE PALETAS</SelectItem>
                         <SelectItem value="PALETAS_SALIDA_MAQUILA">PALETAS SALIDA MAQUILA</SelectItem>
+                        <SelectItem value="CANTIDAD_SACOS_MAQUILA">CANTIDAD SACOS MAQUILA</SelectItem>
                         <SelectItem value="CANTIDAD_CAJAS">CANTIDAD DE CAJAS/UNIDADES</SelectItem>
                         <SelectItem value="NUMERO_OPERACIONES">NÚMERO DE OPERACIONES</SelectItem>
                         <SelectItem value="NUMERO_CONTENEDORES">NÚMERO DE CONTENEDORES</SelectItem>
@@ -827,4 +828,3 @@ function ConceptFormBody({ form, clientOptions, standardObservations, pedidoType
         </div>
     );
 }
-

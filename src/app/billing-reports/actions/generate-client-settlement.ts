@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -569,39 +570,32 @@ export async function generateClientSettlement(criteria: {
             let quantity = 0;
             let totalPallets = 0;
             
-            // START: Special Logic for "MOVIMIENTO SALIDA PRODUCTOS - PALLET"
-            if (clientName === 'AVICOLA EL MADROÑO S.A.' && concept.conceptName === 'MOVIMIENTO SALIDA PRODUCTOS - PALLET') {
-                if (
-                    (op.formType === 'variable-weight-reception' || op.formType === 'variable-weight-recepcion') &&
-                    op.formData.tipoPedido === 'MAQUILA'
-                ) {
-                    quantity = Number(op.formData.salidaPaletasMaquilaSE) || 0;
-                    totalPallets = quantity; // For this specific case, totalPallets is the same as the quantity to be liquidated.
-                } else {
-                    quantity = 0; // Don't count for any other form type for this specific concept
-                }
-            } else { // Regular calculation logic
-                const weightKg = calculateWeightForOperation(op, concept.filterSesion, articleSessionMap);
-                totalPallets = calculatePalletsForOperation(op, concept.filterSesion, articleSessionMap);
-                
-                switch (concept.calculationBase) {
-                    case 'TONELADAS': quantity = weightKg / 1000; break;
-                    case 'KILOGRAMOS': quantity = weightKg; break;
-                    case 'CANTIDAD_PALETAS': quantity = totalPallets; break;
-                    case 'CANTIDAD_CAJAS': quantity = calculateUnitsForOperation(op, concept.filterSesion, articleSessionMap); break;
-                    case 'NUMERO_OPERACIONES': quantity = 1; break;
-                    case 'NUMERO_CONTENEDORES': quantity = op.formData.contenedor ? 1 : 0; break;
-                    case 'PALETAS_SALIDA_MAQUILA':
-                        if (op.formType === 'variable-weight-reception' && op.formData.tipoPedido === 'MAQUILA') {
-                            quantity = Number(op.formData.salidaPaletasMaquilaCO) || 0;
-                        } else {
-                            quantity = 0;
-                        }
-                        break;
-                }
+            const weightKg = calculateWeightForOperation(op, concept.filterSesion, articleSessionMap);
+            totalPallets = calculatePalletsForOperation(op, concept.filterSesion, articleSessionMap);
+            
+            switch (concept.calculationBase) {
+                case 'TONELADAS': quantity = weightKg / 1000; break;
+                case 'KILOGRAMOS': quantity = weightKg; break;
+                case 'CANTIDAD_PALETAS': quantity = totalPallets; break;
+                case 'CANTIDAD_CAJAS': quantity = calculateUnitsForOperation(op, concept.filterSesion, articleSessionMap); break;
+                case 'NUMERO_OPERACIONES': quantity = 1; break;
+                case 'NUMERO_CONTENEDORES': quantity = op.formData.contenedor ? 1 : 0; break;
+                case 'PALETAS_SALIDA_MAQUILA':
+                    if ((op.formType === 'variable-weight-reception' || op.formType === 'variable-weight-recepcion') && op.formData.tipoPedido === 'MAQUILA') {
+                        quantity = (Number(op.formData.salidaPaletasMaquilaCO) || 0) + (Number(op.formData.salidaPaletasMaquilaRE) || 0) + (Number(op.formData.salidaPaletasMaquilaSE) || 0);
+                    } else {
+                        quantity = 0;
+                    }
+                    break;
+                case 'CANTIDAD_SACOS_MAQUILA':
+                    if ((op.formType === 'variable-weight-reception' || op.formType === 'variable-weight-recepcion') && op.formData.tipoPedido === 'MAQUILA' && op.formData.tipoEmpaqueMaquila === 'EMPAQUE DE SACOS') {
+                        quantity = calculateUnitsForOperation(op, concept.filterSesion, articleSessionMap);
+                    } else {
+                        quantity = 0;
+                    }
+                    break;
             }
-            // END: Special Logic
-
+            
             if (quantity <= 0) continue;
 
             let unitValue = 0;
@@ -612,7 +606,6 @@ export async function generateClientSettlement(criteria: {
             if (concept.tariffType === 'UNICA') {
                 unitValue = concept.value || 0;
             } else if (concept.tariffType === 'RANGOS') {
-                const weightKg = calculateWeightForOperation(op, concept.filterSesion, articleSessionMap);
                 const totalTons = weightKg / 1000;
                 operacionLogistica = getOperationLogisticsType(op.formData.fecha, op.formData.horaInicio, op.formData.horaFin, concept);
                 
@@ -820,24 +813,20 @@ export async function generateClientSettlement(criteria: {
                     opData.specificTariffs.forEach((appliedTariff: { tariffId: string, quantity: number }) => {
                         const specificTariff = concept.specificTariffs?.find(t => t.id === appliedTariff.tariffId);
                         if (specificTariff) {
-                            const quantityForCalc = appliedTariff.quantity || 0;
-                            const totalValue = quantityForCalc * (specificTariff.value || 0);
+                            const numPersonas = appliedTariff.quantity || opData.numeroPersonas || 0; // The quantity field is numPersonas for this case
+                            const start = opData.details?.startTime;
+                            const end = opData.details?.endTime;
+                            let quantityForCalc = numPersonas;
+                            let totalValue = quantityForCalc * (specificTariff.value || 0);
+
+                            if (concept.conceptName === 'TIEMPO EXTRA FRIOAL' && start && end) {
+                                const diffMinutes = differenceInMinutes(parse(end, 'HH:mm', new Date()), parse(start, 'HH:mm', new Date()));
+                                const hours = parseFloat((diffMinutes / 60).toFixed(2));
+                                quantityForCalc = hours;
+                                totalValue = quantityForCalc * numPersonas * (specificTariff.value || 0);
+                            }
                             
                             if (totalValue > 0) {
-                                let finalQuantity = quantityForCalc;
-                                let finalTotalValue = totalValue;
-                                
-                                if (concept.conceptName === 'TIEMPO EXTRA FRIOAL') {
-                                    const start = opData.details?.startTime;
-                                    const end = opData.details?.endTime;
-                                    if (start && end) {
-                                        const diffMinutes = differenceInMinutes(parse(end, 'HH:mm', new Date()), parse(start, 'HH:mm', new Date()));
-                                        const hours = parseFloat((diffMinutes / 60).toFixed(2));
-                                        finalQuantity = hours;
-                                        finalTotalValue = finalQuantity * quantityForCalc * (specificTariff.value || 0); // quantityForCalc is numPersonas here
-                                    }
-                                }
-                                
                                 settlementRows.push({
                                     date,
                                     placa: opData.details?.plate || 'No Aplica',
@@ -849,13 +838,13 @@ export async function generateClientSettlement(criteria: {
                                     conceptName: concept.conceptName,
                                     subConceptName: specificTariff.name,
                                     tipoVehiculo: 'No Aplica',
-                                    quantity: finalQuantity,
-                                    unitOfMeasure: concept.unitOfMeasure, // Main concept unit
+                                    quantity: quantityForCalc,
+                                    unitOfMeasure: specificTariff.unit,
                                     unitValue: specificTariff.value || 0,
-                                    totalValue: finalTotalValue,
+                                    totalValue: totalValue,
                                     horaInicio: horaInicio,
                                     horaFin: horaFin,
-                                    numeroPersonas: concept.conceptName === 'TIEMPO EXTRA FRIOAL' ? quantityForCalc : (opData.numeroPersonas || undefined),
+                                    numeroPersonas: concept.conceptName === 'TIEMPO EXTRA FRIOAL' ? numPersonas : undefined,
                                 });
                             }
                         }
