@@ -582,13 +582,13 @@ export async function generateClientSettlement(criteria: {
                 case 'NUMERO_CONTENEDORES': quantity = op.formData.contenedor ? 1 : 0; break;
                 case 'PALETAS_SALIDA_MAQUILA':
                     if ((op.formType === 'variable-weight-reception' || op.formType === 'variable-weight-recepcion') && op.formData.tipoPedido === 'MAQUILA') {
-                        quantity = (Number(op.formData.salidaPaletasMaquilaCO) || 0) + (Number(op.formData.salidaPaletasMaquilaRE) || 0) + (Number(op.formData.salidaPaletasMaquilaSE) || 0);
+                        quantity = (Number(op.formData.salidaPaletasMaquilaCO) || 0);
                     } else {
                         quantity = 0;
                     }
                     break;
                 case 'CANTIDAD_SACOS_MAQUILA':
-                    if ((op.formType === 'variable-weight-reception' || op.formType === 'variable-weight-recepcion') && op.formData.tipoPedido === 'MAQUILA' && op.formData.tipoEmpaqueMaquila === 'SACO') {
+                    if ((op.formType.includes('reception') || op.formType.includes('recepcion')) && op.formData.tipoPedido === 'MAQUILA' && op.formData.tipoEmpaqueMaquila === 'EMPAQUE DE SACOS') {
                         quantity = calculateUnitsForOperation(op, concept.filterSesion, articleSessionMap);
                     } else {
                         quantity = 0;
@@ -990,4 +990,5 @@ const timeToMinutes = (timeStr: string): number => {
     const [hours, minutes] = timeStr.split(':').map(Number);
     return hours * 60 + minutes;
 };
+
 
