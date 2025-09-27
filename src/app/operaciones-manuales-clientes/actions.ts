@@ -363,7 +363,9 @@ export async function updateManualClientOperation(id: string, data: Omit<ManualC
             operationDate: operationDateToSave,
         };
         
-        delete (operationWithTimestamp as any).bulkRoles;
+        if (data.concept !== 'TIEMPO EXTRA FRIOAL (FIJO)' && data.concept !== 'TIEMPO EXTRA FRIOAL') {
+             delete (operationWithTimestamp as any).bulkRoles;
+        }
 
         await docRef.update(operationWithTimestamp);
         
