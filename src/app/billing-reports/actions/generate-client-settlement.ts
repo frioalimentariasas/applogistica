@@ -730,13 +730,17 @@ export async function generateClientSettlement(criteria: {
                             let segmentStartMinutes = originalStartMinutes;
                             let segmentEndMinutes = originalEndMinutes;
 
+                            const dayShiftEndMinutes = timeToMinutes(concept.fixedTimeConfig?.dayShiftEndTime || "19:00");
+                            
+                            const duration = (appliedTariff.quantity || 0) * 60;
+
                             if (specificConcept.name.includes("NOCTURNA")) {
-                                const dayShiftEndMinutes = timeToMinutes(concept.fixedTimeConfig?.dayShiftEndTime || "19:00");
                                 segmentStartMinutes = dayShiftEndMinutes;
-                            } else {
-                                const dayShiftEndMinutes = timeToMinutes(concept.fixedTimeConfig?.dayShiftEndTime || "19:00");
-                                segmentEndMinutes = dayShiftEndMinutes;
+                                segmentEndMinutes = segmentStartMinutes + duration;
+                            } else { // DIURNA
+                                segmentEndMinutes = Math.min(originalEndMinutes, dayShiftEndMinutes);
                             }
+
 
                             settlementRows.push({
                                 date,
@@ -1006,6 +1010,3 @@ const minutesToTime = (minutes: number): string => {
     const m = Math.round(minutes % 60);
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 };
-
-
-    
