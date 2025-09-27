@@ -79,7 +79,6 @@ const permissionLabels: { key: keyof AppPermissions; label: string }[] = [
     { key: 'canViewBillingReports', label: 'Informes para Facturación Clientes' },
     { key: 'canViewPerformanceReport', label: 'Informe Productividad Operarios Frio Alimentaria' },
     { key: 'canViewCrewPerformanceReport', label: 'Informe de Productividad y Liquidación Cuadrilla' },
-    { key: 'canManageManualOperations', label: 'Registro de Operaciones Manuales Cuadrilla' },
     { key: 'canViewSpecialReports', label: 'Relación de Formatos por Concepto de Liquidación' },
     { key: 'canManageClients', label: 'Gestión de Clientes' },
     { key: 'canManageArticles', label: 'Gestión de Artículos' },
@@ -87,10 +86,13 @@ const permissionLabels: { key: keyof AppPermissions; label: string }[] = [
     { key: 'canManageOrderTypes', label: 'Gestión de Tipos de Pedido' },
     { key: 'canManageStandards', label: 'Gestión de Estándares de Productividad' },
     { key: 'canManageLiquidationConcepts', label: 'Gestión de Conceptos de Liquidación' },
+    { key: 'canManageClientLiquidationConcepts', label: 'Gestión de Conceptos de Liquidación Clientes' },
     { key: 'canManageNovelties', label: 'Gestión de Novedades' },
     { key: 'canManageSessions', label: 'Gestión de Usuarios (SUPER ADMIN)' },
     { key: 'canEditForms', label: 'Permiso para Editar Formatos' },
     { key: 'canDeleteForms', label: 'Permiso para Eliminar Formatos' },
+    { key: 'canManageManualOperations', label: 'Registro de Operaciones Manuales Cuadrilla' },
+    { key: 'canManageClientManualOperations', label: 'Registro de Operaciones Manuales Clientes' },
 ];
 
 
