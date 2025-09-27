@@ -6,7 +6,7 @@ import { firestore } from '@/lib/firebase-admin';
 import type { ClientBillingConcept, TariffRange, SpecificTariff } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 import { getClientBillingConcepts } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 import admin from 'firebase-admin';
-import { startOfDay, endOfDay, parseISO, differenceInHours, getDaysInMonth, getDay, format, addMinutes, addHours, differenceInMinutes, parse } from 'date-fns';
+import { startOfDay, endOfDay, parseISO, differenceInHours, getDaysInMonth, getDay, format, addMinutes, addHours, differenceInMinutes, parse, isSaturday } from 'date-fns';
 import type { ArticuloData } from '@/app/actions/articulos';
 import { getConsolidatedMovementReport } from '@/app/actions/consolidated-movement-report';
 import { processTunelCongelacionData } from '@/lib/report-utils';
@@ -719,81 +719,50 @@ export async function generateClientSettlement(criteria: {
                     }
                 }
 
-                if ((concept.conceptName === 'TIEMPO EXTRA FRIOAL') && Array.isArray(opData.specificTariffs)) {
+                if ((concept.conceptName === 'TIEMPO EXTRA FRIOAL (FIJO)' || concept.conceptName === 'TIEMPO EXTRA FRIOAL') && Array.isArray(opData.specificTariffs)) {
                     opData.specificTariffs.forEach((appliedTariff: { tariffId: string; quantity: number, numPersonas?: number }) => {
                         const specificConcept = concept.specificTariffs?.find(st => st.id === appliedTariff.tariffId);
                         if (specificConcept) {
                             const totalValue = (appliedTariff.quantity || 0) * (specificConcept.value || 0) * (appliedTariff.numPersonas || 1);
-                            const originalStartMinutes = timeToMinutes(opData.details?.startTime);
-                            const originalEndMinutes = timeToMinutes(opData.details?.endTime);
-
-                            let segmentStartMinutes = originalStartMinutes;
-                            let segmentEndMinutes = originalEndMinutes;
-
-                            const dayShiftEndMinutes = timeToMinutes(concept.fixedTimeConfig?.dayShiftEndTime || "19:00");
                             
-                            const duration = (appliedTariff.quantity || 0) * 60;
+                            const dayShiftEndMinutes = timeToMinutes(concept.fixedTimeConfig?.dayShiftEndTime || "19:00");
+                            const isSaturday = getDay(parseISO(date)) === 6;
+                            const baseStartTimeStr = concept.conceptName === 'TIEMPO EXTRA FRIOAL (FIJO)'
+                                ? (isSaturday ? concept.fixedTimeConfig?.saturdayStartTime : concept.fixedTimeConfig?.weekdayStartTime)
+                                : opData.details?.startTime;
+                            
+                             if (!baseStartTimeStr) return;
+
+                            const startMinutes = timeToMinutes(baseStartTimeStr);
+                            const durationMinutes = (appliedTariff.quantity || 0) * 60;
+                            
+                            let segmentStartMinutes = startMinutes;
+                            let segmentEndMinutes = startMinutes + durationMinutes;
 
                             if (specificConcept.name.includes("NOCTURNA")) {
-                                segmentStartMinutes = dayShiftEndMinutes;
-                                segmentEndMinutes = segmentStartMinutes + duration;
+                                segmentStartMinutes = Math.max(startMinutes, dayShiftEndMinutes);
+                                segmentEndMinutes = startMinutes + durationMinutes;
                             } else { // DIURNA
-                                segmentEndMinutes = Math.min(originalEndMinutes, dayShiftEndMinutes);
+                                segmentEndMinutes = Math.min(startMinutes + durationMinutes, dayShiftEndMinutes);
                             }
-
-
-                            settlementRows.push({
-                                date,
-                                conceptName: concept.conceptName,
-                                subConceptName: specificConcept.name,
-                                placa: opData.details?.plate || 'No Aplica',
-                                container: opData.details?.container || 'No Aplica',
-                                totalPaletas: opData.details?.totalPallets || 0,
-                                camara: 'No Aplica', operacionLogistica: 'No Aplica', pedidoSislog: 'Fijo Mensual', tipoVehiculo: 'No Aplica',
-                                quantity: appliedTariff.quantity,
-                                numeroPersonas: appliedTariff.numPersonas, unitOfMeasure: specificConcept.unit,
-                                unitValue: specificConcept.value || 0, totalValue,
-                                horaInicio: minutesToTime(segmentStartMinutes),
-                                horaFin: minutesToTime(segmentEndMinutes),
-                            });
-                        }
-                    });
-                } else if (concept.conceptName === 'TIEMPO EXTRA FRIOAL (FIJO)' && Array.isArray(opData.specificTariffs)) {
-                    opData.specificTariffs.forEach((appliedTariff: { tariffId: string; quantity: number, role: string, numPersonas: number }) => {
-                        const specificConcept = concept.specificTariffs?.find(st => st.id === appliedTariff.tariffId);
-                        if (specificConcept) {
-                            const totalValue = appliedTariff.quantity * (specificConcept.value || 0) * (appliedTariff.numPersonas || 1);
                             
-                            const dayShiftEndMinutes = timeToMinutes(concept.fixedTimeConfig?.dayShiftEndTime || "19:00");
-                            
-                            const isSaturday = getDay(parseISO(date)) === 6;
-                            const baseStartTimeStr = isSaturday ? concept.fixedTimeConfig?.saturdayStartTime : concept.fixedTimeConfig?.weekdayStartTime;
-                            const startMinutes = timeToMinutes(baseStartTimeStr || "00:00");
-                            
-                            let segmentStartMinutes, segmentEndMinutes;
-                            
-                            if(specificConcept.name.includes('DIURNA')){
-                                segmentStartMinutes = startMinutes;
-                                segmentEndMinutes = Math.min(startMinutes + (appliedTariff.quantity * 60), dayShiftEndMinutes);
-                            } else { // NOCTURNA
-                                segmentStartMinutes = dayShiftEndMinutes;
-                                segmentEndMinutes = segmentStartMinutes + (appliedTariff.quantity * 60);
+                            if (segmentEndMinutes > segmentStartMinutes) {
+                                settlementRows.push({
+                                    date,
+                                    conceptName: concept.conceptName,
+                                    subConceptName: specificConcept.name,
+                                    placa: opData.details?.plate || 'No Aplica',
+                                    container: opData.details?.container || 'No Aplica',
+                                    totalPaletas: opData.details?.totalPallets || 0,
+                                    camara: 'No Aplica', operacionLogistica: 'No Aplica', pedidoSislog: 'Fijo Mensual', tipoVehiculo: 'No Aplica',
+                                    quantity: (segmentEndMinutes - segmentStartMinutes) / 60,
+                                    numeroPersonas: appliedTariff.numPersonas, unitOfMeasure: specificConcept.unit,
+                                    unitValue: specificConcept.value || 0,
+                                    totalValue: ((segmentEndMinutes - segmentStartMinutes) / 60) * (specificConcept.value || 0) * (appliedTariff.numPersonas || 1),
+                                    horaInicio: minutesToTime(segmentStartMinutes),
+                                    horaFin: minutesToTime(segmentEndMinutes),
+                                });
                             }
-
-                            settlementRows.push({
-                                date,
-                                conceptName: concept.conceptName,
-                                subConceptName: specificConcept.name,
-                                placa: opData.details?.plate || 'No Aplica',
-                                container: opData.details?.container || 'No Aplica',
-                                totalPaletas: opData.details?.totalPallets || 0,
-                                camara: 'No Aplica', operacionLogistica: 'No Aplica', pedidoSislog: 'Fijo Mensual', tipoVehiculo: 'No Aplica',
-                                quantity: appliedTariff.quantity,
-                                numeroPersonas: appliedTariff.numPersonas, unitOfMeasure: specificConcept.unit,
-                                unitValue: specificConcept.value || 0, totalValue,
-                                horaInicio: minutesToTime(segmentStartMinutes),
-                                horaFin: minutesToTime(segmentEndMinutes),
-                            });
                         }
                     });
                 } else if (concept.conceptName === 'POSICIONES FIJAS CÁMARA CONGELADOS' && Array.isArray(opData.specificTariffs)) {
