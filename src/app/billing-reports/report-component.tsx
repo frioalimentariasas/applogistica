@@ -1411,7 +1411,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const margin = 14;
 
         const conceptOrder = [
-            'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'ALISTAMIENTO POR UNIDAD', 'FMM DE INGRESO ZFPC', 'ARIN DE INGRESO ZFPC', 'FMM DE SALIDA ZFPC',
+            'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'OPERACIÓN CARGUE (CANASTILLAS)', 'ALISTAMIENTO POR UNIDAD', 'FMM DE INGRESO ZFPC', 'ARIN DE INGRESO ZFPC', 'FMM DE SALIDA ZFPC',
             'ARIN DE SALIDA ZFPC', 'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
             'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'ESTIBA MADERA RECICLADA',
             'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA ZFPC',
@@ -1603,7 +1603,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     
     const settlementGroupedData = useMemo(() => {
         const conceptOrder = [
-            'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'ALISTAMIENTO POR UNIDAD', 'FMM DE INGRESO ZFPC', 'ARIN DE INGRESO ZFPC', 'FMM DE SALIDA ZFPC',
+            'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'OPERACIÓN CARGUE (CANASTILLAS)', 'ALISTAMIENTO POR UNIDAD', 'FMM DE INGRESO ZFPC', 'ARIN DE INGRESO ZFPC', 'FMM DE SALIDA ZFPC',
             'ARIN DE SALIDA ZFPC', 'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
             'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'ESTIBA MADERA RECICLADA',
             'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA ZFPC',
@@ -1621,8 +1621,19 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         }, {} as Record<string, { rows: ClientSettlementRow[], subtotalCantidad: number, subtotalValor: number }>);
         
         const sortedKeys = Object.keys(grouped).sort((a, b) => {
-            const indexA = conceptOrder.indexOf(a);
-            const indexB = conceptOrder.indexOf(b);
+            let indexA = conceptOrder.indexOf(a);
+            let indexB = conceptOrder.indexOf(b);
+
+            // Special handling for "OPERACIÓN CARGUE (CANASTILLAS)"
+            if (a === 'OPERACIÓN CARGUE (CANASTILLAS)') {
+                const cargueIndex = conceptOrder.indexOf('OPERACIÓN CARGUE');
+                if (cargueIndex !== -1) indexA = cargueIndex + 0.5;
+            }
+            if (b === 'OPERACIÓN CARGUE (CANASTILLAS)') {
+                const cargueIndex = conceptOrder.indexOf('OPERACIÓN CARGUE');
+                if (cargueIndex !== -1) indexB = cargueIndex + 0.5;
+            }
+
             const orderA = indexA === -1 ? Infinity : indexA;
             const orderB = indexB === -1 ? Infinity : indexB;
 
@@ -2775,4 +2786,5 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 
 
     
+
 
