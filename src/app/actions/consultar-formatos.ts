@@ -112,16 +112,16 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
         let serverQueryEndDate: Date;
 
         if (criteria.searchDateStart && criteria.searchDateEnd) {
-            serverQueryStartDate = new Date(criteria.searchDateStart + 'T00:00:00-05:00');
-            serverQueryEndDate = new Date(criteria.searchDateEnd + 'T23:59:59.999-05:00');
+            serverQueryStartDate = startOfDay(parseISO(criteria.searchDateStart));
+            serverQueryEndDate = endOfDay(parseISO(criteria.searchDateEnd));
             query = query.where('formData.fecha', '>=', serverQueryStartDate)
                          .where('formData.fecha', '<=', serverQueryEndDate);
-        } else if (!criteria.pedidoSislog && !criteria.placa && !criteria.nombreCliente) {
+        } else if (!criteria.pedidoSislog && !criteria.placa) {
             // Default to last 7 days ONLY if no other unique criteria are provided
-            serverQueryEndDate = new Date();
-            serverQueryStartDate = subDays(serverQueryEndDate, 7);
-             query = query.where('formData.fecha', '>=', serverQueryStartDate)
-                          .where('formData.fecha', '<=', serverQueryEndDate);
+            serverQueryEndDate = endOfDay(new Date());
+            serverQueryStartDate = startOfDay(subDays(serverQueryEndDate, 6)); // Default to last 7 days (7 days including today)
+            query = query.where('formData.fecha', '>=', serverQueryStartDate)
+                         .where('formData.fecha', '<=', serverQueryEndDate);
         }
         
         const snapshot = await query.orderBy('formData.fecha', 'desc').get();
