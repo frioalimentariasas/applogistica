@@ -145,48 +145,37 @@ export async function addBulkManualClientOperation(data: BulkOperationData): Pro
                 if (role.numPersonas > 0) {
                     const startMinutes = timeToMinutes(baseStartTimeStr);
                     const endMinutes = timeToMinutes(baseEndTimeStr);
-                    const totalBaseMinutes = endMinutes - startMinutes;
                     
+                    const excedentMinutes = excedentHours * 60;
+                    const finalEndMinutes = endMinutes + excedentMinutes;
+
                     const baseDiurnoMinutes = Math.max(0, Math.min(endMinutes, dayShiftEndMinutes) - startMinutes);
                     const baseNocturnoMinutes = Math.max(0, endMinutes - Math.max(startMinutes, dayShiftEndMinutes));
                     
-                    const excedentMinutes = excedentHours * 60;
+                    let excedentDiurnoMinutes = 0;
+                    let excedentNocturnoMinutes = 0;
                     
-                    let finalDiurnoMinutes = baseDiurnoMinutes;
-                    let finalNocturnoMinutes = baseNocturnoMinutes;
-
-                    if (isSaturday) {
-                        finalDiurnoMinutes += excedentMinutes;
-                    } else {
-                        finalNocturnoMinutes += excedentMinutes;
+                    if (excedentMinutes > 0) {
+                        const excedentStartMinutes = endMinutes;
+                        excedentDiurnoMinutes = Math.max(0, Math.min(finalEndMinutes, dayShiftEndMinutes) - excedentStartMinutes);
+                        excedentNocturnoMinutes = Math.max(0, finalEndMinutes - Math.max(excedentStartMinutes, dayShiftEndMinutes));
                     }
-
-                    const finalDiurnoHours = finalDiurnoMinutes > 0 ? finalDiurnoMinutes / 60 : 0;
-                    const finalNocturnoHours = finalNocturnoMinutes > 0 ? finalNocturnoMinutes / 60 : 0;
+                    
+                    const totalDiurnoMinutes = baseDiurnoMinutes + excedentDiurnoMinutes;
+                    const totalNocturnoMinutes = baseNocturnoMinutes + excedentNocturnoMinutes;
 
                     const tariffs = [];
-                    if (finalDiurnoHours > 0) {
-                        tariffs.push({ 
-                            tariffId: role.diurnaId, 
-                            quantity: finalDiurnoHours,
-                            role: role.roleName, 
-                            numPersonas: role.numPersonas 
-                        });
+                    if (totalDiurnoMinutes > 0) {
+                        tariffs.push({ tariffId: role.diurnaId, quantity: totalDiurnoMinutes / 60, role: role.roleName, numPersonas: role.numPersonas });
                     }
-                    if (finalNocturnoHours > 0) {
-                         tariffs.push({ 
-                            tariffId: role.nocturnaId, 
-                            quantity: finalNocturnoHours,
-                            role: role.roleName,
-                            numPersonas: role.numPersonas
-                        });
+                    if (totalNocturnoMinutes > 0) {
+                         tariffs.push({ tariffId: role.nocturnaId, quantity: totalNocturnoMinutes / 60, role: role.roleName, numPersonas: role.numPersonas });
                     }
                     
                     return tariffs;
                 }
                 return [];
             }).filter((t): t is { tariffId: string; quantity: number; role: string; numPersonas: number; } => t !== undefined);
-
 
             if (specificTariffsForDay.length > 0) {
                 const docRef = firestore.collection('manual_client_operations').doc();
@@ -303,21 +292,32 @@ export async function updateManualClientOperation(id: string, data: Omit<ManualC
                 if (role.numPersonas > 0) {
                     const startMinutes = timeToMinutes(baseStartTimeStr);
                     const endMinutes = timeToMinutes(baseEndTimeStr);
-                    const totalBaseMinutes = endMinutes - startMinutes;
+                    const excedentMinutes = excedentHours * 60;
+                    const finalEndMinutes = endMinutes + excedentMinutes;
+
                     const baseDiurnoMinutes = Math.max(0, Math.min(endMinutes, dayShiftEndMinutes) - startMinutes);
-                    const baseNocturnoMinutes = Math.max(0, totalBaseMinutes - baseDiurnoMinutes);
-                    const baseDiurnoHours = baseDiurnoMinutes / 60;
-                    const baseNocturnoHours = baseNocturnoMinutes / 60;
-                    const finalDiurnoHours = baseDiurnoHours + (isSaturday ? excedentHours : 0);
-                    const finalNocturnoHours = baseNocturnoHours + (!isSaturday ? excedentHours : 0);
+                    const baseNocturnoMinutes = Math.max(0, endMinutes - Math.max(startMinutes, dayShiftEndMinutes));
+
+                    let excedentDiurnoMinutes = 0;
+                    let excedentNocturnoMinutes = 0;
+
+                    if (excedentMinutes > 0) {
+                        const excedentStartMinutes = endMinutes;
+                        excedentDiurnoMinutes = Math.max(0, Math.min(finalEndMinutes, dayShiftEndMinutes) - excedentStartMinutes);
+                        excedentNocturnoMinutes = Math.max(0, finalEndMinutes - Math.max(excedentStartMinutes, dayShiftEndMinutes));
+                    }
                     
+                    const totalDiurnoMinutes = baseDiurnoMinutes + excedentDiurnoMinutes;
+                    const totalNocturnoMinutes = baseNocturnoMinutes + excedentNocturnoMinutes;
+
                     const tariffs = [];
-                    if (finalDiurnoHours > 0) tariffs.push({ tariffId: role.diurnaId, quantity: finalDiurnoHours, role: role.roleName, numPersonas: role.numPersonas });
-                    if (finalNocturnoHours > 0) tariffs.push({ tariffId: role.nocturnaId, quantity: finalNocturnoHours, role: role.roleName, numPersonas: role.numPersonas });
+                    if (totalDiurnoMinutes > 0) tariffs.push({ tariffId: role.diurnaId, quantity: totalDiurnoMinutes / 60 });
+                    if (totalNocturnoMinutes > 0) tariffs.push({ tariffId: role.nocturnaId, quantity: totalNocturnoMinutes / 60 });
+                    
                     return tariffs;
                 }
                 return [];
-            }).filter((t): t is { tariffId: string; quantity: number; role: string; numPersonas: number; } => t !== undefined);
+            }).filter((t): t is { tariffId: string; quantity: number } => t !== undefined);
         } else if (data.concept === 'POSICIONES FIJAS CÁMARA CONGELADOS') {
             finalSpecificTariffs = (data.specificTariffs || []).map(tariff => {
                 let quantity = tariff.quantity;

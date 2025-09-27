@@ -719,65 +719,41 @@ export async function generateClientSettlement(criteria: {
                     }
                 }
 
-                if (concept.conceptName === 'TIEMPO EXTRA FRIOAL (FIJO)' && Array.isArray(opData.bulkRoles)) {
-                     const excedentesMap = new Map((opData.excedentes || []).map((e: any) => [e.date, e.hours]));
+                if (concept.conceptName === 'TIEMPO EXTRA FRIOAL (FIJO)' && Array.isArray(opData.specificTariffs)) {
+                    opData.specificTariffs.forEach((appliedTariff: { tariffId: string; quantity: number, role: string, numPersonas: number }) => {
+                        const specificConcept = concept.specificTariffs?.find(st => st.id === appliedTariff.tariffId);
+                        if (specificConcept) {
+                            const totalValue = appliedTariff.quantity * (specificConcept.value || 0) * appliedTariff.numPersonas;
 
-                     opData.bulkRoles.forEach((role: any) => {
-                        if (role.numPersonas > 0) {
+                             // Calculate start and end times for this specific tariff
+                            const opDate = new Date(opData.operationDate);
+                            const dayShiftEndMinutes = concept.fixedTimeConfig?.dayShiftEndTime ? timeToMinutes(concept.fixedTimeConfig.dayShiftEndTime) : timeToMinutes("19:00");
+                            const baseStartMinutes = timeToMinutes(opData.details.startTime);
                             
-                            const diurnaTariff = concept.specificTariffs?.find(t => t.id === role.diurnaId);
-                            if (diurnaTariff) {
-                                const isSaturday = getDay(parseISO(date)) === 6;
-                                const baseDiurnaHours = isSaturday ? 5 : 4;
-                                const excedentDiurno = isSaturday ? (excedentesMap.get(date) || 0) : 0;
-                                const totalDiurnaHours = baseDiurnaHours + excedentDiurno;
-
-                                if (totalDiurnaHours > 0) {
-                                    const finalEndTimeDate = addHours(addMinutes(new Date(`${date}T00:00:00`), timeToMinutes(opData.details.startTime)), totalDiurnaHours);
-
-                                    settlementRows.push({
-                                        date, 
-                                        conceptName: concept.conceptName,
-                                        subConceptName: diurnaTariff.name,
-                                        placa: opData.details?.plate || 'No Aplica',
-                                        container: opData.details?.container || 'No Aplica',
-                                        totalPaletas: opData.details?.totalPallets || 0,
-                                        camara: 'No Aplica', operacionLogistica: 'No Aplica', pedidoSislog: 'Fijo Mensual', tipoVehiculo: 'No Aplica',
-                                        quantity: totalDiurnaHours, 
-                                        numeroPersonas: role.numPersonas, unitOfMeasure: diurnaTariff.unit,
-                                        unitValue: diurnaTariff.value || 0, totalValue: totalDiurnaHours * role.numPersonas * (diurnaTariff.value || 0),
-                                        horaInicio: opData.details?.startTime || 'N/A',
-                                        horaFin: format(finalEndTimeDate, 'HH:mm'),
-                                    });
-                                }
+                            let segmentStartMinutes, segmentEndMinutes;
+                            if(specificConcept.name.includes('DIURNA')){
+                                segmentStartMinutes = baseStartMinutes;
+                                segmentEndMinutes = Math.min(baseStartMinutes + (appliedTariff.quantity * 60), dayShiftEndMinutes);
+                            } else { // NOCTURNA
+                                const diurnaDurationMinutes = (opData.specificTariffs.find((t:any) => t.tariffId.includes('DIURNA') && t.role === appliedTariff.role)?.quantity || 0) * 60;
+                                segmentStartMinutes = baseStartMinutes + diurnaDurationMinutes;
+                                segmentEndMinutes = segmentStartMinutes + (appliedTariff.quantity * 60);
                             }
 
-                            const nocturnaTariff = concept.specificTariffs?.find(t => t.id === role.nocturnaId);
-                            if (nocturnaTariff) {
-                                const dayOfWeek = getDay(parseISO(date));
-                                const isWeekday = dayOfWeek >= 1 && dayOfWeek <= 5;
-                                const baseNocturnaHours = isWeekday ? 1 : 0;
-                                const excedentNocturno = isWeekday ? (excedentesMap.get(date) || 0) : 0;
-                                const totalNocturnaHours = baseNocturnaHours + excedentNocturno;
-
-                                if (totalNocturnaHours > 0) {
-                                    const finalEndTimeDate = addHours(addMinutes(new Date(`${date}T00:00:00`), timeToMinutes('22:00')), excedentNocturno);
-                                    settlementRows.push({
-                                        date, 
-                                        conceptName: concept.conceptName,
-                                        subConceptName: nocturnaTariff.name,
-                                        placa: opData.details?.plate || 'No Aplica',
-                                        container: opData.details?.container || 'No Aplica',
-                                        totalPaletas: opData.details?.totalPallets || 0,
-                                        camara: 'No Aplica', operacionLogistica: 'No Aplica', pedidoSislog: 'Fijo Mensual', tipoVehiculo: 'No Aplica',
-                                        quantity: totalNocturnaHours, 
-                                        numeroPersonas: role.numPersonas, unitOfMeasure: nocturnaTariff.unit,
-                                        unitValue: nocturnaTariff.value || 0, totalValue: totalNocturnaHours * role.numPersonas * (nocturnaTariff.value || 0),
-                                        horaInicio: '21:00', 
-                                        horaFin: format(finalEndTimeDate, 'HH:mm'),
-                                    });
-                                }
-                            }
+                            settlementRows.push({
+                                date,
+                                conceptName: concept.conceptName,
+                                subConceptName: specificConcept.name,
+                                placa: opData.details?.plate || 'No Aplica',
+                                container: opData.details?.container || 'No Aplica',
+                                totalPaletas: opData.details?.totalPallets || 0,
+                                camara: 'No Aplica', operacionLogistica: 'No Aplica', pedidoSislog: 'Fijo Mensual', tipoVehiculo: 'No Aplica',
+                                quantity: appliedTariff.quantity,
+                                numeroPersonas: appliedTariff.numPersonas, unitOfMeasure: specificConcept.unit,
+                                unitValue: specificConcept.value || 0, totalValue,
+                                horaInicio: minutesToTime(segmentStartMinutes),
+                                horaFin: minutesToTime(segmentEndMinutes),
+                            });
                         }
                     });
                 } else if (concept.conceptName === 'POSICIONES FIJAS CÁMARA CONGELADOS' && Array.isArray(opData.specificTariffs)) {
@@ -1004,12 +980,9 @@ const timeToMinutes = (timeStr: string): number => {
     return hours * 60 + minutes;
 };
 
-
-
-
-
-
-
-  
-
+const minutesToTime = (minutes: number): string => {
+    const h = Math.floor(minutes / 60);
+    const m = Math.round(minutes % 60);
+    return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+};
 
