@@ -69,8 +69,8 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
 
     try {
         let query: admin.firestore.Query = firestore.collection('submissions');
-        const isOperario = criteria.requestingUser && operarioEmails.includes(criteria.requestingUser.email);
-        
+
+        // Apply equality filters first
         if (criteria.pedidoSislog) {
             query = query.where('formData.pedidoSislog', '==', criteria.pedidoSislog);
         }
@@ -84,30 +84,28 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
             query = query.where('formData.tipoPedido', '==', criteria.tipoPedido);
         }
         
-        let operationTypes: string[] = [];
-        if (criteria.operationType) {
-            if (criteria.operationType === 'recepcion') operationTypes = ['fixed-weight-recepcion', 'fixed-weight-reception', 'variable-weight-recepcion', 'variable-weight-reception'];
-            if (criteria.operationType === 'despacho') operationTypes = ['fixed-weight-despacho', 'variable-weight-despacho'];
-        }
-        
-        let productTypes: string[] = [];
-        if (criteria.productType) {
-            if (criteria.productType === 'fijo') productTypes = ['fixed-weight-recepcion', 'fixed-weight-reception', 'fixed-weight-despacho'];
-            if (criteria.productType === 'variable') productTypes = ['variable-weight-recepcion', 'variable-weight-reception', 'variable-weight-despacho'];
-        }
-
-        const formTypes = operationTypes.length > 0 && productTypes.length > 0
-            ? operationTypes.filter(type => productTypes.includes(type))
-            : (operationTypes.length > 0 ? operationTypes : productTypes);
-
-        if (formTypes.length > 0) {
-            query = query.where('formType', 'in', formTypes);
-        }
-
+        const isOperario = criteria.requestingUser && operarioEmails.includes(criteria.requestingUser.email);
         if (isOperario) {
             query = query.where('userId', '==', criteria.requestingUser!.id);
         }
+
+        // Combine operationType and productType filters
+        let formTypes: string[] = [];
+        if (criteria.operationType && criteria.productType) {
+            const opTypes = criteria.operationType === 'recepcion' ? ['fixed-weight-recepcion', 'fixed-weight-reception', 'variable-weight-recepcion', 'variable-weight-reception'] : ['fixed-weight-despacho', 'variable-weight-despacho'];
+            const prodTypes = criteria.productType === 'fijo' ? ['fixed-weight-recepcion', 'fixed-weight-reception', 'fixed-weight-despacho'] : ['variable-weight-recepcion', 'variable-weight-reception', 'variable-weight-despacho'];
+            formTypes = opTypes.filter(type => prodTypes.includes(type));
+        } else if (criteria.operationType) {
+            formTypes = criteria.operationType === 'recepcion' ? ['fixed-weight-recepcion', 'fixed-weight-reception', 'variable-weight-recepcion', 'variable-weight-reception'] : ['fixed-weight-despacho', 'variable-weight-despacho'];
+        } else if (criteria.productType) {
+            formTypes = criteria.productType === 'fijo' ? ['fixed-weight-recepcion', 'fixed-weight-reception', 'fixed-weight-despacho'] : ['variable-weight-recepcion', 'variable-weight-reception', 'variable-weight-despacho'];
+        }
         
+        if (formTypes.length > 0) {
+            query = query.where('formType', 'in', formTypes);
+        }
+        
+        // Apply date range filters and ordering
         let serverQueryStartDate: Date;
         let serverQueryEndDate: Date;
 
@@ -119,7 +117,7 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
         } else if (!criteria.pedidoSislog && !criteria.placa) {
             // Default to last 7 days ONLY if no other unique criteria are provided
             serverQueryEndDate = endOfDay(new Date());
-            serverQueryStartDate = startOfDay(subDays(serverQueryEndDate, 6)); // Default to last 7 days (7 days including today)
+            serverQueryStartDate = startOfDay(subDays(serverQueryEndDate, 6)); 
             query = query.where('formData.fecha', '>=', serverQueryStartDate)
                          .where('formData.fecha', '<=', serverQueryEndDate);
         }
@@ -243,3 +241,4 @@ export async function deleteSubmission(submissionId: string): Promise<{ success:
         return { success: false, message: 'No se pudo eliminar el formulario.' };
     }
 }
+
