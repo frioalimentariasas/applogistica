@@ -290,7 +290,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                     nocturnaValue: nocturnaTariff?.value || 0,
                     numPersonas: 0
                 };
-            }).filter(r => r.diurnaId && r.nocturnaId);
+            });
             
             form.setValue('bulkRoles', bulkRoles);
         };
@@ -737,212 +737,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                             <div className="p-4">
                                 <Form {...form}>
                                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                                        <FormField control={form.control} name="clientName" render={({ field }) => ( <FormItem><FormLabel>Cliente <span className="text-destructive">*</span></FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={dialogMode === 'view'}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un cliente" /></SelectTrigger></FormControl><SelectContent><ScrollArea className="h-60">{clients.map(c => <SelectItem key={c.id} value={c.razonSocial}>{c.razonSocial}</SelectItem>)}</ScrollArea></SelectContent></Select><FormMessage /></FormItem> )}/>
-                                        <FormField
-                                            control={form.control}
-                                            name="concept"
-                                            render={({ field }) => (
-                                                <FormItem>
-                                                <FormLabel>Concepto de Liquidación</FormLabel>
-                                                <Dialog open={isConceptDialogOpen} onOpenChange={setConceptDialogOpen}>
-                                                    <DialogTrigger asChild>
-                                                    <FormControl>
-                                                        <Button
-                                                        variant="outline"
-                                                        role="combobox"
-                                                        disabled={dialogMode === 'view' || !watchedClient}
-                                                        className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
-                                                        >
-                                                        {field.value || "Seleccione un concepto"}
-                                                        <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                                                        </Button>
-                                                    </FormControl>
-                                                    </DialogTrigger>
-                                                    <DialogContent>
-                                                        <DialogHeader>
-                                                            <DialogTitle>Seleccionar Concepto</DialogTitle>
-                                                        </DialogHeader>
-                                                        <ConceptSelectorDialog
-                                                            billingConcepts={billingConcepts}
-                                                            selectedClient={watchedClient}
-                                                            onSelect={(conceptName) => {
-                                                                form.setValue("concept", conceptName);
-                                                                setConceptDialogOpen(false);
-                                                            }}
-                                                        />
-                                                    </DialogContent>
-                                                </Dialog>
-                                                <FormMessage />
-                                                </FormItem>
-                                            )}
-                                        />
-
-                                        {isBulkMode ? (
-                                            <FormField
-                                              control={form.control}
-                                              name="selectedDates"
-                                              render={({ field }) => (
-                                                <FormItem>
-                                                    <FormLabel>Fechas de Operación</FormLabel>
-                                                    <DateMultiSelector 
-                                                        value={field.value} 
-                                                        onChange={field.onChange} 
-                                                        disabled={dialogMode === 'view'}
-                                                    />
-                                                    <FormMessage />
-                                                </FormItem>
-                                              )}
-                                            />
-                                        ) : (
-                                            <>
-                                            {isElectricConnection ? (
-                                                <div className='p-4 border rounded-md'>
-                                                    <div className="grid grid-cols-2 gap-4">
-                                                        <FormField control={form.control} name="details.fechaArribo" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha Arribo</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={dialogMode === 'view'} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4 opacity-50" />{field.value ? format(field.value, "PPP", { locale: es }) : <span>Seleccione</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={dialogMode === 'view'} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
-                                                        <FormField control={form.control} name="details.horaArribo" render={({ field }) => (<FormItem><FormLabel>Hora Arribo</FormLabel><div className="flex items-center gap-2"><FormControl><Input type="time" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} className="flex-grow" /></FormControl>{dialogMode !== 'view' && (<Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('details.horaArribo')}><Clock className="h-4 w-4" /></Button>)}</div><FormMessage /></FormItem>)} />
-                                                        <FormField control={form.control} name="details.fechaSalida" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha Salida</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={dialogMode === 'view'} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4 opacity-50" />{field.value ? format(field.value, "PPP", { locale: es }) : <span>Seleccione</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => { const fechaArribo = form.getValues('details.fechaArribo'); return fechaArribo ? date < fechaArribo : false; }} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
-                                                        <FormField control={form.control} name="details.horaSalida" render={({ field }) => (<FormItem><FormLabel>Hora Salida</FormLabel><div className="flex items-center gap-2"><FormControl><Input type="time" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} className="flex-grow" /></FormControl>{dialogMode !== 'view' && (<Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('details.horaSalida')}><Clock className="h-4 w-4" /></Button>)}</div><FormMessage /></FormItem>)} />
-                                                    </div>
-                                                </div>
-                                            ) : (
-                                                <FormField control={form.control} name="operationDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha de Operación <span className="text-destructive">*</span></FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={dialogMode === 'view'} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4 opacity-50" />{field.value && field.value instanceof Date && !isNaN(field.value.getTime()) ? format(field.value, "PPP", { locale: es }) : <span>Seleccione una fecha</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={dialogMode === 'view'} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
-                                            )}
-                                            </>
-                                        )}
-
-                                        {isElectricConnection ? (
-                                            <FormField control={form.control} name="operationDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha de Liquidación (para búsqueda) <span className="text-destructive">*</span></FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={dialogMode === 'view'} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4 opacity-50" />{field.value && field.value instanceof Date && !isNaN(field.value.getTime()) ? format(field.value, "PPP", { locale: es }) : <span>Seleccione una fecha</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={dialogMode === 'view'} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
-                                        ) : null}
-
-                                        {calculatedDuration && (showTimeExtraFields || isTimeExtraMode) ? (
-                                             <Alert variant="default" className="border-sky-500 bg-sky-50 text-sky-800">
-                                                <Clock className="h-4 w-4 !text-sky-600" />
-                                                <AlertTitle className="text-sky-700">Duración Calculada</AlertTitle>
-                                                <FormDescription>
-                                                    <span className="font-bold">{calculatedDuration.hours.toFixed(2)} horas</span> ({calculatedDuration.minutes} minutos).
-                                                    {isTimeExtraMode && " Este valor se ha asignado a la cantidad."}
-                                                </FormDescription>
-                                            </Alert>
-                                        ) : null}
-
-                                        {isElectricConnection && calculatedElectricConnectionHours !== null && (
-                                            <Alert variant="default" className="border-sky-500 bg-sky-50 text-sky-800">
-                                                <Clock className="h-4 w-4 !text-sky-600" />
-                                                <AlertTitle className="text-sky-700">Duración Calculada</AlertTitle>
-                                                <FormDescription>
-                                                    <span className="font-bold">{calculatedElectricConnectionHours.toLocaleString('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} horas</span>. Este valor se ha asignado a la cantidad.
-                                                </FormDescription>
-                                            </Alert>
-                                        )}
-                                        
-                                        {(watchedConcept === 'TIEMPO EXTRA FRIOAL (FIJO)' || isTimeExtraMode) && (
-                                            <div className="space-y-4">
-                                                <FormLabel className="text-base">Asignación de Personal</FormLabel>
-                                                {bulkRoleFields.map((field, index) => (
-                                                <div key={field.id} className="grid grid-cols-5 items-center gap-2 border-b pb-2">
-                                                    <Label className="col-span-2 text-sm">{field.roleName}</Label>
-                                                    <FormField
-                                                        control={form.control}
-                                                        name={`bulkRoles.${index}.numPersonas`}
-                                                        render={({ field: numField }) => (
-                                                        <FormItem className="col-span-3">
-                                                            <div className="flex items-center gap-2">
-                                                                <Label htmlFor={`num-personas-${index}`} className="text-xs">Personas:</Label>
-                                                                <FormControl>
-                                                                    <Input id={`num-personas-${index}`} type="number" min="0" step="1" className="h-8 w-20" {...numField} disabled={dialogMode === 'view'} />
-                                                                </FormControl>
-                                                            </div>
-                                                        </FormItem>
-                                                        )}
-                                                    />
-                                                </div>
-                                                ))}
-                                                <Separator />
-                                                {watchedConcept === 'TIEMPO EXTRA FRIOAL (FIJO)' && <ExcedentManager />}
-                                            </div>
-                                        )}
-                                        {selectedConceptInfo?.tariffType === 'ESPECIFICA' && !isBulkMode && !isTimeExtraMode && (
-                                             <TariffSelector form={form} selectedConceptInfo={selectedConceptInfo} dialogMode={dialogMode} />
-                                        )}
-                                        
-                                        {selectedConceptInfo?.unitOfMeasure && (selectedConceptInfo.tariffType === 'UNICA' || isElectricConnection || isFmmZfpc) && !isFixedMonthlyService && (
-                                            <FormField
-                                                control={form.control}
-                                                name="quantity"
-                                                render={({ field }) => (
-                                                    <FormItem>
-                                                        <FormLabel>
-                                                            Cantidad
-                                                            {selectedConceptInfo && <span className="text-muted-foreground ml-2">({selectedConceptInfo.unitOfMeasure})</span>}
-                                                        </FormLabel>
-                                                        <FormControl><Input type="number" step="0.01" placeholder="Ej: 1.5" {...field} value={field.value ?? ''} disabled={dialogMode === 'view' || isElectricConnection} /></FormControl>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )}
-                                            />
-                                        )}
-                                        
-                                        {(showAdvancedFields || dialogMode === 'view' || isElectricConnection || isFmmZfpc || isFmmConcept || showTimeExtraFields || showTunelCongelacionFields) && (
-                                            <>
-                                                <Separator />
-                                                <p className="text-sm font-medium text-muted-foreground">Detalles Adicionales</p>
-                                                {showTimeExtraFields && (
-                                                    <div className="grid grid-cols-2 gap-4">
-                                                        <FormField control={form.control} name="details.startTime" render={({ field }) => (<FormItem><FormLabel>Hora Inicio</FormLabel><div className="flex items-center gap-2"><FormControl><Input type="time" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} className="flex-grow" /></FormControl>{dialogMode !== 'view' && (<Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('details.startTime')}><Clock className="h-4 w-4" /></Button>)}</div><FormMessage /></FormItem>)} />
-                                                        <FormField control={form.control} name="details.endTime" render={({ field }) => (<FormItem><FormLabel>Hora Fin</FormLabel><div className="flex items-center gap-2"><FormControl><Input type="time" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} className="flex-grow" /></FormControl>{dialogMode !== 'view' && (<Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('details.endTime')}><Clock className="h-4 w-4" /></Button>)}</div><FormMessage /></FormItem>)} />
-                                                    </div>
-                                                )}
-
-                                                {(showAdvancedFields || isElectricConnection) && (
-                                                     <FormField control={form.control} name="details.container" render={({ field }) => (<FormItem><FormLabel>Contenedor {(showAdvancedFields || isElectricConnection) && <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Contenedor" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
-                                                )}
-                                                
-                                                {watchedConcept === 'INSPECCIÓN ZFPC' && (
-                                                     <FormField control={form.control} name="details.arin" render={({ field }) => (<FormItem><FormLabel>ARIN <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Número de ARIN" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
-                                                )}
-                                                
-                                                 {isFmmConcept && (
-                                                    <>
-                                                        <FormField control={form.control} name="details.opLogistica" render={({ field }) => (
-                                                            <FormItem>
-                                                                <FormLabel>Op. Logística</FormLabel>
-                                                                <Select onValueChange={field.onChange} value={field.value} disabled={dialogMode === 'view'}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione una opción" /></SelectTrigger></FormControl><SelectContent><SelectItem value="CARGUE">CARGUE</SelectItem><SelectItem value="DESCARGUE">DESCARGUE</SelectItem></SelectContent></Select>
-                                                                <FormMessage />
-                                                            </FormItem>
-                                                        )} />
-                                                        <FormField control={form.control} name="details.fmmNumber" render={({ field }) => (<FormItem><FormLabel># FMM</FormLabel><FormControl><Input placeholder="Número de FMM" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
-                                                    </>
-                                                )}
-                                                
-                                                <FormField control={form.control} name="details.totalPallets" render={({ field }) => (<FormItem><FormLabel>Total Paletas</FormLabel><FormControl><Input type="number" step="1" placeholder="Ej: 10" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value === '' ? null : parseInt(e.target.value, 10))}/></FormControl><FormMessage /></FormItem>)}/>
-                                            
-                                                {showTunelCongelacionFields && (
-                                                    <>
-                                                        <FormField control={form.control} name="details.pedidoSislog" render={({ field }) => (<FormItem><FormLabel>Pedido Sislog</FormLabel><FormControl><Input placeholder="Pedido Sislog" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
-                                                        <FormField control={form.control} name="details.plate" render={({ field }) => (<FormItem><FormLabel>Placa</FormLabel><FormControl><Input placeholder="Placa" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
-                                                        <FormField control={form.control} name="details.noDocumento" render={({ field }) => (<FormItem><FormLabel>No. Documento</FormLabel><FormControl><Input placeholder="No. Documento (máx. 20)" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} maxLength={20} /></FormControl><FormMessage /></FormItem>)} />
-                                                    </>
-                                                )}
-                                            </>
-                                        )}
-                                        {isFmmZfpc && (
-                                            <>
-                                                <Separator />
-                                                <p className="text-sm font-medium text-muted-foreground">Detalles FMM</p>
-                                                <FormField control={form.control} name="details.opLogistica" render={({ field }) => (
-                                                    <FormItem>
-                                                        <FormLabel>Op. Logística <span className="text-destructive">*</span></FormLabel>
-                                                        <Select onValueChange={field.onChange} value={field.value} disabled={dialogMode === 'view'}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione una opción" /></SelectTrigger></FormControl><SelectContent><SelectItem value="CARGUE">CARGUE</SelectItem><SelectItem value="DESCARGUE">DESCARGUE</SelectItem></SelectContent></Select>
-                                                        <FormMessage />
-                                                    </FormItem>
-                                                )} />
-                                                <FormField control={form.control} name="details.fmmNumber" render={({ field }) => (<FormItem><FormLabel># FMM <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Número de FMM" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
-                                                <FormField control={form.control} name="details.plate" render={({ field }) => (<FormItem><FormLabel>Placa <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Placa del vehículo" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
-                                            </>
-                                        )}
-                                        
-                                        <FormField control={form.control} name="comentarios" render={({ field }) => (<FormItem><FormLabel>Comentarios</FormLabel><FormControl><Textarea placeholder="Añada un comentario..." {...field} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)}/>
-
+                                        <ConceptFormBody form={form} clients={clients} billingConcepts={billingConcepts} dialogMode={dialogMode} isConceptDialogOpen={isConceptDialogOpen} setConceptDialogOpen={setConceptDialogOpen} handleCaptureTime={handleCaptureTime} isTimeExtraMode={isTimeExtraMode} isBulkMode={isBulkMode} isElectricConnection={isElectricConnection} isPositionMode={isPositionMode} isFmmConcept={isFmmConcept} isFmmZfpc={isFmmZfpc} showNumeroPersonas={showNumeroPersonas} showAdvancedFields={showAdvancedFields} showTimeExtraFields={showTimeExtraFields} showTunelCongelacionFields={showTunelCongelacionFields} calculatedDuration={calculatedDuration} calculatedElectricConnectionHours={calculatedElectricConnectionHours} isFixedMonthlyService={isFixedMonthlyService} />
                                         <DialogFooter>
                                             <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                                                 {dialogMode === 'view' ? 'Cerrar' : 'Cancelar'}
@@ -1033,177 +828,219 @@ function ConceptSelectorDialog({ billingConcepts, selectedClient, onSelect }: { 
     );
 }
 
-function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any, selectedConceptInfo: ClientBillingConcept | undefined, dialogMode: DialogMode }) {
-    const isTimeExtraFrioal = selectedConceptInfo?.conceptName === 'TIEMPO EXTRA FRIOAL';
+function ConceptFormBody(props: any) {
+  const { form, clients, billingConcepts, dialogMode, isConceptDialogOpen, setConceptDialogOpen, handleCaptureTime, isTimeExtraMode, isBulkMode, isElectricConnection, isPositionMode, isFmmConcept, isFmmZfpc, showNumeroPersonas, showAdvancedFields, showTimeExtraFields, showTunelCongelacionFields, calculatedDuration, calculatedElectricConnectionHours, isFixedMonthlyService } = props;
+  return (
+    <>
+      <FormField control={form.control} name="clientName" render={({ field }) => ( <FormItem><FormLabel>Cliente <span className="text-destructive">*</span></FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={dialogMode === 'view'}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un cliente" /></SelectTrigger></FormControl><SelectContent><ScrollArea className="h-60">{clients.map((c: ClientInfo) => <SelectItem key={c.id} value={c.razonSocial}>{c.razonSocial}</SelectItem>)}</ScrollArea></SelectContent></Select><FormMessage /></FormItem> )}/>
+      <FormField
+          control={form.control}
+          name="concept"
+          render={({ field }) => (
+              <FormItem>
+              <FormLabel>Concepto de Liquidación</FormLabel>
+              <Dialog open={isConceptDialogOpen} onOpenChange={setConceptDialogOpen}>
+                  <DialogTrigger asChild>
+                  <FormControl>
+                      <Button
+                      variant="outline"
+                      role="combobox"
+                      disabled={dialogMode === 'view' || !form.watch('clientName')}
+                      className={cn("w-full justify-between", !field.value && "text-muted-foreground")}
+                      >
+                      {field.value || "Seleccione un concepto"}
+                      <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                      </Button>
+                  </FormControl>
+                  </DialogTrigger>
+                  <DialogContent>
+                      <DialogHeader>
+                          <DialogTitle>Seleccionar Concepto</DialogTitle>
+                      </DialogHeader>
+                      <ConceptSelectorDialog
+                          billingConcepts={billingConcepts}
+                          selectedClient={form.watch('clientName')}
+                          onSelect={(conceptName) => {
+                              form.setValue("concept", conceptName);
+                              setConceptDialogOpen(false);
+                          }}
+                      />
+                  </DialogContent>
+              </Dialog>
+              <FormMessage />
+              </FormItem>
+          )}
+      />
 
-    return (
-        <FormField
+      {isBulkMode ? (
+          <FormField
             control={form.control}
-            name="specificTariffs"
-            render={() => (
-                <FormItem>
-                    <div className="mb-4"><FormLabel className="text-base">Tarifas a Aplicar</FormLabel></div>
-                    <ScrollArea className="h-40 border rounded-md p-2">
-                        <div className="space-y-3">
-                            {(selectedConceptInfo?.specificTariffs || []).map((tariff: SpecificTariff) => {
-                                const fieldName = `specificTariffs`;
-                                return (
-                                    <Controller
-                                        key={tariff.id}
-                                        name={fieldName}
-                                        control={form.control}
-                                        render={({ field }) => {
-                                            const currentSelection = (field.value || []).find((v: any) => v.tariffId === tariff.id);
-                                            const isSelected = !!currentSelection;
-                                            return (
-                                                <div className="flex flex-row items-start space-x-3 space-y-0">
-                                                    <FormControl>
-                                                        <Checkbox
-                                                            checked={isSelected}
-                                                            onCheckedChange={(checked) => {
-                                                                const newValue = checked
-                                                                    ? [...(field.value || []), { tariffId: tariff.id, quantity: 1 }]
-                                                                    : (field.value || []).filter((value: any) => value.tariffId !== tariff.id);
-                                                                field.onChange(newValue);
-                                                            }}
-                                                            disabled={dialogMode === 'view'}
-                                                        />
-                                                    </FormControl>
-                                                    <div className="flex flex-col sm:flex-row justify-between w-full">
-                                                        <FormLabel className="font-normal">{tariff.name} ({tariff.value.toLocaleString('es-CO', { style: 'currency', currency: 'COP', minimumFractionDigits: 0 })})</FormLabel>
-                                                        {isSelected && (
-                                                            <FormField
-                                                                control={form.control}
-                                                                name={`specificTariffs.${(field.value || []).findIndex((v: any) => v.tariffId === tariff.id)}.quantity`}
-                                                                render={({ field: qtyField }) => (
-                                                                    <FormItem>
-                                                                        <div className="flex items-center gap-2">
-                                                                            <FormLabel className="text-xs">
-                                                                                {isTimeExtraFrioal ? "No. Personas:" : `Cant. (${tariff.unit}):`}
-                                                                            </FormLabel>
-                                                                            <FormControl>
-                                                                                <Input
-                                                                                    type="number"
-                                                                                    step={isTimeExtraFrioal ? "1" : "0.1"}
-                                                                                    className="h-7 w-24"
-                                                                                    {...qtyField}
-                                                                                    disabled={dialogMode === 'view'}
-                                                                                />
-                                                                            </FormControl>
-                                                                        </div>
-                                                                        <FormMessage className="text-xs" />
-                                                                    </FormItem>
-                                                                )}
-                                                            />
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            );
-                                        }}
-                                    />
-                                );
-                            })}
-                        </div>
-                    </ScrollArea>
-                    <FormMessage />
-                </FormItem>
+            name="selectedDates"
+            render={({ field }) => (
+              <FormItem>
+                  <FormLabel>Fechas de Operación</FormLabel>
+                  <DateMultiSelector 
+                      value={field.value} 
+                      onChange={field.onChange} 
+                      disabled={dialogMode === 'view'}
+                  />
+                  <FormMessage />
+              </FormItem>
             )}
-        />
-    );
+          />
+      ) : (
+          <>
+          {isElectricConnection ? (
+              <div className='p-4 border rounded-md'>
+                  <div className="grid grid-cols-2 gap-4">
+                      <FormField control={form.control} name="details.fechaArribo" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha Arribo</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={dialogMode === 'view'} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4 opacity-50" />{field.value ? format(field.value, "PPP", { locale: es }) : <span>Seleccione</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={dialogMode === 'view'} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
+                      <FormField control={form.control} name="details.horaArribo" render={({ field }) => (<FormItem><FormLabel>Hora Arribo</FormLabel><div className="flex items-center gap-2"><FormControl><Input type="time" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} className="flex-grow" /></FormControl>{dialogMode !== 'view' && (<Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('details.horaArribo')}><Clock className="h-4 w-4" /></Button>)}</div><FormMessage /></FormItem>)} />
+                      <FormField control={form.control} name="details.fechaSalida" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha Salida</FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={dialogMode === 'view'} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4 opacity-50" />{field.value ? format(field.value, "PPP", { locale: es }) : <span>Seleccione</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={(date) => { const fechaArribo = form.getValues('details.fechaArribo'); return fechaArribo ? date < fechaArribo : false; }} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
+                      <FormField control={form.control} name="details.horaSalida" render={({ field }) => (<FormItem><FormLabel>Hora Salida</FormLabel><div className="flex items-center gap-2"><FormControl><Input type="time" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} className="flex-grow" /></FormControl>{dialogMode !== 'view' && (<Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('details.horaSalida')}><Clock className="h-4 w-4" /></Button>)}</div><FormMessage /></FormItem>)} />
+                  </div>
+              </div>
+          ) : (
+              <FormField control={form.control} name="operationDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha de Operación <span className="text-destructive">*</span></FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={dialogMode === 'view'} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4 opacity-50" />{field.value && field.value instanceof Date && !isNaN(field.value.getTime()) ? format(field.value, "PPP", { locale: es }) : <span>Seleccione una fecha</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={dialogMode === 'view'} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
+          )}
+          </>
+      )}
+
+      {isElectricConnection ? (
+          <FormField control={form.control} name="operationDate" render={({ field }) => ( <FormItem className="flex flex-col"><FormLabel>Fecha de Liquidación (para búsqueda) <span className="text-destructive">*</span></FormLabel><Popover><PopoverTrigger asChild><FormControl><Button variant={"outline"} disabled={dialogMode === 'view'} className={cn("w-full pl-3 text-left font-normal", !field.value && "text-muted-foreground")}><CalendarIcon className="mr-2 h-4 w-4 opacity-50" />{field.value && field.value instanceof Date && !isNaN(field.value.getTime()) ? format(field.value, "PPP", { locale: es }) : <span>Seleccione una fecha</span>}</Button></FormControl></PopoverTrigger><PopoverContent className="w-auto p-0" align="start"><Calendar mode="single" selected={field.value} onSelect={field.onChange} disabled={dialogMode === 'view'} initialFocus /></PopoverContent></Popover><FormMessage /></FormItem> )} />
+      ) : null}
+
+      {calculatedDuration && (showTimeExtraFields || isTimeExtraMode) ? (
+            <Alert variant="default" className="border-sky-500 bg-sky-50 text-sky-800">
+              <Clock className="h-4 w-4 !text-sky-600" />
+              <AlertTitle className="text-sky-700">Duración Calculada</AlertTitle>
+              <FormDescription>
+                  <span className="font-bold">{calculatedDuration.hours.toFixed(2)} horas</span> ({calculatedDuration.minutes} minutos).
+                  {isTimeExtraMode && " Este valor se ha asignado a la cantidad."}
+              </FormDescription>
+          </Alert>
+      ) : null}
+
+      {isElectricConnection && calculatedElectricConnectionHours !== null && (
+          <Alert variant="default" className="border-sky-500 bg-sky-50 text-sky-800">
+              <Clock className="h-4 w-4 !text-sky-600" />
+              <AlertTitle className="text-sky-700">Duración Calculada</AlertTitle>
+              <FormDescription>
+                  <span className="font-bold">{calculatedElectricConnectionHours.toLocaleString('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} horas</span>. Este valor se ha asignado a la cantidad.
+              </FormDescription>
+          </Alert>
+      )}
+      
+      {(isBulkMode || isTimeExtraMode) && <BulkRolesSection form={form} dialogMode={dialogMode} />}
+      {isBulkMode && form.watch('concept') === 'TIEMPO EXTRA FRIOAL (FIJO)' && <ExcedentManager />}
+      {props.selectedConceptInfo?.tariffType === 'ESPECIFICA' && !isBulkMode && !isTimeExtraMode && (
+            <TariffSelector form={form} selectedConceptInfo={props.selectedConceptInfo} dialogMode={dialogMode} />
+      )}
+      
+      {props.selectedConceptInfo?.unitOfMeasure && (props.selectedConceptInfo.tariffType === 'UNICA' || isElectricConnection || isFmmZfpc) && !isFixedMonthlyService && (
+          <FormField
+              control={form.control}
+              name="quantity"
+              render={({ field }) => (
+                  <FormItem>
+                      <FormLabel>
+                          Cantidad
+                          {props.selectedConceptInfo && <span className="text-muted-foreground ml-2">({props.selectedConceptInfo.unitOfMeasure})</span>}
+                      </FormLabel>
+                      <FormControl><Input type="number" step="0.01" placeholder="Ej: 1.5" {...field} value={field.value ?? ''} disabled={dialogMode === 'view' || isElectricConnection} /></FormControl>
+                      <FormMessage />
+                  </FormItem>
+              )}
+          />
+      )}
+      
+      {(showAdvancedFields || dialogMode === 'view' || isElectricConnection || isFmmZfpc || isFmmConcept || showTimeExtraFields || showTunelCongelacionFields) && (
+          <>
+              <Separator />
+              <p className="text-sm font-medium text-muted-foreground">Detalles Adicionales</p>
+              {showTimeExtraFields && (
+                  <div className="grid grid-cols-2 gap-4">
+                      <FormField control={form.control} name="details.startTime" render={({ field }) => (<FormItem><FormLabel>Hora Inicio</FormLabel><div className="flex items-center gap-2"><FormControl><Input type="time" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} className="flex-grow" /></FormControl>{dialogMode !== 'view' && (<Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('details.startTime')}><Clock className="h-4 w-4" /></Button>)}</div><FormMessage /></FormItem>)} />
+                      <FormField control={form.control} name="details.endTime" render={({ field }) => (<FormItem><FormLabel>Hora Fin</FormLabel><div className="flex items-center gap-2"><FormControl><Input type="time" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} className="flex-grow" /></FormControl>{dialogMode !== 'view' && (<Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('details.endTime')}><Clock className="h-4 w-4" /></Button>)}</div><FormMessage /></FormItem>)} />
+                  </div>
+              )}
+
+              {(showAdvancedFields || isElectricConnection) && (
+                    <FormField control={form.control} name="details.container" render={({ field }) => (<FormItem><FormLabel>Contenedor {(showAdvancedFields || isElectricConnection) && <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Contenedor" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
+              )}
+              
+              {props.watchedConcept === 'INSPECCIÓN ZFPC' && (
+                    <FormField control={form.control} name="details.arin" render={({ field }) => (<FormItem><FormLabel>ARIN <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Número de ARIN" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
+              )}
+              
+                {isFmmConcept && (
+                  <>
+                      <FormField control={form.control} name="details.opLogistica" render={({ field }) => (
+                          <FormItem>
+                              <FormLabel>Op. Logística</FormLabel>
+                              <Select onValueChange={field.onChange} value={field.value} disabled={dialogMode === 'view'}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione una opción" /></SelectTrigger></FormControl><SelectContent><SelectItem value="CARGUE">CARGUE</SelectItem><SelectItem value="DESCARGUE">DESCARGUE</SelectItem></SelectContent></Select>
+                              <FormMessage />
+                          </FormItem>
+                      )} />
+                      <FormField control={form.control} name="details.fmmNumber" render={({ field }) => (<FormItem><FormLabel># FMM</FormLabel><FormControl><Input placeholder="Número de FMM" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
+                  </>
+              )}
+              
+              <FormField control={form.control} name="details.totalPallets" render={({ field }) => (<FormItem><FormLabel>Total Paletas</FormLabel><FormControl><Input type="number" step="1" placeholder="Ej: 10" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value === '' ? null : parseInt(e.target.value, 10))}/></FormControl><FormMessage /></FormItem>)}/>
+          
+              {showTunelCongelacionFields && (
+                  <>
+                      <FormField control={form.control} name="details.pedidoSislog" render={({ field }) => (<FormItem><FormLabel>Pedido Sislog</FormLabel><FormControl><Input placeholder="Pedido Sislog" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
+                      <FormField control={form.control} name="details.plate" render={({ field }) => (<FormItem><FormLabel>Placa</FormLabel><FormControl><Input placeholder="Placa" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
+                      <FormField control={form.control} name="details.noDocumento" render={({ field }) => (<FormItem><FormLabel>No. Documento</FormLabel><FormControl><Input placeholder="No. Documento (máx. 20)" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} maxLength={20} /></FormControl><FormMessage /></FormItem>)} />
+                  </>
+              )}
+          </>
+      )}
+      {isFmmZfpc && (
+          <>
+              <Separator />
+              <p className="text-sm font-medium text-muted-foreground">Detalles FMM</p>
+              <FormField control={form.control} name="details.opLogistica" render={({ field }) => (
+                  <FormItem>
+                      <FormLabel>Op. Logística <span className="text-destructive">*</span></FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value} disabled={dialogMode === 'view'}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione una opción" /></SelectTrigger></FormControl><SelectContent><SelectItem value="CARGUE">CARGUE</SelectItem><SelectItem value="DESCARGUE">DESCARGUE</SelectItem></SelectContent></Select>
+                      <FormMessage />
+                  </FormItem>
+              )} />
+              <FormField control={form.control} name="details.fmmNumber" render={({ field }) => (<FormItem><FormLabel># FMM <span className="text-destructive">*</span></FormLabel><FormControl><Input placeholder="Número de FMM" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField control={form.control} name="details.plate" render={({ field }) => (<FormItem><FormLabel>Placa <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Placa del vehículo" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
+          </>
+      )}
+      
+      <FormField control={form.control} name="comentarios" render={({ field }) => (<FormItem><FormLabel>Comentarios</FormLabel><FormControl><Textarea placeholder="Añada un comentario..." {...field} value={field.value ?? ""} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)}/>
+    </>
+  );
 }
 
-const ExcedentManager = () => {
-    const { control, watch } = useFormContext<ManualOperationValues>();
-    const { fields, append, remove } = useFieldArray({ control, name: 'excedentes' });
-    const [excedentDate, setExcedentDate] = useState<Date | undefined>();
-    const [excedentHours, setExcedentHours] = useState('');
-    
-    const selectedDates = watch('selectedDates') || [];
-
-    const handleAddExcedent = () => {
-        if (!excedentDate || !excedentHours) return;
-        const dateStr = format(excedentDate, 'yyyy-MM-dd');
-        const hours = parseFloat(excedentHours.replace(',', '.'));
-        
-        const existingIndex = fields.findIndex(f => f.date === dateStr);
-        if (existingIndex > -1) {
-            remove(existingIndex);
-        }
-        append({ date: dateStr, hours });
-        setExcedentDate(undefined);
-        setExcedentHours('');
-    };
-
-    const isDateValid = (date: Date) => {
-        return selectedDates.some(d => startOfDay(d).getTime() === startOfDay(date).getTime());
-    };
-
-    const dayType = excedentDate ? (isSaturday(excedentDate) ? 'Sábado (Diurnas)' : 'L-V (Nocturnas)') : 'Seleccione Fecha';
-
-    return (
-        <div className="space-y-3 p-3 border rounded-md">
-            <h4 className="text-sm font-medium">Gestionar Horas Excedentes</h4>
-             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 items-end">
-                <div className="space-y-1">
-                    <Label>Fecha del Excedente</Label>
-                    <Popover>
-                        <PopoverTrigger asChild>
-                            <Button variant="outline" className={cn("w-full justify-start text-left font-normal", !excedentDate && "text-muted-foreground")} disabled={!selectedDates || selectedDates.length === 0}>
-                                <CalendarIcon className="mr-2 h-4 w-4" />
-                                {excedentDate ? format(excedentDate, "PPP", { locale: es }) : <span>Seleccione fecha</span>}
-                            </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                            <Calendar
-                                mode="single"
-                                selected={excedentDate}
-                                onSelect={setExcedentDate}
-                                disabled={(date) => !isDateValid(date)}
-                                initialFocus
-                                month={selectedDates?.[0]}
-                            />
-                        </PopoverContent>
-                    </Popover>
+function BulkRolesSection({ form, dialogMode }: { form: any, dialogMode: DialogMode }) {
+  const { fields } = useFieldArray({ control: form.control, name: 'bulkRoles' });
+  return (
+    <div className="space-y-4">
+      <FormLabel className="text-base">Asignación de Personal</FormLabel>
+      {fields.map((field, index) => (
+        <div key={field.id} className="grid grid-cols-5 items-center gap-2 border-b pb-2">
+          <Label className="col-span-2 text-sm">{field.roleName}</Label>
+          <FormField
+            control={form.control}
+            name={`bulkRoles.${index}.numPersonas`}
+            render={({ field: numField }) => (
+              <FormItem className="col-span-3">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor={`num-personas-${index}`} className="text-xs">Personas:</Label>
+                  <FormControl>
+                    <Input id={`num-personas-${index}`} type="number" min="0" step="1" className="h-8 w-20" {...numField} disabled={dialogMode === 'view'} />
+                  </FormControl>
                 </div>
-                <div className="flex items-end gap-2">
-                    <div className="space-y-1 flex-grow">
-                        <Label>Horas Excedentes</Label>
-                        <Input
-                            type="text"
-                            inputMode="decimal"
-                            placeholder={dayType}
-                            value={excedentHours}
-                            onChange={e => setExcedentHours(e.target.value)}
-                            disabled={!excedentDate}
-                        />
-                    </div>
-                    <Button type="button" size="sm" onClick={handleAddExcedent} disabled={!excedentDate || !excedentHours}>Agregar</Button>
-                </div>
-            </div>
-             {fields.length > 0 && (
-                <div className="space-y-2 mt-2">
-                    <h5 className="text-xs font-semibold text-muted-foreground">Excedentes Registrados:</h5>
-                     <ScrollArea className="h-24">
-                        <div className="space-y-1 pr-2">
-                            {fields.map((field, index) => {
-                                const date = parseISO(field.date);
-                                const dayType = isSaturday(date) ? 'Sáb' : 'L-V';
-                                return (
-                                    <div key={field.id} className="flex items-center justify-between text-sm p-1.5 bg-muted/50 rounded-md">
-                                        <span>{format(date, "d MMM", { locale: es })} ({dayType})</span>
-                                        <div className="flex items-center gap-2">
-                                            <span className="font-mono">{field.hours.toLocaleString('es-CO')} hrs</span>
-                                            <Button type="button" variant="ghost" size="icon" className="h-5 w-5 text-destructive" onClick={() => remove(index)}><X className="h-3 w-3" /></Button>
-                                        </div>
-                                    </div>
-                                )
-                            })}
-                        </div>
-                    </ScrollArea>
-                </div>
+              </FormItem>
             )}
+          />
         </div>
-    )
+      ))}
+    </div>
+  );
 }
-
-    
