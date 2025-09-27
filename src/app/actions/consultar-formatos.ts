@@ -71,54 +71,32 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
         let query: admin.firestore.Query = firestore.collection('submissions');
         const isOperario = criteria.requestingUser && operarioEmails.includes(criteria.requestingUser.email);
         
-        if (criteria.pedidoSislog) {
-            query = query.where('formData.pedidoSislog', '==', criteria.pedidoSislog);
-        }
-
-        if (criteria.nombreCliente) {
-            query = query.where('formData.nombreCliente', '==', criteria.nombreCliente);
-        }
+        // --- START: Refactored Query Logic ---
+        // We will base the main query on dates to use a single index, then filter in memory.
         
-        if (criteria.placa) {
-            query = query.where('formData.placa', '==', criteria.placa);
-        }
+        let serverQueryStartDate: Date;
+        let serverQueryEndDate: Date;
 
-        if (criteria.tipoPedido) {
-            query = query.where('formData.tipoPedido', '==', criteria.tipoPedido);
-        }
-        
         const isSearchByUniqueId = !!criteria.pedidoSislog || !!criteria.placa;
 
-        if (isOperario && !isSearchByUniqueId && !criteria.searchDateStart && !criteria.searchDateEnd) {
-             const endDate = new Date();
-             const startDate = subDays(endDate, 7);
-             query = query.where('userId', '==', criteria.requestingUser!.id)
-                          .where('createdAt', '>=', startDate)
-                          .where('createdAt', '<=', endDate)
-                          .orderBy('createdAt', 'desc');
+        if (isSearchByUniqueId) {
+            // If searching by a unique ID, we don't apply a date filter at the query level
+            // to ensure we search across all time.
+            query = query.orderBy('createdAt', 'desc');
         } else if (criteria.searchDateStart && criteria.searchDateEnd) {
-            const startDate = new Date(criteria.searchDateStart + 'T00:00:00-05:00');
-            const endDate = new Date(criteria.searchDateEnd + 'T23:59:59.999-05:00');
-            query = query.where('formData.fecha', '>=', startDate).where('formData.fecha', '<=', endDate);
-        } else if (criteria.searchDateStart) {
-            const startDate = new Date(criteria.searchDateStart + 'T00:00:00-05:00');
-            query = query.where('formData.fecha', '>=', startDate);
-        } else if (criteria.searchDateEnd) {
-            const endDate = new Date(criteria.searchDateEnd + 'T23:59:59.999-05:00');
-            query = query.where('formData.fecha', '<=', endDate);
-        } else if (!isSearchByUniqueId) {
-             const endDate = new Date();
-             const startDate = subDays(endDate, 7);
-             query = query.where('createdAt', '>=', startDate).orderBy('createdAt', 'desc');
+            serverQueryStartDate = new Date(criteria.searchDateStart + 'T00:00:00-05:00');
+            serverQueryEndDate = new Date(criteria.searchDateEnd + 'T23:59:59.999-05:00');
+            query = query.where('formData.fecha', '>=', serverQueryStartDate)
+                         .where('formData.fecha', '<=', serverQueryEndDate)
+                         .orderBy('formData.fecha', 'desc');
+        } else {
+            // Default to the last 7 days if no specific criteria are provided
+            serverQueryEndDate = new Date();
+            serverQueryStartDate = subDays(serverQueryEndDate, 7);
+            query = query.where('createdAt', '>=', serverQueryStartDate)
+                         .where('createdAt', '<=', serverQueryEndDate)
+                         .orderBy('createdAt', 'desc');
         }
-
-        // Apply a default sort order if none has been applied yet.
-        // The check for `_query.orderBy.length` is a stand-in as we can't directly inspect applied orders.
-        // A better check might be needed if orderBy is applied in more complex ways.
-        if (query.orderBy === undefined || query.orderBy.length === 0) {
-            query = query.orderBy('formData.fecha', 'desc');
-        }
-
 
         const snapshot = await query.get();
 
@@ -132,33 +110,36 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
             } as SubmissionResult;
         });
 
-        // --- IN-MEMORY FILTERING for criteria that couldn't be added to the query ---
-        
-        if (criteria.operationType) {
-            results = results.filter(sub => {
-                if (criteria.operationType === 'recepcion') {
-                    return sub.formType.includes('recepcion') || sub.formType.includes('reception');
-                }
-                if (criteria.operationType === 'despacho') {
-                    return sub.formType.includes('despacho');
-                }
-                return true;
-            });
-        }
+        // --- IN-MEMORY FILTERING ---
+        results = results.filter(sub => {
+            if (criteria.pedidoSislog && sub.formData.pedidoSislog !== criteria.pedidoSislog) return false;
+            if (criteria.nombreCliente && sub.formData.nombreCliente !== criteria.nombreCliente) return false;
+            if (criteria.placa && sub.formData.placa !== criteria.placa) return false;
+            if (criteria.tipoPedido && sub.formData.tipoPedido !== criteria.tipoPedido) return false;
 
-        if (criteria.productType) {
-            if (criteria.productType === 'fijo') {
-                results = results.filter(sub => sub.formType.includes('fixed-weight'));
-            } else if (criteria.productType === 'variable') {
-                results = results.filter(sub => sub.formType.includes('variable-weight'));
+            if (criteria.operationType) {
+                if (criteria.operationType === 'recepcion' && !(sub.formType.includes('recepcion') || sub.formType.includes('reception'))) return false;
+                if (criteria.operationType === 'despacho' && !sub.formType.includes('despacho')) return false;
             }
-        }
-        
-        if (isOperario) {
-            results = results.filter(sub => sub.userId === criteria.requestingUser!.id);
+
+            if (criteria.productType) {
+                if (criteria.productType === 'fijo' && !sub.formType.includes('fixed-weight')) return false;
+                if (criteria.productType === 'variable' && !sub.formType.includes('variable-weight')) return false;
+            }
+            
+            if (isOperario && sub.userId !== criteria.requestingUser!.id) return false;
+
+            return true;
+        });
+
+        // The final sort order should still be by date descending.
+        // If we didn't query by date initially (e.g., unique ID search), we sort it now.
+        if (isSearchByUniqueId) {
+            results.sort((a, b) => new Date(b.formData.fecha).getTime() - new Date(a.formData.fecha).getTime());
         }
         
         return results;
+
     } catch (error) {
         console.error('Error searching submissions:', error);
         if (error instanceof Error && (error.message.includes('requires an index') || error.message.includes('needs an index'))) {
