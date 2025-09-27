@@ -71,36 +71,62 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
         let query: admin.firestore.Query = firestore.collection('submissions');
         const isOperario = criteria.requestingUser && operarioEmails.includes(criteria.requestingUser.email);
         
-        // --- START: Refactored Query Logic ---
-        // We will base the main query on dates to use a single index, then filter in memory.
+        if (criteria.pedidoSislog) {
+            query = query.where('formData.pedidoSislog', '==', criteria.pedidoSislog);
+        }
+        if (criteria.nombreCliente) {
+            query = query.where('formData.nombreCliente', '==', criteria.nombreCliente);
+        }
+        if (criteria.placa) {
+            query = query.where('formData.placa', '==', criteria.placa);
+        }
+        if (criteria.tipoPedido) {
+            query = query.where('formData.tipoPedido', '==', criteria.tipoPedido);
+        }
+        
+        let operationTypes: string[] = [];
+        if (criteria.operationType) {
+            if (criteria.operationType === 'recepcion') operationTypes = ['fixed-weight-recepcion', 'fixed-weight-reception', 'variable-weight-recepcion', 'variable-weight-reception'];
+            if (criteria.operationType === 'despacho') operationTypes = ['fixed-weight-despacho', 'variable-weight-despacho'];
+        }
+        
+        let productTypes: string[] = [];
+        if (criteria.productType) {
+            if (criteria.productType === 'fijo') productTypes = ['fixed-weight-recepcion', 'fixed-weight-reception', 'fixed-weight-despacho'];
+            if (criteria.productType === 'variable') productTypes = ['variable-weight-recepcion', 'variable-weight-reception', 'variable-weight-despacho'];
+        }
+
+        const formTypes = operationTypes.length > 0 && productTypes.length > 0
+            ? operationTypes.filter(type => productTypes.includes(type))
+            : (operationTypes.length > 0 ? operationTypes : productTypes);
+
+        if (formTypes.length > 0) {
+            query = query.where('formType', 'in', formTypes);
+        }
+
+        if (isOperario) {
+            query = query.where('userId', '==', criteria.requestingUser!.id);
+        }
         
         let serverQueryStartDate: Date;
         let serverQueryEndDate: Date;
 
-        const isSearchByUniqueId = !!criteria.pedidoSislog || !!criteria.placa;
-
-        if (isSearchByUniqueId) {
-            // If searching by a unique ID, we don't apply a date filter at the query level
-            // to ensure we search across all time.
-            query = query.orderBy('createdAt', 'desc');
-        } else if (criteria.searchDateStart && criteria.searchDateEnd) {
+        if (criteria.searchDateStart && criteria.searchDateEnd) {
             serverQueryStartDate = new Date(criteria.searchDateStart + 'T00:00:00-05:00');
             serverQueryEndDate = new Date(criteria.searchDateEnd + 'T23:59:59.999-05:00');
             query = query.where('formData.fecha', '>=', serverQueryStartDate)
-                         .where('formData.fecha', '<=', serverQueryEndDate)
-                         .orderBy('formData.fecha', 'desc');
-        } else {
-            // Default to the last 7 days if no specific criteria are provided
+                         .where('formData.fecha', '<=', serverQueryEndDate);
+        } else if (!criteria.pedidoSislog && !criteria.placa && !criteria.nombreCliente) {
+            // Default to last 7 days ONLY if no other unique criteria are provided
             serverQueryEndDate = new Date();
             serverQueryStartDate = subDays(serverQueryEndDate, 7);
-            query = query.where('createdAt', '>=', serverQueryStartDate)
-                         .where('createdAt', '<=', serverQueryEndDate)
-                         .orderBy('createdAt', 'desc');
+             query = query.where('formData.fecha', '>=', serverQueryStartDate)
+                          .where('formData.fecha', '<=', serverQueryEndDate);
         }
+        
+        const snapshot = await query.orderBy('formData.fecha', 'desc').get();
 
-        const snapshot = await query.get();
-
-        let results = snapshot.docs.map(doc => {
+        const results = snapshot.docs.map(doc => {
             const data = doc.data();
             const serializedData = serializeTimestamps(data);
             
@@ -109,34 +135,6 @@ export async function searchSubmissions(criteria: SearchCriteria): Promise<Submi
                 ...serializedData,
             } as SubmissionResult;
         });
-
-        // --- IN-MEMORY FILTERING ---
-        results = results.filter(sub => {
-            if (criteria.pedidoSislog && sub.formData.pedidoSislog !== criteria.pedidoSislog) return false;
-            if (criteria.nombreCliente && sub.formData.nombreCliente !== criteria.nombreCliente) return false;
-            if (criteria.placa && sub.formData.placa !== criteria.placa) return false;
-            if (criteria.tipoPedido && sub.formData.tipoPedido !== criteria.tipoPedido) return false;
-
-            if (criteria.operationType) {
-                if (criteria.operationType === 'recepcion' && !(sub.formType.includes('recepcion') || sub.formType.includes('reception'))) return false;
-                if (criteria.operationType === 'despacho' && !sub.formType.includes('despacho')) return false;
-            }
-
-            if (criteria.productType) {
-                if (criteria.productType === 'fijo' && !sub.formType.includes('fixed-weight')) return false;
-                if (criteria.productType === 'variable' && !sub.formType.includes('variable-weight')) return false;
-            }
-            
-            if (isOperario && sub.userId !== criteria.requestingUser!.id) return false;
-
-            return true;
-        });
-
-        // The final sort order should still be by date descending.
-        // If we didn't query by date initially (e.g., unique ID search), we sort it now.
-        if (isSearchByUniqueId) {
-            results.sort((a, b) => new Date(b.formData.fecha).getTime() - new Date(a.formData.fecha).getTime());
-        }
         
         return results;
 
