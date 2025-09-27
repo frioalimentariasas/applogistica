@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -149,7 +150,7 @@ export async function addBulkManualClientOperation(data: BulkOperationData): Pro
                     const excedentMinutes = excedentHours * 60;
                     const finalEndMinutes = endMinutes + excedentMinutes;
 
-                    const nocturnoStartPoint = Math.max(startMinutes, dayShiftEndMinutes);
+                    const nocturnoStartPoint = dayShiftEndMinutes;
 
                     const totalDiurnoMinutes = Math.max(0, Math.min(finalEndMinutes, dayShiftEndMinutes) - startMinutes);
                     const totalNocturnoMinutes = Math.max(0, finalEndMinutes - nocturnoStartPoint);
@@ -285,7 +286,7 @@ export async function updateManualClientOperation(id: string, data: Omit<ManualC
                     const excedentMinutes = excedentHours * 60;
                     const finalEndMinutes = endMinutes + excedentMinutes;
 
-                    const nocturnoStartPoint = Math.max(startMinutes, dayShiftEndMinutes);
+                    const nocturnoStartPoint = dayShiftEndMinutes;
                     const totalDiurnoMinutes = Math.max(0, Math.min(finalEndMinutes, dayShiftEndMinutes) - startMinutes);
                     const totalNocturnoMinutes = Math.max(0, finalEndMinutes - nocturnoStartPoint);
                     
@@ -313,11 +314,15 @@ export async function updateManualClientOperation(id: string, data: Omit<ManualC
             const dayShiftEndMinutes = timeToMinutes(dayShiftEndTime);
             
             const startMinutes = timeToMinutes(data.details.startTime);
-            const endMinutes = timeToMinutes(data.details.endTime);
-            const totalDurationMinutes = endMinutes > startMinutes ? endMinutes - startMinutes : (endMinutes + 1440) - startMinutes;
+            let endMinutes = timeToMinutes(data.details.endTime);
+            if (endMinutes <= startMinutes) {
+                endMinutes += 24 * 60; // Add 24 hours in minutes if it's an overnight shift
+            }
 
-            const diurnoMinutes = Math.max(0, Math.min(endMinutes > startMinutes ? endMinutes : endMinutes + 1440, dayShiftEndMinutes) - startMinutes);
-            const nocturnoMinutes = totalDurationMinutes - diurnoMinutes;
+            const nocturnoStartPoint = dayShiftEndMinutes;
+
+            const totalDiurnoMinutes = Math.max(0, Math.min(endMinutes, dayShiftEndMinutes) - startMinutes);
+            const totalNocturnoMinutes = Math.max(0, endMinutes - nocturnoStartPoint);
 
             const roles = data.bulkRoles || [];
 
@@ -326,11 +331,11 @@ export async function updateManualClientOperation(id: string, data: Omit<ManualC
                 const nocturnaTariff = conceptConfig.specificTariffs?.find(t => t.name.includes(role.roleName) && t.name.includes("NOCTURNA"));
 
                 const tariffs = [];
-                 if (diurnoMinutes > 0 && diurnaTariff) {
-                    tariffs.push({ tariffId: diurnaTariff.id, quantity: diurnoMinutes / 60, role: role.roleName, numPersonas: role.numPersonas });
+                 if (totalDiurnoMinutes > 0 && diurnaTariff) {
+                    tariffs.push({ tariffId: diurnaTariff.id, quantity: totalDiurnoMinutes / 60, role: role.roleName, numPersonas: role.numPersonas });
                 }
-                if (nocturnoMinutes > 0 && nocturnaTariff) {
-                    tariffs.push({ tariffId: nocturnaTariff.id, quantity: nocturnoMinutes / 60, role: role.roleName, numPersonas: role.numPersonas });
+                if (totalNocturnoMinutes > 0 && nocturnaTariff) {
+                    tariffs.push({ tariffId: nocturnaTariff.id, quantity: totalNocturnoMinutes / 60, role: role.roleName, numPersonas: role.numPersonas });
                 }
                 return tariffs;
             });
