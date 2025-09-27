@@ -1,3 +1,4 @@
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -148,7 +149,6 @@ export async function addBulkManualClientOperation(data: BulkOperationData): Pro
                     const excedentMinutes = excedentHours * 60;
                     const finalEndMinutes = endMinutes + excedentMinutes;
 
-                    // Corregir la base para el cálculo nocturno
                     const nocturnoStartPoint = Math.max(startMinutes, dayShiftEndMinutes);
 
                     const totalDiurnoMinutes = Math.max(0, Math.min(finalEndMinutes, dayShiftEndMinutes) - startMinutes);
@@ -307,7 +307,7 @@ export async function updateManualClientOperation(id: string, data: Omit<ManualC
             const conceptConfig = allConcepts.find(c => c.conceptName === data.concept);
             if (!conceptConfig || !conceptConfig.fixedTimeConfig) throw new Error("Config for TIEMPO EXTRA FRIOAL not found");
             const { dayShiftEndTime } = conceptConfig.fixedTimeConfig;
-             if (!dayShiftEndTime || !data.details?.startTime || !data.details?.endTime) throw new Error("Missing times for TIEMPO EXTRA FRIOAL calculation");
+            if (!dayShiftEndTime || !data.details?.startTime || !data.details?.endTime) throw new Error("Missing times for TIEMPO EXTRA FRIOAL calculation");
 
             const timeToMinutes = (time: string): number => { const [hours, minutes] = time.split(':').map(Number); return hours * 60 + minutes; };
             const dayShiftEndMinutes = timeToMinutes(dayShiftEndTime);
@@ -316,18 +316,25 @@ export async function updateManualClientOperation(id: string, data: Omit<ManualC
             const endMinutes = timeToMinutes(data.details.endTime);
             const totalDurationMinutes = endMinutes > startMinutes ? endMinutes - startMinutes : (endMinutes + 1440) - startMinutes;
 
-            const diurnoMinutes = Math.max(0, Math.min(endMinutes, dayShiftEndMinutes) - startMinutes);
+            const diurnoMinutes = Math.max(0, Math.min(endMinutes > startMinutes ? endMinutes : endMinutes + 1440, dayShiftEndMinutes) - startMinutes);
             const nocturnoMinutes = totalDurationMinutes - diurnoMinutes;
-            
-            const diurnaTariff = conceptConfig.specificTariffs?.find(t => t.name.includes("DIURNA"));
-            const nocturnaTariff = conceptConfig.specificTariffs?.find(t => t.name.includes("NOCTURNA"));
 
-            if (diurnoMinutes > 0 && diurnaTariff) {
-                finalSpecificTariffs.push({ tariffId: diurnaTariff.id, quantity: diurnoMinutes / 60, numPersonas: data.numeroPersonas || 1 });
-            }
-            if (nocturnoMinutes > 0 && nocturnaTariff) {
-                finalSpecificTariffs.push({ tariffId: nocturnaTariff.id, quantity: nocturnoMinutes / 60, numPersonas: data.numeroPersonas || 1 });
-            }
+            const roles = data.bulkRoles || [];
+
+            finalSpecificTariffs = roles.flatMap(role => {
+                 const diurnaTariff = conceptConfig.specificTariffs?.find(t => t.name.includes(role.roleName) && t.name.includes("DIURNA"));
+                const nocturnaTariff = conceptConfig.specificTariffs?.find(t => t.name.includes(role.roleName) && t.name.includes("NOCTURNA"));
+
+                const tariffs = [];
+                 if (diurnoMinutes > 0 && diurnaTariff) {
+                    tariffs.push({ tariffId: diurnaTariff.id, quantity: diurnoMinutes / 60, role: role.roleName, numPersonas: role.numPersonas });
+                }
+                if (nocturnoMinutes > 0 && nocturnaTariff) {
+                    tariffs.push({ tariffId: nocturnaTariff.id, quantity: nocturnoMinutes / 60, role: role.roleName, numPersonas: role.numPersonas });
+                }
+                return tariffs;
+            });
+
 
         } else if (data.concept === 'POSICIONES FIJAS CÁMARA CONGELADOS') {
             finalSpecificTariffs = (data.specificTariffs || []).map(tariff => {

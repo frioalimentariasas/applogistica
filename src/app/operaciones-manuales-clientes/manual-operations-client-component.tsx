@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -124,6 +123,9 @@ const manualOperationSchema = z.object({
     if (isTimeExtraMode) {
       if (!data.details?.startTime) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La hora de inicio es requerida.", path: ["details.startTime"] });
       if (!data.details?.endTime) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La hora de fin es requerida.", path: ["details.endTime"] });
+       if (!data.bulkRoles || data.bulkRoles.every(r => r.numPersonas === 0)) {
+           ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Debe ingresar al menos una persona en algún rol.", path: ["bulkRoles"] });
+      }
     }
 
     if (isElectricConnection) {
@@ -264,21 +266,19 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
 
 
     useEffect(() => {
-        // Reset specific fields based on concept type
-        if (selectedConceptInfo?.tariffType !== 'ESPECIFICA') {
-            form.setValue('specificTariffs', []);
-        } else if (watchedConcept === 'TIEMPO EXTRA FRIOAL (FIJO)' && selectedConceptInfo?.specificTariffs) {
+        const setInitialRoles = () => {
             const roles = [
                 { role: "SUPERVISOR", diurna: "HORA EXTRA DIURNA", nocturna: "HORA EXTRA NOCTURNA" },
                 { role: "MONTACARGUISTA TRILATERAL", diurna: "HORA EXTRA DIURNA", nocturna: "HORA EXTRA NOCTURNA" },
                 { role: "MONTACARGUISTA NORMAL", diurna: "HORA EXTRA DIURNA", nocturna: "HORA EXTRA NOCTURNA" },
                 { role: "OPERARIO", diurna: "HORA EXTRA DIURNA", nocturna: "HORA EXTRA NOCTURNA" },
             ];
-
+            
+            const conceptTariffs = selectedConceptInfo?.specificTariffs || [];
+            
             const bulkRoles = roles.map(r => {
-                const diurnaTariff = selectedConceptInfo.specificTariffs?.find(t => t.name.includes(r.role) && t.name.includes(r.diurna));
-                const nocturnaTariff = selectedConceptInfo.specificTariffs?.find(t => t.name.includes(r.role) && t.name.includes(r.nocturna));
-                
+                const diurnaTariff = conceptTariffs.find(t => t.name.includes(r.role) && t.name.includes(r.diurna));
+                const nocturnaTariff = conceptTariffs.find(t => t.name.includes(r.role) && t.name.includes(r.nocturna));
                 return {
                     roleName: r.role,
                     diurnaId: diurnaTariff?.id || '',
@@ -290,12 +290,20 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                     numPersonas: 0
                 };
             }).filter(r => r.diurnaId && r.nocturnaId);
-
-            form.setValue('bulkRoles', bulkRoles);
             
+            form.setValue('bulkRoles', bulkRoles);
+        };
+
+        if (watchedConcept === 'TIEMPO EXTRA FRIOAL (FIJO)' || watchedConcept === 'TIEMPO EXTRA FRIOAL') {
+            if (selectedConceptInfo?.specificTariffs) {
+                setInitialRoles();
+            }
         } else {
-             form.setValue('quantity', undefined);
-             form.setValue('bulkRoles', []);
+            form.setValue('bulkRoles', []);
+        }
+
+        if (selectedConceptInfo?.tariffType !== 'ESPECIFICA') {
+            form.setValue('specificTariffs', []);
         }
 
         if (selectedConceptInfo?.tariffType !== 'ESPECIFICA' && !isPositionMode) {
@@ -304,18 +312,13 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
              form.setValue('numeroPersonas', form.getValues('numeroPersonas') || 1);
         }
         
-        // Reset and clean up date fields based on the concept type
         if (isBulkMode) {
-            form.setValue('operationDate', undefined); // Clear single date field for bulk mode
-            if (!form.getValues('selectedDates')) {
-                form.setValue('selectedDates', []);
-            }
+            form.setValue('operationDate', undefined);
+            if (!form.getValues('selectedDates')) form.setValue('selectedDates', []);
         } else {
-            form.setValue('selectedDates', []); // Clear multi-date field for single mode
+            form.setValue('selectedDates', []);
             form.setValue('excedentes', []);
-            if (!form.getValues('operationDate')) {
-                 form.setValue('operationDate', new Date()); // Ensure single date field has a value
-            }
+            if (!form.getValues('operationDate')) form.setValue('operationDate', new Date());
         }
     }, [watchedConcept, selectedConceptInfo, form, isBulkMode, isPositionMode, showNumeroPersonas]);
 
@@ -324,10 +327,10 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         try {
             const data = await getAllManualClientOperations();
             setAllOperations(data);
-            return data; // Devuelve los datos para que handleSearch pueda usarlos
+            return data;
         } catch (error) {
             toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar las operaciones.' });
-            return []; // Devuelve un array vacío en caso de error
+            return [];
         } finally {
             setIsLoading(false);
         }
@@ -475,7 +478,10 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 }
 
                 delete payload.selectedDates;
-                delete payload.bulkRoles;
+                // Keep bulkRoles for TIEMPO EXTRA FRIOAL even in single-day edit
+                if (data.concept !== 'TIEMPO EXTRA FRIOAL (FIJO)' && data.concept !== 'TIEMPO EXTRA FRIOAL') {
+                    delete payload.bulkRoles;
+                }
                 delete payload.excedentes;
                 
                 payload.createdBy = commonPayload.createdBy;
@@ -828,7 +834,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                             </Alert>
                                         )}
                                         
-                                        {selectedConceptInfo?.tariffType === 'ESPECIFICA' && watchedConcept === 'TIEMPO EXTRA FRIOAL (FIJO)' && (
+                                        {(watchedConcept === 'TIEMPO EXTRA FRIOAL (FIJO)' || isTimeExtraMode) && (
                                             <div className="space-y-4">
                                                 <FormLabel className="text-base">Asignación de Personal</FormLabel>
                                                 {bulkRoleFields.map((field, index) => (
@@ -851,14 +857,14 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                 </div>
                                                 ))}
                                                 <Separator />
-                                                <ExcedentManager />
+                                                {watchedConcept === 'TIEMPO EXTRA FRIOAL (FIJO)' && <ExcedentManager />}
                                             </div>
                                         )}
                                         {selectedConceptInfo?.tariffType === 'ESPECIFICA' && !isBulkMode && (
                                              <TariffSelector form={form} selectedConceptInfo={selectedConceptInfo} dialogMode={dialogMode} />
                                         )}
                                         
-                                        {selectedConceptInfo?.unitOfMeasure && (selectedConceptInfo.tariffType === 'UNICA' || isTimeExtraMode || isElectricConnection || isFmmZfpc) && !isFixedMonthlyService && (
+                                        {selectedConceptInfo?.unitOfMeasure && (selectedConceptInfo.tariffType === 'UNICA' || isElectricConnection || isFmmZfpc) && !isFixedMonthlyService && (
                                             <FormField
                                                 control={form.control}
                                                 name="quantity"
@@ -868,7 +874,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                             Cantidad
                                                             {selectedConceptInfo && <span className="text-muted-foreground ml-2">({selectedConceptInfo.unitOfMeasure})</span>}
                                                         </FormLabel>
-                                                        <FormControl><Input type="number" step="0.01" placeholder="Ej: 1.5" {...field} value={field.value ?? ''} disabled={dialogMode === 'view' || isElectricConnection || isTimeExtraMode} /></FormControl>
+                                                        <FormControl><Input type="number" step="0.01" placeholder="Ej: 1.5" {...field} value={field.value ?? ''} disabled={dialogMode === 'view' || isElectricConnection} /></FormControl>
                                                         <FormMessage />
                                                     </FormItem>
                                                 )}
