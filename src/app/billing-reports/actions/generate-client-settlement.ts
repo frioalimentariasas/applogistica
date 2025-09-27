@@ -719,35 +719,52 @@ export async function generateClientSettlement(criteria: {
                     }
                 }
 
-                if ((concept.conceptName === 'TIEMPO EXTRA FRIOAL (FIJO)' || concept.conceptName === 'TIEMPO EXTRA FRIOAL') && Array.isArray(opData.specificTariffs)) {
-                    const timeToMinutes = (time: string): number => {
-                        const [hours, minutes] = time.split(':').map(Number);
-                        return hours * 60 + minutes;
-                    };
-                    const minutesToTime = (minutes: number): string => {
-                        const h = Math.floor(minutes / 60);
-                        const m = Math.round(minutes % 60);
-                        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
-                    };
-                    
-                    const opDate = new Date(opData.operationDate);
-                    const dayOfWeek = getDay(opDate);
-                    const isSaturday = dayOfWeek === 6;
-                    
-                    const conceptConfig = allConcepts.find(c => c.conceptName === opData.concept);
-                    const fixedConfig = conceptConfig?.fixedTimeConfig;
+                if ((concept.conceptName === 'TIEMPO EXTRA FRIOAL') && Array.isArray(opData.specificTariffs)) {
+                    opData.specificTariffs.forEach((appliedTariff: { tariffId: string; quantity: number, numPersonas?: number }) => {
+                        const specificConcept = concept.specificTariffs?.find(st => st.id === appliedTariff.tariffId);
+                        if (specificConcept) {
+                            const totalValue = (appliedTariff.quantity || 0) * (specificConcept.value || 0) * (appliedTariff.numPersonas || 1);
+                            const originalStartMinutes = timeToMinutes(opData.details?.startTime);
+                            const originalEndMinutes = timeToMinutes(opData.details?.endTime);
 
-                    if (!fixedConfig) return; // Skip if no config
+                            let segmentStartMinutes = originalStartMinutes;
+                            let segmentEndMinutes = originalEndMinutes;
 
-                    const baseStartTimeStr = isSaturday ? fixedConfig.saturdayStartTime : fixedConfig.weekdayStartTime;
-                    const baseEndTimeStr = isSaturday ? fixedConfig.saturdayEndTime : fixedConfig.weekdayEndTime;
-                    const dayShiftEndMinutes = fixedConfig.dayShiftEndTime ? timeToMinutes(fixedConfig.dayShiftEndTime) : timeToMinutes("19:00");
-                    const startMinutes = baseStartTimeStr ? timeToMinutes(baseStartTimeStr) : 0;
-                    
+                            if (specificConcept.name.includes("NOCTURNA")) {
+                                const dayShiftEndMinutes = timeToMinutes(concept.fixedTimeConfig?.dayShiftEndTime || "19:00");
+                                segmentStartMinutes = dayShiftEndMinutes;
+                            } else {
+                                const dayShiftEndMinutes = timeToMinutes(concept.fixedTimeConfig?.dayShiftEndTime || "19:00");
+                                segmentEndMinutes = dayShiftEndMinutes;
+                            }
+
+                            settlementRows.push({
+                                date,
+                                conceptName: concept.conceptName,
+                                subConceptName: specificConcept.name,
+                                placa: opData.details?.plate || 'No Aplica',
+                                container: opData.details?.container || 'No Aplica',
+                                totalPaletas: opData.details?.totalPallets || 0,
+                                camara: 'No Aplica', operacionLogistica: 'No Aplica', pedidoSislog: 'Fijo Mensual', tipoVehiculo: 'No Aplica',
+                                quantity: appliedTariff.quantity,
+                                numeroPersonas: appliedTariff.numPersonas, unitOfMeasure: specificConcept.unit,
+                                unitValue: specificConcept.value || 0, totalValue,
+                                horaInicio: minutesToTime(segmentStartMinutes),
+                                horaFin: minutesToTime(segmentEndMinutes),
+                            });
+                        }
+                    });
+                } else if (concept.conceptName === 'TIEMPO EXTRA FRIOAL (FIJO)' && Array.isArray(opData.specificTariffs)) {
                     opData.specificTariffs.forEach((appliedTariff: { tariffId: string; quantity: number, role: string, numPersonas: number }) => {
                         const specificConcept = concept.specificTariffs?.find(st => st.id === appliedTariff.tariffId);
                         if (specificConcept) {
                             const totalValue = appliedTariff.quantity * (specificConcept.value || 0) * (appliedTariff.numPersonas || 1);
+                            
+                            const dayShiftEndMinutes = timeToMinutes(concept.fixedTimeConfig?.dayShiftEndTime || "19:00");
+                            
+                            const isSaturday = getDay(parseISO(date)) === 6;
+                            const baseStartTimeStr = isSaturday ? concept.fixedTimeConfig?.saturdayStartTime : concept.fixedTimeConfig?.weekdayStartTime;
+                            const startMinutes = timeToMinutes(baseStartTimeStr || "00:00");
                             
                             let segmentStartMinutes, segmentEndMinutes;
                             
@@ -941,7 +958,7 @@ export async function generateClientSettlement(criteria: {
 
         if (orderA !== orderB) return orderA - orderB;
 
-        if (a.conceptName === 'TIEMPO EXTRA FRIOAL (FIJO)' && b.conceptName === 'TIEMPO EXTRA FRIOAL (FIJO)') {
+        if (a.conceptName === 'TIEMPO EXTRA FRIOAL (FIJO)' || a.conceptName === 'TIEMPO EXTRA FRIOAL') {
             const subConceptA = a.subConceptName || '';
             const subConceptB = b.subConceptName || '';
 
@@ -989,3 +1006,6 @@ const minutesToTime = (minutes: number): string => {
     const m = Math.round(minutes % 60);
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 };
+
+
+    
