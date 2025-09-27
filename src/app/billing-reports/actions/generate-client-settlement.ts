@@ -1,3 +1,4 @@
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -718,6 +719,16 @@ export async function generateClientSettlement(criteria: {
                 }
 
                 if (concept.conceptName === 'TIEMPO EXTRA FRIOAL (FIJO)' && Array.isArray(opData.specificTariffs)) {
+                    const timeToMinutes = (time: string): number => {
+                        const [hours, minutes] = time.split(':').map(Number);
+                        return hours * 60 + minutes;
+                    };
+                    const minutesToTime = (minutes: number): string => {
+                        const h = Math.floor(minutes / 60);
+                        const m = Math.round(minutes % 60);
+                        return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+                    };
+                    
                     const opDate = new Date(opData.operationDate);
                     const dayOfWeek = getDay(opDate);
                     const isSaturday = dayOfWeek === 6;
@@ -736,9 +747,7 @@ export async function generateClientSettlement(criteria: {
                                 segmentStartMinutes = startMinutes;
                                 segmentEndMinutes = Math.min(startMinutes + (appliedTariff.quantity * 60), dayShiftEndMinutes);
                             } else { // NOCTURNA
-                                const diurnaTariff = opData.specificTariffs.find((t:any) => t.tariffId.includes('DIURNA') && t.role === appliedTariff.role);
-                                const diurnaDurationMinutes = (diurnaTariff?.quantity || 0) * 60;
-                                segmentStartMinutes = startMinutes + diurnaDurationMinutes;
+                                segmentStartMinutes = dayShiftEndMinutes;
                                 segmentEndMinutes = segmentStartMinutes + (appliedTariff.quantity * 60);
                             }
 

@@ -1,3 +1,4 @@
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -148,7 +149,7 @@ export async function addBulkManualClientOperation(data: BulkOperationData): Pro
                     const finalEndMinutes = endMinutes + excedentMinutes;
 
                     const totalDiurnoMinutes = Math.max(0, Math.min(finalEndMinutes, dayShiftEndMinutes) - startMinutes);
-                    const totalNocturnoMinutes = Math.max(0, finalEndMinutes - Math.max(startMinutes, dayShiftEndMinutes));
+                    const totalNocturnoMinutes = Math.max(0, finalEndMinutes - dayShiftEndMinutes);
                     
                     const tariffs = [];
                     if (totalDiurnoMinutes > 0) {
@@ -282,7 +283,7 @@ export async function updateManualClientOperation(id: string, data: Omit<ManualC
                     const finalEndMinutes = endMinutes + excedentMinutes;
 
                     const totalDiurnoMinutes = Math.max(0, Math.min(finalEndMinutes, dayShiftEndMinutes) - startMinutes);
-                    const totalNocturnoMinutes = Math.max(0, finalEndMinutes - Math.max(startMinutes, dayShiftEndMinutes));
+                    const totalNocturnoMinutes = Math.max(0, finalEndMinutes - dayShiftEndMinutes);
 
                     const tariffs = [];
                     if (totalDiurnoMinutes > 0) tariffs.push({ tariffId: role.diurnaId, quantity: totalDiurnoMinutes / 60 });
