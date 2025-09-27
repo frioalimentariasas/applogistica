@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -18,7 +19,7 @@ export interface ManualClientOperationData {
     startDate?: string;
     endDate?: string;
     concept: string;
-    specificTariffs?: { tariffId: string; quantity: number }[];
+    specificTariffs?: { tariffId: string; quantity: number, role?: string, numPersonas?: number }[];
     quantity?: number; // Kept for simple manual concepts
     numeroPersonas?: number;
     numeroPosiciones?: number;
@@ -258,7 +259,7 @@ export async function updateManualClientOperation(id: string, data: Omit<ManualC
 
     try {
         const { details, operationDate, startDate, endDate, createdBy, ...restOfData } = data;
-        let finalSpecificTariffs: { tariffId: string; quantity: number }[] = [];
+        let finalSpecificTariffs: { tariffId: string; quantity: number, role?: string, numPersonas?: number }[] = [];
 
         if (data.concept === 'TIEMPO EXTRA FRIOAL (FIJO)') {
              const allConcepts = await getClientBillingConcepts();
@@ -286,13 +287,41 @@ export async function updateManualClientOperation(id: string, data: Omit<ManualC
                     const totalNocturnoMinutes = Math.max(0, finalEndMinutes - dayShiftEndMinutes);
 
                     const tariffs = [];
-                    if (totalDiurnoMinutes > 0) tariffs.push({ tariffId: role.diurnaId, quantity: totalDiurnoMinutes / 60 });
-                    if (totalNocturnoMinutes > 0) tariffs.push({ tariffId: role.nocturnaId, quantity: totalNocturnoMinutes / 60 });
+                    if (totalDiurnoMinutes > 0) tariffs.push({ tariffId: role.diurnaId, quantity: totalDiurnoMinutes / 60, role: role.roleName, numPersonas: role.numPersonas });
+                    if (totalNocturnoMinutes > 0) tariffs.push({ tariffId: role.nocturnaId, quantity: totalNocturnoMinutes / 60, role: role.roleName, numPersonas: role.numPersonas });
                     
                     return tariffs;
                 }
                 return [];
-            }).filter((t): t is { tariffId: string; quantity: number } => t !== undefined);
+            }).filter((t): t is { tariffId: string; quantity: number; role: string; numPersonas: number; } => t !== undefined);
+        
+        } else if (data.concept === 'TIEMPO EXTRA FRIOAL') {
+             const allConcepts = await getClientBillingConcepts();
+            const conceptConfig = allConcepts.find(c => c.conceptName === data.concept);
+            if (!conceptConfig || !conceptConfig.fixedTimeConfig) throw new Error("Config for TIEMPO EXTRA FRIOAL not found");
+            const { dayShiftEndTime } = conceptConfig.fixedTimeConfig;
+             if (!dayShiftEndTime || !data.details?.startTime || !data.details?.endTime) throw new Error("Missing times for TIEMPO EXTRA FRIOAL calculation");
+
+            const timeToMinutes = (time: string): number => { const [hours, minutes] = time.split(':').map(Number); return hours * 60 + minutes; };
+            const dayShiftEndMinutes = timeToMinutes(dayShiftEndTime);
+            
+            const startMinutes = timeToMinutes(data.details.startTime);
+            const endMinutes = timeToMinutes(data.details.endTime);
+            const totalDurationMinutes = endMinutes > startMinutes ? endMinutes - startMinutes : (endMinutes + 1440) - startMinutes;
+
+            const diurnoMinutes = Math.max(0, Math.min(endMinutes, dayShiftEndMinutes) - startMinutes);
+            const nocturnoMinutes = totalDurationMinutes - diurnoMinutes;
+            
+            const diurnaTariff = conceptConfig.specificTariffs?.find(t => t.name.includes("DIURNA"));
+            const nocturnaTariff = conceptConfig.specificTariffs?.find(t => t.name.includes("NOCTURNA"));
+
+            if (diurnoMinutes > 0 && diurnaTariff) {
+                finalSpecificTariffs.push({ tariffId: diurnaTariff.id, quantity: diurnoMinutes / 60, numPersonas: data.numeroPersonas || 1 });
+            }
+            if (nocturnoMinutes > 0 && nocturnaTariff) {
+                finalSpecificTariffs.push({ tariffId: nocturnaTariff.id, quantity: nocturnoMinutes / 60, numPersonas: data.numeroPersonas || 1 });
+            }
+
         } else if (data.concept === 'POSICIONES FIJAS CÁMARA CONGELADOS') {
             finalSpecificTariffs = (data.specificTariffs || []).map(tariff => {
                 let quantity = tariff.quantity;

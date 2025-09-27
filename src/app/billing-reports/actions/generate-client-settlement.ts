@@ -1,4 +1,5 @@
 
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -718,7 +719,7 @@ export async function generateClientSettlement(criteria: {
                     }
                 }
 
-                if (concept.conceptName === 'TIEMPO EXTRA FRIOAL (FIJO)' && Array.isArray(opData.specificTariffs)) {
+                if ((concept.conceptName === 'TIEMPO EXTRA FRIOAL (FIJO)' || concept.conceptName === 'TIEMPO EXTRA FRIOAL') && Array.isArray(opData.specificTariffs)) {
                     const timeToMinutes = (time: string): number => {
                         const [hours, minutes] = time.split(':').map(Number);
                         return hours * 60 + minutes;
@@ -732,14 +733,21 @@ export async function generateClientSettlement(criteria: {
                     const opDate = new Date(opData.operationDate);
                     const dayOfWeek = getDay(opDate);
                     const isSaturday = dayOfWeek === 6;
-                    const baseStartTimeStr = isSaturday ? concept.fixedTimeConfig?.saturdayStartTime : concept.fixedTimeConfig?.weekdayStartTime;
-                    const dayShiftEndMinutes = concept.fixedTimeConfig?.dayShiftEndTime ? timeToMinutes(concept.fixedTimeConfig.dayShiftEndTime) : timeToMinutes("19:00");
+                    
+                    const conceptConfig = allConcepts.find(c => c.conceptName === opData.concept);
+                    const fixedConfig = conceptConfig?.fixedTimeConfig;
+
+                    if (!fixedConfig) return; // Skip if no config
+
+                    const baseStartTimeStr = isSaturday ? fixedConfig.saturdayStartTime : fixedConfig.weekdayStartTime;
+                    const baseEndTimeStr = isSaturday ? fixedConfig.saturdayEndTime : fixedConfig.weekdayEndTime;
+                    const dayShiftEndMinutes = fixedConfig.dayShiftEndTime ? timeToMinutes(fixedConfig.dayShiftEndTime) : timeToMinutes("19:00");
                     const startMinutes = baseStartTimeStr ? timeToMinutes(baseStartTimeStr) : 0;
                     
                     opData.specificTariffs.forEach((appliedTariff: { tariffId: string; quantity: number, role: string, numPersonas: number }) => {
                         const specificConcept = concept.specificTariffs?.find(st => st.id === appliedTariff.tariffId);
                         if (specificConcept) {
-                            const totalValue = appliedTariff.quantity * (specificConcept.value || 0) * appliedTariff.numPersonas;
+                            const totalValue = appliedTariff.quantity * (specificConcept.value || 0) * (appliedTariff.numPersonas || 1);
                             
                             let segmentStartMinutes, segmentEndMinutes;
                             
@@ -804,26 +812,11 @@ export async function generateClientSettlement(criteria: {
                     opData.specificTariffs.forEach((appliedTariff: { tariffId: string, quantity: number }) => {
                         const specificTariff = concept.specificTariffs?.find(t => t.id === appliedTariff.tariffId);
                         if (specificTariff) {
-                            const numPersonas = concept.conceptName === 'TIEMPO EXTRA FRIOAL' ? appliedTariff.quantity : opData.numeroPersonas || 0;
+                            const numPersonas = opData.numeroPersonas || 1;
                             const start = opData.details?.startTime;
                             const end = opData.details?.endTime;
-                            let quantityForCalc;
-                            let totalValue = 0;
-
-                            if (concept.conceptName === 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA') {
-                                quantityForCalc = appliedTariff.quantity || 0;
-                            } else if (concept.conceptName === 'TIEMPO EXTRA FRIOAL' && start && end) {
-                                const diffMinutes = differenceInMinutes(parse(end, 'HH:mm', new Date()), parse(start, 'HH:mm', new Date()));
-                                const hours = parseFloat((diffMinutes / 60).toFixed(2));
-                                quantityForCalc = hours;
-                                totalValue = quantityForCalc * numPersonas * (specificTariff.value || 0);
-                            } else {
-                                quantityForCalc = opData.quantity || numPersonas;
-                            }
-                            
-                            if (totalValue === 0) { // Calculate totalValue if not already set
-                                totalValue = quantityForCalc * (specificTariff.value || 0);
-                            }
+                            let quantityForCalc = appliedTariff.quantity || 0;
+                            let totalValue = quantityForCalc * (specificTariff.value || 0) * numPersonas;
                             
                             if (totalValue > 0) {
                                 settlementRows.push({
@@ -927,7 +920,7 @@ export async function generateClientSettlement(criteria: {
         'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'OPERACIÓN CARGUE (CANASTILLAS)', 'ALISTAMIENTO POR UNIDAD', 'FMM DE INGRESO ZFPC', 'ARIN DE INGRESO ZFPC', 'FMM DE SALIDA ZFPC',
         'ARIN DE SALIDA ZFPC', 'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
         'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'ESTIBA MADERA RECICLADA',
-        'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA ZFPC',
+        'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 'TIEMPO EXTRA ZFPC',
         'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO', 'ALMACENAMIENTO PRODUCTOS CONGELADOS -PALLET/DIA (-18°C A -25°C)', 'ALMACENAMIENTO PRODUCTOS REFRIGERADOS -PALLET/DIA (0°C A 4ºC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA'
     ];
     
