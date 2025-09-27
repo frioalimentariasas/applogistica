@@ -1,5 +1,3 @@
-
-
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -7,6 +5,7 @@ import { revalidatePath } from 'next/cache';
 import admin from 'firebase-admin';
 import { getDaysInMonth, startOfDay, addDays, format, isBefore, isEqual, parseISO, getDay, eachDayOfInterval, isSunday } from 'date-fns';
 import { getClientBillingConcepts, type ClientBillingConcept } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
+import { differenceInMinutes, parse } from 'date-fns';
 
 export interface ExcedentEntry {
     date: string; // YYYY-MM-DD
@@ -149,8 +148,11 @@ export async function addBulkManualClientOperation(data: BulkOperationData): Pro
                     const excedentMinutes = excedentHours * 60;
                     const finalEndMinutes = endMinutes + excedentMinutes;
 
+                    // Corregir la base para el cálculo nocturno
+                    const nocturnoStartPoint = Math.max(startMinutes, dayShiftEndMinutes);
+
                     const totalDiurnoMinutes = Math.max(0, Math.min(finalEndMinutes, dayShiftEndMinutes) - startMinutes);
-                    const totalNocturnoMinutes = Math.max(0, finalEndMinutes - dayShiftEndMinutes);
+                    const totalNocturnoMinutes = Math.max(0, finalEndMinutes - nocturnoStartPoint);
                     
                     const tariffs = [];
                     if (totalDiurnoMinutes > 0) {
@@ -283,8 +285,9 @@ export async function updateManualClientOperation(id: string, data: Omit<ManualC
                     const excedentMinutes = excedentHours * 60;
                     const finalEndMinutes = endMinutes + excedentMinutes;
 
+                    const nocturnoStartPoint = Math.max(startMinutes, dayShiftEndMinutes);
                     const totalDiurnoMinutes = Math.max(0, Math.min(finalEndMinutes, dayShiftEndMinutes) - startMinutes);
-                    const totalNocturnoMinutes = Math.max(0, finalEndMinutes - dayShiftEndMinutes);
+                    const totalNocturnoMinutes = Math.max(0, finalEndMinutes - nocturnoStartPoint);
                     
                     const tariffs = [];
                     if (totalDiurnoMinutes > 0) {
@@ -379,5 +382,3 @@ export async function deleteManualClientOperation(id: string): Promise<{ success
         return { success: false, message: `Error del servidor: ${errorMessage}` };
     }
 }
-
-    
