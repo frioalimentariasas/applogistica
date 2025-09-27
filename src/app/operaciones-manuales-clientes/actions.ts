@@ -129,9 +129,7 @@ export async function addBulkManualClientOperation(data: BulkOperationData): Pro
         let operationsCount = 0;
 
         for (const dateString of dates) {
-            // This is the key change. By adding the timezone offset, we ensure the date is interpreted as a local date.
             const localDate = new Date(dateString + 'T05:00:00.000Z');
-
             const dayOfWeek = getDay(localDate);
 
             if (isSunday(localDate)) continue;
@@ -150,14 +148,22 @@ export async function addBulkManualClientOperation(data: BulkOperationData): Pro
                     const totalBaseMinutes = endMinutes - startMinutes;
                     
                     const baseDiurnoMinutes = Math.max(0, Math.min(endMinutes, dayShiftEndMinutes) - startMinutes);
-                    const baseNocturnoMinutes = Math.max(0, totalBaseMinutes - baseDiurnoMinutes);
+                    const baseNocturnoMinutes = Math.max(0, endMinutes - Math.max(startMinutes, dayShiftEndMinutes));
                     
-                    const baseDiurnoHours = baseDiurnoMinutes / 60;
-                    const baseNocturnoHours = baseNocturnoMinutes / 60;
+                    const excedentMinutes = excedentHours * 60;
+                    
+                    let finalDiurnoMinutes = baseDiurnoMinutes;
+                    let finalNocturnoMinutes = baseNocturnoMinutes;
 
-                    const finalDiurnoHours = baseDiurnoHours + (isSaturday ? excedentHours : 0);
-                    const finalNocturnoHours = baseNocturnoHours + (!isSaturday ? excedentHours : 0);
-                    
+                    if (isSaturday) {
+                        finalDiurnoMinutes += excedentMinutes;
+                    } else {
+                        finalNocturnoMinutes += excedentMinutes;
+                    }
+
+                    const finalDiurnoHours = finalDiurnoMinutes > 0 ? finalDiurnoMinutes / 60 : 0;
+                    const finalNocturnoHours = finalNocturnoMinutes > 0 ? finalNocturnoMinutes / 60 : 0;
+
                     const tariffs = [];
                     if (finalDiurnoHours > 0) {
                         tariffs.push({ 
@@ -219,7 +225,7 @@ export async function addBulkManualClientOperation(data: BulkOperationData): Pro
 export interface SimpleBulkOperationData {
     clientName: string;
     concept: string;
-    dates: string[];
+    dates: string[]; // Array of ISO date strings
     quantity: number;
     details?: any;
     comentarios?: string;
@@ -365,3 +371,4 @@ export async function deleteManualClientOperation(id: string): Promise<{ success
         return { success: false, message: `Error del servidor: ${errorMessage}` };
     }
 }
+
