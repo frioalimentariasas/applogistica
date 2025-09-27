@@ -1,5 +1,3 @@
-
-
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -720,23 +718,27 @@ export async function generateClientSettlement(criteria: {
                 }
 
                 if (concept.conceptName === 'TIEMPO EXTRA FRIOAL (FIJO)' && Array.isArray(opData.specificTariffs)) {
+                    const opDate = new Date(opData.operationDate);
+                    const dayOfWeek = getDay(opDate);
+                    const isSaturday = dayOfWeek === 6;
+                    const baseStartTimeStr = isSaturday ? concept.fixedTimeConfig?.saturdayStartTime : concept.fixedTimeConfig?.weekdayStartTime;
+                    const dayShiftEndMinutes = concept.fixedTimeConfig?.dayShiftEndTime ? timeToMinutes(concept.fixedTimeConfig.dayShiftEndTime) : timeToMinutes("19:00");
+                    const startMinutes = baseStartTimeStr ? timeToMinutes(baseStartTimeStr) : 0;
+                    
                     opData.specificTariffs.forEach((appliedTariff: { tariffId: string; quantity: number, role: string, numPersonas: number }) => {
                         const specificConcept = concept.specificTariffs?.find(st => st.id === appliedTariff.tariffId);
                         if (specificConcept) {
                             const totalValue = appliedTariff.quantity * (specificConcept.value || 0) * appliedTariff.numPersonas;
-
-                             // Calculate start and end times for this specific tariff
-                            const opDate = new Date(opData.operationDate);
-                            const dayShiftEndMinutes = concept.fixedTimeConfig?.dayShiftEndTime ? timeToMinutes(concept.fixedTimeConfig.dayShiftEndTime) : timeToMinutes("19:00");
-                            const baseStartMinutes = timeToMinutes(opData.details.startTime);
                             
                             let segmentStartMinutes, segmentEndMinutes;
+                            
                             if(specificConcept.name.includes('DIURNA')){
-                                segmentStartMinutes = baseStartMinutes;
-                                segmentEndMinutes = Math.min(baseStartMinutes + (appliedTariff.quantity * 60), dayShiftEndMinutes);
+                                segmentStartMinutes = startMinutes;
+                                segmentEndMinutes = Math.min(startMinutes + (appliedTariff.quantity * 60), dayShiftEndMinutes);
                             } else { // NOCTURNA
-                                const diurnaDurationMinutes = (opData.specificTariffs.find((t:any) => t.tariffId.includes('DIURNA') && t.role === appliedTariff.role)?.quantity || 0) * 60;
-                                segmentStartMinutes = baseStartMinutes + diurnaDurationMinutes;
+                                const diurnaTariff = opData.specificTariffs.find((t:any) => t.tariffId.includes('DIURNA') && t.role === appliedTariff.role);
+                                const diurnaDurationMinutes = (diurnaTariff?.quantity || 0) * 60;
+                                segmentStartMinutes = startMinutes + diurnaDurationMinutes;
                                 segmentEndMinutes = segmentStartMinutes + (appliedTariff.quantity * 60);
                             }
 
@@ -985,4 +987,3 @@ const minutesToTime = (minutes: number): string => {
     const m = Math.round(minutes % 60);
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 };
-

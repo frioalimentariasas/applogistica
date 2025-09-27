@@ -1,5 +1,3 @@
-
-
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -121,7 +119,7 @@ export async function addBulkManualClientOperation(data: BulkOperationData): Pro
             const [hours, minutes] = time.split(':').map(Number);
             return hours * 60 + minutes;
         };
-
+        
         const dayShiftEndMinutes = timeToMinutes(dayShiftEndTime);
         const excedentesMap = new Map(excedentes.map(e => [e.date, e.hours]));
 
@@ -149,21 +147,9 @@ export async function addBulkManualClientOperation(data: BulkOperationData): Pro
                     const excedentMinutes = excedentHours * 60;
                     const finalEndMinutes = endMinutes + excedentMinutes;
 
-                    const baseDiurnoMinutes = Math.max(0, Math.min(endMinutes, dayShiftEndMinutes) - startMinutes);
-                    const baseNocturnoMinutes = Math.max(0, endMinutes - Math.max(startMinutes, dayShiftEndMinutes));
+                    const totalDiurnoMinutes = Math.max(0, Math.min(finalEndMinutes, dayShiftEndMinutes) - startMinutes);
+                    const totalNocturnoMinutes = Math.max(0, finalEndMinutes - Math.max(startMinutes, dayShiftEndMinutes));
                     
-                    let excedentDiurnoMinutes = 0;
-                    let excedentNocturnoMinutes = 0;
-                    
-                    if (excedentMinutes > 0) {
-                        const excedentStartMinutes = endMinutes;
-                        excedentDiurnoMinutes = Math.max(0, Math.min(finalEndMinutes, dayShiftEndMinutes) - excedentStartMinutes);
-                        excedentNocturnoMinutes = Math.max(0, finalEndMinutes - Math.max(excedentStartMinutes, dayShiftEndMinutes));
-                    }
-                    
-                    const totalDiurnoMinutes = baseDiurnoMinutes + excedentDiurnoMinutes;
-                    const totalNocturnoMinutes = baseNocturnoMinutes + excedentNocturnoMinutes;
-
                     const tariffs = [];
                     if (totalDiurnoMinutes > 0) {
                         tariffs.push({ tariffId: role.diurnaId, quantity: totalDiurnoMinutes / 60, role: role.roleName, numPersonas: role.numPersonas });
@@ -295,20 +281,8 @@ export async function updateManualClientOperation(id: string, data: Omit<ManualC
                     const excedentMinutes = excedentHours * 60;
                     const finalEndMinutes = endMinutes + excedentMinutes;
 
-                    const baseDiurnoMinutes = Math.max(0, Math.min(endMinutes, dayShiftEndMinutes) - startMinutes);
-                    const baseNocturnoMinutes = Math.max(0, endMinutes - Math.max(startMinutes, dayShiftEndMinutes));
-
-                    let excedentDiurnoMinutes = 0;
-                    let excedentNocturnoMinutes = 0;
-
-                    if (excedentMinutes > 0) {
-                        const excedentStartMinutes = endMinutes;
-                        excedentDiurnoMinutes = Math.max(0, Math.min(finalEndMinutes, dayShiftEndMinutes) - excedentStartMinutes);
-                        excedentNocturnoMinutes = Math.max(0, finalEndMinutes - Math.max(excedentStartMinutes, dayShiftEndMinutes));
-                    }
-                    
-                    const totalDiurnoMinutes = baseDiurnoMinutes + excedentDiurnoMinutes;
-                    const totalNocturnoMinutes = baseNocturnoMinutes + excedentNocturnoMinutes;
+                    const totalDiurnoMinutes = Math.max(0, Math.min(finalEndMinutes, dayShiftEndMinutes) - startMinutes);
+                    const totalNocturnoMinutes = Math.max(0, finalEndMinutes - Math.max(startMinutes, dayShiftEndMinutes));
 
                     const tariffs = [];
                     if (totalDiurnoMinutes > 0) tariffs.push({ tariffId: role.diurnaId, quantity: totalDiurnoMinutes / 60 });
@@ -371,4 +345,3 @@ export async function deleteManualClientOperation(id: string): Promise<{ success
         return { success: false, message: `Error del servidor: ${errorMessage}` };
     }
 }
-
