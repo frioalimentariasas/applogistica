@@ -22,7 +22,7 @@ import {
     updateUserPassword,
     updateUserDisplayName,
     purgeOldSubmissions,
-    backfillMissingQuantityTypes, // <-- Importar la nueva acción
+    backfillMissingQuantityTypes,
     type ActiveUser
 } from './actions';
 import type { AppPermissions } from '@/hooks/use-auth';
@@ -518,7 +518,7 @@ export default function SessionManagementComponent() {
                                         render={({ field }) => (
                                             <div className="flex flex-row items-center justify-between rounded-lg border p-3 shadow-sm">
                                                 <div className="space-y-0.5">
-                                                    <Label htmlFor={key} className="text-base">{label}</Label>
+                                                    <Label htmlFor={key} className="text-sm font-medium">{label}</Label>
                                                 </div>
                                                 <Checkbox
                                                     id={key}
