@@ -285,10 +285,14 @@ export async function updateManualClientOperation(id: string, data: Omit<ManualC
 
                     const totalDiurnoMinutes = Math.max(0, Math.min(finalEndMinutes, dayShiftEndMinutes) - startMinutes);
                     const totalNocturnoMinutes = Math.max(0, finalEndMinutes - dayShiftEndMinutes);
-
+                    
                     const tariffs = [];
-                    if (totalDiurnoMinutes > 0) tariffs.push({ tariffId: role.diurnaId, quantity: totalDiurnoMinutes / 60, role: role.roleName, numPersonas: role.numPersonas });
-                    if (totalNocturnoMinutes > 0) tariffs.push({ tariffId: role.nocturnaId, quantity: totalNocturnoMinutes / 60, role: role.roleName, numPersonas: role.numPersonas });
+                    if (totalDiurnoMinutes > 0) {
+                        tariffs.push({ tariffId: role.diurnaId, quantity: totalDiurnoMinutes / 60, role: role.roleName, numPersonas: role.numPersonas });
+                    }
+                    if (totalNocturnoMinutes > 0) {
+                        tariffs.push({ tariffId: role.nocturnaId, quantity: totalNocturnoMinutes / 60, role: role.roleName, numPersonas: role.numPersonas });
+                    }
                     
                     return tariffs;
                 }
@@ -375,3 +379,5 @@ export async function deleteManualClientOperation(id: string): Promise<{ success
         return { success: false, message: `Error del servidor: ${errorMessage}` };
     }
 }
+
+    
