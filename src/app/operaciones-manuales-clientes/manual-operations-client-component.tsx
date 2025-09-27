@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -251,7 +252,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     const isFmmZfpc = watchedConcept === 'FMM ZFPC';
     const isFmmConcept = watchedConcept === 'FMM DE INGRESO ZFPC' || watchedConcept === 'FMM DE SALIDA ZFPC';
     const isFixedMonthlyService = isPositionMode || watchedConcept === 'IN-HOUSE INSPECTOR ZFPC' || watchedConcept === 'ALQUILER IMPRESORA ETIQUETADO';
-    const showNumeroPersonas = selectedConceptInfo?.tariffType === 'ESPECIFICA' && !isBulkMode && !isPositionMode && !['TIEMPO EXTRA ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA', 'INSPECCIÓN ZFPC'].includes(watchedConcept);
+    const showNumeroPersonas = selectedConceptInfo?.tariffType === 'ESPECIFICA' && !isBulkMode && !isPositionMode && !isTimeExtraMode && !['TIEMPO EXTRA ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA', 'INSPECCIÓN ZFPC'].includes(watchedConcept);
     
     const showAdvancedFields = ['INSPECCIÓN ZFPC', 'TIEMPO EXTRA ZFPC', 'TOMA DE PESOS POR ETIQUETA HRS'].includes(watchedConcept);
     const showTimeExtraFields = ['TIEMPO EXTRA ZFPC', 'TIEMPO EXTRA FRIOAL', 'INSPECCIÓN ZFPC'].includes(watchedConcept);
@@ -478,7 +479,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 }
 
                 delete payload.selectedDates;
-                // Keep bulkRoles for TIEMPO EXTRA FRIOAL even in single-day edit
+                
                 if (data.concept !== 'TIEMPO EXTRA FRIOAL (FIJO)' && data.concept !== 'TIEMPO EXTRA FRIOAL') {
                     delete payload.bulkRoles;
                 }
@@ -708,7 +709,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                     <p className="text-muted-foreground">
                                                         {searched
                                                             ? "No hay operaciones manuales para los filtros seleccionados."
-                                                            : "Seleccione un rango de fechas y haga clic en 'Consultar' para ver los registros."}
+                                                            : "Seleccione una fecha y haga clic en 'Consultar' para ver los registros."}
                                                     </p>
                                                 </div>
                                             </TableCell>
@@ -860,7 +861,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                 {watchedConcept === 'TIEMPO EXTRA FRIOAL (FIJO)' && <ExcedentManager />}
                                             </div>
                                         )}
-                                        {selectedConceptInfo?.tariffType === 'ESPECIFICA' && !isBulkMode && (
+                                        {selectedConceptInfo?.tariffType === 'ESPECIFICA' && !isBulkMode && !isTimeExtraMode && (
                                              <TariffSelector form={form} selectedConceptInfo={selectedConceptInfo} dialogMode={dialogMode} />
                                         )}
                                         
@@ -1204,3 +1205,5 @@ const ExcedentManager = () => {
         </div>
     )
 }
+
+    
