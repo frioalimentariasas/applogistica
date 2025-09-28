@@ -268,10 +268,10 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     useEffect(() => {
         const setInitialRoles = () => {
             const roles = [
-              { role: "SUPERVISOR", diurna: "DIURNA", nocturna: "NOCTURNA" },
-              { role: "MONTACARGUISTA TRILATERAL", diurna: "DIURNA", nocturna: "NOCTURNA" },
-              { role: "MONTACARGUISTA NORMAL", diurna: "DIURNA", nocturna: "NOCTURNA" },
-              { role: "OPERARIO", diurna: "DIURNA", nocturna: "NOCTURNA" },
+                { role: "SUPERVISOR", diurna: "DIURNA", nocturna: "NOCTURNA" },
+                { role: "MONTACARGUISTA TRILATERAL", diurna: "DIURNA", nocturna: "NOCTURNA" },
+                { role: "MONTACARGUISTA NORMAL", diurna: "DIURNA", nocturna: "NOCTURNA" },
+                { role: "OPERARIO", diurna: "DIURNA", nocturna: "NOCTURNA" },
             ];
             
             const conceptTariffs = selectedConceptInfo?.specificTariffs || [];
@@ -895,6 +895,7 @@ function ExcedentManager() {
         </div>
     );
 }
+
 function ConceptFormBody(props: any) {
   const { form, clients, billingConcepts, dialogMode, isConceptDialogOpen, setConceptDialogOpen, handleCaptureTime, isTimeExtraMode, isBulkMode, isElectricConnection, isPositionMode, isFmmConcept, isFmmZfpc, showNumeroPersonas, showAdvancedFields, showTimeExtraFields, showTunelCongelacionFields, calculatedDuration, calculatedElectricConnectionHours, isFixedMonthlyService } = props;
   return (
@@ -1140,7 +1141,7 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any, 
                                     onCheckedChange={() => handleToggle(tariff.id, tariff.name)}
                                     disabled={dialogMode === 'view'}
                                 />
-                                <Label htmlFor={tariff.id} className="font-normal cursor-pointer flex-grow">{tariff.name} ({tariff.value.toLocaleString('es-CO', {style:'currency', currency: 'COP'})} / {tariff.unit})</Label>
+                                <Label htmlFor={tariff.id} className="font-normal cursor-pointer flex-grow">{tariff.name} ({tariff.value.toLocaleString('es-CO', {style:'currency', currency: 'COP', minimumFractionDigits: 0})} / {tariff.unit})</Label>
                             </div>
                             {!!selectedTariff && (
                                 <FormField
