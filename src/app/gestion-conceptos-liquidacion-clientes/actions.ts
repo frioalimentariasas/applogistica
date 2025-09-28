@@ -32,7 +32,7 @@ export interface ClientBillingConcept {
   id: string;
   conceptName: string;
   clientNames: string[];
-  unitOfMeasure: 'KILOGRAMOS' | 'TONELADA' | 'PALETA' | 'ESTIBA' | 'UNIDAD' | 'CAJA' | 'SACO' | 'CANASTILLA' | 'HORA' | 'DIA' | 'VIAJE' | 'MES' | 'CONTENEDOR' | 'HORA EXTRA DIURNA' | 'HORA EXTRA NOCTURNA' | 'HORA EXTRA DIURNA DOMINGO Y FESTIVO' | 'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO' | 'POSICION/DIA' | 'POSICIONES' | 'TIPO VEHÍCULO' | 'TRACTOMULA';
+  unitOfMeasure: 'KILOGRAMOS' | 'TONELADA' | 'PALETA' | 'ESTIBA' | 'UNIDAD' | 'CAJA' | 'SACO' | 'CANASTILLA' | 'HORA' | 'DIA' | 'VIAJE' | 'MES' | 'CONTENEDOR' | 'HORA EXTRA DIURNA' | 'HORA EXTRA NOCTURNA' | 'HORA EXTRA DIURNA DOMINGO Y FESTIVO' | 'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO' | 'POSICION/DIA' | 'POSICIONES' | 'TIPO VEHÍCULO' | 'TRACTOMULA' | 'QUINCENA';
   
   calculationType: 'REGLAS' | 'OBSERVACION' | 'MANUAL' | 'SALDO_INVENTARIO';
 
@@ -53,6 +53,7 @@ export interface ClientBillingConcept {
   // Tariff Rules
   tariffType: 'UNICA' | 'RANGOS' | 'ESPECIFICA';
   value?: number; // For 'UNICA' tariffType
+  billingPeriod?: 'DIARIO' | 'QUINCENAL' | 'MENSUAL'; // New field
   dayShiftStart?: string; 
   dayShiftEnd?: string;
   tariffRanges?: TariffRange[];
@@ -86,6 +87,7 @@ export async function getClientBillingConcepts(): Promise<ClientBillingConcept[]
 
         tariffType: data.tariffType || 'UNICA',
         value: data.value,
+        billingPeriod: data.billingPeriod,
         dayShiftStart: data.dayShiftStart,
         dayShiftEnd: data.dayShiftEnd,
         tariffRanges: Array.isArray(data.tariffRanges) ? data.tariffRanges : [],
