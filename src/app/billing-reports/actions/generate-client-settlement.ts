@@ -6,7 +6,7 @@ import { firestore } from '@/lib/firebase-admin';
 import type { ClientBillingConcept, TariffRange, SpecificTariff } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 import { getClientBillingConcepts } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 import admin from 'firebase-admin';
-import { startOfDay, endOfDay, parseISO, differenceInHours, getDaysInMonth, getDay, format, addMinutes, addHours, differenceInMinutes, parse, isSaturday } from 'date-fns';
+import { startOfDay, endOfDay, parseISO, differenceInHours, getDaysInMonth, getDay, format, addMinutes, addHours, differenceInMinutes, parse, isSaturday, isSunday } from 'date-fns';
 import type { ArticuloData } from '@/app/actions/articulos';
 import { getConsolidatedMovementReport } from '@/app/actions/consolidated-movement-report';
 import { processTunelCongelacionData } from '@/lib/report-utils';
@@ -727,33 +727,33 @@ export async function generateClientSettlement(criteria: {
                 
                 const dayShiftEnd = parse(dayShiftEndTime, 'HH:mm', localDate);
 
-                const diurnoMinutes = Math.max(0, differenceInMinutes(Math.min(finalEnd.getTime(), dayShiftEnd.getTime()), baseStart.getTime()));
-                const nocturnoMinutes = Math.max(0, differenceInMinutes(finalEnd, Math.max(baseStart.getTime(), dayShiftEnd.getTime())));
+                const totalDiurnoMinutes = Math.max(0, differenceInMinutes(Math.min(finalEnd.getTime(), dayShiftEnd.getTime()), baseStart.getTime()));
+                const totalNocturnoMinutes = Math.max(0, differenceInMinutes(finalEnd, Math.max(baseStart.getTime(), dayShiftEnd.getTime())));
                 
                 (opData.bulkRoles || []).forEach((role: any) => {
                     const diurnaTariff = concept.specificTariffs?.find(t => t.id === role.diurnaId);
                     const nocturnaTariff = concept.specificTariffs?.find(t => t.id === role.nocturnaId);
 
-                    if (diurnoMinutes > 0 && diurnaTariff) {
-                        const quantity = diurnoMinutes / 60;
+                    if (totalDiurnoMinutes > 0 && diurnaTariff) {
+                        const quantity = totalDiurnoMinutes / 60;
                         settlementRows.push({
                             date, conceptName: concept.conceptName, subConceptName: diurnaTariff.name, placa: 'No Aplica',
                             container: 'No Aplica', totalPaletas: 0, camara: 'No Aplica', operacionLogistica: 'Diurno',
                             pedidoSislog: 'Manual', tipoVehiculo: 'No Aplica', quantity: quantity * role.numPersonas,
                             numeroPersonas: role.numPersonas, unitOfMeasure: diurnaTariff.unit, unitValue: diurnaTariff.value || 0,
                             totalValue: quantity * (diurnaTariff.value || 0) * role.numPersonas,
-                            horaInicio: baseStartTime, horaFin: format(addMinutes(baseStart, diurnoMinutes), 'HH:mm'),
+                            horaInicio: baseStartTime, horaFin: format(addMinutes(baseStart, totalDiurnoMinutes), 'HH:mm'),
                         });
                     }
-                    if (nocturnoMinutes > 0 && nocturnaTariff) {
-                        const quantity = nocturnoMinutes / 60;
+                    if (totalNocturnoMinutes > 0 && nocturnaTariff) {
+                        const quantity = totalNocturnoMinutes / 60;
                         settlementRows.push({
                             date, conceptName: concept.conceptName, subConceptName: nocturnaTariff.name, placa: 'No Aplica',
                             container: 'No Aplica', totalPaletas: 0, camara: 'No Aplica', operacionLogistica: 'Nocturno',
                             pedidoSislog: 'Manual', tipoVehiculo: 'No Aplica', quantity: quantity * role.numPersonas,
                             numeroPersonas: role.numPersonas, unitOfMeasure: nocturnaTariff.unit, unitValue: nocturnaTariff.value || 0,
                             totalValue: quantity * (nocturnaTariff.value || 0) * role.numPersonas,
-                            horaInicio: format(dayShiftEnd, 'HH:mm'), horaFin: format(addMinutes(dayShiftEnd, nocturnoMinutes), 'HH:mm'),
+                            horaInicio: format(dayShiftEnd, 'HH:mm'), horaFin: format(addMinutes(dayShiftEnd, totalNocturnoMinutes), 'HH:mm'),
                         });
                     }
                 });
@@ -995,5 +995,7 @@ const minutesToTime = (minutes: number): string => {
 
     
 
+
+    
 
     
