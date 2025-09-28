@@ -268,10 +268,10 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     useEffect(() => {
         const setInitialRoles = () => {
             const roles = [
-              { role: "SUPERVISOR", diurna: "HORA EXTRA DIURNA", nocturna: "HORA EXTRA NOCTURNA" },
-              { role: "MONTACARGUISTA TRILATERAL", diurna: "HORA EXTRA DIURNA", nocturna: "HORA EXTRA NOCTURNA" },
-              { role: "MONTACARGUISTA NORMAL", diurna: "HORA EXTRA DIURNA", nocturna: "HORA EXTRA NOCTURNA" },
-              { role: "OPERARIO", diurna: "HORA EXTRA DIURNA", nocturna: "HORA EXTRA NOCTURNA" },
+              { role: "SUPERVISOR", diurna: "DIURNA", nocturna: "NOCTURNA" },
+              { role: "MONTACARGUISTA TRILATERAL", diurna: "DIURNA", nocturna: "NOCTURNA" },
+              { role: "MONTACARGUISTA NORMAL", diurna: "DIURNA", nocturna: "NOCTURNA" },
+              { role: "OPERARIO", diurna: "DIURNA", nocturna: "NOCTURNA" },
             ];
             
             const conceptTariffs = selectedConceptInfo?.specificTariffs || [];
@@ -708,7 +708,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                     <p className="text-muted-foreground">
                                                         {searched
                                                             ? "No hay operaciones manuales para los filtros seleccionados."
-                                                            : "Seleccione una fecha y haga clic en 'Consultar' para ver los registros."}
+                                                            : "Seleccione un rango de fechas y haga clic en 'Consultar' para ver los registros."}
                                                     </p>
                                                 </div>
                                             </TableCell>
@@ -827,6 +827,74 @@ function ConceptSelectorDialog({ billingConcepts, selectedClient, onSelect }: { 
     );
 }
 
+function ExcedentManager() {
+    const { control, getValues, setValue } = useFormContext<ManualOperationValues>();
+    const { fields } = useFieldArray({
+        control,
+        name: "excedentes"
+    });
+    const selectedDates = useWatch({ control, name: 'selectedDates' }) || [];
+
+    useEffect(() => {
+        const currentExcedentes = getValues('excedentes') || [];
+        const dateStrings = selectedDates.map(d => format(d, 'yyyy-MM-dd'));
+        
+        const newExcedentes = dateStrings.map(dateStr => {
+            const existing = currentExcedentes.find(e => e.date === dateStr);
+            return existing || { date: dateStr, hours: 0 };
+        }).sort((a, b) => a.date.localeCompare(b.date));
+        
+        if (JSON.stringify(newExcedentes) !== JSON.stringify(currentExcedentes)) {
+            setValue('excedentes', newExcedentes);
+        }
+
+    }, [selectedDates, getValues, setValue]);
+
+    if (selectedDates.length === 0) {
+        return null;
+    }
+
+    return (
+        <div className="space-y-4">
+            <FormLabel className="text-base">Horas Excedentes</FormLabel>
+            <FormDescription>
+                Ingrese las horas extra trabajadas para cada fecha seleccionada.
+            </FormDescription>
+            <ScrollArea className="h-40 border rounded-md p-4">
+                <div className="space-y-4">
+                    {fields.map((field, index) => (
+                        <FormField
+                            key={field.id}
+                            control={control}
+                            name={`excedentes.${index}.hours`}
+                            render={({ field: hourField }) => (
+                                <FormItem>
+                                    <div className="flex items-center gap-4">
+                                        <Label htmlFor={`excedente-${index}`} className="w-32">
+                                            {format(parseISO(field.date), 'd MMM, yyyy', { locale: es })}
+                                        </Label>
+                                        <FormControl>
+                                            <Input
+                                                id={`excedente-${index}`}
+                                                type="number"
+                                                min="0"
+                                                step="0.1"
+                                                className="h-8"
+                                                {...hourField}
+                                            />
+                                        </FormControl>
+                                        <span className="text-sm text-muted-foreground">horas</span>
+                                    </div>
+                                    <FormMessage />
+                                </FormItem>
+                            )}
+                        />
+                    ))}
+                </div>
+            </ScrollArea>
+        </div>
+    );
+}
 function ConceptFormBody(props: any) {
   const { form, clients, billingConcepts, dialogMode, isConceptDialogOpen, setConceptDialogOpen, handleCaptureTime, isTimeExtraMode, isBulkMode, isElectricConnection, isPositionMode, isFmmConcept, isFmmZfpc, showNumeroPersonas, showAdvancedFields, showTimeExtraFields, showTunelCongelacionFields, calculatedDuration, calculatedElectricConnectionHours, isFixedMonthlyService } = props;
   return (
@@ -1016,84 +1084,6 @@ function ConceptFormBody(props: any) {
   );
 }
 
-function ExcedentManager() {
-    const { control, getValues, setValue } = useFormContext<ManualOperationValues>();
-    const { fields, append, remove } = useFieldArray({
-        control,
-        name: "excedentes"
-    });
-    const selectedDates = useWatch({ control, name: 'selectedDates' }) || [];
-
-    useEffect(() => {
-        const currentExcedentes = getValues('excedentes') || [];
-        const dateStrings = selectedDates.map(d => format(d, 'yyyy-MM-dd'));
-        
-        // Remove excedentes for dates that are no longer selected
-        const newExcedentes = currentExcedentes.filter(e => dateStrings.includes(e.date));
-
-        // Add new excedentes for newly selected dates
-        dateStrings.forEach(dateStr => {
-            if (!newExcedentes.some(e => e.date === dateStr)) {
-                newExcedentes.push({ date: dateStr, hours: 0 });
-            }
-        });
-        
-        // Sort for consistent order
-        newExcedentes.sort((a, b) => a.date.localeCompare(b.date));
-        
-        // Only update if there's a change to prevent re-renders
-        if (JSON.stringify(newExcedentes) !== JSON.stringify(currentExcedentes)) {
-            setValue('excedentes', newExcedentes);
-        }
-
-    }, [selectedDates, getValues, setValue]);
-
-    if (selectedDates.length === 0) {
-        return null;
-    }
-
-    return (
-        <div className="space-y-4">
-            <FormLabel className="text-base">Horas Excedentes</FormLabel>
-            <FormDescription>
-                Ingrese las horas extra trabajadas para cada fecha seleccionada.
-            </FormDescription>
-            <ScrollArea className="h-40 border rounded-md p-4">
-                <div className="space-y-4">
-                    {fields.map((field, index) => (
-                        <FormField
-                            key={field.id}
-                            control={control}
-                            name={`excedentes.${index}.hours`}
-                            render={({ field: hourField }) => (
-                                <FormItem>
-                                    <div className="flex items-center gap-4">
-                                        <Label htmlFor={`excedente-${index}`} className="w-32">
-                                            {format(parseISO(field.date), 'd MMM, yyyy', { locale: es })}
-                                        </Label>
-                                        <FormControl>
-                                            <Input
-                                                id={`excedente-${index}`}
-                                                type="number"
-                                                min="0"
-                                                step="0.1"
-                                                className="h-8"
-                                                {...hourField}
-                                            />
-                                        </FormControl>
-                                        <span className="text-sm text-muted-foreground">horas</span>
-                                    </div>
-                                    <FormMessage />
-                                </FormItem>
-                            )}
-                        />
-                    ))}
-                </div>
-            </ScrollArea>
-        </div>
-    );
-}
-
 function BulkRolesSection({ form, dialogMode }: { form: any, dialogMode: DialogMode }) {
   const { fields } = useFieldArray({ control: form.control, name: 'bulkRoles' });
   return (
@@ -1121,728 +1111,64 @@ function BulkRolesSection({ form, dialogMode }: { form: any, dialogMode: DialogM
     </div>
   );
 }
+function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any, selectedConceptInfo: ClientBillingConcept, dialogMode: DialogMode }) {
+    const { fields, append, remove } = useFieldArray({ control: form.control, name: "specificTariffs" });
+    const watchedTariffs = useWatch({ control: form.control, name: 'specificTariffs' }) || [];
 
-```
-- src/hooks/use-form-persistence.ts:
-```ts
-
-"use client";
-
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { useForm, FieldValues, useWatch } from 'react-hook-form';
-import { useAuth } from './use-auth';
-import * as idb from '@/lib/idb';
-import { useToast } from './use-toast';
-
-export function useFormPersistence<T extends FieldValues>(
-    formIdentifier: string, 
-    form: ReturnType<typeof useForm<T>>,
-    originalDefaultValues: T,
-    attachments: string[], 
-    setAttachments: (attachments: string[] | ((prev: string[]) => string[])) => void,
-    isEditMode = false
-) {
-    const { user } = useAuth();
-    const { reset, getValues } = form;
-    const { toast } = useToast();
-
-    const [isRestoreDialogOpen, setRestoreDialogOpen] = useState(false);
-    
-    // This ref prevents saving the form's initial (blank) state over a saved draft before the user has a chance to restore it.
-    const hasCheckedForDraft = useRef(false);
-    const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-    
-    // Use a ref for attachments to avoid stale closures in callbacks
-    const attachmentsRef = useRef(attachments);
-    useEffect(() => {
-        attachmentsRef.current = attachments;
-    }, [attachments]);
-
-    const getStorageKey = useCallback(() => {
-        if (!user) return null;
-        return `${formIdentifier}-${user.uid}`;
-    }, [formIdentifier, user]);
-
-    // Use useWatch to get updates from the form values
-    const watchedValues = useWatch({ control: form.control });
-    
-    const saveDraft = useCallback(async () => {
-        const storageKey = getStorageKey();
-        if (!storageKey) return;
-        
-        try {
-            const currentValues = getValues();
-            await idb.set(storageKey, currentValues);
-
-            const attachmentsKey = `${storageKey}-attachments`;
-            await idb.set(attachmentsKey, attachmentsRef.current);
-            console.log(`[Draft Saved] Key: ${storageKey}`);
-        } catch (e) {
-            console.error("Failed to save draft to IndexedDB", e);
+    const handleToggle = (tariffId: string, tariffName: string) => {
+        const existingIndex = watchedTariffs.findIndex((t: any) => t.tariffId === tariffId);
+        if (existingIndex > -1) {
+            remove(existingIndex);
+        } else {
+            append({ tariffId, name: tariffName, quantity: 1 });
         }
-    }, [getStorageKey, getValues]);
-
-
-    // --- SAVE DRAFT LOGIC ---
-    useEffect(() => {
-        // Don't save anything until we've checked for an existing draft and decided whether to restore it.
-        if (!hasCheckedForDraft.current) {
-            return;
-        }
-
-        if (saveTimeoutRef.current) {
-            clearTimeout(saveTimeoutRef.current);
-        }
-
-        saveTimeoutRef.current = setTimeout(() => {
-            saveDraft();
-        }, 1000); // Debounce save by 1 second
-
-        return () => {
-            if (saveTimeoutRef.current) {
-                clearTimeout(saveTimeoutRef.current);
-            }
-        };
-    }, [watchedValues, attachments, saveDraft]);
-
-    // --- RESTORE DRAFT LOGIC ---
-    useEffect(() => {
-        // Wait until user is authenticated.
-        if (!user) {
-            return;
-        }
-        
-        // This effect should only run once when the user is available.
-        if (hasCheckedForDraft.current) {
-            return;
-        }
-
-        const storageKey = getStorageKey();
-        if (!storageKey) return;
-        
-        const checkData = async () => {
-            try {
-                const savedData = await idb.get<T>(storageKey);
-                const attachmentsKey = `${storageKey}-attachments`;
-                const savedAttachments = await idb.get<string[]>(attachmentsKey);
-                
-                let hasMeaningfulData = false;
-                if (savedData) {
-                    if (isEditMode) {
-                        hasMeaningfulData = true; // Any saved draft for an edit form is meaningful.
-                    } else {
-                        const hasTextFields = savedData.pedidoSislog || savedData.cliente || savedData.nombreCliente || savedData.conductor || savedData.nombreConductor;
-                        const hasItems = savedData.items && (savedData.items.length > 1 || (savedData.items.length === 1 && savedData.items[0].descripcion?.trim()));
-                        const hasProducts = savedData.productos && (savedData.productos.length > 1 || (savedData.productos.length === 1 && savedData.productos[0].descripcion?.trim()));
-
-                        if (hasTextFields || hasItems || hasProducts) {
-                            hasMeaningfulData = true;
-                        }
-                    }
-                }
-                
-                if (hasMeaningfulData || (savedAttachments && savedAttachments.length > 0)) {
-                    setRestoreDialogOpen(true);
-                } else {
-                    // No meaningful draft found, so we can enable saving.
-                    hasCheckedForDraft.current = true;
-                }
-            } catch (e) {
-                console.error("Failed to check for draft in IndexedDB", e);
-                // On error, enable saving to prevent getting stuck.
-                hasCheckedForDraft.current = true;
-            }
-        };
-
-        // Use a short delay to ensure other initializations are complete.
-        const timer = setTimeout(checkData, 100);
-        return () => clearTimeout(timer);
-    }, [isEditMode, user, getStorageKey]);
-
-
-    const restoreDraft = useCallback(async () => {
-        const storageKey = getStorageKey();
-        if (!storageKey) return;
-
-        try {
-            const savedData = await idb.get<T>(storageKey);
-            if (savedData) {
-                const parsedData = savedData;
-                // Convert date strings back to Date objects
-                Object.keys(parsedData).forEach(key => {
-                    const value = parsedData[key as keyof typeof parsedData];
-                    if (typeof value === 'string' && value.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)) {
-                         parsedData[key as keyof typeof parsedData] = new Date(value) as any;
-                    }
-                });
-                reset(parsedData);
-            }
-
-            const attachmentsKey = `${storageKey}-attachments`;
-            const savedAttachments = await idb.get<string[]>(attachmentsKey);
-            if (savedAttachments) {
-                setAttachments(savedAttachments);
-            }
-            
-            toast({ title: "Datos Restaurados", description: "Tu borrador ha sido cargado." });
-        } catch (e) {
-            console.error("Failed to restore draft from IndexedDB", e);
-            toast({ variant: 'destructive', title: "Error", description: "No se pudo restaurar el borrador." });
-        } finally {
-            setRestoreDialogOpen(false);
-            hasCheckedForDraft.current = true; // Enable saving after restoring.
-        }
-    }, [getStorageKey, reset, setAttachments, toast]);
-
-    const clearDraft = useCallback(async (showToast = false) => {
-        // Stop any pending save
-        if (saveTimeoutRef.current) {
-            clearTimeout(saveTimeoutRef.current);
-        }
-        
-        const storageKey = getStorageKey();
-        if (!storageKey) return;
-        
-        try {
-            const attachmentsKey = `${storageKey}-attachments`;
-            await idb.del(storageKey);
-            await idb.del(attachmentsKey);
-            
-            if (showToast) {
-                 toast({ title: "Borrador Descartado" });
-            }
-        } catch (e) {
-            console.error("Failed to clear draft from IndexedDB", e);
-             if (showToast) {
-                toast({ variant: "destructive", title: "Error", description: "No se pudo descartar el borrador." });
-            }
-        }
-    }, [getStorageKey, toast]);
-
-    const onDiscard = useCallback(async () => {
-        // Stop any pending save that might be about to fire
-        if (saveTimeoutRef.current) {
-            clearTimeout(saveTimeoutRef.current);
-        }
-        await clearDraft(true);
-        // This function will NOT reset the form state. The component is responsible for that.
-        setRestoreDialogOpen(false);
-        hasCheckedForDraft.current = true; // Enable saving for the new (reset) form state.
-    }, [clearDraft]);
-    
-    return {
-        isRestoreDialogOpen,
-        onOpenChange: setRestoreDialogOpen,
-        onRestore: restoreDraft,
-        onDiscard: onDiscard,
-        clearDraft: () => clearDraft(false)
     };
+
+    return (
+        <div className="space-y-2">
+            <FormLabel>Tarifas a Aplicar</FormLabel>
+            <FormDescription>Seleccione una o más tarifas específicas para esta operación.</FormDescription>
+            <div className="space-y-2 rounded-md border p-4">
+                {(selectedConceptInfo?.specificTariffs || []).map(tariff => {
+                    const selectedTariff = watchedTariffs.find((t: any) => t.tariffId === tariff.id);
+                    return (
+                        <div key={tariff.id} className="space-y-2">
+                            <div className="flex items-center space-x-2">
+                                <Checkbox
+                                    id={tariff.id}
+                                    checked={!!selectedTariff}
+                                    onCheckedChange={() => handleToggle(tariff.id, tariff.name)}
+                                    disabled={dialogMode === 'view'}
+                                />
+                                <Label htmlFor={tariff.id} className="font-normal cursor-pointer flex-grow">{tariff.name} ({tariff.value.toLocaleString('es-CO', {style:'currency', currency: 'COP'})} / {tariff.unit})</Label>
+                            </div>
+                            {!!selectedTariff && (
+                                <FormField
+                                    control={form.control}
+                                    name={`specificTariffs.${watchedTariffs.findIndex((t: any) => t.tariffId === tariff.id)}.quantity`}
+                                    render={({ field }) => (
+                                        <FormItem className="pl-6">
+                                            <div className="flex items-center gap-2">
+                                                <Label className="text-xs">Cantidad:</Label>
+                                                <FormControl>
+                                                    <Input
+                                                        type="number"
+                                                        step="0.01"
+                                                        className="h-8 w-24"
+                                                        disabled={dialogMode === 'view'}
+                                                        {...field}
+                                                    />
+                                                </FormControl>
+                                            </div>
+                                            <FormMessage className="text-xs" />
+                                        </FormItem>
+                                    )}
+                                />
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
 }
-```
-- src/lib/report-utils.ts:
-```ts
-export const processTunelACamaraData = (formData: any) => {
-    const allItems = formData.items || [];
-    
-    const groupedByPresentation = allItems.reduce((acc: any, item: any) => {
-        const presentation = item.presentacion || 'SIN PRESENTACIÓN';
-        if (!acc[presentation]) {
-            acc[presentation] = { products: {} };
-        }
-        
-        const desc = item.descripcion || 'SIN DESCRIPCIÓN';
-        if (!acc[presentation].products[desc]) {
-            // Find corresponding summary item to get temperatures
-            const summaryItem = formData.summary?.find((s: any) => s.descripcion === desc && s.presentacion === presentation);
-            acc[presentation].products[desc] = {
-                descripcion: desc,
-                cantidad: 0,
-                paletas: new Set(),
-                pesoNeto: 0,
-                temperatura1: summaryItem?.temperatura1,
-                temperatura2: summaryItem?.temperatura2,
-                temperatura3: summaryItem?.temperatura3,
-            };
-        }
-        
-        const productGroup = acc[presentation].products[desc];
-        productGroup.cantidad += Number(item.cantidadPorPaleta) || 0;
-        productGroup.pesoNeto += Number(item.pesoNeto) || 0;
-        if (item.paleta !== undefined && !isNaN(Number(item.paleta)) && Number(item.paleta) > 0) {
-            productGroup.paletas.add(item.paleta);
-        }
-
-        return acc;
-    }, {});
-    
-    Object.values(groupedByPresentation).forEach((group: any) => {
-        group.products = Object.values(group.products).map((prod: any) => ({
-            ...prod,
-            totalPaletas: prod.paletas.size,
-        }));
-        group.subTotalCantidad = group.products.reduce((sum: number, p: any) => sum + p.cantidad, 0);
-        group.subTotalPeso = group.products.reduce((sum: number, p: any) => sum + p.pesoNeto, 0);
-        group.subTotalPaletas = group.products.reduce((sum: number, p: any) => sum + p.totalPaletas, 0);
-    });
-
-    const totalGeneralCantidad = Object.values(groupedByPresentation).reduce((sum: number, group: any) => sum + group.subTotalCantidad, 0);
-    const totalGeneralPeso = Object.values(groupedByPresentation).reduce((sum: number, group: any) => sum + group.subTotalPeso, 0);
-    const totalGeneralPaletas = Object.values(groupedByPresentation).reduce((sum: number, group: any) => sum + group.subTotalPaletas, 0);
-    
-    return { groupedByPresentation, totalGeneralCantidad, totalGeneralPeso, totalGeneralPaletas };
-};
-
-export const processTunelCongelacionData = (formData: any) => {
-    const placaGroups = (formData.placas || []).map((placa: any) => {
-        const itemsByPresentation = (placa.items || []).reduce((acc: any, item: any) => {
-            const presentation = item.presentacion || 'SIN PRESENTACIÓN';
-            if (!acc[presentation]) {
-                acc[presentation] = {
-                    presentation: presentation,
-                    products: [],
-                };
-            }
-            acc[presentation].products.push(item);
-            return acc;
-        }, {});
-
-        const presentationGroups = Object.values(itemsByPresentation).map((group: any) => {
-             const productsWithSummary = group.products.reduce((acc: any, item: any) => {
-                const desc = item.descripcion;
-                if (!acc[desc]) {
-                     const summaryItem = formData.summary?.find((s: any) => s.descripcion === desc && s.presentacion === group.presentation && s.placa === placa.numeroPlaca);
-                     acc[desc] = {
-                        descripcion: desc,
-                        temperatura1: summaryItem?.temperatura1 || 'N/A',
-                        temperatura2: summaryItem?.temperatura2 || 'N/A',
-                        temperatura3: summaryItem?.temperatura3 || 'N/A',
-                        totalPaletas: 0,
-                        totalCantidad: 0,
-                        totalPeso: 0,
-                    };
-                }
-                acc[desc].totalPaletas += 1;
-                acc[desc].totalCantidad += Number(item.cantidadPorPaleta) || 0;
-                acc[desc].totalPeso += Number(item.pesoNeto) || 0;
-                return acc;
-             }, {});
-
-             const subTotalPaletas = Object.values(productsWithSummary).reduce((sum: number, p: any) => sum + p.totalPaletas, 0);
-             const subTotalCantidad = Object.values(productsWithSummary).reduce((sum: number, p: any) => sum + p.totalCantidad, 0);
-             const subTotalPeso = Object.values(productsWithSummary).reduce((sum: number, p: any) => sum + p.totalPeso, 0);
-
-            return {
-                presentation: group.presentation,
-                products: Object.values(productsWithSummary),
-                subTotalPaletas,
-                subTotalCantidad,
-                subTotalPeso,
-            };
-        });
-
-        const totalPaletasPlaca = presentationGroups.reduce((acc: number, group: any) => acc + group.subTotalPaletas, 0);
-        const totalCantidadPlaca = presentationGroups.reduce((acc: number, group: any) => acc + group.subTotalCantidad, 0);
-        const totalPesoPlaca = presentationGroups.reduce((acc: number, group: any) => acc + group.subTotalPeso, 0);
-
-        return {
-            placa: placa.numeroPlaca,
-            conductor: placa.conductor,
-            cedulaConductor: placa.cedulaConductor,
-            presentationGroups: presentationGroups,
-            totalPaletasPlaca,
-            totalCantidadPlaca,
-            totalPesoPlaca,
-        };
-    });
-
-    const totalGeneralPaletas = placaGroups.reduce((acc, placa) => acc + placa.totalPaletasPlaca, 0);
-    const totalGeneralCantidad = placaGroups.reduce((acc, placa) => acc + placa.totalCantidadPlaca, 0);
-    const totalGeneralPeso = placaGroups.reduce((acc, placa) => acc + placa.totalPesoPlaca, 0);
-
-    return { placaGroups, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso };
-};
-
-export const processDefaultData = (formData: any) => {
-    const allItems = formData.items || [];
-    const isSummaryMode = allItems.some((p: any) => Number(p.paleta) === 0);
-    
-    const summaryData = (formData.summary || []).map((s: any) => {
-        const totalPaletas = isSummaryMode
-            ? allItems.filter((i: any) => i.descripcion === s.descripcion && Number(i.paleta) === 0).reduce((sum: number, i: any) => sum + (Number(i.totalPaletas) || 0), 0)
-            : new Set(allItems.filter((i: any) => i.descripcion === s.descripcion).map((i: any) => i.paleta)).size;
-        
-        return { ...s, totalPaletas };
-    });
-
-    const totalGeneralPaletas = summaryData.reduce((acc: number, p: any) => acc + p.totalPaletas, 0);
-    const totalGeneralCantidad = summaryData.reduce((acc: number, p: any) => acc + p.totalCantidad, 0);
-    const totalGeneralPeso = summaryData.reduce((acc: number, p: any) => acc + p.totalPeso, 0);
-
-    return { summaryData, totalGeneralPaletas, totalGeneralCantidad, totalGeneralPeso, isSummaryMode };
-};
-
-```
-- src/hooks/use-form-persistence.ts:
-```ts
-
-"use client";
-
-import { useState, useEffect, useCallback, useRef } from 'react';
-import { useForm, FieldValues, useWatch } from 'react-hook-form';
-import { useAuth } from './use-auth';
-import * as idb from '@/lib/idb';
-import { useToast } from './use-toast';
-
-export function useFormPersistence<T extends FieldValues>(
-    formIdentifier: string, 
-    form: ReturnType<typeof useForm<T>>,
-    originalDefaultValues: T,
-    attachments: string[], 
-    setAttachments: (attachments: string[] | ((prev: string[]) => string[])) => void,
-    isEditMode = false
-) {
-    const { user } = useAuth();
-    const { reset, getValues } = form;
-    const { toast } = useToast();
-
-    const [isRestoreDialogOpen, setRestoreDialogOpen] = useState(false);
-    
-    // This ref prevents saving the form's initial (blank) state over a saved draft before the user has a chance to restore it.
-    const hasCheckedForDraft = useRef(false);
-    const saveTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-    
-    // Use a ref for attachments to avoid stale closures in callbacks
-    const attachmentsRef = useRef(attachments);
-    useEffect(() => {
-        attachmentsRef.current = attachments;
-    }, [attachments]);
-
-    const getStorageKey = useCallback(() => {
-        if (!user) return null;
-        return `${formIdentifier}-${user.uid}`;
-    }, [formIdentifier, user]);
-
-    // Use useWatch to get updates from the form values
-    const watchedValues = useWatch({ control: form.control });
-    
-    const saveDraft = useCallback(async () => {
-        const storageKey = getStorageKey();
-        if (!storageKey) return;
-        
-        try {
-            const currentValues = getValues();
-            await idb.set(storageKey, currentValues);
-
-            const attachmentsKey = `${storageKey}-attachments`;
-            await idb.set(attachmentsKey, attachmentsRef.current);
-            console.log(`[Draft Saved] Key: ${storageKey}`);
-        } catch (e) {
-            console.error("Failed to save draft to IndexedDB", e);
-        }
-    }, [getStorageKey, getValues]);
-
-
-    // --- SAVE DRAFT LOGIC ---
-    useEffect(() => {
-        // Don't save anything until we've checked for an existing draft and decided whether to restore it.
-        if (!hasCheckedForDraft.current) {
-            return;
-        }
-
-        if (saveTimeoutRef.current) {
-            clearTimeout(saveTimeoutRef.current);
-        }
-
-        saveTimeoutRef.current = setTimeout(() => {
-            saveDraft();
-        }, 1000); // Debounce save by 1 second
-
-        return () => {
-            if (saveTimeoutRef.current) {
-                clearTimeout(saveTimeoutRef.current);
-            }
-        };
-    }, [watchedValues, attachments, saveDraft]);
-
-    // --- RESTORE DRAFT LOGIC ---
-    useEffect(() => {
-        // Wait until user is authenticated.
-        if (!user) {
-            return;
-        }
-        
-        // This effect should only run once when the user is available.
-        if (hasCheckedForDraft.current) {
-            return;
-        }
-
-        const storageKey = getStorageKey();
-        if (!storageKey) return;
-        
-        const checkData = async () => {
-            try {
-                const savedData = await idb.get<T>(storageKey);
-                const attachmentsKey = `${storageKey}-attachments`;
-                const savedAttachments = await idb.get<string[]>(attachmentsKey);
-                
-                let hasMeaningfulData = false;
-                if (savedData) {
-                    if (isEditMode) {
-                        hasMeaningfulData = true; // Any saved draft for an edit form is meaningful.
-                    } else {
-                        const hasTextFields = savedData.pedidoSislog || savedData.cliente || savedData.nombreCliente || savedData.conductor || savedData.nombreConductor;
-                        const hasItems = savedData.items && (savedData.items.length > 1 || (savedData.items.length === 1 && savedData.items[0].descripcion?.trim()));
-                        const hasProducts = savedData.productos && (savedData.productos.length > 1 || (savedData.productos.length === 1 && savedData.productos[0].descripcion?.trim()));
-
-                        if (hasTextFields || hasItems || hasProducts) {
-                            hasMeaningfulData = true;
-                        }
-                    }
-                }
-                
-                if (hasMeaningfulData || (savedAttachments && savedAttachments.length > 0)) {
-                    setRestoreDialogOpen(true);
-                } else {
-                    // No meaningful draft found, so we can enable saving.
-                    hasCheckedForDraft.current = true;
-                }
-            } catch (e) {
-                console.error("Failed to check for draft in IndexedDB", e);
-                // On error, enable saving to prevent getting stuck.
-                hasCheckedForDraft.current = true;
-            }
-        };
-
-        // Use a short delay to ensure other initializations are complete.
-        const timer = setTimeout(checkData, 100);
-        return () => clearTimeout(timer);
-    }, [isEditMode, user, getStorageKey]);
-
-
-    const restoreDraft = useCallback(async () => {
-        const storageKey = getStorageKey();
-        if (!storageKey) return;
-
-        try {
-            const savedData = await idb.get<T>(storageKey);
-            if (savedData) {
-                const parsedData = savedData;
-                // Convert date strings back to Date objects
-                Object.keys(parsedData).forEach(key => {
-                    const value = parsedData[key as keyof typeof parsedData];
-                    if (typeof value === 'string' && value.match(/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/)) {
-                         parsedData[key as keyof typeof parsedData] = new Date(value) as any;
-                    }
-                });
-                reset(parsedData);
-            }
-
-            const attachmentsKey = `${storageKey}-attachments`;
-            const savedAttachments = await idb.get<string[]>(attachmentsKey);
-            if (savedAttachments) {
-                setAttachments(savedAttachments);
-            }
-            
-            toast({ title: "Datos Restaurados", description: "Tu borrador ha sido cargado." });
-        } catch (e) {
-            console.error("Failed to restore draft from IndexedDB", e);
-            toast({ variant: 'destructive', title: "Error", description: "No se pudo restaurar el borrador." });
-        } finally {
-            setRestoreDialogOpen(false);
-            hasCheckedForDraft.current = true; // Enable saving after restoring.
-        }
-    }, [getStorageKey, reset, setAttachments, toast]);
-
-    const clearDraft = useCallback(async (showToast = false) => {
-        // Stop any pending save
-        if (saveTimeoutRef.current) {
-            clearTimeout(saveTimeoutRef.current);
-        }
-        
-        const storageKey = getStorageKey();
-        if (!storageKey) return;
-        
-        try {
-            const attachmentsKey = `${storageKey}-attachments`;
-            await idb.del(storageKey);
-            await idb.del(attachmentsKey);
-            
-            if (showToast) {
-                 toast({ title: "Borrador Descartado" });
-            }
-        } catch (e) {
-            console.error("Failed to clear draft from IndexedDB", e);
-             if (showToast) {
-                toast({ variant: "destructive", title: "Error", description: "No se pudo descartar el borrador." });
-            }
-        }
-    }, [getStorageKey, toast]);
-
-    const onDiscard = useCallback(async () => {
-        // Stop any pending save that might be about to fire
-        if (saveTimeoutRef.current) {
-            clearTimeout(saveTimeoutRef.current);
-        }
-        await clearDraft(true);
-        // This function will NOT reset the form state. The component is responsible for that.
-        setRestoreDialogOpen(false);
-        hasCheckedForDraft.current = true; // Enable saving for the new (reset) form state.
-    }, [clearDraft]);
-    
-    return {
-        isRestoreDialogOpen,
-        onOpenChange: setRestoreDialogOpen,
-        onRestore: restoreDraft,
-        onDiscard: onDiscard,
-        clearDraft: () => clearDraft(false)
-    };
-}
-```
-- src/lib/idb.ts:
-```ts
-// A simple key-value store using IndexedDB
-const DB_NAME = 'frio-alimentaria-db';
-const STORE_NAME = 'keyval';
-
-function getDB(): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    if (typeof window === 'undefined') {
-      return reject('IndexedDB can only be used in the browser.');
-    }
-    const request = indexedDB.open(DB_NAME, 1);
-    request.onerror = () => reject(request.error);
-    request.onsuccess = () => resolve(request.result);
-    request.onupgradeneeded = () => {
-      request.result.createObjectStore(STORE_NAME);
-    };
-  });
-}
-
-function withStore(type: IDBTransactionMode, callback: (store: IDBObjectStore) => void): Promise<void> {
-  return getDB().then(db => {
-    return new Promise<void>((resolve, reject) => {
-      const transaction = db.transaction(STORE_NAME, type);
-      transaction.oncomplete = () => resolve();
-      transaction.onerror = () => reject(transaction.error);
-      callback(transaction.objectStore(STORE_NAME));
-    });
-  });
-}
-
-export async function get<T>(key: IDBValidKey): Promise<T | undefined> {
-  let request: IDBRequest;
-  await withStore('readonly', store => {
-    request = store.get(key);
-  });
-  return (request! as IDBRequest<T>).result;
-}
-
-export function set(key: IDBValidKey, value: any): Promise<void> {
-  return withStore('readwrite', store => {
-    store.put(value, key);
-  });
-}
-
-export function del(key: IDBValidKey): Promise<void> {
-  return withStore('readwrite', store => {
-    store.delete(key);
-  });
-}
-
-export function clear(): Promise<void> {
-  return withStore('readwrite', store => {
-    store.clear();
-  });
-}
-```
-- src/app/globals.css:
-```css
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
-
-body {
-  font-family: Arial, Helvetica, sans-serif;
-}
-
-@layer base {
-  :root {
-    --background: 210 40% 98%;
-    --foreground: 222.2 84% 4.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 222.2 84% 4.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 222.2 84% 4.9%;
-    --primary: 203 79% 44%;
-    --primary-foreground: 210 40% 98%;
-    --secondary: 210 40% 96.1%;
-    --secondary-foreground: 222.2 47.4% 11.2%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 208 92% 70%;
-    --accent-foreground: 222.2 47.4% 11.2%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 203 79% 44%;
-    --chart-1: 12 76% 61%;
-    --chart-2: 173 58% 39%;
-    --chart-3: 197 37% 24%;
-    --chart-4: 43 74% 66%;
-    --chart-5: 27 87% 67%;
-    --radius: 0.5rem;
-    --sidebar-background: 0 0% 98%;
-    --sidebar-foreground: 240 5.3% 26.1%;
-    --sidebar-primary: 240 5.9% 10%;
-    --sidebar-primary-foreground: 0 0% 98%;
-    --sidebar-accent: 240 4.8% 95.9%;
-    --sidebar-accent-foreground: 240 5.9% 10%;
-    --sidebar-border: 220 13% 91%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
-  .dark {
-    --background: 222.2 84% 4.9%;
-    --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
-    --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 203 79% 54%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
-    --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
-    --muted-foreground: 215 20.2% 65.1%;
-    --accent: 208 92% 60%;
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
-    --ring: 203 79% 54%;
-    --chart-1: 220 70% 50%;
-    --chart-2: 160 60% 45%;
-    --chart-3: 30 80% 55%;
-    --chart-4: 280 65% 60%;
-    --chart-5: 340 75% 55%;
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
-}
-
-@layer base {
-  * {
-    @apply border-border;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
-}
-```
