@@ -700,14 +700,158 @@ export async function generateClientSettlement(criteria: {
     const manualOpsFiltered = allOperations.filter(op => op.type === 'manual');
 
     if (manualOpsFiltered.length > 0 && conceptsToProcessManually.length > 0) {
-        manualOpsFiltered.forEach(op => {
+        for (const op of manualOpsFiltered) {
             const opData = op.data;
             const concept = conceptsToProcessManually.find(c => c.conceptName === opData.concept);
-            if (concept) {
-                const date = opData.operationDate ? new Date(opData.operationDate).toISOString().split('T')[0] : startDate;
+            if (!concept) continue;
+
+            const date = opData.operationDate ? new Date(opData.operationDate).toISOString().split('T')[0] : startDate;
+            
+            if (concept.conceptName === 'TIEMPO EXTRA FRIOAL (FIJO)') {
+                if (!concept.fixedTimeConfig) continue;
+                const { weekdayStartTime, weekdayEndTime, saturdayStartTime, saturdayEndTime, dayShiftEndTime } = concept.fixedTimeConfig;
+                if (!weekdayStartTime || !weekdayEndTime || !saturdayStartTime || !saturdayEndTime || !dayShiftEndTime) continue;
                 
-                let horaInicio = opData.details?.startTime || 'N/A';
-                let horaFin = opData.details?.endTime || 'N/A';
+                const localDate = parseISO(opData.operationDate);
+                const dayOfWeek = getDay(localDate);
+                if (isSunday(localDate)) continue;
+
+                const isSat = isSaturday(localDate);
+                const baseStartTime = isSat ? saturdayStartTime : weekdayStartTime;
+                const baseEndTime = isSat ? saturdayEndTime : weekdayEndTime;
+                const excedentHours = opData.excedentes?.[0]?.hours || 0;
+
+                const baseStart = parse(baseStartTime, 'HH:mm', localDate);
+                const baseEnd = parse(baseEndTime, 'HH:mm', localDate);
+                const finalEnd = addHours(baseEnd, excedentHours);
+                
+                const dayShiftEnd = parse(dayShiftEndTime, 'HH:mm', localDate);
+
+                const diurnoMinutes = Math.max(0, differenceInMinutes(Math.min(finalEnd.getTime(), dayShiftEnd.getTime()), baseStart.getTime()));
+                const nocturnoMinutes = Math.max(0, differenceInMinutes(finalEnd, Math.max(baseStart.getTime(), dayShiftEnd.getTime())));
+                
+                (opData.bulkRoles || []).forEach((role: any) => {
+                    const diurnaTariff = concept.specificTariffs?.find(t => t.id === role.diurnaId);
+                    const nocturnaTariff = concept.specificTariffs?.find(t => t.id === role.nocturnaId);
+
+                    if (diurnoMinutes > 0 && diurnaTariff) {
+                        const quantity = diurnoMinutes / 60;
+                        settlementRows.push({
+                            date, conceptName: concept.conceptName, subConceptName: diurnaTariff.name, placa: 'No Aplica',
+                            container: 'No Aplica', totalPaletas: 0, camara: 'No Aplica', operacionLogistica: 'Diurno',
+                            pedidoSislog: 'Manual', tipoVehiculo: 'No Aplica', quantity: quantity * role.numPersonas,
+                            numeroPersonas: role.numPersonas, unitOfMeasure: diurnaTariff.unit, unitValue: diurnaTariff.value || 0,
+                            totalValue: quantity * (diurnaTariff.value || 0) * role.numPersonas,
+                            horaInicio: baseStartTime, horaFin: format(addMinutes(baseStart, diurnoMinutes), 'HH:mm'),
+                        });
+                    }
+                    if (nocturnoMinutes > 0 && nocturnaTariff) {
+                        const quantity = nocturnoMinutes / 60;
+                        settlementRows.push({
+                            date, conceptName: concept.conceptName, subConceptName: nocturnaTariff.name, placa: 'No Aplica',
+                            container: 'No Aplica', totalPaletas: 0, camara: 'No Aplica', operacionLogistica: 'Nocturno',
+                            pedidoSislog: 'Manual', tipoVehiculo: 'No Aplica', quantity: quantity * role.numPersonas,
+                            numeroPersonas: role.numPersonas, unitOfMeasure: nocturnaTariff.unit, unitValue: nocturnaTariff.value || 0,
+                            totalValue: quantity * (nocturnaTariff.value || 0) * role.numPersonas,
+                            horaInicio: format(dayShiftEnd, 'HH:mm'), horaFin: format(addMinutes(dayShiftEnd, nocturnoMinutes), 'HH:mm'),
+                        });
+                    }
+                });
+
+            } else if (concept.conceptName === 'TIEMPO EXTRA FRIOAL') {
+                const { startTime, endTime } = opData.details || {};
+                const { dayShiftEndTime } = concept.fixedTimeConfig || { dayShiftEndTime: '19:00' };
+
+                const opDate = parseISO(opData.operationDate);
+
+                const start = parse(startTime, 'HH:mm', opDate);
+                let end = parse(endTime, 'HH:mm', opDate);
+                if (end <= start) end = addDays(end, 1);
+                
+                const dayShiftEnd = parse(dayShiftEndTime, 'HH:mm', opDate);
+
+                const totalDiurnoMinutes = Math.max(0, differenceInMinutes(Math.min(end.getTime(), dayShiftEnd.getTime()), start.getTime()));
+                const totalNocturnoMinutes = Math.max(0, differenceInMinutes(end, Math.max(start.getTime(), dayShiftEnd.getTime())));
+
+                (opData.bulkRoles || []).forEach((role: any) => {
+                    const diurnaTariff = concept.specificTariffs?.find(t => t.id === role.diurnaId);
+                    const nocturnaTariff = concept.specificTariffs?.find(t => t.id === role.nocturnaId);
+
+                    if (totalDiurnoMinutes > 0 && diurnaTariff) {
+                        const quantity = totalDiurnoMinutes / 60;
+                        settlementRows.push({
+                            date, conceptName: concept.conceptName, subConceptName: diurnaTariff.name, placa: opData.details?.plate || 'No Aplica',
+                            container: opData.details?.container || 'No Aplica', totalPaletas: opData.details?.totalPallets || 0, camara: 'No Aplica',
+                            operacionLogistica: 'Diurno', pedidoSislog: 'Manual', tipoVehiculo: 'No Aplica',
+                            quantity: quantity * role.numPersonas, numeroPersonas: role.numPersonas, unitOfMeasure: diurnaTariff.unit,
+                            unitValue: diurnaTariff.value || 0, totalValue: quantity * (diurnaTariff.value || 0) * role.numPersonas,
+                            horaInicio: startTime, horaFin: endTime,
+                        });
+                    }
+                    if (totalNocturnoMinutes > 0 && nocturnaTariff) {
+                        const quantity = totalNocturnoMinutes / 60;
+                        settlementRows.push({
+                            date, conceptName: concept.conceptName, subConceptName: nocturnaTariff.name, placa: opData.details?.plate || 'No Aplica',
+                            container: opData.details?.container || 'No Aplica', totalPaletas: opData.details?.totalPallets || 0, camara: 'No Aplica',
+                            operacionLogistica: 'Nocturno', pedidoSislog: 'Manual', tipoVehiculo: 'No Aplica',
+                            quantity: quantity * role.numPersonas, numeroPersonas: role.numPersonas, unitOfMeasure: nocturnaTariff.unit,
+                            unitValue: nocturnaTariff.value || 0, totalValue: quantity * (nocturnaTariff.value || 0) * role.numPersonas,
+                            horaInicio: startTime, horaFin: endTime,
+                        });
+                    }
+                });
+            } else if (concept.tariffType === 'ESPECIFICA' && Array.isArray(opData.specificTariffs) && opData.specificTariffs.length > 0) {
+                opData.specificTariffs.forEach((appliedTariff: { tariffId: string, quantity: number }) => {
+                    const specificTariff = concept.specificTariffs?.find(t => t.id === appliedTariff.tariffId);
+                    if (specificTariff) {
+                        const numPersonas = opData.numeroPersonas || 1;
+                        let quantityForCalc = appliedTariff.quantity || 0;
+                        let totalValue = quantityForCalc * (specificTariff.value || 0) * numPersonas;
+                        
+                        if (totalValue > 0) {
+                            settlementRows.push({
+                                date,
+                                placa: opData.details?.plate || 'No Aplica',
+                                container: opData.details?.container || 'No Aplica',
+                                totalPaletas: opData.details?.totalPallets || 0,
+                                camara: 'No Aplica',
+                                operacionLogistica: 'No Aplica',
+                                pedidoSislog: opData.details?.pedidoSislog || 'No Aplica',
+                                conceptName: concept.conceptName,
+                                subConceptName: specificTariff.name,
+                                tipoVehiculo: 'No Aplica',
+                                quantity: quantityForCalc,
+                                unitOfMeasure: specificTariff.unit,
+                                unitValue: specificTariff.value || 0,
+                                totalValue: totalValue,
+                                horaInicio: opData.details?.startTime || 'N/A',
+                                horaFin: opData.details?.endTime || 'N/A',
+                                numeroPersonas: concept.conceptName === 'TIEMPO EXTRA FRIOAL' ? numPersonas : undefined,
+                            });
+                        }
+                    }
+                });
+            } else if (concept.tariffType === 'UNICA') {
+                 const quantityForCalc = opData.quantity || 0;
+                 let totalValue = quantityForCalc * (concept.value || 0);
+                 
+                 if (concept.billingPeriod === 'MENSUAL' || concept.billingPeriod === 'QUINCENAL') {
+                    totalValue = concept.value || 0;
+                 } else if (concept.conceptName === 'IN-HOUSE INSPECTOR ZFPC' || concept.conceptName === 'ALQUILER IMPRESORA ETIQUETADO') {
+                    const operationDate = parseISO(opData.operationDate);
+                    const numDias = getDaysInMonth(operationDate);
+                    totalValue = numDias * (concept.value || 0);
+                 }
+
+                 let operacionLogistica = 'No Aplica';
+                 if (opData.details?.opLogistica && opData.details?.fmmNumber) {
+                    operacionLogistica = `${opData.details.opLogistica} - #${opData.details.fmmNumber}`;
+                 }
+                 
+                 const noDocumento = opData.details?.noDocumento;
+                 const containerValue = noDocumento || opData.details?.container || 'No Aplica';
+                 let horaInicio = opData.details?.startTime || 'N/A';
+                 let horaFin = opData.details?.endTime || 'N/A';
 
                 if (concept.conceptName === 'CONEXIÓN ELÉCTRICA CONTENEDOR') {
                     const { fechaArribo, horaArribo, fechaSalida, horaSalida } = opData.details || {};
@@ -719,119 +863,25 @@ export async function generateClientSettlement(criteria: {
                     }
                 }
 
-                if (concept.conceptName === 'TIEMPO EXTRA FRIOAL') {
-                    const { startTime, endTime } = opData.details || {};
-                    const { dayShiftEndTime } = concept.fixedTimeConfig || { dayShiftEndTime: '19:00' };
-
-                    const opDate = parseISO(opData.operationDate);
-
-                    const start = parse(startTime, 'HH:mm', opDate);
-                    let end = parse(endTime, 'HH:mm', opDate);
-                    if (end <= start) end = addDays(end, 1);
-                    
-                    const dayShiftEnd = parse(dayShiftEndTime, 'HH:mm', opDate);
-
-                    const totalDiurnoMinutes = Math.max(0, differenceInMinutes(Math.min(end, dayShiftEnd), start));
-                    const totalNocturnoMinutes = Math.max(0, differenceInMinutes(end, Math.max(start, dayShiftEnd)));
-
-                    (opData.bulkRoles || []).forEach((role: any) => {
-                        const diurnaTariff = concept.specificTariffs?.find(t => t.id === role.diurnaId);
-                        const nocturnaTariff = concept.specificTariffs?.find(t => t.id === role.nocturnaId);
-
-                        if (totalDiurnoMinutes > 0 && diurnaTariff) {
-                            const quantity = totalDiurnoMinutes / 60;
-                            settlementRows.push({
-                                date, conceptName: concept.conceptName, subConceptName: diurnaTariff.name, placa: opData.details?.plate || 'No Aplica',
-                                container: opData.details?.container || 'No Aplica', totalPaletas: opData.details?.totalPallets || 0, camara: 'No Aplica',
-                                operacionLogistica: 'Diurno', pedidoSislog: 'Manual', tipoVehiculo: 'No Aplica',
-                                quantity, numeroPersonas: role.numPersonas, unitOfMeasure: diurnaTariff.unit,
-                                unitValue: diurnaTariff.value || 0, totalValue: quantity * (diurnaTariff.value || 0) * role.numPersonas,
-                                horaInicio, horaFin,
-                            });
-                        }
-                        if (totalNocturnoMinutes > 0 && nocturnaTariff) {
-                            const quantity = totalNocturnoMinutes / 60;
-                            settlementRows.push({
-                                date, conceptName: concept.conceptName, subConceptName: nocturnaTariff.name, placa: opData.details?.plate || 'No Aplica',
-                                container: opData.details?.container || 'No Aplica', totalPaletas: opData.details?.totalPallets || 0, camara: 'No Aplica',
-                                operacionLogistica: 'Nocturno', pedidoSislog: 'Manual', tipoVehiculo: 'No Aplica',
-                                quantity, numeroPersonas: role.numPersonas, unitOfMeasure: nocturnaTariff.unit,
-                                unitValue: nocturnaTariff.value || 0, totalValue: quantity * (nocturnaTariff.value || 0) * role.numPersonas,
-                                horaInicio, horaFin,
-                            });
-                        }
-                    });
-                } else if (concept.tariffType === 'ESPECIFICA' && Array.isArray(opData.specificTariffs) && opData.specificTariffs.length > 0) {
-                    opData.specificTariffs.forEach((appliedTariff: { tariffId: string, quantity: number }) => {
-                        const specificTariff = concept.specificTariffs?.find(t => t.id === appliedTariff.tariffId);
-                        if (specificTariff) {
-                            const numPersonas = opData.numeroPersonas || 1;
-                            let quantityForCalc = appliedTariff.quantity || 0;
-                            let totalValue = quantityForCalc * (specificTariff.value || 0) * numPersonas;
-                            
-                            if (totalValue > 0) {
-                                settlementRows.push({
-                                    date,
-                                    placa: opData.details?.plate || 'No Aplica',
-                                    container: opData.details?.container || 'No Aplica',
-                                    totalPaletas: opData.details?.totalPallets || 0,
-                                    camara: 'No Aplica',
-                                    operacionLogistica: 'No Aplica',
-                                    pedidoSislog: opData.details?.pedidoSislog || 'No Aplica',
-                                    conceptName: concept.conceptName,
-                                    subConceptName: specificTariff.name,
-                                    tipoVehiculo: 'No Aplica',
-                                    quantity: quantityForCalc,
-                                    unitOfMeasure: specificTariff.unit,
-                                    unitValue: specificTariff.value || 0,
-                                    totalValue: totalValue,
-                                    horaInicio: horaInicio,
-                                    horaFin: horaFin,
-                                    numeroPersonas: concept.conceptName === 'TIEMPO EXTRA FRIOAL' ? numPersonas : undefined,
-                                });
-                            }
-                        }
-                    });
-                } else if (concept.tariffType === 'UNICA') {
-                     const quantityForCalc = opData.quantity || 0;
-                     let totalValue = quantityForCalc * (concept.value || 0);
-                     
-                     if (concept.billingPeriod === 'MENSUAL' || concept.billingPeriod === 'QUINCENAL') {
-                        totalValue = concept.value || 0;
-                     } else if (concept.conceptName === 'IN-HOUSE INSPECTOR ZFPC' || concept.conceptName === 'ALQUILER IMPRESORA ETIQUETADO') {
-                        const operationDate = parseISO(opData.operationDate);
-                        const numDias = getDaysInMonth(operationDate);
-                        totalValue = numDias * (concept.value || 0);
-                     }
-
-                     let operacionLogistica = 'No Aplica';
-                     if (opData.details?.opLogistica && opData.details?.fmmNumber) {
-                        operacionLogistica = `${opData.details.opLogistica} - #${opData.details.fmmNumber}`;
-                     }
-                     
-                     const noDocumento = opData.details?.noDocumento;
-                     const containerValue = noDocumento || opData.details?.container || 'No Aplica';
-
-                     settlementRows.push({
-                        date,
-                        placa: opData.details?.plate || 'No Aplica',
-                        container: containerValue,
-                        totalPaletas: opData.details?.totalPallets || 0,
-                        camara: 'No Aplica',
-                        operacionLogistica,
-                        pedidoSislog: opData.details?.pedidoSislog || 'No Aplica',
-                        conceptName: concept.conceptName,
-                        tipoVehiculo: opData.details?.plate || 'No Aplica',
-                        quantity: opData.quantity,
-                        unitOfMeasure: concept.unitOfMeasure,
-                        unitValue: concept.value || 0,
-                        totalValue: totalValue,
-                        horaInicio: horaInicio,
-                        horaFin: horaFin,
-                    });
-                }
+                 settlementRows.push({
+                    date,
+                    placa: opData.details?.plate || 'No Aplica',
+                    container: containerValue,
+                    totalPaletas: opData.details?.totalPallets || 0,
+                    camara: 'No Aplica',
+                    operacionLogistica,
+                    pedidoSislog: opData.details?.pedidoSislog || 'No Aplica',
+                    conceptName: concept.conceptName,
+                    tipoVehiculo: opData.details?.plate || 'No Aplica',
+                    quantity: opData.quantity,
+                    unitOfMeasure: concept.unitOfMeasure,
+                    unitValue: concept.value || 0,
+                    totalValue: totalValue,
+                    horaInicio: horaInicio,
+                    horaFin: horaFin,
+                });
             }
-        });
+        }
     }
     
     const inventoryConcepts = selectedConcepts.filter(c => c.calculationType === 'SALDO_INVENTARIO');
@@ -942,5 +992,8 @@ const minutesToTime = (minutes: number): string => {
     const m = Math.round(minutes % 60);
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 };
+
+    
+
 
     
