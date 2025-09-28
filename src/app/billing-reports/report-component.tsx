@@ -424,7 +424,10 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         
         const workbook = new ExcelJS.Workbook();
         const worksheet = workbook.addWorksheet('Reporte Detallado');
-
+    
+        const headerFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A90C8' } };
+        const headerFont: Partial<ExcelJS.Font> = { bold: true, color: { argb: 'FFFFFFFF' }, size: 12 };
+    
         const totalDuration = detailedReportData.reduce((acc, row) => acc + (row.duracionMinutos || 0), 0);
         const totalGeneralPesoKg = detailedReportData.reduce((acc, row) => acc + (row.totalPesoKg || 0), 0);
         
@@ -451,11 +454,15 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         ];
         
         worksheet.columns = detailColumns;
-        worksheet.getRow(1).hidden = true; // Oculta la fila de encabezados generada automáticamente
-
-        worksheet.addRow(detailColumns.map(c => c.header));
-        worksheet.getRow(2).font = { bold: true };
-
+    
+        const headerRow = worksheet.getRow(1);
+        headerRow.values = detailColumns.map(c => c.header);
+        headerRow.eachCell((cell) => {
+            cell.fill = headerFill;
+            cell.font = headerFont;
+            cell.alignment = { horizontal: 'center' };
+        });
+    
         detailedReportData.forEach(row => {
             worksheet.addRow({
                 fecha: format(new Date(row.fecha), 'dd/MM/yyyy'),
@@ -480,15 +487,14 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             });
         });
         
-        worksheet.addRow({}); // Empty row as spacer
+        worksheet.addRow({});
         const totalRow = worksheet.addRow({
             opLogistica: 'TOTALES:',
             duracion: formatDuration(totalDuration),
             totalPesoKg: totalGeneralPesoKg.toFixed(2),
         });
         totalRow.font = { bold: true };
-
-
+    
         const buffer = await workbook.xlsx.writeBuffer();
         const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
         const link = document.createElement("a");
@@ -936,10 +942,13 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
     const handleConsolidatedExportExcel = async () => {
         if (!consolidatedClient || consolidatedReportData.length === 0) return;
-
+    
         const workbook = new ExcelJS.Workbook();
         const worksheet = workbook.addWorksheet('Reporte Consolidado');
-
+    
+        const headerFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A90C8' } };
+        const headerFont: Partial<ExcelJS.Font> = { bold: true, color: { argb: 'FFFFFFFF' }, size: 12 };
+    
         worksheet.columns = [
             { header: 'Fecha', key: 'fecha', width: 15 },
             { header: 'Cliente', key: 'cliente', width: 30 },
@@ -949,19 +958,31 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             { header: 'Inventario Acumulado', key: 'inventarioAcumulado', width: 20 },
             { header: 'Validación', key: 'validacion', width: 15 },
         ];
+    
+        const headerRow = worksheet.getRow(1);
+        headerRow.values = (worksheet.columns as any[]).map(c => c.header);
+        headerRow.eachCell((cell) => {
+            cell.fill = headerFill;
+            cell.font = headerFont;
+            cell.alignment = { horizontal: 'center' };
+        });
         
         consolidatedReportData.forEach(row => {
-            worksheet.addRow({
+            const validationValue = row.posicionesAlmacenadas === row.inventarioAcumulado ? 'OK' : 'Error';
+            const addedRow = worksheet.addRow({
                 fecha: format(new Date(row.date.replace(/-/g, '/')), 'dd/MM/yyyy'),
                 cliente: consolidatedClient,
                 recibidas: row.paletasRecibidas,
                 despachadas: row.paletasDespachadas,
                 posicionesAlmacenadas: row.posicionesAlmacenadas,
                 inventarioAcumulado: row.inventarioAcumulado,
-                validacion: row.posicionesAlmacenadas === row.inventarioAcumulado ? 'OK' : 'Error',
+                validacion: validationValue,
             });
+            if(validationValue === 'Error') {
+                addedRow.getCell('validacion').font = { color: { argb: 'FFFF0000' }, bold: true };
+            }
         });
-
+    
         const buffer = await workbook.xlsx.writeBuffer();
         const blob = new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" });
         const link = document.createElement("a");
@@ -1152,7 +1173,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         workbook.created = new Date();
     
         const conceptOrder = [
-            'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'ALISTAMIENTO POR UNIDAD', 'FMM DE INGRESO ZFPC', 'ARIN DE INGRESO ZFPC', 'FMM DE SALIDA ZFPC',
+            'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'OPERACIÓN CARGUE (CANASTILLAS)', 'ALISTAMIENTO POR UNIDAD', 'FMM DE INGRESO ZFPC', 'ARIN DE INGRESO ZFPC', 'FMM DE SALIDA ZFPC',
             'ARIN DE SALIDA ZFPC', 'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
             'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'ESTIBA MADERA RECICLADA',
             'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA ZFPC',
@@ -1172,7 +1193,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             clientRow.getCell(1).value = `Cliente: ${settlementClient}`;
             clientRow.font = { bold: true };
             clientRow.getCell(1).alignment = { horizontal: 'center' };
-            ws.mergeCells(3, 1, 3, columns.length);
         
             if (settlementDateRange?.from && settlementDateRange.to) {
                 // Add period at row 4, merge, and center
@@ -1527,7 +1547,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         }, {} as Record<string, { rows: ClientSettlementRow[], subtotalCantidad: number, subtotalValor: number, order: number }>);
     
         const sortedConceptKeys = Object.keys(groupedByConcept).sort((a, b) => {
-            const orderA = groupedByConcept[a].order === -1 ? Infinity : a.order;
+            const orderA = groupedByConcept[a].order === -1 ? Infinity : groupedByConcept[a].order;
             const orderB = groupedByConcept[b].order === -1 ? Infinity : b.order;
             if (orderA !== orderB) return orderA - orderB;
             return a.localeCompare(b);
@@ -2786,5 +2806,6 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 
 
     
+
 
 
