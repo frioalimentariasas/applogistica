@@ -995,10 +995,11 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const handleConsolidatedExportPDF = () => {
         if (!consolidatedClient || consolidatedReportData.length === 0 || !logoBase64 || !logoDimensions) return;
         
-        const doc = new jsPDF();
+        const doc = new jsPDF({ orientation: 'landscape' });
         const pageWidth = doc.internal.pageSize.getWidth();
         
-        const logoWidth = 70;
+        const originalLogoWidth = 70;
+        const logoWidth = originalLogoWidth * 0.3; // 70% smaller
         const aspectRatio = logoDimensions.width / logoDimensions.height;
         const logoHeight = logoWidth / aspectRatio;
         
@@ -1006,16 +1007,16 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const logoY = 15;
         doc.addImage(logoBase64, 'PNG', logoX, logoY, logoWidth, logoHeight);
 
-        const titleY = logoY + logoHeight + 16;
+        const titleY = logoY + logoHeight + 10;
         doc.setFontSize(12);
         doc.setFont('helvetica', 'bold');
         doc.text(`Informe Consolidado de Movimientos e Inventario`, pageWidth / 2, titleY, { align: 'center' });
         
         doc.setFontSize(10);
         doc.setFont('helvetica', 'bold');
-        doc.text('Frio Alimentaria SAS Nit: 900736914-0', pageWidth / 2, titleY + 8, { align: 'center' });
+        doc.text('Frio Alimentaria SAS Nit: 900736914-0', pageWidth / 2, titleY + 6, { align: 'center' });
 
-        const clientY = titleY + 22;
+        const clientY = titleY + 16;
         doc.setFontSize(10);
         doc.setFont('helvetica', 'normal');
         doc.text(`Cliente: ${consolidatedClient}`, 14, clientY);
@@ -2806,6 +2807,7 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 
 
     
+
 
 
 
