@@ -1,12 +1,11 @@
 
-
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
 import type { ClientBillingConcept, TariffRange, SpecificTariff } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 import { getClientBillingConcepts } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 import admin from 'firebase-admin';
-import { startOfDay, endOfDay, parseISO, differenceInHours, getDaysInMonth, getDay, format, addMinutes, addHours, differenceInMinutes, parse, isSaturday, isSunday } from 'date-fns';
+import { startOfDay, endOfDay, parseISO, differenceInHours, getDaysInMonth, getDay, format, addMinutes, addHours, differenceInMinutes, parse, isSaturday, isSunday, addDays } from 'date-fns';
 import type { ArticuloData } from '@/app/actions/articulos';
 import { getConsolidatedMovementReport } from '@/app/actions/consolidated-movement-report';
 import { processTunelCongelacionData } from '@/lib/report-utils';
@@ -734,24 +733,24 @@ export async function generateClientSettlement(criteria: {
                         const totalNocturnoMinutes = Math.max(0, differenceInMinutes(finalEnd, Math.max(baseStart.getTime(), dayShiftEnd.getTime())));
             
                         if (totalDiurnoMinutes > 0 && diurnaTariff) {
-                            const quantity = totalDiurnoMinutes / 60;
+                            const quantityHours = totalDiurnoMinutes / 60;
                             settlementRows.push({
                                 date, conceptName: concept.conceptName, subConceptName: diurnaTariff.name, placa: 'No Aplica',
                                 container: 'No Aplica', totalPaletas: 0, camara: 'No Aplica', operacionLogistica: 'Diurno',
-                                pedidoSislog: 'Manual', tipoVehiculo: 'No Aplica', quantity: quantity * numPersonas,
+                                pedidoSislog: 'Manual', tipoVehiculo: 'No Aplica', quantity: quantityHours,
                                 numeroPersonas: numPersonas, unitOfMeasure: diurnaTariff.unit, unitValue: diurnaTariff.value || 0,
-                                totalValue: quantity * (diurnaTariff.value || 0) * numPersonas,
+                                totalValue: quantityHours * (diurnaTariff.value || 0) * numPersonas,
                                 horaInicio: format(baseStart, 'HH:mm'), horaFin: format(addMinutes(baseStart, totalDiurnoMinutes), 'HH:mm'),
                             });
                         }
                         if (totalNocturnoMinutes > 0 && nocturnaTariff) {
-                            const quantity = totalNocturnoMinutes / 60;
+                            const quantityHours = totalNocturnoMinutes / 60;
                             settlementRows.push({
                                 date, conceptName: concept.conceptName, subConceptName: nocturnaTariff.name, placa: 'No Aplica',
                                 container: 'No Aplica', totalPaletas: 0, camara: 'No Aplica', operacionLogistica: 'Nocturno',
-                                pedidoSislog: 'Manual', tipoVehiculo: 'No Aplica', quantity: quantity * numPersonas,
+                                pedidoSislog: 'Manual', tipoVehiculo: 'No Aplica', quantity: quantityHours,
                                 numeroPersonas: numPersonas, unitOfMeasure: nocturnaTariff.unit, unitValue: nocturnaTariff.value || 0,
-                                totalValue: quantity * (nocturnaTariff.value || 0) * numPersonas,
+                                totalValue: quantityHours * (nocturnaTariff.value || 0) * numPersonas,
                                 horaInicio: format(dayShiftEnd, 'HH:mm'), horaFin: format(addMinutes(dayShiftEnd, totalNocturnoMinutes), 'HH:mm'),
                             });
                         }
@@ -1007,5 +1006,7 @@ const minutesToTime = (minutes: number): string => {
     
 
 
+
+    
 
     
