@@ -57,16 +57,20 @@ export async function addManualClientOperation(data: ManualClientOperationData):
     }
 
     try {
-        const { details, operationDate, startDate, endDate, ...restOfData } = data;
+        const { details, operationDate, startDate, endDate, numeroPersonas, ...restOfData } = data;
         
         const operationDateToSave = admin.firestore.Timestamp.fromDate(new Date(operationDate!));
         
-        const operationWithTimestamp = {
+        const operationWithTimestamp: any = {
             ...restOfData,
             details: details || {},
             operationDate: operationDateToSave,
             createdAt: new Date().toISOString(),
         };
+
+        if (numeroPersonas !== undefined) {
+            operationWithTimestamp.numeroPersonas = numeroPersonas;
+        }
 
         await firestore.collection('manual_client_operations').add(operationWithTimestamp);
 
