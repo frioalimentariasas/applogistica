@@ -707,7 +707,7 @@ export async function generateClientSettlement(criteria: {
 
             const date = opData.operationDate ? new Date(opData.operationDate).toISOString().split('T')[0] : startDate;
             
-            if (concept.conceptName === 'TIEMPO EXTRA FRIOAL (FIJO)') {
+             if (concept.conceptName === 'TIEMPO EXTRA FRIOAL (FIJO)') {
                 if (!concept.fixedTimeConfig || !concept.specificTariffs) continue;
                 const { weekdayStartTime, weekdayEndTime, saturdayStartTime, saturdayEndTime, dayShiftEndTime } = concept.fixedTimeConfig;
                 if (!weekdayStartTime || !weekdayEndTime || !saturdayStartTime || !saturdayEndTime || !dayShiftEndTime) continue;
@@ -717,10 +717,10 @@ export async function generateClientSettlement(criteria: {
                 const excedentHours = opData.excedentes?.find((e: ExcedentEntry) => e.date === dayStringForMap)?.hours || 0;
             
                 (opData.bulkRoles || []).forEach((role: any) => {
-                    const { roleName, numPersonas, diurnaId, nocturnaId } = role;
+                    const numPersonas = role.numPersonas;
                     if (numPersonas > 0) {
-                        const diurnaTariff = concept.specificTariffs?.find(t => t.id === diurnaId);
-                        const nocturnaTariff = concept.specificTariffs?.find(t => t.id === nocturnaId);
+                        const diurnaTariff = concept.specificTariffs?.find(t => t.id === role.diurnaId);
+                        const nocturnaTariff = concept.specificTariffs?.find(t => t.id === role.nocturnaId);
                         
                         const isSat = isSaturday(localDate);
                         const baseStart = parse(isSat ? saturdayStartTime : weekdayStartTime, 'HH:mm', localDate);
@@ -739,7 +739,7 @@ export async function generateClientSettlement(criteria: {
                                 date, conceptName: concept.conceptName, subConceptName: diurnaTariff.name, placa: 'No Aplica',
                                 container: 'No Aplica', totalPaletas: 0, camara: 'No Aplica', operacionLogistica: 'Diurno',
                                 pedidoSislog: 'Manual', tipoVehiculo: 'No Aplica', quantity: quantity * numPersonas,
-                                numeroPersonas, unitOfMeasure: diurnaTariff.unit, unitValue: diurnaTariff.value || 0,
+                                numeroPersonas: numPersonas, unitOfMeasure: diurnaTariff.unit, unitValue: diurnaTariff.value || 0,
                                 totalValue: quantity * (diurnaTariff.value || 0) * numPersonas,
                                 horaInicio: format(baseStart, 'HH:mm'), horaFin: format(addMinutes(baseStart, totalDiurnoMinutes), 'HH:mm'),
                             });
@@ -750,7 +750,7 @@ export async function generateClientSettlement(criteria: {
                                 date, conceptName: concept.conceptName, subConceptName: nocturnaTariff.name, placa: 'No Aplica',
                                 container: 'No Aplica', totalPaletas: 0, camara: 'No Aplica', operacionLogistica: 'Nocturno',
                                 pedidoSislog: 'Manual', tipoVehiculo: 'No Aplica', quantity: quantity * numPersonas,
-                                numeroPersonas, unitOfMeasure: nocturnaTariff.unit, unitValue: nocturnaTariff.value || 0,
+                                numeroPersonas: numPersonas, unitOfMeasure: nocturnaTariff.unit, unitValue: nocturnaTariff.value || 0,
                                 totalValue: quantity * (nocturnaTariff.value || 0) * numPersonas,
                                 horaInicio: format(dayShiftEnd, 'HH:mm'), horaFin: format(addMinutes(dayShiftEnd, totalNocturnoMinutes), 'HH:mm'),
                             });
@@ -760,6 +760,8 @@ export async function generateClientSettlement(criteria: {
 
             } else if (concept.conceptName === 'TIEMPO EXTRA FRIOAL') {
                 const { startTime, endTime } = opData.details || {};
+                if (!startTime || !endTime) continue;
+                
                 const { dayShiftEndTime } = concept.fixedTimeConfig || { dayShiftEndTime: '19:00' };
 
                 const opDate = parseISO(opData.operationDate);
@@ -772,7 +774,8 @@ export async function generateClientSettlement(criteria: {
                 const roles = opData.bulkRoles || [];
                 
                 roles.forEach((role: any) => {
-                    if (role.numPersonas > 0) {
+                    const numPersonas = role.numPersonas;
+                    if (numPersonas > 0) {
                         const diurnaTariff = concept.specificTariffs?.find(t => t.id === role.diurnaId);
                         const nocturnaTariff = concept.specificTariffs?.find(t => t.id === role.nocturnaId);
 
@@ -785,8 +788,8 @@ export async function generateClientSettlement(criteria: {
                                 date, conceptName: concept.conceptName, subConceptName: diurnaTariff.name, placa: opData.details?.plate || 'No Aplica',
                                 container: opData.details?.container || 'No Aplica', totalPaletas: opData.details?.totalPallets || 0, camara: 'No Aplica',
                                 operacionLogistica: 'Diurno', pedidoSislog: 'Manual', tipoVehiculo: 'No Aplica',
-                                quantity: quantity, numeroPersonas: role.numPersonas, unitOfMeasure: diurnaTariff.unit,
-                                unitValue: diurnaTariff.value || 0, totalValue: quantity * (diurnaTariff.value || 0) * role.numPersonas,
+                                quantity: quantity, numeroPersonas: numPersonas, unitOfMeasure: diurnaTariff.unit,
+                                unitValue: diurnaTariff.value || 0, totalValue: quantity * (diurnaTariff.value || 0) * numPersonas,
                                 horaInicio: startTime, horaFin: format(addMinutes(start, totalDiurnoMinutes), 'HH:mm'),
                             });
                         }
@@ -796,18 +799,18 @@ export async function generateClientSettlement(criteria: {
                                 date, conceptName: concept.conceptName, subConceptName: nocturnaTariff.name, placa: opData.details?.plate || 'No Aplica',
                                 container: opData.details?.container || 'No Aplica', totalPaletas: opData.details?.totalPallets || 0, camara: 'No Aplica',
                                 operacionLogistica: 'Nocturno', pedidoSislog: 'Manual', tipoVehiculo: 'No Aplica',
-                                quantity: quantity, numeroPersonas: role.numPersonas, unitOfMeasure: nocturnaTariff.unit,
-                                unitValue: nocturnaTariff.value || 0, totalValue: quantity * (nocturnaTariff.value || 0) * role.numPersonas,
+                                quantity: quantity, numeroPersonas: numPersonas, unitOfMeasure: nocturnaTariff.unit,
+                                unitValue: nocturnaTariff.value || 0, totalValue: quantity * (nocturnaTariff.value || 0) * numPersonas,
                                 horaInicio: format(dayShiftEnd, 'HH:mm'), horaFin: endTime,
                             });
                         }
                     }
                 });
             } else if (concept.tariffType === 'ESPECIFICA' && Array.isArray(opData.specificTariffs) && opData.specificTariffs.length > 0) {
-                opData.specificTariffs.forEach((appliedTariff: { tariffId: string, quantity: number }) => {
+                opData.specificTariffs.forEach((appliedTariff: { tariffId: string, quantity: number, numPersonas?: number }) => {
                     const specificTariff = concept.specificTariffs?.find(t => t.id === appliedTariff.tariffId);
                     if (specificTariff) {
-                        const numPersonas = opData.numeroPersonas || 1;
+                        const numPersonas = appliedTariff.numPersonas || opData.numeroPersonas || 1;
                         let quantityForCalc = appliedTariff.quantity || 0;
                         let totalValue = quantityForCalc * (specificTariff.value || 0) * numPersonas;
                         
@@ -829,7 +832,7 @@ export async function generateClientSettlement(criteria: {
                                 totalValue: totalValue,
                                 horaInicio: opData.details?.startTime || 'N/A',
                                 horaFin: opData.details?.endTime || 'N/A',
-                                numeroPersonas: concept.conceptName === 'TIEMPO EXTRA FRIOAL' ? numPersonas : undefined,
+                                numeroPersonas: numPersonas,
                             });
                         }
                     }
@@ -1003,3 +1006,6 @@ const minutesToTime = (minutes: number): string => {
 
     
 
+
+
+    
