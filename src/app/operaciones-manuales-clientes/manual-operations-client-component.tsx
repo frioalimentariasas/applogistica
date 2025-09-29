@@ -926,7 +926,7 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any; 
             newTariffs.splice(existingIndex, 1);
         } else {
             const specificTariffInfo = selectedConceptInfo.specificTariffs?.find(t => t.id === tariffId);
-            const initialQuantity = specificTariffInfo?.baseQuantity ?? 1;
+            const initialQuantity = specificTariffInfo?.baseQuantity ?? 0;
             newTariffs.push({ tariffId, quantity: initialQuantity });
         }
         replace(newTariffs);
@@ -950,7 +950,7 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any; 
                 {(selectedConceptInfo?.specificTariffs || []).map(tariff => {
                     const selectedIndex = watchedTariffs.findIndex((t: any) => t.tariffId === tariff.id);
                     const isSelected = selectedIndex > -1;
-                    const isBase = !tariff.name.includes("EXCESO");
+                    const isExcess = tariff.name.includes("EXCESO");
                     
                     return (
                         <div key={tariff.id} className="space-y-2">
@@ -959,11 +959,11 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any; 
                                     id={tariff.id}
                                     checked={isSelected}
                                     onCheckedChange={() => handleToggle(tariff.id)}
-                                    disabled={dialogMode === 'view' || isBase}
+                                    disabled={dialogMode === 'view'}
                                 />
                                 <Label htmlFor={tariff.id} className="font-normal cursor-pointer flex-grow">{tariff.name} ({tariff.value.toLocaleString('es-CO', {style:'currency', currency: 'COP', minimumFractionDigits: 0})} / {tariff.unit})</Label>
                             </div>
-                            {isSelected && !isBase && (
+                            {isSelected && isExcess && (
                                 <FormField
                                     control={form.control}
                                     name={`specificTariffs.${selectedIndex}.quantity`}
@@ -1178,7 +1178,7 @@ function ConceptFormBody(props: any) {
                       <FormMessage />
                   </FormItem>
               )} />
-              <FormField control={form.control} name="details.fmmNumber" render={({ field }) => (<FormItem><FormLabel># FMM <span className="text-destructive">*</span></FormLabel><FormControl><Input placeholder="Número de FMM" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
+              <FormField control={form.control} name="details.fmmNumber" render={({ field }) => (<FormItem><FormLabel># FMM <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Número de FMM" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
               <FormField control={form.control} name="details.plate" render={({ field }) => (<FormItem><FormLabel>Placa <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Placa del vehículo" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
           </>
       )}
