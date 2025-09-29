@@ -941,8 +941,9 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any; 
                 {(selectedConceptInfo?.specificTariffs || []).map(tariff => {
                     const selectedIndex = watchedTariffs.findIndex((t: any) => t.tariffId === tariff.id);
                     const isSelected = selectedIndex > -1;
-                    const showQuantity = isSelected;
-
+                    const isExcess = tariff.name.includes("EXCESO");
+                    const showQuantity = isSelected && (isExcess || ['TIEMPO EXTRA ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA'].includes(selectedConceptInfo.conceptName));
+                    
                     return (
                         <div key={tariff.id} className="space-y-2">
                             <div className="flex items-center space-x-2">
@@ -950,7 +951,7 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any; 
                                     id={tariff.id}
                                     checked={isSelected}
                                     onCheckedChange={() => handleToggle(tariff.id)}
-                                    disabled={dialogMode === 'view'}
+                                    disabled={dialogMode === 'view' || (!isExcess && selectedConceptInfo.conceptName === 'POSICIONES FIJAS CÁMARA CONGELADOS')}
                                 />
                                 <Label htmlFor={tariff.id} className="font-normal cursor-pointer flex-grow">{tariff.name} ({tariff.value.toLocaleString('es-CO', {style:'currency', currency: 'COP', minimumFractionDigits: 0})} / {tariff.unit})</Label>
                             </div>
@@ -1177,4 +1178,3 @@ function ConceptFormBody(props: any) {
     </>
   );
 }
-
