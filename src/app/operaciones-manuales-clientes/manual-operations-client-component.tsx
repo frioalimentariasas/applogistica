@@ -45,6 +45,8 @@ import { Alert, AlertTitle } from '@/components/ui/alert';
 const specificTariffEntrySchema = z.object({
     tariffId: z.string(),
     quantity: z.coerce.number().min(0, "Debe ser >= 0"),
+    role: z.string().optional(),
+    numPersonas: z.coerce.number().int().min(0).optional(),
 });
 
 const bulkRoleSchema = z.object({
@@ -926,7 +928,7 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any; 
         if (existingIndex > -1) {
             newTariffs.splice(existingIndex, 1);
         } else {
-            newTariffs.push({ tariffId, quantity: 0 }); // Initialize with 0
+            newTariffs.push({ tariffId, quantity: 0, role: '', numPersonas: 1 });
         }
         replace(newTariffs);
     };
@@ -942,7 +944,7 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any; 
                     const isConceptWithSpecialQuantity = ['TIEMPO EXTRA ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA'].includes(selectedConceptInfo.conceptName);
                     const isExcessTariff = tariff.name.includes("EXCESO");
                     const showQuantity = isSelected && (isConceptWithSpecialQuantity || (selectedConceptInfo.conceptName === 'POSICIONES FIJAS CÁMARA CONGELADOS' && isExcessTariff));
-                    const isDisabled = dialogMode === 'view';
+                    const isDisabled = dialogMode === 'view'
                     
                     return (
                         <div key={tariff.id} className="space-y-2">
@@ -991,7 +993,7 @@ function ConceptFormBody(props: any) {
   const { form, clients, billingConcepts, dialogMode, isConceptDialogOpen, setConceptDialogOpen, handleCaptureTime, isTimeExtraMode, isBulkMode, isElectricConnection, isPositionMode, isFmmConcept, isFmmZfpc, showAdvancedFields, showTimeExtraFields, showTunelCongelacionFields, calculatedDuration, calculatedElectricConnectionHours, isFixedMonthlyService, showAdvancedTariffs } = props;
   const watchedConcept = useWatch({ control: form.control, name: 'concept' });
   const selectedConceptInfo = useMemo(() => billingConcepts.find((c: ClientBillingConcept) => c.conceptName === watchedConcept), [watchedConcept, billingConcepts]);
-  const conceptsWithoutQuantity = ['TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 'POSICIONES FIJAS CÁMARA CONGELADOS', 'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'FMM ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA'];
+  const conceptsWithoutQuantity = ['TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 'POSICIONES FIJAS CÁMARA CONGELADOS', 'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'FMM ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA', 'SERVICIO APOYO JORNAL', 'ALQUILER DE ÁREA PARA EMPAQUE/DIA', 'TIEMPO EXTRA ZFPC'];
   
   const showNumeroPersonas = watchedConcept === 'TIEMPO EXTRA ZFPC';
 
