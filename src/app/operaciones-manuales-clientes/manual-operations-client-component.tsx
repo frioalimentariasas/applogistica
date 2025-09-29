@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -950,7 +951,7 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any; 
                                     id={tariff.id}
                                     checked={isSelected}
                                     onCheckedChange={() => handleToggle(tariff.id)}
-                                    disabled={dialogMode === 'view'}
+                                    disabled={dialogMode === 'view' || (isPositionConcept && !tariff.name.includes("EXCESO"))}
                                 />
                                 <Label htmlFor={tariff.id} className="font-normal cursor-pointer flex-grow">{tariff.name} ({tariff.value.toLocaleString('es-CO', {style:'currency', currency: 'COP', minimumFractionDigits: 0})} / {tariff.unit})</Label>
                             </div>
@@ -990,7 +991,7 @@ function ConceptFormBody(props: any) {
   const { form, clients, billingConcepts, dialogMode, isConceptDialogOpen, setConceptDialogOpen, handleCaptureTime, isTimeExtraMode, isBulkMode, isElectricConnection, isPositionMode, isFmmConcept, isFmmZfpc, showAdvancedFields, showTimeExtraFields, showTunelCongelacionFields, calculatedDuration, calculatedElectricConnectionHours, isFixedMonthlyService, showAdvancedTariffs } = props;
   const watchedConcept = useWatch({ control: form.control, name: 'concept' });
   const selectedConceptInfo = useMemo(() => billingConcepts.find((c: ClientBillingConcept) => c.conceptName === watchedConcept), [watchedConcept, billingConcepts]);
-  const conceptsWithoutQuantity = ['TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 'POSICIONES FIJAS CÁMARA CONGELADOS', 'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'FMM ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA', 'SERVICIO APOYO JORNAL', 'ALQUILER DE ÁREA PARA EMPAQUE/DIA'];
+  const conceptsWithoutQuantity = ['TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 'POSICIONES FIJAS CÁMARA CONGELADOS', 'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'FMM ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA', 'SERVICIO APOYO JORNAL', 'TIEMPO EXTRA ZFPC'];
 
   return (
     <>
@@ -1114,6 +1115,31 @@ function ConceptFormBody(props: any) {
         />
       )}
       
+      {watchedConcept === 'TIEMPO EXTRA ZFPC' && (
+        <FormField
+          control={form.control}
+          name="numeroPersonas"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Número de Personas</FormLabel>
+              <FormControl>
+                <Input
+                  type="number"
+                  min="1"
+                  step="1"
+                  placeholder="Ej: 3"
+                  {...field}
+                  disabled={dialogMode === 'view'}
+                  onChange={(e) => field.onChange(parseInt(e.target.value, 10) || undefined)}
+                  value={field.value ?? ''}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      )}
+
       {(showAdvancedFields || dialogMode === 'view' || isElectricConnection || isFmmZfpc || isFmmConcept || showTimeExtraFields || showTunelCongelacionFields) && (
           <>
               <Separator />
@@ -1177,3 +1203,4 @@ function ConceptFormBody(props: any) {
     </>
   );
 }
+
