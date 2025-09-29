@@ -808,47 +808,46 @@ export async function generateClientSettlement(criteria: {
                 });
             } else if (concept.tariffType === 'ESPECIFICA' && Array.isArray(opData.specificTariffs) && opData.specificTariffs.length > 0) {
                  opData.specificTariffs.forEach((appliedTariff: { tariffId: string, quantity: number, numPersonas?: number }) => {
-                    const specificTariff = concept.specificTariffs?.find(t => t.id === appliedTariff.tariffId);
-                    if (specificTariff) {
-                        const numPersonas = appliedTariff.numPersonas || opData.numeroPersonas || 1;
-                        let quantityForCalc = 0;
-                        let totalValue = 0;
+                    const specificTariffInfo = concept.specificTariffs?.find(t => t.id === appliedTariff.tariffId);
+                    if (!specificTariffInfo) return; // Skip if tariff info not found
+                    
+                    const numPersonas = appliedTariff.numPersonas || opData.numeroPersonas || 1;
+                    let quantityForCalc = 0;
+                    let totalValue = 0;
+                    
+                    if (concept.conceptName === 'POSICIONES FIJAS CÁMARA CONGELADOS') {
+                        const operationDate = parseISO(opData.operationDate);
+                        const numDias = getDaysInMonth(operationDate);
+
+                        // Use baseQuantity if it exists, otherwise use the quantity from the applied tariff
+                        quantityForCalc = specificTariffInfo.baseQuantity || appliedTariff.quantity || 0;
                         
-                        if (concept.conceptName === 'POSICIONES FIJAS CÁMARA CONGELADOS') {
-                            const operationDate = parseISO(opData.operationDate);
-                            const numDias = getDaysInMonth(operationDate);
+                        totalValue = quantityForCalc * (specificTariffInfo.value || 0) * numDias;
+                    } else {
+                        quantityForCalc = appliedTariff.quantity || 0;
+                        totalValue = quantityForCalc * (specificTariffInfo.value || 0) * numPersonas;
+                    }
 
-                            if (tariff.id.includes('600')) quantityForCalc = 600;
-                            else if (tariff.id.includes('200')) quantityForCalc = 200;
-                            else quantityForCalc = appliedTariff.quantity || 0; // For "EXCESO"
-                            
-                            totalValue = quantityForCalc * (specificTariff.value || 0) * numDias;
-                        } else {
-                            quantityForCalc = appliedTariff.quantity || 0;
-                            totalValue = quantityForCalc * (specificTariff.value || 0) * numPersonas;
-                        }
-
-                        if (totalValue > 0) {
-                            settlementRows.push({
-                                date,
-                                placa: opData.details?.plate || 'No Aplica',
-                                container: opData.details?.container || 'No Aplica',
-                                totalPaletas: opData.details?.totalPallets || 0,
-                                camara: 'CO', // Hardcoded for this specific concept
-                                operacionLogistica: 'No Aplica',
-                                pedidoSislog: opData.details?.pedidoSislog || 'Manual',
-                                conceptName: concept.conceptName,
-                                subConceptName: specificTariff.name,
-                                tipoVehiculo: 'No Aplica',
-                                quantity: quantityForCalc,
-                                unitOfMeasure: specificTariff.unit,
-                                unitValue: specificTariff.value || 0,
-                                totalValue: totalValue,
-                                horaInicio: opData.details?.startTime || 'N/A',
-                                horaFin: opData.details?.endTime || 'N/A',
-                                numeroPersonas: numPersonas,
-                            });
-                        }
+                    if (totalValue > 0) {
+                        settlementRows.push({
+                            date,
+                            placa: opData.details?.plate || 'No Aplica',
+                            container: opData.details?.container || 'No Aplica',
+                            totalPaletas: opData.details?.totalPallets || 0,
+                            camara: 'CO', // Hardcoded for this specific concept
+                            operacionLogistica: 'No Aplica',
+                            pedidoSislog: opData.details?.pedidoSislog || 'Manual',
+                            conceptName: concept.conceptName,
+                            subConceptName: specificTariffInfo.name,
+                            tipoVehiculo: 'No Aplica',
+                            quantity: quantityForCalc,
+                            unitOfMeasure: specificTariffInfo.unit,
+                            unitValue: specificTariffInfo.value || 0,
+                            totalValue: totalValue,
+                            horaInicio: opData.details?.startTime || 'N/A',
+                            horaFin: opData.details?.endTime || 'N/A',
+                            numeroPersonas: numPersonas,
+                        });
                     }
                 });
             } else if (concept.tariffType === 'UNICA') {
@@ -1026,6 +1025,7 @@ const minutesToTime = (minutes: number): string => {
     
 
     
+
 
 
 
