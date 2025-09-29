@@ -838,17 +838,19 @@ export async function generateClientSettlement(criteria: {
                     }
                 });
             } else if (concept.tariffType === 'UNICA') {
-                 const quantityForCalc = opData.quantity || 0;
-                 let totalValue = quantityForCalc * (concept.value || 0);
-                 
-                 if (concept.billingPeriod === 'MENSUAL' || concept.billingPeriod === 'QUINCENAL') {
-                    totalValue = concept.value || 0;
-                 } else if (concept.conceptName === 'IN-HOUSE INSPECTOR ZFPC' || concept.conceptName === 'ALQUILER IMPRESORA ETIQUETADO' || concept.conceptName === 'POSICIONES FIJAS CÁMARA CONGELADOS') {
+                const quantityForCalc = opData.quantity || 1;
+                let totalValue;
+            
+                if (concept.billingPeriod === 'MENSUAL') {
                     const operationDate = parseISO(opData.operationDate);
                     const numDias = getDaysInMonth(operationDate);
                     totalValue = numDias * (concept.value || 0);
-                 }
-
+                } else if (concept.billingPeriod === 'QUINCENAL') {
+                    totalValue = 15 * (concept.value || 0);
+                } else {
+                    totalValue = quantityForCalc * (concept.value || 0);
+                }
+                 
                  let operacionLogistica = 'No Aplica';
                  if (opData.details?.opLogistica && opData.details?.fmmNumber) {
                     operacionLogistica = `${opData.details.opLogistica} - #${opData.details.fmmNumber}`;
@@ -879,7 +881,7 @@ export async function generateClientSettlement(criteria: {
                     pedidoSislog: opData.details?.pedidoSislog || 'No Aplica',
                     conceptName: concept.conceptName,
                     tipoVehiculo: opData.details?.plate || 'No Aplica',
-                    quantity: opData.quantity,
+                    quantity: quantityForCalc,
                     unitOfMeasure: concept.unitOfMeasure,
                     unitValue: concept.value || 0,
                     totalValue: totalValue,
@@ -1010,3 +1012,4 @@ const minutesToTime = (minutes: number): string => {
     
 
     
+
