@@ -812,28 +812,53 @@ export async function generateClientSettlement(criteria: {
                     if (specificTariff) {
                         const numPersonas = appliedTariff.numPersonas || opData.numeroPersonas || 1;
                         let quantityForCalc = appliedTariff.quantity || 0;
-                        let totalValue = quantityForCalc * (specificTariff.value || 0) * numPersonas;
                         
-                        if (totalValue > 0) {
-                            settlementRows.push({
-                                date,
-                                placa: opData.details?.plate || 'No Aplica',
-                                container: opData.details?.container || 'No Aplica',
-                                totalPaletas: opData.details?.totalPallets || 0,
-                                camara: 'No Aplica',
-                                operacionLogistica: 'No Aplica',
-                                pedidoSislog: opData.details?.pedidoSislog || 'No Aplica',
-                                conceptName: concept.conceptName,
-                                subConceptName: specificTariff.name,
-                                tipoVehiculo: 'No Aplica',
-                                quantity: quantityForCalc,
-                                unitOfMeasure: specificTariff.unit,
-                                unitValue: specificTariff.value || 0,
-                                totalValue: totalValue,
-                                horaInicio: opData.details?.startTime || 'N/A',
-                                horaFin: opData.details?.endTime || 'N/A',
-                                numeroPersonas: numPersonas,
-                            });
+                        // Special logic for POSICIONES FIJAS CÁMARA CONGELADOS
+                        if (concept.conceptName === 'POSICIONES FIJAS CÁMARA CONGELADOS' && concept.billingPeriod === 'MENSUAL') {
+                            const operationDate = parseISO(opData.operationDate);
+                            const numDias = getDaysInMonth(operationDate);
+                            
+                            if (specificTariff.id.includes('600')) quantityForCalc = 600;
+                            else if (specificTariff.id.includes('200')) quantityForCalc = 200;
+                            
+                            const totalValue = quantityForCalc * (specificTariff.value || 0) * numDias;
+                             
+                             if (totalValue > 0) {
+                                settlementRows.push({
+                                    date,
+                                    placa: 'No Aplica', container: 'No Aplica', totalPaletas: 0, camara: 'CO',
+                                    operacionLogistica: 'No Aplica', pedidoSislog: 'Manual', conceptName: concept.conceptName,
+                                    subConceptName: specificTariff.name, tipoVehiculo: 'No Aplica',
+                                    quantity: quantityForCalc * numDias, // Total positions for the month
+                                    unitOfMeasure: specificTariff.unit, unitValue: specificTariff.value || 0,
+                                    totalValue: totalValue,
+                                    horaInicio: 'N/A', horaFin: 'N/A', numeroPersonas: 1,
+                                });
+                            }
+
+                        } else {
+                            const totalValue = quantityForCalc * (specificTariff.value || 0) * numPersonas;
+                            if (totalValue > 0) {
+                                settlementRows.push({
+                                    date,
+                                    placa: opData.details?.plate || 'No Aplica',
+                                    container: opData.details?.container || 'No Aplica',
+                                    totalPaletas: opData.details?.totalPallets || 0,
+                                    camara: 'No Aplica',
+                                    operacionLogistica: 'No Aplica',
+                                    pedidoSislog: opData.details?.pedidoSislog || 'No Aplica',
+                                    conceptName: concept.conceptName,
+                                    subConceptName: specificTariff.name,
+                                    tipoVehiculo: 'No Aplica',
+                                    quantity: quantityForCalc,
+                                    unitOfMeasure: specificTariff.unit,
+                                    unitValue: specificTariff.value || 0,
+                                    totalValue: totalValue,
+                                    horaInicio: opData.details?.startTime || 'N/A',
+                                    horaFin: opData.details?.endTime || 'N/A',
+                                    numeroPersonas: numPersonas,
+                                });
+                            }
                         }
                     }
                 });
@@ -1012,4 +1037,5 @@ const minutesToTime = (minutes: number): string => {
     
 
     
+
 

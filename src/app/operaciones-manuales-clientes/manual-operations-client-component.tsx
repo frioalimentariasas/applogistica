@@ -143,9 +143,12 @@ const manualOperationSchema = z.object({
         if (isPositionMode && (!data.specificTariffs || data.specificTariffs.length === 0)) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Debe seleccionar al menos una tarifa.", path: ["specificTariffs"] });
         } else if (isPositionMode) {
-            const excessTariff = data.specificTariffs?.find(t => t.tariffId.includes('EXCESO'));
-            if (excessTariff && (excessTariff.quantity === undefined || excessTariff.quantity <= 0)) {
-                 ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La cantidad para la tarifa de exceso es requerida.", path: [`specificTariffs.${data.specificTariffs?.indexOf(excessTariff)}.quantity`] });
+            const excessTariffIndex = data.specificTariffs?.findIndex(t => t.tariffId.includes('EXCESO'));
+            if (excessTariffIndex !== undefined && excessTariffIndex > -1) {
+                const excessTariff = data.specificTariffs?.[excessTariffIndex];
+                 if (excessTariff && (excessTariff.quantity === undefined || excessTariff.quantity <= 0)) {
+                    ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La cantidad para la tarifa de exceso es requerida.", path: [`specificTariffs.${excessTariffIndex}.quantity`] });
+                 }
             }
         }
     }
@@ -895,7 +898,6 @@ function ExcedentManager() {
         </div>
     );
 }
-
 function BulkRolesSection({ form, dialogMode }: { form: any; dialogMode: string; }) {
   const { fields: bulkRoleFields } = useFieldArray({
       control: form.control,
@@ -926,13 +928,14 @@ function BulkRolesSection({ form, dialogMode }: { form: any; dialogMode: string;
     </div>
   );
 }
+
 function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any, selectedConceptInfo: ClientBillingConcept, dialogMode: string }) {
     const { fields, replace } = useFieldArray({
         control: form.control,
         name: "specificTariffs"
     });
     const watchedTariffs = useWatch({ control: form.control, name: 'specificTariffs' }) || [];
-    
+
     const handleToggle = (tariffId: string, quantity: number = 1) => {
         const existingIndex = watchedTariffs.findIndex((t: any) => t.tariffId === tariffId);
         let newTariffs = [...watchedTariffs];
@@ -982,11 +985,12 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any, 
                                     render={({ field }) => (
                                         <FormItem className="pl-6">
                                             <div className="flex items-center gap-2">
-                                                <Label className="text-xs">Cantidad:</Label>
+                                                <Label className="text-xs">Cant. (POSICIONES/MES):</Label>
                                                 <FormControl>
                                                     <Input
                                                         type="number"
                                                         step="1"
+                                                        min="1"
                                                         className="h-8 w-24"
                                                         disabled={dialogMode === 'view'}
                                                         {...field}
@@ -1010,7 +1014,7 @@ function ConceptFormBody(props: any) {
   const { form, clients, billingConcepts, dialogMode, isConceptDialogOpen, setConceptDialogOpen, handleCaptureTime, isTimeExtraMode, isBulkMode, isElectricConnection, isPositionMode, isFmmConcept, isFmmZfpc, showNumeroPersonas, showAdvancedFields, showTimeExtraFields, showTunelCongelacionFields, calculatedDuration, calculatedElectricConnectionHours, isFixedMonthlyService } = props;
   const watchedConcept = useWatch({ control: form.control, name: 'concept' });
   const selectedConceptInfo = useMemo(() => billingConcepts.find((c: ClientBillingConcept) => c.conceptName === watchedConcept), [watchedConcept, billingConcepts]);
-  const conceptsWithoutQuantity = ['TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 'POSICIONES FIJAS CÁMARA CONGELADOS', 'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'FMM ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA', 'TIEMPO EXTRA ZFPC'];
+  const conceptsWithoutQuantity = ['TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 'POSICIONES FIJAS CÁMARA CONGELADOS', 'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'FMM ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA', 'TIEMPO EXTRA ZFPC', 'INSPECCIÓN ZFPC'];
 
   return (
     <>
@@ -1198,3 +1202,4 @@ function ConceptFormBody(props: any) {
     </>
   );
 }
+
