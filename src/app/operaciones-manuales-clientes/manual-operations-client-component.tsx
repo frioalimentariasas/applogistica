@@ -1,5 +1,4 @@
 
-
       
 "use client";
 
@@ -249,7 +248,6 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     const showAdvancedFields = ['INSPECCIÓN ZFPC', 'TOMA DE PESOS POR ETIQUETA HRS'].includes(watchedConcept);
     const showTimeExtraFields = ['TIEMPO EXTRA ZFPC', 'TIEMPO EXTRA FRIOAL', 'INSPECCIÓN ZFPC'].includes(watchedConcept);
     const showTunelCongelacionFields = watchedConcept === 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA';
-    const showAdvancedTariffs = ['POSICIONES FIJAS CÁMARA CONGELADOS', 'TIEMPO EXTRA ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA'].includes(watchedConcept);
 
 
     useEffect(() => {
@@ -590,7 +588,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                 <Edit className="h-8 w-8 text-primary" />
                                 <h1 className="text-2xl font-bold text-primary">Registro de Operaciones Manuales Clientes</h1>
                             </div>
-                             <p className="text-sm text-gray-500">Agregue, edite o elimine operaciones manuales.</p>
+                             <p className="text-sm text-gray-500">Agregue, edite o elimine operaciones manuales de facturación a clientes.</p>
                         </div>
                     </div>
                 </header>
@@ -724,7 +722,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                             <div className="p-4">
                                 <Form {...form}>
                                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                                        <ConceptFormBody form={form} clients={clients} billingConcepts={billingConcepts} dialogMode={dialogMode} isConceptDialogOpen={isConceptDialogOpen} setConceptDialogOpen={setConceptDialogOpen} handleCaptureTime={handleCaptureTime} isTimeExtraMode={isTimeExtraMode} isBulkMode={isBulkMode} isElectricConnection={isElectricConnection} isPositionMode={isPositionMode} isFmmConcept={isFmmConcept} isFmmZfpc={isFmmZfpc} showAdvancedFields={showAdvancedFields} showTimeExtraFields={showTimeExtraFields} showTunelCongelacionFields={showTunelCongelacionFields} calculatedDuration={calculatedDuration} calculatedElectricConnectionHours={calculatedElectricConnectionHours} showAdvancedTariffs={showAdvancedTariffs} />
+                                        <ConceptFormBody form={form} clients={clients} billingConcepts={billingConcepts} dialogMode={dialogMode} isConceptDialogOpen={isConceptDialogOpen} setConceptDialogOpen={setConceptDialogOpen} handleCaptureTime={handleCaptureTime} isTimeExtraMode={isTimeExtraMode} isBulkMode={isBulkMode} isElectricConnection={isElectricConnection} isPositionMode={isPositionMode} isFmmConcept={isFmmConcept} isFmmZfpc={isFmmZfpc} showAdvancedFields={showAdvancedFields} showTimeExtraFields={showTimeExtraFields} showTunelCongelacionFields={showTunelCongelacionFields} calculatedDuration={calculatedDuration} calculatedElectricConnectionHours={calculatedElectricConnectionHours} />
                                         <DialogFooter>
                                             <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                                                 {dialogMode === 'view' ? 'Cerrar' : 'Cancelar'}
@@ -940,10 +938,16 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any; 
                 {(selectedConceptInfo?.specificTariffs || []).map(tariff => {
                     const selectedIndex = watchedTariffs.findIndex((t: any) => t.tariffId === tariff.id);
                     const isSelected = selectedIndex > -1;
-                    const isExcessTariff = tariff.name.includes("EXCESO");
-                    const showQuantity = isSelected && (isExcessTariff);
-                    const isDisabled = dialogMode === 'view';
                     
+                    let showQuantity = false;
+                    if (isSelected) {
+                        if (selectedConceptInfo.conceptName === 'POSICIONES FIJAS CÁMARA CONGELADOS') {
+                            showQuantity = tariff.name.includes("EXCESO");
+                        } else if (selectedConceptInfo.conceptName === 'TIEMPO EXTRA ZFPC' || selectedConceptInfo.conceptName === 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA') {
+                            showQuantity = true;
+                        }
+                    }
+
                     return (
                         <div key={tariff.id} className="space-y-2">
                             <div className="flex items-center space-x-2">
@@ -951,7 +955,7 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any; 
                                     id={tariff.id}
                                     checked={isSelected}
                                     onCheckedChange={() => handleToggle(tariff.id)}
-                                    disabled={isDisabled}
+                                    disabled={dialogMode === 'view'}
                                 />
                                 <Label htmlFor={tariff.id} className="font-normal cursor-pointer flex-grow">{tariff.name} ({tariff.value.toLocaleString('es-CO', {style:'currency', currency: 'COP', minimumFractionDigits: 0})} / {tariff.unit})</Label>
                             </div>
@@ -992,7 +996,7 @@ function ConceptFormBody(props: any) {
   const watchedConcept = useWatch({ control: form.control, name: 'concept' });
   const selectedConceptInfo = useMemo(() => billingConcepts.find((c: ClientBillingConcept) => c.conceptName === watchedConcept), [watchedConcept, billingConcepts]);
   
-  const conceptsWithoutQuantity = ['TIEMPO EXTRA FRIOAL (FIJO)', 'POSICIONES FIJAS CÁMARA CONGELADOS', 'IN-HOUSE INSPECTOR ZFPC', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'FMM ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA'];
+  const conceptsWithoutQuantity = ['TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 'POSICIONES FIJAS CÁMARA CONGELADOS', 'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'FMM ZFPC'];
   const showNumeroPersonas = watchedConcept === 'TIEMPO EXTRA ZFPC';
   const showGeneralQuantity = !conceptsWithoutQuantity.includes(watchedConcept) && !showNumeroPersonas;
   const showAdvancedTariffs = ['POSICIONES FIJAS CÁMARA CONGELADOS', 'TIEMPO EXTRA ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA'].includes(watchedConcept);
@@ -1207,3 +1211,6 @@ function ConceptFormBody(props: any) {
     </>
   );
 }
+
+      
+    
