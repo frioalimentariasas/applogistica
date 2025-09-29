@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -61,6 +62,7 @@ const specificTariffSchema = z.object({
   id: z.string().min(1),
   name: z.string().min(1, "El nombre es requerido."),
   value: z.coerce.number({ invalid_type_error: "Debe ser un número."}).min(0, "Debe ser >= 0"),
+  baseQuantity: z.coerce.number({ invalid_type_error: "Debe ser un número."}).min(0, "Debe ser >= 0").optional(),
   unit: z.enum(['KILOGRAMOS', 'HORA', 'UNIDAD', 'DIA', 'VIAJE', 'ALIMENTACION', 'TRANSPORTE', 'HORA EXTRA DIURNA', 'HORA EXTRA NOCTURNA', 'HORA EXTRA DIURNA DOMINGO Y FESTIVO', 'HORA EXTRA NOCTURNA DOMINGO Y FESTIVO', 'TRANSPORTE EXTRAORDINARIO', 'TRANSPORTE DOMINICAL Y FESTIVO', 'POSICION/DIA', 'POSICIONES/MES'], { required_error: 'Debe seleccionar una unidad.' }),
 });
 
@@ -759,7 +761,7 @@ function ConceptFormBody({ form, clientOptions, standardObservations, pedidoType
             {watchedTariffType === 'UNICA' && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <FormField control={form.control} name="value" render={({ field }) => (<FormItem><FormLabel>Tarifa Única (COP)</FormLabel><FormControl><Input type="number" step="0.01" {...field} /></FormControl><FormMessage /></FormItem>)}/>
-                    {(watchedConceptName === 'IN-HOUSE INSPECTOR ZFPC' || watchedConceptName === 'ALQUILER IMPRESORA ETIQUETADO') && (
+                    {(watchedConceptName === 'IN-HOUSE INSPECTOR ZFPC' || watchedConceptName === 'ALQUILER IMPRESORA ETIQUETADO' || watchedConceptName === 'POSICIONES FIJAS CÁMARA CONGELADOS') && (
                         <FormField control={form.control} name="billingPeriod" render={({ field }) => (<FormItem><FormLabel>Período de Facturación</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl><SelectContent><SelectItem value="DIARIO">Diario</SelectItem><SelectItem value="QUINCENAL">Quincenal</SelectItem><SelectItem value="MENSUAL">Mensual</SelectItem></SelectContent></Select><FormMessage /></FormItem>)}/>
                     )}
                 </div>
@@ -821,13 +823,14 @@ function ConceptFormBody({ form, clientOptions, standardObservations, pedidoType
                                 <div key={field.id} className="grid grid-cols-1 sm:grid-cols-2 gap-3 border p-3 rounded-md relative">
                                     <FormField control={form.control} name={`specificTariffs.${index}.name`} render={({ field }) => (<FormItem><FormLabel>Nombre Tarifa</FormLabel><FormControl><Input placeholder="Ej: HORA EXTRA DIURNA" {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
                                     <FormField control={form.control} name={`specificTariffs.${index}.unit`} render={({ field }) => (<FormItem><FormLabel>Unidad</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><ScrollArea className="h-48">{specificUnitOptions.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</ScrollArea></SelectContent></Select><FormMessage /></FormItem>)}/>
-                                    <FormField control={form.control} name={`specificTariffs.${index}.value`} render={({ field }) => (<FormItem className="sm:col-span-2"><FormLabel>Valor (COP)</FormLabel><FormControl><Input type="number" step="0.01" {...field}/></FormControl><FormMessage /></FormItem>)}/>
+                                    <FormField control={form.control} name={`specificTariffs.${index}.value`} render={({ field }) => (<FormItem><FormLabel>Valor (COP)</FormLabel><FormControl><Input type="number" step="0.01" {...field}/></FormControl><FormMessage /></FormItem>)}/>
+                                    <FormField control={form.control} name={`specificTariffs.${index}.baseQuantity`} render={({ field }) => (<FormItem><FormLabel>Cantidad Base</FormLabel><FormControl><Input type="number" step="1" {...field} /></FormControl><FormDescription className="text-xs">Para Posiciones Fijas</FormDescription><FormMessage /></FormItem>)}/>
                                     <Button type="button" variant="ghost" size="icon" className="absolute top-1 right-1 text-destructive h-6 w-6" onClick={() => removeSpecificTariff(index)}><Trash2 className="h-4 w-4" /></Button>
                                 </div>
                             ))}
                         </div>
                     </ScrollArea>
-                    <Button type="button" variant="outline" size="sm" onClick={() => appendSpecificTariff({ id: `new_${Date.now()}`, name: '', value: 0, unit: 'UNIDAD' })}>
+                    <Button type="button" variant="outline" size="sm" onClick={() => appendSpecificTariff({ id: `new_${Date.now()}`, name: '', value: 0, unit: 'UNIDAD', baseQuantity: 0 })}>
                         <PlusCircle className="mr-2 h-4 w-4" /> Agregar Tarifa
                     </Button>
                 </div>

@@ -912,7 +912,7 @@ function BulkRolesSection({ form, dialogMode }: { form: any; dialogMode: string;
   );
 }
 
-function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any, selectedConceptInfo: ClientBillingConcept, dialogMode: string }) {
+function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any; selectedConceptInfo: ClientBillingConcept; dialogMode: string; }) {
     const { fields, replace } = useFieldArray({
         control: form.control,
         name: "specificTariffs"
@@ -925,8 +925,8 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any, 
         if (existingIndex > -1) {
             newTariffs.splice(existingIndex, 1);
         } else {
-            // Para "POSICIONES FIJAS", se asigna 1 por defecto, para otros puede ser diferente
-            const initialQuantity = selectedConceptInfo.conceptName === 'POSICIONES FIJAS CÁMARA CONGELADOS' ? 1 : 0;
+            const specificTariffInfo = selectedConceptInfo.specificTariffs?.find(t => t.id === tariffId);
+            const initialQuantity = specificTariffInfo?.baseQuantity ?? 1;
             newTariffs.push({ tariffId, quantity: initialQuantity });
         }
         replace(newTariffs);
@@ -950,7 +950,7 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any, 
                 {(selectedConceptInfo?.specificTariffs || []).map(tariff => {
                     const selectedIndex = watchedTariffs.findIndex((t: any) => t.tariffId === tariff.id);
                     const isSelected = selectedIndex > -1;
-                    const isBase = tariff.id.includes('BASE');
+                    const isBase = !tariff.name.includes("EXCESO");
                     
                     return (
                         <div key={tariff.id} className="space-y-2">
@@ -963,7 +963,7 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any, 
                                 />
                                 <Label htmlFor={tariff.id} className="font-normal cursor-pointer flex-grow">{tariff.name} ({tariff.value.toLocaleString('es-CO', {style:'currency', currency: 'COP', minimumFractionDigits: 0})} / {tariff.unit})</Label>
                             </div>
-                            {isSelected && tariff.id.includes('EXCESO') && (
+                            {isSelected && !isBase && (
                                 <FormField
                                     control={form.control}
                                     name={`specificTariffs.${selectedIndex}.quantity`}
@@ -1107,7 +1107,7 @@ function ConceptFormBody(props: any) {
             <TariffSelector form={form} selectedConceptInfo={selectedConceptInfo} dialogMode={dialogMode} />
       )}
       
-      {!conceptsWithoutQuantity.includes(watchedConcept) && (
+      {!conceptsWithoutQuantity.includes(watchedConcept) && !isBulkMode && (
         <FormField
             control={form.control}
             name="quantity"
@@ -1187,4 +1187,3 @@ function ConceptFormBody(props: any) {
     </>
   );
 }
-
