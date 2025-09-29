@@ -1,5 +1,5 @@
 
-
+      
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -44,7 +44,7 @@ import { Alert, AlertTitle } from '@/components/ui/alert';
 
 const specificTariffEntrySchema = z.object({
     tariffId: z.string(),
-    quantity: z.coerce.number().min(0, "Debe ser >= 0"),
+    quantity: z.coerce.number().min(0, "Debe ser >= 0").optional().default(0),
     role: z.string().optional(),
     numPersonas: z.coerce.number().int().min(0).optional(),
 });
@@ -98,7 +98,6 @@ const manualOperationSchema = z.object({
     const isBulkMode = data.concept === 'TIEMPO EXTRA FRIOAL (FIJO)' || data.concept === 'ALQUILER DE ÁREA PARA EMPAQUE/DIA' || data.concept === 'SERVICIO APOYO JORNAL';
     const isTimeExtraMode = data.concept === 'TIEMPO EXTRA FRIOAL';
     const isPositionMode = data.concept === 'POSICIONES FIJAS CÁMARA CONGELADOS';
-    const isFixedMonthlyService = isPositionMode || data.concept === 'IN-HOUSE INSPECTOR ZFPC' || data.concept === 'ALQUILER IMPRESORA ETIQUETADO';
     const isElectricConnection = data.concept === 'CONEXIÓN ELÉCTRICA CONTENEDOR';
     const isFmmZfpc = data.concept === 'FMM ZFPC';
 
@@ -591,7 +590,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                 <Edit className="h-8 w-8 text-primary" />
                                 <h1 className="text-2xl font-bold text-primary">Registro de Operaciones Manuales Clientes</h1>
                             </div>
-                             <p className="text-sm text-gray-500">Agregue, edite o elimine operaciones manuales para facturación.</p>
+                             <p className="text-sm text-gray-500">Agregue, edite o elimine operaciones manuales para facturación a clientes.</p>
                         </div>
                     </div>
                 </header>
@@ -944,7 +943,7 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any; 
                     const isConceptWithSpecialQuantity = ['TIEMPO EXTRA ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA'].includes(selectedConceptInfo.conceptName);
                     const isExcessTariff = tariff.name.includes("EXCESO");
                     const showQuantity = isSelected && (isConceptWithSpecialQuantity || (selectedConceptInfo.conceptName === 'POSICIONES FIJAS CÁMARA CONGELADOS' && isExcessTariff));
-                    const isDisabled = dialogMode === 'view'
+                    const isDisabled = dialogMode === 'view' || (selectedConceptInfo.conceptName === 'POSICIONES FIJAS CÁMARA CONGELADOS' && !isExcessTariff);
                     
                     return (
                         <div key={tariff.id} className="space-y-2">
@@ -993,9 +992,10 @@ function ConceptFormBody(props: any) {
   const { form, clients, billingConcepts, dialogMode, isConceptDialogOpen, setConceptDialogOpen, handleCaptureTime, isTimeExtraMode, isBulkMode, isElectricConnection, isPositionMode, isFmmConcept, isFmmZfpc, showAdvancedFields, showTimeExtraFields, showTunelCongelacionFields, calculatedDuration, calculatedElectricConnectionHours, isFixedMonthlyService, showAdvancedTariffs } = props;
   const watchedConcept = useWatch({ control: form.control, name: 'concept' });
   const selectedConceptInfo = useMemo(() => billingConcepts.find((c: ClientBillingConcept) => c.conceptName === watchedConcept), [watchedConcept, billingConcepts]);
-  const conceptsWithoutQuantity = ['TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 'POSICIONES FIJAS CÁMARA CONGELADOS', 'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'FMM ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA', 'SERVICIO APOYO JORNAL', 'ALQUILER DE ÁREA PARA EMPAQUE/DIA', 'TIEMPO EXTRA ZFPC'];
+  const conceptsWithoutQuantity = ['TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 'POSICIONES FIJAS CÁMARA CONGELADOS', 'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'FMM ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA', 'TIEMPO EXTRA ZFPC'];
   
   const showNumeroPersonas = watchedConcept === 'TIEMPO EXTRA ZFPC';
+  const showGeneralQuantity = !conceptsWithoutQuantity.includes(watchedConcept);
 
   return (
     <>
@@ -1102,7 +1102,7 @@ function ConceptFormBody(props: any) {
       
       {showAdvancedTariffs && selectedConceptInfo && selectedConceptInfo.tariffType === 'ESPECIFICA' && <TariffSelector form={form} selectedConceptInfo={selectedConceptInfo} dialogMode={dialogMode} />}
       
-      {!conceptsWithoutQuantity.includes(watchedConcept) && (
+      {showGeneralQuantity && (
         <FormField
             control={form.control}
             name="quantity"
@@ -1207,3 +1207,6 @@ function ConceptFormBody(props: any) {
     </>
   );
 }
+
+
+    
