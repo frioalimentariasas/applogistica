@@ -812,19 +812,20 @@ export async function generateClientSettlement(criteria: {
                     if (!specificTariffInfo) return; // Skip if tariff info not found
                     
                     const numPersonas = appliedTariff.numPersonas || opData.numeroPersonas || 1;
-                    let quantityForCalc = 0;
+                    let quantityForCalc = appliedTariff.quantity || 0;
                     let totalValue = 0;
                     
                     if (concept.conceptName === 'POSICIONES FIJAS CÁMARA CONGELADOS') {
                         const operationDate = parseISO(opData.operationDate);
                         const numDias = getDaysInMonth(operationDate);
+                        const baseQuantity = specificTariffInfo.baseQuantity;
 
-                        // Use baseQuantity if it exists, otherwise use the quantity from the applied tariff
-                        quantityForCalc = specificTariffInfo.baseQuantity || appliedTariff.quantity || 0;
-                        
+                        if (baseQuantity !== undefined && baseQuantity > 0) {
+                            quantityForCalc = baseQuantity;
+                        }
+
                         totalValue = quantityForCalc * (specificTariffInfo.value || 0) * numDias;
                     } else {
-                        quantityForCalc = appliedTariff.quantity || 0;
                         totalValue = quantityForCalc * (specificTariffInfo.value || 0) * numPersonas;
                     }
 
@@ -854,12 +855,14 @@ export async function generateClientSettlement(criteria: {
                 const quantityForCalc = opData.quantity || 1;
                 let totalValue;
             
-                if (concept.billingPeriod === 'MENSUAL') {
+                if (concept.billingPeriod === 'MENSUAL' && concept.conceptName !== 'IN-HOUSE INSPECTOR ZFPC') {
                     const operationDate = parseISO(opData.operationDate);
                     const numDias = getDaysInMonth(operationDate);
                     totalValue = numDias * (concept.value || 0);
                 } else if (concept.billingPeriod === 'QUINCENAL') {
                     totalValue = 15 * (concept.value || 0);
+                } else if (concept.conceptName === 'IN-HOUSE INSPECTOR ZFPC') {
+                    totalValue = concept.value || 0;
                 } else {
                     totalValue = quantityForCalc * (concept.value || 0);
                 }
@@ -1025,6 +1028,7 @@ const minutesToTime = (minutes: number): string => {
     
 
     
+
 
 
 
