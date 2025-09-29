@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -941,11 +940,8 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any; 
                 {(selectedConceptInfo?.specificTariffs || []).map(tariff => {
                     const selectedIndex = watchedTariffs.findIndex((t: any) => t.tariffId === tariff.id);
                     const isSelected = selectedIndex > -1;
-                    
-                    // Logic to show quantity input
-                    const isPositionConcept = selectedConceptInfo?.conceptName === 'POSICIONES FIJAS CÁMARA CONGELADOS';
-                    const isExcessTariff = tariff.name.includes("EXCESO");
-                    const showQuantity = isSelected && (!isPositionConcept || isExcessTariff);
+                    const isPositionConcept = selectedConceptInfo.conceptName === 'POSICIONES FIJAS CÁMARA CONGELADOS';
+                    const showQuantity = isSelected && (!isPositionConcept || (isPositionConcept && tariff.name.includes("EXCESO")));
 
                     return (
                         <div key={tariff.id} className="space-y-2">
@@ -954,7 +950,7 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any; 
                                     id={tariff.id}
                                     checked={isSelected}
                                     onCheckedChange={() => handleToggle(tariff.id)}
-                                    disabled={dialogMode === 'view' || (isPositionConcept && !isExcessTariff)}
+                                    disabled={dialogMode === 'view'}
                                 />
                                 <Label htmlFor={tariff.id} className="font-normal cursor-pointer flex-grow">{tariff.name} ({tariff.value.toLocaleString('es-CO', {style:'currency', currency: 'COP', minimumFractionDigits: 0})} / {tariff.unit})</Label>
                             </div>
@@ -994,7 +990,7 @@ function ConceptFormBody(props: any) {
   const { form, clients, billingConcepts, dialogMode, isConceptDialogOpen, setConceptDialogOpen, handleCaptureTime, isTimeExtraMode, isBulkMode, isElectricConnection, isPositionMode, isFmmConcept, isFmmZfpc, showAdvancedFields, showTimeExtraFields, showTunelCongelacionFields, calculatedDuration, calculatedElectricConnectionHours, isFixedMonthlyService, showAdvancedTariffs } = props;
   const watchedConcept = useWatch({ control: form.control, name: 'concept' });
   const selectedConceptInfo = useMemo(() => billingConcepts.find((c: ClientBillingConcept) => c.conceptName === watchedConcept), [watchedConcept, billingConcepts]);
-  const conceptsWithoutQuantity = ['TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 'POSICIONES FIJAS CÁMARA CONGELADOS', 'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'FMM ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA', 'SERVICIO APOYO JORNAL'];
+  const conceptsWithoutQuantity = ['TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 'POSICIONES FIJAS CÁMARA CONGELADOS', 'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'FMM ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA', 'SERVICIO APOYO JORNAL', 'ALQUILER DE ÁREA PARA EMPAQUE/DIA'];
 
   return (
     <>
