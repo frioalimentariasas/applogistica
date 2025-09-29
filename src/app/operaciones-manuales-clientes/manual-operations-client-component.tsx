@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -708,7 +709,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                     <p className="text-muted-foreground">
                                                         {searched
                                                             ? "No hay operaciones manuales para los filtros seleccionados."
-                                                            : "Seleccione un rango de fechas y haga clic en 'Consultar' para ver los registros."}
+                                                            : "Seleccione una fecha y haga clic en 'Consultar' para ver los registros."}
                                                     </p>
                                                 </div>
                                             </TableCell>
@@ -894,12 +895,16 @@ function ExcedentManager() {
         </div>
     );
 }
-function BulkRolesSection({ form, dialogMode }: { form: any, dialogMode: DialogMode }) {
-  const { fields } = useFieldArray({ control: form.control, name: 'bulkRoles' });
+
+function BulkRolesSection({ form, dialogMode }: { form: any; dialogMode: string; }) {
+  const { fields: bulkRoleFields } = useFieldArray({
+      control: form.control,
+      name: "bulkRoles"
+  });
   return (
     <div className="space-y-4">
       <FormLabel className="text-base">Asignación de Personal</FormLabel>
-      {fields.map((field: any, index: number) => (
+      {bulkRoleFields.map((field: any, index: number) => (
         <div key={field.id} className="grid grid-cols-5 items-center gap-2 border-b pb-2">
           <Label className="col-span-2 text-sm">{field.roleName}</Label>
           <FormField
@@ -922,7 +927,7 @@ function BulkRolesSection({ form, dialogMode }: { form: any, dialogMode: DialogM
   );
 }
 
-function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any, selectedConceptInfo: ClientBillingConcept, dialogMode: DialogMode }) {
+function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any, selectedConceptInfo: ClientBillingConcept, dialogMode: string }) {
     const { fields, replace } = useFieldArray({
         control: form.control,
         name: "specificTariffs"
@@ -1002,10 +1007,12 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any, 
     );
 }
 
+
 function ConceptFormBody(props: any) {
   const { form, clients, billingConcepts, dialogMode, isConceptDialogOpen, setConceptDialogOpen, handleCaptureTime, isTimeExtraMode, isBulkMode, isElectricConnection, isPositionMode, isFmmConcept, isFmmZfpc, showNumeroPersonas, showAdvancedFields, showTimeExtraFields, showTunelCongelacionFields, calculatedDuration, calculatedElectricConnectionHours, isFixedMonthlyService } = props;
-  const { watchedConcept, selectedConceptInfo } = props;
-  const conceptsWithoutQuantity = ['TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 'POSICIONES FIJAS CÁMARA CONGELADOS', 'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'FMM ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA ZFPC'];
+  const watchedConcept = useWatch({ control: form.control, name: 'concept' });
+  const selectedConceptInfo = useMemo(() => billingConcepts.find((c: ClientBillingConcept) => c.conceptName === watchedConcept), [watchedConcept, billingConcepts]);
+  const conceptsWithoutQuantity = ['TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 'POSICIONES FIJAS CÁMARA CONGELADOS', 'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'FMM ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA ZFPC', 'ALQUILER DE ÁREA PARA EMPAQUE/DIA', 'SERVICIO APOYO JORNAL'];
 
   return (
     <>
