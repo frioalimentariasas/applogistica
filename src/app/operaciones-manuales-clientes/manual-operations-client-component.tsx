@@ -951,7 +951,7 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any; 
                                     id={tariff.id}
                                     checked={isSelected}
                                     onCheckedChange={() => handleToggle(tariff.id)}
-                                    disabled={dialogMode === 'view' || (isPositionConcept && !tariff.name.includes("EXCESO"))}
+                                    disabled={dialogMode === 'view'}
                                 />
                                 <Label htmlFor={tariff.id} className="font-normal cursor-pointer flex-grow">{tariff.name} ({tariff.value.toLocaleString('es-CO', {style:'currency', currency: 'COP', minimumFractionDigits: 0})} / {tariff.unit})</Label>
                             </div>
@@ -1203,4 +1203,3 @@ function ConceptFormBody(props: any) {
     </>
   );
 }
-
