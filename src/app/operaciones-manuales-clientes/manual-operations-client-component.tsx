@@ -1,4 +1,5 @@
 
+
       
 "use client";
 
@@ -996,9 +997,9 @@ function ConceptFormBody(props: any) {
   const watchedConcept = useWatch({ control: form.control, name: 'concept' });
   const selectedConceptInfo = useMemo(() => billingConcepts.find((c: ClientBillingConcept) => c.conceptName === watchedConcept), [watchedConcept, billingConcepts]);
   
-  const conceptsWithoutQuantity = ['TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 'POSICIONES FIJAS CÁMARA CONGELADOS', 'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'FMM ZFPC'];
-  const showNumeroPersonas = watchedConcept === 'TIEMPO EXTRA ZFPC';
-  const showGeneralQuantity = !conceptsWithoutQuantity.includes(watchedConcept) && !showNumeroPersonas;
+  const hideGeneralQuantityField = ['TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 'POSICIONES FIJAS CÁMARA CONGELADOS', 'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'FMM ZFPC', 'TIEMPO EXTRA ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA'].includes(watchedConcept);
+  const showNumeroPersonas = ['TIEMPO EXTRA ZFPC', 'SERVICIO APOYO JORNAL'].includes(watchedConcept);
+  const showGeneralQuantity = !hideGeneralQuantityField && !showNumeroPersonas;
   const showAdvancedTariffs = ['POSICIONES FIJAS CÁMARA CONGELADOS', 'TIEMPO EXTRA ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA'].includes(watchedConcept);
   
   return (
@@ -1102,7 +1103,6 @@ function ConceptFormBody(props: any) {
       )}
       
       {(isBulkMode || isTimeExtraMode) && <BulkRolesSection form={form} dialogMode={dialogMode} />}
-      {isBulkMode && form.watch('concept') === 'TIEMPO EXTRA FRIOAL (FIJO)' && <ExcedentManager />}
       
       {showAdvancedTariffs && selectedConceptInfo && selectedConceptInfo.tariffType === 'ESPECIFICA' && <TariffSelector form={form} selectedConceptInfo={selectedConceptInfo} dialogMode={dialogMode} />}
       
@@ -1213,4 +1213,6 @@ function ConceptFormBody(props: any) {
 }
 
       
+    
+
     
