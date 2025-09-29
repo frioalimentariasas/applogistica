@@ -926,7 +926,6 @@ function BulkRolesSection({ form, dialogMode }: { form: any; dialogMode: string;
     </div>
   );
 }
-
 function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any, selectedConceptInfo: ClientBillingConcept, dialogMode: string }) {
     const { fields, replace } = useFieldArray({
         control: form.control,
@@ -1007,12 +1006,11 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any, 
     );
 }
 
-
 function ConceptFormBody(props: any) {
   const { form, clients, billingConcepts, dialogMode, isConceptDialogOpen, setConceptDialogOpen, handleCaptureTime, isTimeExtraMode, isBulkMode, isElectricConnection, isPositionMode, isFmmConcept, isFmmZfpc, showNumeroPersonas, showAdvancedFields, showTimeExtraFields, showTunelCongelacionFields, calculatedDuration, calculatedElectricConnectionHours, isFixedMonthlyService } = props;
   const watchedConcept = useWatch({ control: form.control, name: 'concept' });
   const selectedConceptInfo = useMemo(() => billingConcepts.find((c: ClientBillingConcept) => c.conceptName === watchedConcept), [watchedConcept, billingConcepts]);
-  const conceptsWithoutQuantity = ['TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 'POSICIONES FIJAS CÁMARA CONGELADOS', 'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'FMM ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA ZFPC', 'ALQUILER DE ÁREA PARA EMPAQUE/DIA', 'SERVICIO APOYO JORNAL'];
+  const conceptsWithoutQuantity = ['TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 'POSICIONES FIJAS CÁMARA CONGELADOS', 'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'FMM ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA', 'TIEMPO EXTRA ZFPC'];
 
   return (
     <>
@@ -1200,4 +1198,3 @@ function ConceptFormBody(props: any) {
     </>
   );
 }
-
