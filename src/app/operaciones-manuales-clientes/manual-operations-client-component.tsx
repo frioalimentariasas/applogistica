@@ -940,8 +940,7 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any; 
                 {(selectedConceptInfo?.specificTariffs || []).map(tariff => {
                     const selectedIndex = watchedTariffs.findIndex((t: any) => t.tariffId === tariff.id);
                     const isSelected = selectedIndex > -1;
-                    const isExcess = tariff.name.includes("EXCESO");
-                    const showQuantity = isSelected && isExcess;
+                    const showQuantity = isSelected;
 
                     return (
                         <div key={tariff.id} className="space-y-2">
@@ -961,12 +960,12 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any; 
                                     render={({ field }) => (
                                         <FormItem className="pl-6">
                                             <div className="flex items-center gap-2">
-                                                <Label className="text-xs">Cant. Exceso:</Label>
+                                                <Label className="text-xs">Cant:</Label>
                                                 <FormControl>
                                                     <Input
                                                         type="number"
                                                         step="1"
-                                                        min="1"
+                                                        min="0"
                                                         className="h-8 w-24"
                                                         disabled={dialogMode === 'view'}
                                                         {...field}
@@ -1177,3 +1176,5 @@ function ConceptFormBody(props: any) {
     </>
   );
 }
+
+    
