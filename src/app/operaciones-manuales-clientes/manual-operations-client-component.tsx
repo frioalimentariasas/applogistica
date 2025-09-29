@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -960,12 +961,12 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any; 
                                     render={({ field }) => (
                                         <FormItem className="pl-6">
                                             <div className="flex items-center gap-2">
-                                                <Label className="text-xs">Cant:</Label>
+                                                <Label className="text-xs">Cant. ({tariff.unit}):</Label>
                                                 <FormControl>
                                                     <Input
                                                         type="number"
                                                         step="1"
-                                                        min="0"
+                                                        min="1"
                                                         className="h-8 w-24"
                                                         disabled={dialogMode === 'view'}
                                                         {...field}
@@ -1177,4 +1178,3 @@ function ConceptFormBody(props: any) {
   );
 }
 
-    
