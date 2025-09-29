@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -931,17 +932,6 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any; 
         replace(newTariffs);
     };
 
-    useEffect(() => {
-        if (selectedConceptInfo.conceptName === 'POSICIONES FIJAS CÁMARA CONGELADOS') {
-            const baseTariff = selectedConceptInfo.specificTariffs?.find(t => t.id.includes('BASE'));
-            if (baseTariff && watchedTariffs.length === 0 && dialogMode === 'add') {
-                 handleToggle(baseTariff.id);
-            }
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [selectedConceptInfo, dialogMode, watchedTariffs.length]);
-
-
     return (
         <div className="space-y-2">
             <FormLabel>Tarifas a Aplicar</FormLabel>
@@ -951,7 +941,7 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any; 
                     const selectedIndex = watchedTariffs.findIndex((t: any) => t.tariffId === tariff.id);
                     const isSelected = selectedIndex > -1;
                     const isExcess = tariff.name.includes("EXCESO");
-                    const showQuantity = isSelected;
+                    const showQuantity = isSelected && isExcess;
 
                     return (
                         <div key={tariff.id} className="space-y-2">
@@ -960,7 +950,7 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any; 
                                     id={tariff.id}
                                     checked={isSelected}
                                     onCheckedChange={() => handleToggle(tariff.id)}
-                                    disabled={dialogMode === 'view' || (selectedConceptInfo.conceptName === 'POSICIONES FIJAS CÁMARA CONGELADOS' && !isExcess)}
+                                    disabled={dialogMode === 'view'}
                                 />
                                 <Label htmlFor={tariff.id} className="font-normal cursor-pointer flex-grow">{tariff.name} ({tariff.value.toLocaleString('es-CO', {style:'currency', currency: 'COP', minimumFractionDigits: 0})} / {tariff.unit})</Label>
                             </div>
@@ -971,7 +961,7 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any; 
                                     render={({ field }) => (
                                         <FormItem className="pl-6">
                                             <div className="flex items-center gap-2">
-                                                <Label className="text-xs">Cant. ({tariff.unit}):</Label>
+                                                <Label className="text-xs">Cant. Exceso:</Label>
                                                 <FormControl>
                                                     <Input
                                                         type="number"
