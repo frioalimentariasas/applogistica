@@ -880,6 +880,7 @@ function ExcedentManager() {
         </div>
     );
 }
+
 function BulkRolesSection({ form, dialogMode }: { form: any; dialogMode: string; }) {
   const { fields: bulkRoleFields } = useFieldArray({
       control: form.control,
@@ -918,13 +919,15 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any, 
     });
     const watchedTariffs = useWatch({ control: form.control, name: 'specificTariffs' }) || [];
 
-    const handleToggle = (tariffId: string, quantity: number = 1) => {
+    const handleToggle = (tariffId: string) => {
         const existingIndex = watchedTariffs.findIndex((t: any) => t.tariffId === tariffId);
         let newTariffs = [...watchedTariffs];
         if (existingIndex > -1) {
             newTariffs.splice(existingIndex, 1);
         } else {
-            newTariffs.push({ tariffId, quantity });
+            // Para "POSICIONES FIJAS", se asigna 1 por defecto, para otros puede ser diferente
+            const initialQuantity = selectedConceptInfo.conceptName === 'POSICIONES FIJAS CÁMARA CONGELADOS' ? 1 : 0;
+            newTariffs.push({ tariffId, quantity: initialQuantity });
         }
         replace(newTariffs);
     };
@@ -932,11 +935,11 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any, 
     useEffect(() => {
         if (selectedConceptInfo.conceptName === 'POSICIONES FIJAS CÁMARA CONGELADOS') {
             const baseTariff = selectedConceptInfo.specificTariffs?.find(t => t.id.includes('BASE'));
-            if (baseTariff && watchedTariffs.length === 0) {
-                 handleToggle(baseTariff.id, 1);
+            if (baseTariff && watchedTariffs.length === 0 && dialogMode === 'add') {
+                 handleToggle(baseTariff.id);
             }
         }
-    }, [selectedConceptInfo]);
+    }, [selectedConceptInfo, dialogMode, watchedTariffs.length]);
 
 
     return (
@@ -955,7 +958,7 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any, 
                                 <Checkbox
                                     id={tariff.id}
                                     checked={isSelected}
-                                    onCheckedChange={() => handleToggle(tariff.id, 1)}
+                                    onCheckedChange={() => handleToggle(tariff.id)}
                                     disabled={dialogMode === 'view' || isBase}
                                 />
                                 <Label htmlFor={tariff.id} className="font-normal cursor-pointer flex-grow">{tariff.name} ({tariff.value.toLocaleString('es-CO', {style:'currency', currency: 'COP', minimumFractionDigits: 0})} / {tariff.unit})</Label>
@@ -967,7 +970,7 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any, 
                                     render={({ field }) => (
                                         <FormItem className="pl-6">
                                             <div className="flex items-center gap-2">
-                                                <Label className="text-xs">Cant. (POSICIONES/MES):</Label>
+                                                <Label className="text-xs">Cant. Exceso:</Label>
                                                 <FormControl>
                                                     <Input
                                                         type="number"
@@ -996,7 +999,7 @@ function ConceptFormBody(props: any) {
   const { form, clients, billingConcepts, dialogMode, isConceptDialogOpen, setConceptDialogOpen, handleCaptureTime, isTimeExtraMode, isBulkMode, isElectricConnection, isPositionMode, isFmmConcept, isFmmZfpc, showAdvancedFields, showTimeExtraFields, showTunelCongelacionFields, calculatedDuration, calculatedElectricConnectionHours, isFixedMonthlyService } = props;
   const watchedConcept = useWatch({ control: form.control, name: 'concept' });
   const selectedConceptInfo = useMemo(() => billingConcepts.find((c: ClientBillingConcept) => c.conceptName === watchedConcept), [watchedConcept, billingConcepts]);
-  const conceptsWithoutQuantity = ['TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 'POSICIONES FIJAS CÁMARA CONGELADOS', 'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'FMM ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA'];
+  const conceptsWithoutQuantity = ['TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 'POSICIONES FIJAS CÁMARA CONGELADOS', 'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'FMM ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA', 'ALQUILER DE ÁREA PARA EMPAQUE/DIA', 'SERVICIO APOYO JORNAL'];
 
   return (
     <>
@@ -1104,7 +1107,7 @@ function ConceptFormBody(props: any) {
             <TariffSelector form={form} selectedConceptInfo={selectedConceptInfo} dialogMode={dialogMode} />
       )}
       
-      {!conceptsWithoutQuantity.includes(watchedConcept) && !isBulkMode && (
+      {!conceptsWithoutQuantity.includes(watchedConcept) && (
         <FormField
             control={form.control}
             name="quantity"
