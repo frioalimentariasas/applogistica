@@ -772,7 +772,6 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         </div>
     );
 }
-
 function ConceptSelectorDialog({ billingConcepts, selectedClient, onSelect }: { billingConcepts: ClientBillingConcept[], selectedClient: string, onSelect: (conceptName: string) => void }) {
     const [search, setSearch] = useState('');
     
@@ -895,9 +894,119 @@ function ExcedentManager() {
         </div>
     );
 }
+function BulkRolesSection({ form, dialogMode }: { form: any, dialogMode: DialogMode }) {
+  const { fields } = useFieldArray({ control: form.control, name: 'bulkRoles' });
+  return (
+    <div className="space-y-4">
+      <FormLabel className="text-base">Asignación de Personal</FormLabel>
+      {fields.map((field: any, index: number) => (
+        <div key={field.id} className="grid grid-cols-5 items-center gap-2 border-b pb-2">
+          <Label className="col-span-2 text-sm">{field.roleName}</Label>
+          <FormField
+            control={form.control}
+            name={`bulkRoles.${index}.numPersonas`}
+            render={({ field: numField }) => (
+              <FormItem className="col-span-3">
+                <div className="flex items-center gap-2">
+                  <Label htmlFor={`num-personas-${index}`} className="text-xs">Personas:</Label>
+                  <FormControl>
+                    <Input id={`num-personas-${index}`} type="number" min="0" step="1" className="h-8 w-20" {...numField} disabled={dialogMode === 'view'} />
+                  </FormControl>
+                </div>
+              </FormItem>
+            )}
+          />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any, selectedConceptInfo: ClientBillingConcept, dialogMode: DialogMode }) {
+    const { fields, replace } = useFieldArray({
+        control: form.control,
+        name: "specificTariffs"
+    });
+    const watchedTariffs = useWatch({ control: form.control, name: 'specificTariffs' }) || [];
+    
+    const handleToggle = (tariffId: string, quantity: number = 1) => {
+        const existingIndex = watchedTariffs.findIndex((t: any) => t.tariffId === tariffId);
+        let newTariffs = [...watchedTariffs];
+        if (existingIndex > -1) {
+            newTariffs.splice(existingIndex, 1);
+        } else {
+            newTariffs.push({ tariffId, quantity });
+        }
+        replace(newTariffs);
+    };
+
+    useEffect(() => {
+        if (selectedConceptInfo.conceptName === 'POSICIONES FIJAS CÁMARA CONGELADOS') {
+            const baseTariff = selectedConceptInfo.specificTariffs?.find(t => t.id.includes('BASE'));
+            if (baseTariff && watchedTariffs.length === 0) {
+                 handleToggle(baseTariff.id, 1);
+            }
+        }
+    }, [selectedConceptInfo]);
+
+
+    return (
+        <div className="space-y-2">
+            <FormLabel>Tarifas a Aplicar</FormLabel>
+            <FormDescription>Seleccione una o más tarifas específicas para esta operación.</FormDescription>
+            <div className="space-y-2 rounded-md border p-4">
+                {(selectedConceptInfo?.specificTariffs || []).map(tariff => {
+                    const selectedIndex = watchedTariffs.findIndex((t: any) => t.tariffId === tariff.id);
+                    const isSelected = selectedIndex > -1;
+                    const isBase = tariff.id.includes('BASE');
+                    
+                    return (
+                        <div key={tariff.id} className="space-y-2">
+                            <div className="flex items-center space-x-2">
+                                <Checkbox
+                                    id={tariff.id}
+                                    checked={isSelected}
+                                    onCheckedChange={() => handleToggle(tariff.id, 1)}
+                                    disabled={dialogMode === 'view' || isBase}
+                                />
+                                <Label htmlFor={tariff.id} className="font-normal cursor-pointer flex-grow">{tariff.name} ({tariff.value.toLocaleString('es-CO', {style:'currency', currency: 'COP', minimumFractionDigits: 0})} / {tariff.unit})</Label>
+                            </div>
+                            {isSelected && tariff.id.includes('EXCESO') && (
+                                <FormField
+                                    control={form.control}
+                                    name={`specificTariffs.${selectedIndex}.quantity`}
+                                    render={({ field }) => (
+                                        <FormItem className="pl-6">
+                                            <div className="flex items-center gap-2">
+                                                <Label className="text-xs">Cantidad:</Label>
+                                                <FormControl>
+                                                    <Input
+                                                        type="number"
+                                                        step="1"
+                                                        className="h-8 w-24"
+                                                        disabled={dialogMode === 'view'}
+                                                        {...field}
+                                                    />
+                                                </FormControl>
+                                            </div>
+                                            <FormMessage className="text-xs" />
+                                        </FormItem>
+                                    )}
+                                />
+                            )}
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
 
 function ConceptFormBody(props: any) {
   const { form, clients, billingConcepts, dialogMode, isConceptDialogOpen, setConceptDialogOpen, handleCaptureTime, isTimeExtraMode, isBulkMode, isElectricConnection, isPositionMode, isFmmConcept, isFmmZfpc, showNumeroPersonas, showAdvancedFields, showTimeExtraFields, showTunelCongelacionFields, calculatedDuration, calculatedElectricConnectionHours, isFixedMonthlyService } = props;
+  const { watchedConcept, selectedConceptInfo } = props;
+  const conceptsWithoutQuantity = ['TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 'POSICIONES FIJAS CÁMARA CONGELADOS', 'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'FMM ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA ZFPC'];
+
   return (
     <>
       <FormField control={form.control} name="clientName" render={({ field }) => ( <FormItem><FormLabel>Cliente <span className="text-destructive">*</span></FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={dialogMode === 'view'}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un cliente" /></SelectTrigger></FormControl><SelectContent><ScrollArea className="h-60">{clients.map((c: ClientInfo) => <SelectItem key={c.id} value={c.razonSocial}>{c.razonSocial}</SelectItem>)}</ScrollArea></SelectContent></Select><FormMessage /></FormItem> )}/>
@@ -928,7 +1037,7 @@ function ConceptFormBody(props: any) {
                       <ConceptSelectorDialog
                           billingConcepts={billingConcepts}
                           selectedClient={form.watch('clientName')}
-                          onSelect={(conceptName) => {
+                          onSelect={(conceptName: string) => {
                               form.setValue("concept", conceptName);
                               setConceptDialogOpen(false);
                           }}
@@ -1000,25 +1109,25 @@ function ConceptFormBody(props: any) {
       
       {(isBulkMode || isTimeExtraMode) && <BulkRolesSection form={form} dialogMode={dialogMode} />}
       {isBulkMode && form.watch('concept') === 'TIEMPO EXTRA FRIOAL (FIJO)' && <ExcedentManager />}
-      {props.selectedConceptInfo?.tariffType === 'ESPECIFICA' && !isBulkMode && !isTimeExtraMode && (
-            <TariffSelector form={form} selectedConceptInfo={props.selectedConceptInfo} dialogMode={dialogMode} />
+      {selectedConceptInfo?.tariffType === 'ESPECIFICA' && !isBulkMode && !isTimeExtraMode && (
+            <TariffSelector form={form} selectedConceptInfo={selectedConceptInfo} dialogMode={dialogMode} />
       )}
       
-      {props.selectedConceptInfo?.unitOfMeasure && (props.selectedConceptInfo.tariffType === 'UNICA' || isElectricConnection || isFmmZfpc) && !isFixedMonthlyService && (
-          <FormField
-              control={form.control}
-              name="quantity"
-              render={({ field }) => (
-                  <FormItem>
-                      <FormLabel>
-                          Cantidad
-                          {props.selectedConceptInfo && <span className="text-muted-foreground ml-2">({props.selectedConceptInfo.unitOfMeasure})</span>}
-                      </FormLabel>
-                      <FormControl><Input type="number" step="0.01" placeholder="Ej: 1.5" {...field} value={field.value ?? ''} disabled={dialogMode === 'view' || isElectricConnection} /></FormControl>
-                      <FormMessage />
-                  </FormItem>
-              )}
-          />
+      {!conceptsWithoutQuantity.includes(watchedConcept) && !isBulkMode && (
+        <FormField
+            control={form.control}
+            name="quantity"
+            render={({ field }) => (
+                <FormItem>
+                    <FormLabel>
+                        Cantidad
+                        {selectedConceptInfo && <span className="text-muted-foreground ml-2">({selectedConceptInfo.unitOfMeasure})</span>}
+                    </FormLabel>
+                    <FormControl><Input type="number" step="0.01" placeholder="Ej: 1.5" {...field} value={field.value ?? ''} disabled={dialogMode === 'view' || isElectricConnection || isTimeExtraMode} /></FormControl>
+                    <FormMessage />
+                </FormItem>
+            )}
+        />
       )}
       
       {(showAdvancedFields || dialogMode === 'view' || isElectricConnection || isFmmZfpc || isFmmConcept || showTimeExtraFields || showTunelCongelacionFields) && (
@@ -1085,91 +1194,3 @@ function ConceptFormBody(props: any) {
   );
 }
 
-function BulkRolesSection({ form, dialogMode }: { form: any, dialogMode: DialogMode }) {
-  const { fields } = useFieldArray({ control: form.control, name: 'bulkRoles' });
-  return (
-    <div className="space-y-4">
-      <FormLabel className="text-base">Asignación de Personal</FormLabel>
-      {fields.map((field, index) => (
-        <div key={field.id} className="grid grid-cols-5 items-center gap-2 border-b pb-2">
-          <Label className="col-span-2 text-sm">{field.roleName}</Label>
-          <FormField
-            control={form.control}
-            name={`bulkRoles.${index}.numPersonas`}
-            render={({ field: numField }) => (
-              <FormItem className="col-span-3">
-                <div className="flex items-center gap-2">
-                  <Label htmlFor={`num-personas-${index}`} className="text-xs">Personas:</Label>
-                  <FormControl>
-                    <Input id={`num-personas-${index}`} type="number" min="0" step="1" className="h-8 w-20" {...numField} disabled={dialogMode === 'view'} />
-                  </FormControl>
-                </div>
-              </FormItem>
-            )}
-          />
-        </div>
-      ))}
-    </div>
-  );
-}
-function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any, selectedConceptInfo: ClientBillingConcept, dialogMode: DialogMode }) {
-    const { fields, append, remove } = useFieldArray({ control: form.control, name: "specificTariffs" });
-    const watchedTariffs = useWatch({ control: form.control, name: 'specificTariffs' }) || [];
-
-    const handleToggle = (tariffId: string, tariffName: string) => {
-        const existingIndex = watchedTariffs.findIndex((t: any) => t.tariffId === tariffId);
-        if (existingIndex > -1) {
-            remove(existingIndex);
-        } else {
-            append({ tariffId, name: tariffName, quantity: 1 });
-        }
-    };
-
-    return (
-        <div className="space-y-2">
-            <FormLabel>Tarifas a Aplicar</FormLabel>
-            <FormDescription>Seleccione una o más tarifas específicas para esta operación.</FormDescription>
-            <div className="space-y-2 rounded-md border p-4">
-                {(selectedConceptInfo?.specificTariffs || []).map(tariff => {
-                    const selectedTariff = watchedTariffs.find((t: any) => t.tariffId === tariff.id);
-                    return (
-                        <div key={tariff.id} className="space-y-2">
-                            <div className="flex items-center space-x-2">
-                                <Checkbox
-                                    id={tariff.id}
-                                    checked={!!selectedTariff}
-                                    onCheckedChange={() => handleToggle(tariff.id, tariff.name)}
-                                    disabled={dialogMode === 'view'}
-                                />
-                                <Label htmlFor={tariff.id} className="font-normal cursor-pointer flex-grow">{tariff.name} ({tariff.value.toLocaleString('es-CO', {style:'currency', currency: 'COP', minimumFractionDigits: 0})} / {tariff.unit})</Label>
-                            </div>
-                            {!!selectedTariff && (
-                                <FormField
-                                    control={form.control}
-                                    name={`specificTariffs.${watchedTariffs.findIndex((t: any) => t.tariffId === tariff.id)}.quantity`}
-                                    render={({ field }) => (
-                                        <FormItem className="pl-6">
-                                            <div className="flex items-center gap-2">
-                                                <Label className="text-xs">Cantidad:</Label>
-                                                <FormControl>
-                                                    <Input
-                                                        type="number"
-                                                        step="0.01"
-                                                        className="h-8 w-24"
-                                                        disabled={dialogMode === 'view'}
-                                                        {...field}
-                                                    />
-                                                </FormControl>
-                                            </div>
-                                            <FormMessage className="text-xs" />
-                                        </FormItem>
-                                    )}
-                                />
-                            )}
-                        </div>
-                    );
-                })}
-            </div>
-        </div>
-    );
-}
