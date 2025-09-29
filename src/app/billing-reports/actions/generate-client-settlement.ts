@@ -851,6 +851,32 @@ export async function generateClientSettlement(criteria: {
                         });
                     }
                 });
+            } else if (concept.tariffType === 'ESPECIFICA' && concept.conceptName === 'TIEMPO EXTRA ZFPC') {
+                const quantityForCalc = opData.quantity || 1;
+                const numPersonas = opData.numeroPersonas || 1;
+                const specificTariffInfo = concept.specificTariffs?.[0]; // Assuming only one for this concept
+                if (specificTariffInfo) {
+                    const totalValue = quantityForCalc * (specificTariffInfo.value || 0) * numPersonas;
+                     settlementRows.push({
+                        date,
+                        placa: opData.details?.plate || 'No Aplica',
+                        container: opData.details?.container || 'No Aplica',
+                        totalPaletas: opData.details?.totalPallets || 0,
+                        camara: 'N/A',
+                        operacionLogistica: 'No Aplica',
+                        pedidoSislog: opData.details?.pedidoSislog || 'Manual',
+                        conceptName: concept.conceptName,
+                        subConceptName: specificTariffInfo.name,
+                        tipoVehiculo: 'No Aplica',
+                        quantity: quantityForCalc,
+                        unitOfMeasure: specificTariffInfo.unit,
+                        unitValue: specificTariffInfo.value || 0,
+                        totalValue: totalValue,
+                        horaInicio: opData.details?.startTime || 'N/A',
+                        horaFin: opData.details?.endTime || 'N/A',
+                        numeroPersonas: numPersonas,
+                    });
+                }
             } else if (concept.tariffType === 'UNICA') {
                 const quantityForCalc = opData.quantity || 1;
                 let totalValue;
@@ -1028,6 +1054,7 @@ const minutesToTime = (minutes: number): string => {
     
 
     
+
 
 
 
