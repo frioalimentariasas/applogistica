@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -587,7 +588,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                 <Edit className="h-8 w-8 text-primary" />
                                 <h1 className="text-2xl font-bold text-primary">Registro de Operaciones Manuales Clientes</h1>
                             </div>
-                             <p className="text-sm text-gray-500">Agregue, edite o elimine operaciones manuales.</p>
+                             <p className="text-sm text-gray-500">Agregue, edite o elimine operaciones manuales de facturación a clientes.</p>
                         </div>
                     </div>
                 </header>
@@ -940,8 +941,9 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any; 
                     const selectedIndex = watchedTariffs.findIndex((t: any) => t.tariffId === tariff.id);
                     const isSelected = selectedIndex > -1;
                     const isExcess = tariff.name.includes("EXCESO");
-                    const showQuantity = isSelected && (isExcess || ['TIEMPO EXTRA ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA'].includes(selectedConceptInfo.conceptName));
                     
+                    const showQuantity = isSelected && isExcess;
+
                     return (
                         <div key={tariff.id} className="space-y-2">
                             <div className="flex items-center space-x-2">
@@ -949,7 +951,7 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any; 
                                     id={tariff.id}
                                     checked={isSelected}
                                     onCheckedChange={() => handleToggle(tariff.id)}
-                                    disabled={dialogMode === 'view' || (!isExcess && selectedConceptInfo.conceptName === 'POSICIONES FIJAS CÁMARA CONGELADOS')}
+                                    disabled={dialogMode === 'view'}
                                 />
                                 <Label htmlFor={tariff.id} className="font-normal cursor-pointer flex-grow">{tariff.name} ({tariff.value.toLocaleString('es-CO', {style:'currency', currency: 'COP', minimumFractionDigits: 0})} / {tariff.unit})</Label>
                             </div>
