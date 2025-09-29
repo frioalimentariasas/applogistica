@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -824,7 +825,14 @@ function ConceptFormBody({ form, clientOptions, standardObservations, pedidoType
                                     <FormField control={form.control} name={`specificTariffs.${index}.name`} render={({ field }) => (<FormItem><FormLabel>Nombre Tarifa</FormLabel><FormControl><Input placeholder="Ej: HORA EXTRA DIURNA" {...field} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
                                     <FormField control={form.control} name={`specificTariffs.${index}.unit`} render={({ field }) => (<FormItem><FormLabel>Unidad</FormLabel><Select onValueChange={field.onChange} value={field.value}><FormControl><SelectTrigger><SelectValue/></SelectTrigger></FormControl><SelectContent><ScrollArea className="h-48">{specificUnitOptions.map(o => <SelectItem key={o} value={o}>{o}</SelectItem>)}</ScrollArea></SelectContent></Select><FormMessage /></FormItem>)}/>
                                     <FormField control={form.control} name={`specificTariffs.${index}.value`} render={({ field }) => (<FormItem><FormLabel>Valor (COP)</FormLabel><FormControl><Input type="number" step="0.01" {...field}/></FormControl><FormMessage /></FormItem>)}/>
-                                    <FormField control={form.control} name={`specificTariffs.${index}.baseQuantity`} render={({ field }) => (<FormItem><FormLabel>Cantidad Base</FormLabel><FormControl><Input type="number" step="1" {...field} /></FormControl><FormDescription className="text-xs">Para Posiciones Fijas</FormDescription><FormMessage /></FormItem>)}/>
+                                    <FormField control={form.control} name={`specificTariffs.${index}.baseQuantity`} render={({ field }) => (
+                                        <FormItem>
+                                            <FormLabel>Cantidad Base</FormLabel>
+                                            <FormControl><Input type="number" step="1" {...field} onChange={e => field.onChange(parseInt(e.target.value))} /></FormControl>
+                                            <FormDescription className="text-xs">Para Posiciones Fijas</FormDescription>
+                                            <FormMessage />
+                                        </FormItem>
+                                    )}/>
                                     <Button type="button" variant="ghost" size="icon" className="absolute top-1 right-1 text-destructive h-6 w-6" onClick={() => removeSpecificTariff(index)}><Trash2 className="h-4 w-4" /></Button>
                                 </div>
                             ))}
