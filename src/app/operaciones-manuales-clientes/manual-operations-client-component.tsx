@@ -1,4 +1,5 @@
 
+
       
 "use client";
 
@@ -140,10 +141,10 @@ const manualOperationSchema = z.object({
         }
     }
 
-    if (isFixedMonthlyService) {
-        if (isPositionMode && (!data.specificTariffs || data.specificTariffs.length === 0)) {
+    if (isPositionMode) {
+        if (!data.specificTariffs || data.specificTariffs.length === 0) {
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "Debe seleccionar al menos una tarifa.", path: ["specificTariffs"] });
-        } else if (isPositionMode) {
+        } else {
             const excessTariffIndex = data.specificTariffs?.findIndex(t => t.tariffId.includes('EXCESO'));
             if (excessTariffIndex !== undefined && excessTariffIndex > -1) {
                 const excessTariff = data.specificTariffs?.[excessTariffIndex];
@@ -245,7 +246,6 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     const isElectricConnection = watchedConcept === 'CONEXIÓN ELÉCTRICA CONTENEDOR';
     const isFmmZfpc = watchedConcept === 'FMM ZFPC';
     const isFmmConcept = watchedConcept === 'FMM DE INGRESO ZFPC' || watchedConcept === 'FMM DE SALIDA ZFPC';
-    const isFixedMonthlyService = isPositionMode || watchedConcept === 'IN-HOUSE INSPECTOR ZFPC' || watchedConcept === 'ALQUILER IMPRESORA ETIQUETADO';
     const showAdvancedFields = ['INSPECCIÓN ZFPC', 'TOMA DE PESOS POR ETIQUETA HRS'].includes(watchedConcept);
     const showTimeExtraFields = ['TIEMPO EXTRA ZFPC', 'TIEMPO EXTRA FRIOAL', 'INSPECCIÓN ZFPC'].includes(watchedConcept);
     const showTunelCongelacionFields = watchedConcept === 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA';
@@ -590,7 +590,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                 <Edit className="h-8 w-8 text-primary" />
                                 <h1 className="text-2xl font-bold text-primary">Registro de Operaciones Manuales Clientes</h1>
                             </div>
-                             <p className="text-sm text-gray-500">Agregue, edite o elimine operaciones manuales para facturación a clientes.</p>
+                             <p className="text-sm text-gray-500">Agregue, edite o elimine operaciones manuales.</p>
                         </div>
                     </div>
                 </header>
@@ -724,7 +724,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                             <div className="p-4">
                                 <Form {...form}>
                                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                                        <ConceptFormBody form={form} clients={clients} billingConcepts={billingConcepts} dialogMode={dialogMode} isConceptDialogOpen={isConceptDialogOpen} setConceptDialogOpen={setConceptDialogOpen} handleCaptureTime={handleCaptureTime} isTimeExtraMode={isTimeExtraMode} isBulkMode={isBulkMode} isElectricConnection={isElectricConnection} isPositionMode={isPositionMode} isFmmConcept={isFmmConcept} isFmmZfpc={isFmmZfpc} showAdvancedFields={showAdvancedFields} showTimeExtraFields={showTimeExtraFields} showTunelCongelacionFields={showTunelCongelacionFields} calculatedDuration={calculatedDuration} calculatedElectricConnectionHours={calculatedElectricConnectionHours} isFixedMonthlyService={isFixedMonthlyService} showAdvancedTariffs={showAdvancedTariffs} />
+                                        <ConceptFormBody form={form} clients={clients} billingConcepts={billingConcepts} dialogMode={dialogMode} isConceptDialogOpen={isConceptDialogOpen} setConceptDialogOpen={setConceptDialogOpen} handleCaptureTime={handleCaptureTime} isTimeExtraMode={isTimeExtraMode} isBulkMode={isBulkMode} isElectricConnection={isElectricConnection} isPositionMode={isPositionMode} isFmmConcept={isFmmConcept} isFmmZfpc={isFmmZfpc} showAdvancedFields={showAdvancedFields} showTimeExtraFields={showTimeExtraFields} showTunelCongelacionFields={showTunelCongelacionFields} calculatedDuration={calculatedDuration} calculatedElectricConnectionHours={calculatedElectricConnectionHours} showAdvancedTariffs={showAdvancedTariffs} />
                                         <DialogFooter>
                                             <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                                                 {dialogMode === 'view' ? 'Cerrar' : 'Cancelar'}
@@ -940,10 +940,9 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any; 
                 {(selectedConceptInfo?.specificTariffs || []).map(tariff => {
                     const selectedIndex = watchedTariffs.findIndex((t: any) => t.tariffId === tariff.id);
                     const isSelected = selectedIndex > -1;
-                    const isConceptWithSpecialQuantity = ['TIEMPO EXTRA ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA'].includes(selectedConceptInfo.conceptName);
                     const isExcessTariff = tariff.name.includes("EXCESO");
-                    const showQuantity = isSelected && (isConceptWithSpecialQuantity || (selectedConceptInfo.conceptName === 'POSICIONES FIJAS CÁMARA CONGELADOS' && isExcessTariff));
-                    const isDisabled = dialogMode === 'view' || (selectedConceptInfo.conceptName === 'POSICIONES FIJAS CÁMARA CONGELADOS' && !isExcessTariff);
+                    const showQuantity = isSelected && (isExcessTariff);
+                    const isDisabled = dialogMode === 'view';
                     
                     return (
                         <div key={tariff.id} className="space-y-2">
@@ -989,14 +988,15 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any; 
 }
 
 function ConceptFormBody(props: any) {
-  const { form, clients, billingConcepts, dialogMode, isConceptDialogOpen, setConceptDialogOpen, handleCaptureTime, isTimeExtraMode, isBulkMode, isElectricConnection, isPositionMode, isFmmConcept, isFmmZfpc, showAdvancedFields, showTimeExtraFields, showTunelCongelacionFields, calculatedDuration, calculatedElectricConnectionHours, isFixedMonthlyService, showAdvancedTariffs } = props;
+  const { form, clients, billingConcepts, dialogMode, isConceptDialogOpen, setConceptDialogOpen, handleCaptureTime, isTimeExtraMode, isBulkMode, isElectricConnection, isPositionMode, isFmmConcept, isFmmZfpc, showAdvancedFields, showTimeExtraFields, showTunelCongelacionFields, calculatedDuration, calculatedElectricConnectionHours } = props;
   const watchedConcept = useWatch({ control: form.control, name: 'concept' });
   const selectedConceptInfo = useMemo(() => billingConcepts.find((c: ClientBillingConcept) => c.conceptName === watchedConcept), [watchedConcept, billingConcepts]);
-  const conceptsWithoutQuantity = ['TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 'POSICIONES FIJAS CÁMARA CONGELADOS', 'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'FMM ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA', 'TIEMPO EXTRA ZFPC'];
   
+  const conceptsWithoutQuantity = ['TIEMPO EXTRA FRIOAL (FIJO)', 'POSICIONES FIJAS CÁMARA CONGELADOS', 'IN-HOUSE INSPECTOR ZFPC', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'FMM ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA'];
   const showNumeroPersonas = watchedConcept === 'TIEMPO EXTRA ZFPC';
-  const showGeneralQuantity = !conceptsWithoutQuantity.includes(watchedConcept);
-
+  const showGeneralQuantity = !conceptsWithoutQuantity.includes(watchedConcept) && !showNumeroPersonas;
+  const showAdvancedTariffs = ['POSICIONES FIJAS CÁMARA CONGELADOS', 'TIEMPO EXTRA ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA'].includes(watchedConcept);
+  
   return (
     <>
       <FormField control={form.control} name="clientName" render={({ field }) => ( <FormItem><FormLabel>Cliente <span className="text-destructive">*</span></FormLabel><Select onValueChange={field.onChange} value={field.value} disabled={dialogMode === 'view'}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione un cliente" /></SelectTrigger></FormControl><SelectContent><ScrollArea className="h-60">{clients.map((c: ClientInfo) => <SelectItem key={c.id} value={c.razonSocial}>{c.razonSocial}</SelectItem>)}</ScrollArea></SelectContent></Select><FormMessage /></FormItem> )}/>
@@ -1207,6 +1207,3 @@ function ConceptFormBody(props: any) {
     </>
   );
 }
-
-
-    
