@@ -1,5 +1,3 @@
-
-
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -248,6 +246,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     const showAdvancedFields = ['INSPECCIÓN ZFPC', 'TIEMPO EXTRA ZFPC', 'TOMA DE PESOS POR ETIQUETA HRS'].includes(watchedConcept);
     const showTimeExtraFields = ['TIEMPO EXTRA ZFPC', 'TIEMPO EXTRA FRIOAL', 'INSPECCIÓN ZFPC'].includes(watchedConcept);
     const showTunelCongelacionFields = watchedConcept === 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA';
+    const showAdvancedTariffs = ['POSICIONES FIJAS CÁMARA CONGELADOS', 'TIEMPO EXTRA ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA'].includes(watchedConcept);
 
 
     useEffect(() => {
@@ -722,7 +721,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                             <div className="p-4">
                                 <Form {...form}>
                                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                                        <ConceptFormBody form={form} clients={clients} billingConcepts={billingConcepts} dialogMode={dialogMode} isConceptDialogOpen={isConceptDialogOpen} setConceptDialogOpen={setConceptDialogOpen} handleCaptureTime={handleCaptureTime} isTimeExtraMode={isTimeExtraMode} isBulkMode={isBulkMode} isElectricConnection={isElectricConnection} isPositionMode={isPositionMode} isFmmConcept={isFmmConcept} isFmmZfpc={isFmmZfpc} showAdvancedFields={showAdvancedFields} showTimeExtraFields={showTimeExtraFields} showTunelCongelacionFields={showTunelCongelacionFields} calculatedDuration={calculatedDuration} calculatedElectricConnectionHours={calculatedElectricConnectionHours} isFixedMonthlyService={isFixedMonthlyService} />
+                                        <ConceptFormBody form={form} clients={clients} billingConcepts={billingConcepts} dialogMode={dialogMode} isConceptDialogOpen={isConceptDialogOpen} setConceptDialogOpen={setConceptDialogOpen} handleCaptureTime={handleCaptureTime} isTimeExtraMode={isTimeExtraMode} isBulkMode={isBulkMode} isElectricConnection={isElectricConnection} isPositionMode={isPositionMode} isFmmConcept={isFmmConcept} isFmmZfpc={isFmmZfpc} showAdvancedFields={showAdvancedFields} showTimeExtraFields={showTimeExtraFields} showTunelCongelacionFields={showTunelCongelacionFields} calculatedDuration={calculatedDuration} calculatedElectricConnectionHours={calculatedElectricConnectionHours} isFixedMonthlyService={isFixedMonthlyService} showAdvancedTariffs={showAdvancedTariffs} />
                                         <DialogFooter>
                                             <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                                                 {dialogMode === 'view' ? 'Cerrar' : 'Cancelar'}
@@ -939,6 +938,7 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any; 
                  handleToggle(baseTariff.id);
             }
         }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [selectedConceptInfo, dialogMode, watchedTariffs.length]);
 
 
@@ -951,7 +951,8 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any; 
                     const selectedIndex = watchedTariffs.findIndex((t: any) => t.tariffId === tariff.id);
                     const isSelected = selectedIndex > -1;
                     const isExcess = tariff.name.includes("EXCESO");
-                    
+                    const showQuantity = isSelected;
+
                     return (
                         <div key={tariff.id} className="space-y-2">
                             <div className="flex items-center space-x-2">
@@ -959,18 +960,18 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any; 
                                     id={tariff.id}
                                     checked={isSelected}
                                     onCheckedChange={() => handleToggle(tariff.id)}
-                                    disabled={dialogMode === 'view'}
+                                    disabled={dialogMode === 'view' || (selectedConceptInfo.conceptName === 'POSICIONES FIJAS CÁMARA CONGELADOS' && !isExcess)}
                                 />
                                 <Label htmlFor={tariff.id} className="font-normal cursor-pointer flex-grow">{tariff.name} ({tariff.value.toLocaleString('es-CO', {style:'currency', currency: 'COP', minimumFractionDigits: 0})} / {tariff.unit})</Label>
                             </div>
-                            {isSelected && isExcess && (
+                            {showQuantity && (
                                 <FormField
                                     control={form.control}
                                     name={`specificTariffs.${selectedIndex}.quantity`}
                                     render={({ field }) => (
                                         <FormItem className="pl-6">
                                             <div className="flex items-center gap-2">
-                                                <Label className="text-xs">Cant. Exceso:</Label>
+                                                <Label className="text-xs">Cant. ({tariff.unit}):</Label>
                                                 <FormControl>
                                                     <Input
                                                         type="number"
@@ -996,7 +997,7 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any; 
 }
 
 function ConceptFormBody(props: any) {
-  const { form, clients, billingConcepts, dialogMode, isConceptDialogOpen, setConceptDialogOpen, handleCaptureTime, isTimeExtraMode, isBulkMode, isElectricConnection, isPositionMode, isFmmConcept, isFmmZfpc, showAdvancedFields, showTimeExtraFields, showTunelCongelacionFields, calculatedDuration, calculatedElectricConnectionHours, isFixedMonthlyService } = props;
+  const { form, clients, billingConcepts, dialogMode, isConceptDialogOpen, setConceptDialogOpen, handleCaptureTime, isTimeExtraMode, isBulkMode, isElectricConnection, isPositionMode, isFmmConcept, isFmmZfpc, showAdvancedFields, showTimeExtraFields, showTunelCongelacionFields, calculatedDuration, calculatedElectricConnectionHours, isFixedMonthlyService, showAdvancedTariffs } = props;
   const watchedConcept = useWatch({ control: form.control, name: 'concept' });
   const selectedConceptInfo = useMemo(() => billingConcepts.find((c: ClientBillingConcept) => c.conceptName === watchedConcept), [watchedConcept, billingConcepts]);
   const conceptsWithoutQuantity = ['TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 'POSICIONES FIJAS CÁMARA CONGELADOS', 'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'FMM ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA', 'ALQUILER DE ÁREA PARA EMPAQUE/DIA', 'SERVICIO APOYO JORNAL'];
@@ -1103,9 +1104,8 @@ function ConceptFormBody(props: any) {
       
       {(isBulkMode || isTimeExtraMode) && <BulkRolesSection form={form} dialogMode={dialogMode} />}
       {isBulkMode && form.watch('concept') === 'TIEMPO EXTRA FRIOAL (FIJO)' && <ExcedentManager />}
-      {selectedConceptInfo?.tariffType === 'ESPECIFICA' && !isBulkMode && !isTimeExtraMode && (
-            <TariffSelector form={form} selectedConceptInfo={selectedConceptInfo} dialogMode={dialogMode} />
-      )}
+      
+      {showAdvancedTariffs && selectedConceptInfo && selectedConceptInfo.tariffType === 'ESPECIFICA' && <TariffSelector form={form} selectedConceptInfo={selectedConceptInfo} dialogMode={dialogMode} />}
       
       {!conceptsWithoutQuantity.includes(watchedConcept) && !isBulkMode && (
         <FormField
