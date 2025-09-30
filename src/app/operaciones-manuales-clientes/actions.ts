@@ -400,3 +400,30 @@ export async function deleteManualClientOperation(id: string): Promise<{ success
         return { success: false, message: `Error del servidor: ${errorMessage}` };
     }
 }
+
+
+export async function deleteMultipleManualClientOperations(ids: string[]): Promise<{ success: boolean; message: string }> {
+    if (!firestore) {
+        return { success: false, message: 'Error de configuración del servidor.' };
+    }
+    if (!ids || ids.length === 0) {
+        return { success: false, message: 'No se seleccionaron operaciones para eliminar.' };
+    }
+
+    try {
+        const batch = firestore.batch();
+        ids.forEach(id => {
+            const docRef = firestore.collection('manual_client_operations').doc(id);
+            batch.delete(docRef);
+        });
+        await batch.commit();
+        
+        revalidatePath('/billing-reports');
+        revalidatePath('/operaciones-manuales-clientes');
+        return { success: true, message: `${ids.length} operación(es) eliminada(s) con éxito.` };
+    } catch (error) {
+        console.error('Error al eliminar operaciones en lote:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Ocurrió un error desconocido.';
+        return { success: false, message: `Error del servidor: ${errorMessage}` };
+    }
+}
