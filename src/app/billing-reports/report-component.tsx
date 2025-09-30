@@ -1350,8 +1350,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         }, {} as Record<string, { rows: ClientSettlementRow[], subtotalCantidad: number, subtotalValor: number, order: number }>);
     
         const sortedConceptKeys = Object.keys(groupedByConcept).sort((a, b) => {
-            const orderA = groupedByConcept[a].order === -1 ? Infinity : groupedByConcept[a].order;
-            const orderB = groupedByConcept[b].order === -1 ? Infinity : b.order;
+            const orderA = groupedByConcept[a].order === -1 ? Infinity : a.localeCompare(b);
+            const orderB = groupedByConcept[b].order === -1 ? Infinity : b.localeCompare(a);
             if (orderA !== orderB) return orderA - orderB;
             return a.localeCompare(b);
         });
@@ -2590,7 +2590,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                     <TableRow key={row.uniqueId} data-state={row.isEdited ? "edited" : ""}>
                                                                         <TableCell className="text-xs p-2">{format(parseISO(row.date), 'dd/MM/yyyy', { locale: es })}</TableCell>
                                                                         <TableCell className="text-xs p-2 whitespace-normal">{row.subConceptName}</TableCell>
-                                                                        <TableCell className="text-xs p-2">{row.conceptName === 'POSICIONES FIJAS CÁMARA CONGELADOS' ? '' : (row.numeroPersonas || '')}</TableCell>
+                                                                        <TableCell className="text-xs p-2">{row.numeroPersonas || ''}</TableCell>
                                                                         <TableCell className="text-xs p-2">{row.totalPaletas > 0 ? row.totalPaletas : ''}</TableCell>
                                                                         <TableCell className="text-xs p-2">{row.placa}</TableCell>
                                                                         <TableCell className="text-xs p-2">{getSessionName(row.camara)}</TableCell>
@@ -2704,7 +2704,7 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target;
-        setEditedRow(prev => ({ ...prev, [name]: name === 'quantity' || name === 'unitValue' ? parseFloat(value) : value }));
+        setEditedRow(prev => ({ ...prev, [name]: name === 'quantity' || name === 'unitValue' || name === 'numeroPersonas' ? parseFloat(value) : value }));
     };
 
     const handleSelectChange = (name: keyof ClientSettlementRow, value: string) => {
@@ -2757,7 +2757,11 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
                             <Input id="quantity" name="quantity" type="number" value={editedRow.quantity} onChange={handleChange} />
                         </div>
                     </div>
-                    <div className="grid grid-cols-2 gap-4">
+                     <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="numeroPersonas">No. Personas</Label>
+                            <Input id="numeroPersonas" name="numeroPersonas" type="number" value={editedRow.numeroPersonas} onChange={handleChange} />
+                        </div>
                         <div className="space-y-2">
                             <Label htmlFor="unitOfMeasure">Unidad</Label>
                              <Select name="unitOfMeasure" value={editedRow.unitOfMeasure} onValueChange={(value) => handleSelectChange('unitOfMeasure', value)}>
@@ -2771,10 +2775,10 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
                                 </SelectContent>
                             </Select>
                         </div>
-                        <div className="space-y-2">
-                            <Label htmlFor="unitValue">Valor Unitario</Label>
-                            <Input id="unitValue" name="unitValue" type="number" value={editedRow.unitValue} onChange={handleChange} />
-                        </div>
+                    </div>
+                    <div className="space-y-2">
+                        <Label htmlFor="unitValue">Valor Unitario</Label>
+                        <Input id="unitValue" name="unitValue" type="number" value={editedRow.unitValue} onChange={handleChange} />
                     </div>
                      <div className="space-y-2">
                         <Label>Comentarios de justificación</Label>
@@ -2807,6 +2811,7 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 
 
     
+
 
 
 

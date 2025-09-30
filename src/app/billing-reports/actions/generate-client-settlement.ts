@@ -878,9 +878,7 @@ export async function generateClientSettlement(criteria: {
                     });
                 }
             } else if (concept.tariffType === 'UNICA') {
-                const quantityForCalc = concept.conceptName === 'SERVICIO APOYO JORNAL' 
-                    ? (opData.numeroPersonas || 1)
-                    : (opData.quantity || 1);
+                const quantityForCalc = (opData.quantity || 1);
                 
                 let totalValue;
             
@@ -892,6 +890,9 @@ export async function generateClientSettlement(criteria: {
                     totalValue = 15 * (concept.value || 0);
                 } else if (concept.conceptName === 'IN-HOUSE INSPECTOR ZFPC') {
                     totalValue = concept.value || 0;
+                } else if (concept.conceptName === 'SERVICIO APOYO JORNAL') {
+                    const numPersonas = opData.numeroPersonas || 1;
+                    totalValue = numPersonas * (concept.value || 0);
                 } else {
                     totalValue = quantityForCalc * (concept.value || 0);
                 }
@@ -926,7 +927,7 @@ export async function generateClientSettlement(criteria: {
                     pedidoSislog: opData.details?.pedidoSislog || 'No Aplica',
                     conceptName: concept.conceptName,
                     tipoVehiculo: opData.details?.plate || 'No Aplica',
-                    quantity: quantityForCalc,
+                    quantity: concept.conceptName === 'SERVICIO APOYO JORNAL' ? (opData.numeroPersonas || 1) : quantityForCalc,
                     unitOfMeasure: concept.unitOfMeasure,
                     unitValue: concept.value || 0,
                     totalValue: totalValue,
