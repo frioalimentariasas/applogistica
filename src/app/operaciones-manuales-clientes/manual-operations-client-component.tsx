@@ -1004,7 +1004,7 @@ function ConceptFormBody(props: any) {
   const watchedConcept = useWatch({ control: form.control, name: 'concept' });
   const selectedConceptInfo = useMemo(() => billingConcepts.find((c: ClientBillingConcept) => c.conceptName === watchedConcept), [watchedConcept, billingConcepts]);
   
-  const showNumeroPersonas = ['TIEMPO EXTRA ZFPC', 'INSPECCIÓN ZFPC'].includes(watchedConcept);
+  const showNumeroPersonas = ['TIEMPO EXTRA ZFPC', 'INSPECCIÓN ZFPC', 'SERVICIO APOYO JORNAL'].includes(watchedConcept);
   const hideGeneralQuantityField = ['TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 'POSICIONES FIJAS CÁMARA CONGELADOS', 'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'FMM ZFPC', 'TIEMPO EXTRA ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA', 'SERVICIO APOYO JORNAL'].includes(watchedConcept);
   const showAdvancedTariffs = ['POSICIONES FIJAS CÁMARA CONGELADOS', 'TIEMPO EXTRA ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA'].includes(watchedConcept);
   
@@ -1217,4 +1217,3 @@ function ConceptFormBody(props: any) {
     </>
   );
 }
-
