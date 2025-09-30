@@ -13,7 +13,7 @@ import { es } from 'date-fns/locale';
 import { DateRange } from 'react-day-picker';
 
 
-import { addManualClientOperation, updateManualClientOperation, deleteManualClientOperation, addBulkManualClientOperation, addBulkSimpleOperation } from './actions';
+import { addManualClientOperation, updateManualClientOperation, deleteManualClientOperation, addBulkManualClientOperation, addBulkSimpleOperation, deleteMultipleManualClientOperations } from './actions';
 import { getAllManualClientOperations } from '@/app/billing-reports/actions/generate-client-settlement';
 import type { ManualClientOperationData, ExcedentEntry } from './actions';
 import { useToast } from '@/hooks/use-toast';
@@ -204,6 +204,9 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     const [opToDelete, setOpToDelete] = useState<any | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
     const [isConceptDialogOpen, setConceptDialogOpen] = useState(false);
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [isConfirmBulkDeleteOpen, setIsConfirmBulkDeleteOpen] = useState(false);
+    const [isBulkDeleting, setIsBulkDeleting] = useState(false);
 
     const form = useForm<ManualOperationValues>({
         resolver: zodResolver(manualOperationSchema),
@@ -515,6 +518,27 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         setIsDeleting(false);
     };
 
+    const handleBulkDeleteConfirm = async () => {
+        if (selectedIds.size === 0) return;
+        setIsBulkDeleting(true);
+        const idsToDelete = Array.from(selectedIds);
+        const result = await deleteMultipleManualClientOperations(idsToDelete);
+        if (result.success) {
+            toast({ title: 'Éxito', description: result.message });
+            const updatedOps = await fetchAllOperations();
+            setSelectedIds(new Set());
+            if (searched && dateRange) {
+                handleSearch(updatedOps);
+            } else {
+                setFilteredOperations(updatedOps);
+            }
+        } else {
+            toast({ variant: 'destructive', title: 'Error', description: result.message });
+        }
+        setIsConfirmBulkDeleteOpen(false);
+        setIsBulkDeleting(false);
+    };
+
     const handleCaptureTime = (fieldName: 'details.startTime' | 'details.endTime' | 'details.horaArribo' | 'details.horaSalida') => {
         const now = new Date();
         const hours = String(now.getHours()).padStart(2, '0');
@@ -576,6 +600,29 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         }
     }, [isTimeExtraMode, calculatedDuration, isElectricConnection, calculatedElectricConnectionHours, form]);
 
+    const handleRowSelect = (id: string, checked: boolean) => {
+        const newSet = new Set(selectedIds);
+        if (checked) {
+            newSet.add(id);
+        } else {
+            newSet.delete(id);
+        }
+        setSelectedIds(newSet);
+    };
+
+    const handleSelectAll = (checked: boolean) => {
+        if (checked) {
+            setSelectedIds(new Set(filteredOperations.map(op => op.id)));
+        } else {
+            setSelectedIds(new Set());
+        }
+    };
+
+    const isAllSelected = useMemo(() => {
+        if (filteredOperations.length === 0) return false;
+        return filteredOperations.every(op => selectedIds.has(op.id));
+    }, [selectedIds, filteredOperations]);
+
     return (
         <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
             <div className="max-w-4xl mx-auto">
@@ -596,14 +643,24 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                 
                 <Card>
                     <CardHeader>
-                        <div className="flex justify-between items-center">
-                            <CardTitle>Operaciones Registradas</CardTitle>
-                            <Button onClick={() => openDialog('add')}>
-                                <PlusCircle className="mr-2 h-4 w-4" />
-                                Nueva Operación
-                            </Button>
+                        <div className="flex justify-between items-center flex-wrap gap-2">
+                            <div>
+                                <CardTitle>Operaciones Registradas</CardTitle>
+                                <CardDescription>Filtre y consulte las operaciones manuales guardadas en el sistema.</CardDescription>
+                            </div>
+                            <div className="flex gap-2">
+                                {selectedIds.size > 0 && (
+                                    <Button onClick={() => setIsConfirmBulkDeleteOpen(true)} variant="destructive" size="sm" disabled={isBulkDeleting}>
+                                        <Trash2 className="mr-2 h-4 w-4" />
+                                        Eliminar ({selectedIds.size})
+                                    </Button>
+                                )}
+                                <Button onClick={() => openDialog('add')}>
+                                    <PlusCircle className="mr-2 h-4 w-4" />
+                                    Nueva Operación
+                                </Button>
+                            </div>
                         </div>
-                        <CardDescription>Filtre y consulte las operaciones manuales guardadas en el sistema.</CardDescription>
                     </CardHeader>
                     <CardContent>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4 items-end mb-6 p-4 border rounded-lg bg-muted/50">
@@ -654,6 +711,14 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                             <Table>
                                 <TableHeader>
                                     <TableRow>
+                                        <TableHead className="w-12">
+                                            <Checkbox
+                                                checked={isAllSelected}
+                                                onCheckedChange={(checked) => handleSelectAll(checked === true)}
+                                                aria-label="Seleccionar todas"
+                                                disabled={filteredOperations.length === 0}
+                                            />
+                                        </TableHead>
                                         <TableHead>Fecha</TableHead>
                                         <TableHead>Concepto</TableHead>
                                         <TableHead>Cliente</TableHead>
@@ -663,10 +728,17 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                 </TableHeader>
                                 <TableBody>
                                     {isLoading && !searched ? (
-                                        <TableRow><TableCell colSpan={5} className="text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow>
+                                        <TableRow><TableCell colSpan={6} className="text-center"><Loader2 className="h-6 w-6 animate-spin mx-auto" /></TableCell></TableRow>
                                     ) : filteredOperations.length > 0 ? (
                                         filteredOperations.map((op) => (
-                                            <TableRow key={op.id}>
+                                            <TableRow key={op.id} data-state={selectedIds.has(op.id) && "selected"}>
+                                                <TableCell>
+                                                    <Checkbox
+                                                        checked={selectedIds.has(op.id)}
+                                                        onCheckedChange={(checked) => handleRowSelect(op.id, checked === true)}
+                                                        aria-label={`Seleccionar operación ${op.id}`}
+                                                    />
+                                                </TableCell>
                                                 <TableCell>{op.details?.fechaArribo && op.details?.fechaSalida ? `${format(parseISO(op.details.fechaArribo), 'dd/MM/yy')} - ${format(parseISO(op.details.fechaSalida), 'dd/MM/yy')}` : format(parseISO(op.operationDate), 'dd/MM/yyyy')}</TableCell>
                                                 <TableCell>{op.concept}</TableCell>
                                                 <TableCell>{op.clientName || 'No Aplica'}</TableCell>
@@ -686,7 +758,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                         ))
                                     ) : (
                                         <TableRow>
-                                            <TableCell colSpan={5} className="h-24 text-center">
+                                            <TableCell colSpan={6} className="h-24 text-center">
                                                 <div className="flex flex-col items-center gap-4 py-8">
                                                     <FolderSearch className="h-12 w-12 text-primary" />
                                                     <h3 className="text-xl font-semibold">
@@ -695,7 +767,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                     <p className="text-muted-foreground">
                                                         {searched
                                                             ? "No hay operaciones manuales para los filtros seleccionados."
-                                                            : "Seleccione una fecha y haga clic en 'Consultar' para ver los registros."}
+                                                            : "Seleccione un rango de fechas y haga clic en 'Consultar' para ver los registros."}
                                                     </p>
                                                 </div>
                                             </TableCell>
@@ -750,6 +822,28 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                             <AlertDialogAction onClick={handleDeleteConfirm} disabled={isDeleting} className={cn(buttonVariants({ variant: 'destructive' }))}>
                                 {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
                                 Sí, Eliminar
+                            </AlertDialogAction>
+                        </AlertDialogFooter>
+                    </AlertDialogContent>
+                </AlertDialog>
+                
+                 <AlertDialog open={isConfirmBulkDeleteOpen} onOpenChange={setIsConfirmBulkDeleteOpen}>
+                    <AlertDialogContent>
+                        <AlertDialogHeader>
+                            <AlertDialogTitle>¿Confirmar eliminación masiva?</AlertDialogTitle>
+                            <AlertDialogDesc>
+                                Esta acción no se puede deshacer. Se eliminarán permanentemente <strong>{selectedIds.size}</strong> operación(es) seleccionada(s).
+                            </AlertDialogDesc>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                            <AlertDialogAction 
+                                onClick={handleBulkDeleteConfirm} 
+                                disabled={isBulkDeleting}
+                                className={cn(buttonVariants({ variant: 'destructive' }))}
+                            >
+                                {isBulkDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                                Sí, eliminar seleccionados
                             </AlertDialogAction>
                         </AlertDialogFooter>
                     </AlertDialogContent>
@@ -882,14 +976,18 @@ function ExcedentManager() {
     );
 }
 
-function BulkRolesSection({ form, dialogMode }: { form: any; dialogMode: string; }) {
+function BulkRolesSection({ form, dialogMode, conceptName }: { form: any; dialogMode: string; conceptName: string; }) {
   const { fields: bulkRoleFields } = useFieldArray({
       control: form.control,
       name: "bulkRoles"
   });
   return (
     <div className="space-y-4">
-      <FormLabel className="text-base">Asignación de Personal</FormLabel>
+      <FormLabel className="text-base">
+        {conceptName === 'ALQUILER DE ÁREA PARA EMPAQUE/DIA' 
+            ? 'Asignación de Área' 
+            : 'Asignación de Personal'}
+      </FormLabel>
       {bulkRoleFields.map((field: any, index: number) => (
         <div key={field.id} className="grid grid-cols-5 items-center gap-2 border-b pb-2">
           <Label className="col-span-2 text-sm">{field.roleName}</Label>
@@ -944,8 +1042,10 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any; 
                     if (isSelected) {
                         if (selectedConceptInfo.conceptName === 'POSICIONES FIJAS CÁMARA CONGELADOS') {
                             showQuantity = tariff.name.includes("EXCESO");
-                        } else if (selectedConceptInfo.conceptName === 'TIEMPO EXTRA ZFPC' || selectedConceptInfo.conceptName === 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA') {
-                            showQuantity = true;
+                        } else if (selectedConceptInfo.conceptName === 'TIEMPO EXTRA ZFPC') {
+                            showQuantity = false; // Cantidad es por persona, se maneja diferente
+                        } else if (selectedConceptInfo.conceptName === 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA') {
+                            showQuantity = true; // Siempre mostrar para este concepto
                         }
                     }
 
@@ -997,9 +1097,8 @@ function ConceptFormBody(props: any) {
   const watchedConcept = useWatch({ control: form.control, name: 'concept' });
   const selectedConceptInfo = useMemo(() => billingConcepts.find((c: ClientBillingConcept) => c.conceptName === watchedConcept), [watchedConcept, billingConcepts]);
   
-  const hideGeneralQuantityField = ['TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 'POSICIONES FIJAS CÁMARA CONGELADOS', 'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'FMM ZFPC', 'TIEMPO EXTRA ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA'].includes(watchedConcept);
   const showNumeroPersonas = ['TIEMPO EXTRA ZFPC', 'SERVICIO APOYO JORNAL'].includes(watchedConcept);
-  const showGeneralQuantity = !hideGeneralQuantityField && !showNumeroPersonas;
+  const showGeneralQuantity = !['TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA FRIOAL', 'POSICIONES FIJAS CÁMARA CONGELADOS', 'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'FMM ZFPC', 'TIEMPO EXTRA ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA'].includes(watchedConcept);
   const showAdvancedTariffs = ['POSICIONES FIJAS CÁMARA CONGELADOS', 'TIEMPO EXTRA ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA'].includes(watchedConcept);
   
   return (
@@ -1102,7 +1201,7 @@ function ConceptFormBody(props: any) {
           </Alert>
       )}
       
-      {(isBulkMode || isTimeExtraMode) && <BulkRolesSection form={form} dialogMode={dialogMode} />}
+      {(isBulkMode || isTimeExtraMode) && <BulkRolesSection form={form} dialogMode={dialogMode} conceptName={watchedConcept}/>}
       
       {showAdvancedTariffs && selectedConceptInfo && selectedConceptInfo.tariffType === 'ESPECIFICA' && <TariffSelector form={form} selectedConceptInfo={selectedConceptInfo} dialogMode={dialogMode} />}
       
