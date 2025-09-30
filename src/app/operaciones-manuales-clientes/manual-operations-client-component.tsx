@@ -245,7 +245,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     const isElectricConnection = watchedConcept === 'CONEXIÓN ELÉCTRICA CONTENEDOR';
     const isFmmZfpc = watchedConcept === 'FMM ZFPC';
     const isFmmConcept = watchedConcept === 'FMM DE INGRESO ZFPC' || watchedConcept === 'FMM DE SALIDA ZFPC';
-    const showAdvancedFields = ['INSPECCIÓN ZFPC', 'TOMA DE PESOS POR ETIQUETA HRS'].includes(watchedConcept);
+    const showAdvancedFields = ['TOMA DE PESOS POR ETIQUETA HRS'].includes(watchedConcept);
     const showTimeExtraFields = ['TIEMPO EXTRA ZFPC', 'TIEMPO EXTRA FRIOAL', 'INSPECCIÓN ZFPC'].includes(watchedConcept);
     const showTunelCongelacionFields = watchedConcept === 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA';
 
@@ -1171,8 +1171,18 @@ function ConceptFormBody(props: any) {
                     <FormField control={form.control} name="details.container" render={({ field }) => (<FormItem><FormLabel>Contenedor {(showAdvancedFields || isElectricConnection) && <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Contenedor" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
               )}
               
-              {props.watchedConcept === 'INSPECCIÓN ZFPC' && (
-                    <FormField control={form.control} name="details.arin" render={({ field }) => (<FormItem><FormLabel>ARIN <span className="text-destructive">*</span>}</FormLabel><FormControl><Input placeholder="Número de ARIN" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
+              {watchedConcept === 'INSPECCIÓN ZFPC' && (
+                  <FormField
+                      control={form.control}
+                      name="details.arin"
+                      render={({ field }) => (
+                          <FormItem>
+                              <FormLabel>ARIN <span className="text-destructive">*</span></FormLabel>
+                              <FormControl><Input placeholder="Número de ARIN" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl>
+                              <FormMessage />
+                          </FormItem>
+                      )}
+                  />
               )}
               
                 {isFmmConcept && (
@@ -1219,3 +1229,4 @@ function ConceptFormBody(props: any) {
     </>
   );
 }
+
