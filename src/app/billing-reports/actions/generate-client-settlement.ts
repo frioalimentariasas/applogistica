@@ -878,7 +878,10 @@ export async function generateClientSettlement(criteria: {
                     });
                 }
             } else if (concept.tariffType === 'UNICA') {
-                const quantityForCalc = opData.quantity || 1;
+                const quantityForCalc = concept.conceptName === 'SERVICIO APOYO JORNAL' 
+                    ? (opData.numeroPersonas || 1)
+                    : (opData.quantity || 1);
+                
                 let totalValue;
             
                 if (concept.billingPeriod === 'MENSUAL' && concept.conceptName !== 'IN-HOUSE INSPECTOR ZFPC') {
@@ -929,6 +932,7 @@ export async function generateClientSettlement(criteria: {
                     totalValue: totalValue,
                     horaInicio: horaInicio,
                     horaFin: horaFin,
+                    numeroPersonas: opData.numeroPersonas
                 });
             }
         }
@@ -1062,3 +1066,6 @@ const minutesToTime = (minutes: number): string => {
 
 
 
+
+
+    
