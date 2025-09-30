@@ -882,9 +882,9 @@ export async function generateClientSettlement(criteria: {
                 let totalValue;
                 let numeroPersonasParaReporte = opData.numeroPersonas;
 
-                if (concept.conceptName === 'SERVICIO APOYO JORNAL') {
-                    totalValue = opData.quantity * (concept.value || 0);
-                    numeroPersonasParaReporte = opData.quantity;
+                if (concept.conceptName === 'INSPECCIÓN ZFPC') {
+                    numeroPersonasParaReporte = opData.numeroPersonas;
+                    totalValue = quantityForCalc * (concept.value || 0) * (numeroPersonasParaReporte || 1);
                 } else if (concept.billingPeriod === 'MENSUAL' && concept.conceptName !== 'IN-HOUSE INSPECTOR ZFPC') {
                     const operationDate = parseISO(opData.operationDate);
                     const numDias = getDaysInMonth(operationDate);
@@ -893,9 +893,6 @@ export async function generateClientSettlement(criteria: {
                     totalValue = 15 * (concept.value || 0);
                 } else if (concept.conceptName === 'IN-HOUSE INSPECTOR ZFPC') {
                     totalValue = concept.value || 0;
-                } else if (concept.conceptName === 'INSPECCIÓN ZFPC') {
-                    numeroPersonasParaReporte = opData.numeroPersonas;
-                    totalValue = quantityForCalc * (concept.value || 0) * (opData.numeroPersonas || 1);
                 } else {
                     totalValue = quantityForCalc * (concept.value || 0);
                 }
@@ -1073,5 +1070,6 @@ const minutesToTime = (minutes: number): string => {
 
 
     
+
 
 
