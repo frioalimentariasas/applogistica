@@ -1,4 +1,5 @@
 
+
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -942,17 +943,18 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any; 
                     const isSelected = selectedIndex > -1;
                     
                     let showQuantity = false;
-                    const isDisabled = dialogMode === 'view';
-
                     if (isSelected) {
                         if (selectedConceptInfo.conceptName === 'POSICIONES FIJAS CÁMARA CONGELADOS') {
                             showQuantity = tariff.name.includes("EXCESO");
-                        } else if (selectedConceptInfo.conceptName === 'TIEMPO EXTRA ZFPC' || selectedConceptInfo.conceptName === 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA') {
-                            showQuantity = false;
-                        } else {
+                        } else if (
+                            selectedConceptInfo.conceptName === 'TIEMPO EXTRA ZFPC' ||
+                            selectedConceptInfo.conceptName === 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA'
+                        ) {
                             showQuantity = true;
                         }
                     }
+
+                    const isDisabled = dialogMode === 'view';
 
                     return (
                         <div key={tariff.id} className="space-y-2">
