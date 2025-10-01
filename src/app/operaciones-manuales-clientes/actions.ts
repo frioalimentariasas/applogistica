@@ -53,6 +53,30 @@ export interface ManualClientOperationData {
     selectedDates?: string[]; // For multi-date selection
 }
 
+async function isFmmNumberDuplicate(fmmNumber: string, currentOperationId?: string): Promise<boolean> {
+    if (!firestore) throw new Error("Firestore no está inicializado.");
+    if (!fmmNumber) return false;
+
+    const trimmedFmm = fmmNumber.trim();
+    if (!trimmedFmm) return false;
+
+    let query: admin.firestore.Query = firestore.collection('manual_client_operations').where('details.fmmNumber', '==', trimmedFmm);
+    
+    const querySnapshot = await query.get();
+
+    if (querySnapshot.empty) {
+        return false; // Not a duplicate
+    }
+    
+    // If we are editing, we need to make sure the found duplicate is not the document itself
+    if (currentOperationId) {
+        return querySnapshot.docs.some(doc => doc.id !== currentOperationId);
+    }
+    
+    // If we are adding (no currentId), any result is a duplicate
+    return true;
+}
+
 
 export async function addManualClientOperation(data: ManualClientOperationData): Promise<{ success: boolean; message: string }> {
     if (!firestore) {
@@ -61,6 +85,14 @@ export async function addManualClientOperation(data: ManualClientOperationData):
 
     try {
         const { details, operationDate, startDate, endDate, numeroPersonas, ...restOfData } = data;
+        
+        // FMM Duplication check
+        if (details?.fmmNumber) {
+            const isDuplicate = await isFmmNumberDuplicate(details.fmmNumber);
+            if (isDuplicate) {
+                return { success: false, message: `El # FMM "${details.fmmNumber}" ya existe en la base de datos.` };
+            }
+        }
         
         const operationDateToSave = admin.firestore.Timestamp.fromDate(new Date(operationDate!));
         
@@ -270,6 +302,13 @@ export async function updateManualClientOperation(id: string, data: Omit<ManualC
     try {
         const { details, operationDate, startDate, endDate, createdBy, ...restOfData } = data;
         let finalSpecificTariffs: { tariffId: string; quantity: number, role?: string, numPersonas?: number }[] = [];
+        
+        if (details?.fmmNumber) {
+            const isDuplicate = await isFmmNumberDuplicate(details.fmmNumber, id);
+            if (isDuplicate) {
+                return { success: false, message: `El # FMM "${details.fmmNumber}" ya existe en otro registro.` };
+            }
+        }
 
         if (data.concept === 'TIEMPO EXTRA FRIOAL (FIJO)') {
              const allConcepts = await getClientBillingConcepts();
@@ -475,13 +514,20 @@ export async function uploadFmmOperations(
 
         if (rows.length === 0) throw new Error("El archivo está vacío.");
 
-        const fmmNumbersFromFile = rows.map(r => r['# FMM']).filter(Boolean);
+        const fmmNumbersFromFile = rows.map(r => r['# FMM']).filter(Boolean).map(String);
         const existingFmms = new Set<string>();
         if (fmmNumbersFromFile.length > 0) {
-            const querySnapshot = await firestore.collection('manual_client_operations').where('details.fmmNumber', 'in', fmmNumbersFromFile).get();
-            querySnapshot.forEach(doc => {
-                existingFmms.add(doc.data().details.fmmNumber);
-            });
+             const fmmChunks = [];
+            for (let i = 0; i < fmmNumbersFromFile.length; i += 30) {
+                fmmChunks.push(fmmNumbersFromFile.slice(i, i + 30));
+            }
+            
+            for (const chunk of fmmChunks) {
+                const querySnapshot = await firestore.collection('manual_client_operations').where('details.fmmNumber', 'in', chunk).get();
+                querySnapshot.forEach(doc => {
+                    existingFmms.add(String(doc.data().details.fmmNumber));
+                });
+            }
         }
         
         const createdBy = {
@@ -494,22 +540,36 @@ export async function uploadFmmOperations(
         let duplicateCount = 0;
 
         for (const row of rows) {
-            const fmmNumber = row['# FMM'];
+            const fmmNumber = String(row['# FMM'] || '').trim();
             if (!fmmNumber || existingFmms.has(fmmNumber)) {
                 if (fmmNumber) duplicateCount++;
                 continue;
             }
 
             const docRef = firestore.collection('manual_client_operations').doc();
+            
+            let operationDate: Date;
+            if (row.Fecha instanceof Date) {
+                operationDate = row.Fecha;
+            } else if (typeof row.Fecha === 'string') {
+                operationDate = parseISO(row.Fecha);
+            } else if (typeof row.Fecha === 'number') { // Excel date number
+                 operationDate = new Date(Math.round((row.Fecha - 25569) * 86400 * 1000));
+                 operationDate.setMinutes(operationDate.getMinutes() + operationDate.getTimezoneOffset());
+            } else {
+                continue; // Skip invalid date
+            }
+
+
             batch.set(docRef, {
                 clientName: row.Cliente,
                 concept: row.Concepto,
-                operationDate: admin.firestore.Timestamp.fromDate(new Date(row.Fecha)),
+                operationDate: admin.firestore.Timestamp.fromDate(operationDate),
                 quantity: row.Cantidad,
                 details: {
                     container: row.Contenedor,
                     opLogistica: row['Op. Logística'],
-                    fmmNumber: row['# FMM'],
+                    fmmNumber: fmmNumber,
                     plate: row.Placa
                 },
                 createdAt: new Date().toISOString(),
