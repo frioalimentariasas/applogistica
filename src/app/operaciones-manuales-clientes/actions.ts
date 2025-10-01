@@ -8,6 +8,7 @@ import admin from 'firebase-admin';
 import { getDaysInMonth, startOfDay, addDays, format, isBefore, isEqual, parseISO, getDay, eachDayOfInterval, isSunday } from 'date-fns';
 import { getClientBillingConcepts, type ClientBillingConcept } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 import { differenceInMinutes, parse } from 'date-fns';
+import * as ExcelJS from 'exceljs';
 
 export interface ExcedentEntry {
     date: string; // YYYY-MM-DD
@@ -37,6 +38,8 @@ export interface ManualClientOperationData {
         horaSalida?: string; // HH:mm
         opLogistica?: 'CARGUE' | 'DESCARGUE';
         fmmNumber?: string;
+        pedidoSislog?: string;
+        noDocumento?: string;
     },
     comentarios?: string;
     createdAt?: string; // ISO string for timestamping
@@ -425,5 +428,113 @@ export async function deleteMultipleManualClientOperations(ids: string[]): Promi
         console.error('Error al eliminar operaciones en lote:', error);
         const errorMessage = error instanceof Error ? error.message : 'Ocurrió un error desconocido.';
         return { success: false, message: `Error del servidor: ${errorMessage}` };
+    }
+}
+
+
+interface FmmRow {
+  Fecha: Date | string;
+  Cliente: string;
+  Concepto: 'FMM DE INGRESO ZFPC (MANUAL)' | 'FMM DE SALIDA ZFPC (MANUAL)';
+  Cantidad: number;
+  Contenedor: string;
+  'Op. Logística': 'CARGUE' | 'DESCARGUE';
+  '# FMM': string;
+  Placa: string;
+}
+
+export async function uploadFmmOperations(
+  formData: FormData
+): Promise<{ success: boolean; message: string; createdCount: number, duplicateCount: number }> {
+    if (!firestore) {
+        return { success: false, message: 'El servidor no está configurado.', createdCount: 0, duplicateCount: 0 };
+    }
+
+    const file = formData.get('file') as File;
+    if (!file) {
+        return { success: false, message: 'No se encontró el archivo.', createdCount: 0, duplicateCount: 0 };
+    }
+
+    try {
+        const buffer = await file.arrayBuffer();
+        const workbook = new ExcelJS.Workbook();
+        await workbook.xlsx.load(buffer);
+        const worksheet = workbook.worksheets[0];
+
+        const rows: FmmRow[] = [];
+        const headers = worksheet.getRow(1).values as string[];
+        worksheet.eachRow((row, rowNumber) => {
+            if (rowNumber > 1) {
+                const rowData: any = {};
+                row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+                    rowData[headers[colNumber]] = cell.value;
+                });
+                rows.push(rowData);
+            }
+        });
+
+        if (rows.length === 0) throw new Error("El archivo está vacío.");
+
+        const fmmNumbersFromFile = rows.map(r => r['# FMM']).filter(Boolean);
+        const existingFmms = new Set<string>();
+        if (fmmNumbersFromFile.length > 0) {
+            const querySnapshot = await firestore.collection('manual_client_operations').where('details.fmmNumber', 'in', fmmNumbersFromFile).get();
+            querySnapshot.forEach(doc => {
+                existingFmms.add(doc.data().details.fmmNumber);
+            });
+        }
+        
+        const createdBy = {
+            uid: formData.get('userId') as string,
+            displayName: formData.get('userDisplayName') as string,
+        };
+
+        const batch = firestore.batch();
+        let createdCount = 0;
+        let duplicateCount = 0;
+
+        for (const row of rows) {
+            const fmmNumber = row['# FMM'];
+            if (!fmmNumber || existingFmms.has(fmmNumber)) {
+                if (fmmNumber) duplicateCount++;
+                continue;
+            }
+
+            const docRef = firestore.collection('manual_client_operations').doc();
+            batch.set(docRef, {
+                clientName: row.Cliente,
+                concept: row.Concepto,
+                operationDate: admin.firestore.Timestamp.fromDate(new Date(row.Fecha)),
+                quantity: row.Cantidad,
+                details: {
+                    container: row.Contenedor,
+                    opLogistica: row['Op. Logística'],
+                    fmmNumber: row['# FMM'],
+                    plate: row.Placa
+                },
+                createdAt: new Date().toISOString(),
+                createdBy: createdBy,
+            });
+            createdCount++;
+            existingFmms.add(fmmNumber);
+        }
+
+        if (createdCount > 0) {
+            await batch.commit();
+        }
+        
+        revalidatePath('/operaciones-manuales-clientes');
+        revalidatePath('/billing-reports');
+
+        return {
+            success: true,
+            message: `Se crearon ${createdCount} registros. Se omitieron ${duplicateCount} por ser duplicados.`,
+            createdCount,
+            duplicateCount,
+        };
+    } catch (error) {
+        console.error('Error al cargar operaciones FMM:', error);
+        const errorMessage = error instanceof Error ? error.message : 'Error desconocido.';
+        return { success: false, message: errorMessage, createdCount: 0, duplicateCount: 0 };
     }
 }

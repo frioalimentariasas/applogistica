@@ -12,7 +12,7 @@ import { es } from 'date-fns/locale';
 import { DateRange } from 'react-day-picker';
 
 
-import { addManualClientOperation, updateManualClientOperation, deleteManualClientOperation, addBulkManualClientOperation, addBulkSimpleOperation } from './actions';
+import { addManualClientOperation, updateManualClientOperation, deleteManualClientOperation, addBulkManualClientOperation, addBulkSimpleOperation, uploadFmmOperations } from './actions';
 import { getAllManualClientOperations } from '@/app/billing-reports/actions/generate-client-settlement';
 import type { ManualClientOperationData, ExcedentEntry } from './actions';
 import { useToast } from '@/hooks/use-toast';
@@ -27,7 +27,7 @@ import { Calendar } from '@/components/ui/calendar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from '@/components/ui/dialog';
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage, FormDescription } from '@/components/ui/form';
-import { ArrowLeft, Loader2, CalendarIcon, PlusCircle, X, Edit2, Trash2, Edit, Search, XCircle, FolderSearch, Eye, Clock, DollarSign, ChevronsUpDown, Check } from 'lucide-react';
+import { ArrowLeft, Loader2, CalendarIcon, PlusCircle, X, Edit2, Trash2, Edit, Search, XCircle, FolderSearch, Eye, Clock, DollarSign, ChevronsUpDown, Check, FileUp } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -209,6 +209,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     const [opToDelete, setOpToDelete] = useState<any | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
     const [isConceptDialogOpen, setConceptDialogOpen] = useState(false);
+    const [isUploading, setIsUploading] = useState(false);
 
     const form = useForm<ManualOperationValues>({
         resolver: zodResolver(manualOperationSchema),
@@ -520,6 +521,29 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         setOpToDelete(null);
         setIsDeleting(false);
     };
+    
+    const handleUploadFMM = async (formData: FormData) => {
+        const file = formData.get('file') as File;
+        if (!file || file.size === 0) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Por favor, seleccione un archivo para cargar.' });
+            return;
+        }
+
+        if (!user) return;
+        
+        setIsUploading(true);
+        formData.append('userId', user.uid);
+        formData.append('userDisplayName', displayName || user.email!);
+
+        const result = await uploadFmmOperations(formData);
+        if (result.success) {
+            toast({ title: "Carga Procesada", description: result.message });
+            await fetchAllOperations();
+        } else {
+             toast({ variant: 'destructive', title: "Error al Cargar", description: result.message });
+        }
+        setIsUploading(false);
+    };
 
     const handleCaptureTime = (fieldName: 'details.startTime' | 'details.endTime' | 'details.horaArribo' | 'details.horaSalida') => {
         const now = new Date();
@@ -599,6 +623,30 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                         </div>
                     </div>
                 </header>
+
+                 <Card className="mb-6">
+                    <CardHeader>
+                        <CardTitle>Carga Masiva de FMM desde Excel</CardTitle>
+                        <CardDescription>
+                            Suba un archivo Excel para registrar múltiples operaciones FMM. El sistema evitará duplicados basados en el # FMM.
+                        </CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                        <Alert className="mb-4">
+                            <AlertTitle>Formato del Archivo</AlertTitle>
+                            <AlertDescription>
+                                El archivo Excel debe tener las columnas: <strong>Fecha, Cliente, Concepto, Cantidad, Contenedor, Op. Logística, # FMM, Placa</strong>.
+                            </AlertDescription>
+                        </Alert>
+                        <form action={handleUploadFMM} className="flex flex-col sm:flex-row items-center gap-4">
+                            <Input type="file" name="file" accept=".xlsx, .xls" required disabled={isUploading} className="flex-grow" />
+                            <Button type="submit" disabled={isUploading} className="w-full sm:w-auto">
+                                {isUploading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileUp className="mr-2 h-4 w-4" />}
+                                Cargar Archivo
+                            </Button>
+                        </form>
+                    </CardContent>
+                </Card>
                 
                 <Card>
                     <CardHeader>
@@ -701,7 +749,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                                                     <p className="text-muted-foreground">
                                                         {searched
                                                             ? "No hay operaciones manuales para los filtros seleccionados."
-                                                            : "Seleccione un rango de fechas y haga clic en 'Consultar' para ver los registros."}
+                                                            : "Seleccione una fecha y haga clic en 'Consultar' para ver los registros."}
                                                     </p>
                                                 </div>
                                             </TableCell>
@@ -729,7 +777,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                             <div className="p-4">
                                 <Form {...form}>
                                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                                        <ConceptFormBody form={form} clients={clients} billingConcepts={billingConcepts} dialogMode={dialogMode} isConceptDialogOpen={isConceptDialogOpen} setConceptDialogOpen={setConceptDialogOpen} handleCaptureTime={handleCaptureTime} isTimeExtraMode={isTimeExtraMode} isBulkMode={isBulkMode} isElectricConnection={isElectricConnection} isPositionMode={isPositionMode} isFmmZfpc={isFmmZfpc} isArinZfpc={isArinZfpc} showAdvancedFields={showAdvancedFields} showTimeExtraFields={showTimeExtraFields} showTunelCongelacionFields={showTunelCongelacionFields} calculatedDuration={calculatedDuration} calculatedElectricConnectionHours={calculatedElectricConnectionHours} />
+                                        <ConceptFormBody form={form} clients={clients} billingConcepts={billingConcepts} dialogMode={dialogMode} isConceptDialogOpen={isConceptDialogOpen} setConceptDialogOpen={setConceptDialogOpen} handleCaptureTime={handleCaptureTime} isTimeExtraMode={isTimeExtraMode} isBulkMode={isBulkMode} isElectricConnection={isElectricConnection} isPositionMode={isPositionMode} isFmmConcept={isFmmConcept} isFmmZfpc={isFmmZfpc} isArinZfpc={isArinZfpc} showAdvancedFields={showAdvancedFields} showTimeExtraFields={showTimeExtraFields} showTunelCongelacionFields={showTunelCongelacionFields} calculatedDuration={calculatedDuration} calculatedElectricConnectionHours={calculatedElectricConnectionHours} />
                                         <DialogFooter>
                                             <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                                                 {dialogMode === 'view' ? 'Cerrar' : 'Cancelar'}
@@ -1007,11 +1055,9 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any; 
 }
 
 function ConceptFormBody(props: any) {
-  const { form, clients, billingConcepts, dialogMode, isConceptDialogOpen, setConceptDialogOpen, handleCaptureTime, isTimeExtraMode, isBulkMode, isElectricConnection, isPositionMode, isFmmZfpc, isArinZfpc, showAdvancedFields, showTimeExtraFields, showTunelCongelacionFields, calculatedDuration, calculatedElectricConnectionHours } = props;
+  const { form, clients, billingConcepts, dialogMode, isConceptDialogOpen, setConceptDialogOpen, handleCaptureTime, isTimeExtraMode, isBulkMode, isElectricConnection, isPositionMode, isFmmConcept, isFmmZfpc, isArinZfpc, showAdvancedFields, showTimeExtraFields, showTunelCongelacionFields, calculatedDuration, calculatedElectricConnectionHours } = props;
   const watchedConcept = useWatch({ control: form.control, name: 'concept' });
   const selectedConceptInfo = useMemo(() => billingConcepts.find((c: ClientBillingConcept) => c.conceptName === watchedConcept), [watchedConcept, billingConcepts]);
-  const isFmmConcept = isFmmZfpc || watchedConcept === 'FMM DE INGRESO ZFPC' || watchedConcept === 'FMM DE SALIDA ZFPC';
-  
   const showNumeroPersonas = ['INSPECCIÓN ZFPC', 'TOMA DE PESOS POR ETIQUETA HRS', 'SERVICIO APOYO JORNAL'].includes(watchedConcept);
   const hideGeneralQuantityField = ['TIEMPO EXTRA FRIOAL (FIJO)', 'POSICIONES FIJAS CÁMARA CONGELADOS', 'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO', 'TIEMPO EXTRA ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA', 'SERVICIO APOYO JORNAL'].includes(watchedConcept);
   const showAdvancedTariffs = ['POSICIONES FIJAS CÁMARA CONGELADOS', 'TIEMPO EXTRA ZFPC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA'].includes(watchedConcept);
@@ -1164,7 +1210,7 @@ function ConceptFormBody(props: any) {
         />
       )}
 
-      {(showAdvancedFields || dialogMode === 'view' || isElectricConnection || isFmmZfpc || isFmmConcept || showTimeExtraFields || showTunelCongelacionFields || isArinZfpc) && (
+      {(showAdvancedFields || dialogMode === 'view' || isElectricConnection || isFmmZfpc || isArinZfpc || showTimeExtraFields || showTunelCongelacionFields) && (
           <>
               <Separator />
               <p className="text-sm font-medium text-muted-foreground">Detalles Adicionales</p>
@@ -1172,7 +1218,7 @@ function ConceptFormBody(props: any) {
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <FormField control={form.control} name="details.startTime" render={({ field }) => (<FormItem><FormLabel>Hora Inicio</FormLabel><div className="flex items-center gap-2"><FormControl><Input type="time" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} className="flex-grow" /></FormControl>{dialogMode !== 'view' && (<Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('details.startTime')}><Clock className="h-4 w-4" /></Button>)}</div><FormMessage /></FormItem>)} />
                       <FormField control={form.control} name="details.endTime" render={({ field }) => (<FormItem><FormLabel>Hora Fin</FormLabel><div className="flex items-center gap-2"><FormControl><Input type="time" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} className="flex-grow" /></FormControl>{dialogMode !== 'view' && (<Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('details.endTime')}><Clock className="h-4 w-4" /></Button>)}</div><FormMessage /></FormItem>)} />
-                      <FormField
+                       <FormField
                           control={form.control}
                           name="details.plate"
                           render={({ field }) => (
@@ -1216,13 +1262,13 @@ function ConceptFormBody(props: any) {
                   <>
                       <FormField control={form.control} name="details.opLogistica" render={({ field }) => (
                           <FormItem>
-                              <FormLabel>Op. Logística</FormLabel>
+                              <FormLabel>Op. Logística <span className="text-destructive">*</span></FormLabel>
                               <Select onValueChange={field.onChange} value={field.value} disabled={dialogMode === 'view'}><FormControl><SelectTrigger><SelectValue placeholder="Seleccione una opción" /></SelectTrigger></FormControl><SelectContent><SelectItem value="CARGUE">CARGUE</SelectItem><SelectItem value="DESCARGUE">DESCARGUE</SelectItem></SelectContent></Select>
                               <FormMessage />
                           </FormItem>
                       )} />
                       {(isFmmConcept || isFmmZfpc) && (
-                        <FormField control={form.control} name="details.fmmNumber" render={({ field }) => (<FormItem><FormLabel># FMM</FormLabel><FormControl><Input placeholder="Número de FMM" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
+                        <FormField control={form.control} name="details.fmmNumber" render={({ field }) => (<FormItem><FormLabel># FMM <span className="text-destructive">*</span></FormLabel><FormControl><Input placeholder="Número de FMM" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
                       )}
                       {(isFmmZfpc || isArinZfpc) && (
                          <FormField control={form.control} name="details.plate" render={({ field }) => (<FormItem><FormLabel>Placa <span className="text-destructive">*</span></FormLabel><FormControl><Input placeholder="Placa del vehículo" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} onChange={e => field.onChange(e.target.value.toUpperCase())} /></FormControl><FormMessage /></FormItem>)} />
@@ -1246,4 +1292,3 @@ function ConceptFormBody(props: any) {
     </>
   );
 }
-
