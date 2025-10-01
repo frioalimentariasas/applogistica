@@ -1,5 +1,3 @@
-
-
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -90,7 +88,7 @@ export async function addManualClientOperation(data: ManualClientOperationData):
         if (details?.fmmNumber) {
             const isDuplicate = await isFmmNumberDuplicate(details.fmmNumber);
             if (isDuplicate) {
-                return { success: false, message: `El # FMM "${details.fmmNumber}" ya existe en la base de datos.` };
+                return { success: false, message: `El # FMM "${details.fmmNumber}" ya fue registrado.` };
             }
         }
         
@@ -472,7 +470,7 @@ export async function deleteMultipleManualClientOperations(ids: string[]): Promi
 
 
 interface FmmRow {
-  Fecha: Date | string;
+  Fecha: Date | string | number;
   Cliente: string;
   Concepto: 'FMM DE INGRESO ZFPC (MANUAL)' | 'FMM DE SALIDA ZFPC (MANUAL)';
   Cantidad: number;
@@ -484,14 +482,14 @@ interface FmmRow {
 
 export async function uploadFmmOperations(
   formData: FormData
-): Promise<{ success: boolean; message: string; createdCount: number, duplicateCount: number }> {
+): Promise<{ success: boolean; message: string; createdCount: number, duplicateCount: number, errorCount: number, errors: string[] }> {
     if (!firestore) {
-        return { success: false, message: 'El servidor no está configurado.', createdCount: 0, duplicateCount: 0 };
+        return { success: false, message: 'El servidor no está configurado.', createdCount: 0, duplicateCount: 0, errorCount: 0, errors: [] };
     }
 
     const file = formData.get('file') as File;
     if (!file) {
-        return { success: false, message: 'No se encontró el archivo.', createdCount: 0, duplicateCount: 0 };
+        return { success: false, message: 'No se encontró el archivo.', createdCount: 0, duplicateCount: 0, errorCount: 0, errors: [] };
     }
 
     try {
@@ -500,24 +498,30 @@ export async function uploadFmmOperations(
         await workbook.xlsx.load(buffer);
         const worksheet = workbook.worksheets[0];
 
-        const rows: FmmRow[] = [];
-        const headers = worksheet.getRow(1).values as string[];
+        const rows: Partial<FmmRow>[] = [];
+        const headers = (worksheet.getRow(1).values as string[]).map(h => h.trim());
         worksheet.eachRow((row, rowNumber) => {
             if (rowNumber > 1) {
                 const rowData: any = {};
                 row.eachCell({ includeEmpty: true }, (cell, colNumber) => {
-                    rowData[headers[colNumber]] = cell.value;
+                    const header = headers[colNumber];
+                    if (header) rowData[header] = cell.value;
                 });
                 rows.push(rowData);
             }
         });
 
         if (rows.length === 0) throw new Error("El archivo está vacío.");
+        
+        let createdCount = 0;
+        let duplicateCount = 0;
+        let errorCount = 0;
+        const errors: string[] = [];
 
-        const fmmNumbersFromFile = rows.map(r => r['# FMM']).filter(Boolean).map(String);
+        const fmmNumbersFromFile = rows.map(r => String(r['# FMM'] || '').trim()).filter(Boolean);
         const existingFmms = new Set<string>();
         if (fmmNumbersFromFile.length > 0) {
-             const fmmChunks = [];
+            const fmmChunks = [];
             for (let i = 0; i < fmmNumbersFromFile.length; i += 30) {
                 fmmChunks.push(fmmNumbersFromFile.slice(i, i + 30));
             }
@@ -536,47 +540,53 @@ export async function uploadFmmOperations(
         };
 
         const batch = firestore.batch();
-        let createdCount = 0;
-        let duplicateCount = 0;
 
-        for (const row of rows) {
+        for (const [index, row] of rows.entries()) {
+            const rowIndex = index + 2;
             const fmmNumber = String(row['# FMM'] || '').trim();
-            if (!fmmNumber || existingFmms.has(fmmNumber)) {
-                if (fmmNumber) duplicateCount++;
+
+            // Validation Checks
+            if (!row.Fecha) { errors.push(`Fila ${rowIndex}: Falta la fecha.`); errorCount++; continue; }
+            if (!row.Cliente) { errors.push(`Fila ${rowIndex}: Falta el cliente.`); errorCount++; continue; }
+            if (!row.Concepto || !['FMM DE INGRESO ZFPC (MANUAL)', 'FMM DE SALIDA ZFPC (MANUAL)'].includes(row.Concepto)) { errors.push(`Fila ${rowIndex}: Concepto inválido. Debe ser 'FMM DE INGRESO ZFPC (MANUAL)' o 'FMM DE SALIDA ZFPC (MANUAL)'.`); errorCount++; continue; }
+            if (row.Cantidad === undefined || row.Cantidad === null || isNaN(Number(row.Cantidad))) { errors.push(`Fila ${rowIndex}: Cantidad inválida.`); errorCount++; continue; }
+            if (!row['Op. Logística'] || !['CARGUE', 'DESCARGUE'].includes(row['Op. Logística'])) { errors.push(`Fila ${rowIndex}: 'Op. Logística' inválida. Debe ser 'CARGUE' o 'DESCARGUE'.`); errorCount++; continue; }
+            if (!fmmNumber) { errors.push(`Fila ${rowIndex}: Falta el # FMM.`); errorCount++; continue; }
+
+            if (existingFmms.has(fmmNumber)) {
+                duplicateCount++;
+                continue;
+            }
+
+            let operationDate: Date;
+            if (row.Fecha instanceof Date) {
+                operationDate = row.Fecha;
+            } else if (typeof row.Fecha === 'number') {
+                operationDate = new Date(Math.round((row.Fecha - 25569) * 86400 * 1000));
+                operationDate.setMinutes(operationDate.getMinutes() + operationDate.getTimezoneOffset());
+            } else {
+                errors.push(`Fila ${rowIndex}: Formato de fecha no reconocido.`);
+                errorCount++;
                 continue;
             }
 
             const docRef = firestore.collection('manual_client_operations').doc();
-            
-            let operationDate: Date;
-            if (row.Fecha instanceof Date) {
-                operationDate = row.Fecha;
-            } else if (typeof row.Fecha === 'string') {
-                operationDate = parseISO(row.Fecha);
-            } else if (typeof row.Fecha === 'number') { // Excel date number
-                 operationDate = new Date(Math.round((row.Fecha - 25569) * 86400 * 1000));
-                 operationDate.setMinutes(operationDate.getMinutes() + operationDate.getTimezoneOffset());
-            } else {
-                continue; // Skip invalid date
-            }
-
-
             batch.set(docRef, {
                 clientName: row.Cliente,
                 concept: row.Concepto,
                 operationDate: admin.firestore.Timestamp.fromDate(operationDate),
-                quantity: row.Cantidad,
+                quantity: Number(row.Cantidad),
                 details: {
-                    container: row.Contenedor,
+                    container: row.Contenedor || '',
                     opLogistica: row['Op. Logística'],
                     fmmNumber: fmmNumber,
-                    plate: row.Placa
+                    plate: row.Placa || ''
                 },
                 createdAt: new Date().toISOString(),
                 createdBy: createdBy,
             });
             createdCount++;
-            existingFmms.add(fmmNumber);
+            existingFmms.add(fmmNumber); // Add to set to prevent duplicates within the same file
         }
 
         if (createdCount > 0) {
@@ -586,15 +596,14 @@ export async function uploadFmmOperations(
         revalidatePath('/operaciones-manuales-clientes');
         revalidatePath('/billing-reports');
 
-        return {
-            success: true,
-            message: `Se crearon ${createdCount} registros. Se omitieron ${duplicateCount} por ser duplicados.`,
-            createdCount,
-            duplicateCount,
-        };
+        let message = `Se crearon ${createdCount} registros.`;
+        if (duplicateCount > 0) message += ` Se omitieron ${duplicateCount} por ser duplicados.`;
+        if (errorCount > 0) message += ` ${errorCount} filas tuvieron errores y no se cargaron.`;
+
+        return { success: errorCount === 0, message, createdCount, duplicateCount, errorCount, errors };
     } catch (error) {
         console.error('Error al cargar operaciones FMM:', error);
         const errorMessage = error instanceof Error ? error.message : 'Error desconocido.';
-        return { success: false, message: errorMessage, createdCount: 0, duplicateCount: 0 };
+        return { success: false, message: errorMessage, createdCount: 0, duplicateCount: 0, errorCount: rows.length, errors: [errorMessage] };
     }
 }

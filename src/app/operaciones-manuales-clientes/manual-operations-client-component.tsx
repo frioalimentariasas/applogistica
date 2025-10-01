@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -38,7 +37,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { DateMultiSelector } from '@/components/app/date-multi-selector';
 import { Textarea } from '@/components/ui/textarea';
-import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { Alert, AlertTitle } from '@/components/ui/alert';
 
 
 const specificTariffEntrySchema = z.object({
@@ -209,6 +208,8 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     const [isDeleting, setIsDeleting] = useState(false);
     const [isConceptDialogOpen, setConceptDialogOpen] = useState(false);
     const [isUploading, setIsUploading] = useState(false);
+    const [uploadError, setUploadError] = useState<{ message: string, errors: string[] } | null>(null);
+    const [isUploadResultOpen, setIsUploadResultOpen] = useState(false);
 
     const form = useForm<ManualOperationValues>({
         resolver: zodResolver(manualOperationSchema),
@@ -250,7 +251,6 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     const isPositionMode = watchedConcept === 'POSICIONES FIJAS CÁMARA CONGELADOS';
     const isElectricConnection = watchedConcept === 'CONEXIÓN ELÉCTRICA CONTENEDOR';
     const isFmmZfpc = watchedConcept === 'FMM DE INGRESO ZFPC (MANUAL)' || watchedConcept === 'FMM DE SALIDA ZFPC (MANUAL)';
-    const isFmmConcept = isFmmZfpc || watchedConcept === 'FMM DE INGRESO ZFPC' || watchedConcept === 'FMM DE SALIDA ZFPC';
     const isArinZfpc = watchedConcept === 'ARIN DE INGRESO ZFPC (MANUAL)' || watchedConcept === 'ARIN DE SALIDA ZFPC (MANUAL)';
     const showAdvancedFields = ['TOMA DE PESOS POR ETIQUETA HRS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL', 'TIEMPO EXTRA ZFPC'].includes(watchedConcept);
     const showTimeExtraFields = ['TIEMPO EXTRA ZFPC', 'TIEMPO EXTRA FRIOAL', 'INSPECCIÓN ZFPC'].includes(watchedConcept);
@@ -531,16 +531,23 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
         if (!user) return;
         
         setIsUploading(true);
+        setUploadError(null);
         formData.append('userId', user.uid);
         formData.append('userDisplayName', displayName || user.email!);
 
         const result = await uploadFmmOperations(formData);
-        if (result.success) {
-            toast({ title: "Carga Procesada", description: result.message });
-            await fetchAllOperations();
+        
+        if (result.errorCount > 0) {
+            setUploadError({ message: result.message, errors: result.errors });
+            setIsUploadResultOpen(true);
         } else {
-             toast({ variant: 'destructive', title: "Error al Cargar", description: result.message });
+            toast({ title: "Carga Procesada", description: result.message });
         }
+        
+        if (result.createdCount > 0) {
+            await fetchAllOperations();
+        }
+        
         setIsUploading(false);
     };
 
@@ -778,7 +785,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                             <div className="p-4">
                                 <Form {...form}>
                                     <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-                                        <ConceptFormBody form={form} clients={clients} billingConcepts={billingConcepts} dialogMode={dialogMode} isConceptDialogOpen={isConceptDialogOpen} setConceptDialogOpen={setConceptDialogOpen} handleCaptureTime={handleCaptureTime} isTimeExtraMode={isTimeExtraMode} isBulkMode={isBulkMode} isElectricConnection={isElectricConnection} isPositionMode={isPositionMode} isFmmConcept={isFmmConcept} isFmmZfpc={isFmmZfpc} isArinZfpc={isArinZfpc} showAdvancedFields={showAdvancedFields} showTimeExtraFields={showTimeExtraFields} showTunelCongelacionFields={showTunelCongelacionFields} calculatedDuration={calculatedDuration} calculatedElectricConnectionHours={calculatedElectricConnectionHours} />
+                                        <ConceptFormBody form={form} clients={clients} billingConcepts={billingConcepts} dialogMode={dialogMode} isConceptDialogOpen={isConceptDialogOpen} setConceptDialogOpen={setConceptDialogOpen} handleCaptureTime={handleCaptureTime} isTimeExtraMode={isTimeExtraMode} isBulkMode={isBulkMode} isElectricConnection={isElectricConnection} isPositionMode={isPositionMode} isFmmZfpc={isFmmZfpc} isArinZfpc={isArinZfpc} showAdvancedFields={showAdvancedFields} showTimeExtraFields={showTimeExtraFields} showTunelCongelacionFields={showTunelCongelacionFields} calculatedDuration={calculatedDuration} calculatedElectricConnectionHours={calculatedElectricConnectionHours} />
                                         <DialogFooter>
                                             <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
                                                 {dialogMode === 'view' ? 'Cerrar' : 'Cancelar'}
@@ -809,6 +816,27 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                         </AlertDialogFooter>
                     </AlertDialogContent>
                 </AlertDialog>
+                
+                 <Dialog open={isUploadResultOpen} onOpenChange={setIsUploadResultOpen}>
+                    <DialogContent className="sm:max-w-md">
+                        <DialogHeader>
+                            <DialogTitle>Resultado de la Carga Masiva</DialogTitle>
+                            <DialogDescription>{uploadError?.message}</DialogDescription>
+                        </DialogHeader>
+                        {uploadError && uploadError.errors.length > 0 && (
+                            <ScrollArea className="max-h-60 w-full rounded-md border p-4">
+                                <ul className="space-y-1">
+                                    {uploadError.errors.map((error, index) => (
+                                        <li key={index} className="text-sm text-destructive">{error}</li>
+                                    ))}
+                                </ul>
+                            </ScrollArea>
+                        )}
+                        <DialogFooter>
+                            <Button onClick={() => setIsUploadResultOpen(false)}>Cerrar</Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
 
             </div>
         </div>
@@ -1056,7 +1084,7 @@ function TariffSelector({ form, selectedConceptInfo, dialogMode }: { form: any; 
 }
 
 function ConceptFormBody(props: any) {
-  const { form, clients, billingConcepts, dialogMode, isConceptDialogOpen, setConceptDialogOpen, handleCaptureTime, isTimeExtraMode, isBulkMode, isElectricConnection, isPositionMode, isFmmConcept, isFmmZfpc, isArinZfpc, showAdvancedFields, showTimeExtraFields, showTunelCongelacionFields, calculatedDuration, calculatedElectricConnectionHours } = props;
+  const { form, clients, billingConcepts, dialogMode, isConceptDialogOpen, setConceptDialogOpen, handleCaptureTime, isTimeExtraMode, isBulkMode, isElectricConnection, isPositionMode, isFmmZfpc, isArinZfpc, showAdvancedFields, showTimeExtraFields, showTunelCongelacionFields, calculatedDuration, calculatedElectricConnectionHours } = props;
   const watchedConcept = useWatch({ control: form.control, name: 'concept' });
   const selectedConceptInfo = useMemo(() => billingConcepts.find((c: ClientBillingConcept) => c.conceptName === watchedConcept), [watchedConcept, billingConcepts]);
   const showNumeroPersonas = ['INSPECCIÓN ZFPC', 'TOMA DE PESOS POR ETIQUETA HRS', 'SERVICIO APOYO JORNAL'].includes(watchedConcept);
@@ -1146,10 +1174,10 @@ function ConceptFormBody(props: any) {
             <Alert variant="default" className="border-sky-500 bg-sky-50 text-sky-800">
               <Clock className="h-4 w-4 !text-sky-600" />
               <AlertTitle className="text-sky-700">Duración Calculada</AlertTitle>
-              <FormDescription>
+              <AlertDescription>
                   <span className="font-bold">{calculatedDuration.hours.toFixed(2)} horas</span> ({calculatedDuration.minutes} minutos).
                   {isTimeExtraMode && " Este valor se ha asignado a la cantidad."}
-              </FormDescription>
+              </AlertDescription>
           </Alert>
       ) : null}
 
@@ -1157,9 +1185,9 @@ function ConceptFormBody(props: any) {
           <Alert variant="default" className="border-sky-500 bg-sky-50 text-sky-800">
               <Clock className="h-4 w-4 !text-sky-600" />
               <AlertTitle className="text-sky-700">Duración Calculada</AlertTitle>
-              <FormDescription>
+              <AlertDescription>
                   <span className="font-bold">{calculatedElectricConnectionHours.toLocaleString('es-CO', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} horas</span>. Este valor se ha asignado a la cantidad.
-              </FormDescription>
+              </AlertDescription>
           </Alert>
       )}
       
@@ -1211,7 +1239,7 @@ function ConceptFormBody(props: any) {
         />
       )}
 
-      {(showAdvancedFields || dialogMode === 'view' || isElectricConnection || isFmmZfpc || isArinZfpc || showTimeExtraFields || showTunelCongelacionFields) && (
+      {(showAdvancedFields || isElectricConnection || isFmmZfpc || isArinZfpc || showTimeExtraFields || showTunelCongelacionFields) && (
           <>
               <Separator />
               <p className="text-sm font-medium text-muted-foreground">Detalles Adicionales</p>
