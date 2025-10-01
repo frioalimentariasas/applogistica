@@ -838,6 +838,8 @@ export async function generateClientSettlement(criteria: {
                     let quantityForCalc = appliedTariff.quantity || 0;
                     let totalValue = 0;
                     
+                    let numeroPersonasParaReporte: number | string | undefined = numPersonas;
+                    
                     if (concept.conceptName === 'POSICIONES FIJAS CÁMARA CONGELADOS') {
                         const operationDate = parseISO(opData.operationDate);
                         const numDias = getDaysInMonth(operationDate);
@@ -848,6 +850,7 @@ export async function generateClientSettlement(criteria: {
                         }
 
                         totalValue = quantityForCalc * (specificTariffInfo.value || 0) * numDias;
+                        numeroPersonasParaReporte = undefined;
                     } else {
                         totalValue = quantityForCalc * (specificTariffInfo.value || 0) * numPersonas;
                     }
@@ -870,7 +873,7 @@ export async function generateClientSettlement(criteria: {
                             totalValue: totalValue,
                             horaInicio: opData.details?.startTime || 'N/A',
                             horaFin: opData.details?.endTime || 'N/A',
-                            numeroPersonas: numPersonas,
+                            numeroPersonas: numeroPersonasParaReporte,
                         });
                     }
                 });
@@ -963,7 +966,7 @@ export async function generateClientSettlement(criteria: {
                     placa: opData.details?.plate || 'No Aplica',
                     container: containerValue,
                     totalPaletas: opData.details?.totalPallets || 0,
-                    camara: 'No Aplica',
+                    camara: 'N/A',
                     operacionLogistica,
                     pedidoSislog: opData.details?.pedidoSislog || 'No Aplica',
                     conceptName: concept.conceptName,
@@ -1118,3 +1121,6 @@ const minutesToTime = (minutes: number): string => {
 
 
 
+
+
+    
