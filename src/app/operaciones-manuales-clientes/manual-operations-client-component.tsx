@@ -628,6 +628,8 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
                         <CardTitle>Carga Masiva de FMM desde Excel</CardTitle>
                         <CardDescription>
                             Suba un archivo Excel para registrar múltiples operaciones FMM. El sistema evitará duplicados basados en el # FMM.
+                            <br/>
+                            <span className="text-xs text-muted-foreground">La mejor opción es usar el formato de fecha de Excel. Si usa texto, prefiera AAAA-MM-DD.</span>
                         </CardDescription>
                     </CardHeader>
                     <CardContent>
@@ -1291,5 +1293,3 @@ function ConceptFormBody(props: any) {
     </>
   );
 }
-
-    
