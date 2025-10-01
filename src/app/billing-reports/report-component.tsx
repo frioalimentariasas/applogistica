@@ -19,7 +19,6 @@ import { getBillingReport, DailyReportData } from '@/app/actions/billing-report'
 import { getDetailedReport, type DetailedReportRow } from '@/app/actions/detailed-report';
 import { getInventoryReport, uploadInventoryCsv, type InventoryPivotReport, getClientsWithInventory, getInventoryIdsByDateRange, deleteSingleInventoryDoc, getDetailedInventoryForExport } from '@/app/actions/inventory-report';
 import { getConsolidatedMovementReport, type ConsolidatedReportRow } from '@/app/actions/consolidated-movement-report';
-import { getClientBillingConcepts, type ClientBillingConcept } from '@/app/gestion-conceptos-liquidacion-clientes/actions';
 import { generateClientSettlement, type ClientSettlementRow, findApplicableConcepts } from './actions/generate-client-settlement';
 import type { ClientInfo } from '@/app/actions/clients';
 import { getPedidoTypes, type PedidoType } from '@/app/gestion-tipos-pedido/actions';
@@ -35,7 +34,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, Dialog
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 import { Input } from '@/components/ui/input';
 import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
-import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, ChevronsUpDown, BookCopy, FileDown, File, Upload, FolderSearch, Trash2, Edit, CheckCircle2, DollarSign, ExternalLink, Edit2, Undo, Info, Pencil, History, Undo2 } from 'lucide-react';
+import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, ChevronsUpDown, BookCopy, FileDown, File, Upload, FolderSearch, Trash2, Edit, CheckCircle2, DollarSign, ExternalLink, Edit2, Undo, Info, Pencil, History, Undo2, EyeOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Label } from '@/components/ui/label';
 import { Progress } from '@/components/ui/progress';
@@ -242,6 +241,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const [rowToEdit, setRowToEdit] = useState<ClientSettlementRow | null>(null);
     const [isEditSettlementRowOpen, setIsEditSettlementRowOpen] = useState(false);
     const [originalSettlementData, setOriginalSettlementData] = useState<ClientSettlementRow[]>([]);
+    const [hiddenRowIds, setHiddenRowIds] = useState<Set<string>>(new Set());
 
     
     const [isIndexErrorOpen, setIsIndexErrorOpen] = useState(false);
@@ -1109,6 +1109,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         setSettlementSearched(true);
         setSettlementReportData([]);
         setOriginalSettlementData([]);
+        setHiddenRowIds(new Set()); // Reset hidden rows on new search
         try {
             const result = await generateClientSettlement({
                 clientName: settlementClient,
@@ -1165,9 +1166,22 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             );
         }
     };
+
+    const handleHideRow = (uniqueId: string) => {
+        setHiddenRowIds(prev => {
+            const newSet = new Set(prev);
+            newSet.add(uniqueId);
+            return newSet;
+        });
+    };
+
+    const handleRestoreAllHidden = () => {
+        setHiddenRowIds(new Set());
+    };
     
     const handleSettlementExportExcel = async () => {
-        if (settlementReportData.length === 0 || !settlementClient || !settlementDateRange?.from) return;
+        const visibleRows = settlementReportData.filter(row => !hiddenRowIds.has(row.uniqueId!));
+        if (visibleRows.length === 0 || !settlementClient || !settlementDateRange?.from) return;
     
         const workbook = new ExcelJS.Workbook();
         workbook.creator = 'Frio Alimentaria App';
@@ -1178,25 +1192,22 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             'ARIN DE SALIDA ZFPC', 'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
             'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'ESTIBA MADERA RECICLADA',
             'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA ZFPC',
-            'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO', 'ALMACENAMIENTO PRODUCTOS CONGELADOS -PALLET/DIA (-18°C A -25°C)', 'ALMACENAMIENTO PRODUCTOS REFRIGERADOS -PALLET/DIA (0°C A 4ºC'
+            'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO', 'ALMACENAMIENTO PRODUCTOS CONGELADOS -PALLET/DIA (-18°C A -25°C)', 'ALMACENAMIENTO PRODUCTOS REFRIGERADOS -PALLET/DIA (0°C A 4ºC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA'
         ];
     
         const addHeaderAndTitle = (ws: ExcelJS.Worksheet, title: string, columns: any[]) => {
-            // Add title at row 2, merge, and center
             const titleRow = ws.getRow(2);
             titleRow.getCell(1).value = title;
             titleRow.font = { bold: true, size: 16 };
             titleRow.getCell(1).alignment = { horizontal: 'center' };
             ws.mergeCells(2, 1, 2, columns.length);
         
-            // Add client at row 3, merge, and center
             const clientRow = ws.getRow(3);
             clientRow.getCell(1).value = `Cliente: ${settlementClient}`;
             clientRow.font = { bold: true };
             clientRow.getCell(1).alignment = { horizontal: 'center' };
             ws.mergeCells(3, 1, 3, columns.length);
             if (settlementDateRange?.from && settlementDateRange.to) {
-                // Add period at row 4, merge, and center
                 const periodText = `Periodo: ${format(settlementDateRange.from, 'dd/MM/yyyy', { locale: es })} - ${format(settlementDateRange.to, 'dd/MM/yyyy', { locale: es })}`;
                 const periodRow = ws.getRow(4);
                 periodRow.getCell(1).value = periodText;
@@ -1209,7 +1220,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const headerFill: ExcelJS.Fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF1A90C8' } };
         const headerFont: Partial<ExcelJS.Font> = { bold: true, color: { argb: 'FFFFFFFF' }, size: 11 };
     
-        // --- Hoja de Resumen ---
         const summaryWorksheet = workbook.addWorksheet('Resumen Liquidación');
         
         const summaryColumns = [
@@ -1222,7 +1232,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         ];
         
         summaryWorksheet.columns = summaryColumns.map(c => ({ key: c.key, width: c.width }));
-        summaryWorksheet.getRow(1).hidden = true; // Ocultar la fila de encabezados generada automáticamente
+        summaryWorksheet.getRow(1).hidden = true;
         addHeaderAndTitle(summaryWorksheet, "Resumen Liquidación", summaryColumns);
     
         const summaryHeaderRow = summaryWorksheet.getRow(5);
@@ -1233,7 +1243,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             cell.alignment = { horizontal: 'center' };
         });
         
-        const summaryByConcept = settlementReportData.reduce((acc, row) => {
+        const summaryByConcept = visibleRows.reduce((acc, row) => {
             let conceptKey: string;
             let conceptName: string;
             let unitOfMeasure: string;
@@ -1303,7 +1313,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         totalSumRow.getCell(6).numFmt = '$ #,##0.00';
         totalSumRow.getCell(6).font = { bold: true, size: 12 };
     
-        // --- Hoja de Detalle ---
         const detailWorksheet = workbook.addWorksheet('Detalle Liquidación');
         
         const detailColumns = [
@@ -1338,7 +1347,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             cell.alignment = { horizontal: 'center' };
         });
 
-        const groupedByConcept = settlementReportData.reduce((acc, row) => {
+        const groupedByConcept = visibleRows.reduce((acc, row) => {
             const conceptKey = row.conceptName;
             if (!acc[conceptKey]) {
                 acc[conceptKey] = { rows: [], subtotalValor: 0, subtotalCantidad: 0, order: conceptOrder.indexOf(conceptKey) };
@@ -1402,7 +1411,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     
         detailWorksheet.addRow([]);
         const totalDetailRow = detailWorksheet.addRow([]);
-        const totalGeneralDetalleCantidad = settlementReportData.reduce((sum, row) => sum + row.quantity, 0);
+        const totalGeneralDetalleCantidad = visibleRows.reduce((sum, row) => sum + row.quantity, 0);
 
         totalDetailRow.getCell('conceptName').value = 'TOTAL GENERAL:';
         totalDetailRow.getCell('conceptName').font = { bold: true, size: 12 };
@@ -1425,15 +1434,18 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     };
     
     const handleSettlementExportPDF = () => {
-        if (settlementReportData.length === 0 || !settlementClient || !settlementDateRange?.from || isLogoLoading || !logoBase64 || !logoDimensions) return;
+        const visibleRows = settlementReportData.filter(row => !hiddenRowIds.has(row.uniqueId!));
+        if (visibleRows.length === 0 || !settlementClient || !settlementDateRange?.from || isLogoLoading || !logoBase64 || !logoDimensions) return;
     
         const doc = new jsPDF({ orientation: 'landscape' });
         const pageWidth = doc.internal.pageSize.getWidth();
         const margin = 14;
 
         const conceptOrder = [
-            'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'OPERACIÓN CARGUE (CANASTILLAS)', 'ALISTAMIENTO POR UNIDAD', 'FMM DE INGRESO ZFPC', 'ARIN DE INGRESO ZFPC', 'FMM DE SALIDA ZFPC',
-            'ARIN DE SALIDA ZFPC', 'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
+            'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'OPERACIÓN CARGUE (CANASTILLAS)', 'ALISTAMIENTO POR UNIDAD', 
+            'FMM DE INGRESO ZFPC', 'FMM DE INGRESO ZFPC (MANUAL)', 'ARIN DE INGRESO ZFPC', 
+            'FMM DE SALIDA ZFPC', 'FMM DE SALIDA ZFPC (MANUAL)', 'ARIN DE SALIDA ZFPC', 
+            'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
             'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'ESTIBA MADERA RECICLADA',
             'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA ZFPC',
             'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO',
@@ -1461,10 +1473,9 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             return currentY + 10;
         };
     
-        // --- Summary Page ---
         let lastY = addHeader(doc, "Resumen de Liquidación");
     
-        const summaryByConcept = settlementReportData.reduce((acc, row) => {
+        const summaryByConcept = visibleRows.reduce((acc, row) => {
              let conceptName: string;
             let conceptKey: string;
             let unitOfMeasure: string;
@@ -1532,11 +1543,10 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             footStyles: { fontStyle: 'bold' }
         });
 
-        // --- Detail Page ---
         doc.addPage();
         lastY = addHeader(doc, "Detalle de Liquidación");
 
-        const groupedByConcept = settlementReportData.reduce((acc, row) => {
+        const groupedByConcept = visibleRows.reduce((acc, row) => {
             const conceptKey = row.conceptName;
             if (!acc[conceptKey]) {
                 acc[conceptKey] = { rows: [], subtotalValor: 0, subtotalCantidad: 0, order: conceptOrder.indexOf(conceptKey) };
@@ -1622,6 +1632,10 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         return sessionMapping[sesionCode] || 'No Aplica';
     }
     
+    const visibleSettlementData = useMemo(() => {
+        return settlementReportData.filter(row => !hiddenRowIds.has(row.uniqueId!));
+    }, [settlementReportData, hiddenRowIds]);
+
     const settlementGroupedData = useMemo(() => {
         const conceptOrder = [
             'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'OPERACIÓN CARGUE (CANASTILLAS)', 'ALISTAMIENTO POR UNIDAD', 
@@ -1634,7 +1648,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             'ALMACENAMIENTO PRODUCTOS CONGELADOS -PALLET/DIA (-18°C A -25°C)', 'ALMACENAMIENTO PRODUCTOS REFRIGERADOS -PALLET/DIA (0°C A 4ºC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA'
         ];
         
-        const grouped = settlementReportData.reduce((acc, row) => {
+        const grouped = visibleSettlementData.reduce((acc, row) => {
             if (!acc[row.conceptName]) {
                 acc[row.conceptName] = { rows: [], subtotalCantidad: 0, subtotalValor: 0 };
             }
@@ -1647,7 +1661,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         const getSortOrder = (conceptName: string): number => {
             const baseIndex = conceptOrder.indexOf(conceptName.replace(' (MANUAL)', ''));
             if (baseIndex === -1) return Infinity;
-            // Ensure MANUAL concepts come directly after their base concept
             return conceptName.includes('(MANUAL)') ? baseIndex + 0.5 : baseIndex;
         };
 
@@ -1656,7 +1669,6 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             const orderB = getSortOrder(b);
             
             if (orderA !== orderB) return orderA - orderB;
-            // If orders are the same (e.g., neither in list), sort alphabetically
             return a.localeCompare(b);
         });
 
@@ -1666,11 +1678,11 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         });
 
         return sortedGroupedData;
-    }, [settlementReportData]);
+    }, [visibleSettlementData]);
     
     const settlementTotalGeneral = useMemo(() => {
-        return settlementReportData.reduce((sum, row) => sum + (row.totalValue || 0), 0);
-    }, [settlementReportData]);
+        return visibleSettlementData.reduce((sum, row) => sum + (row.totalValue || 0), 0);
+    }, [visibleSettlementData]);
 
     return (
         <div className="min-h-screen bg-gray-50 p-4 sm:p-6 lg:p-8">
@@ -2538,18 +2550,28 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                     </div>
                                     <div className="flex gap-2">
                                         <Button onClick={handleSettlementSearch} className="w-full" disabled={isSettlementLoading}><Search className="mr-2 h-4 w-4" />Liquidar</Button>
-                                        <Button onClick={() => { setSettlementClient(undefined); setSettlementDateRange(undefined); setSelectedConcepts([]); setSettlementReportData([]); setSettlementSearched(false); setSettlementContainer(''); }} variant="outline" className="w-full"><XCircle className="mr-2 h-4 w-4" />Limpiar</Button>
+                                        <Button onClick={() => { setSettlementClient(undefined); setSettlementDateRange(undefined); setSelectedConcepts([]); setSettlementReportData([]); setSettlementSearched(false); setSettlementContainer(''); setHiddenRowIds(new Set()); }} variant="outline" className="w-full"><XCircle className="mr-2 h-4 w-4" />Limpiar</Button>
                                     </div>
                                 </div>
 
                                 {settlementSearched && (
                                     <>
-                                    <div className="flex justify-end gap-2 my-4">
-                                        <Button onClick={handleSettlementExportExcel} disabled={isSettlementLoading || settlementReportData.length === 0} variant="outline"><File className="mr-2 h-4 w-4" />Exportar a Excel</Button>
-                                         <Button onClick={handleSettlementExportPDF} disabled={isSettlementLoading || settlementReportData.length === 0 || isLogoLoading} variant="outline">
-                                            {isLogoLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />}
-                                            Exportar a PDF
-                                        </Button>
+                                    <div className="flex justify-between items-center gap-2 my-4">
+                                        <div className="flex items-center gap-2">
+                                            {hiddenRowIds.size > 0 && (
+                                                <Button onClick={handleRestoreAllHidden} variant="outline" size="sm">
+                                                    <History className="mr-2 h-4 w-4" />
+                                                    Restaurar Ocultos ({hiddenRowIds.size})
+                                                </Button>
+                                            )}
+                                        </div>
+                                        <div className="flex gap-2">
+                                            <Button onClick={handleSettlementExportExcel} disabled={isSettlementLoading || settlementReportData.length === 0} variant="outline"><File className="mr-2 h-4 w-4" />Exportar a Excel</Button>
+                                            <Button onClick={handleSettlementExportPDF} disabled={isSettlementLoading || settlementReportData.length === 0 || isLogoLoading} variant="outline">
+                                                {isLogoLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileDown className="mr-2 h-4 w-4" />}
+                                                Exportar a PDF
+                                            </Button>
+                                        </div>
                                     </div>
                                     <div className="rounded-md border">
                                         <Table>
@@ -2577,7 +2599,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                             <TableBody>
                                                 {isSettlementLoading ? (
                                                     Array.from({length: 3}).map((_, i) => <TableRow key={i}><TableCell colSpan={17}><Skeleton className="h-8 w-full"/></TableCell></TableRow>)
-                                                ) : settlementGroupedData && Object.keys(settlementGroupedData).length > 0 ? (
+                                                ) : Object.keys(settlementGroupedData).length > 0 ? (
                                                     <>
                                                         {Object.keys(settlementGroupedData).map(conceptName => (
                                                             <React.Fragment key={conceptName}>
@@ -2603,15 +2625,19 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                         <TableCell className="text-right text-xs p-2">{row.unitValue.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
                                                                         <TableCell className="text-right font-bold text-xs p-2">{row.totalValue.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
                                                                         <TableCell className="text-right p-1">
-                                                                            {row.isEdited ? (
-                                                                                <Button variant="ghost" size="sm" onClick={() => handleRestoreRow(row.uniqueId!)}>
-                                                                                    <Undo2 className="mr-2 h-4 w-4" /> Restaurar
-                                                                                </Button>
-                                                                            ) : (
-                                                                                <Button variant="ghost" size="icon" onClick={() => { setRowToEdit(row); setIsEditSettlementRowOpen(true); }}>
+                                                                            <div className="flex items-center justify-end gap-0">
+                                                                                {row.isEdited && (
+                                                                                    <Button variant="ghost" size="sm" onClick={() => handleRestoreRow(row.uniqueId!)} title="Restaurar fila original">
+                                                                                        <Undo2 className="h-4 w-4" />
+                                                                                    </Button>
+                                                                                )}
+                                                                                <Button variant="ghost" size="icon" onClick={() => { setRowToEdit(row); setIsEditSettlementRowOpen(true); }} title="Editar fila">
                                                                                     <Edit2 className="h-4 w-4" />
                                                                                 </Button>
-                                                                            )}
+                                                                                 <Button variant="ghost" size="icon" onClick={() => handleHideRow(row.uniqueId!)} title="Ocultar fila">
+                                                                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                                                                </Button>
+                                                                            </div>
                                                                         </TableCell>
                                                                     </TableRow>
                                                                 ))}
@@ -2625,7 +2651,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                         ))}
                                                         <TableRow className="bg-primary hover:bg-primary text-primary-foreground font-bold text-base">
                                                             <TableCell colSpan={12} className="text-right p-2">TOTAL GENERAL:</TableCell>
-                                                            <TableCell className="text-right p-2">{settlementReportData.reduce((sum, row) => sum + row.quantity, 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
+                                                            <TableCell className="text-right p-2">{visibleSettlementData.reduce((sum, row) => sum + row.quantity, 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
                                                             <TableCell colSpan={2}></TableCell>
                                                             <TableCell className="text-right p-2" colSpan={2}>{settlementTotalGeneral.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
                                                         </TableRow>
