@@ -54,7 +54,7 @@ export interface ClientSettlementRow {
   totalValue: number;
   horaInicio?: string;
   horaFin?: string;
-  numeroPersonas?: number;
+  numeroPersonas?: number | string;
   uniqueId?: string;
   isEdited?: boolean;
 }
@@ -880,7 +880,7 @@ export async function generateClientSettlement(criteria: {
             } else if (concept.tariffType === 'UNICA') {
                 const quantityForCalc = opData.quantity || 1;
                 let totalValue;
-                let numeroPersonasParaReporte = opData.numeroPersonas;
+                let numeroPersonasParaReporte: number | string | undefined = opData.numeroPersonas;
 
                 if (concept.conceptName === 'INSPECCIÓN ZFPC') {
                     numeroPersonasParaReporte = opData.numeroPersonas;
@@ -893,6 +893,7 @@ export async function generateClientSettlement(criteria: {
                     totalValue = 15 * (concept.value || 0);
                 } else if (concept.conceptName === 'IN-HOUSE INSPECTOR ZFPC') {
                     totalValue = concept.value || 0;
+                    numeroPersonasParaReporte = opData.comentarios || '';
                 } else {
                     totalValue = quantityForCalc * (concept.value || 0);
                 }
@@ -1070,6 +1071,7 @@ const minutesToTime = (minutes: number): string => {
 
 
     
+
 
 
 
