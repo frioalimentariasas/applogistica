@@ -166,9 +166,11 @@ const manualOperationSchema = z.object({
             ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El contenedor es obligatorio para este concepto.", path: ["details", "container"] });
         }
     }
-
-    if (data.concept === 'INSPECCIÓN ZFPC' && !data.details?.arin?.trim()) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El ARIN es obligatorio para este concepto.", path: ["details", "arin"] });
+    
+    if (data.concept === 'INSPECCIÓN ZFPC') {
+        if (!data.details?.arin?.trim()) {
+            ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El ARIN es obligatorio para este concepto.", path: ["details", "arin"] });
+        }
     }
 });
 
@@ -237,7 +239,7 @@ export default function ManualOperationsClientComponent({ clients, billingConcep
     const selectedConceptInfo = useMemo(() => billingConcepts.find(c => c.conceptName === watchedConcept), [watchedConcept, billingConcepts]);
     
     const isBulkMode = watchedConcept === 'TIEMPO EXTRA FRIOAL (FIJO)' || watchedConcept === 'ALQUILER DE ÁREA PARA EMPAQUE/DIA' || watchedConcept === 'SERVICIO APOYO JORNAL';
-    const isTimeExtraMode = watchedConcept === 'TIEMPO EXTRA FRIOAL' || watchedConcept === 'TIEMPO EXTRA FRIOAL (FIJO)';
+    const isTimeExtraMode = watchedConcept === 'TIEMPO EXTRA FRIOAL';
     const isPositionMode = watchedConcept === 'POSICIONES FIJAS CÁMARA CONGELADOS';
     const isElectricConnection = watchedConcept === 'CONEXIÓN ELÉCTRICA CONTENEDOR';
     const isFmmZfpc = watchedConcept === 'FMM ZFPC';
@@ -1158,9 +1160,28 @@ function ConceptFormBody(props: any) {
               <Separator />
               <p className="text-sm font-medium text-muted-foreground">Detalles Adicionales</p>
               {showTimeExtraFields && (
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                       <FormField control={form.control} name="details.startTime" render={({ field }) => (<FormItem><FormLabel>Hora Inicio</FormLabel><div className="flex items-center gap-2"><FormControl><Input type="time" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} className="flex-grow" /></FormControl>{dialogMode !== 'view' && (<Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('details.startTime')}><Clock className="h-4 w-4" /></Button>)}</div><FormMessage /></FormItem>)} />
                       <FormField control={form.control} name="details.endTime" render={({ field }) => (<FormItem><FormLabel>Hora Fin</FormLabel><div className="flex items-center gap-2"><FormControl><Input type="time" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} className="flex-grow" /></FormControl>{dialogMode !== 'view' && (<Button type="button" variant="outline" size="icon" onClick={() => handleCaptureTime('details.endTime')}><Clock className="h-4 w-4" /></Button>)}</div><FormMessage /></FormItem>)} />
+                      <FormField
+                          control={form.control}
+                          name="details.plate"
+                          render={({ field }) => (
+                              <FormItem>
+                                  <FormLabel>Placa (Opcional)</FormLabel>
+                                  <FormControl>
+                                      <Input 
+                                          placeholder="ABC123" 
+                                          {...field} 
+                                          value={field.value ?? ''} 
+                                          disabled={dialogMode === 'view'} 
+                                          onChange={e => field.onChange(e.target.value.toUpperCase())} 
+                                      />
+                                  </FormControl>
+                                  <FormMessage />
+                              </FormItem>
+                          )}
+                      />
                   </div>
               )}
 
@@ -1226,4 +1247,5 @@ function ConceptFormBody(props: any) {
     </>
   );
 }
+
 
