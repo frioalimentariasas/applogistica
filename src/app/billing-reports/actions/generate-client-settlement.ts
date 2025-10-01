@@ -881,6 +881,9 @@ export async function generateClientSettlement(criteria: {
                 const quantityForCalc = opData.quantity || 1;
                 let totalValue;
                 let numeroPersonasParaReporte: number | string | undefined = opData.numeroPersonas;
+                let operacionLogistica = opData.details?.opLogistica && opData.details?.fmmNumber
+                    ? `${opData.details.opLogistica} - #${opData.details.fmmNumber}`
+                    : 'No Aplica';
 
                 if (concept.conceptName === 'INSPECCIÓN ZFPC') {
                     numeroPersonasParaReporte = opData.numeroPersonas;
@@ -895,12 +898,10 @@ export async function generateClientSettlement(criteria: {
                     totalValue = quantityForCalc * (concept.value || 0);
                 }
                  
-                 let operacionLogistica = opData.details?.opLogistica && opData.details?.fmmNumber
-                    ? `${opData.details.opLogistica} - #${opData.details.fmmNumber}`
-                    : 'No Aplica';
-                 
                 if (concept.conceptName === 'IN-HOUSE INSPECTOR ZFPC') {
                     operacionLogistica = opData.comentarios || 'No Aplica';
+                    // Ensure numeroPersonas is not displayed for this concept
+                    numeroPersonasParaReporte = undefined;
                 }
 
                  const noDocumento = opData.details?.noDocumento;
@@ -1071,6 +1072,7 @@ const minutesToTime = (minutes: number): string => {
 
 
     
+
 
 
 
