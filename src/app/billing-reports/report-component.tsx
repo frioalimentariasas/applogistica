@@ -2635,7 +2635,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                                     <Edit2 className="h-4 w-4" />
                                                                                 </Button>
                                                                                  <Button variant="ghost" size="icon" onClick={() => handleHideRow(row.uniqueId!)} title="Ocultar fila">
-                                                                                    <Trash2 className="h-4 w-4 text-destructive" />
+                                                                                    <EyeOff className="h-4 w-4 text-muted-foreground" />
                                                                                 </Button>
                                                                             </div>
                                                                         </TableCell>
@@ -2841,6 +2841,9 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 
 
 
+
+
+    
 
 
     
