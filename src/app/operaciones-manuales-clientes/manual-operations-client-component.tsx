@@ -1,5 +1,4 @@
 
-
 "use client";
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
@@ -39,7 +38,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { Badge } from '@/components/ui/badge';
 import { DateMultiSelector } from '@/components/app/date-multi-selector';
 import { Textarea } from '@/components/ui/textarea';
-import { Alert, AlertTitle } from '@/components/ui/alert';
+import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 
 
 const specificTariffEntrySchema = z.object({
@@ -159,7 +158,7 @@ const manualOperationSchema = z.object({
       if (!data.details?.fmmNumber?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El # FMM es obligatorio.", path: ["details.fmmNumber"] });
       if (!data.details?.plate?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La Placa es obligatoria.", path: ["details.plate"] });
     }
-
+    
     if (isArinZfpc) {
       if (!data.details?.opLogistica) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "La Op. Logística es obligatoria.", path: ["details.opLogistica"] });
       if (!data.details?.arin?.trim()) ctx.addIssue({ code: z.ZodIssueCode.custom, message: "El # ARIN es obligatorio.", path: ["details.arin"] });
@@ -1258,7 +1257,7 @@ function ConceptFormBody(props: any) {
                   />
               )}
               
-                {(isFmmConcept || isFmmZfpc || isArinZfpc) && (
+                {(isFmmZfpc || isArinZfpc) && (
                   <>
                       <FormField control={form.control} name="details.opLogistica" render={({ field }) => (
                           <FormItem>
@@ -1267,7 +1266,7 @@ function ConceptFormBody(props: any) {
                               <FormMessage />
                           </FormItem>
                       )} />
-                      {(isFmmConcept || isFmmZfpc) && (
+                      {isFmmZfpc && (
                         <FormField control={form.control} name="details.fmmNumber" render={({ field }) => (<FormItem><FormLabel># FMM <span className="text-destructive">*</span></FormLabel><FormControl><Input placeholder="Número de FMM" {...field} value={field.value ?? ''} disabled={dialogMode === 'view'} /></FormControl><FormMessage /></FormItem>)} />
                       )}
                       {(isFmmZfpc || isArinZfpc) && (
@@ -1292,3 +1291,5 @@ function ConceptFormBody(props: any) {
     </>
   );
 }
+
+    
