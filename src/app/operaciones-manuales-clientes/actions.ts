@@ -1,3 +1,4 @@
+
 'use server';
 
 import { firestore } from '@/lib/firebase-admin';
@@ -499,7 +500,8 @@ export async function uploadFmmOperations(
         const worksheet = workbook.worksheets[0];
 
         const rows: Partial<FmmRow>[] = [];
-        const headers = (worksheet.getRow(1).values as string[]).map(h => h.trim());
+        const headers = (worksheet.getRow(1).values as string[]).map(h => h ? String(h).trim() : '');
+        
         worksheet.eachRow((row, rowNumber) => {
             if (rowNumber > 1) {
                 const rowData: any = {};
@@ -544,13 +546,14 @@ export async function uploadFmmOperations(
         for (const [index, row] of rows.entries()) {
             const rowIndex = index + 2;
             const fmmNumber = String(row['# FMM'] || '').trim();
+            const concepto = String(row.Concepto || '').trim().toUpperCase();
 
             // Validation Checks
             if (!row.Fecha) { errors.push(`Fila ${rowIndex}: Falta la fecha.`); errorCount++; continue; }
             if (!row.Cliente) { errors.push(`Fila ${rowIndex}: Falta el cliente.`); errorCount++; continue; }
-            if (!row.Concepto || !['FMM DE INGRESO ZFPC (MANUAL)', 'FMM DE SALIDA ZFPC (MANUAL)'].includes(row.Concepto)) { errors.push(`Fila ${rowIndex}: Concepto inválido. Debe ser 'FMM DE INGRESO ZFPC (MANUAL)' o 'FMM DE SALIDA ZFPC (MANUAL)'.`); errorCount++; continue; }
+            if (!concepto || !['FMM DE INGRESO ZFPC (MANUAL)', 'FMM DE SALIDA ZFPC (MANUAL)'].includes(concepto)) { errors.push(`Fila ${rowIndex}: Concepto inválido. Debe ser 'FMM DE INGRESO ZFPC (MANUAL)' o 'FMM DE SALIDA ZFPC (MANUAL)'.`); errorCount++; continue; }
             if (row.Cantidad === undefined || row.Cantidad === null || isNaN(Number(row.Cantidad))) { errors.push(`Fila ${rowIndex}: Cantidad inválida.`); errorCount++; continue; }
-            if (!row['Op. Logística'] || !['CARGUE', 'DESCARGUE'].includes(row['Op. Logística'])) { errors.push(`Fila ${rowIndex}: 'Op. Logística' inválida. Debe ser 'CARGUE' o 'DESCARGUE'.`); errorCount++; continue; }
+            if (!row['Op. Logística'] || !['CARGUE', 'DESCARGUE'].includes(String(row['Op. Logística']).trim().toUpperCase())) { errors.push(`Fila ${rowIndex}: 'Op. Logística' inválida. Debe ser 'CARGUE' o 'DESCARGUE'.`); errorCount++; continue; }
             if (!fmmNumber) { errors.push(`Fila ${rowIndex}: Falta el # FMM.`); errorCount++; continue; }
 
             if (existingFmms.has(fmmNumber)) {
@@ -562,23 +565,29 @@ export async function uploadFmmOperations(
             if (row.Fecha instanceof Date) {
                 operationDate = row.Fecha;
             } else if (typeof row.Fecha === 'number') {
-                operationDate = new Date(Math.round((row.Fecha - 25569) * 86400 * 1000));
-                operationDate.setMinutes(operationDate.getMinutes() + operationDate.getTimezoneOffset());
+                const excelDate = new Date(Math.round((row.Fecha - 25569) * 86400 * 1000));
+                excelDate.setMinutes(excelDate.getMinutes() + excelDate.getTimezoneOffset());
+                operationDate = excelDate;
+            } else if (typeof row.Fecha === 'string') {
+                operationDate = parse(row.Fecha, 'yyyy-MM-dd', new Date());
             } else {
                 errors.push(`Fila ${rowIndex}: Formato de fecha no reconocido.`);
                 errorCount++;
                 continue;
             }
 
+            // Adjust date to Colombia timezone (UTC-5)
+            operationDate.setUTCHours(operationDate.getUTCHours() + 5);
+
             const docRef = firestore.collection('manual_client_operations').doc();
             batch.set(docRef, {
                 clientName: row.Cliente,
-                concept: row.Concepto,
+                concept: concepto,
                 operationDate: admin.firestore.Timestamp.fromDate(operationDate),
                 quantity: Number(row.Cantidad),
                 details: {
                     container: row.Contenedor || '',
-                    opLogistica: row['Op. Logística'],
+                    opLogistica: String(row['Op. Logística']).trim().toUpperCase(),
                     fmmNumber: fmmNumber,
                     plate: row.Placa || ''
                 },
