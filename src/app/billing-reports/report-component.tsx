@@ -1194,7 +1194,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             clientRow.getCell(1).value = `Cliente: ${settlementClient}`;
             clientRow.font = { bold: true };
             clientRow.getCell(1).alignment = { horizontal: 'center' };
-        
+            ws.mergeCells(3, 1, 3, columns.length);
             if (settlementDateRange?.from && settlementDateRange.to) {
                 // Add period at row 4, merge, and center
                 const periodText = `Periodo: ${format(settlementDateRange.from, 'dd/MM/yyyy', { locale: es })} - ${format(settlementDateRange.to, 'dd/MM/yyyy', { locale: es })}`;
