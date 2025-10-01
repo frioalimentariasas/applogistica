@@ -420,7 +420,9 @@ export async function generateClientSettlement(criteria: {
     return { success: false, error: 'El servidor no está configurado correctamente.' };
   }
 
-  const { clientName, startDate, endDate, conceptIds, containerNumber } = criteria;
+  const { clientName, startDate, endDate, containerNumber } = criteria;
+  let { conceptIds } = criteria;
+
   if (!clientName || !startDate || !endDate || conceptIds.length === 0) {
     return { success: false, error: 'Faltan criterios para la liquidación.' };
   }
@@ -441,6 +443,27 @@ export async function generateClientSettlement(criteria: {
             .where('clientName', '==', clientName)
             .get(),
     ]);
+
+    // --- Start: Intelligent Filter Intervention ---
+    const allSelectedConcepts = allConcepts.filter(c => conceptIds.includes(c.id));
+    
+    const hasFmmIngreso = allSelectedConcepts.some(c => c.conceptName === 'FMM DE INGRESO ZFPC');
+    const hasFmmSalida = allSelectedConcepts.some(c => c.conceptName === 'FMM DE SALIDA ZFPC');
+
+    if (hasFmmIngreso) {
+        const manualIngresoConcept = allConcepts.find(c => c.conceptName === 'FMM DE INGRESO ZFPC (MANUAL)');
+        if (manualIngresoConcept && !conceptIds.includes(manualIngresoConcept.id)) {
+            conceptIds.push(manualIngresoConcept.id);
+        }
+    }
+
+    if (hasFmmSalida) {
+        const manualSalidaConcept = allConcepts.find(c => c.conceptName === 'FMM DE SALIDA ZFPC (MANUAL)');
+        if (manualSalidaConcept && !conceptIds.includes(manualSalidaConcept.id)) {
+            conceptIds.push(manualSalidaConcept.id);
+        }
+    }
+    // --- End: Intelligent Filter Intervention ---
     
     const articleSessionMap = new Map<string, string>();
     articlesSnapshot.forEach(doc => {
@@ -881,9 +904,15 @@ export async function generateClientSettlement(criteria: {
                 const quantityForCalc = opData.quantity || 1;
                 let totalValue;
                 let numeroPersonasParaReporte: number | string | undefined = opData.numeroPersonas;
-                let operacionLogistica = opData.details?.opLogistica && opData.details?.fmmNumber
-                    ? `${opData.details.opLogistica} - #${opData.details.fmmNumber}`
-                    : 'No Aplica';
+                
+                let operacionLogistica = 'No Aplica';
+                if (opData.concept.includes('FMM')) {
+                    operacionLogistica = opData.details?.opLogistica && opData.details?.fmmNumber
+                        ? `${opData.details.opLogistica} - #${opData.details.fmmNumber}`
+                        : 'No Aplica';
+                } else if (opData.concept.includes('ARIN')) {
+                    operacionLogistica = opData.details?.opLogistica || 'No Aplica';
+                }
 
                 if (concept.conceptName === 'INSPECCIÓN ZFPC') {
                     numeroPersonasParaReporte = opData.numeroPersonas;
@@ -909,9 +938,13 @@ export async function generateClientSettlement(criteria: {
                     // Ensure numeroPersonas is not displayed for this concept
                     numeroPersonasParaReporte = undefined;
                 }
-
+                 
                  const noDocumento = opData.details?.noDocumento;
-                 const containerValue = noDocumento || opData.details?.container || 'No Aplica';
+                 let containerValue = noDocumento || opData.details?.container || 'No Aplica';
+                 if (opData.concept.includes('ARIN')) {
+                    containerValue = opData.details?.arin || 'No Aplica';
+                 }
+
                  let horaInicio = opData.details?.startTime || 'N/A';
                  let horaFin = opData.details?.endTime || 'N/A';
 
@@ -1078,6 +1111,7 @@ const minutesToTime = (minutes: number): string => {
 
 
     
+
 
 
 
