@@ -891,18 +891,18 @@ export async function generateClientSettlement(criteria: {
                     totalValue = numDias * (concept.value || 0);
                 } else if (concept.billingPeriod === 'QUINCENAL') {
                     totalValue = 15 * (concept.value || 0);
-                } else if (concept.conceptName === 'IN-HOUSE INSPECTOR ZFPC') {
-                    totalValue = concept.value || 0;
-                    numeroPersonasParaReporte = opData.comentarios || '';
                 } else {
                     totalValue = quantityForCalc * (concept.value || 0);
                 }
                  
-                 let operacionLogistica = 'No Aplica';
-                 if (opData.details?.opLogistica && opData.details?.fmmNumber) {
-                    operacionLogistica = `${opData.details.opLogistica} - #${opData.details.fmmNumber}`;
-                 }
+                 let operacionLogistica = opData.details?.opLogistica && opData.details?.fmmNumber
+                    ? `${opData.details.opLogistica} - #${opData.details.fmmNumber}`
+                    : 'No Aplica';
                  
+                if (concept.conceptName === 'IN-HOUSE INSPECTOR ZFPC') {
+                    operacionLogistica = opData.comentarios || 'No Aplica';
+                }
+
                  const noDocumento = opData.details?.noDocumento;
                  const containerValue = noDocumento || opData.details?.container || 'No Aplica';
                  let horaInicio = opData.details?.startTime || 'N/A';
@@ -1071,6 +1071,7 @@ const minutesToTime = (minutes: number): string => {
 
 
     
+
 
 
 
