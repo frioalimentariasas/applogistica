@@ -904,6 +904,12 @@ export async function generateClientSettlement(criteria: {
                     numeroPersonasParaReporte = undefined;
                 }
 
+                if (concept.conceptName === 'FMM DE INGRESO ZFPC (MANUAL)' || concept.conceptName === 'FMM DE SALIDA ZFPC (MANUAL)') {
+                    operacionLogistica = opData.comentarios || 'No Aplica';
+                    // Ensure numeroPersonas is not displayed for this concept
+                    numeroPersonasParaReporte = undefined;
+                }
+
                  const noDocumento = opData.details?.noDocumento;
                  const containerValue = noDocumento || opData.details?.container || 'No Aplica';
                  let horaInicio = opData.details?.startTime || 'N/A';

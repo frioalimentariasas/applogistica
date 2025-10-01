@@ -1549,7 +1549,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     
         const sortedConceptKeys = Object.keys(groupedByConcept).sort((a, b) => {
             const orderA = groupedByConcept[a].order === -1 ? Infinity : groupedByConcept[a].order;
-            const orderB = groupedByConcept[b].order === -1 ? Infinity : b.order;
+            const orderB = groupedByConcept[b].order === -1 ? Infinity : groupedByConcept[b].order;
             if (orderA !== orderB) return orderA - orderB;
             return a.localeCompare(b);
         });
@@ -1624,11 +1624,14 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     
     const settlementGroupedData = useMemo(() => {
         const conceptOrder = [
-            'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'OPERACIÓN CARGUE (CANASTILLAS)', 'ALISTAMIENTO POR UNIDAD', 'FMM DE INGRESO ZFPC', 'ARIN DE INGRESO ZFPC', 'FMM DE SALIDA ZFPC',
-            'ARIN DE SALIDA ZFPC', 'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
+            'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'OPERACIÓN CARGUE (CANASTILLAS)', 'ALISTAMIENTO POR UNIDAD', 
+            'FMM DE INGRESO ZFPC', 'FMM DE INGRESO ZFPC (MANUAL)', 'ARIN DE INGRESO ZFPC', 
+            'FMM DE SALIDA ZFPC', 'FMM DE SALIDA ZFPC (MANUAL)', 'ARIN DE SALIDA ZFPC', 
+            'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
             'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'ESTIBA MADERA RECICLADA',
             'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA ZFPC',
             'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO',
+            'ALMACENAMIENTO PRODUCTOS CONGELADOS -PALLET/DIA (-18°C A -25°C)', 'ALMACENAMIENTO PRODUCTOS REFRIGERADOS -PALLET/DIA (0°C A 4ºC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA'
         ];
         
         const grouped = settlementReportData.reduce((acc, row) => {
@@ -1641,24 +1644,19 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
             return acc;
         }, {} as Record<string, { rows: ClientSettlementRow[], subtotalCantidad: number, subtotalValor: number }>);
         
+        const getSortOrder = (conceptName: string): number => {
+            const baseIndex = conceptOrder.indexOf(conceptName.replace(' (MANUAL)', ''));
+            if (baseIndex === -1) return Infinity;
+            // Ensure MANUAL concepts come directly after their base concept
+            return conceptName.includes('(MANUAL)') ? baseIndex + 0.5 : baseIndex;
+        };
+
         const sortedKeys = Object.keys(grouped).sort((a, b) => {
-            let indexA = conceptOrder.indexOf(a);
-            let indexB = conceptOrder.indexOf(b);
-
-            // Special handling for "OPERACIÓN CARGUE (CANASTILLAS)"
-            if (a === 'OPERACIÓN CARGUE (CANASTILLAS)') {
-                const cargueIndex = conceptOrder.indexOf('OPERACIÓN CARGUE');
-                if (cargueIndex !== -1) indexA = cargueIndex + 0.5;
-            }
-            if (b === 'OPERACIÓN CARGUE (CANASTILLAS)') {
-                const cargueIndex = conceptOrder.indexOf('OPERACIÓN CARGUE');
-                if (cargueIndex !== -1) indexB = cargueIndex + 0.5;
-            }
-
-            const orderA = indexA === -1 ? Infinity : indexA;
-            const orderB = indexB === -1 ? Infinity : indexB;
-
+            const orderA = getSortOrder(a);
+            const orderB = getSortOrder(b);
+            
             if (orderA !== orderB) return orderA - orderB;
+            // If orders are the same (e.g., neither in list), sort alphabetically
             return a.localeCompare(b);
         });
 
@@ -2817,3 +2815,6 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 
 
 
+
+
+    
