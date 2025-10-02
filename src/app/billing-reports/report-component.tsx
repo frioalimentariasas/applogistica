@@ -1359,9 +1359,15 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         }, {} as Record<string, { rows: ClientSettlementRow[], subtotalCantidad: number, subtotalValor: number, order: number }>);
     
         const sortedConceptKeys = Object.keys(groupedByConcept).sort((a, b) => {
-            const orderA = groupedByConcept[a].order === -1 ? Infinity : a.localeCompare(b);
-            const orderB = groupedByConcept[b].order === -1 ? Infinity : b.localeCompare(a);
-            if (orderA !== orderB) return orderA - orderB;
+            const orderA = groupedByConcept[a].order;
+            const orderB = groupedByConcept[b].order;
+
+            const finalOrderA = orderA === -1 ? Infinity : orderA;
+            const finalOrderB = orderB === -1 ? Infinity : orderB;
+
+            if (finalOrderA !== finalOrderB) {
+                return finalOrderA - finalOrderB;
+            }
             return a.localeCompare(b);
         });
     
@@ -2610,7 +2616,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                     <TableRow key={row.uniqueId} data-state={row.isEdited ? "edited" : ""}>
                                                                         <TableCell className="text-xs p-2">{format(parseISO(row.date), 'dd/MM/yyyy', { locale: es })}</TableCell>
                                                                         <TableCell className="text-xs p-2 whitespace-normal">{row.subConceptName}</TableCell>
-                                                                        <TableCell className="text-xs p-2">{row.numeroPersonas || ''}</TableCell>
+                                                                        <TableCell className="text-xs p-2">{row.conceptName !== 'POSICIONES FIJAS CÁMARA CONGELADOS' ? row.numeroPersonas || '' : ''}</TableCell>
                                                                         <TableCell className="text-xs p-2">{row.totalPaletas > 0 ? row.totalPaletas : ''}</TableCell>
                                                                         <TableCell className="text-xs p-2">{row.placa}</TableCell>
                                                                         <TableCell className="text-xs p-2">{getSessionName(row.camara)}</TableCell>
