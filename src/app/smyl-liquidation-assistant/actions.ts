@@ -51,47 +51,40 @@ const serializeTimestamps = (data: any): any => {
     return data;
 };
 
-async function getLotHistory(lotId: string): Promise<LotHistory | null> {
+async function getLotHistory(lotId: string, startDate: string, endDate: string): Promise<LotHistory | null> {
     if (!firestore) throw new Error("Firestore not configured.");
 
     const clientName = "SMYL TRANSPORTE Y LOGISTICA SAS";
 
-    // 1. Find the initial reception using a more robust query
-    const receptionQuery1 = firestore.collection('submissions')
-        .where('formType', 'in', ['variable-weight-reception', 'variable-weight-recepcion'])
-        .where('formData.tipoPedido', '==', 'GENERICO')
-        .where('formData.cliente', '==', clientName);
-        
-    const receptionQuery2 = firestore.collection('submissions')
-        .where('formType', 'in', ['variable-weight-reception', 'variable-weight-recepcion'])
-        .where('formData.tipoPedido', '==', 'GENERICO')
-        .where('formData.nombreCliente', '==', clientName);
-
-    const [snapshot1, snapshot2] = await Promise.all([
-        receptionQuery1.get(),
-        receptionQuery2.get(),
-    ]);
+    // 1. Find the initial reception by querying all receptions for the client in the date range
+    // and then filtering in code. This is more robust than complex Firestore queries.
+    const submissionsRef = firestore.collection('submissions');
     
-    const allPotentialDocs = [...snapshot1.docs, ...snapshot2.docs];
-    const uniqueDocs = Array.from(new Map(allPotentialDocs.map(doc => [doc.id, doc])).values());
+    const query1 = submissionsRef.where('formData.cliente', '==', clientName).where('formType', 'in', ['variable-weight-reception', 'variable-weight-recepcion']).where('formData.fecha', '>=', startOfDay(parseISO(startDate))).where('formData.fecha', '<=', endOfDay(parseISO(endDate)));
+    const query2 = submissionsRef.where('formData.nombreCliente', '==', clientName).where('formType', 'in', ['variable-weight-reception', 'variable-weight-recepcion']).where('formData.fecha', '>=', startOfDay(parseISO(startDate))).where('formData.fecha', '<=', endOfDay(parseISO(endDate)));
+
+    const [snapshot1, snapshot2] = await Promise.all([query1.get(), query2.get()]);
+    
+    const allReceptionDocs = [...snapshot1.docs, ...snapshot2.docs];
+    const uniqueDocs = Array.from(new Map(allReceptionDocs.map(doc => [doc.id, doc])).values());
 
     let initialReceptionDoc = null;
+
     for (const doc of uniqueDocs) {
-        const data = doc.data();
-        const hasLot = (data.formData.items || []).some((item: any) => item.lote === lotId);
-        if (hasLot) {
-            const grossWeight = Number(data.formData.totalPesoBrutoKg) || 0;
-            if (grossWeight >= 20000) {
-                 initialReceptionDoc = doc;
-                 break;
-            }
+        const data = doc.data().formData;
+        if (
+            data.tipoPedido === 'GENERICO' &&
+            Number(data.totalPesoBrutoKg) >= 20000 &&
+            (data.items || []).some((item: any) => item.lote === lotId)
+        ) {
+            initialReceptionDoc = doc;
+            break; // Found the first valid reception for the lot
         }
     }
 
     if (!initialReceptionDoc) return null;
 
     const initialData = serializeTimestamps(initialReceptionDoc.data().formData);
-    
     const initialItemsForLot = (initialData.items || []).filter((item: any) => item.lote === lotId);
     
     if (initialItemsForLot.length === 0) return null;
@@ -107,7 +100,6 @@ async function getLotHistory(lotId: string): Promise<LotHistory | null> {
 
     // 2. Find all subsequent movements
     const movements: Movement[] = [];
-    const submissionsRef = firestore.collection('submissions');
 
     // Despachos GENERICO
     const dispatchSnapshot = await submissionsRef
@@ -123,12 +115,14 @@ async function getLotHistory(lotId: string): Promise<LotHistory | null> {
         const lotItems = allItems.filter((item: any) => item.lote === lotId);
         if (lotItems.length > 0) {
             const palletsInMovement = new Set(lotItems.filter(item => !item.esPicking).map((item: any) => item.paleta)).size;
-            movements.push({
-                date: data.fecha,
-                type: 'despacho',
-                pallets: palletsInMovement,
-                description: `Despacho (Pedido: ${data.pedidoSislog})`
-            });
+            if (palletsInMovement > 0) {
+                movements.push({
+                    date: data.fecha,
+                    type: 'despacho',
+                    pallets: palletsInMovement,
+                    description: `Despacho (Pedido: ${data.pedidoSislog})`
+                });
+            }
         }
     });
 
@@ -145,24 +139,27 @@ async function getLotHistory(lotId: string): Promise<LotHistory | null> {
         const lotItems = (data.items || []).filter((item: any) => item.lote === lotId);
         if (lotItems.length > 0) {
             const palletsInMovement = new Set(lotItems.map((item: any) => item.paleta)).size;
-            movements.push({
-                date: data.fecha,
-                type: 'ingreso_saldos',
-                pallets: palletsInMovement,
-                description: `Ingreso Saldos (Pedido: ${data.pedidoSislog})`
-            });
+             if (palletsInMovement > 0) {
+                movements.push({
+                    date: data.fecha,
+                    type: 'ingreso_saldos',
+                    pallets: palletsInMovement,
+                    description: `Ingreso Saldos (Pedido: ${data.pedidoSislog})`
+                });
+            }
         }
     });
 
     return { initialReception, movements };
 }
 
+
 export async function getSmylLotAssistantReport(lotId: string, queryStartDate: string, queryEndDate: string): Promise<AssistantReport | { error: string }> {
     if (!lotId) return { error: "Debe proporcionar un número de lote." };
 
     try {
-        const history = await getLotHistory(lotId);
-        if (!history) return { error: `No se encontró una recepción 'GENERICO' inicial para el lote '${lotId}' que cumpla los criterios.` };
+        const history = await getLotHistory(lotId, queryStartDate, queryEndDate);
+        if (!history) return { error: `No se encontró una recepción 'GENERICO' inicial para el lote '${lotId}' con peso >= 20000kg en el rango de fechas.` };
 
         const { initialReception, movements } = history;
         const dailyBalances: DailyBalance[] = [];
@@ -191,9 +188,8 @@ export async function getSmylLotAssistantReport(lotId: string, queryStartDate: s
                 }
             });
 
-            currentBalance = currentBalance - despachosHoy + ingresosHoy;
+            currentBalance = initialBalanceForDay - despachosHoy + ingresosHoy;
             
-            // Only add to report if the date is within the user's query range
             const queryStart = startOfDay(parseISO(queryStartDate));
             const queryEnd = endOfDay(parseISO(queryEndDate));
             if (date >= queryStart && date <= queryEnd) {
