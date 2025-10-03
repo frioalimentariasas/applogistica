@@ -58,18 +58,26 @@ async function getLotHistory(lotId: string): Promise<LotHistory | null> {
 
     // 1. Find the initial reception
     const receptionSnapshot = await firestore.collection('submissions')
-        .where('formData.cliente', '==', clientName)
-        .where('formType', '==', 'variable-weight-reception')
         .where('formData.tipoPedido', '==', 'GENERICO')
+        .where('formType', 'in', ['variable-weight-reception', 'variable-weight-recepcion'])
         .get();
 
     let initialReceptionDoc = null;
     for (const doc of receptionSnapshot.docs) {
         const data = doc.data();
+        // Check both possible field names for client
+        const docClientName = data.formData.nombreCliente || data.formData.cliente;
+        if (docClientName !== clientName) {
+            continue;
+        }
+
         const hasLot = (data.formData.items || []).some((item: any) => item.lote === lotId);
         if (hasLot) {
-            initialReceptionDoc = doc;
-            break;
+            const grossWeight = Number(data.formData.totalPesoBrutoKg) || 0;
+            if (grossWeight >= 20000) {
+                 initialReceptionDoc = doc;
+                 break;
+            }
         }
     }
 
@@ -89,8 +97,6 @@ async function getLotHistory(lotId: string): Promise<LotHistory | null> {
         grossWeight: Number(initialData.totalPesoBrutoKg) || 0,
         pedidoSislog: initialData.pedidoSislog,
     };
-    
-    if (initialReception.grossWeight < 20000) return null;
 
     // 2. Find all subsequent movements
     const movements: Movement[] = [];
@@ -109,7 +115,7 @@ async function getLotHistory(lotId: string): Promise<LotHistory | null> {
         const allItems = data.despachoPorDestino ? (data.destinos || []).flatMap((d:any) => d.items) : (data.items || []);
         const lotItems = allItems.filter((item: any) => item.lote === lotId);
         if (lotItems.length > 0) {
-            const palletsInMovement = new Set(lotItems.map((item: any) => item.paleta)).size;
+            const palletsInMovement = new Set(lotItems.filter(item => !item.esPicking).map((item: any) => item.paleta)).size;
             movements.push({
                 date: data.fecha,
                 type: 'despacho',
@@ -122,7 +128,7 @@ async function getLotHistory(lotId: string): Promise<LotHistory | null> {
     // Ingresos de Saldos
     const incomeSnapshot = await submissionsRef
         .where('formData.cliente', '==', clientName)
-        .where('formType', '==', 'variable-weight-reception')
+        .where('formType', 'in', ['variable-weight-reception', 'variable-weight-recepcion'])
         .where('formData.tipoPedido', '==', 'INGRESO DE SALDOS')
         .where('formData.fecha', '>=', initialReception.date)
         .get();
