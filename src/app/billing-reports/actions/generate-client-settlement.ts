@@ -10,6 +10,7 @@ import { startOfDay, endOfDay, parseISO, differenceInHours, getDaysInMonth, getD
 import type { ArticuloData } from '@/app/actions/articulos';
 import { getConsolidatedMovementReport } from '@/app/actions/consolidated-movement-report';
 import { processTunelCongelacionData } from '@/lib/report-utils';
+import { getSmylLotAssistantReport, type AssistantReport } from '@/app/smyl-liquidation-assistant/actions';
 
 
 export async function getAllManualClientOperations(): Promise<any[]> {
@@ -137,7 +138,7 @@ const serializeTimestamps = (data: any): any => {
       return data.toDate().toISOString();
     }
     if (Array.isArray(data)) {
-        return data.map(item => serializeTimestamps(item));
+        return data.map(serializeTimestamps);
     }
     const newObj: { [key: string]: any } = {};
     for (const key in data) {
@@ -409,30 +410,200 @@ const formatTime12Hour = (timeStr: string | undefined): string => {
 };
 
 
+async function generateSmylLiquidation(
+  startDate: string,
+  endDate: string,
+  allConcepts: ClientBillingConcept[]
+): Promise<ClientSettlementRow[]> {
+    const settlementRows: ClientSettlementRow[] = [];
+    
+    // 1. Fetch SMYL-specific concepts by name
+    const mainConcept = allConcepts.find(c => c.conceptName === 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA');
+    const freezingConcept = allConcepts.find(c => c.conceptName === 'Servicio logístico Congelación (4 Días)');
+    const dailyConcept = allConcepts.find(c => c.conceptName === 'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)');
+
+    if (!mainConcept || !freezingConcept || !dailyConcept) {
+        throw new Error("No se encontraron todos los conceptos de liquidación necesarios para SMYL. Verifique la configuración.");
+    }
+    
+    const mainTariff = mainConcept.value || 0;
+    const dailyPalletRate = dailyConcept.value || 0;
+
+    // 2. Find all unique lots received in the period
+    const submissionsRef = firestore.collection('submissions');
+    const querySnapshot = await submissionsRef
+        .where('formData.fecha', '>=', startOfDay(parseISO(startDate)))
+        .where('formData.fecha', '<=', endOfDay(parseISO(endDate)))
+        .where('formData.cliente', '==', 'SMYL TRANSPORTE Y LOGISTICA SAS')
+        .where('formType', 'in', ['variable-weight-reception', 'variable-weight-recepcion'])
+        .where('formData.tipoPedido', '==', 'GENERICO')
+        .get();
+
+    const lotsToProcess = new Set<string>();
+    querySnapshot.forEach(doc => {
+        const data = doc.data().formData;
+        const totalWeight = (data.items || []).reduce((sum: number, item: any) => sum + (Number(item.pesoBruto) || 0), 0);
+        if (totalWeight >= 20000) {
+            (data.items || []).forEach((item: any) => {
+                if (item.lote) lotsToProcess.add(item.lote);
+            });
+        }
+    });
+
+    // 3. Process each lot
+    for (const lotId of Array.from(lotsToProcess)) {
+        const report = await getSmylLotAssistantReport(lotId, startDate, endDate);
+
+        if ('error' in report) {
+            console.warn(`Skipping lot ${lotId}: ${report.error}`);
+            continue;
+        }
+
+        const { initialReception, dailyBalances } = report;
+        const initialPallets = initialReception.pallets;
+        
+        // --- Phase 1: Grace Period Billing ---
+        const freezingTotal = initialPallets * mainTariff;
+        const manipulationTotal = mainTariff - freezingTotal;
+        
+        settlementRows.push({
+            date: format(initialReception.date, 'yyyy-MM-dd'),
+            conceptName: 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
+            subConceptName: 'Servicio logístico Congelación (4 Días)',
+            quantity: initialPallets,
+            unitOfMeasure: 'PALETA',
+            unitValue: mainTariff,
+            totalValue: freezingTotal,
+            placa: '', container: '', camara: '', operacionLogistica: '', pedidoSislog: initialReception.pedidoSislog, tipoVehiculo: '',
+        });
+
+        settlementRows.push({
+            date: format(initialReception.date, 'yyyy-MM-dd'),
+            conceptName: 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
+            subConceptName: 'Servicio de Manipulación',
+            quantity: 1,
+            unitOfMeasure: 'UNIDAD',
+            unitValue: manipulationTotal,
+            totalValue: manipulationTotal,
+             placa: '', container: '', camara: '', operacionLogistica: '', pedidoSislog: initialReception.pedidoSislog, tipoVehiculo: '',
+        });
+        
+        // --- Phase 2: Daily Billing ---
+        const gracePeriodEndDate = addDays(initialReception.date, 3);
+        const day4Balance = dailyBalances.find(b => b.date === format(gracePeriodEndDate, 'yyyy-MM-dd'));
+
+        if (day4Balance && day4Balance.finalBalance > 0) {
+            const subsequentDays = dailyBalances.filter(b => parseISO(b.date) > gracePeriodEndDate);
+            
+            for (const day of subsequentDays) {
+                if (day.finalBalance > 0) {
+                    settlementRows.push({
+                        date: day.date,
+                        conceptName: 'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
+                        quantity: day.finalBalance,
+                        unitOfMeasure: 'PALETA',
+                        unitValue: dailyPalletRate,
+                        totalValue: day.finalBalance * dailyPalletRate,
+                        placa: '', container: '', camara: 'CO', operacionLogistica: 'ALMACENAMIENTO', pedidoSislog: initialReception.pedidoSislog, tipoVehiculo: '', totalPaletas: day.finalBalance
+                    });
+                }
+            }
+        }
+    }
+    
+    return settlementRows;
+}
+
+
 export async function generateClientSettlement(criteria: {
   clientName: string;
   startDate: string;
   endDate: string;
   conceptIds: string[];
   containerNumber?: string;
+  lotId?: string;
 }): Promise<ClientSettlementResult> {
   if (!firestore) {
     return { success: false, error: 'El servidor no está configurado correctamente.' };
   }
 
-  const { clientName, startDate, endDate, containerNumber } = criteria;
+  const { clientName, startDate, endDate, containerNumber, lotId } = criteria;
   let { conceptIds } = criteria;
 
-  if (!clientName || !startDate || !endDate || conceptIds.length === 0) {
+  if (!clientName || !startDate || !endDate) {
     return { success: false, error: 'Faltan criterios para la liquidación.' };
+  }
+  
+  if (clientName === 'SMYL TRANSPORTE Y LOGISTICA SAS' && !lotId) {
+      return { success: false, error: 'Para liquidar SMYL, debe proporcionar un número de lote.' };
   }
 
   try {
+    const allConcepts = await getClientBillingConcepts();
+
+    if (clientName === 'SMYL TRANSPORTE Y LOGISTICA SAS') {
+        const smylReport = await getSmylLotAssistantReport(lotId!, startDate, endDate);
+        if ('error' in smylReport) {
+            return { success: false, error: smylReport.error };
+        }
+
+        const mainConcept = allConcepts.find(c => c.conceptName === 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA');
+        const dailyConcept = allConcepts.find(c => c.conceptName === 'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)');
+
+        if (!mainConcept || !dailyConcept || mainConcept.value === undefined || dailyConcept.value === undefined) {
+             return { success: false, error: "No se encontraron los conceptos de 'MANIPULACIÓN' y/o 'COBRO DIARIO' con tarifas definidas para SMYL." };
+        }
+        
+        const mainTariff = mainConcept.value;
+        const dailyPalletRate = dailyConcept.value;
+
+        const { initialReception, dailyBalances } = smylReport;
+        const settlementRows: ClientSettlementRow[] = [];
+
+        // Cobro inicial
+        const freezingTotal = initialReception.pallets * mainTariff;
+        const manipulationTotal = mainTariff - freezingTotal;
+
+        settlementRows.push({
+            date: format(initialReception.date, 'yyyy-MM-dd'),
+            conceptName: 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
+            subConceptName: 'Servicio logístico Congelación (4 Días)',
+            quantity: initialReception.pallets, unitOfMeasure: 'PALETA', unitValue: mainTariff, totalValue: freezingTotal,
+            placa: '', container: '', camara: 'CO', operacionLogistica: 'Recepción', pedidoSislog: initialReception.pedidoSislog, tipoVehiculo: '', totalPaletas: initialReception.pallets
+        });
+        settlementRows.push({
+            date: format(initialReception.date, 'yyyy-MM-dd'),
+            conceptName: 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
+            subConceptName: 'Servicio de Manipulación',
+            quantity: 1, unitOfMeasure: 'UNIDAD', unitValue: manipulationTotal, totalValue: manipulationTotal,
+            placa: '', container: '', camara: 'CO', operacionLogistica: 'Recepción', pedidoSislog: initialReception.pedidoSislog, tipoVehiculo: '', totalPaletas: 0
+        });
+        
+        // Cobro diario
+        const gracePeriodEndDate = addDays(initialReception.date, 3);
+        const day4Balance = dailyBalances.find(b => b.date === format(gracePeriodEndDate, 'yyyy-MM-dd'));
+
+        if (day4Balance && day4Balance.finalBalance > 0) {
+            const subsequentDays = dailyBalances.filter(b => parseISO(b.date) > gracePeriodEndDate);
+            for (const day of subsequentDays) {
+                if (day.finalBalance > 0) {
+                    settlementRows.push({
+                        date: day.date,
+                        conceptName: 'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
+                        quantity: day.finalBalance, unitOfMeasure: 'PALETA/DIA', unitValue: dailyPalletRate, totalValue: day.finalBalance * dailyPalletRate,
+                        placa: '', container: '', camara: 'CO', operacionLogistica: 'ALMACENAMIENTO', pedidoSislog: initialReception.pedidoSislog, tipoVehiculo: '', totalPaletas: day.finalBalance
+                    });
+                }
+            }
+        }
+        return { success: true, data: settlementRows };
+    }
+
+
     const serverQueryStartDate = startOfDay(parseISO(startDate));
     const serverQueryEndDate = endOfDay(parseISO(endDate));
 
-    const [allConcepts, articlesSnapshot, submissionsSnapshot, manualOpsSnapshot, crewManualOpsSnapshot] = await Promise.all([
-        getClientBillingConcepts(),
+    const [articlesSnapshot, submissionsSnapshot, manualOpsSnapshot, crewManualOpsSnapshot] = await Promise.all([
         firestore.collection('articulos').where('razonSocial', '==', clientName).get(),
         firestore.collection('submissions').where('formData.fecha', '>=', serverQueryStartDate).where('formData.fecha', '<=', serverQueryEndDate).get(),
         firestore.collection('manual_client_operations').where('operationDate', '>=', serverQueryStartDate).where('operationDate', '<=', serverQueryEndDate).get(),
@@ -1019,8 +1190,14 @@ export async function generateClientSettlement(criteria: {
     }
 
     const conceptOrder = [
-        'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'OPERACIÓN CARGUE (CANASTILLAS)', 'ALISTAMIENTO POR UNIDAD', 'FMM DE INGRESO ZFPC', 'ARIN DE INGRESO ZFPC', 'FMM DE SALIDA ZFPC',
-        'ARIN DE SALIDA ZFPC', 'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
+        'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'OPERACIÓN CARGUE (CANASTILLAS)', 'ALISTAMIENTO POR UNIDAD', 
+        'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA', // Parent concept
+        'Servicio logístico Congelación (4 Días)', // Child
+        'Servicio de Manipulación', // Child
+        'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
+        'FMM DE INGRESO ZFPC', 'FMM DE INGRESO ZFPC (MANUAL)', 'ARIN DE INGRESO ZFPC', 
+        'FMM DE SALIDA ZFPC', 'FMM DE SALIDA ZFPC (MANUAL)', 'ARIN DE SALIDA ZFPC', 
+        'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
         'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'ESTIBA MADERA RECICLADA',
         'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA ZFPC',
         'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO', 'ALMACENAMIENTO PRODUCTOS CONGELADOS -PALLET/DIA (-18°C A -25°C)', 'ALMACENAMIENTO PRODUCTOS REFRIGERADOS -PALLET/DIA (0°C A 4ºC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA'

@@ -229,6 +229,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const [settlementClient, setSettlementClient] = useState<string | undefined>(undefined);
     const [settlementDateRange, setSettlementDateRange] = useState<DateRange | undefined>();
     const [settlementContainer, setSettlementContainer] = useState<string>('');
+    const [settlementLotId, setSettlementLotId] = useState(''); // New state for Lot ID
     const [availableConcepts, setAvailableConcepts] = useState<ClientBillingConcept[]>([]);
     const [isLoadingAvailableConcepts, setIsLoadingAvailableConcepts] = useState(false);
     const [selectedConcepts, setSelectedConcepts] = useState<string[]>([]);
@@ -259,6 +260,13 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     useEffect(() => {
         const fetchApplicableConcepts = async () => {
             if (settlementClient && settlementDateRange?.from && settlementDateRange?.to) {
+                // For SMYL, we don't need to pre-fetch concepts as they are hardcoded in the special logic.
+                if (settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS') {
+                    setAvailableConcepts([]);
+                    setSelectedConcepts([]); // Auto-select logic is handled internally
+                    return;
+                }
+                
                 setIsLoadingAvailableConcepts(true);
                 try {
                     const result = await findApplicableConcepts(
@@ -1101,10 +1109,22 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     };
     
     const handleSettlementSearch = async () => {
-        if (!settlementClient || !settlementDateRange?.from || !settlementDateRange?.to || selectedConcepts.length === 0) {
-            toast({ variant: 'destructive', title: 'Filtros incompletos', description: 'Seleccione cliente, rango de fechas y al menos un concepto.' });
+        if (!settlementClient || !settlementDateRange?.from || !settlementDateRange?.to) {
+            toast({ variant: 'destructive', title: 'Filtros incompletos', description: 'Seleccione cliente y rango de fechas.' });
             return;
         }
+
+        const isSmyl = settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS';
+        if (isSmyl && !settlementLotId) {
+            toast({ variant: 'destructive', title: 'Filtro incompleto', description: 'Debe ingresar un lote para liquidar a SMYL.' });
+            return;
+        }
+        if (!isSmyl && selectedConcepts.length === 0) {
+             toast({ variant: 'destructive', title: 'Filtro incompleto', description: 'Debe seleccionar al menos un concepto a liquidar.' });
+            return;
+        }
+
+
         setIsSettlementLoading(true);
         setSettlementSearched(true);
         setSettlementReportData([]);
@@ -1117,6 +1137,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                 endDate: format(settlementDateRange.to, 'yyyy-MM-dd'),
                 conceptIds: selectedConcepts,
                 containerNumber: settlementContainer,
+                lotId: isSmyl ? settlementLotId : undefined,
             });
             
             if (result.success && result.data) {
@@ -1188,11 +1209,18 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         workbook.created = new Date();
     
         const conceptOrder = [
-            'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'OPERACIÓN CARGUE (CANASTILLAS)', 'ALISTAMIENTO POR UNIDAD', 'FMM DE INGRESO ZFPC', 'ARIN DE INGRESO ZFPC', 'FMM DE SALIDA ZFPC',
-            'ARIN DE SALIDA ZFPC', 'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
+            'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'OPERACIÓN CARGUE (CANASTILLAS)', 'ALISTAMIENTO POR UNIDAD', 
+            'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA', // Parent concept
+            'Servicio logístico Congelación (4 Días)', // Child
+            'Servicio de Manipulación', // Child
+            'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
+            'FMM DE INGRESO ZFPC', 'FMM DE INGRESO ZFPC (MANUAL)', 'ARIN DE INGRESO ZFPC', 
+            'FMM DE SALIDA ZFPC', 'FMM DE SALIDA ZFPC (MANUAL)', 'ARIN DE SALIDA ZFPC', 
+            'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
             'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'ESTIBA MADERA RECICLADA',
             'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA ZFPC',
-            'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO', 'ALMACENAMIENTO PRODUCTOS CONGELADOS -PALLET/DIA (-18°C A -25°C)', 'ALMACENAMIENTO PRODUCTOS REFRIGERADOS -PALLET/DIA (0°C A 4ºC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA'
+            'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO',
+            'ALMACENAMIENTO PRODUCTOS CONGELADOS -PALLET/DIA (-18°C A -25°C)', 'ALMACENAMIENTO PRODUCTOS REFRIGERADOS -PALLET/DIA (0°C A 4ºC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA'
         ];
     
         const addHeaderAndTitle = (ws: ExcelJS.Worksheet, title: string, columns: any[]) => {
@@ -1449,12 +1477,17 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
         const conceptOrder = [
             'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'OPERACIÓN CARGUE (CANASTILLAS)', 'ALISTAMIENTO POR UNIDAD', 
+            'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA', // Parent concept
+            'Servicio logístico Congelación (4 Días)', // Child
+            'Servicio de Manipulación', // Child
+            'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
             'FMM DE INGRESO ZFPC', 'FMM DE INGRESO ZFPC (MANUAL)', 'ARIN DE INGRESO ZFPC', 
             'FMM DE SALIDA ZFPC', 'FMM DE SALIDA ZFPC (MANUAL)', 'ARIN DE SALIDA ZFPC', 
             'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
             'MOVIMIENTO SALIDA PRODUCTOS PALLET', 'CONEXIÓN ELÉCTRICA CONTENEDOR', 'ESTIBA MADERA RECICLADA',
             'POSICIONES FIJAS CÁMARA CONGELADOS', 'INSPECCIÓN ZFPC', 'TIEMPO EXTRA FRIOAL (FIJO)', 'TIEMPO EXTRA ZFPC',
             'IN-HOUSE INSPECTOR ZFPC', 'ALQUILER IMPRESORA ETIQUETADO',
+            'ALMACENAMIENTO PRODUCTOS CONGELADOS -PALLET/DIA (-18°C A -25°C)', 'ALMACENAMIENTO PRODUCTOS REFRIGERADOS -PALLET/DIA (0°C A 4ºC', 'SERVICIO DE TUNEL DE CONGELACIÓN RAPIDA'
         ];
     
         const addHeader = (docInstance: jsPDF, pageTitle: string) => {
@@ -1645,6 +1678,8 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
     const settlementGroupedData = useMemo(() => {
         const conceptOrder = [
             'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'OPERACIÓN CARGUE (CANASTILLAS)', 'ALISTAMIENTO POR UNIDAD', 
+            'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
+            'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
             'FMM DE INGRESO ZFPC', 'FMM DE INGRESO ZFPC (MANUAL)', 'ARIN DE INGRESO ZFPC', 
             'FMM DE SALIDA ZFPC', 'FMM DE SALIDA ZFPC (MANUAL)', 'ARIN DE SALIDA ZFPC', 
             'REESTIBADO', 'TOMA DE PESOS POR ETIQUETA HRS', 'MOVIMIENTO ENTRADA PRODUCTOS PALLET',
@@ -1655,26 +1690,25 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
         ];
         
         const grouped = visibleSettlementData.reduce((acc, row) => {
-            if (!acc[row.conceptName]) {
-                acc[row.conceptName] = { rows: [], subtotalCantidad: 0, subtotalValor: 0 };
+            const conceptKey = row.conceptName;
+            if (!acc[conceptKey]) {
+                acc[conceptKey] = { rows: [], subtotalCantidad: 0, subtotalValor: 0 };
             }
-            acc[row.conceptName].rows.push(row);
-            acc[row.conceptName].subtotalCantidad += row.quantity || 0;
-            acc[row.conceptName].subtotalValor += row.totalValue || 0;
+            acc[conceptKey].rows.push(row);
+            acc[conceptKey].subtotalCantidad += row.quantity || 0;
+            acc[conceptKey].subtotalValor += row.totalValue || 0;
             return acc;
         }, {} as Record<string, { rows: ClientSettlementRow[], subtotalCantidad: number, subtotalValor: number }>);
         
-        const getSortOrder = (conceptName: string): number => {
-            const baseIndex = conceptOrder.indexOf(conceptName.replace(' (MANUAL)', ''));
-            if (baseIndex === -1) return Infinity;
-            return conceptName.includes('(MANUAL)') ? baseIndex + 0.5 : baseIndex;
-        };
-
         const sortedKeys = Object.keys(grouped).sort((a, b) => {
-            const orderA = getSortOrder(a);
-            const orderB = getSortOrder(b);
-            
-            if (orderA !== orderB) return orderA - orderB;
+            const orderA = conceptOrder.indexOf(a);
+            const orderB = conceptOrder.indexOf(b);
+            const finalOrderA = orderA === -1 ? Infinity : orderA;
+            const finalOrderB = orderB === -1 ? Infinity : orderB;
+
+            if (finalOrderA !== finalOrderB) {
+                return finalOrderA - finalOrderB;
+            }
             return a.localeCompare(b);
         });
 
@@ -2502,10 +2536,17 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                             </DialogContent>
                                         </Dialog>
                                     </div>
-                                    <div className="space-y-2">
-                                        <Label>No. Contenedor (Opcional)</Label>
-                                        <Input placeholder="Buscar por contenedor" value={settlementContainer} onChange={(e) => setSettlementContainer(e.target.value)} />
-                                    </div>
+                                    {settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS' ? (
+                                        <div className="space-y-2">
+                                            <Label>No. de Lote</Label>
+                                            <Input placeholder="Ingrese el lote a liquidar" value={settlementLotId} onChange={(e) => setSettlementLotId(e.target.value.toUpperCase())} />
+                                        </div>
+                                    ) : (
+                                        <div className="space-y-2">
+                                            <Label>No. Contenedor (Opcional)</Label>
+                                            <Input placeholder="Buscar por contenedor" value={settlementContainer} onChange={(e) => setSettlementContainer(e.target.value)} />
+                                        </div>
+                                    )}
                                     <div className="space-y-2">
                                         <Label>Rango de Fechas</Label>
                                         <Popover>
@@ -2521,7 +2562,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                     </div>
                                     <div className="space-y-2">
                                         <Label>Conceptos a Liquidar</Label>
-                                        <Dialog open={isSettlementConceptDialogOpen} onOpenChange={setIsSettlementConceptDialogOpen}><DialogTrigger asChild><Button variant="outline" className="w-full justify-between" disabled={!settlementClient || !settlementDateRange}><span className="truncate">{selectedConcepts.length === 0 ? "Seleccionar conceptos..." : `${selectedConcepts.length} seleccionados`}</span>{isLoadingAvailableConcepts ? <Loader2 className="ml-2 h-4 w-4 shrink-0 animate-spin" /> : <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50"/>}</Button></DialogTrigger>
+                                        <Dialog open={isSettlementConceptDialogOpen} onOpenChange={setIsSettlementConceptDialogOpen}><DialogTrigger asChild><Button variant="outline" className="w-full justify-between" disabled={!settlementClient || !settlementDateRange || settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS'}><span className="truncate">{selectedConcepts.length === 0 ? "Seleccionar conceptos..." : `${selectedConcepts.length} seleccionados`}</span>{isLoadingAvailableConcepts ? <Loader2 className="ml-2 h-4 w-4 shrink-0 animate-spin" /> : <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50"/>}</Button></DialogTrigger>
                                             <DialogContent><DialogHeader><DialogTitle>Seleccionar Conceptos</DialogTitle><DialogDescription>Marque los conceptos que desea incluir en la liquidación.</DialogDescription></DialogHeader>
                                                 <ScrollArea className="h-72 mt-4"><div className="space-y-2 pr-4">
                                                     {isLoadingAvailableConcepts ? (
@@ -2556,7 +2597,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                     </div>
                                     <div className="flex gap-2">
                                         <Button onClick={handleSettlementSearch} className="w-full" disabled={isSettlementLoading}><Search className="mr-2 h-4 w-4" />Liquidar</Button>
-                                        <Button onClick={() => { setSettlementClient(undefined); setSettlementDateRange(undefined); setSelectedConcepts([]); setSettlementReportData([]); setSettlementSearched(false); setSettlementContainer(''); setHiddenRowIds(new Set()); }} variant="outline" className="w-full"><XCircle className="mr-2 h-4 w-4" />Limpiar</Button>
+                                        <Button onClick={() => { setSettlementClient(undefined); setSettlementDateRange(undefined); setSelectedConcepts([]); setSettlementReportData([]); setSettlementSearched(false); setSettlementContainer(''); setSettlementLotId(''); setHiddenRowIds(new Set()); }} variant="outline" className="w-full"><XCircle className="mr-2 h-4 w-4" />Limpiar</Button>
                                     </div>
                                 </div>
 
@@ -2585,6 +2626,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                 <TableRow>
                                                     <TableHead className="text-xs p-2">Fecha</TableHead>
                                                     <TableHead className="text-xs p-2">Concepto</TableHead>
+                                                    <TableHead className="text-xs p-2">Detalle Concepto</TableHead>
                                                     <TableHead className="text-xs p-2">No. Personas</TableHead>
                                                     <TableHead className="text-xs p-2">Total Paletas</TableHead>
                                                     <TableHead className="text-xs p-2">Placa</TableHead>
@@ -2610,11 +2652,12 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                         {Object.keys(settlementGroupedData).map(conceptName => (
                                                             <React.Fragment key={conceptName}>
                                                                 <TableRow className="bg-muted hover:bg-muted">
-                                                                    <TableCell colSpan={17} className="font-bold text-primary text-sm p-2">{conceptName}</TableCell>
+                                                                    <TableCell colSpan={18} className="font-bold text-primary text-sm p-2">{conceptName}</TableCell>
                                                                 </TableRow>
                                                                 {settlementGroupedData[conceptName].rows.map((row) => (
                                                                     <TableRow key={row.uniqueId} data-state={row.isEdited ? "edited" : ""}>
                                                                         <TableCell className="text-xs p-2">{format(parseISO(row.date), 'dd/MM/yyyy', { locale: es })}</TableCell>
+                                                                        <TableCell className="text-xs p-2 whitespace-normal">{row.conceptName}</TableCell>
                                                                         <TableCell className="text-xs p-2 whitespace-normal">{row.subConceptName}</TableCell>
                                                                         <TableCell className="text-xs p-2">{row.conceptName !== 'POSICIONES FIJAS CÁMARA CONGELADOS' ? row.numeroPersonas || '' : ''}</TableCell>
                                                                         <TableCell className="text-xs p-2">{row.totalPaletas > 0 ? row.totalPaletas : ''}</TableCell>
@@ -2648,7 +2691,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                                     </TableRow>
                                                                 ))}
                                                                 <TableRow className="bg-secondary hover:bg-secondary/80 font-bold">
-                                                                    <TableCell colSpan={12} className="text-right text-xs p-2">SUBTOTAL {conceptName}:</TableCell>
+                                                                    <TableCell colSpan={13} className="text-right text-xs p-2">SUBTOTAL {conceptName}:</TableCell>
                                                                     <TableCell className="text-xs p-2 text-right">{settlementGroupedData[conceptName].subtotalCantidad.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
                                                                     <TableCell colSpan={2} className="text-xs p-2"></TableCell>
                                                                     <TableCell className="text-right text-xs p-2" colSpan={2}>{settlementGroupedData[conceptName].subtotalValor.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
@@ -2656,14 +2699,14 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                                             </React.Fragment>
                                                         ))}
                                                         <TableRow className="bg-primary hover:bg-primary text-primary-foreground font-bold text-base">
-                                                            <TableCell colSpan={12} className="text-right p-2">TOTAL GENERAL:</TableCell>
+                                                            <TableCell colSpan={13} className="text-right p-2">TOTAL GENERAL:</TableCell>
                                                             <TableCell className="text-right p-2">{visibleSettlementData.reduce((sum, row) => sum + row.quantity, 0).toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2})}</TableCell>
                                                             <TableCell colSpan={2}></TableCell>
                                                             <TableCell className="text-right p-2" colSpan={2}>{settlementTotalGeneral.toLocaleString('es-CO', {style: 'currency', currency: 'COP'})}</TableCell>
                                                         </TableRow>
                                                     </>
                                                 ) : (
-                                                    <TableRow><TableCell colSpan={17} className="h-24 text-center">No se encontraron datos para liquidar.</TableCell></TableRow>
+                                                    <TableRow><TableCell colSpan={18} className="h-24 text-center">No se encontraron datos para liquidar.</TableCell></TableRow>
                                                 )}
                                             </TableBody>
                                         </Table>
@@ -2853,3 +2896,4 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 
 
     
+
