@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -20,6 +21,7 @@ import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, FolderSearch, Packag
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
+import { IndexCreationDialog } from '@/components/app/index-creation-dialog';
 
 export function SmylLiquidationAssistantComponent() {
     const router = useRouter();
@@ -35,6 +37,9 @@ export function SmylLiquidationAssistantComponent() {
     const [isLoading, setIsLoading] = useState(false);
     const [searched, setSearched] = useState(false);
     const [error, setError] = useState<string | null>(null);
+
+    const [isIndexErrorOpen, setIsIndexErrorOpen] = useState(false);
+    const [indexErrorMessage, setIndexErrorMessage] = useState('');
 
     const handleSearch = async () => {
         if (!lotId.trim()) {
@@ -53,9 +58,16 @@ export function SmylLiquidationAssistantComponent() {
 
         try {
             const result = await getSmylLotAssistantReport(lotId.trim(), format(dateRange.from, 'yyyy-MM-dd'), format(dateRange.to, 'yyyy-MM-dd'));
+            
             if ('error' in result) {
-                setError(result.error);
-                toast({ variant: 'destructive', title: 'No se pudo generar el reporte', description: result.error });
+                const errorMessage = result.error;
+                if (typeof errorMessage === 'string' && (errorMessage.includes('requires an index') || errorMessage.includes('needs an index'))) {
+                    setIndexErrorMessage(errorMessage);
+                    setIsIndexErrorOpen(true);
+                } else {
+                    setError(errorMessage);
+                    toast({ variant: 'destructive', title: 'No se pudo generar el reporte', description: errorMessage });
+                }
             } else {
                 setReportData(result);
             }
@@ -208,6 +220,11 @@ export function SmylLiquidationAssistantComponent() {
                         </CardContent>
                     </Card>
                 )}
+                <IndexCreationDialog 
+                    isOpen={isIndexErrorOpen}
+                    onOpenChange={setIsIndexErrorOpen}
+                    errorMessage={indexErrorMessage}
+                />
             </div>
         </div>
     );
