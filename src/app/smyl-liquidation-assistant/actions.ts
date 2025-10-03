@@ -60,27 +60,38 @@ async function getLotHistory(lotId: string, startDate: string, endDate: string):
     // and then filtering in code. This is more robust than complex Firestore queries.
     const submissionsRef = firestore.collection('submissions');
     
-    const query1 = submissionsRef.where('formData.cliente', '==', clientName).where('formType', 'in', ['variable-weight-reception', 'variable-weight-recepcion']).where('formData.fecha', '>=', startOfDay(parseISO(startDate))).where('formData.fecha', '<=', endOfDay(parseISO(endDate)));
-    const query2 = submissionsRef.where('formData.nombreCliente', '==', clientName).where('formType', 'in', ['variable-weight-reception', 'variable-weight-recepcion']).where('formData.fecha', '>=', startOfDay(parseISO(startDate))).where('formData.fecha', '<=', endOfDay(parseISO(endDate)));
+    // Wider query to catch both 'cliente' and 'nombreCliente' fields
+    const querySnapshot = await submissionsRef
+        .where('formType', 'in', ['variable-weight-reception', 'variable-weight-recepcion'])
+        .where('formData.fecha', '>=', startOfDay(parseISO(startDate)))
+        .where('formData.fecha', '<=', endOfDay(parseISO(endDate)))
+        .get();
 
-    const [snapshot1, snapshot2] = await Promise.all([query1.get(), query2.get()]);
-    
-    const allReceptionDocs = [...snapshot1.docs, ...snapshot2.docs];
-    const uniqueDocs = Array.from(new Map(allReceptionDocs.map(doc => [doc.id, doc])).values());
+    const clientDocs = querySnapshot.docs.filter(doc => {
+        const data = doc.data().formData;
+        return data.cliente === clientName || data.nombreCliente === clientName;
+    });
 
     let initialReceptionDoc = null;
 
-    for (const doc of uniqueDocs) {
+    for (const doc of clientDocs) {
         const data = doc.data().formData;
-        if (
-            data.tipoPedido === 'GENERICO' &&
-            Number(data.totalPesoBrutoKg) >= 20000 &&
-            (data.items || []).some((item: any) => item.lote === lotId)
-        ) {
-            initialReceptionDoc = doc;
-            break; // Found the first valid reception for the lot
+        const items = data.items || [];
+        // Check if the lot exists in this reception
+        if (items.some((item: any) => item.lote === lotId)) {
+            // If it exists, check for the GENERICO and weight conditions
+            if (data.tipoPedido === 'GENERICO') {
+                // Correctly calculate total weight for variable weight forms
+                const totalCalculatedWeight = items.reduce((sum: number, item: any) => sum + (Number(item.pesoBruto) || 0), 0);
+                
+                if (totalCalculatedWeight >= 20000) {
+                    initialReceptionDoc = doc;
+                    break; // Found the correct initial reception
+                }
+            }
         }
     }
+
 
     if (!initialReceptionDoc) return null;
 
@@ -90,11 +101,12 @@ async function getLotHistory(lotId: string, startDate: string, endDate: string):
     if (initialItemsForLot.length === 0) return null;
 
     const initialPallets = new Set(initialItemsForLot.map((item: any) => item.paleta)).size;
+    const initialGrossWeight = initialItemsForLot.reduce((sum: number, item: any) => sum + (Number(item.pesoBruto) || 0), 0);
     
     const initialReception = {
         date: initialData.fecha,
         pallets: initialPallets,
-        grossWeight: Number(initialData.totalPesoBrutoKg) || 0,
+        grossWeight: initialGrossWeight,
         pedidoSislog: initialData.pedidoSislog,
     };
 
