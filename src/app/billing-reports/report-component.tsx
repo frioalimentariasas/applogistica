@@ -1477,9 +1477,7 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
 
         const conceptOrder = [
             'OPERACIÓN DESCARGUE', 'OPERACIÓN CARGUE', 'OPERACIÓN CARGUE (CANASTILLAS)', 'ALISTAMIENTO POR UNIDAD', 
-            'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA', // Parent concept
-            'Servicio logístico Congelación (4 Días)', // Child
-            'Servicio de Manipulación', // Child
+            'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
             'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
             'FMM DE INGRESO ZFPC', 'FMM DE INGRESO ZFPC (MANUAL)', 'ARIN DE INGRESO ZFPC', 
             'FMM DE SALIDA ZFPC', 'FMM DE SALIDA ZFPC (MANUAL)', 'ARIN DE SALIDA ZFPC', 
@@ -2562,7 +2560,17 @@ export default function BillingReportComponent({ clients }: { clients: ClientInf
                                     </div>
                                     <div className="space-y-2">
                                         <Label>Conceptos a Liquidar</Label>
-                                        <Dialog open={isSettlementConceptDialogOpen} onOpenChange={setIsSettlementConceptDialogOpen}><DialogTrigger asChild><Button variant="outline" className="w-full justify-between" disabled={!settlementClient || !settlementDateRange || settlementClient === 'SMYL TRANSPORTE Y LOGISTICA SAS'}><span className="truncate">{selectedConcepts.length === 0 ? "Seleccionar conceptos..." : `${selectedConcepts.length} seleccionados`}</span>{isLoadingAvailableConcepts ? <Loader2 className="ml-2 h-4 w-4 shrink-0 animate-spin" /> : <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50"/>}</Button></DialogTrigger>
+                                        <Dialog open={isSettlementConceptDialogOpen} onOpenChange={setIsSettlementConceptDialogOpen}>
+                                            <DialogTrigger asChild>
+                                                <Button
+                                                    variant="outline"
+                                                    className="w-full justify-between"
+                                                    disabled={!settlementClient || !settlementDateRange}
+                                                >
+                                                    <span className="truncate">{selectedConcepts.length === 0 ? "Seleccionar conceptos..." : `${selectedConcepts.length} seleccionados`}</span>
+                                                    {isLoadingAvailableConcepts ? <Loader2 className="ml-2 h-4 w-4 shrink-0 animate-spin" /> : <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50"/>}
+                                                </Button>
+                                            </DialogTrigger>
                                             <DialogContent><DialogHeader><DialogTitle>Seleccionar Conceptos</DialogTitle><DialogDescription>Marque los conceptos que desea incluir en la liquidación.</DialogDescription></DialogHeader>
                                                 <ScrollArea className="h-72 mt-4"><div className="space-y-2 pr-4">
                                                     {isLoadingAvailableConcepts ? (
@@ -2897,3 +2905,6 @@ function EditSettlementRowDialog({ isOpen, onOpenChange, row, onSave }: { isOpen
 
     
 
+
+
+    
