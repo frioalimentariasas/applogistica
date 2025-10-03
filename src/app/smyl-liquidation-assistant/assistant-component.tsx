@@ -1,10 +1,9 @@
-
 "use client";
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { DateRange } from 'react-day-picker';
-import { format, addDays } from 'date-fns';
+import { format, addDays, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 
 import { useToast } from '@/hooks/use-toast';
@@ -17,7 +16,7 @@ import { Label } from '@/components/ui/label';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, FolderSearch, Pallet, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, Search, XCircle, Loader2, CalendarIcon, FolderSearch, Package, AlertTriangle } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
@@ -87,7 +86,7 @@ export function SmylLiquidationAssistantComponent() {
                         </Button>
                         <div>
                             <div className="flex items-center justify-center gap-2">
-                                <Pallet className="h-8 w-8 text-primary" />
+                                <Package className="h-8 w-8 text-primary" />
                                 <h1 className="text-2xl font-bold text-primary">Asistente de Liquidación SMYL</h1>
                             </div>
                             <p className="text-sm text-gray-500">Consulte el historial y saldo diario de un lote para facilitar la liquidación manual.</p>
