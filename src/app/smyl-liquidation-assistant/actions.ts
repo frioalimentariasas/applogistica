@@ -56,21 +56,28 @@ async function getLotHistory(lotId: string): Promise<LotHistory | null> {
 
     const clientName = "SMYL TRANSPORTE Y LOGISTICA SAS";
 
-    // 1. Find the initial reception
-    const receptionSnapshot = await firestore.collection('submissions')
-        .where('formData.tipoPedido', '==', 'GENERICO')
+    // 1. Find the initial reception using a more robust query
+    const receptionQuery1 = firestore.collection('submissions')
         .where('formType', 'in', ['variable-weight-reception', 'variable-weight-recepcion'])
-        .get();
+        .where('formData.tipoPedido', '==', 'GENERICO')
+        .where('formData.cliente', '==', clientName);
+        
+    const receptionQuery2 = firestore.collection('submissions')
+        .where('formType', 'in', ['variable-weight-reception', 'variable-weight-recepcion'])
+        .where('formData.tipoPedido', '==', 'GENERICO')
+        .where('formData.nombreCliente', '==', clientName);
+
+    const [snapshot1, snapshot2] = await Promise.all([
+        receptionQuery1.get(),
+        receptionQuery2.get(),
+    ]);
+    
+    const allPotentialDocs = [...snapshot1.docs, ...snapshot2.docs];
+    const uniqueDocs = Array.from(new Map(allPotentialDocs.map(doc => [doc.id, doc])).values());
 
     let initialReceptionDoc = null;
-    for (const doc of receptionSnapshot.docs) {
+    for (const doc of uniqueDocs) {
         const data = doc.data();
-        // Check both possible field names for client
-        const docClientName = data.formData.nombreCliente || data.formData.cliente;
-        if (docClientName !== clientName) {
-            continue;
-        }
-
         const hasLot = (data.formData.items || []).some((item: any) => item.lote === lotId);
         if (hasLot) {
             const grossWeight = Number(data.formData.totalPesoBrutoKg) || 0;
