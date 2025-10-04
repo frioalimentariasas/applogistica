@@ -139,16 +139,6 @@ export function SmylLiquidationAssistantComponent() {
                     <CardContent>
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                             <div className="space-y-2">
-                                <Label htmlFor="lotId">Número de Lote</Label>
-                                <div className="flex items-center gap-2">
-                                    <Input id="lotId" placeholder="Ej: MNBU0967" value={lotId} onChange={(e) => setLotId(e.target.value.toUpperCase())} />
-                                    <Button type="button" variant="outline" size="icon" onClick={handleOpenLotFinder} disabled={!dateRange?.from || !dateRange?.to}>
-                                        <Search className="h-4 w-4" />
-                                        <span className="sr-only">Buscar Lote</span>
-                                    </Button>
-                                </div>
-                            </div>
-                            <div className="space-y-2">
                                 <Label>Rango de Fechas</Label>
                                 <Popover>
                                     <PopoverTrigger asChild>
@@ -161,6 +151,16 @@ export function SmylLiquidationAssistantComponent() {
                                         <Calendar initialFocus mode="range" defaultMonth={dateRange?.from} selected={dateRange} onSelect={setDateRange} numberOfMonths={2} locale={es} />
                                     </PopoverContent>
                                 </Popover>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="lotId">Número de Lote</Label>
+                                <div className="flex items-center gap-2">
+                                    <Input id="lotId" placeholder="Ej: MNBU0967" value={lotId} onChange={(e) => setLotId(e.target.value.toUpperCase())} />
+                                    <Button type="button" variant="outline" size="icon" onClick={handleOpenLotFinder} disabled={!dateRange?.from || !dateRange?.to}>
+                                        <Search className="h-4 w-4" />
+                                        <span className="sr-only">Buscar Lote</span>
+                                    </Button>
+                                </div>
                             </div>
                             <div className="flex gap-2">
                                 <Button onClick={handleSearch} className="w-full" disabled={isLoading}>
