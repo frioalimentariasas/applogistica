@@ -189,19 +189,19 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
         return docClientName === clientName;
     });
     
-    const conceptsForClient = allConcepts.filter(c => c.clientNames.includes(clientName) || c.clientNames.includes('TODOS (Cualquier Cliente)'));
-    const smylSpecialConcepts = [
-        'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
-        'Servicio logístico Congelación (4 Días)',
-        'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
-    ];
+    let conceptsForClient = allConcepts.filter(c => c.clientNames.includes(clientName) || c.clientNames.includes('TODOS (Cualquier Cliente)'));
+    
+    if (clientName === 'SMYL TRANSPORTE Y LOGISTICA SAS') {
+        const smylSpecialConcepts = [
+            'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
+            'Servicio logístico Congelación (4 Días)',
+            'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
+        ];
+        conceptsForClient = conceptsForClient.filter(c => !smylSpecialConcepts.includes(c.conceptName));
+    }
 
 
     for (const concept of conceptsForClient) {
-         if (clientName === 'SMYL TRANSPORTE Y LOGISTICA SAS' && smylSpecialConcepts.includes(concept.conceptName)) {
-            continue; // Skip special SMYL concepts from manual selection
-        }
-
         if (concept.calculationType === 'REGLAS') {
             const hasApplicableOperation = clientSubmissions.some(doc => {
                 const submission = serializeTimestamps(doc.data());
@@ -1220,6 +1220,7 @@ const minutesToTime = (minutes: number): string => {
 
 
     
+
 
 
 
