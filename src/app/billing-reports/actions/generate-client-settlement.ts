@@ -186,13 +186,22 @@ export async function findApplicableConcepts(clientName: string, startDate: stri
     const clientSubmissions = submissionsSnapshot.docs.filter(doc => {
         const docData = doc.data();
         const docClientName = docData.formData?.cliente || docData.formData?.nombreCliente;
-        const pedidoSislog = docData.formData?.pedidoSislog;
-        return docClientName === clientName && pedidoSislog !== '1';
+        return docClientName === clientName;
     });
     
     const conceptsForClient = allConcepts.filter(c => c.clientNames.includes(clientName) || c.clientNames.includes('TODOS (Cualquier Cliente)'));
+    const smylSpecialConcepts = [
+        'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA',
+        'Servicio logístico Congelación (4 Días)',
+        'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)',
+    ];
+
 
     for (const concept of conceptsForClient) {
+         if (clientName === 'SMYL TRANSPORTE Y LOGISTICA SAS' && smylSpecialConcepts.includes(concept.conceptName)) {
+            continue; // Skip special SMYL concepts from manual selection
+        }
+
         if (concept.calculationType === 'REGLAS') {
             const hasApplicableOperation = clientSubmissions.some(doc => {
                 const submission = serializeTimestamps(doc.data());
@@ -429,17 +438,14 @@ async function generateSmylLiquidation(
 ): Promise<ClientSettlementRow[]> {
     const settlementRows: ClientSettlementRow[] = [];
     
-    // Find the required concepts by their exact name
     const mainConcept = allConcepts.find(c => c.conceptName === 'SERVICIO LOGÍSTICO MANIPULACIÓN CARGA');
-    const freezingConcept = allConcepts.find(c => c.conceptName === 'Servicio logístico Congelación (4 Días)');
     const dailyConcept = allConcepts.find(c => c.conceptName === 'SERVICIO LOGÍSTICO CONGELACIÓN (COBRO DIARIO)');
 
-    if (!mainConcept?.value || !freezingConcept?.value || !dailyConcept?.value) {
-        throw new Error("No se encontraron todos los conceptos de SMYL ('MANIPULACIÓN CARGA', 'Congelación (4 Días)', 'COBRO DIARIO') con tarifas definidas. Verifique la configuración.");
+    if (!mainConcept?.value || !dailyConcept?.value) {
+        throw new Error("No se encontraron los conceptos de SMYL ('MANIPULACIÓN CARGA', 'COBRO DIARIO') con tarifas definidas. Verifique la configuración.");
     }
     
     const mainTariff = mainConcept.value;
-    const freezingPalletRate = freezingConcept.value;
     const dailyPalletRate = dailyConcept.value;
 
     const report = await getSmylLotAssistantReport(lotId, startDate, endDate);
@@ -451,7 +457,7 @@ async function generateSmylLiquidation(
     const initialPallets = initialReception.pallets;
     
     // --- Phase 1: Grace Period Billing ---
-    const freezingTotal = initialPallets * freezingPalletRate;
+    const freezingTotal = initialPallets * dailyPalletRate;
     const manipulationTotal = mainTariff - freezingTotal;
     
     settlementRows.push({
@@ -460,7 +466,7 @@ async function generateSmylLiquidation(
         subConceptName: 'Servicio logístico Congelación (4 Días)',
         quantity: initialPallets,
         unitOfMeasure: 'PALETA',
-        unitValue: freezingPalletRate,
+        unitValue: dailyPalletRate,
         totalValue: freezingTotal,
         placa: '', container: '', camara: 'CO', operacionLogistica: 'Recepción', pedidoSislog: initialReception.pedidoSislog, tipoVehiculo: '', totalPaletas: initialPallets,
     });
@@ -510,16 +516,8 @@ export async function generateClientSettlement(criteria: {
   containerNumber?: string;
   lotId?: string;
 }): Promise<ClientSettlementResult> {
-  if (!firestore) {
-    return { success: false, error: 'El servidor no está configurado correctamente.' };
-  }
-
-  const { clientName, startDate, endDate, conceptIds, containerNumber, lotId } = criteria;
-
-  if (!clientName || !startDate || !endDate) {
-    return { success: false, error: 'Faltan criterios para la liquidación.' };
-  }
   
+  const { clientName, startDate, endDate, conceptIds, containerNumber, lotId } = criteria;
   const allConcepts = await getClientBillingConcepts();
 
   // --- SPECIAL SMYL LOGIC ---
@@ -533,6 +531,14 @@ export async function generateClientSettlement(criteria: {
   }
 
   // --- STANDARD LOGIC FOR ALL OTHER CLIENTS (AND SMYL WITHOUT LOT) ---
+  if (!firestore) {
+    return { success: false, error: 'El servidor no está configurado correctamente.' };
+  }
+  
+  if (!clientName || !startDate || !endDate) {
+    return { success: false, error: 'Faltan criterios para la liquidación.' };
+  }
+
   try {
     const serverQueryStartDate = startOfDay(parseISO(startDate));
     const serverQueryEndDate = endOfDay(parseISO(endDate));
@@ -561,9 +567,8 @@ export async function generateClientSettlement(criteria: {
     submissionsSnapshot.docs.forEach(doc => {
         const data = serializeTimestamps(doc.data());
         const docClientName = data.formData?.cliente || data.formData?.nombreCliente;
-        const pedidoSislog = data.formData?.pedidoSislog;
         
-        if (docClientName === clientName && pedidoSislog !== '1') {
+        if (docClientName === clientName) {
             if (containerNumber && data.formData.contenedor !== containerNumber) {
                 return;
             }
@@ -1215,6 +1220,7 @@ const minutesToTime = (minutes: number): string => {
 
 
     
+
 
 
 
