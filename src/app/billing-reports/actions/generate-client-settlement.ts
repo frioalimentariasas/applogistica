@@ -500,8 +500,7 @@ export async function generateClientSettlement(criteria: {
     return { success: false, error: 'El servidor no está configurado correctamente.' };
   }
 
-  const { clientName, startDate, endDate, containerNumber, lotId } = criteria;
-  let { conceptIds } = criteria;
+  const { clientName, startDate, endDate, conceptIds, containerNumber, lotId } = criteria;
 
   if (!clientName || !startDate || !endDate) {
     return { success: false, error: 'Faltan criterios para la liquidación.' };
@@ -509,6 +508,7 @@ export async function generateClientSettlement(criteria: {
   
   const allConcepts = await getClientBillingConcepts();
 
+  // Conditional logic for SMYL client
   if (clientName === 'SMYL TRANSPORTE Y LOGISTICA SAS' && lotId) {
       try {
         const smylRows = await generateSmylLiquidation(startDate, endDate, lotId, allConcepts);
@@ -533,27 +533,6 @@ export async function generateClientSettlement(criteria: {
             .where('clientName', '==', clientName)
             .get(),
     ]);
-
-    // --- Start: Intelligent Filter Intervention ---
-    const allSelectedConcepts = allConcepts.filter(c => conceptIds.includes(c.id));
-    
-    const hasFmmIngreso = allSelectedConcepts.some(c => c.conceptName === 'FMM DE INGRESO ZFPC');
-    const hasFmmSalida = allSelectedConcepts.some(c => c.conceptName === 'FMM DE SALIDA ZFPC');
-
-    if (hasFmmIngreso) {
-        const manualIngresoConcept = allConcepts.find(c => c.conceptName === 'FMM DE INGRESO ZFPC (MANUAL)');
-        if (manualIngresoConcept && !conceptIds.includes(manualIngresoConcept.id)) {
-            conceptIds.push(manualIngresoConcept.id);
-        }
-    }
-
-    if (hasFmmSalida) {
-        const manualSalidaConcept = allConcepts.find(c => c.conceptName === 'FMM DE SALIDA ZFPC (MANUAL)');
-        if (manualSalidaConcept && !conceptIds.includes(manualSalidaConcept.id)) {
-            conceptIds.push(manualSalidaConcept.id);
-        }
-    }
-    // --- End: Intelligent Filter Intervention ---
     
     const articleSessionMap = new Map<string, string>();
     articlesSnapshot.forEach(doc => {
@@ -1221,6 +1200,7 @@ const minutesToTime = (minutes: number): string => {
 
 
     
+
 
 
 
