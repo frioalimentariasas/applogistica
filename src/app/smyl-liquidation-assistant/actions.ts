@@ -37,6 +37,13 @@ export interface AssistantReport {
     dailyBalances: DailyBalance[];
 }
 
+export interface EligibleLot {
+    lotId: string;
+    receptionDate: string;
+    pedidoSislog: string;
+}
+
+
 const serializeTimestamps = (data: any): any => {
     if (!data) return data;
     if (data instanceof admin.firestore.Timestamp) return data.toDate();
@@ -57,36 +64,25 @@ async function getLotHistory(lotId: string, startDate: string, endDate: string):
     const clientName = "SMYL TRANSPORTE Y LOGISTICA SAS";
 
     // 1. Find the initial reception by querying all receptions for the client in the date range
-    // and then filtering in code. This is more robust than complex Firestore queries.
     const submissionsRef = firestore.collection('submissions');
-    
-    // Wider query to catch both 'cliente' and 'nombreCliente' fields
     const querySnapshot = await submissionsRef
+        .where('formData.cliente', '==', clientName)
         .where('formType', 'in', ['variable-weight-reception', 'variable-weight-recepcion'])
         .where('formData.fecha', '>=', startOfDay(parseISO(startDate)))
         .where('formData.fecha', '<=', endOfDay(parseISO(endDate)))
         .get();
 
-    const clientDocs = querySnapshot.docs.filter(doc => {
-        const data = doc.data().formData;
-        return data.cliente === clientName || data.nombreCliente === clientName;
-    });
-
     let initialReceptionDoc = null;
 
-    for (const doc of clientDocs) {
+    for (const doc of querySnapshot.docs) {
         const data = doc.data().formData;
         const items = data.items || [];
-        // Check if the lot exists in this reception
         if (items.some((item: any) => item.lote === lotId)) {
-            // If it exists, check for the GENERICO and weight conditions
             if (data.tipoPedido === 'GENERICO') {
-                // Correctly calculate total weight for variable weight forms
                 const totalCalculatedWeight = items.reduce((sum: number, item: any) => sum + (Number(item.pesoBruto) || 0), 0);
-                
                 if (totalCalculatedWeight >= 20000) {
                     initialReceptionDoc = doc;
-                    break; // Found the correct initial reception
+                    break;
                 }
             }
         }
@@ -126,7 +122,7 @@ async function getLotHistory(lotId: string, startDate: string, endDate: string):
         const allItems = data.despachoPorDestino ? (data.destinos || []).flatMap((d:any) => d.items) : (data.items || []);
         const lotItems = allItems.filter((item: any) => item.lote === lotId);
         if (lotItems.length > 0) {
-            const palletsInMovement = new Set(lotItems.filter(item => !item.esPicking).map((item: any) => item.paleta)).size;
+            const palletsInMovement = new Set(lotItems.filter((item: any) => !item.esPicking).map((item: any) => item.paleta)).size;
             if (palletsInMovement > 0) {
                 movements.push({
                     date: data.fecha,
@@ -223,4 +219,41 @@ export async function getSmylLotAssistantReport(lotId: string, queryStartDate: s
         const message = e instanceof Error ? e.message : "Un error desconocido ocurrió en el servidor.";
         return { error: message };
     }
+}
+
+export async function getSmylEligibleLots(startDate: string, endDate: string): Promise<EligibleLot[]> {
+  if (!firestore) throw new Error("Firestore no está configurado.");
+
+  const clientName = "SMYL TRANSPORTE Y LOGISTICA SAS";
+
+  const querySnapshot = await firestore
+    .collection('submissions')
+    .where('formData.cliente', '==', clientName)
+    .where('formType', 'in', ['variable-weight-reception', 'variable-weight-recepcion'])
+    .where('formData.tipoPedido', '==', 'GENERICO')
+    .where('formData.fecha', '>=', startOfDay(parseISO(startDate)))
+    .where('formData.fecha', '<=', endOfDay(parseISO(endDate)))
+    .get();
+
+  const eligibleLotsMap = new Map<string, EligibleLot>();
+
+  querySnapshot.docs.forEach(doc => {
+    const data = doc.data().formData;
+    const items = data.items || [];
+    const totalWeight = items.reduce((sum: number, item: any) => sum + (Number(item.pesoBruto) || 0), 0);
+
+    if (totalWeight >= 20000) {
+      items.forEach((item: any) => {
+        if (item.lote && !eligibleLotsMap.has(item.lote)) {
+          eligibleLotsMap.set(item.lote, {
+            lotId: item.lote,
+            receptionDate: format(data.fecha.toDate(), 'yyyy-MM-dd'),
+            pedidoSislog: data.pedidoSislog,
+          });
+        }
+      });
+    }
+  });
+
+  return Array.from(eligibleLotsMap.values()).sort((a, b) => b.receptionDate.localeCompare(a.receptionDate));
 }

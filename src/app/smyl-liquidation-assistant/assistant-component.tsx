@@ -9,7 +9,7 @@ import { es } from 'date-fns/locale';
 
 import { useToast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/use-auth';
-import { getSmylLotAssistantReport, type AssistantReport } from './actions';
+import { getSmylLotAssistantReport, type AssistantReport, getSmylEligibleLots, type EligibleLot } from './actions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -22,6 +22,9 @@ import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { Alert, AlertTitle, AlertDescription } from '@/components/ui/alert';
 import { IndexCreationDialog } from '@/components/app/index-creation-dialog';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
+
 
 export function SmylLiquidationAssistantComponent() {
     const router = useRouter();
@@ -40,6 +43,28 @@ export function SmylLiquidationAssistantComponent() {
 
     const [isIndexErrorOpen, setIsIndexErrorOpen] = useState(false);
     const [indexErrorMessage, setIndexErrorMessage] = useState('');
+
+    const [isLotFinderOpen, setIsLotFinderOpen] = useState(false);
+    const [eligibleLots, setEligibleLots] = useState<EligibleLot[]>([]);
+    const [isLoadingLots, setIsLoadingLots] = useState(false);
+    const [lotFinderSearch, setLotFinderSearch] = useState('');
+
+    const handleOpenLotFinder = async () => {
+        if (!dateRange?.from || !dateRange?.to) {
+            toast({ variant: 'destructive', title: 'Error', description: 'Por favor, seleccione un rango de fechas primero.' });
+            return;
+        }
+        setIsLoadingLots(true);
+        setIsLotFinderOpen(true);
+        try {
+            const lots = await getSmylEligibleLots(format(dateRange.from, 'yyyy-MM-dd'), format(dateRange.to, 'yyyy-MM-dd'));
+            setEligibleLots(lots);
+        } catch (e) {
+            toast({ variant: 'destructive', title: 'Error', description: 'No se pudieron cargar los lotes elegibles.' });
+        } finally {
+            setIsLoadingLots(false);
+        }
+    };
 
     const handleSearch = async () => {
         if (!lotId.trim()) {
@@ -115,7 +140,13 @@ export function SmylLiquidationAssistantComponent() {
                         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
                             <div className="space-y-2">
                                 <Label htmlFor="lotId">Número de Lote</Label>
-                                <Input id="lotId" placeholder="Ej: MNBU0967" value={lotId} onChange={(e) => setLotId(e.target.value.toUpperCase())} />
+                                <div className="flex items-center gap-2">
+                                    <Input id="lotId" placeholder="Ej: MNBU0967" value={lotId} onChange={(e) => setLotId(e.target.value.toUpperCase())} />
+                                    <Button type="button" variant="outline" size="icon" onClick={handleOpenLotFinder} disabled={!dateRange?.from || !dateRange?.to}>
+                                        <Search className="h-4 w-4" />
+                                        <span className="sr-only">Buscar Lote</span>
+                                    </Button>
+                                </div>
                             </div>
                             <div className="space-y-2">
                                 <Label>Rango de Fechas</Label>
@@ -225,6 +256,58 @@ export function SmylLiquidationAssistantComponent() {
                     onOpenChange={setIsIndexErrorOpen}
                     errorMessage={indexErrorMessage}
                 />
+                 <Dialog open={isLotFinderOpen} onOpenChange={setIsLotFinderOpen}>
+                    <DialogContent className="sm:max-w-2xl">
+                        <DialogHeader>
+                            <DialogTitle>Buscar Lotes Elegibles de SMYL</DialogTitle>
+                            <DialogDescription>
+                                Se muestran los lotes recibidos en el rango de fechas seleccionado que cumplen los criterios para liquidación.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <Input
+                            placeholder="Filtrar por lote o pedido..."
+                            value={lotFinderSearch}
+                            onChange={(e) => setLotFinderSearch(e.target.value)}
+                            className="my-4"
+                        />
+                        <ScrollArea className="h-72">
+                            {isLoadingLots ? (
+                                <div className="flex justify-center items-center h-full"><Loader2 className="h-6 w-6 animate-spin" /></div>
+                            ) : (
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Lote</TableHead>
+                                            <TableHead>Fecha Recepción</TableHead>
+                                            <TableHead>Pedido SISLOG</TableHead>
+                                            <TableHead></TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {eligibleLots.filter(l => l.lotId.toLowerCase().includes(lotFinderSearch.toLowerCase()) || l.pedidoSislog.includes(lotFinderSearch)).map(lot => (
+                                            <TableRow key={lot.lotId}>
+                                                <TableCell className="font-mono">{lot.lotId}</TableCell>
+                                                <TableCell>{format(parseISO(lot.receptionDate), "dd/MM/yyyy")}</TableCell>
+                                                <TableCell>{lot.pedidoSislog}</TableCell>
+                                                <TableCell>
+                                                    <Button size="sm" onClick={() => {
+                                                        setLotId(lot.lotId);
+                                                        setIsLotFinderOpen(false);
+                                                    }}>
+                                                        Seleccionar
+                                                    </Button>
+                                                </TableCell>
+                                            </TableRow>
+                                        ))}
+                                    </TableBody>
+                                </Table>
+                            )}
+                        </ScrollArea>
+                        <DialogFooter>
+                            <Button variant="outline" onClick={() => setIsLotFinderOpen(false)}>Cerrar</Button>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
             </div>
         </div>
     );
